@@ -1,0 +1,115 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-dissolution-disposition/terminality/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.active_work",
+      "description": "An escalated active_work outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.active_work.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.assets",
+      "description": "An escalated assets outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.assets.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.outstanding_obligations",
+      "description": "An escalated outstanding_obligations outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.outstanding_obligations.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.authority_revocation",
+      "description": "An escalated authority_revocation outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.authority_revocation.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.worker_and_node_shutdown",
+      "description": "An escalated worker_and_node_shutdown outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.worker_and_node_shutdown.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.data_export_retention_and_erasure",
+      "description": "An escalated data_export_retention_and_erasure outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.data_export_retention_and_erasure.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.network_exit",
+      "description": "An escalated network_exit outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.network_exit.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.tombstone",
+      "description": "An escalated tombstone outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.tombstone.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.terminal_escalations.require_decisions",
+      "description": "A record terminal with escalations names at least one escalation decision.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.status",
+        "values": [
+          "terminal_with_escalations"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    }
+  ]
+}

@@ -2734,3 +2734,99 @@ fn software_guardian_attestation_accepts_registered_manifest_and_measurement() {
     super::super::validation::validate_guardian_attestation(&state, &attestation, 500)
         .expect("registered software guardian attestation should validate");
 }
+
+#[test]
+fn effect_consumption_admits_the_dissolution_disposition_continuity_scopes() {
+    // Regression for the M1.5d disposition ladder: the wallet-side effect
+    // consumption must admit the two new continuity scopes exactly like the
+    // pre-existing continuity scopes. A refusal here reverts the consume
+    // transaction receipt-lessly, which the daemon can only observe as a
+    // 180s consumption timeout.
+    let continuity_scopes = [
+        "scope:autonomous_system.continuity.initiate_dissolution", // control: known good
+        "scope:autonomous_system.continuity.open_dissolution_disposition",
+        "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
+    ];
+    for (index, scope) in continuity_scopes.iter().enumerate() {
+        let service = WalletNetworkService;
+        let mut state = MockState::default();
+        let request_hash = [0x60 + index as u8; 32];
+        let mut approver = new_approval_signer();
+        approver.authority.scope_allowlist = continuity_scopes
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect();
+        with_ctx(|ctx| {
+            let register = RegisterApprovalAuthorityParams {
+                authority: approver.authority.clone(),
+            };
+            run_async(service.handle_service_call(
+                &mut state,
+                "register_approval_authority@v1",
+                &codec::to_bytes_canonical(&register).expect("encode"),
+                ctx,
+            ))
+            .expect("register approval authority");
+        });
+        let fixture =
+            install_effect_binding(&service, &mut state, &approver.authority, 1_850_000_000_000);
+        let mut expected = fixture.expected.clone();
+        expected.required_scope = (*scope).to_string();
+
+        let approval = WalletApprovalDecision {
+            interception: WalletInterceptionContext {
+                session_id: None,
+                request_hash,
+                target: ActionTarget::Custom((*scope).to_string()),
+                policy_hash: [0x21u8; 32],
+                value_usd_micros: None,
+                reason: "named continuity transition".to_string(),
+                intercepted_at_ms: 1_750_000_000_000,
+            },
+            decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
+            approval_grant: Some(signed_wallet_approval_grant(
+                &approver,
+                request_hash,
+                [0x21u8; 32],
+                [0x07u8; 32],
+                [0x43u8; 32],
+                9,
+                Some(1),
+                1_750_000_060_000,
+            )),
+            surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
+            decided_at_ms: 1_750_000_000_500,
+        };
+        let grant_hash = approval
+            .approval_grant
+            .as_ref()
+            .expect("grant")
+            .artifact_hash()
+            .expect("grant hash");
+
+        with_ctx(|ctx| {
+            run_async(service.handle_service_call(
+                &mut state,
+                "record_approval@v1",
+                &codec::to_bytes_canonical(&approval).expect("encode"),
+                ctx,
+            ))
+            .expect("record approval");
+        });
+
+        let params = effect_consume_v2_params(
+            request_hash,
+            grant_hash,
+            [0x55 + index as u8; 32],
+            &expected,
+            (*scope).to_string(),
+            1,
+        );
+        let outcome = consume_effect_v2_at(&service, &mut state, &params, 1_750_000_010_000);
+        assert!(
+            outcome.is_ok(),
+            "consumption for {scope} was refused: {}",
+            outcome.err().map(|e| e.to_string()).unwrap_or_default()
+        );
+    }
+}

@@ -50,7 +50,11 @@ const REVOCATION_EPOCH_KEY: &[u8] = b"revocation_epoch";
 const PANIC_FLAG_KEY: &[u8] = b"panic";
 const DEFAULT_TIMEOUT_MS: u64 = 5_000;
 const MIN_TIMEOUT_MS: u64 = 250;
-const MAX_TIMEOUT_MS: u64 = 180_000;
+// Debug-profile wallet fixtures execute IAVL-deep blocks whose consumption
+// latency grows with chain length; long held journeys legitimately hold a
+// single governed consumption for minutes. The ceiling matches the estate's
+// 900s held-operation precedent; callers still opt in via the env timeout.
+const MAX_TIMEOUT_MS: u64 = 900_000;
 
 static TRANSACTION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
@@ -589,17 +593,45 @@ async fn consume_for_effect_inner<P: parity_scale_codec::Encode>(
     wire_params: &P,
     receipt_params: &ConsumeApprovalGrantForEffectParams,
 ) -> Result<ApprovalGrantConsumptionReceipt, ResolveError> {
-    let _transaction_guard = TRANSACTION_LOCK.lock().await;
+    // Phase-scoped timeouts: an opaque outer timeout cannot say WHERE a
+    // consumption stalled (lock, connect, inclusion, or receipt query); the
+    // phase name in the error is the only diagnostic that survives teardown.
+    let phase = |name: &'static str| {
+        move |_| {
+            ResolveError::Unavailable(format!(
+                "wallet.network grant consumption stalled in phase '{name}'"
+            ))
+        }
+    };
+    let _transaction_guard =
+        tokio::time::timeout(std::time::Duration::from_secs(30), TRANSACTION_LOCK.lock())
+            .await
+            .map_err(phase("in-process transaction lock"))?;
     #[cfg(unix)]
-    let _process_guard =
-        acquire_wallet_transaction_process_lock(&config.transaction_lock_path).await?;
-    let mut client = connect(config).await?;
+    let _process_guard = tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        acquire_wallet_transaction_process_lock(&config.transaction_lock_path),
+    )
+    .await
+    .map_err(phase("cross-process transaction lock"))??;
+    let mut client = tokio::time::timeout(std::time::Duration::from_secs(20), connect(config))
+        .await
+        .map_err(phase("wallet endpoint connect"))??;
     let encoded = codec::to_bytes_canonical(wire_params).map_err(|error| {
         ResolveError::Invalid(format!(
             "approval-grant consumption request encoding failed: {error}"
         ))
     })?;
-    submit_service_call(config, &mut client, method, encoded).await?;
+    let submission_budget = config
+        .timeout
+        .saturating_sub(std::time::Duration::from_secs(20))
+        .max(std::time::Duration::from_secs(60));
+    tokio::time::timeout(
+        submission_budget,
+        submit_service_call(config, &mut client, method, encoded),
+    )
+    .await
+    .map_err(phase("transaction submission and inclusion"))??;
 
     let receipt_key = namespaced_key(
         EFFECT_CONSUMPTION_RECEIPT_PREFIX,

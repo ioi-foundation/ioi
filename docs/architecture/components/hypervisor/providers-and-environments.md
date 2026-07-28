@@ -1359,6 +1359,20 @@ above left unbound, each rule testable:
   one manifest row, at least one content commitment, and at least one receipt;
   an empty or unreceipted `complete` is not representable.
 
+M2 storage-cut integration note (this family is integrated, not
+re-registered): the backup manifest is the live-reference census the storage
+claim leans on — a payload artifact cited by a live backup cannot be cleaned
+out of the record without breaking `manifest_artifact_count`, row/ref
+equality, and the recomputable `manifest_root`, so "cleanup of live refs"
+is structurally a record-breaking act, never a silent one. `hold_refs` is the
+registered structural hold surface on this record; no code path enforces
+holds yet (the canonical hold rule lives on the deferred `StorageProfile` in
+[`../storage-backends/doctrine.md`](../storage-backends/doctrine.md), recorded
+there as a gap). The storage-plane byte custody behind `destination_ref` is
+registered separately as
+`schema://ioi/components/hypervisor/storage-archive-object/v1` with its
+incident and repair contracts.
+
 Restore reuses `HypervisorChangePlan` rather than creating a parallel restore
 plan family. When `plan_type = environment_restore`, the immutable plan also
 binds:

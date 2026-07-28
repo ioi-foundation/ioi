@@ -13,7 +13,7 @@
     "lifecycle_state_root": {"$ref": "#/$defs/hash"},
     "system_id": {"type": "string", "pattern": "^system://[A-Za-z0-9._:/-]+$"},
     "sequence": {"type": "integer", "minimum": 3, "maximum": 9007199254740991},
-    "status": {"enum": ["active", "succession_pending", "successor_governed", "dissolution_pending", "dissolved"]},
+    "status": {"enum": ["active", "succession_pending", "successor_governed", "dissolution_pending", "dissolving", "dissolved"]},
     "predecessor_state_root": {"$ref": "#/$defs/hash"},
     "transition_ref": {"type": "string", "pattern": "^lifecycle-transition://[A-Za-z0-9._:/-]+$"},
     "transition_root": {"$ref": "#/$defs/hash"},

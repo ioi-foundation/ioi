@@ -260,7 +260,7 @@
     {
       "note": "Dynamic inbound compatibility dispatch and augmentation loading are file-locked while every statically visible outbound crossing is enumerated.",
       "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-      "source_sha256": "cce714dc928503cf4366445fc246150e562305831a156ff34c0c360b66f40b74"
+      "source_sha256": "83e8b3f9e03e3fec1122effeab04ca0712bf34b30eaf22e7e7737df19b0a6ad7"
     },
     {
       "note": "The spawned reference server has dynamic fixture, missing-chunk, and static-file fallbacks; its single ANY compatibility boundary is censused and the whole dispatch is file-locked.",
@@ -372,7 +372,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/objects/bounded-system-genesis.md",
-      "source_sha256": "c7536a24544d9bce4d05186e638b45613c914d5e5d3f5cbfea90fc384a7db8d2"
+      "source_sha256": "eb863aee5cab195da7ec195088700a3c4c2cb3a86459748d7b1171945493b4c1"
     },
     {
       "role": "landed owner canon",
@@ -874,7 +874,12 @@
           {
             "note": "standing product UI server, proxy, and daemon crossings",
             "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_sha256": "cce714dc928503cf4366445fc246150e562305831a156ff34c0c360b66f40b74"
+            "source_sha256": "83e8b3f9e03e3fec1122effeab04ca0712bf34b30eaf22e7e7737df19b0a6ad7"
+          },
+          {
+            "note": "M1.7 system-genesis surfaces: readouts and verbatim daemon proxies",
+            "source_file": "apps/hypervisor/scripts/system-genesis-surfaces.mjs",
+            "source_sha256": "f235bc2bc192207b52a97bf3fb0488a70cfb0d6590a7c6f03f00057073fce6a4"
           },
           {
             "note": "Vite development replay mutation crossing",
@@ -959,7 +964,7 @@
           {
             "note": "standing product UI HTTP and WebSocket compatibility facade",
             "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_sha256": "cce714dc928503cf4366445fc246150e562305831a156ff34c0c360b66f40b74"
+            "source_sha256": "83e8b3f9e03e3fec1122effeab04ca0712bf34b30eaf22e7e7737df19b0a6ad7"
           },
           {
             "note": "explicit development replay HTTP server",
@@ -985,39 +990,29 @@
             "calls": [
               "process.exit"
             ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6433",
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6434",
             "operation": "PROCESS_EXIT product-ui reference bundle unavailable",
-            "source_anchor_sha256": "14e9482e02df75bdf9a072c364591cf147b0eaf71cb5875853558bf3cfcd2f32",
+            "source_anchor_sha256": "a8af153a84ba4a6207e3e12fa7077c936de3fc7437e4ba7cc4d75adc81e50af1",
             "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6433
+            "source_line": 6434
           },
           {
             "calls": [
               "spawn"
             ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6437",
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6438",
             "operation": "PROCESS_START product-ui reference server",
-            "source_anchor_sha256": "1a37ee054e44bcd1a19424bcbbd89efe323845eed42445878c551c89f25be4f7",
+            "source_anchor_sha256": "3380959af50f55458ffdb755825018a172139e4e573b26bded3443286ac1b487",
             "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6437
+            "source_line": 6438
           },
           {
             "calls": [
               "process.exit"
             ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6441",
-            "operation": "PROCESS_EXIT propagate product-ui reference server exit",
-            "source_anchor_sha256": "3151943b1177aa696ca7df11479bcb83597b56a29c353edf92cc8548136992cb",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6441
-          },
-          {
-            "calls": [
-              "productUi.kill"
-            ],
             "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6442",
             "operation": "SIGINT terminate product-ui reference server",
-            "source_anchor_sha256": "8080abefff7fb65098e1bba88cc0fdd3fb19fe068dc1e0c82adf303e3fa409ee",
+            "source_anchor_sha256": "8cdb80ae560267131afe96c3f19cd3acba3c9025baf6a083d993a6ecbb55e460",
             "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
             "source_line": 6442
           },
@@ -1027,9 +1022,19 @@
             ],
             "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6443",
             "operation": "SIGTERM terminate product-ui reference server",
-            "source_anchor_sha256": "1055d9d9bb5fb0305a3430a9df2cd7c103b063a47f78be32072a1707f2fff128",
+            "source_anchor_sha256": "63b045764bb8f4bc906fcca2b9131ba90ede7038cda8e47efe3d435591137ae7",
             "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
             "source_line": 6443
+          },
+          {
+            "calls": [
+              "productUi.kill"
+            ],
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6444",
+            "operation": "PROCESS_EXIT propagate product-ui reference server exit",
+            "source_anchor_sha256": "6492b771f899d22278280ec85cedab220766d22d4bc24a42b7911ad6116ed089",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 6444
           },
           {
             "calls": [
@@ -1037,9 +1042,9 @@
             ],
             "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#waitForMirror",
             "operation": "PROCESS_EXIT product-ui reference server startup timeout",
-            "source_anchor_sha256": "186c4fa9f6e43c1fb9be6069881eacc9a24ca0f4838e04abdd8676c57759ede1",
+            "source_anchor_sha256": "30981dada9e79554c683313c47c6d2a71914e00e9a80e7a006c6692b92816a05",
             "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 10089
+            "source_line": 10098
           },
           {
             "calls": [
@@ -1652,19 +1657,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "ff9ce7ca13f662c40269e7eabc51d13910147e452b974b6dd470c235236bb440",
-    "review_epoch_id": "m0-closure-canon-basis-rebind-review-2026-07-27",
-    "review_lock_sha256": "c89673fd2881d44c0b169809b333bbcd47ba83c3220acb66851d082d69d4fe7a",
+    "program_source_material_sha256": "f251ea8bd47310493ecd34924d4095c24ecd432357dfbd8b11e1ef54be849f1b",
+    "review_epoch_id": "m1-7-product-surfaces-census-reentry-review-2026-07-27",
+    "review_lock_sha256": "632d56a39afc62854186954b38fddc0b724db86493b411b2d1d2f78e9949e677",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
     "reviewed_as_of": "2026-07-27",
-    "reviewed_entry_set_sha256": "6f7d469a978f32582add9c807d184fead00ff2568f7a28952e3a44ed0a4b07c9",
-    "reviewed_identity_set_sha256": "2a7a164a920886681470e55feac05a2548da9352c7a646ad9d8b013661b33072",
+    "reviewed_entry_set_sha256": "ad440483e2e4b4bc410b03e4557bcb20927433c0b747ea0621adfe0a5702d6c7",
+    "reviewed_identity_set_sha256": "a81358ef702c171aec372ac3d3bd2c583c818ac40296dc8e933a2bd9e443caf5",
     "reviewer_label": "claude-fable-5-m0-closure",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "12acdade1c23a0d6de6f6eecccadecc2d89c6bb2bbf8cb99249cbeede92ec606",
-    "snapshot_head_sequence": 18,
-    "snapshot_predecessor_entry_sha256": "e53e8b4a209d3018b10a57db271c24f5fee7efcca0e3aac3e2ae602444e08ec3",
+    "snapshot_head_entry_sha256": "1b82b4c231d04a1ac209dc3bb01f182b718accffd24ce870424ffdc7855850eb",
+    "snapshot_head_sequence": 20,
+    "snapshot_predecessor_entry_sha256": "d28fa10c91ce3077cee69b2f5620d387b8dc312fb8200d90ec8eb48181b24030",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

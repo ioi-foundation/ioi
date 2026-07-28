@@ -18,24 +18,68 @@
     "operation"
   ],
   "properties": {
-    "schema_version": { "const": "ioi.autonomous-system-chain-writer-reservation.v1" },
-    "reservation_ref": { "type": "string", "pattern": "^chain-writer-reservation://sha256:[0-9a-f]{64}$" },
-    "system_id": { "type": "string", "pattern": "^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$" },
-    "sequence": { "type": "integer", "minimum": 3, "maximum": 9007199254740991 },
-    "predecessor_chain_root": { "$ref": "#/$defs/hash" },
-    "writer_plan_hash": { "$ref": "#/$defs/hash" },
-    "operation_ref": { "type": "string", "minLength": 1 },
-    "operation_root": { "$ref": "#/$defs/hash" },
+    "schema_version": {
+      "const": "ioi.autonomous-system-chain-writer-reservation.v1"
+    },
+    "reservation_ref": {
+      "type": "string",
+      "pattern": "^chain-writer-reservation://sha256:[0-9a-f]{64}$"
+    },
+    "system_id": {
+      "type": "string",
+      "pattern": "^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 9007199254740991
+    },
+    "predecessor_chain_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "writer_plan_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "operation_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "operation_root": {
+      "$ref": "#/$defs/hash"
+    },
     "operation": {
       "enum": [
-        "pause", "resume", "suspend", "reinstate", "enter_dormancy", "wake",
-        "begin_recovery", "complete_recovery", "quarantine", "release_quarantine",
-        "retire", "archive", "revoke", "decommission", "amend_constitution",
-        "initiate_succession", "complete_succession", "migrate",
-        "initiate_dissolution", "complete_dissolution", "enroll_local",
+        "pause",
+        "resume",
+        "suspend",
+        "reinstate",
+        "enter_dormancy",
+        "wake",
+        "begin_recovery",
+        "complete_recovery",
+        "quarantine",
+        "release_quarantine",
+        "retire",
+        "archive",
+        "revoke",
+        "decommission",
+        "amend_constitution",
+        "initiate_succession",
+        "complete_succession",
+        "migrate",
+        "initiate_dissolution",
+        "open_dissolution_disposition",
+        "record_dissolution_domain_outcome",
+        "complete_dissolution",
+        "enroll_local",
         "exit_local_enrollment"
       ]
     }
   },
-  "$defs": { "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } }
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
 }

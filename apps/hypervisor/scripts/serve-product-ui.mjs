@@ -40,6 +40,7 @@ import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { mintTestGrant, awaitingWalletAuthority } from "./lib/wallet-authority.mjs";
+import { handleSystemGenesisSurfaces } from "./system-genesis-surfaces.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
 // renders ({id, phase, userInput|todoGroup|text}). Streamed entries are emitted once each (keyed by
@@ -8993,6 +8994,14 @@ async function handleEstateRequest(req, res, body) {
         res.end();
         return;
       }
+    }
+    // ---- M1.6/M1.7 pulled System-genesis surfaces (m1-system-genesis-product-journey): the
+    // Studio composer, Governance preview, Packages lifecycle, and provisional System detail
+    // over /v1/hypervisor/autonomous-systems*. Flat launch-addressed routes by design — NO
+    // permanent Systems rail/suite/catalog entry (M1.7). All truth is daemon-read per request;
+    // every consequential action proxies verbatim to its owning daemon route.
+    if (pathname === "/__ioi/systems" || pathname.startsWith("/__ioi/systems/")) {
+      if (await handleSystemGenesisSurfaces(req, res, pathname, body, { daemonUrl: DAEMON, shell: automationsShell })) return;
     }
     // ---- Foundry — controlled builder over the daemon Foundry object plane (estate surface #4).
     const HTMLH = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" };

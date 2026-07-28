@@ -1,0 +1,27 @@
+{
+  "schema_version": "ioi.hypervisor.artifact-availability-incident.v1",
+  "incident_id": "aai_8b7c6d5e4f3a2b1",
+  "incident_ref": "artifact-availability-incident://aai_8b7c6d5e4f3a2b1",
+  "archive_ref": "storage-archive://sao_1b2c3d4e5f60718",
+  "material_ref": "provider-material://pm_env-alpha-workspace",
+  "backend_ref": "storage-backend://sba_5e6f7a8b9c0d1e2",
+  "backend_kind": "local_disk",
+  "environment_ref": "environment://local/env-alpha",
+  "kind": "hash_mismatch",
+  "detail": "stored bytes hash sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae but the admitted commitment is sha256:60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752 — replica is stale or corrupt (a fetchable object is not a valid object)",
+  "evidence": {
+    "op": "verify",
+    "actual": "sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+    "expected": "sha256:60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752"
+  },
+  "detections": 2,
+  "status": "repaired",
+  "truth_note": "an availability incident quarantines the BYTES, not the artifact meaning — the daemon material record and admitted state_root remain the truth to repair against",
+  "opened_at": "2026-07-28T12:04:00.000Z",
+  "last_evidence": {
+    "op": "restore",
+    "error": "storage_commitment_mismatch"
+  },
+  "last_detected_at": "2026-07-28T12:06:00.000Z",
+  "closed_at": "2026-07-28T12:10:00.000Z"
+}

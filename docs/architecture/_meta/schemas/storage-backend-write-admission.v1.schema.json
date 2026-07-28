@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
+  "title": "StorageBackendWriteAdmission",
+  "description": "The runtime-kernel storage-backend write admission record (AgentgresAdmissionCore::admit_storage_backend_write). This is the enforced seam where the Agentgres artifact-ref plane binds every runtime-state byte write: a write without at least one Agentgres artifact ref or payload ref fails, a write without a receipt ref fails, and the content hash plus the admission hash commit the exact admitted write. Refs cross this seam as canonical strings; the full canonical ArtifactRef/PayloadRef objects are deferred canon.",
+  "x-ioi-schema-version": "ioi.storage_backend_write_admission.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "storage_backend_ref",
+    "object_ref",
+    "content_hash",
+    "artifact_refs",
+    "payload_refs",
+    "receipt_refs",
+    "admission_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.storage_backend_write_admission.v1" },
+    "storage_backend_ref": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "object_ref": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "content_hash": { "$ref": "#/$defs/sha256Hash" },
+    "artifact_refs": { "$ref": "#/$defs/refs" },
+    "payload_refs": { "$ref": "#/$defs/refs" },
+    "receipt_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+    },
+    "admission_hash": { "$ref": "#/$defs/sha256Hash" }
+  },
+  "$defs": {
+    "sha256Hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "refs": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "type": "string", "minLength": 1, "maxLength": 1024 }
+    }
+  }
+}

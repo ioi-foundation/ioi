@@ -6,7 +6,7 @@ Supersedes: the same object definitions when they were carried inside the single
 Superseded by: none.
 Last alignment pass: 2026-07-26.
 Doctrine status: canonical
-Implementation status: mixed (the registered contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for the bounded-System manifest/genesis/sequence-zero-materialization/constitution/amendment/ordering/oracle/lifecycle/enrollment family; the pure genesis proposal compiler and exact wallet-authorized, statefully consumed, crash-convergent System admission with immutable local and Agentgres evidence are on master; activation, amendment/lifecycle execution, the dissolution-disposition family, network-enrollment effects, and product surfaces are not started; local-agent pairing remains planned)
+Implementation status: mixed (the registered contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for the bounded-System manifest/genesis/sequence-zero-materialization/constitution/amendment/ordering/oracle/lifecycle/enrollment family; the pure genesis proposal compiler and exact wallet-authorized, statefully consumed, crash-convergent System admission with immutable local and Agentgres evidence are on master; activation, amendment execution, generic and named lifecycle/continuity transitions, local network-enrollment effects, and the dissolution-disposition family (registered contracts, the dissolving compare-and-swap ladder, terminal-record-gated completion, and the minted dissolution receipt) are implemented behind daemon routes; product surfaces are not started; local-agent pairing remains planned)
 Last implementation audit: 2026-07-25
 
 ## Purpose
@@ -2398,6 +2398,53 @@ the predecessor chain root. The artifact root domain is
 `ioi.autonomous-system-dissolution-receipt-artifact-jcs-sha256.v1`. The
 `initiate_dissolution` transition uses the ordinary lifecycle transition
 receipt; only completion mints this receipt, exactly once.
+
+### AutonomousSystemDissolutionDispositionTransitionEnvelope
+
+Opening the dissolution-disposition record and recording each domain outcome
+are compare-and-swap transitions on the continuity chain, the same shape
+network enrollment uses: they are not members of the canonical lifecycle
+transition-kind enum, they carry their own envelope, and each admits exactly
+once under its own scope. `open_dissolution_disposition` is admissible only
+from `dissolution_pending` and yields `dissolving`;
+`record_dissolution_domain_outcome` is admissible only from `dissolving`,
+moves exactly one named outcome domain out of `pending`, and yields
+`dissolving`. The disposition record referenced by these steps is the
+[`AutonomousSystemDissolutionDispositionEnvelope`](#autonomoussystemdissolutiondispositionenvelope)
+below; its status is derived from its domains, never caller-set.
+
+```yaml
+AutonomousSystemDissolutionDispositionTransitionEnvelope:
+  schema_version: ioi.autonomous-system-dissolution-disposition-transition.v1
+  lifecycle_transition_id: lifecycle-transition://...
+  system_id: system://...
+  op: open_dissolution_disposition | record_dissolution_domain_outcome
+  sequence: integer >= 3
+  proposal_ref: proposal://...
+  proposal_root: hash
+  decision_ref: decision://...
+  decision_root: hash
+  predecessor_state_root: hash
+  resulting_state_root: hash
+  dissolution_disposition_ref: dissolution-disposition://...
+  predecessor_disposition_root: hash | null
+  resulting_disposition_root: hash
+  recorded_domain: active_work | assets | outstanding_obligations | authority_revocation | worker_and_node_shutdown | data_export_retention_and_erasure | network_exit | tombstone | null
+  operation_commitment: hash
+  authority_effect_material: closed_effect_with_null_operation_commitment
+  authority_grant_refs: [grant://...]
+  receipt_refs: [receipt://...]
+  status: committed
+```
+
+`open_dissolution_disposition` requires a null predecessor disposition root
+and a `recorded_domain` of null; `record_dissolution_domain_outcome` requires
+the exact predecessor disposition root and names exactly one recorded domain.
+Portable invariants recompute the operation commitment and mirror the System,
+sequence, state roots, and disposition record roots from the governed effect
+material. These steps grant nothing and terminate nothing: only
+`complete_dissolution` over a fully terminal disposition record dissolves the
+System.
 
 ### AutonomousSystemNetworkEnrollmentTransitionEnvelope
 

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+  "title": "StorageArtifactAvailabilityIncident",
+  "description": "The daemon storage-plane availability incident record (storage_backend_routes open_incident). Failed fetch, hash mismatch, or decrypt failure against a storage archive opens exactly one open incident per (archive, kind); repeat detections accrete evidence onto the same incident instead of minting rows. An incident quarantines the bytes, not the artifact meaning, and it leaves open status only through a named repair receipt — a repaired status without its repair_ref is unrepresentable.",
+  "x-ioi-schema-version": "ioi.hypervisor.artifact-availability-incident.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "incident_id",
+    "incident_ref",
+    "archive_ref",
+    "material_ref",
+    "backend_ref",
+    "backend_kind",
+    "environment_ref",
+    "kind",
+    "detail",
+    "evidence",
+    "detections",
+    "status",
+    "truth_note",
+    "opened_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.hypervisor.artifact-availability-incident.v1" },
+    "incident_id": { "type": "string", "pattern": "^aai_[0-9a-f]+$", "maxLength": 64 },
+    "incident_ref": {
+      "type": "string",
+      "pattern": "^artifact-availability-incident://aai_[0-9a-f]+$",
+      "maxLength": 96
+    },
+    "archive_ref": {
+      "type": "string",
+      "pattern": "^storage-archive://[^\\s]+$",
+      "maxLength": 512
+    },
+    "material_ref": {
+      "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 512 }, { "type": "null" }]
+    },
+    "backend_ref": {
+      "type": "string",
+      "pattern": "^storage-backend://[^\\s]+$",
+      "maxLength": 512
+    },
+    "backend_kind": { "enum": ["local_disk", "cas", "ipfs", "filecoin"] },
+    "environment_ref": {
+      "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 512 }, { "type": "null" }]
+    },
+    "kind": {
+      "enum": ["missing_bytes", "backend_unreachable", "hash_mismatch", "decrypt_failure"]
+    },
+    "detail": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "evidence": { "type": "object" },
+    "detections": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "status": { "enum": ["open", "repaired"] },
+    "truth_note": {
+      "const": "an availability incident quarantines the BYTES, not the artifact meaning — the daemon material record and admitted state_root remain the truth to repair against"
+    },
+    "opened_at": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "last_evidence": { "type": "object" },
+    "last_detected_at": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "repair_ref": {
+      "type": "string",
+      "pattern": "^artifact-repair-receipt://arr_[0-9a-f]+$",
+      "maxLength": 96
+    },
+    "closed_at": { "type": "string", "minLength": 1, "maxLength": 64 }
+  }
+}

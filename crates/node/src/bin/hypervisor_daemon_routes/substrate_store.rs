@@ -68,6 +68,8 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-continuity-transition-receipts",
     "autonomous-system-migration-destination-acknowledgements",
     "autonomous-system-migration-destination-acknowledgement-receipts",
+    "autonomous-system-dissolution-dispositions",
+    "autonomous-system-dissolution-receipts",
     "autonomous-system-network-enrollments",
     "autonomous-system-amendment-receipts",
     "autonomous-system-constitution-amendments",
@@ -438,7 +440,9 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             "predecessor_plane_root",
             format!("sha256:{}", record_id.strip_prefix("hvelsc_").unwrap_or("")),
         ),
-        "autonomous-system-lifecycle-authority-consumptions"
+        "autonomous-system-dissolution-dispositions"
+        | "autonomous-system-dissolution-receipts"
+        | "autonomous-system-lifecycle-authority-consumptions"
         | "autonomous-system-lifecycle-transitions"
         | "autonomous-system-initialize-transition-receipts"
         | "autonomous-system-activation-receipts"
@@ -774,6 +778,8 @@ fn validate_required_identity(
         "autonomous-system-continuity-transition-receipts" => "asctr_",
         "autonomous-system-migration-destination-acknowledgements" => "asmda_",
         "autonomous-system-migration-destination-acknowledgement-receipts" => "asmdar_",
+        "autonomous-system-dissolution-dispositions" => "asddr_",
+        "autonomous-system-dissolution-receipts" => "asdr_",
         "autonomous-system-network-enrollments" => "asne_",
         "autonomous-system-amendment-receipts" => "asamr_",
         "autonomous-system-constitution-amendments" => "asca_",
@@ -1331,6 +1337,8 @@ fn validate_required_identity(
             | "autonomous-system-protected-transition-receipts"
             | "autonomous-system-continuity-transition-receipts"
             | "autonomous-system-migration-destination-acknowledgement-receipts"
+            | "autonomous-system-dissolution-dispositions"
+            | "autonomous-system-dissolution-receipts"
             | "autonomous-system-network-enrollments"
             | "autonomous-system-amendment-receipts"
             | "autonomous-system-membership-transitions"
@@ -1349,7 +1357,8 @@ fn validate_required_identity(
                     Some("ioi.autonomous-system-amendment-transition.v1") => {
                         "ioi.autonomous-system-amendment-transition-jcs-sha256.v1"
                     }
-                    Some("ioi.autonomous-system-network-enrollment-transition.v1") => {
+                    Some("ioi.autonomous-system-network-enrollment-transition.v1")
+                    | Some("ioi.autonomous-system-dissolution-disposition-transition.v1") => {
                         "ioi.autonomous-system-continuity-transition-jcs-sha256.v1"
                     }
                     Some("ioi.lifecycle-transition.v1")
@@ -1392,6 +1401,14 @@ fn validate_required_identity(
             "autonomous-system-migration-destination-acknowledgement-receipts" => (
                 "ioi.autonomous-system-continuity-receipt-jcs-sha256.v1",
                 "receipt_id",
+            ),
+            "autonomous-system-dissolution-dispositions" => (
+                "ioi.autonomous-system-dissolution-disposition-artifact-jcs-sha256.v1",
+                "dissolution_disposition_id",
+            ),
+            "autonomous-system-dissolution-receipts" => (
+                "ioi.autonomous-system-dissolution-receipt-artifact-jcs-sha256.v1",
+                "dissolution_receipt_id",
             ),
             "autonomous-system-network-enrollments" => (
                 "ioi.autonomous-system-network-enrollment-artifact-jcs-sha256.v1",

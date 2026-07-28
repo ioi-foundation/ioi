@@ -67,6 +67,10 @@ fn tx_lifecycle_label(tx: &ChainTransaction) -> Option<&'static str> {
             _ => "desktop_agent.lifecycle",
         })
     } else {
+        // Deliberately unlabeled: a lifecycle label forces the fast-admit
+        // route (see should_fast_admit_rpc_transaction), and wallet-network
+        // governed consumptions must keep their original ingestion path.
+        // Their rejected-occupant slot healing below is label-free.
         None
     }
 }
@@ -419,6 +423,41 @@ where
                 if lifecycle_step_can_be_readmitted(lifecycle_label) {
                     if let Some((account_id, nonce)) = tx_info.as_ref() {
                         tx_pool_ref.remove_by_account_nonce(account_id, *nonce);
+                    }
+                }
+                // Rejected-occupant healing, for any account: an occupant
+                // whose transaction was execution-rejected never advances the
+                // account nonce, so finalize-time pruning can never evict it
+                // and the slot is otherwise poisoned forever — the incoming
+                // transaction would be reported Known while its own hash is
+                // never tracked, and its submitter polls until timeout.
+                // Healing fires only when the occupant differs from the
+                // incoming transaction AND is already cached as Rejected, so
+                // a live occupant is never disturbed.
+                if let Some((account_id, nonce)) = tx_info.as_ref() {
+                    if let Some(occupant) = tx_pool_ref.peek_account_nonce(account_id, *nonce) {
+                        if occupant != tx_hash {
+                            let occupant_rejected = {
+                                let receipts = receipt_map.lock().await;
+                                let occupant_hex = receipts
+                                    .peek(&occupant)
+                                    .cloned()
+                                    .unwrap_or_else(|| hex::encode(occupant));
+                                drop(receipts);
+                                let mut cache = tx_status_cache.lock().await;
+                                tx_status_is_rejected(cache.get(&occupant_hex))
+                            };
+                            if occupant_rejected {
+                                tx_pool_ref.remove_by_account_nonce(account_id, *nonce);
+                                tracing::warn!(
+                                    target: "mempool",
+                                    account = %hex::encode(account_id.as_ref()),
+                                    nonce,
+                                    occupant = %hex::encode(occupant),
+                                    "Healed a nonce slot held by an execution-rejected transaction."
+                                );
+                            }
+                        }
                     }
                 }
                 let result = tx_pool_ref.add(tx, tx_hash, tx_info, committed_nonce_state);

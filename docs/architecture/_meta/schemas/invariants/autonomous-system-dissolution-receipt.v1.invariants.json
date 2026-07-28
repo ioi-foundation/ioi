@@ -1,0 +1,27 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-dissolution-receipt/binding/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_dissolution_receipt.transitions.distinct",
+      "description": "The initiate and complete transitions are distinct chain steps; a receipt naming one transition twice is not a completion proof.",
+      "expression": {"operator": "fields_not_equal", "paths": ["$.initiate_transition_ref", "$.complete_transition_ref"]}
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_receipt.transition_roots.distinct",
+      "description": "The initiate and complete transition roots commit different transition bytes.",
+      "expression": {"operator": "fields_not_equal", "paths": ["$.initiate_transition_root", "$.complete_transition_root"]}
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_receipt.state_roots.advance",
+      "description": "Completion moves the System to a distinct dissolved state; predecessor and resulting state roots cannot coincide.",
+      "expression": {"operator": "fields_not_equal", "paths": ["$.predecessor_state_root", "$.resulting_state_root"]}
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_receipt.tombstone.retained",
+      "description": "The receipt retains the terminal identity commitment.",
+      "expression": {"operator": "non_empty", "path": "$.tombstone_commitment"}
+    }
+  ]
+}

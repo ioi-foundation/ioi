@@ -1,0 +1,15 @@
+{
+  "$id": "invariant://ioi/components/agentgres/storage-backend-write-admission/agentgres-ref-required/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
+  "rules": [
+    {
+      "rule_id": "storage_backend_write_admission.agentgres_ref.required",
+      "description": "A storage backend write without an Agentgres ArtifactRef or PayloadRef fails: every admitted byte write binds at least one artifact ref or payload ref, so no payload can exist outside the artifact-ref plane.",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": ["$.artifact_refs", "$.payload_refs"]
+      }
+    }
+  ]
+}

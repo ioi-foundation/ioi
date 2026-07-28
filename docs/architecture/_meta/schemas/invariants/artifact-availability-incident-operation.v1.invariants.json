@@ -1,0 +1,57 @@
+{
+  "$id": "invariant://ioi/components/agentgres/artifact-availability-incident-operation/verified-transition/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+  "rules": [
+    {
+      "rule_id": "artifact_availability_incident_operation.repair_receipts.required_for_terminal_repair",
+      "description": "A repaired or closed lifecycle transition admits only with repair receipts; repair without a receipt is unrepresentable (INV-37).",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.repair_receipt_refs",
+        "when_path": "$.lifecycle_state",
+        "values": ["repaired", "closed"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident_operation.verification.required_for_terminal_repair",
+      "description": "A repaired or closed lifecycle transition admits only with verification refs; an unverified repair can never mint a healthy status (INV-37).",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.verification_refs",
+        "when_path": "$.lifecycle_state",
+        "values": ["repaired", "closed"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident_operation.restore_import.required_for_repaired",
+      "description": "A repaired lifecycle transition binds the restore/import refs its healthy bytes came from.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.restore_import_refs",
+        "when_path": "$.lifecycle_state",
+        "values": ["repaired"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident_operation.restore_validity.requires_imports",
+      "description": "A restore-validity claim of restore_import_refs_bound structurally requires restore/import refs; the claim can never outrun its evidence.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.restore_import_refs",
+        "when_path": "$.restore_validity",
+        "values": ["restore_import_refs_bound"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident_operation.repair_receipts.required_for_payload_mutation",
+      "description": "Payload bytes are never silently replaced or mutated: mutated bytes require a repair receipt on the admitted transition.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.repair_receipt_refs",
+        "when_path": "$.payload_bytes_mutated",
+        "values": [true]
+      }
+    }
+  ]
+}

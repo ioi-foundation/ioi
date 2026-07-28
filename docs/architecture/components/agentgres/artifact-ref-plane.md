@@ -164,6 +164,16 @@ ArtifactRef:
     updated_at: timestamp
 ```
 
+Registered wire contract: none yet — deferred by the M2 storage cut. No
+in-tree code produces or enforces this full `ArtifactRef` object. The realized
+in-tree substrate is (a) opaque `artifact://...` ref strings carried on
+Agentgres operations, storage-write admissions, and incident admissions, and
+(b) the sealed-archive realization registered as
+`schema://ioi/components/hypervisor/storage-archive-object/v1` under the
+`AgentStateArchive` section below. Registering this envelope before a producer
+exists would pin fields nothing emits; the enforced ref boundary is registered
+instead under the Admission / Settlement Boundary section.
+
 ### PayloadRef
 
 `PayloadRef` is the operation-local pointer to large payload bytes. It may
@@ -182,6 +192,18 @@ PayloadRef:
     sealed_state_archive | package | delivery_bundle | audit_export
   artifact_ref: artifact://... | null
 ```
+
+Registered wire contract: none yet — deferred by the M2 storage cut alongside
+`ArtifactRef`. No in-tree code produces this `PayloadRef` object; payload refs
+cross the runtime today as opaque `payload://...` strings (kernel-derived, for
+example `payload://runtime/artifacts/<id>/records/...`), and the storage
+plane's realized byte commitment is the `commitment` object registered inside
+`schema://ioi/components/hypervisor/storage-archive-object/v1`
+(`address`/`stored_sha256`/`size_bytes`/`mode` — no `media_type`, `role`, or
+back-pointer `artifact_ref` exists in the produced shape). The enforced
+boundary rule — no storage write without an artifact or payload ref — is
+registered as
+`schema://ioi/components/agentgres/storage-backend-write-admission/v1`.
 
 ### ArtifactAvailabilityIncident
 
@@ -259,6 +281,40 @@ ArtifactAvailabilityIncidentAgentgresOperation:
 The incident describes the failure. The Agentgres operation envelope admits the
 lifecycle transition, receipts, restore/import linkage, and state root that make
 the failure repairable and replayable.
+
+Registered wire contracts:
+`schema://ioi/components/agentgres/artifact-availability-incident/v1` (wire
+literal `ioi.runtime.artifact_availability_incident.v1`, the runtime-kernel
+admission product) and
+`schema://ioi/components/agentgres/artifact-availability-incident-operation/v1`
+(wire literal `ioi.agentgres.artifact_availability_incident_operation.v1`, the
+envelope the kernel derives and embeds), with this section as
+`canonical_owner_ref`. The registered v1 pins the shape
+`runtime_artifact_availability_incident_admission.rs` actually produces, which
+is narrower and flatter than the prose envelope above. Recorded canon-to-code
+divergences, each testable against the registered schemas: the produced
+`incident_id` is a free identifier (kernel default
+`artifact-availability-incident:<safe-artifact>:<safe-kind>`), not the
+`artifact_incident://` scheme; the produced field is `incident_kind` over
+`missing | unavailable | invalid_hash | invalid_cid | decrypt_failed |
+backend_unavailable | stale_replica` (canon's `backend_timeout`,
+`retention_expired`, `lease_expired`, and `policy_violation` are unproduced,
+and canon's `failure_kind` name is not emitted); hash/CID evidence is four
+flat nullable strings, not `expected_commitment`/`observed_commitment`
+objects; `backend_ref` is a single `storage://` ref, not a `backend_refs`
+array; `domain_id`, `detected_by`, `lifecycle_state_before`,
+`repair_policy_ref`, and `replacement_payload_refs` are unproduced; the
+kernel additionally REQUIRES non-empty `agentgres_operation_refs`,
+`incident_receipt_refs`, and `affected_object_refs`. The claim-binding rules
+ARE structural in the registered contracts: invalid-hash/CID incidents
+require expected+observed evidence, `repaired`/`closed` require repair
+receipts and verification refs, `repaired` requires restore/import refs,
+mutated payload bytes require a repair receipt, a
+`restore_import_refs_bound` validity claim requires the refs it names
+(INV-37), and the embedded envelope is field-equal with its incident. The
+daemon storage plane realizes a second, sibling incident record; that shape
+is registered separately from
+[`../storage-backends/doctrine.md`](../storage-backends/doctrine.md).
 
 ### EvidenceBundle
 
@@ -347,6 +403,25 @@ AgentStateArchive:
       revoked | missing | invalid | restored
 ```
 
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/storage-archive-object/v1` (wire literal
+`ioi.hypervisor.storage-archive-object.v1`, the daemon export product in
+`storage_backend_routes.rs op_export`) with this section as
+`canonical_owner_ref`. The registered v1 pins the realized sealed-archive
+shape, which diverges from the prose envelope above: `archive_id` is
+`sao_<hex>` with ref scheme `storage-archive://`, not `archive://`;
+`domain_id`, `actor_id`, `object_heads`, `contents`,
+`replay_import_metadata_ref`, and the wallet-recipient encryption block are
+unproduced; encryption is pinned to the daemon wallet-secret seal with
+`plaintext_at_backend: false`; the produced backend vocabulary is
+`local_disk | cas | ipfs | filecoin`; the daemon-admitted material
+`state_root` (`sha256:`) is the only restore truth and the byte commitment is
+the `commitment` object (`address`, `stored_sha256`, `size_bytes`, `mode`,
+`read_back_verified`); lifecycle status is only `available | impaired` — an
+impaired archive is quarantined bytes behind an open availability incident,
+never lost meaning, and a recorded repair binds its
+`artifact-repair-receipt://` ref.
+
 ## Lifecycle
 
 ```text
@@ -406,6 +481,22 @@ A payload ref crosses the Agentgres admission boundary when the payload:
 Private scratch bytes may remain runtime-local until they become evidence,
 delivery material, training material, archive material, or admitted operational
 truth.
+
+Registered wire contract: contract id
+`schema://ioi/components/agentgres/storage-backend-write-admission/v1` (wire
+literal `ioi.storage_backend_write_admission.v1`, the kernel record produced
+by `agentgres_admission.rs admit_storage_backend_write`) with this section as
+`canonical_owner_ref`. This is the enforced admission seam of the boundary
+above: every runtime-state byte write binds `storage_backend_ref`,
+`object_ref`, a `sha256:` `content_hash`, at least one Agentgres artifact ref
+or payload ref, at least one receipt ref, and the `admission_hash` committing
+the exact admitted write ("storage backend write without Agentgres
+ArtifactRef/PayloadRef fails" is the kernel's named negative conformance).
+Recorded divergence: refs cross this seam as opaque non-empty strings — the
+kernel derives `payload://runtime/...` payload refs but does not
+prefix-validate caller-supplied `artifact_refs` (run artifact ids appear
+bare), so the registered contract pins non-empty strings, not `artifact://`
+URIs.
 
 ## Events And Receipts
 

@@ -202,6 +202,35 @@ pub(crate) async fn finalize_valid_transactions(
                 committed_nonce
             };
 
+            // Rejected-occupant healing: an execution-rejected transaction
+            // never advances the account nonce, so finalize-time pruning can
+            // never evict it and its slot poisons every later same-account
+            // admission (reported Known, never tracked, submitter polls
+            // forever). Heal only when the occupant differs from this
+            // transaction AND is already recorded as Rejected.
+            if let Some((account_id, nonce)) = tx_info {
+                if let Some(occupant) = tx_pool.peek_account_nonce(&account_id, nonce) {
+                    if occupant != p_tx.canonical_hash {
+                        let occupant_rejected = receipt_guard
+                            .peek(&occupant)
+                            .map(|occupant_hex| {
+                                matches!(
+                                    status_guard.peek(occupant_hex),
+                                    Some(entry) if matches!(entry.status, TxStatus::Rejected)
+                                )
+                            })
+                            .unwrap_or(false);
+                        if occupant_rejected {
+                            tx_pool.remove_by_account_nonce(&account_id, nonce);
+                            tracing::warn!(
+                                target: "mempool",
+                                nonce,
+                                "Healed a nonce slot held by an execution-rejected transaction."
+                            );
+                        }
+                    }
+                }
+            }
             let add_result = tx_pool.add(
                 p_tx.tx.clone(),
                 p_tx.canonical_hash,

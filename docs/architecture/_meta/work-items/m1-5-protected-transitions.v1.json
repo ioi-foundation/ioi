@@ -3,7 +3,7 @@
   "work_item_id": "m1-5-protected-transitions",
   "stage_id": "M1",
   "required_work": ["M1.5"],
-  "status": "scoped",
+  "status": "verified",
   "objective": "Distinct protected amendment, migration/succession, suspension, dissolution, and enrollment transitions over the live System chain, each under its own authority path, so protected fields change only through their declared paths. Phased: (b) generic protected operational transitions over the existing LifecycleTransitionReceiptEnvelope at sequence >= 3 with new proposal/decision contracts and a lifecycle-state extension; (c) constitution-amendment execution binding the approved AutonomousSystemConstitutionAmendmentEnvelope decision; (d) migration/succession, dissolution with residual disposition, and local_only network enrollment (named receipt owners).",
   "falsifiable_claim": "A caller holding ordinary lifecycle authority or replaying initialize/activate evidence can never admit a protected transition; each transition kind admits exactly once under its own scope with exact predecessor state root and chain head commitment and reconstructs after restart; no proposal can satisfy its own authority requirement.",
   "canon_owners": [
@@ -11,16 +11,28 @@
     "docs/architecture/foundations/common-objects-and-envelopes.md"
   ],
   "code_anchors": [
-    { "path": "docs/architecture/_meta/schemas/autonomous-system-constitution-amendment.v1.schema.json", "present_when": "merged" }
+    { "path": "docs/architecture/_meta/schemas/autonomous-system-constitution-amendment.v1.schema.json", "present_when": "merged" },
+    { "path": "crates/types/src/app/system_lifecycle_transitions.rs", "must_contain": "compile_protected_transition_plan", "present_when": "merged" },
+    { "path": "crates/types/src/app/system_continuity_transitions.rs", "must_contain": "dissolution_disposes_every_residual_through_the_record_then_completes", "present_when": "merged" },
+    { "path": "crates/node/src/bin/hypervisor_daemon_routes/system_continuity_routes.rs", "must_contain": "dissolution_ladder_artifacts_validate_every_registered_envelope", "present_when": "merged" }
   ],
-  "evidence_refs": [],
-  "pr": null,
-  "adversarial_or_fault_proof": "Predeclared: wrong-scope substitution across all transition kinds; stale predecessor root; replayed bootstrap evidence; protected-path amendment without the required path; transitions against illegal predecessor states per the op-by-state legality matrix; enrollment self-inheritance; restart mid-intent convergence; forged decision refs.",
+  "evidence_refs": [
+    "crates/node/src/bin/hypervisor_daemon_routes/system_protected_transition_routes.rs",
+    "crates/node/src/bin/hypervisor_daemon_routes/system_continuity_routes.rs",
+    "crates/types/src/app/system_lifecycle_transitions.rs",
+    "crates/types/src/app/system_continuity_transitions.rs",
+    "apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs",
+    "docs/architecture/_meta/schemas/autonomous-system-constitution-amendment.v1.schema.json",
+    "docs/architecture/_meta/schemas/autonomous-system-dissolution-disposition.v1.schema.json",
+    "docs/architecture/_meta/schemas/autonomous-system-dissolution-receipt.v1.schema.json"
+  ],
+  "pr": 111,
+  "adversarial_or_fault_proof": "Aggregate over three verified children, each with its own retained bar: m1-5b generic protected operational transitions (14 ops, 154-cell legality sweep, scope disjointness, byte-determinism, live protected-transition journey 25/25 inside full suite FULLJ_EXIT=0, PR #103); m1-5c amendment execution (approved-decision binding, constitutional-amendment journey, PR #105); m1-5d migration/succession, dissolution with residual disposition, and local_only enrollment (dissolution-disposition record family with policy-bound domain outcomes, singleton record, receipt union minted exactly once, crash-replay convergence, named-continuity journey 38/38, PR #111). Held-bar closure evidence: the retained full 14-journey certification run (internal-docs/implementation/evidence/M1/system-verifier-certification-run.v1.log, 140/140, CERT_EXIT=0) re-proves the protected-transition, constitutional-amendment, and named-continuity journeys against real-wallet authority in one run; per-child literal-exit evidence files bind to that artifact by sha256. Wrong-scope substitution, stale predecessor roots, replayed bootstrap evidence, illegal-predecessor refusals, enrollment self-inheritance refusal, forged decision refs, and restart mid-intent convergence are each named proofs inside those journeys.",
   "remaining_nonclaims": [
     "No membership/topology (M2), consensus, or product Systems UX beyond pulled read projections.",
     "Enrollment records are local evidence, not IOI Network assurance.",
     "degraded is an observed posture, never an op target."
   ],
-  "source_provenance": "Scoped 2026-07-22 from master guide M1.5, canon owners above, and the PR #97 runtime seam; admission blocks on PR #97 verified.",
-  "last_status_transaction": "2026-07-22"
+  "source_provenance": "Scoped 2026-07-22 from master guide M1.5, canon owners above, and the PR #97 runtime seam; admission blocked on PR #97 verified. Children landed via PRs #103 (m1-5b), #105 (m1-5c), and #111 (m1-5d); aggregate verification binding rebuilt over the three verified children with the retained certification artifact on the program/m1-close cut.",
+  "last_status_transaction": "2026-07-28"
 }

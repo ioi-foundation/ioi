@@ -1,0 +1,20 @@
+{
+  "schema_version": "ioi.hypervisor.artifact-availability-incident.v1",
+  "incident_id": "aai_9c8d7e6f5a4b3c2",
+  "incident_ref": "artifact-availability-incident://aai_9c8d7e6f5a4b3c2",
+  "archive_ref": "storage-archive://sao_1b2c3d4e5f60718",
+  "material_ref": "provider-material://pm_env-alpha-workspace",
+  "backend_ref": "storage-backend://sba_5e6f7a8b9c0d1e2",
+  "backend_kind": "local_disk",
+  "environment_ref": "environment://local/env-alpha",
+  "kind": "missing_bytes",
+  "detail": "backend object unreadable at its recorded address: No such file or directory (os error 2)",
+  "evidence": {
+    "op": "verify",
+    "error": "backend object unreadable at its recorded address: No such file or directory (os error 2)"
+  },
+  "detections": 1,
+  "status": "open",
+  "truth_note": "an availability incident quarantines the BYTES, not the artifact meaning — the daemon material record and admitted state_root remain the truth to repair against",
+  "opened_at": "2026-07-28T12:04:00.000Z"
+}

@@ -226,3 +226,62 @@ fn rpc_admission_routes_generic_transactions_through_ingestion() {
         false, None, false, 10, 512
     ));
 }
+
+#[test]
+fn rpc_admission_heals_wallet_governed_consumption_slots() {
+    // Regression for the M1.5d wrong-scope-then-lawful sequence: an
+    // execution-rejected wallet consumption never advances the account
+    // nonce, so without readmission healing the next lawful consumption
+    // from the same account is silently never tracked and the submitter
+    // polls its hash forever.
+    let consume_v2 = system_call("wallet_network", "consume_approval_grant_for_effect@v2");
+    let consume_v1 = system_call("wallet_network", "consume_approval_grant_for_effect@v1");
+    let legacy = system_call("wallet_network", "consume_approval_grant@v1");
+    let record = system_call("wallet_network", "record_approval@v1");
+
+    // Wallet consumptions are deliberately UNLABELED: any lifecycle label
+    // forces the fast-admit route (should_fast_admit_rpc_transaction), and
+    // rerouting governed consumptions away from their original ingestion
+    // path deterministically stalled live journeys. Their rejected-occupant
+    // slot healing is label-free and lives at both admission sites.
+    for tx in [&consume_v2, &consume_v1, &legacy, &record] {
+        assert_eq!(tx_lifecycle_label(tx), None);
+        assert!(!lifecycle_step_can_be_readmitted(tx_lifecycle_label(tx)));
+        assert!(!lifecycle_control_can_use_tx_nonce_floor(
+            tx_lifecycle_label(tx)
+        ));
+    }
+}
+
+#[test]
+fn mempool_peek_names_the_occupant_so_rejected_slots_can_heal() {
+    use crate::standard::orchestration::mempool::{AddResult, Mempool};
+    let pool = Mempool::new();
+    let account = ioi_types::app::AccountId([7u8; 32]);
+    let occupant = system_call("wallet_network", "consume_approval_grant_for_effect@v2");
+    let occupant_hash = [0xaau8; 32];
+    assert_eq!(
+        pool.add(occupant, occupant_hash, Some((account, 3)), 3),
+        AddResult::Ready,
+    );
+    // A different transaction colliding with the slot is reported Known and
+    // is NOT tracked; the peek is what lets admission decide whether the
+    // occupant is a rejected corpse that must be evicted.
+    let collider = system_call("wallet_network", "consume_approval_grant_for_effect@v2");
+    let collider_hash = [0xbbu8; 32];
+    assert_eq!(
+        pool.add(collider, collider_hash, Some((account, 3)), 3),
+        AddResult::Known,
+    );
+    assert_eq!(pool.peek_account_nonce(&account, 3), Some(occupant_hash));
+    assert_eq!(
+        pool.remove_by_account_nonce(&account, 3),
+        Some(occupant_hash)
+    );
+    assert_eq!(pool.peek_account_nonce(&account, 3), None);
+    let healed = system_call("wallet_network", "consume_approval_grant_for_effect@v2");
+    assert_eq!(
+        pool.add(healed, collider_hash, Some((account, 3)), 3),
+        AddResult::Ready,
+    );
+}
