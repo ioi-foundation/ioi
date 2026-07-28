@@ -1381,124 +1381,117 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
                 "hypervisor-room-participation".to_string(),
             )]),
         };
-        submit(
-            &rpc_addr,
-            &root,
-            chain_id,
-            0,
-            "configure_control_root@v1",
-            &WalletConfigureControlRootParams {
-                root: root_record.clone(),
-            },
-        )
-        .await?;
+        // Setup below submits exactly this many root-signed transactions:
+        // configure_control_root (1) + register_client (1) +
+        // register_approval_authority (host + 5 participants = 6) +
+        // issue_principal_authority_binding (2 host principals + 5
+        // participants = 7). A resumed chain (stable cluster state dir, see
+        // IOI_TESTING_CLUSTER_STATE_DIR) already carries all of them; a
+        // partially set-up chain is refused rather than repaired.
+        const EXPECTED_POST_SETUP_ROOT_NONCE: u64 = 15;
+        let root_nonce = account_nonce(&rpc_addr, &root_record.account_id).await?;
+        if root_nonce == 0 {
+            submit(
+                &rpc_addr,
+                &root,
+                chain_id,
+                0,
+                "configure_control_root@v1",
+                &WalletConfigureControlRootParams {
+                    root: root_record.clone(),
+                },
+            )
+            .await?;
+        } else if root_nonce != EXPECTED_POST_SETUP_ROOT_NONCE {
+            return Err(anyhow!(
+                "wallet fixture chain resume found root nonce {root_nonce}, expected 0 (fresh) \
+                 or {EXPECTED_POST_SETUP_ROOT_NONCE} (fully set up); refusing a partially \
+                 initialized authority topology"
+            ));
+        }
 
         let capability = keypair(&CAPABILITY_SEED)?;
         let capability_public_key = capability.public_key().to_bytes();
         let capability_account_id =
             account_id_from_key_material(SignatureSuite::ED25519, &capability_public_key)?;
-        submit(
-            &rpc_addr,
-            &root,
-            chain_id,
-            1,
-            "register_client@v1",
-            &WalletRegisterClientParams {
-                client: WalletRegisteredClientRecord {
-                    client_id: capability_account_id,
-                    label: "Hypervisor room participation".to_string(),
-                    surface: VaultSurface::Desktop,
-                    signature_suite: SignatureSuite::ED25519,
-                    public_key: capability_public_key,
-                    role: WalletClientRole::Capability,
-                    state: WalletClientState::Active,
-                    registered_at_ms: 0,
-                    updated_at_ms: 0,
-                    expires_at_ms: Some(EXPIRES_AT_MS),
-                    allowed_provider_families: Vec::new(),
-                    metadata: BTreeMap::new(),
-                },
-            },
-        )
-        .await?;
-
-        let host_authority = approval_authority(&HOST_SEED)?;
-        let participant_bindings = [
-            (
-                "worker://independent-alloy-lab",
-                approval_authority(&PARTICIPANT_SEED)?,
-            ),
-            (
-                "worker://replication-lab-two",
-                approval_authority(&PARTICIPANT_TWO_SEED)?,
-            ),
-            (
-                "worker://replication-lab-three",
-                approval_authority(&PARTICIPANT_THREE_SEED)?,
-            ),
-            (
-                "worker://frontier-only-lab",
-                approval_authority_with_scopes(
-                    &SCOPE_LIMITED_PARTICIPANT_SEED,
-                    vec!["work_frontier.*".to_string()],
-                )?,
-            ),
-            (
-                "org://acme/successor-authority",
-                approval_authority(&SUCCESSOR_AUTHORITY_SEED)?,
-            ),
-        ];
-        submit(
-            &rpc_addr,
-            &root,
-            chain_id,
-            2,
-            "register_approval_authority@v1",
-            &RegisterApprovalAuthorityParams {
-                authority: host_authority.clone(),
-            },
-        )
-        .await?;
-        let mut nonce = 3;
-        for (_, authority) in &participant_bindings {
+        if root_nonce == 0 {
             submit(
                 &rpc_addr,
                 &root,
                 chain_id,
-                nonce,
-                "register_approval_authority@v1",
-                &RegisterApprovalAuthorityParams {
-                    authority: authority.clone(),
+                1,
+                "register_client@v1",
+                &WalletRegisterClientParams {
+                    client: WalletRegisteredClientRecord {
+                        client_id: capability_account_id,
+                        label: "Hypervisor room participation".to_string(),
+                        surface: VaultSurface::Desktop,
+                        signature_suite: SignatureSuite::ED25519,
+                        public_key: capability_public_key,
+                        role: WalletClientRole::Capability,
+                        state: WalletClientState::Active,
+                        registered_at_ms: 0,
+                        updated_at_ms: 0,
+                        expires_at_ms: Some(EXPIRES_AT_MS),
+                        allowed_provider_families: Vec::new(),
+                        metadata: BTreeMap::new(),
+                    },
                 },
             )
             .await?;
-            nonce += 1;
-        }
-        submit(
-            &rpc_addr,
-            &root,
-            chain_id,
-            nonce,
-            "issue_principal_authority_binding@v1",
-            &IssuePrincipalAuthorityBindingParams {
-                proof: signed_binding(&root, &root_record, "domain://acme-host", &host_authority)?,
-            },
-        )
-        .await?;
-        nonce += 1;
-        submit(
-            &rpc_addr,
-            &root,
-            chain_id,
-            nonce,
-            "issue_principal_authority_binding@v1",
-            &IssuePrincipalAuthorityBindingParams {
-                proof: signed_binding(&root, &root_record, "org://acme/research", &host_authority)?,
-            },
-        )
-        .await?;
-        nonce += 1;
-        for (principal_ref, authority) in &participant_bindings {
+
+            let host_authority = approval_authority(&HOST_SEED)?;
+            let participant_bindings = [
+                (
+                    "worker://independent-alloy-lab",
+                    approval_authority(&PARTICIPANT_SEED)?,
+                ),
+                (
+                    "worker://replication-lab-two",
+                    approval_authority(&PARTICIPANT_TWO_SEED)?,
+                ),
+                (
+                    "worker://replication-lab-three",
+                    approval_authority(&PARTICIPANT_THREE_SEED)?,
+                ),
+                (
+                    "worker://frontier-only-lab",
+                    approval_authority_with_scopes(
+                        &SCOPE_LIMITED_PARTICIPANT_SEED,
+                        vec!["work_frontier.*".to_string()],
+                    )?,
+                ),
+                (
+                    "org://acme/successor-authority",
+                    approval_authority(&SUCCESSOR_AUTHORITY_SEED)?,
+                ),
+            ];
+            submit(
+                &rpc_addr,
+                &root,
+                chain_id,
+                2,
+                "register_approval_authority@v1",
+                &RegisterApprovalAuthorityParams {
+                    authority: host_authority.clone(),
+                },
+            )
+            .await?;
+            let mut nonce = 3;
+            for (_, authority) in &participant_bindings {
+                submit(
+                    &rpc_addr,
+                    &root,
+                    chain_id,
+                    nonce,
+                    "register_approval_authority@v1",
+                    &RegisterApprovalAuthorityParams {
+                        authority: authority.clone(),
+                    },
+                )
+                .await?;
+                nonce += 1;
+            }
             submit(
                 &rpc_addr,
                 &root,
@@ -1506,11 +1499,58 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
                 nonce,
                 "issue_principal_authority_binding@v1",
                 &IssuePrincipalAuthorityBindingParams {
-                    proof: signed_binding(&root, &root_record, principal_ref, authority)?,
+                    proof: signed_binding(
+                        &root,
+                        &root_record,
+                        "domain://acme-host",
+                        &host_authority,
+                    )?,
                 },
             )
             .await?;
             nonce += 1;
+            submit(
+                &rpc_addr,
+                &root,
+                chain_id,
+                nonce,
+                "issue_principal_authority_binding@v1",
+                &IssuePrincipalAuthorityBindingParams {
+                    proof: signed_binding(
+                        &root,
+                        &root_record,
+                        "org://acme/research",
+                        &host_authority,
+                    )?,
+                },
+            )
+            .await?;
+            nonce += 1;
+            for (principal_ref, authority) in &participant_bindings {
+                submit(
+                    &rpc_addr,
+                    &root,
+                    chain_id,
+                    nonce,
+                    "issue_principal_authority_binding@v1",
+                    &IssuePrincipalAuthorityBindingParams {
+                        proof: signed_binding(&root, &root_record, principal_ref, authority)?,
+                    },
+                )
+                .await?;
+                nonce += 1;
+            }
+            let post_setup_nonce = account_nonce(&rpc_addr, &root_record.account_id).await?;
+            if post_setup_nonce != EXPECTED_POST_SETUP_ROOT_NONCE {
+                return Err(anyhow!(
+                    "wallet fixture setup committed nonce {post_setup_nonce}, expected \
+                     {EXPECTED_POST_SETUP_ROOT_NONCE}; the resume detector above is stale"
+                ));
+            }
+        } else {
+            println!(
+                "--- wallet.network fixture resumed a fully set-up chain (root nonce {root_nonce}); skipping authority topology setup ---"
+            );
         }
 
         std::env::set_var("IOI_GUARDIAN_KEY_PASS", "hypervisor-held-bar");
@@ -1519,7 +1559,9 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         let root_record_path = fixture_dir.join("wallet-control-root.json");
         write_atomic_durable(&root_record_path, &serde_json::to_vec_pretty(&root_record)?)?;
         let commands_dir = fixture_dir.join("commands");
-        std::fs::create_dir(&commands_dir)?;
+        // create_dir_all: a checkpoint-restored fixture dir may already carry
+        // the (emptied) command directory from its captured life.
+        std::fs::create_dir_all(&commands_dir)?;
         let transaction_lock_path = fixture_dir.join("hypervisor-wallet-transactions.lock");
         std::fs::File::open(&fixture_dir)?.sync_all()?;
         let manifest = serde_json::json!({

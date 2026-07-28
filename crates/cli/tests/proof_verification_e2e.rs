@@ -117,6 +117,7 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
         ValidatorRole::Consensus,
         ioi_types::config::AftSafetyMode::GuardianMajority,
         None,
+        None, // stable_state_dir
     )
     .await?;
 

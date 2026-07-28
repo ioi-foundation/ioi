@@ -132,7 +132,15 @@ const CHECKPOINT_MODE_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_CHECKPOINT_MODE";
 const CHECKPOINT_MANIFEST_SCHEMA_VERSION = 1;
 // Journeys wired for the checkpoint lane. Each keys its own checkpoint
 // subdirectory because every journey bootstraps its own genesis identities.
-const CHECKPOINT_CAPABLE_JOURNEYS = new Set(["dual-system-projection"]);
+// Membership bar: a journey joins only after passing the resume oracle — a
+// capture (full bootstrap through its checkpoint point) followed by a
+// restore that completes with exit 0 and its full proof census intact over
+// the RESUMED wallet chain (durable cluster state under the fixture dir).
+const CHECKPOINT_CAPABLE_JOURNEYS = new Set([
+  "dual-system-projection",
+  "named-continuity",
+]);
+const CHECKPOINT_WALLET_RESTORE_SEMANTICS = "same-path-true-chain-resume";
 const POST_WALLET_CRASH_PAUSE_ENV =
   "IOI_TEST_PAUSE_SYSTEM_SEQUENCE_ZERO_AFTER_WALLET_CONSUMPTION_EVIDENCE";
 const POST_WALLET_CRASH_MARKER_ENV =
@@ -1164,8 +1172,19 @@ function journeyCheckpointLane(name) {
     `checkpoint manifest at ${manifestPath} is not a complete v${CHECKPOINT_MANIFEST_SCHEMA_VERSION} capture for '${name}'`,
   );
   requireValue(
+    manifest.wallet_restore_semantics === CHECKPOINT_WALLET_RESTORE_SEMANTICS,
+    `checkpoint manifest at ${manifestPath} predates true wallet-chain resume ` +
+      `(${manifest.wallet_restore_semantics || "no semantics"}); re-capture this checkpoint`,
+  );
+  requireValue(
     existsSync(join(journeyDir, "data-dir")),
     `checkpoint restore requires the archived daemon data dir at ${join(journeyDir, "data-dir")}`,
+  );
+  requireValue(
+    existsSync(
+      join(journeyDir, "wallet-fixture-dir", "chain-state", "cluster-state.json"),
+    ),
+    `checkpoint restore requires the archived wallet chain state at ${join(journeyDir, "wallet-fixture-dir", "chain-state")}`,
   );
   return { ...lane, journeyDir, manifest };
 }
@@ -1226,18 +1245,32 @@ async function captureJourneyCheckpoint({
     join(lane.journeyDir, "data-dir"),
     [dataDir, walletFixtureDir],
   );
+  requireValue(
+    existsSync(
+      join(
+        lane.journeyDir,
+        "wallet-fixture-dir",
+        "chain-state",
+        "cluster-state.json",
+      ),
+    ),
+    "checkpoint capture requires the wallet fixture's durable chain state " +
+      "(start the resolver with persistChainState) so restore can truly resume the chain",
+  );
   const manifest = {
     schema_version: CHECKPOINT_MANIFEST_SCHEMA_VERSION,
     journey: activeJourney,
     captured_at: new Date().toISOString(),
     daemon_data_dir: dataDir,
     wallet_fixture_dir: walletFixtureDir,
-    // The wallet fixture is re-initialized (not resumed) on restore: its
-    // chain state lives in the cargo test's private TestCluster tempdirs,
-    // not in the fixture directory. The archive plus this scan document why
-    // same-path restore is mandatory for the daemon data dir.
-    wallet_restore_semantics:
-      "same-path-reinit-deterministic-topology-fresh-chain",
+    // The wallet fixture is TRULY RESUMED on restore: the cluster's durable
+    // chain state (validator identity, guardian keys, redb epoch store) is
+    // captured under <fixture-dir>/chain-state and re-opened at the same
+    // absolute path, so committed consumptions, receipts, and nonces from
+    // the bootstrap prefix remain first-class raw wallet state. The archive
+    // plus this scan document why same-path restore is mandatory for the
+    // daemon data dir.
+    wallet_restore_semantics: CHECKPOINT_WALLET_RESTORE_SEMANTICS,
     embedded_path_scan: embeddedPathScan,
     bootstrap_outputs: bootstrapOutputs,
     captured_proofs: capturedProofs,
@@ -1282,6 +1315,35 @@ function restoreCheckpointDataDir(lane) {
   );
   ownedResources.set(target, activeJourney);
   return target;
+}
+
+/// Restore the archived wallet fixture dir (including its durable chain
+/// state under chain-state/) at its exact recorded absolute path so the
+/// resolver can TRULY RESUME the captured wallet chain there.
+function restoreCheckpointWalletFixtureDir(lane) {
+  const target = checkpointOwnedTempPath(
+    lane.manifest.wallet_fixture_dir,
+    "wallet_fixture_dir",
+    "ioi-wallet-network-pa-",
+  );
+  rmSync(target, { recursive: true, force: true });
+  cpSync(join(lane.journeyDir, "wallet-fixture-dir"), target, {
+    recursive: true,
+  });
+  return target;
+}
+
+/// Resolver options for a journey's checkpoint lane: capture persists the
+/// wallet chain's durable state inside the fixture dir so the archive picks
+/// it up; restore re-materializes the archive and resumes from it.
+function walletResolverCheckpointOptions(checkpoint) {
+  if (checkpoint?.mode === "capture") return { persistChainState: true };
+  if (checkpoint?.mode === "restore") {
+    return {
+      resumeResourceDir: restoreCheckpointWalletFixtureDir(checkpoint),
+    };
+  }
+  return {};
 }
 
 /// Re-emit the capture run's pre-body proofs so the journey's exact proof
@@ -5962,8 +6024,14 @@ const DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN =
   "ioi.autonomous-system-dissolution-disposition-artifact-jcs-sha256.v1";
 
 async function runNamedContinuityJourney() {
-  const resolver = await startOwnedWalletResolver();
-  const dataDir = createOwnedTempDir("ioi-named-continuity-");
+  const checkpoint = journeyCheckpointLane("named-continuity");
+  const resolver = await startOwnedWalletResolver(
+    walletResolverCheckpointOptions(checkpoint),
+  );
+  const dataDir =
+    checkpoint?.mode === "restore"
+      ? restoreCheckpointDataDir(checkpoint)
+      : createOwnedTempDir("ioi-named-continuity-");
   let plane;
   let peerPlane;
   try {
@@ -5971,12 +6039,21 @@ async function runNamedContinuityJourney() {
     if (!plane) throw new Error("BLOCKED: M1.5d daemon is not built");
     let call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
-    const active = await bootstrapActiveSystem(
-      call,
-      resolver,
-      dataDir,
-      "genesis://acme/system-alpha/m1-5d",
-    );
+    let active;
+    if (checkpoint?.mode === "restore") {
+      // The journey body below rechecks OLD wallet raw state (e.g. exact
+      // consumption recovery); it runs over the truly resumed wallet chain
+      // carrying the bootstrap prefix's committed authority.
+      replayCapturedCheckpointProofs(checkpoint);
+      ({ active } = checkpoint.manifest.bootstrap_outputs);
+    } else {
+      active = await bootstrapActiveSystem(
+        call,
+        resolver,
+        dataDir,
+        "genesis://acme/system-alpha/m1-5d",
+      );
+    }
     const pathFor = (op) =>
       `${GENESIS_ROUTE}/${active.source.sourceTail}/continuity/${op}`;
     let chain = active.chain;
@@ -6031,18 +6108,32 @@ async function runNamedContinuityJourney() {
       return response.body;
     };
 
-    const eligibility = await call("GET", pathFor("initiate_succession"));
-    ok(
-      "M1.5d ELIGIBILITY: named succession exposes its distinct scope and evidence blockers over the live head",
-      eligibility.status === 200 &&
-        eligibility.body.required_scope ===
-          "scope:autonomous_system.continuity.initiate_succession" &&
-        eligibility.body.eligible_now?.status_admitted === true &&
-        eligibility.body.required_declaration_evidence?.successor_candidate ===
-          true &&
-        eligibility.body.nonclaims?.wallet_authorized === false,
-      `${eligibility.status}/${eligibility.body.required_scope || eligibility.body.error?.code}`,
-    );
+    if (checkpoint?.mode !== "restore") {
+      const eligibility = await call("GET", pathFor("initiate_succession"));
+      ok(
+        "M1.5d ELIGIBILITY: named succession exposes its distinct scope and evidence blockers over the live head",
+        eligibility.status === 200 &&
+          eligibility.body.required_scope ===
+            "scope:autonomous_system.continuity.initiate_succession" &&
+          eligibility.body.eligible_now?.status_admitted === true &&
+          eligibility.body.required_declaration_evidence?.successor_candidate ===
+            true &&
+          eligibility.body.nonclaims?.wallet_authorized === false,
+        `${eligibility.status}/${eligibility.body.required_scope || eligibility.body.error?.code}`,
+      );
+      if (checkpoint?.mode === "capture") {
+        // Checkpoint point: the expensive real-wallet bootstrap prefix
+        // (genesis -> materialize -> initialize -> activate) plus the
+        // read-only eligibility proof, before any continuity mutation.
+        await captureJourneyCheckpoint({
+          lane: checkpoint,
+          plane,
+          resolver,
+          dataDir,
+          bootstrapOutputs: { active },
+        });
+      }
+    }
 
     const enrollment = fixture(
       "ioi-network-enrollment-v1/positive-local-only.json",
@@ -7059,15 +7150,7 @@ async function runNamedContinuityJourney() {
 async function runDualSystemProjectionJourney() {
   const checkpoint = journeyCheckpointLane("dual-system-projection");
   const resolver = await startOwnedWalletResolver(
-    checkpoint?.mode === "restore"
-      ? {
-          resumeResourceDir: checkpointOwnedTempPath(
-            checkpoint.manifest.wallet_fixture_dir,
-            "wallet_fixture_dir",
-            "ioi-wallet-network-pa-",
-          ),
-        }
-      : {},
+    walletResolverCheckpointOptions(checkpoint),
   );
   const dataDir =
     checkpoint?.mode === "restore"

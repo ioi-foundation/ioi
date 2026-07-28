@@ -130,6 +130,20 @@ where
 
 // [FIX] Allow dead code for legacy function
 #[allow(dead_code)]
+/// Testing-harness escape hatch mirroring the stable-state-dir resume lane
+/// in crates/validator/src/standard/workload/setup.rs: GuardianMajority
+/// harness chains publish no canonical collapse objects (that publication
+/// lane is Asymptote-only), so the bounded AFT restart surface can never be
+/// extracted for them. With the env set (only by the testing harness in
+/// crates/cli/src/testing) the restart proceeds with the same empty
+/// recovered surface every non-AFT chain uses. Never set in production;
+/// without it the behavior is byte-identical.
+fn testing_trivial_aft_restart_anchor_enabled() -> bool {
+    std::env::var("IOI_TESTING_AFT_TRIVIAL_RESTART_ANCHOR")
+        .map(|value| value == "1")
+        .unwrap_or(false)
+}
+
 fn signer_from_tx(tx: &ChainTransaction) -> AccountId {
     match tx {
         ChainTransaction::System(s) => s.header.account_id,
@@ -448,6 +462,7 @@ where
                 self.state.recent_aft_recovered_state = AftRecoveredStateSurface::default();
                 if self.consensus_engine.consensus_type() == ConsensusType::Aft
                     && self.state.status.height > 0
+                    && !testing_trivial_aft_restart_anchor_enabled()
                 {
                     let start_height = self
                         .state

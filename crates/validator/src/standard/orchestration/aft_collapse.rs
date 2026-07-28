@@ -314,6 +314,21 @@ pub(crate) async fn require_persisted_aft_canonical_collapse_if_needed(
         return Ok(None);
     }
 
+    // TESTING-ONLY resume lane (see crate::standard::
+    // testing_trivial_aft_restart_anchor_enabled): GuardianMajority harness
+    // chains never persist canonical collapse objects, so this requirement
+    // can never hold for a resumed harness chain. The escape fires only when
+    // the env is set AND nothing is persisted at this height; any chain that
+    // did persist a collapse object keeps the full verification even with
+    // the env set. Production never sets the env.
+    if crate::standard::testing_trivial_aft_restart_anchor_enabled()
+        && load_persisted_aft_canonical_collapse_object(workload_client, block.header.height)
+            .await?
+            .is_none()
+    {
+        return Ok(None);
+    }
+
     require_persisted_aft_canonical_collapse_for_block(workload_client, block)
         .await
         .map(Some)
