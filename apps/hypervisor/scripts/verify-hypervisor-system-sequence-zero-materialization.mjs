@@ -7,6 +7,7 @@ import { spawn, spawnSync } from "node:child_process";
 import http from "node:http";
 import {
   closeSync,
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -21,7 +22,7 @@ import {
 } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import grpc from "@grpc/grpc-js";
 import protoLoader from "@grpc/proto-loader";
@@ -119,6 +120,19 @@ const CURRENT_RECEIPT_PROFILE =
 const JOURNEY_SELECTOR_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_VERIFIER_JOURNEYS";
 const FOCUSED_VERIFIER_OPT_IN_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_ALLOW_FOCUSED";
 const CERTIFICATION_MODE_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_CERTIFY";
+// CHECKPOINT LANE (iteration-only, never certifying): capture archives a
+// journey's bootstrapped plane (daemon data dir + wallet fixture dir + a
+// manifest carrying the bootstrap outputs) after the expensive real-wallet
+// genesis->materialize->initialize->activate prefix, then exits; restore
+// rebuilds that plane at the SAME absolute paths and runs the journey body
+// without re-paying the bootstrap. Both modes require the focused opt-in and
+// are refused outright by certification mode.
+const CHECKPOINT_DIR_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_CHECKPOINT_DIR";
+const CHECKPOINT_MODE_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_CHECKPOINT_MODE";
+const CHECKPOINT_MANIFEST_SCHEMA_VERSION = 1;
+// Journeys wired for the checkpoint lane. Each keys its own checkpoint
+// subdirectory because every journey bootstraps its own genesis identities.
+const CHECKPOINT_CAPABLE_JOURNEYS = new Set(["dual-system-projection"]);
 const POST_WALLET_CRASH_PAUSE_ENV =
   "IOI_TEST_PAUSE_SYSTEM_SEQUENCE_ZERO_AFTER_WALLET_CONSUMPTION_EVIDENCE";
 const POST_WALLET_CRASH_MARKER_ENV =
@@ -1027,6 +1041,8 @@ function sanitizeVerifierEnv(sourceEnv) {
         JOURNEY_SELECTOR_ENV,
         FOCUSED_VERIFIER_OPT_IN_ENV,
         CERTIFICATION_MODE_ENV,
+        CHECKPOINT_DIR_ENV,
+        CHECKPOINT_MODE_ENV,
       ].includes(key);
     }),
   );
@@ -1078,6 +1094,207 @@ async function startOwnedWalletResolver(options = {}) {
   }
   ownedResources.set(resourceDir, activeJourney);
   return resolver;
+}
+
+/// Thrown after a successful checkpoint capture so the journey's finally
+/// blocks still run (idempotent stops + owned-resource removal) and run()
+/// can report the capture as complete instead of as a verifier crash.
+class CheckpointCaptureComplete extends Error {
+  constructor(journeyDir) {
+    super(`checkpoint captured at ${journeyDir}`);
+    this.checkpointCaptureComplete = true;
+  }
+}
+
+function activeCheckpointLane() {
+  const dir = process.env[CHECKPOINT_DIR_ENV];
+  const mode = process.env[CHECKPOINT_MODE_ENV];
+  if (dir === undefined && mode === undefined) return null;
+  if (!dir || !mode) {
+    throw new Error(
+      `${CHECKPOINT_DIR_ENV} and ${CHECKPOINT_MODE_ENV} must be set together`,
+    );
+  }
+  if (mode !== "capture" && mode !== "restore") {
+    throw new Error(
+      `${CHECKPOINT_MODE_ENV} must be 'capture' or 'restore', not '${mode}'`,
+    );
+  }
+  return { dir: resolvePath(dir), mode };
+}
+
+function checkpointOwnedTempPath(recorded, label, requiredPrefix) {
+  const target = resolvePath(String(recorded || ""));
+  if (
+    dirname(target) !== resolvePath(tmpdir()) ||
+    !basename(target).startsWith(requiredPrefix)
+  ) {
+    throw new Error(
+      `checkpoint manifest ${label} must be a verifier-owned '${requiredPrefix}*' path under ${tmpdir()}: ${recorded}`,
+    );
+  }
+  return target;
+}
+
+function journeyCheckpointLane(name) {
+  const lane = activeCheckpointLane();
+  if (!lane) return null;
+  requireValue(
+    CHECKPOINT_CAPABLE_JOURNEYS.has(name),
+    `journey '${name}' is not wired for the checkpoint lane`,
+  );
+  const journeyDir = join(lane.dir, name);
+  if (lane.mode === "capture") {
+    return { ...lane, journeyDir };
+  }
+  const manifestPath = join(journeyDir, "manifest.json");
+  requireValue(
+    existsSync(manifestPath),
+    `checkpoint restore requires a captured manifest at ${manifestPath}`,
+  );
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  requireValue(
+    manifest.schema_version === CHECKPOINT_MANIFEST_SCHEMA_VERSION &&
+      manifest.journey === name &&
+      manifest.daemon_data_dir &&
+      manifest.wallet_fixture_dir &&
+      manifest.bootstrap_outputs &&
+      Array.isArray(manifest.captured_proofs) &&
+      manifest.captured_proofs.length > 0,
+    `checkpoint manifest at ${manifestPath} is not a complete v${CHECKPOINT_MANIFEST_SCHEMA_VERSION} capture for '${name}'`,
+  );
+  requireValue(
+    existsSync(join(journeyDir, "data-dir")),
+    `checkpoint restore requires the archived daemon data dir at ${join(journeyDir, "data-dir")}`,
+  );
+  return { ...lane, journeyDir, manifest };
+}
+
+/// Count archived files whose bytes embed each needle string. Same-path
+/// restore is proven necessary (not just prudent) by nonzero hits: the
+/// daemon's durable records really do carry these absolute paths.
+function checkpointEmbeddedPathScan(root, needles) {
+  const counts = new Map(needles.map((needle) => [needle, 0]));
+  let scannedFiles = 0;
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const entryPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(entryPath);
+      } else if (entry.isFile()) {
+        scannedFiles += 1;
+        const bytes = readFileSync(entryPath);
+        for (const needle of needles) {
+          if (bytes.includes(needle)) {
+            counts.set(needle, counts.get(needle) + 1);
+          }
+        }
+      }
+    }
+  };
+  walk(root);
+  return { scannedFiles, counts: Object.fromEntries(counts) };
+}
+
+async function captureJourneyCheckpoint({
+  lane,
+  plane,
+  resolver,
+  dataDir,
+  bootstrapOutputs,
+}) {
+  const capturedProofs = results
+    .filter((result) => result.journey === activeJourney)
+    .map(({ name, pass, detail }) => ({ name, pass, detail }));
+  requireValue(
+    capturedProofs.every((proof) => proof.pass),
+    "checkpoint capture refuses to archive a plane with failing bootstrap proofs",
+  );
+  // Cleanly stop the daemon first (its data dir is caller-owned and survives
+  // stop), then the wallet fixture (graceful shutdown file -> process-group
+  // reap) while preserving its directory for archival.
+  await plane.stop();
+  await resolver.stop({ preserveResourceDir: true });
+  const walletFixtureDir = resolver.resourceDir;
+  rmSync(lane.journeyDir, { recursive: true, force: true });
+  mkdirSync(lane.journeyDir, { recursive: true, mode: 0o700 });
+  cpSync(dataDir, join(lane.journeyDir, "data-dir"), { recursive: true });
+  cpSync(walletFixtureDir, join(lane.journeyDir, "wallet-fixture-dir"), {
+    recursive: true,
+  });
+  const embeddedPathScan = checkpointEmbeddedPathScan(
+    join(lane.journeyDir, "data-dir"),
+    [dataDir, walletFixtureDir],
+  );
+  const manifest = {
+    schema_version: CHECKPOINT_MANIFEST_SCHEMA_VERSION,
+    journey: activeJourney,
+    captured_at: new Date().toISOString(),
+    daemon_data_dir: dataDir,
+    wallet_fixture_dir: walletFixtureDir,
+    // The wallet fixture is re-initialized (not resumed) on restore: its
+    // chain state lives in the cargo test's private TestCluster tempdirs,
+    // not in the fixture directory. The archive plus this scan document why
+    // same-path restore is mandatory for the daemon data dir.
+    wallet_restore_semantics:
+      "same-path-reinit-deterministic-topology-fresh-chain",
+    embedded_path_scan: embeddedPathScan,
+    bootstrap_outputs: bootstrapOutputs,
+    captured_proofs: capturedProofs,
+  };
+  const manifestPath = join(lane.journeyDir, "manifest.json");
+  const manifestTemp = `${manifestPath}.${process.pid}.tmp`;
+  writeFileSync(manifestTemp, canonicalJson(manifest), { mode: 0o600 });
+  renameSync(manifestTemp, manifestPath);
+  rmSync(walletFixtureDir, { recursive: true, force: true });
+  console.log(
+    `CHECKPOINT CAPTURE: archived '${activeJourney}' plane at ${lane.journeyDir} (data-dir path hits=${embeddedPathScan.counts[dataDir]} wallet-dir path hits=${embeddedPathScan.counts[walletFixtureDir]} of ${embeddedPathScan.scannedFiles} files)`,
+  );
+  throw new CheckpointCaptureComplete(lane.journeyDir);
+}
+
+/// Restore the archived daemon data dir at its exact recorded absolute path
+/// (mandatory when durable records embed that path) and register it as this
+/// journey's owned resource with a fresh owner marker.
+function restoreCheckpointDataDir(lane) {
+  requireValue(
+    activeJourney,
+    "verifier-owned resources require an active journey",
+  );
+  const target = checkpointOwnedTempPath(
+    lane.manifest.daemon_data_dir,
+    "daemon_data_dir",
+    "ioi-",
+  );
+  if (ownedResources.has(target)) {
+    throw new Error(`verifier-owned resource was registered twice: ${target}`);
+  }
+  rmSync(target, { recursive: true, force: true });
+  cpSync(join(lane.journeyDir, "data-dir"), target, { recursive: true });
+  writeFileSync(
+    join(target, VERIFIER_OWNER_MARKER),
+    JSON.stringify({
+      schema_version: 1,
+      owner_pid: process.pid,
+      owner_kind: "system-sequence-zero-held-bar",
+    }),
+    { mode: 0o600 },
+  );
+  ownedResources.set(target, activeJourney);
+  return target;
+}
+
+/// Re-emit the capture run's pre-body proofs so the journey's exact proof
+/// census holds on restore. Each is labeled: it was proven live during
+/// capture against this same archived plane, not re-executed here.
+function replayCapturedCheckpointProofs(lane) {
+  for (const { name, pass, detail } of lane.manifest.captured_proofs) {
+    ok(
+      name,
+      pass,
+      `${detail ? `${detail} ` : ""}[replayed from checkpoint capture ${lane.manifest.captured_at}]`,
+    );
+  }
 }
 
 async function walletFixtureReadinessCleanupSelfTest() {
@@ -6840,8 +7057,22 @@ async function runNamedContinuityJourney() {
 }
 
 async function runDualSystemProjectionJourney() {
-  const resolver = await startOwnedWalletResolver();
-  const dataDir = createOwnedTempDir("ioi-dual-system-projection-");
+  const checkpoint = journeyCheckpointLane("dual-system-projection");
+  const resolver = await startOwnedWalletResolver(
+    checkpoint?.mode === "restore"
+      ? {
+          resumeResourceDir: checkpointOwnedTempPath(
+            checkpoint.manifest.wallet_fixture_dir,
+            "wallet_fixture_dir",
+            "ioi-wallet-network-pa-",
+          ),
+        }
+      : {},
+  );
+  const dataDir =
+    checkpoint?.mode === "restore"
+      ? restoreCheckpointDataDir(checkpoint)
+      : createOwnedTempDir("ioi-dual-system-projection-");
   let plane;
   try {
     plane = await startVerifierPlane({ dataDir, env: resolver.env });
@@ -6849,40 +7080,46 @@ async function runDualSystemProjectionJourney() {
     let call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
     const projectionPath = `${GENESIS_ROUTE}/projection`;
-    const empty = await call("GET", `${projectionPath}?view=compact`);
-    ok(
-      "M1.7 HONEST EMPTY: compact projection reports no admitted Systems without fabricated defaults",
-      empty.status === 200 &&
-        empty.body.state === "honest_empty" &&
-        empty.body.systems?.length === 0 &&
-        empty.body.nonclaims?.authority === false,
-      `${empty.status}/${empty.body.state || empty.body.error?.code}`,
-    );
-    const alphaBody = exactGenesisBody();
-    const betaBody = rebindGenesisBodySystem(alphaBody, {
-      systemId: "system://acme/system-beta",
-      genesisId: "genesis://acme/system-beta/zero",
-      constitutionRef: "constitution://acme/system-beta/v1",
-      deploymentProfileRef:
-        "deployment-profile://acme/system-beta/local/revision/sha256:" +
-        "d".repeat(64),
-      orderingProfileRef: "ordering-profile://acme/system-beta/poa1",
-      oracleProfileRef:
-        "oracle-evidence-profile://acme/system-beta/public-records",
-      lifecycleProfileRef: "lifecycle-profile://acme/system-beta/default",
-    });
-    const alpha = await bootstrapActiveSystem(
-      call,
-      resolver,
-      dataDir,
-      alphaBody,
-    );
-    const beta = await bootstrapActiveSystem(
-      call,
-      resolver,
-      dataDir,
-      betaBody,
-    );
+    let alpha;
+    let beta;
+    if (checkpoint?.mode === "restore") {
+      replayCapturedCheckpointProofs(checkpoint);
+      ({ alpha, beta } = checkpoint.manifest.bootstrap_outputs);
+    } else {
+      const empty = await call("GET", `${projectionPath}?view=compact`);
+      ok(
+        "M1.7 HONEST EMPTY: compact projection reports no admitted Systems without fabricated defaults",
+        empty.status === 200 &&
+          empty.body.state === "honest_empty" &&
+          empty.body.systems?.length === 0 &&
+          empty.body.nonclaims?.authority === false,
+        `${empty.status}/${empty.body.state || empty.body.error?.code}`,
+      );
+      const alphaBody = exactGenesisBody();
+      const betaBody = rebindGenesisBodySystem(alphaBody, {
+        systemId: "system://acme/system-beta",
+        genesisId: "genesis://acme/system-beta/zero",
+        constitutionRef: "constitution://acme/system-beta/v1",
+        deploymentProfileRef:
+          "deployment-profile://acme/system-beta/local/revision/sha256:" +
+          "d".repeat(64),
+        orderingProfileRef: "ordering-profile://acme/system-beta/poa1",
+        oracleProfileRef:
+          "oracle-evidence-profile://acme/system-beta/public-records",
+        lifecycleProfileRef: "lifecycle-profile://acme/system-beta/default",
+      });
+      alpha = await bootstrapActiveSystem(call, resolver, dataDir, alphaBody);
+      beta = await bootstrapActiveSystem(call, resolver, dataDir, betaBody);
+      if (checkpoint?.mode === "capture") {
+        await captureJourneyCheckpoint({
+          lane: checkpoint,
+          plane,
+          resolver,
+          dataDir,
+          bootstrapOutputs: { alpha, beta },
+        });
+      }
+    }
     ok(
       "M1.6 DUAL GENESIS: one reusable package admits and activates two distinct System identities with distinct live roots",
       alpha.chain.system_id !== beta.chain.system_id &&
@@ -8826,6 +9063,22 @@ async function run() {
         `${FOCUSED_VERIFIER_OPT_IN_ENV}=1 is required to run a non-certifying journey subset`,
       );
     }
+    const checkpointLane = activeCheckpointLane();
+    if (checkpointLane) {
+      if (process.env[CERTIFICATION_MODE_ENV] === "1") {
+        throw new Error(
+          `${CERTIFICATION_MODE_ENV}=1 refuses the checkpoint lane; unset ${CHECKPOINT_DIR_ENV}/${CHECKPOINT_MODE_ENV}`,
+        );
+      }
+      if (
+        selectedJourneys.length !== 1 ||
+        !CHECKPOINT_CAPABLE_JOURNEYS.has(selectedJourneys[0])
+      ) {
+        throw new Error(
+          `the checkpoint lane requires ${JOURNEY_SELECTOR_ENV} to select exactly one checkpoint-capable journey (${[...CHECKPOINT_CAPABLE_JOURNEYS].join(",")})`,
+        );
+      }
+    }
     for (const name of selectedJourneys) {
       const journey = journeys.get(name);
       await executeJourneyWithCensus(name, journey);
@@ -8840,6 +9093,18 @@ async function run() {
     `owned=${ownedResources.size} removed=${[...ownedResources.keys()].filter((path) => !existsSync(path)).length} process_groups=${ownedProcessGroups.size} descendants_remaining=${[...ownedProcessGroups].filter(([processGroupId, startTimeTicks]) => ownedProcessGroupIdentityIsAlive(processGroupId, startTimeTicks)).length}`,
   );
   if (fatal) {
+    if (fatal.checkpointCaptureComplete === true) {
+      const passed = results.filter((result) => result.pass).length;
+      console.log(`${passed}/${results.length} passed`);
+      if (passed !== results.length) {
+        process.exitCode = 1;
+        return;
+      }
+      console.log(
+        `system sequence-zero checkpoint capture: COMPLETE (${fatal.message}; non-certifying lane, held bar not claimed)`,
+      );
+      return;
+    }
     const blocked = String(fatal.message || fatal).startsWith("BLOCKED:");
     console.error(`${blocked ? "BLOCKED" : "VERIFIER CRASH"}:`, fatal);
     process.exitCode = blocked ? 2 : 1;
