@@ -1,0 +1,37 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/harness-session-terminal-attach/daemon-resolved-command-bound/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
+  "rules": [
+    {
+      "rule_id": "harness_session_terminal_attach.transcript_stream.bound",
+      "description": "The client attach contract and the transcript projection cite the same daemon-owned transcript stream; the client cannot be handed one stream while the projection records another.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.client_attach_contract.transcript_stream_ref",
+          "$.terminal_transcript_projection.transcript_stream_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "harness_session_terminal_attach.stdin_line.daemon_resolved",
+      "description": "The transcript's opening stdin line is exactly the daemon-resolved command line of the client attach contract; the client never authors the initial command record (INV-37).",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.terminal_transcript_projection.lines[1].text",
+          "$.client_attach_contract.command_line"
+        ]
+      }
+    },
+    {
+      "rule_id": "harness_session_terminal_attach.identity.distinct_predecessors",
+      "description": "The attach binds two distinct predecessors: its spawn and its readiness proof are never the same record.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": ["$.spawn_id", "$.readiness_id"]
+      }
+    }
+  ]
+}

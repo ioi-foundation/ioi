@@ -1,0 +1,274 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+  "title": "HarnessSessionBindingAdmission",
+  "description": "The daemon admission record the runtime kernel emits after a HarnessSessionBinding passes the local-first harness gate (runtime_harness_session_binding_admission.rs): the admitted binding echo plus the appended admission receipt, in state admitted_for_harness_launch. The kernel-refused states remain unrepresentable here exactly as in the binding contract, and harness_runtime_truth_claimed is pinned false: an admission can never record a harness runtime-truth claim. Predecessor link: HypervisorSessionLaunchRecipeAdmission; successor links: HarnessSessionSpawn, HarnessSessionReadiness, HarnessSessionTerminalAttach.",
+  "x-ioi-schema-version": "ioi.runtime.harness_session_binding_admission.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "admission_id",
+    "decision",
+    "admission_state",
+    "session_binding_ref",
+    "session_route_ref",
+    "harness_selection_ref",
+    "harness_selection_kind",
+    "harness_truth_boundary",
+    "harness_launch_route_ref",
+    "agent_harness_adapter_id",
+    "harness_profile_ref",
+    "model_configuration_ref",
+    "model_route_ref",
+    "model_route_policy",
+    "model_route_availability_state",
+    "model_route_endpoint_refs",
+    "model_route_loaded_instance_refs",
+    "workspace_mount_policy",
+    "privacy_posture_ref",
+    "authority_scope_refs",
+    "receipt_policy_ref",
+    "receipt_preview_ref",
+    "expected_receipt_refs",
+    "agentgres_operation_refs",
+    "receipt_refs",
+    "state_root",
+    "harness_runtime_truth_claimed",
+    "requiresDaemonGate",
+    "runtimeTruthSource",
+    "admitted_at",
+    "binding_invariant"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.runtime.harness_session_binding_admission.v1"
+    },
+    "admission_id": {
+      "type": "string",
+      "pattern": "^harness-session-binding-admission:[^\\s]{1,400}$"
+    },
+    "decision": { "const": "admitted" },
+    "admission_state": { "const": "admitted_for_harness_launch" },
+    "session_binding_ref": {
+      "type": "string",
+      "pattern": "^harness-session-binding:[^\\s]{1,400}$"
+    },
+    "session_route_ref": {
+      "type": "string",
+      "pattern": "^session-route:[^\\s]{1,240}$"
+    },
+    "harness_selection_ref": {
+      "type": "string",
+      "pattern": "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$"
+    },
+    "harness_selection_kind": {
+      "enum": ["harness_profile", "agent_harness_adapter"]
+    },
+    "harness_truth_boundary": {
+      "enum": ["daemon-owned", "proposal_source_only"]
+    },
+    "harness_launch_route_ref": {
+      "type": "string",
+      "pattern": "^harness-route:[^\\s]{1,240}$"
+    },
+    "agent_harness_adapter_id": {
+      "anyOf": [
+        { "type": "string", "minLength": 1, "maxLength": 200 },
+        { "type": "null" }
+      ]
+    },
+    "harness_profile_ref": {
+      "anyOf": [
+        { "type": "string", "minLength": 1, "maxLength": 200 },
+        { "type": "null" }
+      ]
+    },
+    "model_configuration_ref": {
+      "type": "string",
+      "pattern": "^model-config:[^\\s]{1,240}$"
+    },
+    "model_route_ref": {
+      "type": "string",
+      "pattern": "^model-route:[^\\s]{1,240}$"
+    },
+    "model_route_policy": {
+      "enum": ["hypervisor_model_mount", "adapter_builtin", "forbidden"]
+    },
+    "model_route_availability_state": {
+      "enum": ["daemon_verified", "fixture_available", "missing", "unavailable"]
+    },
+    "model_route_endpoint_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "pattern": "^model-endpoint:[^\\s]{1,240}$"
+      }
+    },
+    "model_route_loaded_instance_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "pattern": "^model-instance:[^\\s]{1,240}$"
+      }
+    },
+    "workspace_mount_policy": {
+      "enum": [
+        "public_trunk",
+        "redacted_projection",
+        "plain_workspace",
+        "ctee_private_workspace"
+      ]
+    },
+    "privacy_posture_ref": {
+      "type": "string",
+      "pattern": "^privacy:[^\\s]{1,200}$"
+    },
+    "authority_scope_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "contains": { "const": "scope:workspace.read" },
+      "items": { "type": "string", "pattern": "^scope:[^\\s]{1,200}$" }
+    },
+    "receipt_policy_ref": {
+      "type": "string",
+      "pattern": "^receipt-policy:[^\\s]{1,240}$"
+    },
+    "receipt_preview_ref": {
+      "type": "string",
+      "pattern": "^receipt-preview:[^\\s]{1,240}$"
+    },
+    "expected_receipt_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "type": "string", "pattern": "^receipt[^\\s]{1,260}$" }
+    },
+    "agentgres_operation_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "pattern": "^agentgres://operation/[^\\s]{1,240}$"
+      }
+    },
+    "receipt_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "type": "string", "pattern": "^receipt://[^\\s]{1,240}$" }
+    },
+    "state_root": {
+      "anyOf": [
+        { "type": "string", "pattern": "^agentgres://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "harness_runtime_truth_claimed": { "const": false },
+    "requiresDaemonGate": { "const": true },
+    "runtimeTruthSource": { "const": "daemon-runtime" },
+    "admitted_at": { "$ref": "#/$defs/canonicalDateTime" },
+    "binding_invariant": {
+      "const": "Harness session launch is admitted only after harness, model route, workspace mount policy, privacy posture, authority scopes, receipts, and daemon runtime truth boundary are bound."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "harness_selection_kind": { "const": "harness_profile" }
+        }
+      },
+      "then": {
+        "properties": {
+          "harness_selection_ref": {
+            "type": "string",
+            "pattern": "^harness-profile:[^\\s]{1,200}$"
+          },
+          "harness_profile_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "agent_harness_adapter_id": { "type": "null" },
+          "harness_truth_boundary": { "const": "daemon-owned" }
+        }
+      },
+      "else": {
+        "properties": {
+          "harness_selection_ref": {
+            "type": "string",
+            "pattern": "^agent-harness-adapter:[^\\s]{1,200}$"
+          },
+          "agent_harness_adapter_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "harness_profile_ref": { "type": "null" },
+          "harness_truth_boundary": { "const": "proposal_source_only" },
+          "workspace_mount_policy": {
+            "enum": [
+              "public_trunk",
+              "redacted_projection",
+              "plain_workspace"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "model_route_policy": { "const": "hypervisor_model_mount" }
+        }
+      },
+      "then": {
+        "properties": {
+          "model_route_availability_state": {
+            "enum": ["daemon_verified", "fixture_available"]
+          },
+          "model_route_endpoint_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "pattern": "^model-endpoint:[^\\s]{1,240}$"
+            }
+          },
+          "model_route_loaded_instance_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "pattern": "^model-instance:[^\\s]{1,240}$"
+            }
+          },
+          "model_configuration_ref": {
+            "type": "string",
+            "pattern": "^model-config:local/[^\\s]{1,220}$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "model_route_policy": { "const": "forbidden" } }
+      },
+      "then": {
+        "properties": { "model_route_ref": { "const": "model-route:none" } }
+      }
+    }
+  ],
+  "$defs": {
+    "canonicalDateTime": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+  "title": "HypervisorSessionLaunchRecipeAdmission",
+  "description": "The daemon-admitted New-Session launch-recipe record exactly as the runtime kernel produces it (runtime_hypervisor_session_launch_recipe_admission.rs): a recipe becomes launchable only after this admission binds recipe, target binding, project, session route, model route, privacy posture, authority scopes, receipt preview/expectations, and Agentgres operation refs under the daemon gate. Each recipe kind maps to exactly one canonical surface, and a workbench recipe structurally requires its code-editor adapter target. This is the first daemon-side link of the session admission chain; the successor link is HarnessSessionBindingAdmission.",
+  "x-ioi-schema-version": "ioi.runtime.hypervisor_session_launch_recipe_admission.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "admission_id",
+    "decision",
+    "admission_state",
+    "recipe_ref",
+    "recipe_kind",
+    "surface_id",
+    "target_binding_ref",
+    "project_ref",
+    "operator_intent_ref",
+    "session_route_ref",
+    "code_editor_adapter_target_ref",
+    "model_route_ref",
+    "privacy_posture_ref",
+    "authority_scope_refs",
+    "receipt_preview_ref",
+    "expected_receipt_refs",
+    "agentgres_operation_refs",
+    "receipt_refs",
+    "state_root",
+    "requiresDaemonGate",
+    "runtimeTruthSource",
+    "admitted_at",
+    "recipe_invariant"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.runtime.hypervisor_session_launch_recipe_admission.v1"
+    },
+    "admission_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "decision": { "const": "admitted" },
+    "admission_state": { "const": "admitted_for_session_binding" },
+    "recipe_ref": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "recipe_kind": {
+      "enum": [
+        "mission",
+        "workbench",
+        "agent",
+        "automation",
+        "foundry_job",
+        "provider_environment_job",
+        "privacy_workspace"
+      ]
+    },
+    "surface_id": {
+      "enum": [
+        "sessions",
+        "workbench",
+        "agents",
+        "automations",
+        "foundry",
+        "environments",
+        "privacy"
+      ]
+    },
+    "target_binding_ref": {
+      "type": "string",
+      "pattern": "^target-binding:[^\\s]{1,240}$"
+    },
+    "project_ref": {
+      "type": "string",
+      "pattern": "^project:[^\\s]{1,200}$"
+    },
+    "operator_intent_ref": {
+      "anyOf": [
+        { "type": "string", "minLength": 1, "maxLength": 300 },
+        { "type": "null" }
+      ]
+    },
+    "session_route_ref": {
+      "type": "string",
+      "pattern": "^session-route:[^\\s]{1,240}$"
+    },
+    "code_editor_adapter_target_ref": {
+      "anyOf": [
+        { "type": "string", "minLength": 1, "maxLength": 240 },
+        { "type": "null" }
+      ]
+    },
+    "model_route_ref": {
+      "type": "string",
+      "pattern": "^model-route:[^\\s]{1,240}$"
+    },
+    "privacy_posture_ref": {
+      "type": "string",
+      "pattern": "^privacy:[^\\s]{1,200}$"
+    },
+    "authority_scope_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "type": "string", "pattern": "^scope:[^\\s]{1,200}$" }
+    },
+    "receipt_preview_ref": {
+      "type": "string",
+      "pattern": "^receipt-preview:[^\\s]{1,240}$"
+    },
+    "expected_receipt_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "type": "string", "pattern": "^receipt[^\\s]{1,260}$" }
+    },
+    "agentgres_operation_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "pattern": "^agentgres://operation/[^\\s]{1,240}$"
+      }
+    },
+    "receipt_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "type": "string", "pattern": "^receipt://[^\\s]{1,240}$" }
+    },
+    "state_root": {
+      "type": "string",
+      "pattern": "^agentgres://[^\\s]{1,240}$"
+    },
+    "requiresDaemonGate": { "const": true },
+    "runtimeTruthSource": { "const": "daemon-runtime" },
+    "admitted_at": { "$ref": "#/$defs/canonicalDateTime" },
+    "recipe_invariant": {
+      "const": "New Session recipes become launchable only after daemon admission binds recipe, target binding, project, route, model, privacy, authority scopes, receipts, and Agentgres operation refs."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "recipe_kind": { "const": "mission" } } },
+      "then": { "properties": { "surface_id": { "const": "sessions" } } }
+    },
+    {
+      "if": { "properties": { "recipe_kind": { "const": "workbench" } } },
+      "then": {
+        "properties": {
+          "surface_id": { "const": "workbench" },
+          "code_editor_adapter_target_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "recipe_kind": { "const": "agent" } } },
+      "then": { "properties": { "surface_id": { "const": "agents" } } }
+    },
+    {
+      "if": { "properties": { "recipe_kind": { "const": "automation" } } },
+      "then": { "properties": { "surface_id": { "const": "automations" } } }
+    },
+    {
+      "if": { "properties": { "recipe_kind": { "const": "foundry_job" } } },
+      "then": { "properties": { "surface_id": { "const": "foundry" } } }
+    },
+    {
+      "if": {
+        "properties": {
+          "recipe_kind": { "const": "provider_environment_job" }
+        }
+      },
+      "then": { "properties": { "surface_id": { "const": "environments" } } }
+    },
+    {
+      "if": {
+        "properties": { "recipe_kind": { "const": "privacy_workspace" } }
+      },
+      "then": { "properties": { "surface_id": { "const": "privacy" } } }
+    }
+  ],
+  "$defs": {
+    "canonicalDateTime": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

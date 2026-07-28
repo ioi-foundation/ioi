@@ -1,0 +1,15 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/harness-session-spawn/distinct-predecessor-identity/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
+  "rules": [
+    {
+      "rule_id": "harness_session_spawn.identity.distinct_from_launch",
+      "description": "A spawn is a derived record over one launch: spawn_id never aliases launch_id, so readiness and attach can bind each predecessor exactly.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": ["$.spawn_id", "$.launch_id"]
+      }
+    }
+  ]
+}

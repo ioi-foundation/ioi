@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+  "title": "HypervisorDevelopmentEnvironmentRecipeResolution",
+  "description": "The daemon-produced decision that turns one admitted development-environment recipe into concrete environment ingredients for one exact environment (recipe_routes.rs resolve_recipe): resolved substrate/tasks/services/ports plus the required task, service, port, secret, and SCM-auth edges that its readiness gate must prove. A resolution always binds the exact recipe_ref and environment_ref it resolved; a blocked candidate is a refusal, never a partially populated resolution, so blocked_reason is structurally null. The implementation's wire literal is ioi.hypervisor.environment-recipe-resolution.v1; the canon-name divergence is recorded at the canonical owner.",
+  "x-ioi-schema-version": "ioi.hypervisor.environment-recipe-resolution.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "recipe_ref",
+    "environment_ref",
+    "resolved_substrate",
+    "resolved_tasks",
+    "resolved_prebuild_tasks",
+    "resolved_services",
+    "resolved_ports",
+    "required_task_refs",
+    "required_service_refs",
+    "required_port_refs",
+    "required_secret_refs",
+    "required_scm_auth_refs",
+    "readiness_gate_ref",
+    "resolution_ref",
+    "blocked_reason",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.environment-recipe-resolution.v1"
+    },
+    "recipe_ref": {
+      "type": "string",
+      "pattern": "^recipe_[0-9a-f]{1,32}$"
+    },
+    "environment_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "resolved_substrate": {
+      "enum": ["local_host", "devcontainer", "container"]
+    },
+    "resolved_tasks": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/task" }
+    },
+    "resolved_prebuild_tasks": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/task" }
+    },
+    "resolved_services": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "command", "lifecycle", "trigger"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "command": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "lifecycle": { "enum": ["optional", "required"] },
+          "trigger": { "enum": ["post_start", "environment_start"] }
+        }
+      }
+    },
+    "resolved_ports": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["port", "protocol", "access_policy"],
+        "properties": {
+          "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "protocol": { "enum": ["tcp", "udp"] },
+          "access_policy": { "enum": ["private", "session_lease", "shared"] }
+        }
+      }
+    },
+    "required_task_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    },
+    "required_service_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    },
+    "required_port_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "type": "integer", "minimum": 1, "maximum": 65535 }
+    },
+    "required_secret_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "type": "string", "minLength": 1, "maxLength": 240 }
+    },
+    "required_scm_auth_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "type": "string", "minLength": 1, "maxLength": 240 }
+    },
+    "readiness_gate_ref": {
+      "type": "string",
+      "pattern": "^gate_[0-9a-f]{1,32}$"
+    },
+    "resolution_ref": {
+      "type": "string",
+      "pattern": "^reso_[0-9a-f]{1,32}$"
+    },
+    "blocked_reason": { "type": "null" },
+    "created_at": { "$ref": "#/$defs/canonicalDateTime" }
+  },
+  "$defs": {
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "command", "trigger", "required"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "command": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "trigger": { "enum": ["prebuild", "environment_start", "post_start"] },
+        "required": { "type": "boolean" }
+      }
+    },
+    "canonicalDateTime": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

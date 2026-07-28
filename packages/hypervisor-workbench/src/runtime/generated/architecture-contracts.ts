@@ -3696,6 +3696,322 @@ export type HypervisorResourceCleanupObligationV1 = {
   receipt_refs: Array<string>;
 };
 
+export type HypervisorDevelopmentEnvironmentRecipeV1 = {
+  schema_version: "ioi.hypervisor.development-environment-recipe.v1";
+  recipe_ref: string;
+  source: "explicit" | "repo_detected";
+  project_ref: string | null;
+  environment_class_ref: string;
+  substrate: "local_host" | "devcontainer" | "container";
+  monitor: null;
+  isolation_profile: null;
+  cache_paths: Array<string>;
+  detected_signals: Array<"devcontainer.json" | "Dockerfile" | "Cargo.toml" | "package.json" | "python" | "go.mod">;
+  prebuild_tasks: Array<{
+        name: string;
+        command: string;
+        trigger: "prebuild" | "environment_start" | "post_start";
+        required: boolean;
+      }>;
+  init_tasks: Array<{
+        name: string;
+        command: string;
+        trigger: "prebuild" | "environment_start" | "post_start";
+        required: boolean;
+      }>;
+  post_start_tasks: Array<{
+        name: string;
+        command: string;
+        trigger: "prebuild" | "environment_start" | "post_start";
+        required: boolean;
+      }>;
+  services: Array<{
+        name: string;
+        command: string;
+        lifecycle: "optional" | "required";
+        trigger: "post_start" | "environment_start";
+      }>;
+  ports: Array<{
+        port: number;
+        protocol: "tcp" | "udp";
+        access_policy: "private" | "session_lease" | "shared";
+      }>;
+  secret_requirement_refs: Array<string>;
+  scm_auth_requirement_refs: Array<string>;
+  created_at: string;
+};
+
+export type HypervisorDevelopmentEnvironmentRecipeResolutionV1 = {
+  schema_version: "ioi.hypervisor.environment-recipe-resolution.v1";
+  recipe_ref: string;
+  environment_ref: string;
+  resolved_substrate: "local_host" | "devcontainer" | "container";
+  resolved_tasks: Array<{
+        name: string;
+        command: string;
+        trigger: "prebuild" | "environment_start" | "post_start";
+        required: boolean;
+      }>;
+  resolved_prebuild_tasks: Array<{
+        name: string;
+        command: string;
+        trigger: "prebuild" | "environment_start" | "post_start";
+        required: boolean;
+      }>;
+  resolved_services: Array<{
+        name: string;
+        command: string;
+        lifecycle: "optional" | "required";
+        trigger: "post_start" | "environment_start";
+      }>;
+  resolved_ports: Array<{
+        port: number;
+        protocol: "tcp" | "udp";
+        access_policy: "private" | "session_lease" | "shared";
+      }>;
+  required_task_refs: Array<string>;
+  required_service_refs: Array<string>;
+  required_port_refs: Array<number>;
+  required_secret_refs: Array<string>;
+  required_scm_auth_refs: Array<string>;
+  readiness_gate_ref: string;
+  resolution_ref: string;
+  blocked_reason: null;
+  created_at: string;
+};
+
+export type HypervisorSessionLaunchRecipeAdmissionV1 = {
+  schema_version: "ioi.runtime.hypervisor_session_launch_recipe_admission.v1";
+  admission_id: string;
+  decision: "admitted";
+  admission_state: "admitted_for_session_binding";
+  recipe_ref: string;
+  recipe_kind: "mission" | "workbench" | "agent" | "automation" | "foundry_job" | "provider_environment_job" | "privacy_workspace";
+  surface_id: "sessions" | "workbench" | "agents" | "automations" | "foundry" | "environments" | "privacy";
+  target_binding_ref: string;
+  project_ref: string;
+  operator_intent_ref: string | null;
+  session_route_ref: string;
+  code_editor_adapter_target_ref: string | null;
+  model_route_ref: string;
+  privacy_posture_ref: string;
+  authority_scope_refs: Array<string>;
+  receipt_preview_ref: string;
+  expected_receipt_refs: Array<string>;
+  agentgres_operation_refs: Array<string>;
+  receipt_refs: Array<string>;
+  state_root: string;
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+  admitted_at: string;
+  recipe_invariant: "New Session recipes become launchable only after daemon admission binds recipe, target binding, project, route, model, privacy, authority scopes, receipts, and Agentgres operation refs.";
+};
+
+export type HarnessSessionBindingV1 = {
+  schema_version: "ioi.hypervisor.harness_session_binding.v1";
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref: string;
+  harness_selection_kind: "harness_profile" | "agent_harness_adapter";
+  harness_label?: string;
+  harness_truth_boundary: "daemon-owned" | "proposal_source_only";
+  harness_launch_route_ref: string;
+  agent_harness_adapter_id?: string | null;
+  harness_profile_ref?: string | null;
+  model_configuration_ref: string;
+  model_configuration_label?: string;
+  model_route_ref: string;
+  model_route_policy: "hypervisor_model_mount" | "adapter_builtin" | "forbidden";
+  model_route_availability_state: "daemon_verified" | "fixture_available" | "missing" | "unavailable";
+  model_route_endpoint_refs: Array<string>;
+  model_route_loaded_instance_refs: Array<string>;
+  workspace_mount_policy: "public_trunk" | "redacted_projection" | "plain_workspace" | "ctee_private_workspace";
+  privacy_posture_ref: string;
+  authority_scope_refs: Array<string>;
+  receipt_policy_ref: string;
+  receipt_preview_ref: string;
+  expected_receipt_refs: Array<string>;
+  requires_daemon_gate: true;
+  runtimeTruthSource: "daemon-runtime";
+  harness_runtime_truth_claimed?: false;
+  agentgres_operation_refs?: Array<string>;
+  receipt_refs?: Array<string>;
+  state_root?: string | null;
+  admission_id?: string;
+  admission_receipt_ref?: string;
+  admitted_at?: string;
+  brokered_capability_manifest_ref?: string | null;
+  mcp_gateway_profile_refs?: Array<string>;
+  connector_refs?: Array<string>;
+  example_root_ref?: string | null;
+};
+
+export type HarnessSessionBindingAdmissionV1 = {
+  schema_version: "ioi.runtime.harness_session_binding_admission.v1";
+  admission_id: string;
+  decision: "admitted";
+  admission_state: "admitted_for_harness_launch";
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref: string;
+  harness_selection_kind: "harness_profile" | "agent_harness_adapter";
+  harness_truth_boundary: "daemon-owned" | "proposal_source_only";
+  harness_launch_route_ref: string;
+  agent_harness_adapter_id: string | null;
+  harness_profile_ref: string | null;
+  model_configuration_ref: string;
+  model_route_ref: string;
+  model_route_policy: "hypervisor_model_mount" | "adapter_builtin" | "forbidden";
+  model_route_availability_state: "daemon_verified" | "fixture_available" | "missing" | "unavailable";
+  model_route_endpoint_refs: Array<string>;
+  model_route_loaded_instance_refs: Array<string>;
+  workspace_mount_policy: "public_trunk" | "redacted_projection" | "plain_workspace" | "ctee_private_workspace";
+  privacy_posture_ref: string;
+  authority_scope_refs: Array<string>;
+  receipt_policy_ref: string;
+  receipt_preview_ref: string;
+  expected_receipt_refs: Array<string>;
+  agentgres_operation_refs: Array<string>;
+  receipt_refs: Array<string>;
+  state_root: string | null;
+  harness_runtime_truth_claimed: false;
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+  admitted_at: string;
+  binding_invariant: "Harness session launch is admitted only after harness, model route, workspace mount policy, privacy posture, authority scopes, receipts, and daemon runtime truth boundary are bound.";
+};
+
+export type HarnessSessionSpawnV1 = {
+  schema_version: "ioi.runtime.harness_session_spawn.v1";
+  decision: "admitted";
+  spawn_state: "ready_for_client_pty_attach";
+  spawn_lane?: "host_terminal_session";
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+  spawn_id: string;
+  launch_id: string;
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref: string;
+  agent_harness_adapter_id?: string | null;
+  model_configuration_ref: string;
+  model_route_ref: string;
+  model_name?: string;
+  workspace_ref: string;
+  workspace_root: string;
+  terminal_session_ref?: string;
+  command_contract_ref?: string;
+  command_contract: {
+      pty_transport: "hypervisor_client_terminal_adapter";
+      process_custody?: "client_host_pty_after_daemon_spawn_admission";
+      resolved_argv?: Array<string>;
+    };
+  terminal_attach_contract: {
+      command_line: string;
+      root?: string;
+      rows?: number;
+      cols?: number;
+    };
+  workspace_mount_policy: "public_trunk" | "redacted_projection" | "plain_workspace" | "ctee_private_workspace";
+  privacy_posture_ref: string;
+  authority_scope_refs: Array<string>;
+  receipt_policy_ref: string;
+  receipt_refs: Array<string>;
+  agentgres_operation_refs: Array<string>;
+  secret_release_policy?: "none";
+  spawned_at?: string;
+};
+
+export type HarnessSessionReadinessV1 = {
+  schema_version: "ioi.runtime.harness_session_readiness.v1";
+  decision: "ready";
+  readiness_state: "ready_for_harness_pty_attach";
+  readiness_id: string;
+  spawn_id: string;
+  launch_id: string;
+  session_binding_ref: string;
+  session_route_ref?: string;
+  harness_selection_ref?: string;
+  agent_harness_adapter_id?: string | null;
+  model_configuration_ref?: string;
+  model_route_ref?: string;
+  model_name?: string;
+  available_model_names?: Array<string>;
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+  checks: Array<{
+        id: string;
+        status: "pass";
+        required: boolean;
+        summary?: string;
+        evidence_refs: Array<string>;
+      }>;
+  operator_next_action?: string;
+  checked_at?: string;
+  receipt_refs: Array<string>;
+  agentgres_operation_refs: Array<string>;
+};
+
+export type HarnessSessionTerminalAttachV1 = {
+  schema_version: "ioi.runtime.harness_session_terminal_attach.v1";
+  attach_id: string;
+  decision: "admitted";
+  attach_state: "client_pty_attach_admitted";
+  attach_lane: "hypervisor_client_terminal_adapter";
+  spawn_id: string;
+  readiness_id: string;
+  launch_id?: string;
+  session_binding_ref: string;
+  session_route_ref: string;
+  harness_selection_ref?: string;
+  agent_harness_adapter_id: string | null;
+  model_configuration_ref?: string;
+  model_route_ref?: string;
+  model_name?: string;
+  workspace_ref?: string;
+  workspace_root?: string;
+  terminal_session_ref?: string;
+  command_contract_ref?: string;
+  command_contract?: {
+      pty_transport: "hypervisor_client_terminal_adapter";
+      process_custody?: "client_host_pty_after_daemon_spawn_admission";
+      resolved_argv?: Array<string>;
+    };
+  workspace_mount_policy?: "public_trunk" | "redacted_projection" | "plain_workspace" | "ctee_private_workspace";
+  privacy_posture_ref?: string;
+  receipt_policy_ref?: string;
+  client_attach_contract: {
+      command_line: string;
+      initial_write: string;
+      transcript_stream_ref: string;
+      pty_transport: "hypervisor_client_terminal_adapter";
+      process_custody: "client_host_pty_after_daemon_attach_admission";
+      root?: string;
+      rows?: number;
+      cols?: number;
+    };
+  terminal_transcript_projection: {
+      schema_version: "ioi.runtime.harness_terminal_transcript_projection.v1";
+      transcript_id: string;
+      transcript_state: "awaiting_client_stream";
+      transcript_stream_ref: string;
+      cursor: number;
+      lines: Array<{
+              stream: "system" | "stdin";
+              text: string;
+            }>;
+      runtimeTruthSource: "daemon-runtime";
+    };
+  authority_scope_refs: Array<string>;
+  receipt_refs: Array<string>;
+  agentgres_operation_refs: Array<string>;
+  state_root: string;
+  attached_at: string;
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+  terminal_attach_invariant: "The client may create and write to the host PTY only after the daemon binds the spawned command, readiness proof, authority scopes, receipt refs, transcript stream, and workspace root in this attach object.";
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -5857,6 +6173,334 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "hypervisor_resource_cleanup_obligation.resource_refs.unique"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-explicit-devcontainer.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-unknown-substrate.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-init-task.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_development_environment_recipe.init_tasks.unique_names"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-port.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_development_environment_recipe.ports.unique"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-required-edges.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-duplicate-resolved-service.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_development_environment_recipe_resolution.resolved_services.unique_names"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-port-zero.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-workbench.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-mission.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-surface-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-workbench-without-adapter.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-receipt-preview-unbound.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_session_launch_recipe_admission.receipt_preview.bound"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-profile-local-mount.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-adapter-proposal-source.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-provider-trust.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-runtime-truth-claim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-adapter-ctee-custody.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-missing-workspace-read-scope.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-receipt-policy-unbound.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "harness_session_binding.receipt_policy.bound"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-profile.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-adapter.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-decision-refused.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-truth-claimed.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-preview-unbound.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "harness_session_binding_admission.receipt_preview.bound"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/positive-local-qwen.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-premature-state.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-missing-command-line.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-foreign-pty-transport.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/positive-probed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-no-checks.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-check-without-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-failed-check-claims-ready.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-duplicate-check-id.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "harness_session_readiness.checks.unique_ids"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-missing-spawn.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/positive-workbench-codex.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-client-authored-stdin.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "harness_session_terminal_attach.stdin_line.daemon_resolved"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-transcript-stream-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "harness_session_terminal_attach.transcript_stream.bound"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-without-readiness.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -10326,6 +10970,293 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-explicit-devcontainer.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-explicit-devcontainer.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-unknown-substrate.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-unknown-substrate.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-init-task.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-init-task.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-port.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-port.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-required-edges.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-required-edges.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-duplicate-resolved-service.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-duplicate-resolved-service.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-port-zero.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-port-zero.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-workbench.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-workbench.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-mission.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-mission.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-surface-mismatch.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-surface-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-workbench-without-adapter.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-workbench-without-adapter.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-receipt-preview-unbound.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-receipt-preview-unbound.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-profile-local-mount.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-profile-local-mount.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-adapter-proposal-source.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-adapter-proposal-source.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-provider-trust.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-provider-trust.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-runtime-truth-claim.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-runtime-truth-claim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-adapter-ctee-custody.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-adapter-ctee-custody.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-missing-workspace-read-scope.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-missing-workspace-read-scope.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-receipt-policy-unbound.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-receipt-policy-unbound.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-profile.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-profile.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-adapter.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-adapter.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-decision-refused.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-decision-refused.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-truth-claimed.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-truth-claimed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-preview-unbound.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-preview-unbound.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/positive-local-qwen.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/positive-local-qwen.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-premature-state.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-premature-state.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-missing-command-line.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-missing-command-line.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-foreign-pty-transport.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-foreign-pty-transport.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/positive-probed.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/positive-probed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-no-checks.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-no-checks.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-check-without-evidence.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-check-without-evidence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-failed-check-claims-ready.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-failed-check-claims-ready.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-duplicate-check-id.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-duplicate-check-id.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-missing-spawn.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-missing-spawn.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/positive-workbench-codex.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/positive-workbench-codex.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-client-authored-stdin.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-client-authored-stdin.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-transcript-stream-mismatch.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-transcript-stream-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-without-readiness.json",
+    "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-without-readiness.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -11216,6 +12147,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,240}$",
   "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$",
   "^(?:gate|policy)://[^\\s]{1,240}$",
+  "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$",
   "^(?:network|chain|domain)://[^\\s]{1,248}$",
   "^(?:observed-state|agentgres)://[^\\s]{1,240}$",
   "^(?:policy|profile)://[^\\s]{1,248}$",
@@ -11283,12 +12215,17 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^active-profile-set://[^\\s]{1,248}$",
   "^actuator://[^\\s]+$",
   "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^agent-harness-adapter:[^\\s]{1,200}$",
+  "^agentgres://[^\\s]{1,240}$",
   "^agentgres://domain/[^\\s]{1,240}$",
   "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$",
   "^agentgres://object-set/[^\\s]{1,248}$",
   "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$",
   "^agentgres://operation-log/autonomous-system/[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^agentgres://operation/[^\\s]+$",
+  "^agentgres://operation/[^\\s]{1,240}$",
+  "^agentgres://state-root/[^\\s]{1,240}$",
+  "^agentgres://trace/[^\\s]{1,240}$",
   "^appraisal://[^\\s]{1,248}$",
   "^appraiser://[^\\s]{1,248}$",
   "^approval://[A-Za-z0-9._~:/-]+$",
@@ -11309,6 +12246,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^chain-writer-reservation://sha256:[0-9a-f]{64}$",
   "^challenge://[^\\s]{1,248}$",
   "^change-plan://[^\\s]{1,240}$",
+  "^check:[^\\s]{1,200}$",
   "^checkpoint://[^\\s]{1,248}$",
   "^cleanup-obligation://[^\\s]{1,240}$",
   "^commitment://[^\\s]{1,248}$",
@@ -11346,6 +12284,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^failover-profile://[^\\s]{1,248}$",
   "^failure-domain://[^\\s]{1,248}$",
   "^fee-basis://[^\\s]{1,248}$",
+  "^gate_[0-9a-f]{1,32}$",
   "^genesis://[A-Za-z0-9._:/-]+$",
   "^genesis://[^\\s]{1,248}$",
   "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -11355,6 +12294,12 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^grant://[^\\s]{1,248}$",
   "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$",
   "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^harness-profile:[^\\s]{1,200}$",
+  "^harness-route:[^\\s]{1,240}$",
+  "^harness-session-binding-admission:[^\\s]{1,400}$",
+  "^harness-session-binding:[^\\s]{1,400}$",
+  "^harness-session-terminal-attach:[^\\s]{1,300}$",
+  "^harness-terminal-transcript:[^\\s]{1,300}$",
   "^hypervisoros-node://[^\\s]{1,248}$",
   "^ifc-label://[A-Za-z0-9._~:/-]+$",
   "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -11373,6 +12318,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^measurement-policy://[^\\s]{1,248}$",
   "^membership-transition://[^\\s]{1,248}$",
   "^migration-destination-acknowledgement://[^\\s]{1,248}$",
+  "^model-config:[^\\s]{1,240}$",
+  "^model-config:local/[^\\s]{1,220}$",
+  "^model-endpoint:[^\\s]{1,240}$",
+  "^model-instance:[^\\s]{1,240}$",
+  "^model-route:[^\\s]{1,240}$",
   "^network-enrollment://[^\\s]{1,248}$",
   "^node-enforcement://[^\\s]{1,248}$",
   "^node-membership://[^\\s]{1,248}$",
@@ -11391,13 +12341,17 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^prim:[a-z0-9._-]+$",
   "^prim:[a-z][a-z0-9._-]*$",
   "^prim:[a-z][a-z0-9._-]{0,127}$",
+  "^privacy:[^\\s]{1,200}$",
   "^profile://[^\\s]{1,248}$",
+  "^project:[^\\s]{1,200}$",
   "^proof://[^\\s]+$",
   "^proposal://[A-Za-z0-9._:/-]+$",
   "^proposal://[^\\s]{1,248}$",
   "^provenance://[^\\s]{1,248}$",
   "^receipt-checkpoint://[^\\s]+$",
   "^receipt-log://[^\\s]+$",
+  "^receipt-policy:[^\\s]{1,240}$",
+  "^receipt-preview:[^\\s]{1,240}$",
   "^receipt://[A-Za-z0-9._:/-]+$",
   "^receipt://[A-Za-z0-9._~:/-]+$",
   "^receipt://[^\\s]+$",
@@ -11406,7 +12360,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt://asar_[0-9a-f]{64}$",
   "^receipt://aszmr_[0-9a-f]{64}$",
   "^receipt://ltr_[0-9a-f]{64}$",
+  "^receipt[^\\s]{1,260}$",
+  "^recipe_[0-9a-f]{1,32}$",
   "^reference://[^\\s]{1,248}$",
+  "^reso_[0-9a-f]{1,32}$",
   "^resource-lease://[^\\s]+$",
   "^run://[^\\s]+$",
   "^runtime://[^\\s]{1,248}$",
@@ -11414,6 +12371,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^schema://[^\\s]+$",
   "^schema://[^\\s]{1,240}$",
   "^schema://[^\\s]{1,248}$",
+  "^scope:[^\\s]{1,200}$",
   "^scope:[a-z0-9._-]+$",
   "^scope:[a-z0-9._:-]{1,180}$",
   "^scope:[a-z0-9_.:-]{1,120}$",
@@ -11423,6 +12381,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^scope:autonomous_system[.]membership[.][a-z_]{1,64}$",
   "^sensor://[^\\s]+$",
   "^service://[^\\s]{1,248}$",
+  "^session-route:[^\\s]{1,240}$",
   "^session://[^\\s]{1,240}$",
   "^settlement://[^\\s]+$",
   "^sha256:[0-9a-f]{64}$",
@@ -11451,6 +12410,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$",
   "^system://[^\\s]{1,240}$",
   "^system://[^\\s]{1,248}$",
+  "^target-binding:[^\\s]{1,240}$",
   "^task://[^\\s]+$",
   "^temporal-evaluation://[^\\s]{1,248}$",
   "^terms://[^\\s]{1,248}$",
@@ -11468,6 +12428,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workload://[^\\s]{1,248}$",
+  "^workspace://[^\\s]{1,240}$",
   "^writer-transition://[^\\s]{1,248}$",
   "^zone://[^\\s]+$"
 ] as const;
@@ -11540,7 +12501,15 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1": "sha256:6b8e05c397f5ce106af734c9684f4eff933846f012a937bdff341f6909674d86",
   "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1": "sha256:c358a0e549989aac8d0ef688f68286317959b6bd77c1b2a2a43ded71c2f616a8",
   "schema://ioi/components/hypervisor/hypervisor-change-plan/v1": "sha256:32d6b5365cdc15a5c05b83f196ac0101758fad6534a5dbef7b30d99b55e0abf0",
-  "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1": "sha256:1abc2124c1de5187571c0d42fc3065d97b950ca51fbe293bbd2b238b688b415d"
+  "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1": "sha256:1abc2124c1de5187571c0d42fc3065d97b950ca51fbe293bbd2b238b688b415d",
+  "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1": "sha256:d1ebc030dee3e6b98a9a4bbf7f7195b4b21357cc6cf97020704c325b0f01c377",
+  "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1": "sha256:590743d3cb2cb61408bb97680a6e82a0e0ba2a151cc25a9634e17fbdaf491368",
+  "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1": "sha256:689bfc17c504c046e8817d52c077c25d99dd9b55c9e5e3fec7cd1964c2c06c89",
+  "schema://ioi/components/hypervisor/harness-session-binding/v1": "sha256:89e0cd13c371d30221e73f6af8b656f2a19af2aa55657e53ddeb65ee200499f6",
+  "schema://ioi/components/hypervisor/harness-session-binding-admission/v1": "sha256:272fed9f39075b80d523e895f65815be3103e5266d75b59b759564dc028cd40a",
+  "schema://ioi/components/hypervisor/harness-session-spawn/v1": "sha256:095dec4ddb3e6d0916c14fb155d08a815fa56e47f33816d9cf68ab2a9eb30c4a",
+  "schema://ioi/components/hypervisor/harness-session-readiness/v1": "sha256:04971bfbd7dcff54d841cdc469bf646a25b2cdb2a6d2cfa245e52ed0fe713a0a",
+  "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1": "sha256:683e2b4c3db8a9e30a98d03bfb5e745c0e6e9dab3e59e2fda2eea4212c88fd1f"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -41503,6 +42472,2254 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
       }
     }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+    "title": "HypervisorDevelopmentEnvironmentRecipe",
+    "description": "The admitted reusable development-environment setup contract as the daemon actually produces and persists it (recipe_routes.rs new_recipe / detect_recipe_fields): explicit or repo-detected provenance, substrate, task/service/port declarations, and the required secret and SCM-auth edges that later gate readiness. The recipe declares desired setup; it is never provider truth, storage truth, wallet authority, or runtime execution by itself. Canon declares a richer envelope (content hash, discovery lineage, checkout, policy refs); this v1 registers the shape the implementation produces today and the divergence is recorded at the canonical owner.",
+    "x-ioi-schema-version": "ioi.hypervisor.development-environment-recipe.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "recipe_ref",
+      "source",
+      "project_ref",
+      "environment_class_ref",
+      "substrate",
+      "monitor",
+      "isolation_profile",
+      "cache_paths",
+      "detected_signals",
+      "prebuild_tasks",
+      "init_tasks",
+      "post_start_tasks",
+      "services",
+      "ports",
+      "secret_requirement_refs",
+      "scm_auth_requirement_refs",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.development-environment-recipe.v1"
+      },
+      "recipe_ref": {
+        "type": "string",
+        "pattern": "^recipe_[0-9a-f]{1,32}$"
+      },
+      "source": {
+        "enum": [
+          "explicit",
+          "repo_detected"
+        ]
+      },
+      "project_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^project:[^\\s]{1,200}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "environment_class_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "substrate": {
+        "enum": [
+          "local_host",
+          "devcontainer",
+          "container"
+        ]
+      },
+      "monitor": {
+        "type": "null"
+      },
+      "isolation_profile": {
+        "type": "null"
+      },
+      "cache_paths": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        }
+      },
+      "detected_signals": {
+        "type": "array",
+        "maxItems": 16,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "devcontainer.json",
+            "Dockerfile",
+            "Cargo.toml",
+            "package.json",
+            "python",
+            "go.mod"
+          ]
+        }
+      },
+      "prebuild_tasks": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "$ref": "#/$defs/task"
+        }
+      },
+      "init_tasks": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "$ref": "#/$defs/task"
+        }
+      },
+      "post_start_tasks": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "$ref": "#/$defs/task"
+        }
+      },
+      "services": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "command",
+            "lifecycle",
+            "trigger"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "lifecycle": {
+              "enum": [
+                "optional",
+                "required"
+              ]
+            },
+            "trigger": {
+              "enum": [
+                "post_start",
+                "environment_start"
+              ]
+            }
+          }
+        }
+      },
+      "ports": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "port",
+            "protocol",
+            "access_policy"
+          ],
+          "properties": {
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "protocol": {
+              "enum": [
+                "tcp",
+                "udp"
+              ]
+            },
+            "access_policy": {
+              "enum": [
+                "private",
+                "session_lease",
+                "shared"
+              ]
+            }
+          }
+        }
+      },
+      "secret_requirement_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      },
+      "scm_auth_requirement_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      },
+      "created_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "$defs": {
+      "task": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "command",
+          "trigger",
+          "required"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "trigger": {
+            "enum": [
+              "prebuild",
+              "environment_start",
+              "post_start"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          }
+        }
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+    "title": "HypervisorDevelopmentEnvironmentRecipeResolution",
+    "description": "The daemon-produced decision that turns one admitted development-environment recipe into concrete environment ingredients for one exact environment (recipe_routes.rs resolve_recipe): resolved substrate/tasks/services/ports plus the required task, service, port, secret, and SCM-auth edges that its readiness gate must prove. A resolution always binds the exact recipe_ref and environment_ref it resolved; a blocked candidate is a refusal, never a partially populated resolution, so blocked_reason is structurally null. The implementation's wire literal is ioi.hypervisor.environment-recipe-resolution.v1; the canon-name divergence is recorded at the canonical owner.",
+    "x-ioi-schema-version": "ioi.hypervisor.environment-recipe-resolution.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "recipe_ref",
+      "environment_ref",
+      "resolved_substrate",
+      "resolved_tasks",
+      "resolved_prebuild_tasks",
+      "resolved_services",
+      "resolved_ports",
+      "required_task_refs",
+      "required_service_refs",
+      "required_port_refs",
+      "required_secret_refs",
+      "required_scm_auth_refs",
+      "readiness_gate_ref",
+      "resolution_ref",
+      "blocked_reason",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.environment-recipe-resolution.v1"
+      },
+      "recipe_ref": {
+        "type": "string",
+        "pattern": "^recipe_[0-9a-f]{1,32}$"
+      },
+      "environment_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      },
+      "resolved_substrate": {
+        "enum": [
+          "local_host",
+          "devcontainer",
+          "container"
+        ]
+      },
+      "resolved_tasks": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "$ref": "#/$defs/task"
+        }
+      },
+      "resolved_prebuild_tasks": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "$ref": "#/$defs/task"
+        }
+      },
+      "resolved_services": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "command",
+            "lifecycle",
+            "trigger"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "lifecycle": {
+              "enum": [
+                "optional",
+                "required"
+              ]
+            },
+            "trigger": {
+              "enum": [
+                "post_start",
+                "environment_start"
+              ]
+            }
+          }
+        }
+      },
+      "resolved_ports": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "port",
+            "protocol",
+            "access_policy"
+          ],
+          "properties": {
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "protocol": {
+              "enum": [
+                "tcp",
+                "udp"
+              ]
+            },
+            "access_policy": {
+              "enum": [
+                "private",
+                "session_lease",
+                "shared"
+              ]
+            }
+          }
+        }
+      },
+      "required_task_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required_service_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required_port_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      },
+      "required_secret_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      },
+      "required_scm_auth_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      },
+      "readiness_gate_ref": {
+        "type": "string",
+        "pattern": "^gate_[0-9a-f]{1,32}$"
+      },
+      "resolution_ref": {
+        "type": "string",
+        "pattern": "^reso_[0-9a-f]{1,32}$"
+      },
+      "blocked_reason": {
+        "type": "null"
+      },
+      "created_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "$defs": {
+      "task": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "command",
+          "trigger",
+          "required"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "trigger": {
+            "enum": [
+              "prebuild",
+              "environment_start",
+              "post_start"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          }
+        }
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+    "title": "HypervisorSessionLaunchRecipeAdmission",
+    "description": "The daemon-admitted New-Session launch-recipe record exactly as the runtime kernel produces it (runtime_hypervisor_session_launch_recipe_admission.rs): a recipe becomes launchable only after this admission binds recipe, target binding, project, session route, model route, privacy posture, authority scopes, receipt preview/expectations, and Agentgres operation refs under the daemon gate. Each recipe kind maps to exactly one canonical surface, and a workbench recipe structurally requires its code-editor adapter target. This is the first daemon-side link of the session admission chain; the successor link is HarnessSessionBindingAdmission.",
+    "x-ioi-schema-version": "ioi.runtime.hypervisor_session_launch_recipe_admission.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "admission_id",
+      "decision",
+      "admission_state",
+      "recipe_ref",
+      "recipe_kind",
+      "surface_id",
+      "target_binding_ref",
+      "project_ref",
+      "operator_intent_ref",
+      "session_route_ref",
+      "code_editor_adapter_target_ref",
+      "model_route_ref",
+      "privacy_posture_ref",
+      "authority_scope_refs",
+      "receipt_preview_ref",
+      "expected_receipt_refs",
+      "agentgres_operation_refs",
+      "receipt_refs",
+      "state_root",
+      "requiresDaemonGate",
+      "runtimeTruthSource",
+      "admitted_at",
+      "recipe_invariant"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.runtime.hypervisor_session_launch_recipe_admission.v1"
+      },
+      "admission_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "decision": {
+        "const": "admitted"
+      },
+      "admission_state": {
+        "const": "admitted_for_session_binding"
+      },
+      "recipe_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "recipe_kind": {
+        "enum": [
+          "mission",
+          "workbench",
+          "agent",
+          "automation",
+          "foundry_job",
+          "provider_environment_job",
+          "privacy_workspace"
+        ]
+      },
+      "surface_id": {
+        "enum": [
+          "sessions",
+          "workbench",
+          "agents",
+          "automations",
+          "foundry",
+          "environments",
+          "privacy"
+        ]
+      },
+      "target_binding_ref": {
+        "type": "string",
+        "pattern": "^target-binding:[^\\s]{1,240}$"
+      },
+      "project_ref": {
+        "type": "string",
+        "pattern": "^project:[^\\s]{1,200}$"
+      },
+      "operator_intent_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "session_route_ref": {
+        "type": "string",
+        "pattern": "^session-route:[^\\s]{1,240}$"
+      },
+      "code_editor_adapter_target_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "model_route_ref": {
+        "type": "string",
+        "pattern": "^model-route:[^\\s]{1,240}$"
+      },
+      "privacy_posture_ref": {
+        "type": "string",
+        "pattern": "^privacy:[^\\s]{1,200}$"
+      },
+      "authority_scope_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^scope:[^\\s]{1,200}$"
+        }
+      },
+      "receipt_preview_ref": {
+        "type": "string",
+        "pattern": "^receipt-preview:[^\\s]{1,240}$"
+      },
+      "expected_receipt_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt[^\\s]{1,260}$"
+        }
+      },
+      "agentgres_operation_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^agentgres://operation/[^\\s]{1,240}$"
+        }
+      },
+      "receipt_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,240}$"
+        }
+      },
+      "state_root": {
+        "type": "string",
+        "pattern": "^agentgres://[^\\s]{1,240}$"
+      },
+      "requiresDaemonGate": {
+        "const": true
+      },
+      "runtimeTruthSource": {
+        "const": "daemon-runtime"
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      },
+      "recipe_invariant": {
+        "const": "New Session recipes become launchable only after daemon admission binds recipe, target binding, project, route, model, privacy, authority scopes, receipts, and Agentgres operation refs."
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "recipe_kind": {
+              "const": "mission"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "surface_id": {
+              "const": "sessions"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "recipe_kind": {
+              "const": "workbench"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "surface_id": {
+              "const": "workbench"
+            },
+            "code_editor_adapter_target_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 240
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "recipe_kind": {
+              "const": "agent"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "surface_id": {
+              "const": "agents"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "recipe_kind": {
+              "const": "automation"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "surface_id": {
+              "const": "automations"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "recipe_kind": {
+              "const": "foundry_job"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "surface_id": {
+              "const": "foundry"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "recipe_kind": {
+              "const": "provider_environment_job"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "surface_id": {
+              "const": "environments"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "recipe_kind": {
+              "const": "privacy_workspace"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "surface_id": {
+              "const": "privacy"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "canonicalDateTime": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/harness-session-binding/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+    "title": "HarnessSessionBinding",
+    "description": "The admissible harness-session binding exactly as the runtime kernel gate accepts it (runtime_harness_session_binding_admission.rs): harness selection (daemon-owned profile or proposal-source-only external adapter), model configuration/route with honest availability, workspace-mount policy, privacy posture, authority scopes, receipt policy/preview expectations, and the daemon runtime-truth boundary. Structurally inadmissible states are unrepresentable: a harness runtime-truth claim, a provider-trust model route without an explicit lease, an external adapter claiming cTEE private-workspace custody, and a hypervisor model mount without verified local endpoints, instances, and a local model configuration.",
+    "x-ioi-schema-version": "ioi.hypervisor.harness_session_binding.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "session_binding_ref",
+      "session_route_ref",
+      "harness_selection_ref",
+      "harness_selection_kind",
+      "harness_truth_boundary",
+      "harness_launch_route_ref",
+      "model_configuration_ref",
+      "model_route_ref",
+      "model_route_policy",
+      "model_route_availability_state",
+      "model_route_endpoint_refs",
+      "model_route_loaded_instance_refs",
+      "workspace_mount_policy",
+      "privacy_posture_ref",
+      "authority_scope_refs",
+      "receipt_policy_ref",
+      "receipt_preview_ref",
+      "expected_receipt_refs",
+      "requires_daemon_gate",
+      "runtimeTruthSource"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.harness_session_binding.v1"
+      },
+      "session_binding_ref": {
+        "type": "string",
+        "pattern": "^harness-session-binding:[^\\s]{1,400}$"
+      },
+      "session_route_ref": {
+        "type": "string",
+        "pattern": "^session-route:[^\\s]{1,240}$"
+      },
+      "harness_selection_ref": {
+        "type": "string",
+        "pattern": "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$"
+      },
+      "harness_selection_kind": {
+        "enum": [
+          "harness_profile",
+          "agent_harness_adapter"
+        ]
+      },
+      "harness_label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "harness_truth_boundary": {
+        "enum": [
+          "daemon-owned",
+          "proposal_source_only"
+        ]
+      },
+      "harness_launch_route_ref": {
+        "type": "string",
+        "pattern": "^harness-route:[^\\s]{1,240}$"
+      },
+      "agent_harness_adapter_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "harness_profile_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "model_configuration_ref": {
+        "type": "string",
+        "pattern": "^model-config:[^\\s]{1,240}$"
+      },
+      "model_configuration_label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "model_route_ref": {
+        "type": "string",
+        "pattern": "^model-route:[^\\s]{1,240}$"
+      },
+      "model_route_policy": {
+        "enum": [
+          "hypervisor_model_mount",
+          "adapter_builtin",
+          "forbidden"
+        ]
+      },
+      "model_route_availability_state": {
+        "enum": [
+          "daemon_verified",
+          "fixture_available",
+          "missing",
+          "unavailable"
+        ]
+      },
+      "model_route_endpoint_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "pattern": "^model-endpoint:[^\\s]{1,240}$"
+        }
+      },
+      "model_route_loaded_instance_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "pattern": "^model-instance:[^\\s]{1,240}$"
+        }
+      },
+      "workspace_mount_policy": {
+        "enum": [
+          "public_trunk",
+          "redacted_projection",
+          "plain_workspace",
+          "ctee_private_workspace"
+        ]
+      },
+      "privacy_posture_ref": {
+        "type": "string",
+        "pattern": "^privacy:[^\\s]{1,200}$"
+      },
+      "authority_scope_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "contains": {
+          "const": "scope:workspace.read"
+        },
+        "items": {
+          "type": "string",
+          "pattern": "^scope:[^\\s]{1,200}$"
+        }
+      },
+      "receipt_policy_ref": {
+        "type": "string",
+        "pattern": "^receipt-policy:[^\\s]{1,240}$"
+      },
+      "receipt_preview_ref": {
+        "type": "string",
+        "pattern": "^receipt-preview:[^\\s]{1,240}$"
+      },
+      "expected_receipt_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt[^\\s]{1,260}$"
+        }
+      },
+      "requires_daemon_gate": {
+        "const": true
+      },
+      "runtimeTruthSource": {
+        "const": "daemon-runtime"
+      },
+      "harness_runtime_truth_claimed": {
+        "const": false
+      },
+      "agentgres_operation_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^agentgres://operation/[^\\s]{1,240}$"
+        }
+      },
+      "receipt_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,240}$"
+        }
+      },
+      "state_root": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^agentgres://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "admission_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400
+      },
+      "admission_receipt_ref": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,240}$"
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      },
+      "brokered_capability_manifest_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "mcp_gateway_profile_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      },
+      "connector_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      },
+      "example_root_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "harness_selection_kind": {
+              "const": "harness_profile"
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "harness_profile_ref"
+          ],
+          "properties": {
+            "harness_selection_ref": {
+              "type": "string",
+              "pattern": "^harness-profile:[^\\s]{1,200}$"
+            },
+            "harness_profile_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "agent_harness_adapter_id": {
+              "type": "null"
+            },
+            "harness_truth_boundary": {
+              "const": "daemon-owned"
+            }
+          }
+        },
+        "else": {
+          "required": [
+            "agent_harness_adapter_id"
+          ],
+          "properties": {
+            "harness_selection_ref": {
+              "type": "string",
+              "pattern": "^agent-harness-adapter:[^\\s]{1,200}$"
+            },
+            "agent_harness_adapter_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "harness_profile_ref": {
+              "type": "null"
+            },
+            "harness_truth_boundary": {
+              "const": "proposal_source_only"
+            },
+            "workspace_mount_policy": {
+              "enum": [
+                "public_trunk",
+                "redacted_projection",
+                "plain_workspace"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "model_route_policy": {
+              "const": "hypervisor_model_mount"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "model_route_availability_state": {
+              "enum": [
+                "daemon_verified",
+                "fixture_available"
+              ]
+            },
+            "model_route_endpoint_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "string",
+                "pattern": "^model-endpoint:[^\\s]{1,240}$"
+              }
+            },
+            "model_route_loaded_instance_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "string",
+                "pattern": "^model-instance:[^\\s]{1,240}$"
+              }
+            },
+            "model_configuration_ref": {
+              "type": "string",
+              "pattern": "^model-config:local/[^\\s]{1,220}$"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "model_route_policy": {
+              "const": "forbidden"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "model_route_ref": {
+              "const": "model-route:none"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "canonicalDateTime": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/harness-session-binding-admission/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+    "title": "HarnessSessionBindingAdmission",
+    "description": "The daemon admission record the runtime kernel emits after a HarnessSessionBinding passes the local-first harness gate (runtime_harness_session_binding_admission.rs): the admitted binding echo plus the appended admission receipt, in state admitted_for_harness_launch. The kernel-refused states remain unrepresentable here exactly as in the binding contract, and harness_runtime_truth_claimed is pinned false: an admission can never record a harness runtime-truth claim. Predecessor link: HypervisorSessionLaunchRecipeAdmission; successor links: HarnessSessionSpawn, HarnessSessionReadiness, HarnessSessionTerminalAttach.",
+    "x-ioi-schema-version": "ioi.runtime.harness_session_binding_admission.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "admission_id",
+      "decision",
+      "admission_state",
+      "session_binding_ref",
+      "session_route_ref",
+      "harness_selection_ref",
+      "harness_selection_kind",
+      "harness_truth_boundary",
+      "harness_launch_route_ref",
+      "agent_harness_adapter_id",
+      "harness_profile_ref",
+      "model_configuration_ref",
+      "model_route_ref",
+      "model_route_policy",
+      "model_route_availability_state",
+      "model_route_endpoint_refs",
+      "model_route_loaded_instance_refs",
+      "workspace_mount_policy",
+      "privacy_posture_ref",
+      "authority_scope_refs",
+      "receipt_policy_ref",
+      "receipt_preview_ref",
+      "expected_receipt_refs",
+      "agentgres_operation_refs",
+      "receipt_refs",
+      "state_root",
+      "harness_runtime_truth_claimed",
+      "requiresDaemonGate",
+      "runtimeTruthSource",
+      "admitted_at",
+      "binding_invariant"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.runtime.harness_session_binding_admission.v1"
+      },
+      "admission_id": {
+        "type": "string",
+        "pattern": "^harness-session-binding-admission:[^\\s]{1,400}$"
+      },
+      "decision": {
+        "const": "admitted"
+      },
+      "admission_state": {
+        "const": "admitted_for_harness_launch"
+      },
+      "session_binding_ref": {
+        "type": "string",
+        "pattern": "^harness-session-binding:[^\\s]{1,400}$"
+      },
+      "session_route_ref": {
+        "type": "string",
+        "pattern": "^session-route:[^\\s]{1,240}$"
+      },
+      "harness_selection_ref": {
+        "type": "string",
+        "pattern": "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$"
+      },
+      "harness_selection_kind": {
+        "enum": [
+          "harness_profile",
+          "agent_harness_adapter"
+        ]
+      },
+      "harness_truth_boundary": {
+        "enum": [
+          "daemon-owned",
+          "proposal_source_only"
+        ]
+      },
+      "harness_launch_route_ref": {
+        "type": "string",
+        "pattern": "^harness-route:[^\\s]{1,240}$"
+      },
+      "agent_harness_adapter_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "harness_profile_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "model_configuration_ref": {
+        "type": "string",
+        "pattern": "^model-config:[^\\s]{1,240}$"
+      },
+      "model_route_ref": {
+        "type": "string",
+        "pattern": "^model-route:[^\\s]{1,240}$"
+      },
+      "model_route_policy": {
+        "enum": [
+          "hypervisor_model_mount",
+          "adapter_builtin",
+          "forbidden"
+        ]
+      },
+      "model_route_availability_state": {
+        "enum": [
+          "daemon_verified",
+          "fixture_available",
+          "missing",
+          "unavailable"
+        ]
+      },
+      "model_route_endpoint_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "pattern": "^model-endpoint:[^\\s]{1,240}$"
+        }
+      },
+      "model_route_loaded_instance_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "pattern": "^model-instance:[^\\s]{1,240}$"
+        }
+      },
+      "workspace_mount_policy": {
+        "enum": [
+          "public_trunk",
+          "redacted_projection",
+          "plain_workspace",
+          "ctee_private_workspace"
+        ]
+      },
+      "privacy_posture_ref": {
+        "type": "string",
+        "pattern": "^privacy:[^\\s]{1,200}$"
+      },
+      "authority_scope_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "contains": {
+          "const": "scope:workspace.read"
+        },
+        "items": {
+          "type": "string",
+          "pattern": "^scope:[^\\s]{1,200}$"
+        }
+      },
+      "receipt_policy_ref": {
+        "type": "string",
+        "pattern": "^receipt-policy:[^\\s]{1,240}$"
+      },
+      "receipt_preview_ref": {
+        "type": "string",
+        "pattern": "^receipt-preview:[^\\s]{1,240}$"
+      },
+      "expected_receipt_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt[^\\s]{1,260}$"
+        }
+      },
+      "agentgres_operation_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^agentgres://operation/[^\\s]{1,240}$"
+        }
+      },
+      "receipt_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,240}$"
+        }
+      },
+      "state_root": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^agentgres://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "harness_runtime_truth_claimed": {
+        "const": false
+      },
+      "requiresDaemonGate": {
+        "const": true
+      },
+      "runtimeTruthSource": {
+        "const": "daemon-runtime"
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      },
+      "binding_invariant": {
+        "const": "Harness session launch is admitted only after harness, model route, workspace mount policy, privacy posture, authority scopes, receipts, and daemon runtime truth boundary are bound."
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "harness_selection_kind": {
+              "const": "harness_profile"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "harness_selection_ref": {
+              "type": "string",
+              "pattern": "^harness-profile:[^\\s]{1,200}$"
+            },
+            "harness_profile_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "agent_harness_adapter_id": {
+              "type": "null"
+            },
+            "harness_truth_boundary": {
+              "const": "daemon-owned"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "harness_selection_ref": {
+              "type": "string",
+              "pattern": "^agent-harness-adapter:[^\\s]{1,200}$"
+            },
+            "agent_harness_adapter_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "harness_profile_ref": {
+              "type": "null"
+            },
+            "harness_truth_boundary": {
+              "const": "proposal_source_only"
+            },
+            "workspace_mount_policy": {
+              "enum": [
+                "public_trunk",
+                "redacted_projection",
+                "plain_workspace"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "model_route_policy": {
+              "const": "hypervisor_model_mount"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "model_route_availability_state": {
+              "enum": [
+                "daemon_verified",
+                "fixture_available"
+              ]
+            },
+            "model_route_endpoint_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "string",
+                "pattern": "^model-endpoint:[^\\s]{1,240}$"
+              }
+            },
+            "model_route_loaded_instance_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "string",
+                "pattern": "^model-instance:[^\\s]{1,240}$"
+              }
+            },
+            "model_configuration_ref": {
+              "type": "string",
+              "pattern": "^model-config:local/[^\\s]{1,220}$"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "model_route_policy": {
+              "const": "forbidden"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "model_route_ref": {
+              "const": "model-route:none"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "canonicalDateTime": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/harness-session-spawn/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
+    "title": "HarnessSessionSpawn",
+    "description": "The daemon-admitted harness spawn record in the exact boundary state the runtime kernel's terminal-attach gate enforces (runtime_harness_session_terminal_attach_admission.rs require_spawn): decision admitted, spawn_state ready_for_client_pty_attach, daemon gate and daemon runtime truth pinned, a command contract whose PTY transport is the hypervisor client terminal adapter, and a terminal attach contract carrying the daemon-resolved command line. The spawn does not run the process and grants no terminal execution authority; it is the frozen host-spawn admission that readiness and terminal attach must cite. No in-tree producer emits this record yet; the contract pins the consumer-enforced boundary, and the dev-replay mock's divergent states are recorded at the canonical owner.",
+    "x-ioi-schema-version": "ioi.runtime.harness_session_spawn.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "decision",
+      "spawn_state",
+      "requiresDaemonGate",
+      "runtimeTruthSource",
+      "spawn_id",
+      "launch_id",
+      "session_binding_ref",
+      "session_route_ref",
+      "harness_selection_ref",
+      "model_configuration_ref",
+      "model_route_ref",
+      "workspace_ref",
+      "workspace_root",
+      "command_contract",
+      "terminal_attach_contract",
+      "workspace_mount_policy",
+      "privacy_posture_ref",
+      "authority_scope_refs",
+      "receipt_policy_ref",
+      "receipt_refs",
+      "agentgres_operation_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.runtime.harness_session_spawn.v1"
+      },
+      "decision": {
+        "const": "admitted"
+      },
+      "spawn_state": {
+        "const": "ready_for_client_pty_attach"
+      },
+      "spawn_lane": {
+        "const": "host_terminal_session"
+      },
+      "requiresDaemonGate": {
+        "const": true
+      },
+      "runtimeTruthSource": {
+        "const": "daemon-runtime"
+      },
+      "spawn_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "launch_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "session_binding_ref": {
+        "type": "string",
+        "pattern": "^harness-session-binding:[^\\s]{1,400}$"
+      },
+      "session_route_ref": {
+        "type": "string",
+        "pattern": "^session-route:[^\\s]{1,240}$"
+      },
+      "harness_selection_ref": {
+        "type": "string",
+        "pattern": "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$"
+      },
+      "agent_harness_adapter_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "model_configuration_ref": {
+        "type": "string",
+        "pattern": "^model-config:[^\\s]{1,240}$"
+      },
+      "model_route_ref": {
+        "type": "string",
+        "pattern": "^model-route:[^\\s]{1,240}$"
+      },
+      "model_name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "workspace_ref": {
+        "type": "string",
+        "pattern": "^workspace://[^\\s]{1,240}$"
+      },
+      "workspace_root": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400
+      },
+      "terminal_session_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      },
+      "command_contract_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      },
+      "command_contract": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pty_transport"
+        ],
+        "properties": {
+          "pty_transport": {
+            "const": "hypervisor_client_terminal_adapter"
+          },
+          "process_custody": {
+            "const": "client_host_pty_after_daemon_spawn_admission"
+          },
+          "resolved_argv": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 400
+            }
+          }
+        }
+      },
+      "terminal_attach_contract": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "command_line"
+        ],
+        "properties": {
+          "command_line": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "root": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "cols": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          }
+        }
+      },
+      "workspace_mount_policy": {
+        "enum": [
+          "public_trunk",
+          "redacted_projection",
+          "plain_workspace",
+          "ctee_private_workspace"
+        ]
+      },
+      "privacy_posture_ref": {
+        "type": "string",
+        "pattern": "^privacy:[^\\s]{1,200}$"
+      },
+      "authority_scope_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^scope:[^\\s]{1,200}$"
+        }
+      },
+      "receipt_policy_ref": {
+        "type": "string",
+        "pattern": "^receipt-policy:[^\\s]{1,240}$"
+      },
+      "receipt_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,240}$"
+        }
+      },
+      "agentgres_operation_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^agentgres://operation/[^\\s]{1,240}$"
+        }
+      },
+      "secret_release_policy": {
+        "const": "none"
+      },
+      "spawned_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "$defs": {
+      "canonicalDateTime": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/harness-session-readiness/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+    "title": "HarnessSessionReadiness",
+    "description": "The daemon-admitted readiness proof for one exact harness spawn, in the boundary state the runtime kernel's terminal-attach gate enforces (runtime_harness_session_terminal_attach_admission.rs require_readiness): decision ready, readiness_state ready_for_harness_pty_attach, and the exact spawn_id, launch_id, and session_binding_ref of the spawn it proves. Readiness is structurally incapable of being fabricated (INV-37): it must carry at least one named probe check, every check must have passed and cite its evidence refs, and it must cite its spawn predecessor. Readiness is not terminal execution authority; terminal attach is a separate admission over spawn plus readiness.",
+    "x-ioi-schema-version": "ioi.runtime.harness_session_readiness.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "decision",
+      "readiness_state",
+      "readiness_id",
+      "spawn_id",
+      "launch_id",
+      "session_binding_ref",
+      "requiresDaemonGate",
+      "runtimeTruthSource",
+      "checks",
+      "receipt_refs",
+      "agentgres_operation_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.runtime.harness_session_readiness.v1"
+      },
+      "decision": {
+        "const": "ready"
+      },
+      "readiness_state": {
+        "const": "ready_for_harness_pty_attach"
+      },
+      "readiness_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "spawn_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "launch_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "session_binding_ref": {
+        "type": "string",
+        "pattern": "^harness-session-binding:[^\\s]{1,400}$"
+      },
+      "session_route_ref": {
+        "type": "string",
+        "pattern": "^session-route:[^\\s]{1,240}$"
+      },
+      "harness_selection_ref": {
+        "type": "string",
+        "pattern": "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$"
+      },
+      "agent_harness_adapter_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "model_configuration_ref": {
+        "type": "string",
+        "pattern": "^model-config:[^\\s]{1,240}$"
+      },
+      "model_route_ref": {
+        "type": "string",
+        "pattern": "^model-route:[^\\s]{1,240}$"
+      },
+      "model_name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "available_model_names": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "requiresDaemonGate": {
+        "const": true
+      },
+      "runtimeTruthSource": {
+        "const": "daemon-runtime"
+      },
+      "checks": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "status",
+            "required",
+            "evidence_refs"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^check:[^\\s]{1,200}$"
+            },
+            "status": {
+              "const": "pass"
+            },
+            "required": {
+              "type": "boolean"
+            },
+            "summary": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "evidence_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            }
+          }
+        }
+      },
+      "operator_next_action": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "checked_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      },
+      "receipt_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,240}$"
+        }
+      },
+      "agentgres_operation_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^agentgres://operation/[^\\s]{1,240}$"
+        }
+      }
+    },
+    "$defs": {
+      "canonicalDateTime": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
+    "title": "HarnessSessionTerminalAttach",
+    "description": "The terminal-attach admission the runtime kernel composes from an admitted HarnessSessionSpawn and its matching HarnessSessionReadiness (runtime_harness_session_terminal_attach_admission.rs): the client may create and write the host PTY only after this record binds the spawned command, readiness proof, authority scopes, receipt refs, transcript stream, and workspace root. The client attach contract carries the daemon-resolved command line, its initial write, and the client-custody PTY transport; the transcript projection opens awaiting the client stream with the daemon-resolved command as its stdin line. The client is a PTY transport, never the source of runtime truth.",
+    "x-ioi-schema-version": "ioi.runtime.harness_session_terminal_attach.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "attach_id",
+      "decision",
+      "attach_state",
+      "attach_lane",
+      "spawn_id",
+      "readiness_id",
+      "session_binding_ref",
+      "session_route_ref",
+      "agent_harness_adapter_id",
+      "client_attach_contract",
+      "terminal_transcript_projection",
+      "authority_scope_refs",
+      "receipt_refs",
+      "agentgres_operation_refs",
+      "state_root",
+      "attached_at",
+      "requiresDaemonGate",
+      "runtimeTruthSource",
+      "terminal_attach_invariant"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.runtime.harness_session_terminal_attach.v1"
+      },
+      "attach_id": {
+        "type": "string",
+        "pattern": "^harness-session-terminal-attach:[^\\s]{1,300}$"
+      },
+      "decision": {
+        "const": "admitted"
+      },
+      "attach_state": {
+        "const": "client_pty_attach_admitted"
+      },
+      "attach_lane": {
+        "const": "hypervisor_client_terminal_adapter"
+      },
+      "spawn_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "readiness_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "launch_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "session_binding_ref": {
+        "type": "string",
+        "pattern": "^harness-session-binding:[^\\s]{1,400}$"
+      },
+      "session_route_ref": {
+        "type": "string",
+        "pattern": "^session-route:[^\\s]{1,240}$"
+      },
+      "harness_selection_ref": {
+        "type": "string",
+        "pattern": "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$"
+      },
+      "agent_harness_adapter_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "model_configuration_ref": {
+        "type": "string",
+        "pattern": "^model-config:[^\\s]{1,240}$"
+      },
+      "model_route_ref": {
+        "type": "string",
+        "pattern": "^model-route:[^\\s]{1,240}$"
+      },
+      "model_name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "workspace_ref": {
+        "type": "string",
+        "pattern": "^workspace://[^\\s]{1,240}$"
+      },
+      "workspace_root": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400
+      },
+      "terminal_session_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      },
+      "command_contract_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      },
+      "command_contract": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pty_transport"
+        ],
+        "properties": {
+          "pty_transport": {
+            "const": "hypervisor_client_terminal_adapter"
+          },
+          "process_custody": {
+            "const": "client_host_pty_after_daemon_spawn_admission"
+          },
+          "resolved_argv": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 400
+            }
+          }
+        }
+      },
+      "workspace_mount_policy": {
+        "enum": [
+          "public_trunk",
+          "redacted_projection",
+          "plain_workspace",
+          "ctee_private_workspace"
+        ]
+      },
+      "privacy_posture_ref": {
+        "type": "string",
+        "pattern": "^privacy:[^\\s]{1,200}$"
+      },
+      "receipt_policy_ref": {
+        "type": "string",
+        "pattern": "^receipt-policy:[^\\s]{1,240}$"
+      },
+      "client_attach_contract": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "command_line",
+          "initial_write",
+          "transcript_stream_ref",
+          "pty_transport",
+          "process_custody"
+        ],
+        "properties": {
+          "command_line": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "initial_write": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2001
+          },
+          "transcript_stream_ref": {
+            "type": "string",
+            "pattern": "^agentgres://trace/[^\\s]{1,240}$"
+          },
+          "pty_transport": {
+            "const": "hypervisor_client_terminal_adapter"
+          },
+          "process_custody": {
+            "const": "client_host_pty_after_daemon_attach_admission"
+          },
+          "root": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "cols": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          }
+        }
+      },
+      "terminal_transcript_projection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "transcript_id",
+          "transcript_state",
+          "transcript_stream_ref",
+          "cursor",
+          "lines",
+          "runtimeTruthSource"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.runtime.harness_terminal_transcript_projection.v1"
+          },
+          "transcript_id": {
+            "type": "string",
+            "pattern": "^harness-terminal-transcript:[^\\s]{1,300}$"
+          },
+          "transcript_state": {
+            "const": "awaiting_client_stream"
+          },
+          "transcript_stream_ref": {
+            "type": "string",
+            "pattern": "^agentgres://trace/[^\\s]{1,240}$"
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 0
+          },
+          "lines": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "stream",
+                "text"
+              ],
+              "properties": {
+                "stream": {
+                  "enum": [
+                    "system",
+                    "stdin"
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                }
+              }
+            }
+          },
+          "runtimeTruthSource": {
+            "const": "daemon-runtime"
+          }
+        }
+      },
+      "authority_scope_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^scope:[^\\s]{1,200}$"
+        }
+      },
+      "receipt_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 48,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,240}$"
+        }
+      },
+      "agentgres_operation_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 48,
+        "items": {
+          "type": "string",
+          "pattern": "^agentgres://operation/[^\\s]{1,240}$"
+        }
+      },
+      "state_root": {
+        "type": "string",
+        "pattern": "^agentgres://state-root/[^\\s]{1,240}$"
+      },
+      "attached_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      },
+      "requiresDaemonGate": {
+        "const": true
+      },
+      "runtimeTruthSource": {
+        "const": "daemon-runtime"
+      },
+      "terminal_attach_invariant": {
+        "const": "The client may create and write to the host PTY only after the daemon binds the spawned command, readiness proof, authority scopes, receipt refs, transcript stream, and workspace root in this attach object."
+      }
+    },
+    "$defs": {
+      "canonicalDateTime": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -47403,6 +50620,210 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1": [
+    {
+      "rule_id": "hypervisor_development_environment_recipe.init_tasks.unique_names",
+      "description": "Recipe resolution derives required_task_refs by task name; a duplicated init-task name would double-count or shadow a required edge.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.init_tasks",
+        "fields": [
+          "name"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_development_environment_recipe.prebuild_tasks.unique_names",
+      "description": "Prebuild task names are resolution identities and must be unique within the recipe.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.prebuild_tasks",
+        "fields": [
+          "name"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_development_environment_recipe.post_start_tasks.unique_names",
+      "description": "Post-start task names are resolution identities and must be unique within the recipe.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.post_start_tasks",
+        "fields": [
+          "name"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_development_environment_recipe.services.unique_names",
+      "description": "Service names gate readiness (required_service_refs match on name); a duplicated service name would make the readiness edge ambiguous.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.services",
+        "fields": [
+          "name"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_development_environment_recipe.ports.unique",
+      "description": "One declared port row per port number; the resolution's required_port_refs must never double-count a port.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.ports",
+        "fields": [
+          "port"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1": [
+    {
+      "rule_id": "hypervisor_development_environment_recipe_resolution.resolved_tasks.unique_names",
+      "description": "Resolved task names remain unique so required_task_refs match one exact task run.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.resolved_tasks",
+        "fields": [
+          "name"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_development_environment_recipe_resolution.resolved_services.unique_names",
+      "description": "Resolved service names remain unique so required_service_refs match one exact service.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.resolved_services",
+        "fields": [
+          "name"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1": [
+    {
+      "rule_id": "hypervisor_session_launch_recipe_admission.receipt_preview.bound",
+      "description": "The admission's receipt preview must be one of its own expected receipt refs; an admission can never preview a receipt it does not expect (kernel refusal hypervisor_session_launch_recipe_receipt_preview_unbound).",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.expected_receipt_refs",
+        "expected_path": "$.receipt_preview_ref"
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/harness-session-binding/v1": [
+    {
+      "rule_id": "harness_session_binding.receipt_preview.bound",
+      "description": "The binding's launch receipt preview must appear in its expected receipt refs (kernel refusal harness_session_binding_receipt_preview_unbound).",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.expected_receipt_refs",
+        "expected_path": "$.receipt_preview_ref"
+      }
+    },
+    {
+      "rule_id": "harness_session_binding.receipt_policy.bound",
+      "description": "The binding's receipt policy must appear in its expected receipt refs (kernel refusal harness_session_binding_receipt_policy_unbound).",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.expected_receipt_refs",
+        "expected_path": "$.receipt_policy_ref"
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/harness-session-binding-admission/v1": [
+    {
+      "rule_id": "harness_session_binding_admission.receipt_preview.bound",
+      "description": "An admitted binding record keeps its launch receipt preview inside its expected receipt refs; the admission cannot un-bind what the gate required.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.expected_receipt_refs",
+        "expected_path": "$.receipt_preview_ref"
+      }
+    },
+    {
+      "rule_id": "harness_session_binding_admission.receipt_policy.bound",
+      "description": "An admitted binding record keeps its receipt policy inside its expected receipt refs.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.expected_receipt_refs",
+        "expected_path": "$.receipt_policy_ref"
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/harness-session-spawn/v1": [
+    {
+      "rule_id": "harness_session_spawn.identity.distinct_from_launch",
+      "description": "A spawn is a derived record over one launch: spawn_id never aliases launch_id, so readiness and attach can bind each predecessor exactly.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.spawn_id",
+          "$.launch_id"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/harness-session-readiness/v1": [
+    {
+      "rule_id": "harness_session_readiness.checks.unique_ids",
+      "description": "Each probe check id appears at most once; readiness can never double-count one probe as two pieces of evidence (INV-37: transport observations never become admitted truth by repetition).",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.checks",
+        "fields": [
+          "id"
+        ]
+      }
+    },
+    {
+      "rule_id": "harness_session_readiness.identity.distinct_from_spawn",
+      "description": "Readiness is a derived proof over one spawn: readiness_id never aliases the spawn_id it proves.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.readiness_id",
+          "$.spawn_id"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1": [
+    {
+      "rule_id": "harness_session_terminal_attach.transcript_stream.bound",
+      "description": "The client attach contract and the transcript projection cite the same daemon-owned transcript stream; the client cannot be handed one stream while the projection records another.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.client_attach_contract.transcript_stream_ref",
+          "$.terminal_transcript_projection.transcript_stream_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "harness_session_terminal_attach.stdin_line.daemon_resolved",
+      "description": "The transcript's opening stdin line is exactly the daemon-resolved command line of the client attach contract; the client never authors the initial command record (INV-37).",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.terminal_transcript_projection.lines[1].text",
+          "$.client_attach_contract.command_line"
+        ]
+      }
+    },
+    {
+      "rule_id": "harness_session_terminal_attach.identity.distinct_predecessors",
+      "description": "The attach binds two distinct predecessors: its spawn and its readiness proof are never the same record.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.spawn_id",
+          "$.readiness_id"
+        ]
+      }
+    }
   ]
 };
 
@@ -48648,4 +52069,52 @@ export function validateHypervisorResourceCleanupObligationV1(
   value: unknown,
 ): value is HypervisorResourceCleanupObligationV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1", value).ok;
+}
+
+export function validateHypervisorDevelopmentEnvironmentRecipeV1(
+  value: unknown,
+): value is HypervisorDevelopmentEnvironmentRecipeV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1", value).ok;
+}
+
+export function validateHypervisorDevelopmentEnvironmentRecipeResolutionV1(
+  value: unknown,
+): value is HypervisorDevelopmentEnvironmentRecipeResolutionV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1", value).ok;
+}
+
+export function validateHypervisorSessionLaunchRecipeAdmissionV1(
+  value: unknown,
+): value is HypervisorSessionLaunchRecipeAdmissionV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1", value).ok;
+}
+
+export function validateHarnessSessionBindingV1(
+  value: unknown,
+): value is HarnessSessionBindingV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/harness-session-binding/v1", value).ok;
+}
+
+export function validateHarnessSessionBindingAdmissionV1(
+  value: unknown,
+): value is HarnessSessionBindingAdmissionV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/harness-session-binding-admission/v1", value).ok;
+}
+
+export function validateHarnessSessionSpawnV1(
+  value: unknown,
+): value is HarnessSessionSpawnV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/harness-session-spawn/v1", value).ok;
+}
+
+export function validateHarnessSessionReadinessV1(
+  value: unknown,
+): value is HarnessSessionReadinessV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/harness-session-readiness/v1", value).ok;
+}
+
+export function validateHarnessSessionTerminalAttachV1(
+  value: unknown,
+): value is HarnessSessionTerminalAttachV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/harness-session-terminal-attach/v1", value).ok;
 }

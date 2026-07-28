@@ -3804,6 +3804,484 @@
           "expected_rule_id": "hypervisor_resource_cleanup_obligation.resource_refs.unique"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+      "canonical_name": "HypervisorDevelopmentEnvironmentRecipe",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#hypervisordevelopmentenvironmentrecipe",
+      "schema_version": "ioi.hypervisor.development-environment-recipe.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "hypervisor-development-environment-recipe.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-development-environment-recipe/task-service-port-identity/v1",
+          "path": "invariants/hypervisor-development-environment-recipe.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorDevelopmentEnvironmentRecipeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorDevelopmentEnvironmentRecipeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json",
+        "fixtures/hypervisor-development-environment-recipe-v1/positive-explicit-devcontainer.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-development-environment-recipe-v1/negative-unknown-substrate.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-init-task.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "hypervisor_development_environment_recipe.init_tasks.unique_names"
+        },
+        {
+          "path": "fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-port.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "hypervisor_development_environment_recipe.ports.unique"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+      "canonical_name": "HypervisorDevelopmentEnvironmentRecipeResolution",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#hypervisordevelopmentenvironmentreciperesolution",
+      "schema_version": "ioi.hypervisor.environment-recipe-resolution.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "hypervisor-development-environment-recipe-resolution.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/exact-predecessor-binding/v1",
+          "path": "invariants/hypervisor-development-environment-recipe-resolution.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorDevelopmentEnvironmentRecipeResolutionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorDevelopmentEnvironmentRecipeResolutionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json",
+        "fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-required-edges.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-duplicate-resolved-service.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "hypervisor_development_environment_recipe_resolution.resolved_services.unique_names"
+        },
+        {
+          "path": "fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-port-zero.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+      "canonical_name": "HypervisorSessionLaunchRecipeAdmission",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#hypervisorsessionlaunchrecipeadmission",
+      "schema_version": "ioi.runtime.hypervisor_session_launch_recipe_admission.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "hypervisor-session-launch-recipe-admission.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/receipt-preview-bound/v1",
+          "path": "invariants/hypervisor-session-launch-recipe-admission.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorSessionLaunchRecipeAdmissionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorSessionLaunchRecipeAdmissionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-session-launch-recipe-admission-v1/positive-workbench.json",
+        "fixtures/hypervisor-session-launch-recipe-admission-v1/positive-mission.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-session-launch-recipe-admission-v1/negative-surface-mismatch.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-session-launch-recipe-admission-v1/negative-workbench-without-adapter.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-session-launch-recipe-admission-v1/negative-receipt-preview-unbound.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "hypervisor_session_launch_recipe_admission.receipt_preview.bound"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+      "canonical_name": "HarnessSessionBinding",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#harnesssessionbinding",
+      "schema_version": "ioi.hypervisor.harness_session_binding.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "harness-session-binding.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/harness-session-binding/receipt-expectations-bound/v1",
+          "path": "invariants/harness-session-binding.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HarnessSessionBindingV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HarnessSessionBindingV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/harness-session-binding-v1/positive-profile-local-mount.json",
+        "fixtures/harness-session-binding-v1/positive-adapter-proposal-source.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/harness-session-binding-v1/negative-provider-trust.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/harness-session-binding-v1/negative-runtime-truth-claim.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/harness-session-binding-v1/negative-adapter-ctee-custody.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/harness-session-binding-v1/negative-missing-workspace-read-scope.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/harness-session-binding-v1/negative-receipt-policy-unbound.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "harness_session_binding.receipt_policy.bound"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
+      "canonical_name": "HarnessSessionBindingAdmission",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#harnesssessionbindingadmission",
+      "schema_version": "ioi.runtime.harness_session_binding_admission.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "harness-session-binding-admission.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/harness-session-binding-admission/receipt-expectations-bound/v1",
+          "path": "invariants/harness-session-binding-admission.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HarnessSessionBindingAdmissionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HarnessSessionBindingAdmissionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/harness-session-binding-admission-v1/positive-profile.json",
+        "fixtures/harness-session-binding-admission-v1/positive-adapter.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/harness-session-binding-admission-v1/negative-decision-refused.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/harness-session-binding-admission-v1/negative-truth-claimed.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/harness-session-binding-admission-v1/negative-preview-unbound.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "harness_session_binding_admission.receipt_preview.bound"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
+      "canonical_name": "HarnessSessionSpawn",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#harnesssessionspawn",
+      "schema_version": "ioi.runtime.harness_session_spawn.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "harness-session-spawn.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/harness-session-spawn/distinct-predecessor-identity/v1",
+          "path": "invariants/harness-session-spawn.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HarnessSessionSpawnV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HarnessSessionSpawnV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/harness-session-spawn-v1/positive-local-qwen.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/harness-session-spawn-v1/negative-premature-state.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/harness-session-spawn-v1/negative-missing-command-line.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/harness-session-spawn-v1/negative-foreign-pty-transport.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+      "canonical_name": "HarnessSessionReadiness",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#harnesssessionreadiness",
+      "schema_version": "ioi.runtime.harness_session_readiness.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "harness-session-readiness.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/harness-session-readiness/probe-evidence-required/v1",
+          "path": "invariants/harness-session-readiness.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HarnessSessionReadinessV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HarnessSessionReadinessV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/harness-session-readiness-v1/positive-probed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/harness-session-readiness-v1/negative-no-checks.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/harness-session-readiness-v1/negative-check-without-evidence.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/harness-session-readiness-v1/negative-failed-check-claims-ready.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/harness-session-readiness-v1/negative-duplicate-check-id.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "harness_session_readiness.checks.unique_ids"
+        },
+        {
+          "path": "fixtures/harness-session-readiness-v1/negative-missing-spawn.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
+      "canonical_name": "HarnessSessionTerminalAttach",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#harnesssessionterminalattach",
+      "schema_version": "ioi.runtime.harness_session_terminal_attach.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "harness-session-terminal-attach.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/harness-session-terminal-attach/daemon-resolved-command-bound/v1",
+          "path": "invariants/harness-session-terminal-attach.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HarnessSessionTerminalAttachV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HarnessSessionTerminalAttachV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/harness-session-terminal-attach-v1/positive-workbench-codex.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/harness-session-terminal-attach-v1/negative-client-authored-stdin.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "harness_session_terminal_attach.stdin_line.daemon_resolved"
+        },
+        {
+          "path": "fixtures/harness-session-terminal-attach-v1/negative-transcript-stream-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "harness_session_terminal_attach.transcript_stream.bound"
+        },
+        {
+          "path": "fixtures/harness-session-terminal-attach-v1/negative-without-readiness.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

@@ -404,3 +404,164 @@ pub(crate) async fn handle_recipe_get(
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "recipe not found".into()))?;
     Ok(Json(json!({ "recipe": recipe })))
 }
+
+// ---------------------------------------------------------------------------------
+// M2 session-chain contract proofs (route layer): the recipe -> resolution ->
+// readiness-gate links are bound to the registered architecture contracts, with the
+// live produced objects (never hand-written shapes) as the validated instances.
+// ---------------------------------------------------------------------------------
+#[cfg(test)]
+mod m2_contract_tests {
+    use super::*;
+    use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
+
+    const RECIPE_CONTRACT: &str =
+        "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1";
+    const RESOLUTION_CONTRACT: &str =
+        "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1";
+
+    fn temp_dir(label: &str) -> std::path::PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!("ioi-m2-recipe-{label}-{nanos:x}"));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        dir
+    }
+
+    /// `AppError` carries no Debug impl; unwrap route results by naming the failure site.
+    fn ok<T>(result: Result<T, AppError>, at: &str) -> T {
+        match result {
+            Ok(value) => value,
+            Err(AppError(status, message)) => panic!("{at}: {status} {message}"),
+        }
+    }
+
+    /// The LIVE repo-detected recipe and its LIVE resolution validate against the registered
+    /// contracts, and the resolution cites its exact recipe and environment predecessors.
+    #[test]
+    fn detected_recipe_and_resolution_validate_registered_contracts() {
+        let repo = temp_dir("repo");
+        std::fs::write(repo.join("Cargo.toml"), "[package]\nname = \"demo\"\n").unwrap();
+        std::fs::write(
+            repo.join("package.json"),
+            "{\"name\":\"demo\",\"scripts\":{\"start\":\"node index.js\"}}",
+        )
+        .unwrap();
+        let data = temp_dir("data");
+        let data_dir = data.to_str().unwrap();
+
+        let recipe_ref = ok(
+            detect_and_admit(data_dir, repo.to_str().unwrap(), Some("project:ioi")),
+            "admit",
+        );
+        let recipe = load_recipe(data_dir, &recipe_ref).expect("persisted recipe loads");
+        validate_architecture_contract(RECIPE_CONTRACT, &recipe)
+            .expect("live repo-detected recipe validates against the registered contract");
+        assert_eq!(recipe["source"], "repo_detected");
+        assert_eq!(recipe["project_ref"], "project:ioi");
+        let signals: Vec<&str> = recipe["detected_signals"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(Value::as_str)
+            .collect();
+        assert!(signals.contains(&"Cargo.toml") && signals.contains(&"package.json"));
+
+        let resolution = ok(resolve_recipe(data_dir, &recipe, "env_test01"), "resolved");
+        validate_architecture_contract(RESOLUTION_CONTRACT, &resolution)
+            .expect("live resolution validates against the registered contract");
+        // Exact predecessor binding: the resolution cites the recipe and environment it
+        // resolved, never a substitute.
+        assert_eq!(resolution["recipe_ref"], recipe["recipe_ref"]);
+        assert_eq!(resolution["environment_ref"], "env_test01");
+        assert!(resolution["blocked_reason"].is_null());
+    }
+
+    /// Missing predecessor at the route layer: an absent recipe never resolves to a phantom
+    /// record (the daemon 404s from this same None).
+    #[test]
+    fn absent_recipe_predecessor_loads_none() {
+        let data = temp_dir("empty");
+        assert!(load_recipe(data.to_str().unwrap(), "recipe_ffffffffffff").is_none());
+    }
+
+    /// Fabricated readiness at the environment layer: READY (`readiness_mode: full`) is
+    /// unreachable while a required secret/service edge is unproven, and the blocking edges are
+    /// named rather than erased.
+    #[test]
+    fn readiness_gate_cannot_fabricate_full_over_unmet_edges() {
+        let data = temp_dir("gate");
+        let data_dir = data.to_str().unwrap();
+        let recipe = new_recipe(
+            "recipe_00000000000000aa",
+            &json!({
+                "substrate": "local_host",
+                "services": [
+                    { "name": "db", "command": "docker compose up db", "lifecycle": "required", "trigger": "post_start" }
+                ],
+                "secret_requirement_refs": ["secret:dev-db-password"],
+            }),
+            "explicit",
+            Some("project:ioi"),
+        );
+        let resolution = ok(resolve_recipe(data_dir, &recipe, "env_gate01"), "resolved");
+        assert_eq!(resolution["required_service_refs"], json!(["db"]));
+        assert_eq!(
+            resolution["required_secret_refs"],
+            json!(["secret:dev-db-password"])
+        );
+
+        // Workspace is up but the required service and secret lease are unproven.
+        let unmet_env = json!({
+            "status": {
+                "secret_leases": [],
+                "scm_auth": [],
+                "services": [],
+                "tasks": [],
+                "components": {
+                    "workspace_content": { "phase": "ready" },
+                    "provisioner": { "phase": "ready" },
+                    "sandbox": { "phase": "ready" },
+                },
+            }
+        });
+        let gate = ok(
+            compute_readiness_gate(data_dir, &resolution, &unmet_env),
+            "gate",
+        );
+        assert_ne!(gate["readiness_mode"], "full");
+        let blocked: Vec<&str> = gate["blocked_reasons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(Value::as_str)
+            .collect();
+        assert!(blocked.contains(&"required_secret:secret:dev-db-password"));
+        assert!(blocked.contains(&"required_service:db"));
+
+        // With the exact edges proven, the same gate computation reaches full readiness.
+        let met_env = json!({
+            "status": {
+                "secret_leases": ["secret:dev-db-password"],
+                "scm_auth": [],
+                "services": [{ "name": "db", "phase": "running" }],
+                "tasks": [],
+                "components": {
+                    "workspace_content": { "phase": "ready" },
+                    "provisioner": { "phase": "ready" },
+                    "sandbox": { "phase": "ready" },
+                },
+            }
+        });
+        let gate = ok(
+            compute_readiness_gate(data_dir, &resolution, &met_env),
+            "gate",
+        );
+        assert_eq!(gate["readiness_mode"], "full");
+        assert_eq!(gate["blocked_reasons"], json!([]));
+        assert_eq!(gate["environment_ref"], "env_gate01");
+        assert_eq!(gate["recipe_resolution_ref"], resolution["resolution_ref"]);
+    }
+}

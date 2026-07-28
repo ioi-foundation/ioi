@@ -856,6 +856,8 @@ candidate, and admitted override set into the Project or recipe lineage.
 
 ## Development Environment Recipe
 
+### HypervisorDevelopmentEnvironmentRecipe
+
 `HypervisorDevelopmentEnvironmentRecipe` is the reusable setup contract for
 Developer Workspace and other development-oriented sessions. It describes how a
 development environment should be assembled, but it is not provider truth,
@@ -926,6 +928,27 @@ discovery-engine revision, selected candidate, or override set requires new
 proposal or recipe content; no compatibility adapter may silently re-run
 discovery behind an admitted recipe.
 
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1`
+(`ioi.hypervisor.development-environment-recipe.v1`) with this section as
+`canonical_owner_ref`. The registered v1 pins the shape the daemon actually
+produces and persists today (`recipe_routes.rs new_recipe` /
+`detect_recipe_fields`), which is narrower than the prose envelope above.
+Recorded canon-to-code divergences, each testable against the registered
+schema: the produced ref is `recipe_ref` (`recipe_<hex>`), not the
+`development-environment-recipe://.../revision/...` scheme, and no
+`content_hash` is emitted; discovery-lineage, checkout, initializer, policy,
+privacy-posture, authority-scope-template, and receipt-policy fields are not
+yet produced; the produced substrate vocabulary is
+`local_host | devcontainer | container` (canon's `host`, `microvm`, `wasm`,
+`browser_sandbox`, `vm`, and `hypervisoros_node` are unproduced); explicit
+recipe admission copies caller fields without validation, so only
+detection-shaped task/service/port rows are inside the registered contract.
+Registered invariants pin task, service, and port identity uniqueness because
+resolution derives its required edges by name/number.
+
+### HypervisorDevelopmentEnvironmentRecipeResolution
+
 `HypervisorDevelopmentEnvironmentRecipeResolution` is the daemon-produced,
 Agentgres-recorded decision that turns a recipe into concrete
 session/environment ingredients. A `resolved` decision may feed a startup
@@ -969,6 +992,20 @@ The owner allocates
 exact nullable fields, while excluding only `resolution_hash` and the later
 Agentgres root and receipts. Those later records bind the resolution ref and
 hash externally.
+
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1`
+(wire literal `ioi.hypervisor.environment-recipe-resolution.v1`, the constant
+the daemon actually emits) with this section as `canonical_owner_ref`. The
+registered v1 pins the produced shape (`recipe_routes.rs resolve_recipe`):
+`resolution_ref`/`readiness_gate_ref` are `reso_<hex>`/`gate_<hex>` ids, not
+the revision-URI scheme, and no `resolution_hash`, `disposition`,
+`session_ref`, `provider_candidate_ref`, resolved editor/connectivity/
+isolation refs, `state_root_ref`, or `receipt_refs` are produced yet. The
+canon rule that a blocked candidate is a refusal rather than a partially
+populated resolution IS registered structurally: `blocked_reason` is pinned
+`null`, so a "resolution with a blocked reason" is unrepresentable under the
+contract.
 
 A blocked candidate is not a partially populated resolution. It emits a
 separate refusal:
