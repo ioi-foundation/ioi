@@ -84,6 +84,8 @@ mod governance_routes;
 mod governed_authority;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
+#[path = "hypervisor_daemon_routes/hypervisoros_node_routes.rs"]
+mod hypervisoros_node_routes;
 #[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
 mod ioi_agent_routes;
 #[path = "hypervisor_daemon_routes/ioi_intelligence_routes.rs"]
@@ -479,6 +481,7 @@ async fn async_main() -> anyhow::Result<()> {
             system_continuity_routes::MIGRATION_ACK_INTENT_DIR,
             system_continuity_routes::MIGRATION_ACK_RESERVATION_DIR,
             system_membership_routes::MEMBERSHIP_INTENT_DIR,
+            hypervisoros_node_routes::NODE_INTENT_DIR,
         ],
     )?;
     seed_default_state(&data_dir);
@@ -2123,6 +2126,30 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/autonomous-systems/:id/continuity/:op",
             get(system_continuity_routes::handle_get_transition)
                 .post(system_continuity_routes::handle_transition)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
+            "/v1/hypervisor/hypervisoros/nodes/projection",
+            get(hypervisoros_node_routes::handle_get_node_projection),
+        )
+        .route(
+            "/v1/hypervisor/hypervisoros/nodes/boot-profile",
+            post(hypervisoros_node_routes::handle_declare_boot_profile).layer(
+                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
+            ),
+        )
+        .route(
+            "/v1/hypervisor/hypervisoros/nodes/temporal-profile",
+            post(hypervisoros_node_routes::handle_declare_temporal_profile).layer(
+                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
+            ),
+        )
+        .route(
+            "/v1/hypervisor/hypervisoros/nodes/transitions/:op",
+            get(hypervisoros_node_routes::handle_get_node_transition)
+                .post(hypervisoros_node_routes::handle_node_transition)
                 .layer(DefaultBodyLimit::max(
                     system_activation_routes::MAX_REQUEST_BYTES,
                 )),

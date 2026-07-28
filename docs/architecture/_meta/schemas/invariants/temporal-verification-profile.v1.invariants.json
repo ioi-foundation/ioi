@@ -1,0 +1,23 @@
+{
+  "$id": "invariant://ioi/components/daemon-runtime/temporal-verification-profile/immutable-declaration/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1",
+  "rules": [
+    {
+      "rule_id": "temporal_verification_profile.profile_hash.recomputes",
+      "description": "The profile hash recomputes from the exact ref, version, and complete declarative body; consumers bind this hash, not the mutable envelope.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.temporal-verification-profile-hash-jcs-sha256.v1" },
+          "profile_ref": { "path": "$.profile_ref" },
+          "profile_version": { "path": "$.profile_version" },
+          "declaration": { "path": "$.declaration" }
+        },
+        "expected_path": "$.profile_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

@@ -79,6 +79,13 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-membership-transitions",
     "autonomous-system-membership-receipts",
     "autonomous-system-membership-successor-claims",
+    "hypervisoros-boot-profiles",
+    "hypervisoros-temporal-profiles",
+    "hypervisoros-node-records",
+    "hypervisoros-boot-receipts",
+    "hypervisoros-node-transitions",
+    "hypervisoros-node-attestation-receipts",
+    "hypervisoros-node-successor-claims",
 ];
 
 struct HandleSlot {
@@ -406,6 +413,10 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             "predecessor_membership_root",
             format!("sha256:{}", record_id.strip_prefix("asmsc_").unwrap_or("")),
         ),
+        "hypervisoros-node-successor-claims" => (
+            "predecessor_node_set_root",
+            format!("sha256:{}", record_id.strip_prefix("hvnsc_").unwrap_or("")),
+        ),
         "autonomous-system-lifecycle-authority-consumptions"
         | "autonomous-system-lifecycle-transitions"
         | "autonomous-system-initialize-transition-receipts"
@@ -421,7 +432,13 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         | "autonomous-system-desired-topologies"
         | "autonomous-system-node-memberships"
         | "autonomous-system-membership-transitions"
-        | "autonomous-system-membership-receipts" => {
+        | "autonomous-system-membership-receipts"
+        | "hypervisoros-boot-profiles"
+        | "hypervisoros-temporal-profiles"
+        | "hypervisoros-node-records"
+        | "hypervisoros-boot-receipts"
+        | "hypervisoros-node-transitions"
+        | "hypervisoros-node-attestation-receipts" => {
             unreachable!("identity is validated by the family-specific branch")
         }
         _ => unreachable!("required-admission domains are exhaustively matched"),
@@ -742,6 +759,13 @@ fn validate_required_identity(
         "autonomous-system-membership-transitions" => "asmt_",
         "autonomous-system-membership-receipts" => "asmr_",
         "autonomous-system-membership-successor-claims" => "asmsc_",
+        "hypervisoros-boot-profiles" => "hvbp_",
+        "hypervisoros-temporal-profiles" => "hvtp_",
+        "hypervisoros-node-records" => "hvnr_",
+        "hypervisoros-boot-receipts" => "hvbr_",
+        "hypervisoros-node-transitions" => "hvnt_",
+        "hypervisoros-node-attestation-receipts" => "hvnar_",
+        "hypervisoros-node-successor-claims" => "hvnsc_",
         _ => unreachable!("required-admission domains are exhaustively matched"),
     };
     if !record_id.strip_prefix(required_prefix).is_some_and(|tail| {
@@ -876,6 +900,103 @@ fn validate_required_identity(
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "required Agentgres key does not match the desired topology root",
+            ));
+        }
+        return Ok(());
+    }
+    if matches!(
+        record_dir,
+        "hypervisoros-boot-profiles" | "hypervisoros-temporal-profiles"
+    ) {
+        // Declared desired records are named by their content root over the
+        // whole declared body; they carry no self-root field and never stand
+        // in for observed measurement truth.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let (domain, identity_field) = if record_dir == "hypervisoros-boot-profiles" {
+            (
+                "ioi.hypervisoros-boot-profile-jcs-sha256.v1",
+                "boot_profile_id",
+            )
+        } else {
+            (
+                "ioi.temporal-verification-profile-record-jcs-sha256.v1",
+                "profile_ref",
+            )
+        };
+        if record.get(identity_field).and_then(Value::as_str).is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("required Agentgres record lacks '{identity_field}'"),
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({"domain": domain, "profile": record}))
+            .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the declared profile root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "hypervisoros-node-records" {
+        // A node record revision is named by its timeless content root:
+        // volatile stamping is outside the identity so the root recomputes
+        // from any stored revision exactly as the compiler derived it.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record
+            .get("node_record_id")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres node record lacks 'node_record_id'",
+            ));
+        }
+        let mut timeless = record.clone();
+        timeless["attestation"]["verified_at"] = Value::Null;
+        timeless["last_transition_at"] = Value::Null;
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.hypervisoros-node-record-jcs-sha256.v1",
+            "record": timeless,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the timeless node record root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "hypervisoros-boot-receipts" {
+        // A committed boot receipt is named by its timeless content root; the
+        // volatile verification stamp is outside the identity.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record.get("receipt_id").and_then(Value::as_str).is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres boot receipt lacks 'receipt_id'",
+            ));
+        }
+        let mut timeless = record.clone();
+        timeless["verification"]["verified_at"] = Value::Null;
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.hypervisoros-boot-receipt-jcs-sha256.v1",
+            "receipt": timeless,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the timeless boot receipt root",
             ));
         }
         return Ok(());
@@ -1022,6 +1143,8 @@ fn validate_required_identity(
             | "autonomous-system-amendment-receipts"
             | "autonomous-system-membership-transitions"
             | "autonomous-system-membership-receipts"
+            | "hypervisoros-node-transitions"
+            | "hypervisoros-node-attestation-receipts"
     ) {
         let encoded = record_id
             .strip_prefix(required_prefix)
@@ -1086,6 +1209,14 @@ fn validate_required_identity(
             ),
             "autonomous-system-membership-receipts" => (
                 "ioi.autonomous-system-membership-receipt-jcs-sha256.v1",
+                "receipt_id",
+            ),
+            "hypervisoros-node-transitions" => (
+                "ioi.hypervisoros-node-transition-jcs-sha256.v1",
+                "node_transition_id",
+            ),
+            "hypervisoros-node-attestation-receipts" => (
+                "ioi.hypervisoros-node-attestation-receipt-jcs-sha256.v1",
                 "receipt_id",
             ),
             "autonomous-system-amendment-receipts" => (

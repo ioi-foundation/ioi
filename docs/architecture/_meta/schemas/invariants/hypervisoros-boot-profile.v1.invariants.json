@@ -1,0 +1,37 @@
+{
+  "$id": "invariant://ioi/components/daemon-runtime/hypervisoros-boot-profile/desired-floors/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisoros_boot_profile.measured_posture.requires_reference_values",
+      "description": "A required posture at or above measured boot must name the trusted reference values receipts are appraised against.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.attestation_assurance.trusted_reference_value_refs",
+        "when_path": "$.attestation_assurance.required_posture",
+        "values": [
+          "measured_boot",
+          "secure_element",
+          "cpu_tee",
+          "gpu_confidential_compute",
+          "cpu_tee_and_gpu_confidential_compute"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisoros_boot_profile.tee_posture.requires_endorsements",
+      "description": "A TEE or confidential-compute posture must name trusted endorsements; a posture claim without an endorsement path is not appraisable.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.attestation_assurance.trusted_endorsement_refs",
+        "when_path": "$.attestation_assurance.required_posture",
+        "values": [
+          "cpu_tee",
+          "gpu_confidential_compute",
+          "cpu_tee_and_gpu_confidential_compute"
+        ]
+      }
+    }
+  ]
+}

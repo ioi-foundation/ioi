@@ -1,0 +1,43 @@
+{
+  "$id": "invariant://ioi/components/daemon-runtime/hypervisoros-boot-receipt/observed-integrity/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisoros_boot_receipt.signed_material.recomputes",
+      "description": "The signed material hash recomputes from the receipt identity plus the complete observation; the verdict and signature are outside the signed material, so the node never signs its own verdict.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.hypervisoros-boot-receipt-signed-material-jcs-sha256.v1" },
+          "receipt_id": { "path": "$.receipt_id" },
+          "node_id": { "path": "$.node_id" },
+          "node_record_ref": { "path": "$.node_record_ref" },
+          "observation": { "path": "$.observation" }
+        },
+        "expected_path": "$.signature.signed_material_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "hypervisoros_boot_receipt.verdict.binds_observed_profile_root",
+      "description": "The verdict material names exactly the boot-profile root the observation cited; a verdict against any other profile revision is not representable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.verification.verified_against_boot_profile_root",
+          "$.observation.boot_profile_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisoros_boot_receipt.attester.is_the_subject_node",
+      "description": "The assurance attester is the receipt's subject node; a receipt attested by another runtime is a foreign chain.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.observation.attestation_assurance.attester_ref", "$.node_id"]
+      }
+    }
+  ]
+}

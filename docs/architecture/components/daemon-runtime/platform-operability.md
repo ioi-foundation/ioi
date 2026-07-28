@@ -6,7 +6,7 @@ Supersedes: implicit or component-local assumptions that a healthy daemon implie
 Superseded by: none.
 Last alignment pass: 2026-07-26.
 Doctrine status: canonical
-Implementation status: planned (the canonical fault matrix is machine-readable target fixture data; the deterministic evaluator, plane observers, scheduler, recovery controllers, and estate-wide probes are not implemented on current master)
+Implementation status: planned (the canonical fault matrix is machine-readable target fixture data; the deterministic evaluator, plane observers, scheduler, recovery controllers, and estate-wide probes are not implemented on current master; the `TemporalVerificationProfile` and `TemporalValidityEvaluation` wire contracts are registered in this tree — registry entries, v1 schemas, invariants, fixtures, generated projections — with the HypervisorOS node-attestation plane as their first consumer and no independent evaluator runtime yet)
 Last implementation audit: 2026-07-20
 
 ## Canonical Definition
@@ -190,6 +190,8 @@ grant, continuity database, or executable.
 
 The semantic minimum is:
 
+#### TemporalVerificationProfile
+
 ```yaml
 TemporalVerificationProfile:
   profile_ref: policy://...
@@ -224,11 +226,16 @@ TemporalVerificationProfile:
   required_effect_fence_profile_ref: policy://... | null
 ```
 
-This block is the canonical semantic target, not a registered wire schema.
-Future portable use requires a new registered contract revision, invariants,
-positive/adversarial fixtures, generated projections, and compatibility rules.
-Registered authority, revocation, checkpoint, and proof-bundle v1 contracts
-remain immutable.
+This block is the canonical semantic target. Its portable wire form is
+registered in this tree as
+`schema://ioi/components/daemon-runtime/temporal-verification-profile/v1`
+(with this section as owner anchor), carrying registry entry, v1 schema,
+cross-field invariants, positive/adversarial fixtures, and generated
+projections. The registered wire shape groups the declarative body under one
+`declaration` object whose content root is the recomputable `profile_hash`; it
+preserves every claim, evidence, continuity, and disconnected-policy meaning
+above and adds no authority. Registered authority, revocation, checkpoint, and
+proof-bundle v1 contracts remain immutable.
 
 Platform Operability owns this shared observation interface and qualification
 semantics. It does not operate the underlying sources. OS/host clocks,
@@ -240,6 +247,8 @@ then treats as independent evidence.
 
 An evaluation binds the exact profile, subject, operation, requested claims,
 and owner-produced evidence:
+
+#### TemporalValidityEvaluation
 
 ```yaml
 TemporalValidityEvaluation:
@@ -305,6 +314,14 @@ TemporalValidityEvaluation:
 The exact wire shape may group or normalize repeated claim fields, but it must
 preserve their meanings and claim-specific results. A generic
 `trusted_time_observed_at` field or `verified` boolean is insufficient.
+The registered wire form is
+`schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1`
+(this section is its owner anchor): one flattened claim row per requested
+proposition carrying `kind`, its per-claim `status`, the claim-specific result
+fields above as nullable columns, and `reason_codes`; claim kinds are unique
+per evaluation, and `evaluation_hash` is the recomputable content root over
+the complete body. The evaluation asserts no verdict of its own — mapping to
+`admit | wait | attenuate | refuse` stays with the consuming PEP.
 The four claim results mean:
 
 - `established`: the bound evidence satisfies that exact requested proposition

@@ -3109,6 +3109,241 @@ export type AutonomousSystemDesiredTopologyV1 = {
   created_at: string;
 };
 
+export type HypervisorOSNodeV1 = {
+  schema_version: "ioi.components.daemon-runtime.hypervisoros-node.v1";
+  node_record_id: string;
+  node_id: string;
+  profile: "hypervisoros_bare_metal";
+  owner_ref: string;
+  daemon_ref: string;
+  boot_profile_ref: string;
+  boot_profile_root: string;
+  measurement_policy_ref: string;
+  ctee_policy_ref: string;
+  node_enforcement_profile_ref: string | null;
+  enforcement_coverage_declaration_refs: Array<string>;
+  agentgres_domain_ref: string;
+  supported_worker_substrates: Array<"vm" | "microvm" | "container" | "wasm" | "model_server">;
+  supported_mount_profiles: Array<"public_mount" | "redacted_mount" | "plaintext_free_model_mount" | "ctee_private_workspace">;
+  forbidden_bypasses: Array<"direct_plaintext_private_mount" | "unreceipted_tool_execution" | "raw_secret_env_injection" | "daemonless_model_server" | "unscoped_network_egress">;
+  receipts_required: Array<"HypervisorOSBootReceipt" | "NodeMeasurementReceipt" | "ModelMountReceipt" | "PrivateInferenceReceipt" | "CapabilityExitReceipt" | "ExecutableDeniedReceipt" | "EgressDetectionReceipt">;
+  sealed_identity: {
+      key_suite: "ed25519";
+      identity_public_key: string;
+      identity_key_commitment: string;
+      sealed_identity_alias: string;
+      sealing_receipt_ref: string | null;
+    };
+  attestation: {
+      boot_receipt_ref: string | null;
+      boot_receipt_root: string | null;
+      verified_boot_epoch: number | null;
+      verified_rollback_counter: number | null;
+      temporal_validity_evaluation_ref: string | null;
+      verified_at: string | null;
+    };
+  node_epoch: number;
+  status: "candidate" | "measured" | "ready" | "quarantined" | "retired";
+  last_transition_at: string | null;
+};
+
+export type HypervisorOSBootProfileV1 = {
+  schema_version: "ioi.components.daemon-runtime.hypervisoros-boot-profile.v1";
+  boot_profile_id: string;
+  owner_ref: string;
+  image_hash: string;
+  kernel_hash: string;
+  initrd_hash: string;
+  daemon_binary_hash: string;
+  package_manifest_hash: string;
+  driver_manifest_hash: string;
+  gpu_profile: {
+      class: "consumer" | "datacenter" | "confidential_capable";
+      model_hint: string;
+    };
+  secure_boot: "enabled" | "disabled" | "policy_declared";
+  tpm_measurement: "enabled" | "disabled" | "unavailable";
+  attestation_assurance: {
+      appraisal_policy_ref: string;
+      required_posture: "trusted_operator" | "software_only" | "measured_boot" | "secure_element" | "cpu_tee" | "gpu_confidential_compute" | "cpu_tee_and_gpu_confidential_compute";
+      trusted_endorsement_refs: Array<string>;
+      trusted_reference_value_refs: Array<string>;
+      maximum_appraisal_age_ms: number;
+      maximum_reattestation_interval_ms: number;
+    };
+  update_policy: {
+      signed_updates_required: true;
+      rollback_protection_profile_ref: string;
+      rollback_domain_ref: string;
+      protected_namespace_floor_kind: "signed_update_version_and_image_head";
+      rollback_floor: {
+            minimum_version_counter: number;
+            floor_image_head_hash: string | null;
+          };
+      reanchor_after_boot_restore_or_replacement: "required" | "policy_bounded";
+    };
+  temporal_verification_profile_ref: string;
+  temporal_verification_profile_hash: string;
+  asserts_observed_measurement: false;
+  predecessor_boot_profile_root: string | null;
+  status: "declared" | "superseded";
+  created_at: string;
+};
+
+export type HypervisorOSBootReceiptV1 = {
+  schema_version: "ioi.components.daemon-runtime.hypervisoros-boot-receipt.v1";
+  receipt_id: string;
+  node_id: string;
+  node_record_ref: string;
+  observation: {
+      boot_epoch: number;
+      boot_profile_ref: string;
+      boot_profile_root: string;
+      workload_identity: string;
+      image_hash: string;
+      daemon_binary_hash: string;
+      policy_build_hash: string;
+      package_manifest_hash: string;
+      driver_manifest_hash: string;
+      measurement_method: "secure_boot" | "tpm_quote" | "reproducible_image" | "provider_attestation" | "policy_declared";
+      privacy_claim: "none" | "no_plaintext_custody" | "tee_attested";
+      quote_evidence_refs: Array<string>;
+      attestation_assurance: {
+            attester_ref: string;
+            verifier_ref: string;
+            appraiser_ref: string;
+            relying_party_ref: string;
+            nonce: string;
+            nonce_single_use_status: "consumed_for_this_appraisal" | "already_consumed" | "unverified";
+            nonce_consumption_receipt_ref: string | null;
+            endorsement_refs: Array<string>;
+            reference_value_refs: Array<string>;
+            appraisal_policy_ref: string;
+            appraisal_result_ref: string | null;
+            appraisal_status: "pass" | "fail" | "indeterminate";
+            appraised_at: string;
+            appraisal_expires_at: string;
+            effective_posture: "unverified" | "trusted_operator" | "software_only" | "measured_boot" | "secure_element" | "cpu_tee" | "gpu_confidential_compute" | "cpu_tee_and_gpu_confidential_compute";
+            hardware_or_measured_attested: boolean;
+            lease_ref: string | null;
+            lease_expires_at: string | null;
+            revocation_epoch: number | null;
+            revocation_status: "current" | "revoked" | "unverified";
+            revocation_check_receipt_ref: string | null;
+            reattest_by: string;
+          };
+      rollback_state: {
+            observed_version_counter: number;
+            observed_image_head_hash: string | null;
+          };
+      temporal_state: {
+            temporal_verification_profile_ref: string;
+            temporal_verification_profile_hash: string;
+            rollback_domain_ref: string;
+            continuity_floor_evidence_refs: Array<string>;
+          };
+    };
+  verification: {
+      verdict: "verified" | "refused" | "unverified";
+      verified_against_boot_profile_root: string;
+      temporal_validity_evaluation_ref: string | null;
+      temporal_validity_evaluation_hash: string | null;
+      evaluated_temporal_posture: "online_fresh" | "bounded_offline" | "historical_only" | "insufficient" | null;
+      refusal_codes: Array<string>;
+      verified_at: string | null;
+    };
+  signature: {
+      key_suite: "ed25519";
+      signer_public_key: string;
+      signed_material_hash: string;
+      signature: string;
+    };
+  note: string;
+};
+
+export type TemporalVerificationProfileV1 = {
+  schema_version: "ioi.components.daemon-runtime.temporal-verification-profile.v1";
+  profile_ref: string;
+  profile_version: number;
+  profile_hash: string;
+  declaration: {
+      applicable_operation_classes: Array<"external_effect" | "node_admission" | "boot_verification" | "readiness_projection" | "physical_bounded_continuation">;
+      required_claims: Array<"absolute_time_interval" | "challenge_freshness" | "elapsed_duration" | "owner_epoch" | "status_as_of" | "continuity_floor">;
+      evidence_policy: {
+            admitted_source_profile_refs: Array<string>;
+            required_failure_domain_separation: {
+                    minimum_distinct_source_domains: number;
+                  };
+            maximum_uncertainty_ms: number | null;
+            maximum_evidence_age_ms: number | null;
+          };
+      continuity_policy: {
+            protected_namespace_floor_kinds: Array<"authority_key_set" | "authority_revocation" | "receipt_checkpoint" | "owner_generation" | "signed_update_version_and_image_head">;
+            rollback_domain_ref: string;
+            accepted_outside_domain_anchor_classes: Array<string>;
+            reanchor_after_boot_or_restore: "required" | "policy_bounded";
+          };
+      disconnected_policy: {
+            allowed_operation_classes: Array<"external_effect" | "node_admission" | "boot_verification" | "readiness_projection" | "physical_bounded_continuation">;
+            maximum_holdover_ms: number | null;
+            maximum_revocation_exposure_ms: number | null;
+            call_or_effect_budget_ref: string | null;
+            reconnect_action: "revalidate_and_reconcile" | "quarantine" | "fail_closed";
+          };
+      required_effect_fence_profile_ref: string | null;
+    };
+  grants_authority: false;
+  predecessor_profile_root: string | null;
+  status: "declared" | "superseded";
+  created_at: string;
+};
+
+export type TemporalValidityEvaluationV1 = {
+  schema_version: "ioi.components.daemon-runtime.temporal-validity-evaluation.v1";
+  evaluation_id: string;
+  profile_ref: string;
+  profile_hash: string;
+  subject_ref: string;
+  subject_hash: string;
+  operation_class: "external_effect" | "node_admission" | "boot_verification" | "readiness_projection" | "physical_bounded_continuation";
+  evidence_refs: Array<string>;
+  source_failure_domain_refs: Array<string>;
+  claims: Array<{
+        kind: "absolute_time_interval" | "challenge_freshness" | "elapsed_duration" | "owner_epoch" | "status_as_of" | "continuity_floor";
+        status: "established" | "indeterminate" | "failed" | "unavailable";
+        earliest?: string | null;
+        latest?: string | null;
+        uncertainty_ms?: number | null;
+        challenge_ref?: string | null;
+        maximum_age_ms?: number | null;
+        boot_or_incarnation_ref?: string | null;
+        lower_bound_ms?: number | null;
+        upper_bound_ms?: number | null;
+        namespace_ref?: string | null;
+        epoch_kind?: string | null;
+        observed_version_or_epoch?: number | null;
+        required_minimum_version_or_epoch?: number | null;
+        observed_head_hash?: string | null;
+        status_subject_ref?: string | null;
+        status_kind?: string | null;
+        status_value_hash?: string | null;
+        as_of?: string | null;
+        floor_kind?: string | null;
+        accepted_version_or_epoch?: number | null;
+        accepted_head_hash?: string | null;
+        outside_rollback_domain_evidence_refs?: Array<string>;
+        reason_codes: Array<string>;
+      }>;
+  temporal_posture: "online_fresh" | "bounded_offline" | "historical_only" | "insufficient";
+  evidence_horizon: {
+      valid_from: string | null;
+      valid_until: string | null;
+    };
+  invalidation_triggers: Array<string>;
+  obligations: Array<string>;
+  evaluation_hash: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -4766,6 +5001,182 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "autonomous_system_desired_topology.role_targets.unique"
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-candidate.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-ready.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-ready-without-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-commitment-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisoros_node.identity_key_commitment.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-embedded-private-key.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/positive-declared.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-posture-without-reference-values.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisoros_boot_profile.measured_posture.requires_reference_values"
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-asserts-observed-measurement.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-floor-kind-unknown.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-verified.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-refused.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-signed-material-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisoros_boot_receipt.signed_material.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-verified-on-failed-appraisal.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-tee-claim-without-posture.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-foreign-attester.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisoros_boot_receipt.attester.is_the_subject_node"
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/positive-declared.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-profile-hash-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "temporal_verification_profile.profile_hash.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-empty-required-claims.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/positive-online-fresh.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-duplicate-claim-kind.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "temporal_validity_evaluation.claims.unique_per_kind"
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-evaluation-hash-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "temporal_validity_evaluation.evaluation_hash.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-generic-verified-boolean.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -8794,6 +9205,160 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-candidate.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-candidate.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-ready.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-ready.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-ready-without-receipt.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-ready-without-receipt.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-commitment-mismatch.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-commitment-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-embedded-private-key.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-embedded-private-key.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/positive-declared.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/positive-declared.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-posture-without-reference-values.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-posture-without-reference-values.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-asserts-observed-measurement.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-asserts-observed-measurement.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-floor-kind-unknown.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-floor-kind-unknown.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-verified.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-verified.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-refused.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-refused.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-signed-material-mismatch.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-signed-material-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-verified-on-failed-appraisal.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-verified-on-failed-appraisal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-tee-claim-without-posture.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-tee-claim-without-posture.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-foreign-attester.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-foreign-attester.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/positive-declared.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/positive-declared.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-profile-hash-mismatch.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-profile-hash-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-empty-required-claims.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-empty-required-claims.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/positive-online-fresh.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/positive-online-fresh.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-duplicate-claim-kind.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-duplicate-claim-kind.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-evaluation-hash-mismatch.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-evaluation-hash-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-generic-verified-boolean.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-generic-verified-boolean.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -9686,6 +10251,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:receipt|evidence)://[^\\s]{1,248}$",
   "^(?:robot|drone|device|facility|facility-system|vehicle)://[^\\s]+$",
   "^(?:robot|facility|vehicle|device|drone|actuator)://[^\\s]+$",
+  "^(?:runtime|authority)://[^\\s]{1,248}$",
   "^(?:schema|policy)://[^\\s]+$",
   "^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$",
   "^(?:system|agent|worker|runtime)://[^\\s]+$",
@@ -9693,9 +10259,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$",
   "^(?:system|wallet|org|policy)://[^\\s]+$",
   "^(?:system|wallet|org|project)://[^\\s]{1,248}$",
+  "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$",
   "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
   "^(?:verifier-path|verification|receipt)://[^\\s]+$",
   "^(?:wallet|org|project)://[^\\s]{1,248}$",
+  "^(?:wallet|provider|org)://[^\\s]{1,248}$",
   "^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$",
   "^(?:worker|service|org|domain|wallet|agentgres)://[^\\s]{1,248}$",
   "^(?:workflow|workflow-template)://[^\\s]{1,248}$",
@@ -9705,6 +10273,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$",
   "^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$",
   "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+  "^[0-9a-f]{128}$",
+  "^[0-9a-f]{64}$",
   "^[A-Z]{3}$",
   "^[A-Za-z0-9_-]{43}$",
   "^[A-Za-z0-9_-]{86}$",
@@ -9720,6 +10290,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9._-]*$",
   "^[a-z][a-z0-9._-]{0,127}$",
   "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+  "^[a-z][a-z0-9_-]*(?:://|:)[^\\s]{1,240}$",
   "^[a-z][a-z0-9_]*$",
   "^[a-z][a-z0-9_]{1,80}$",
   "^acceptance://[^\\s]+$",
@@ -9728,11 +10299,14 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^active-profile-set://[^\\s]{1,248}$",
   "^actuator://[^\\s]+$",
   "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^agentgres://domain/[^\\s]{1,240}$",
   "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$",
   "^agentgres://object-set/[^\\s]{1,248}$",
   "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$",
   "^agentgres://operation-log/autonomous-system/[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^agentgres://operation/[^\\s]+$",
+  "^appraisal://[^\\s]{1,248}$",
+  "^appraiser://[^\\s]{1,248}$",
   "^approval://[A-Za-z0-9._~:/-]+$",
   "^artifact://[^\\s]+$",
   "^artifact://[^\\s]{1,248}$",
@@ -9742,10 +10316,12 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^autonomous-system-chain://[A-Za-z0-9._:/-]+$",
   "^autonomous-system-chain://[^\\s]{1,248}$",
+  "^boot-profile://[^\\s]{1,248}$",
   "^build://[^\\s]+$",
   "^caveat://[^\\s]+$",
   "^chain-successor-claim://sha256:[0-9a-f]{64}$",
   "^chain-writer-reservation://sha256:[0-9a-f]{64}$",
+  "^challenge://[^\\s]{1,248}$",
   "^checkpoint://[^\\s]{1,248}$",
   "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$",
   "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$",
@@ -9766,9 +10342,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^effect://[^\\s]+$",
   "^embodied-resource-group-revision://[^\\s]+$",
   "^embodied-runtime-graph-manifest://[^\\s]+$",
+  "^endorsement://[^\\s]{1,248}$",
   "^enforcement-coverage://[^\\s]{1,248}$",
   "^estop://[^\\s]+$",
   "^failover-profile://[^\\s]{1,248}$",
+  "^failure-domain://[^\\s]{1,248}$",
   "^fee-basis://[^\\s]{1,248}$",
   "^genesis://[A-Za-z0-9._:/-]+$",
   "^genesis://[^\\s]{1,248}$",
@@ -9778,6 +10356,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^grant://[^\\s]{1,248}$",
   "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$",
   "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^hypervisoros-node://[^\\s]{1,248}$",
   "^ifc-label://[A-Za-z0-9._~:/-]+$",
   "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^incident://[^\\s]+$",
@@ -9791,9 +10370,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^lifecycle-transition://[^\\s]{1,248}$",
   "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^measurement-policy://[^\\s]{1,248}$",
   "^membership-transition://[^\\s]{1,248}$",
   "^migration-destination-acknowledgement://[^\\s]{1,248}$",
   "^network-enrollment://[^\\s]{1,248}$",
+  "^node-enforcement://[^\\s]{1,248}$",
   "^node-membership://[^\\s]{1,248}$",
   "^node://[^\\s]{1,248}$",
   "^oracle-evidence-profile://[^\\s]{1,248}$",
@@ -9822,8 +10403,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt://asar_[0-9a-f]{64}$",
   "^receipt://aszmr_[0-9a-f]{64}$",
   "^receipt://ltr_[0-9a-f]{64}$",
+  "^reference://[^\\s]{1,248}$",
   "^resource-lease://[^\\s]+$",
   "^run://[^\\s]+$",
+  "^runtime://[^\\s]{1,248}$",
   "^safety://[^\\s]+$",
   "^schema://[^\\s]+$",
   "^schema://[^\\s]{1,248}$",
@@ -9859,17 +10442,21 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$",
   "^system://[^\\s]{1,248}$",
   "^task://[^\\s]+$",
+  "^temporal-evaluation://[^\\s]{1,248}$",
   "^terms://[^\\s]{1,248}$",
   "^tool://[A-Za-z0-9._~:/-]+$",
   "^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$",
   "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^transition://[^\\s]{1,248}$",
+  "^vault://[^\\s]{1,248}$",
+  "^verifier://[^\\s]{1,248}$",
   "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$",
   "^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$",
   "^wallet[.]network://approval-effect-consumption/[^\\s]{1,248}$",
   "^wallet[.]network://principal-authority-binding/[0-9a-f]{64}$",
   "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^workload://[^\\s]{1,248}$",
   "^writer-transition://[^\\s]{1,248}$",
   "^zone://[^\\s]+$"
 ] as const;
@@ -9929,7 +10516,12 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1": "sha256:53482584c42ada4e9b6eed4ad5f15dab0a83afcddad60276999f161eed1de21c",
   "schema://ioi/foundations/autonomous-system-node-membership/v1": "sha256:5d24c7d31fb3197f26d51870ca20c8bbb2866b11d59317b419963e60f066cead",
   "schema://ioi/foundations/autonomous-system-membership-transition/v1": "sha256:298f8b5d54e8d8b95091260c297094087b45525d8e5c0ff57ee5e08c8ae079c2",
-  "schema://ioi/foundations/autonomous-system-desired-topology/v1": "sha256:2cd27e392f77ffeadd5689f598963eb07dc4ad8b3ed07cdacb3a74a700416b7a"
+  "schema://ioi/foundations/autonomous-system-desired-topology/v1": "sha256:2cd27e392f77ffeadd5689f598963eb07dc4ad8b3ed07cdacb3a74a700416b7a",
+  "schema://ioi/components/daemon-runtime/hypervisoros-node/v1": "sha256:b9cff234e0f11e21c910c25a7f4f886236032571b6fc86d4d56692a1c5ca4f3d",
+  "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1": "sha256:daa7cb792f264a6897511d2f9a9e5f41c42d3aec64e020903fbf5e242c5f92b0",
+  "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1": "sha256:f1d287f6f041a84b845de4bd0fd12faaf9157e0195d1f89200ed0dac8bce7335",
+  "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1": "sha256:7167c45b6c2aee52b57bc607c4c7108c1f2d5c81feba36cd7412ba90504cd56f",
+  "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1": "sha256:8334e614af20034ffcd4af9fbefecb05184206665c8e1b21f9c5a4804ed79379"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -35029,6 +35621,1891 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^policy://[^\\s]{1,248}$"
       }
     }
+  },
+  "schema://ioi/components/daemon-runtime/hypervisoros-node/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+    "title": "HypervisorOSNode",
+    "description": "Admitted HypervisorOS node identity record: public sealed-identity binding (suite, public key, recomputable commitment, wallet.network sealing alias reference — never private material), exact measured-boot profile binding, enforcement-profile integration, and the candidate|measured|ready|quarantined|retired status ladder. measured and ready are structurally unreachable without a bound verified boot receipt.",
+    "x-ioi-schema-version": "ioi.components.daemon-runtime.hypervisoros-node.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "node_record_id",
+      "node_id",
+      "profile",
+      "owner_ref",
+      "daemon_ref",
+      "boot_profile_ref",
+      "boot_profile_root",
+      "measurement_policy_ref",
+      "ctee_policy_ref",
+      "node_enforcement_profile_ref",
+      "enforcement_coverage_declaration_refs",
+      "agentgres_domain_ref",
+      "supported_worker_substrates",
+      "supported_mount_profiles",
+      "forbidden_bypasses",
+      "receipts_required",
+      "sealed_identity",
+      "attestation",
+      "node_epoch",
+      "status",
+      "last_transition_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.daemon-runtime.hypervisoros-node.v1"
+      },
+      "node_record_id": {
+        "type": "string",
+        "pattern": "^hypervisoros-node://[^\\s]{1,248}$"
+      },
+      "node_id": {
+        "$ref": "#/$defs/runtimeRef"
+      },
+      "profile": {
+        "const": "hypervisoros_bare_metal"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:wallet|provider|org)://[^\\s]{1,248}$"
+      },
+      "daemon_ref": {
+        "$ref": "#/$defs/runtimeRef"
+      },
+      "boot_profile_ref": {
+        "type": "string",
+        "pattern": "^boot-profile://[^\\s]{1,248}$"
+      },
+      "boot_profile_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "measurement_policy_ref": {
+        "type": "string",
+        "pattern": "^measurement-policy://[^\\s]{1,248}$"
+      },
+      "ctee_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "node_enforcement_profile_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^node-enforcement://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "enforcement_coverage_declaration_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^enforcement-coverage://[^\\s]{1,248}$"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "agentgres_domain_ref": {
+        "type": "string",
+        "pattern": "^agentgres://domain/[^\\s]{1,240}$"
+      },
+      "supported_worker_substrates": {
+        "type": "array",
+        "items": {
+          "enum": [
+            "vm",
+            "microvm",
+            "container",
+            "wasm",
+            "model_server"
+          ]
+        },
+        "minItems": 1,
+        "maxItems": 5,
+        "uniqueItems": true
+      },
+      "supported_mount_profiles": {
+        "type": "array",
+        "items": {
+          "enum": [
+            "public_mount",
+            "redacted_mount",
+            "plaintext_free_model_mount",
+            "ctee_private_workspace"
+          ]
+        },
+        "minItems": 1,
+        "maxItems": 4,
+        "uniqueItems": true
+      },
+      "forbidden_bypasses": {
+        "type": "array",
+        "items": {
+          "enum": [
+            "direct_plaintext_private_mount",
+            "unreceipted_tool_execution",
+            "raw_secret_env_injection",
+            "daemonless_model_server",
+            "unscoped_network_egress"
+          ]
+        },
+        "minItems": 5,
+        "maxItems": 5,
+        "uniqueItems": true
+      },
+      "receipts_required": {
+        "type": "array",
+        "items": {
+          "enum": [
+            "HypervisorOSBootReceipt",
+            "NodeMeasurementReceipt",
+            "ModelMountReceipt",
+            "PrivateInferenceReceipt",
+            "CapabilityExitReceipt",
+            "ExecutableDeniedReceipt",
+            "EgressDetectionReceipt"
+          ]
+        },
+        "minItems": 7,
+        "maxItems": 7,
+        "uniqueItems": true
+      },
+      "sealed_identity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key_suite",
+          "identity_public_key",
+          "identity_key_commitment",
+          "sealed_identity_alias",
+          "sealing_receipt_ref"
+        ],
+        "properties": {
+          "key_suite": {
+            "enum": [
+              "ed25519"
+            ]
+          },
+          "identity_public_key": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "identity_key_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "sealed_identity_alias": {
+            "type": "string",
+            "pattern": "^vault://[^\\s]{1,248}$"
+          },
+          "sealing_receipt_ref": {
+            "$ref": "#/$defs/nullableReceiptRef"
+          }
+        }
+      },
+      "attestation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "boot_receipt_ref",
+          "boot_receipt_root",
+          "verified_boot_epoch",
+          "verified_rollback_counter",
+          "temporal_validity_evaluation_ref",
+          "verified_at"
+        ],
+        "properties": {
+          "boot_receipt_ref": {
+            "$ref": "#/$defs/nullableReceiptRef"
+          },
+          "boot_receipt_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "verified_boot_epoch": {
+            "$ref": "#/$defs/nullableCounter"
+          },
+          "verified_rollback_counter": {
+            "$ref": "#/$defs/nullableCounter"
+          },
+          "temporal_validity_evaluation_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/evaluationRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verified_at": {
+            "$ref": "#/$defs/nullableDateTime"
+          }
+        }
+      },
+      "node_epoch": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "status": {
+        "enum": [
+          "candidate",
+          "measured",
+          "ready",
+          "quarantined",
+          "retired"
+        ]
+      },
+      "last_transition_at": {
+        "$ref": "#/$defs/nullableDateTime"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "ready"
+              ]
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "attestation": {
+              "type": "object",
+              "properties": {
+                "boot_receipt_ref": {
+                  "type": "string"
+                },
+                "boot_receipt_root": {
+                  "type": "string"
+                },
+                "verified_boot_epoch": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "verified_rollback_counter": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "temporal_validity_evaluation_ref": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "boot_receipt_ref",
+                "boot_receipt_root",
+                "verified_boot_epoch",
+                "verified_rollback_counter",
+                "temporal_validity_evaluation_ref"
+              ]
+            }
+          },
+          "required": [
+            "attestation"
+          ]
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "runtimeRef": {
+        "type": "string",
+        "pattern": "^runtime://[^\\s]{1,248}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "nullableReceiptRef": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^receipt://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "evaluationRef": {
+        "type": "string",
+        "pattern": "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$"
+      },
+      "nullableCounter": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableDateTime": {
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
+    "title": "HypervisorOSBootProfile",
+    "description": "DESIRED boot posture for HypervisorOS nodes of one estate: exact measurement floors, minimum admissible attestation posture, a monotonic rollback version floor, and the exact TemporalVerificationProfile binding that qualifies boot-receipt freshness. This is an owner-authorized desired record; it never asserts an observed measurement.",
+    "x-ioi-schema-version": "ioi.components.daemon-runtime.hypervisoros-boot-profile.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "boot_profile_id",
+      "owner_ref",
+      "image_hash",
+      "kernel_hash",
+      "initrd_hash",
+      "daemon_binary_hash",
+      "package_manifest_hash",
+      "driver_manifest_hash",
+      "gpu_profile",
+      "secure_boot",
+      "tpm_measurement",
+      "attestation_assurance",
+      "update_policy",
+      "temporal_verification_profile_ref",
+      "temporal_verification_profile_hash",
+      "asserts_observed_measurement",
+      "predecessor_boot_profile_root",
+      "status",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.daemon-runtime.hypervisoros-boot-profile.v1"
+      },
+      "boot_profile_id": {
+        "type": "string",
+        "pattern": "^boot-profile://[^\\s]{1,248}$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:wallet|provider|org)://[^\\s]{1,248}$"
+      },
+      "image_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "kernel_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "initrd_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "daemon_binary_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "package_manifest_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "driver_manifest_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "gpu_profile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "class",
+          "model_hint"
+        ],
+        "properties": {
+          "class": {
+            "enum": [
+              "consumer",
+              "datacenter",
+              "confidential_capable"
+            ]
+          },
+          "model_hint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        }
+      },
+      "secure_boot": {
+        "enum": [
+          "enabled",
+          "disabled",
+          "policy_declared"
+        ]
+      },
+      "tpm_measurement": {
+        "enum": [
+          "enabled",
+          "disabled",
+          "unavailable"
+        ]
+      },
+      "attestation_assurance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "appraisal_policy_ref",
+          "required_posture",
+          "trusted_endorsement_refs",
+          "trusted_reference_value_refs",
+          "maximum_appraisal_age_ms",
+          "maximum_reattestation_interval_ms"
+        ],
+        "properties": {
+          "appraisal_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "required_posture": {
+            "$ref": "#/$defs/posture"
+          },
+          "trusted_endorsement_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^endorsement://[^\\s]{1,248}$"
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "trusted_reference_value_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^reference://[^\\s]{1,248}$"
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "maximum_appraisal_age_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "maximum_reattestation_interval_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "update_policy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "signed_updates_required",
+          "rollback_protection_profile_ref",
+          "rollback_domain_ref",
+          "protected_namespace_floor_kind",
+          "rollback_floor",
+          "reanchor_after_boot_restore_or_replacement"
+        ],
+        "properties": {
+          "signed_updates_required": {
+            "const": true
+          },
+          "rollback_protection_profile_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "rollback_domain_ref": {
+            "type": "string",
+            "pattern": "^failure-domain://[^\\s]{1,248}$"
+          },
+          "protected_namespace_floor_kind": {
+            "const": "signed_update_version_and_image_head"
+          },
+          "rollback_floor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "minimum_version_counter",
+              "floor_image_head_hash"
+            ],
+            "properties": {
+              "minimum_version_counter": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "floor_image_head_hash": {
+                "$ref": "#/$defs/nullableHash"
+              }
+            }
+          },
+          "reanchor_after_boot_restore_or_replacement": {
+            "enum": [
+              "required",
+              "policy_bounded"
+            ]
+          }
+        }
+      },
+      "temporal_verification_profile_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "temporal_verification_profile_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "asserts_observed_measurement": {
+        "const": false
+      },
+      "predecessor_boot_profile_root": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "declared",
+          "superseded"
+        ]
+      },
+      "created_at": {
+        "$ref": "#/$defs/dateTime"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "posture": {
+        "enum": [
+          "trusted_operator",
+          "software_only",
+          "measured_boot",
+          "secure_element",
+          "cpu_tee",
+          "gpu_confidential_compute",
+          "cpu_tee_and_gpu_confidential_compute"
+        ]
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
+    "title": "HypervisorOSBootReceipt",
+    "description": "OBSERVED measured boot of one HypervisorOS node, split into the node-produced observation (measurements, assurance block, quote evidence refs, rollback counter, temporal state), the daemon-derived verified-against-profile verdict material, and the node identity signature over the observation only. The node never signs its own verdict; boot measurement is an integrity receipt, not a plaintext privacy guarantee.",
+    "x-ioi-schema-version": "ioi.components.daemon-runtime.hypervisoros-boot-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_id",
+      "node_id",
+      "node_record_ref",
+      "observation",
+      "verification",
+      "signature",
+      "note"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.daemon-runtime.hypervisoros-boot-receipt.v1"
+      },
+      "receipt_id": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "node_id": {
+        "$ref": "#/$defs/runtimeRef"
+      },
+      "node_record_ref": {
+        "type": "string",
+        "pattern": "^hypervisoros-node://[^\\s]{1,248}$"
+      },
+      "observation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "boot_epoch",
+          "boot_profile_ref",
+          "boot_profile_root",
+          "workload_identity",
+          "image_hash",
+          "daemon_binary_hash",
+          "policy_build_hash",
+          "package_manifest_hash",
+          "driver_manifest_hash",
+          "measurement_method",
+          "privacy_claim",
+          "quote_evidence_refs",
+          "attestation_assurance",
+          "rollback_state",
+          "temporal_state"
+        ],
+        "properties": {
+          "boot_epoch": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "boot_profile_ref": {
+            "type": "string",
+            "pattern": "^boot-profile://[^\\s]{1,248}$"
+          },
+          "boot_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "workload_identity": {
+            "type": "string",
+            "pattern": "^workload://[^\\s]{1,248}$"
+          },
+          "image_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "daemon_binary_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "policy_build_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "package_manifest_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "driver_manifest_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "measurement_method": {
+            "enum": [
+              "secure_boot",
+              "tpm_quote",
+              "reproducible_image",
+              "provider_attestation",
+              "policy_declared"
+            ]
+          },
+          "privacy_claim": {
+            "enum": [
+              "none",
+              "no_plaintext_custody",
+              "tee_attested"
+            ]
+          },
+          "quote_evidence_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/evidenceRef"
+            },
+            "minItems": 1,
+            "maxItems": 64,
+            "uniqueItems": true
+          },
+          "attestation_assurance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "attester_ref",
+              "verifier_ref",
+              "appraiser_ref",
+              "relying_party_ref",
+              "nonce",
+              "nonce_single_use_status",
+              "nonce_consumption_receipt_ref",
+              "endorsement_refs",
+              "reference_value_refs",
+              "appraisal_policy_ref",
+              "appraisal_result_ref",
+              "appraisal_status",
+              "appraised_at",
+              "appraisal_expires_at",
+              "effective_posture",
+              "hardware_or_measured_attested",
+              "lease_ref",
+              "lease_expires_at",
+              "revocation_epoch",
+              "revocation_status",
+              "revocation_check_receipt_ref",
+              "reattest_by"
+            ],
+            "properties": {
+              "attester_ref": {
+                "$ref": "#/$defs/runtimeRef"
+              },
+              "verifier_ref": {
+                "type": "string",
+                "pattern": "^verifier://[^\\s]{1,248}$"
+              },
+              "appraiser_ref": {
+                "type": "string",
+                "pattern": "^appraiser://[^\\s]{1,248}$"
+              },
+              "relying_party_ref": {
+                "type": "string",
+                "pattern": "^(?:runtime|authority)://[^\\s]{1,248}$"
+              },
+              "nonce": {
+                "type": "string",
+                "minLength": 16,
+                "maxLength": 128
+              },
+              "nonce_single_use_status": {
+                "enum": [
+                  "consumed_for_this_appraisal",
+                  "already_consumed",
+                  "unverified"
+                ]
+              },
+              "nonce_consumption_receipt_ref": {
+                "$ref": "#/$defs/nullableReceiptRef"
+              },
+              "endorsement_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^endorsement://[^\\s]{1,248}$"
+                },
+                "maxItems": 32,
+                "uniqueItems": true
+              },
+              "reference_value_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^reference://[^\\s]{1,248}$"
+                },
+                "maxItems": 32,
+                "uniqueItems": true
+              },
+              "appraisal_policy_ref": {
+                "$ref": "#/$defs/policyRef"
+              },
+              "appraisal_result_ref": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^appraisal://[^\\s]{1,248}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "appraisal_status": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "indeterminate"
+                ]
+              },
+              "appraised_at": {
+                "$ref": "#/$defs/dateTime"
+              },
+              "appraisal_expires_at": {
+                "$ref": "#/$defs/dateTime"
+              },
+              "effective_posture": {
+                "enum": [
+                  "unverified",
+                  "trusted_operator",
+                  "software_only",
+                  "measured_boot",
+                  "secure_element",
+                  "cpu_tee",
+                  "gpu_confidential_compute",
+                  "cpu_tee_and_gpu_confidential_compute"
+                ]
+              },
+              "hardware_or_measured_attested": {
+                "type": "boolean"
+              },
+              "lease_ref": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^lease://[^\\s]{1,248}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "lease_expires_at": {
+                "$ref": "#/$defs/nullableDateTime"
+              },
+              "revocation_epoch": {
+                "$ref": "#/$defs/nullableCounter"
+              },
+              "revocation_status": {
+                "enum": [
+                  "current",
+                  "revoked",
+                  "unverified"
+                ]
+              },
+              "revocation_check_receipt_ref": {
+                "$ref": "#/$defs/nullableReceiptRef"
+              },
+              "reattest_by": {
+                "$ref": "#/$defs/dateTime"
+              }
+            }
+          },
+          "rollback_state": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "observed_version_counter",
+              "observed_image_head_hash"
+            ],
+            "properties": {
+              "observed_version_counter": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "observed_image_head_hash": {
+                "$ref": "#/$defs/nullableHash"
+              }
+            }
+          },
+          "temporal_state": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "temporal_verification_profile_ref",
+              "temporal_verification_profile_hash",
+              "rollback_domain_ref",
+              "continuity_floor_evidence_refs"
+            ],
+            "properties": {
+              "temporal_verification_profile_ref": {
+                "$ref": "#/$defs/policyRef"
+              },
+              "temporal_verification_profile_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "rollback_domain_ref": {
+                "type": "string",
+                "pattern": "^failure-domain://[^\\s]{1,248}$"
+              },
+              "continuity_floor_evidence_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidenceRef"
+                },
+                "maxItems": 32,
+                "uniqueItems": true
+              }
+            }
+          }
+        }
+      },
+      "verification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verdict",
+          "verified_against_boot_profile_root",
+          "temporal_validity_evaluation_ref",
+          "temporal_validity_evaluation_hash",
+          "evaluated_temporal_posture",
+          "refusal_codes",
+          "verified_at"
+        ],
+        "properties": {
+          "verdict": {
+            "enum": [
+              "verified",
+              "refused",
+              "unverified"
+            ]
+          },
+          "verified_against_boot_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "temporal_validity_evaluation_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/evaluationRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "temporal_validity_evaluation_hash": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "evaluated_temporal_posture": {
+            "anyOf": [
+              {
+                "enum": [
+                  "online_fresh",
+                  "bounded_offline",
+                  "historical_only",
+                  "insufficient"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "refusal_codes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "verified_at": {
+            "$ref": "#/$defs/nullableDateTime"
+          }
+        }
+      },
+      "signature": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key_suite",
+          "signer_public_key",
+          "signed_material_hash",
+          "signature"
+        ],
+        "properties": {
+          "key_suite": {
+            "enum": [
+              "ed25519"
+            ]
+          },
+          "signer_public_key": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "signed_material_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "signature": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{128}$"
+          }
+        }
+      },
+      "note": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "verification": {
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "const": "verified"
+                }
+              },
+              "required": [
+                "verdict"
+              ]
+            }
+          },
+          "required": [
+            "verification"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "observation": {
+              "type": "object",
+              "properties": {
+                "attestation_assurance": {
+                  "type": "object",
+                  "properties": {
+                    "appraisal_status": {
+                      "const": "pass"
+                    },
+                    "nonce_single_use_status": {
+                      "const": "consumed_for_this_appraisal"
+                    },
+                    "revocation_status": {
+                      "const": "current"
+                    }
+                  },
+                  "required": [
+                    "appraisal_status",
+                    "nonce_single_use_status",
+                    "revocation_status"
+                  ]
+                }
+              },
+              "required": [
+                "attestation_assurance"
+              ]
+            },
+            "verification": {
+              "type": "object",
+              "properties": {
+                "temporal_validity_evaluation_ref": {
+                  "type": "string"
+                },
+                "temporal_validity_evaluation_hash": {
+                  "type": "string"
+                },
+                "evaluated_temporal_posture": {
+                  "const": "online_fresh"
+                }
+              },
+              "required": [
+                "temporal_validity_evaluation_ref",
+                "temporal_validity_evaluation_hash",
+                "evaluated_temporal_posture"
+              ]
+            }
+          },
+          "required": [
+            "observation",
+            "verification"
+          ]
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "observation": {
+              "type": "object",
+              "properties": {
+                "privacy_claim": {
+                  "const": "tee_attested"
+                }
+              },
+              "required": [
+                "privacy_claim"
+              ]
+            }
+          },
+          "required": [
+            "observation"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "observation": {
+              "type": "object",
+              "properties": {
+                "attestation_assurance": {
+                  "type": "object",
+                  "properties": {
+                    "effective_posture": {
+                      "enum": [
+                        "cpu_tee",
+                        "gpu_confidential_compute",
+                        "cpu_tee_and_gpu_confidential_compute"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "effective_posture"
+                  ]
+                }
+              },
+              "required": [
+                "attestation_assurance"
+              ]
+            }
+          },
+          "required": [
+            "observation"
+          ]
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "observation": {
+              "type": "object",
+              "properties": {
+                "attestation_assurance": {
+                  "type": "object",
+                  "properties": {
+                    "effective_posture": {
+                      "enum": [
+                        "unverified",
+                        "trusted_operator",
+                        "software_only"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "effective_posture"
+                  ]
+                }
+              },
+              "required": [
+                "attestation_assurance"
+              ]
+            }
+          },
+          "required": [
+            "observation"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "observation": {
+              "type": "object",
+              "properties": {
+                "attestation_assurance": {
+                  "type": "object",
+                  "properties": {
+                    "hardware_or_measured_attested": {
+                      "const": false
+                    }
+                  },
+                  "required": [
+                    "hardware_or_measured_attested"
+                  ]
+                }
+              },
+              "required": [
+                "attestation_assurance"
+              ]
+            }
+          },
+          "required": [
+            "observation"
+          ]
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "runtimeRef": {
+        "type": "string",
+        "pattern": "^runtime://[^\\s]{1,248}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "nullableReceiptRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/receiptRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+      },
+      "evaluationRef": {
+        "type": "string",
+        "pattern": "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$"
+      },
+      "nullableCounter": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "nullableDateTime": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/dateTime"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1",
+    "title": "TemporalVerificationProfile",
+    "description": "Immutable, versioned policy declaring which temporal propositions one operation class must establish, admissible evidence and failure-domain policy, uncertainty and holdover bounds, and post-discontinuity behavior. A policy/profile only: not a clock, time oracle, authority grant, continuity database, or executable. The declarative body lives under one declaration object whose recomputable content root is profile_hash.",
+    "x-ioi-schema-version": "ioi.components.daemon-runtime.temporal-verification-profile.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "profile_ref",
+      "profile_version",
+      "profile_hash",
+      "declaration",
+      "grants_authority",
+      "predecessor_profile_root",
+      "status",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.daemon-runtime.temporal-verification-profile.v1"
+      },
+      "profile_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "profile_version": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "profile_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "declaration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "applicable_operation_classes",
+          "required_claims",
+          "evidence_policy",
+          "continuity_policy",
+          "disconnected_policy",
+          "required_effect_fence_profile_ref"
+        ],
+        "properties": {
+          "applicable_operation_classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/operationClass"
+            },
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true
+          },
+          "required_claims": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/claimKind"
+            },
+            "minItems": 1,
+            "maxItems": 6,
+            "uniqueItems": true
+          },
+          "evidence_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "admitted_source_profile_refs",
+              "required_failure_domain_separation",
+              "maximum_uncertainty_ms",
+              "maximum_evidence_age_ms"
+            ],
+            "properties": {
+              "admitted_source_profile_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/policyRef"
+                },
+                "minItems": 1,
+                "maxItems": 16,
+                "uniqueItems": true
+              },
+              "required_failure_domain_separation": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "minimum_distinct_source_domains"
+                ],
+                "properties": {
+                  "minimum_distinct_source_domains": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  }
+                }
+              },
+              "maximum_uncertainty_ms": {
+                "$ref": "#/$defs/nullableBoundMs"
+              },
+              "maximum_evidence_age_ms": {
+                "$ref": "#/$defs/nullableBoundMs"
+              }
+            }
+          },
+          "continuity_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "protected_namespace_floor_kinds",
+              "rollback_domain_ref",
+              "accepted_outside_domain_anchor_classes",
+              "reanchor_after_boot_or_restore"
+            ],
+            "properties": {
+              "protected_namespace_floor_kinds": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "authority_key_set",
+                    "authority_revocation",
+                    "receipt_checkpoint",
+                    "owner_generation",
+                    "signed_update_version_and_image_head"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 5,
+                "uniqueItems": true
+              },
+              "rollback_domain_ref": {
+                "type": "string",
+                "pattern": "^failure-domain://[^\\s]{1,248}$"
+              },
+              "accepted_outside_domain_anchor_classes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "minItems": 1,
+                "maxItems": 16,
+                "uniqueItems": true
+              },
+              "reanchor_after_boot_or_restore": {
+                "enum": [
+                  "required",
+                  "policy_bounded"
+                ]
+              }
+            }
+          },
+          "disconnected_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "allowed_operation_classes",
+              "maximum_holdover_ms",
+              "maximum_revocation_exposure_ms",
+              "call_or_effect_budget_ref",
+              "reconnect_action"
+            ],
+            "properties": {
+              "allowed_operation_classes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/operationClass"
+                },
+                "maxItems": 8,
+                "uniqueItems": true
+              },
+              "maximum_holdover_ms": {
+                "$ref": "#/$defs/nullableBoundMs"
+              },
+              "maximum_revocation_exposure_ms": {
+                "$ref": "#/$defs/nullableBoundMs"
+              },
+              "call_or_effect_budget_ref": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/policyRef"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reconnect_action": {
+                "enum": [
+                  "revalidate_and_reconcile",
+                  "quarantine",
+                  "fail_closed"
+                ]
+              }
+            }
+          },
+          "required_effect_fence_profile_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/policyRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "grants_authority": {
+        "const": false
+      },
+      "predecessor_profile_root": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "declared",
+          "superseded"
+        ]
+      },
+      "created_at": {
+        "$ref": "#/$defs/dateTime"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "operationClass": {
+        "enum": [
+          "external_effect",
+          "node_admission",
+          "boot_verification",
+          "readiness_projection",
+          "physical_bounded_continuation"
+        ]
+      },
+      "claimKind": {
+        "enum": [
+          "absolute_time_interval",
+          "challenge_freshness",
+          "elapsed_duration",
+          "owner_epoch",
+          "status_as_of",
+          "continuity_floor"
+        ]
+      },
+      "nullableBoundMs": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
+    "title": "TemporalValidityEvaluation",
+    "description": "One evaluation binding an exact TemporalVerificationProfile, subject, operation class, and owner-produced evidence to per-claim results. Each requested proposition is one flattened claim row with its own established|indeterminate|failed|unavailable status and claim-specific result columns; one established claim never fills a missing sibling. The evaluation asserts no admit/wait/attenuate/refuse verdict. evaluation_hash is the recomputable content root over the complete body.",
+    "x-ioi-schema-version": "ioi.components.daemon-runtime.temporal-validity-evaluation.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "evaluation_id",
+      "profile_ref",
+      "profile_hash",
+      "subject_ref",
+      "subject_hash",
+      "operation_class",
+      "evidence_refs",
+      "source_failure_domain_refs",
+      "claims",
+      "temporal_posture",
+      "evidence_horizon",
+      "invalidation_triggers",
+      "obligations",
+      "evaluation_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.daemon-runtime.temporal-validity-evaluation.v1"
+      },
+      "evaluation_id": {
+        "type": "string",
+        "pattern": "^temporal-evaluation://[^\\s]{1,248}$"
+      },
+      "profile_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "profile_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "subject_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]*(?:://|:)[^\\s]{1,240}$"
+      },
+      "subject_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "operation_class": {
+        "enum": [
+          "external_effect",
+          "node_admission",
+          "boot_verification",
+          "readiness_projection",
+          "physical_bounded_continuation"
+        ]
+      },
+      "evidence_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/evidenceRef"
+        },
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "source_failure_domain_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^failure-domain://[^\\s]{1,248}$"
+        },
+        "minItems": 1,
+        "maxItems": 16,
+        "uniqueItems": true
+      },
+      "claims": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 6,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "status",
+            "reason_codes"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "absolute_time_interval",
+                "challenge_freshness",
+                "elapsed_duration",
+                "owner_epoch",
+                "status_as_of",
+                "continuity_floor"
+              ]
+            },
+            "status": {
+              "enum": [
+                "established",
+                "indeterminate",
+                "failed",
+                "unavailable"
+              ]
+            },
+            "earliest": {
+              "$ref": "#/$defs/nullableDateTime"
+            },
+            "latest": {
+              "$ref": "#/$defs/nullableDateTime"
+            },
+            "uncertainty_ms": {
+              "$ref": "#/$defs/nullableCounter"
+            },
+            "challenge_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^challenge://[^\\s]{1,248}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "maximum_age_ms": {
+              "$ref": "#/$defs/nullableCounter"
+            },
+            "boot_or_incarnation_ref": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/evidenceRef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lower_bound_ms": {
+              "$ref": "#/$defs/nullableCounter"
+            },
+            "upper_bound_ms": {
+              "$ref": "#/$defs/nullableCounter"
+            },
+            "namespace_ref": {
+              "$ref": "#/$defs/nullableString"
+            },
+            "epoch_kind": {
+              "$ref": "#/$defs/nullableString"
+            },
+            "observed_version_or_epoch": {
+              "$ref": "#/$defs/nullableCounter"
+            },
+            "required_minimum_version_or_epoch": {
+              "$ref": "#/$defs/nullableCounter"
+            },
+            "observed_head_hash": {
+              "$ref": "#/$defs/nullableHash"
+            },
+            "status_subject_ref": {
+              "$ref": "#/$defs/nullableString"
+            },
+            "status_kind": {
+              "$ref": "#/$defs/nullableString"
+            },
+            "status_value_hash": {
+              "$ref": "#/$defs/nullableHash"
+            },
+            "as_of": {
+              "$ref": "#/$defs/nullableDateTime"
+            },
+            "floor_kind": {
+              "$ref": "#/$defs/nullableString"
+            },
+            "accepted_version_or_epoch": {
+              "$ref": "#/$defs/nullableCounter"
+            },
+            "accepted_head_hash": {
+              "$ref": "#/$defs/nullableHash"
+            },
+            "outside_rollback_domain_evidence_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidenceRef"
+              },
+              "maxItems": 32,
+              "uniqueItems": true
+            },
+            "reason_codes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "maxItems": 32,
+              "uniqueItems": true
+            }
+          }
+        }
+      },
+      "temporal_posture": {
+        "enum": [
+          "online_fresh",
+          "bounded_offline",
+          "historical_only",
+          "insufficient"
+        ]
+      },
+      "evidence_horizon": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "valid_from",
+          "valid_until"
+        ],
+        "properties": {
+          "valid_from": {
+            "$ref": "#/$defs/nullableDateTime"
+          },
+          "valid_until": {
+            "$ref": "#/$defs/nullableDateTime"
+          }
+        }
+      },
+      "invalidation_triggers": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "obligations": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "evaluation_hash": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+      },
+      "nullableString": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableCounter": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableDateTime": {
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -40096,6 +42573,217 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/components/daemon-runtime/hypervisoros-node/v1": [
+    {
+      "rule_id": "hypervisoros_node.identity_key_commitment.recomputes",
+      "description": "The sealed-identity key commitment recomputes from the public binding alone; no private material participates.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.hypervisoros-node-identity-commitment-jcs-sha256.v1"
+          },
+          "key_suite": {
+            "path": "$.sealed_identity.key_suite"
+          },
+          "identity_public_key": {
+            "path": "$.sealed_identity.identity_public_key"
+          }
+        },
+        "expected_path": "$.sealed_identity.identity_key_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "hypervisoros_node.ready.requires_temporal_evaluation",
+      "description": "A ready node binds the temporal validity evaluation its verified receipt was judged fresh by; readiness is never a bare assertion.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.attestation.temporal_validity_evaluation_ref",
+        "when_path": "$.status",
+        "values": [
+          "ready"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1": [
+    {
+      "rule_id": "hypervisoros_boot_profile.measured_posture.requires_reference_values",
+      "description": "A required posture at or above measured boot must name the trusted reference values receipts are appraised against.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.attestation_assurance.trusted_reference_value_refs",
+        "when_path": "$.attestation_assurance.required_posture",
+        "values": [
+          "measured_boot",
+          "secure_element",
+          "cpu_tee",
+          "gpu_confidential_compute",
+          "cpu_tee_and_gpu_confidential_compute"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisoros_boot_profile.tee_posture.requires_endorsements",
+      "description": "A TEE or confidential-compute posture must name trusted endorsements; a posture claim without an endorsement path is not appraisable.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.attestation_assurance.trusted_endorsement_refs",
+        "when_path": "$.attestation_assurance.required_posture",
+        "values": [
+          "cpu_tee",
+          "gpu_confidential_compute",
+          "cpu_tee_and_gpu_confidential_compute"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1": [
+    {
+      "rule_id": "hypervisoros_boot_receipt.signed_material.recomputes",
+      "description": "The signed material hash recomputes from the receipt identity plus the complete observation; the verdict and signature are outside the signed material, so the node never signs its own verdict.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.hypervisoros-boot-receipt-signed-material-jcs-sha256.v1"
+          },
+          "receipt_id": {
+            "path": "$.receipt_id"
+          },
+          "node_id": {
+            "path": "$.node_id"
+          },
+          "node_record_ref": {
+            "path": "$.node_record_ref"
+          },
+          "observation": {
+            "path": "$.observation"
+          }
+        },
+        "expected_path": "$.signature.signed_material_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "hypervisoros_boot_receipt.verdict.binds_observed_profile_root",
+      "description": "The verdict material names exactly the boot-profile root the observation cited; a verdict against any other profile revision is not representable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.verification.verified_against_boot_profile_root",
+          "$.observation.boot_profile_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisoros_boot_receipt.attester.is_the_subject_node",
+      "description": "The assurance attester is the receipt's subject node; a receipt attested by another runtime is a foreign chain.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.observation.attestation_assurance.attester_ref",
+          "$.node_id"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1": [
+    {
+      "rule_id": "temporal_verification_profile.profile_hash.recomputes",
+      "description": "The profile hash recomputes from the exact ref, version, and complete declarative body; consumers bind this hash, not the mutable envelope.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.temporal-verification-profile-hash-jcs-sha256.v1"
+          },
+          "profile_ref": {
+            "path": "$.profile_ref"
+          },
+          "profile_version": {
+            "path": "$.profile_version"
+          },
+          "declaration": {
+            "path": "$.declaration"
+          }
+        },
+        "expected_path": "$.profile_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1": [
+    {
+      "rule_id": "temporal_validity_evaluation.evaluation_hash.recomputes",
+      "description": "The evaluation hash recomputes from the complete body; a restored or edited evaluation cannot keep a stale hash.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.temporal-validity-evaluation-hash-jcs-sha256.v1"
+          },
+          "evaluation_id": {
+            "path": "$.evaluation_id"
+          },
+          "profile_ref": {
+            "path": "$.profile_ref"
+          },
+          "profile_hash": {
+            "path": "$.profile_hash"
+          },
+          "subject_ref": {
+            "path": "$.subject_ref"
+          },
+          "subject_hash": {
+            "path": "$.subject_hash"
+          },
+          "operation_class": {
+            "path": "$.operation_class"
+          },
+          "evidence_refs": {
+            "path": "$.evidence_refs"
+          },
+          "source_failure_domain_refs": {
+            "path": "$.source_failure_domain_refs"
+          },
+          "claims": {
+            "path": "$.claims"
+          },
+          "temporal_posture": {
+            "path": "$.temporal_posture"
+          },
+          "evidence_horizon": {
+            "path": "$.evidence_horizon"
+          },
+          "invalidation_triggers": {
+            "path": "$.invalidation_triggers"
+          },
+          "obligations": {
+            "path": "$.obligations"
+          }
+        },
+        "expected_path": "$.evaluation_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "temporal_validity_evaluation.claims.unique_per_kind",
+      "description": "Each temporal proposition appears at most once; one established claim never fills a missing or duplicated sibling.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.claims",
+        "fields": [
+          "kind"
+        ]
+      }
+    }
   ]
 };
 
@@ -41263,4 +43951,34 @@ export function validateAutonomousSystemDesiredTopologyV1(
   value: unknown,
 ): value is AutonomousSystemDesiredTopologyV1 {
   return validateArchitectureContract("schema://ioi/foundations/autonomous-system-desired-topology/v1", value).ok;
+}
+
+export function validateHypervisorOSNodeV1(
+  value: unknown,
+): value is HypervisorOSNodeV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/hypervisoros-node/v1", value).ok;
+}
+
+export function validateHypervisorOSBootProfileV1(
+  value: unknown,
+): value is HypervisorOSBootProfileV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1", value).ok;
+}
+
+export function validateHypervisorOSBootReceiptV1(
+  value: unknown,
+): value is HypervisorOSBootReceiptV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1", value).ok;
+}
+
+export function validateTemporalVerificationProfileV1(
+  value: unknown,
+): value is TemporalVerificationProfileV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/temporal-verification-profile/v1", value).ok;
+}
+
+export function validateTemporalValidityEvaluationV1(
+  value: unknown,
+): value is TemporalValidityEvaluationV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1", value).ok;
 }

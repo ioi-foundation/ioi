@@ -24,6 +24,9 @@ pub mod generated {
 pub mod guardianized;
 /// Workflow-addressable agent harness component contracts.
 pub mod harness;
+/// HypervisorOS node-attestation plane: boot profiles, boot receipts,
+/// sealed-identity binding, temporal freshness, and readiness derivation.
+pub mod hypervisoros_node_attestation;
 /// Data structures for on-chain identity, including the canonical AccountId.
 pub mod identity;
 /// Typed first-party inference workload contracts.

@@ -39,6 +39,10 @@ pub(crate) enum AuthorityPolicyContext<'a> {
         system_id: &'a str,
         genesis_id: &'a str,
     },
+    HypervisorOsNode {
+        estate_namespace: &'a str,
+        node_id: &'a str,
+    },
 }
 
 #[derive(Clone, Copy)]
@@ -87,6 +91,13 @@ impl AuthorityContract {
             | "remove_node"
             | "declare_desired_topology" => {
                 format!("scope:autonomous_system.membership.{op}")
+            }
+            "admit_node_identity"
+            | "submit_boot_receipt"
+            | "mark_node_ready"
+            | "declare_boot_profile"
+            | "declare_temporal_profile" => {
+                format!("scope:hypervisoros.node.{op}")
             }
             "enroll_local" => "scope:autonomous_system.network_enrollment.local.enroll".to_owned(),
             "exit_local_enrollment" => {
@@ -374,6 +385,13 @@ pub(crate) fn decision_policy_hash_for_context(
         } => {
             material.insert("genesis_id".into(), json!(genesis_id));
             material.insert("system_id".into(), json!(system_id));
+        }
+        AuthorityPolicyContext::HypervisorOsNode {
+            estate_namespace,
+            node_id,
+        } => {
+            material.insert("estate_namespace".into(), json!(estate_namespace));
+            material.insert("node_id".into(), json!(node_id));
         }
     }
     material.insert("required_authority_ref".into(), json!(required_authority));
