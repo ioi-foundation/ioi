@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+  "title": "AutonomousSystemDissolutionDisposition",
+  "description": "The named owner of dissolution residue: one record per dissolution binding every residual-disposition duty of the active continuity profile to a typed, evidenced, receipted outcome on one exact initiate_dissolution transition.",
+  "x-ioi-schema-version": "ioi.autonomous-system-dissolution-disposition.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dissolution_disposition_id",
+    "system_id",
+    "lifecycle_profile_ref",
+    "lifecycle_profile_root",
+    "initiate_transition_ref",
+    "initiate_transition_root",
+    "outcome_domains",
+    "escalation_decision_refs",
+    "complete_transition_ref",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-dissolution-disposition.v1"
+    },
+    "dissolution_disposition_id": {
+      "type": "string",
+      "pattern": "^dissolution-disposition://[^\\s]{1,248}$"
+    },
+    "system_id": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "lifecycle_profile_ref": {
+      "type": "string",
+      "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+    },
+    "lifecycle_profile_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "initiate_transition_ref": {
+      "type": "string",
+      "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+    },
+    "initiate_transition_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "outcome_domains": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "active_work",
+        "assets",
+        "outstanding_obligations",
+        "authority_revocation",
+        "worker_and_node_shutdown",
+        "data_export_retention_and_erasure",
+        "network_exit",
+        "tombstone"
+      ],
+      "properties": {
+        "active_work": {
+          "$ref": "#/$defs/domainOutcome"
+        },
+        "assets": {
+          "$ref": "#/$defs/domainOutcome"
+        },
+        "outstanding_obligations": {
+          "$ref": "#/$defs/domainOutcome"
+        },
+        "authority_revocation": {
+          "$ref": "#/$defs/domainOutcome"
+        },
+        "worker_and_node_shutdown": {
+          "$ref": "#/$defs/domainOutcome"
+        },
+        "data_export_retention_and_erasure": {
+          "$ref": "#/$defs/domainOutcome"
+        },
+        "network_exit": {
+          "$ref": "#/$defs/domainOutcome"
+        },
+        "tombstone": {
+          "$ref": "#/$defs/domainOutcome"
+        }
+      }
+    },
+    "escalation_decision_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      }
+    },
+    "complete_transition_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "open",
+        "terminal_complete",
+        "terminal_with_escalations",
+        "superseded"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "open"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "complete_transition_ref": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "terminal_complete"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "complete_transition_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome_domains": {
+            "type": "object",
+            "properties": {
+              "active_work": {
+                "$ref": "#/$defs/settledOutcome"
+              },
+              "assets": {
+                "$ref": "#/$defs/settledOutcome"
+              },
+              "outstanding_obligations": {
+                "$ref": "#/$defs/settledOutcome"
+              },
+              "authority_revocation": {
+                "$ref": "#/$defs/settledOutcome"
+              },
+              "worker_and_node_shutdown": {
+                "$ref": "#/$defs/settledOutcome"
+              },
+              "data_export_retention_and_erasure": {
+                "$ref": "#/$defs/settledOutcome"
+              },
+              "network_exit": {
+                "$ref": "#/$defs/settledOutcome"
+              },
+              "tombstone": {
+                "$ref": "#/$defs/settledOutcome"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "terminal_with_escalations"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "complete_transition_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome_domains": {
+            "type": "object",
+            "properties": {
+              "active_work": {
+                "$ref": "#/$defs/terminalOutcome"
+              },
+              "assets": {
+                "$ref": "#/$defs/terminalOutcome"
+              },
+              "outstanding_obligations": {
+                "$ref": "#/$defs/terminalOutcome"
+              },
+              "authority_revocation": {
+                "$ref": "#/$defs/terminalOutcome"
+              },
+              "worker_and_node_shutdown": {
+                "$ref": "#/$defs/terminalOutcome"
+              },
+              "data_export_retention_and_erasure": {
+                "$ref": "#/$defs/terminalOutcome"
+              },
+              "network_exit": {
+                "$ref": "#/$defs/terminalOutcome"
+              },
+              "tombstone": {
+                "$ref": "#/$defs/terminalOutcome"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "domainOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_ref",
+        "state",
+        "evidence_refs",
+        "receipt_refs"
+      ],
+      "properties": {
+        "policy_ref": {
+          "type": "string",
+          "pattern": "^policy://[^\\s]{1,248}$"
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "completed",
+            "waived_under_policy",
+            "escalated",
+            "failed_closed"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"
+          }
+        },
+        "receipt_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^receipt://[^\\s]{1,248}$"
+          }
+        }
+      }
+    },
+    "settledOutcome": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "enum": [
+            "completed",
+            "waived_under_policy"
+          ]
+        }
+      }
+    },
+    "terminalOutcome": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "enum": [
+            "completed",
+            "waived_under_policy",
+            "escalated"
+          ]
+        }
+      }
+    }
+  }
+}

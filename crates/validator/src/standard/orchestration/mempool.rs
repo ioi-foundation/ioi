@@ -290,6 +290,24 @@ impl Mempool {
         }
     }
 
+    /// Read-only occupant lookup for one (account, nonce) slot.
+    ///
+    /// A submitter that collides with an occupied slot needs the occupant's
+    /// hash to decide whether the occupant can still commit: an occupant
+    /// whose transaction was already execution-rejected holds a nonce that
+    /// will never advance, so it can never leave the queue on its own and
+    /// the slot must be healed explicitly.
+    pub fn peek_account_nonce(&self, account_id: &AccountId, nonce: u64) -> Option<TxHash> {
+        let idx = self.get_shard_index(account_id);
+        let guard = self.shards[idx].lock();
+        let queue = guard.get(account_id)?;
+        queue
+            .ready
+            .get(&nonce)
+            .or_else(|| queue.future.get(&nonce))
+            .map(|(_, hash)| *hash)
+    }
+
     /// Removes the transaction occupying a specific account nonce, if present.
     ///
     /// Lifecycle service calls can be semantically rejected after they have already

@@ -2688,7 +2688,8 @@
         }
       ],
       "positive_fixture_refs": [
-        "fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json"
+        "fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json",
+        "fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json"
       ],
       "negative_fixture_refs": [
         {
@@ -4644,6 +4645,175 @@
           "path": "fixtures/storage-artifact-availability-incident-v1/negative-incident-ref-mismatch.json",
           "expected_failure": "invariant",
           "expected_rule_id": "storage_artifact_availability_incident.incident_ref.binds_incident_id"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+      "canonical_name": "AutonomousSystemDissolutionDisposition",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemdissolutiondispositionenvelope",
+      "schema_version": "ioi.autonomous-system-dissolution-disposition.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "autonomous-system-dissolution-disposition.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-dissolution-disposition/terminality/v1",
+          "path": "invariants/autonomous-system-dissolution-disposition.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemDissolutionDispositionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemDissolutionDispositionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json",
+        "fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.active_work"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+      "canonical_name": "AutonomousSystemDissolutionDispositionTransition",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemdissolutiondispositiontransitionenvelope",
+      "schema_version": "ioi.autonomous-system-dissolution-disposition-transition.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "autonomous-system-dissolution-disposition-transition.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-dissolution-disposition-transition/exact-effect/v1",
+          "path": "invariants/autonomous-system-dissolution-disposition-transition.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemDissolutionDispositionTransitionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemDissolutionDispositionTransitionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json",
+        "fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_dissolution_disposition_transition.resulting_disposition_root.matches_effect"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+      "canonical_name": "AutonomousSystemDissolutionReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemdissolutionreceiptenvelope",
+      "schema_version": "ioi.autonomous-system-dissolution-receipt.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "autonomous-system-dissolution-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-dissolution-receipt/binding/v1",
+          "path": "invariants/autonomous-system-dissolution-receipt.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemDissolutionReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemDissolutionReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_dissolution_receipt.transitions.distinct"
         }
       ]
     }

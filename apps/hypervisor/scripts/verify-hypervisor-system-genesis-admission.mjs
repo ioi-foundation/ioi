@@ -62,10 +62,10 @@ const TEMP_PREFIXES = [
 const EXPECTED = {
   componentSetHash: "sha256:8cd8d649b1ae06bb99cf6cbe9fa671ef47b48ca523cbdce8b943224c279340fc",
   releaseRoot: "sha256:78ca76fbeb4fc51bdc114f68afd9078cedf52c8a3760ed1e2bb3be173091858b",
-  bundleRoot: "sha256:eba5d6e0594d6d3ba68f46c287b30fa5b922fe3ba4a3b740da043180ce422e48",
+  bundleRoot: "sha256:7cb2c381d5d98c2d220446a18a55b9f5be1dfbc824ebb5d8295be01138f6cbea",
   operationCommitment:
-    "sha256:f25a67924f9ed21cd5a14a1fb2a4116eb7a365f047bb62fd09db39bf4ce946c0",
-  proposalRoot: "sha256:b361b4f59e3486dbae2204fd40fabf50956ba881e3aa0c8706a069f4605d6e72",
+    "sha256:25ef56206ad8d951ab768106c8c47121d0a9ccf5ba54e116d514c643b645f83b",
+  proposalRoot: "sha256:a519964f16ab9974e009336f784a764d9c8ad1354879036d9846effd6680a2e5",
 };
 
 const results = [];

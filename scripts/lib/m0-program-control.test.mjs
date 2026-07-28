@@ -995,8 +995,8 @@ test("current shorthand wrappers stay dynamic and generated POSTs stay discovere
     "apps/hypervisor/scripts/ioi-agent-runs.mjs:219",
     "apps/hypervisor/scripts/ioi-agent-runs.mjs:320",
     "apps/hypervisor/scripts/ioi-agent-runs.mjs:418",
-    "apps/hypervisor/scripts/serve-product-ui.mjs:8429",
-    "apps/hypervisor/scripts/serve-product-ui.mjs:9907",
+    "apps/hypervisor/scripts/serve-product-ui.mjs:8430",
+    "apps/hypervisor/scripts/serve-product-ui.mjs:9916",
     "apps/hypervisor/scripts/ioi-api-adapter.mjs:68",
   ]);
   const shorthandEntries = discoveredEntries.filter((entry) => (

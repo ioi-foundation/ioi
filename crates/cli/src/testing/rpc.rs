@@ -132,9 +132,17 @@ pub async fn submit_transaction(
 ) -> Result<()> {
     let tx_hash = submit_transaction_no_wait(rpc_addr, tx).await?;
 
-    // Poll for status
+    // Poll for status. Long held journeys against the debug wallet fixture
+    // legitimately commit slowly as the chain deepens; callers opt into a
+    // longer wait without changing the default for everyone else.
     let start = std::time::Instant::now();
-    let timeout = Duration::from_secs(60);
+    let timeout = Duration::from_secs(
+        std::env::var("IOI_TESTING_RPC_COMMIT_TIMEOUT_SECS")
+            .ok()
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .unwrap_or(60)
+            .clamp(10, 900),
+    );
 
     let mut client = connect(rpc_addr).await?;
 

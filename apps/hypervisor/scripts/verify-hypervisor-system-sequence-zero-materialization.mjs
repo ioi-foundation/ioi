@@ -7,6 +7,7 @@ import { spawn, spawnSync } from "node:child_process";
 import http from "node:http";
 import {
   closeSync,
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -21,7 +22,7 @@ import {
 } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import grpc from "@grpc/grpc-js";
 import protoLoader from "@grpc/proto-loader";
@@ -119,6 +120,19 @@ const CURRENT_RECEIPT_PROFILE =
 const JOURNEY_SELECTOR_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_VERIFIER_JOURNEYS";
 const FOCUSED_VERIFIER_OPT_IN_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_ALLOW_FOCUSED";
 const CERTIFICATION_MODE_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_CERTIFY";
+// CHECKPOINT LANE (iteration-only, never certifying): capture archives a
+// journey's bootstrapped plane (daemon data dir + wallet fixture dir + a
+// manifest carrying the bootstrap outputs) after the expensive real-wallet
+// genesis->materialize->initialize->activate prefix, then exits; restore
+// rebuilds that plane at the SAME absolute paths and runs the journey body
+// without re-paying the bootstrap. Both modes require the focused opt-in and
+// are refused outright by certification mode.
+const CHECKPOINT_DIR_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_CHECKPOINT_DIR";
+const CHECKPOINT_MODE_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_CHECKPOINT_MODE";
+const CHECKPOINT_MANIFEST_SCHEMA_VERSION = 1;
+// Journeys wired for the checkpoint lane. Each keys its own checkpoint
+// subdirectory because every journey bootstraps its own genesis identities.
+const CHECKPOINT_CAPABLE_JOURNEYS = new Set(["dual-system-projection"]);
 const POST_WALLET_CRASH_PAUSE_ENV =
   "IOI_TEST_PAUSE_SYSTEM_SEQUENCE_ZERO_AFTER_WALLET_CONSUMPTION_EVIDENCE";
 const POST_WALLET_CRASH_MARKER_ENV =
@@ -249,7 +263,14 @@ const JOURNEY_PROOF_CENSUS = new Map([
         "M1.5d SUCCESSOR AMENDMENT: the former owner refuses and the verified successor alone executes the governed constitution change",
         "M1.5d LIVE EFFECT FLOOR: dissolution carrying a live effect refuses before authority",
         "M1.5d RESIDUAL FLOOR: caller-authored disposition evidence cannot close server-owned residual truth",
+        "M1.5d WRONG SCOPE: a record-outcome-scoped grant cannot authorize opening the dissolution disposition",
+        "M1.5d DISPOSITION OPEN: only the exact record body over the admitted initiation opens the dissolving ladder",
+        "M1.5d DISPOSITION SINGLETON: a second disposition record cannot open over the dissolving System",
+        "M1.5d DOMAIN OUTCOME: one policy-bound receipted outcome records exactly once per domain",
         "M1.5d REPLAY: a crash after exact wallet consumption converges one named transition on restart",
+        "M1.5d TERMINAL FLOOR: completion refuses over pending domains and admits only the fully terminal disposition record",
+        "M1.5d RECEIPT BINDING: the committed completion carries the record's receipt union and mints the dissolution receipt exactly once",
+        "M1.5d STATUS LADDER: dissolved is reachable only through the full disposition ladder while generic transitions refuse the dissolving System",
         "M1.5d CONTINUITY: local enrollment, exit, verified migration, succession, and residual-closed dissolution commit as one exact chain",
       ],
     },
@@ -1020,6 +1041,8 @@ function sanitizeVerifierEnv(sourceEnv) {
         JOURNEY_SELECTOR_ENV,
         FOCUSED_VERIFIER_OPT_IN_ENV,
         CERTIFICATION_MODE_ENV,
+        CHECKPOINT_DIR_ENV,
+        CHECKPOINT_MODE_ENV,
       ].includes(key);
     }),
   );
@@ -1071,6 +1094,207 @@ async function startOwnedWalletResolver(options = {}) {
   }
   ownedResources.set(resourceDir, activeJourney);
   return resolver;
+}
+
+/// Thrown after a successful checkpoint capture so the journey's finally
+/// blocks still run (idempotent stops + owned-resource removal) and run()
+/// can report the capture as complete instead of as a verifier crash.
+class CheckpointCaptureComplete extends Error {
+  constructor(journeyDir) {
+    super(`checkpoint captured at ${journeyDir}`);
+    this.checkpointCaptureComplete = true;
+  }
+}
+
+function activeCheckpointLane() {
+  const dir = process.env[CHECKPOINT_DIR_ENV];
+  const mode = process.env[CHECKPOINT_MODE_ENV];
+  if (dir === undefined && mode === undefined) return null;
+  if (!dir || !mode) {
+    throw new Error(
+      `${CHECKPOINT_DIR_ENV} and ${CHECKPOINT_MODE_ENV} must be set together`,
+    );
+  }
+  if (mode !== "capture" && mode !== "restore") {
+    throw new Error(
+      `${CHECKPOINT_MODE_ENV} must be 'capture' or 'restore', not '${mode}'`,
+    );
+  }
+  return { dir: resolvePath(dir), mode };
+}
+
+function checkpointOwnedTempPath(recorded, label, requiredPrefix) {
+  const target = resolvePath(String(recorded || ""));
+  if (
+    dirname(target) !== resolvePath(tmpdir()) ||
+    !basename(target).startsWith(requiredPrefix)
+  ) {
+    throw new Error(
+      `checkpoint manifest ${label} must be a verifier-owned '${requiredPrefix}*' path under ${tmpdir()}: ${recorded}`,
+    );
+  }
+  return target;
+}
+
+function journeyCheckpointLane(name) {
+  const lane = activeCheckpointLane();
+  if (!lane) return null;
+  requireValue(
+    CHECKPOINT_CAPABLE_JOURNEYS.has(name),
+    `journey '${name}' is not wired for the checkpoint lane`,
+  );
+  const journeyDir = join(lane.dir, name);
+  if (lane.mode === "capture") {
+    return { ...lane, journeyDir };
+  }
+  const manifestPath = join(journeyDir, "manifest.json");
+  requireValue(
+    existsSync(manifestPath),
+    `checkpoint restore requires a captured manifest at ${manifestPath}`,
+  );
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  requireValue(
+    manifest.schema_version === CHECKPOINT_MANIFEST_SCHEMA_VERSION &&
+      manifest.journey === name &&
+      manifest.daemon_data_dir &&
+      manifest.wallet_fixture_dir &&
+      manifest.bootstrap_outputs &&
+      Array.isArray(manifest.captured_proofs) &&
+      manifest.captured_proofs.length > 0,
+    `checkpoint manifest at ${manifestPath} is not a complete v${CHECKPOINT_MANIFEST_SCHEMA_VERSION} capture for '${name}'`,
+  );
+  requireValue(
+    existsSync(join(journeyDir, "data-dir")),
+    `checkpoint restore requires the archived daemon data dir at ${join(journeyDir, "data-dir")}`,
+  );
+  return { ...lane, journeyDir, manifest };
+}
+
+/// Count archived files whose bytes embed each needle string. Same-path
+/// restore is proven necessary (not just prudent) by nonzero hits: the
+/// daemon's durable records really do carry these absolute paths.
+function checkpointEmbeddedPathScan(root, needles) {
+  const counts = new Map(needles.map((needle) => [needle, 0]));
+  let scannedFiles = 0;
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const entryPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(entryPath);
+      } else if (entry.isFile()) {
+        scannedFiles += 1;
+        const bytes = readFileSync(entryPath);
+        for (const needle of needles) {
+          if (bytes.includes(needle)) {
+            counts.set(needle, counts.get(needle) + 1);
+          }
+        }
+      }
+    }
+  };
+  walk(root);
+  return { scannedFiles, counts: Object.fromEntries(counts) };
+}
+
+async function captureJourneyCheckpoint({
+  lane,
+  plane,
+  resolver,
+  dataDir,
+  bootstrapOutputs,
+}) {
+  const capturedProofs = results
+    .filter((result) => result.journey === activeJourney)
+    .map(({ name, pass, detail }) => ({ name, pass, detail }));
+  requireValue(
+    capturedProofs.every((proof) => proof.pass),
+    "checkpoint capture refuses to archive a plane with failing bootstrap proofs",
+  );
+  // Cleanly stop the daemon first (its data dir is caller-owned and survives
+  // stop), then the wallet fixture (graceful shutdown file -> process-group
+  // reap) while preserving its directory for archival.
+  await plane.stop();
+  await resolver.stop({ preserveResourceDir: true });
+  const walletFixtureDir = resolver.resourceDir;
+  rmSync(lane.journeyDir, { recursive: true, force: true });
+  mkdirSync(lane.journeyDir, { recursive: true, mode: 0o700 });
+  cpSync(dataDir, join(lane.journeyDir, "data-dir"), { recursive: true });
+  cpSync(walletFixtureDir, join(lane.journeyDir, "wallet-fixture-dir"), {
+    recursive: true,
+  });
+  const embeddedPathScan = checkpointEmbeddedPathScan(
+    join(lane.journeyDir, "data-dir"),
+    [dataDir, walletFixtureDir],
+  );
+  const manifest = {
+    schema_version: CHECKPOINT_MANIFEST_SCHEMA_VERSION,
+    journey: activeJourney,
+    captured_at: new Date().toISOString(),
+    daemon_data_dir: dataDir,
+    wallet_fixture_dir: walletFixtureDir,
+    // The wallet fixture is re-initialized (not resumed) on restore: its
+    // chain state lives in the cargo test's private TestCluster tempdirs,
+    // not in the fixture directory. The archive plus this scan document why
+    // same-path restore is mandatory for the daemon data dir.
+    wallet_restore_semantics:
+      "same-path-reinit-deterministic-topology-fresh-chain",
+    embedded_path_scan: embeddedPathScan,
+    bootstrap_outputs: bootstrapOutputs,
+    captured_proofs: capturedProofs,
+  };
+  const manifestPath = join(lane.journeyDir, "manifest.json");
+  const manifestTemp = `${manifestPath}.${process.pid}.tmp`;
+  writeFileSync(manifestTemp, canonicalJson(manifest), { mode: 0o600 });
+  renameSync(manifestTemp, manifestPath);
+  rmSync(walletFixtureDir, { recursive: true, force: true });
+  console.log(
+    `CHECKPOINT CAPTURE: archived '${activeJourney}' plane at ${lane.journeyDir} (data-dir path hits=${embeddedPathScan.counts[dataDir]} wallet-dir path hits=${embeddedPathScan.counts[walletFixtureDir]} of ${embeddedPathScan.scannedFiles} files)`,
+  );
+  throw new CheckpointCaptureComplete(lane.journeyDir);
+}
+
+/// Restore the archived daemon data dir at its exact recorded absolute path
+/// (mandatory when durable records embed that path) and register it as this
+/// journey's owned resource with a fresh owner marker.
+function restoreCheckpointDataDir(lane) {
+  requireValue(
+    activeJourney,
+    "verifier-owned resources require an active journey",
+  );
+  const target = checkpointOwnedTempPath(
+    lane.manifest.daemon_data_dir,
+    "daemon_data_dir",
+    "ioi-",
+  );
+  if (ownedResources.has(target)) {
+    throw new Error(`verifier-owned resource was registered twice: ${target}`);
+  }
+  rmSync(target, { recursive: true, force: true });
+  cpSync(join(lane.journeyDir, "data-dir"), target, { recursive: true });
+  writeFileSync(
+    join(target, VERIFIER_OWNER_MARKER),
+    JSON.stringify({
+      schema_version: 1,
+      owner_pid: process.pid,
+      owner_kind: "system-sequence-zero-held-bar",
+    }),
+    { mode: 0o600 },
+  );
+  ownedResources.set(target, activeJourney);
+  return target;
+}
+
+/// Re-emit the capture run's pre-body proofs so the journey's exact proof
+/// census holds on restore. Each is labeled: it was proven live during
+/// capture against this same archived plane, not re-executed here.
+function replayCapturedCheckpointProofs(lane) {
+  for (const { name, pass, detail } of lane.manifest.captured_proofs) {
+    ok(
+      name,
+      pass,
+      `${detail ? `${detail} ` : ""}[replayed from checkpoint capture ${lane.manifest.captured_at}]`,
+    );
+  }
 }
 
 async function walletFixtureReadinessCleanupSelfTest() {
@@ -1550,7 +1774,9 @@ async function jsonCall(base, method, path, body) {
   // Some governed routes synchronously wait on the real wallet fixture for
   // longer than undici's fixed 300s response-header limit under host load.
   // Keep the held proof above that production boundary while retaining a
-  // finite 15-minute transport ceiling.
+  // finite 30-minute transport ceiling: the deepest governed completion
+  // holds its POST through a ~15-minute wallet consumption plus persistence
+  // on the grown debug chain.
   const target = new URL(`${base}${path}`);
   const payload = body === undefined ? null : JSON.stringify(body);
   return await new Promise((resolve, reject) => {
@@ -1586,7 +1812,7 @@ async function jsonCall(base, method, path, body) {
       },
     );
     request.on("error", reject);
-    request.setTimeout(900_000, () => {
+    request.setTimeout(1_800_000, () => {
       request.destroy(new Error(`JSON call timed out: ${method} ${path}`));
     });
     if (payload !== null) request.write(payload);
@@ -5729,6 +5955,11 @@ const MIGRATION_ACK_FAMILY =
   "autonomous-system-migration-destination-acknowledgements";
 const MIGRATION_ACK_RECEIPT_FAMILY =
   "autonomous-system-migration-destination-acknowledgement-receipts";
+const DISSOLUTION_DISPOSITION_FAMILY =
+  "autonomous-system-dissolution-dispositions";
+const DISSOLUTION_RECEIPT_FAMILY = "autonomous-system-dissolution-receipts";
+const DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN =
+  "ioi.autonomous-system-dissolution-disposition-artifact-jcs-sha256.v1";
 
 async function runNamedContinuityJourney() {
   const resolver = await startOwnedWalletResolver();
@@ -6307,15 +6538,326 @@ async function runNamedContinuityJourney() {
       `${callerAuthoredResidual.status}/${callerAuthoredResidual.body.error?.code || "no-code"}`,
     );
 
-    const completeRequest = requestFor({
-      trigger_evidence_refs: ["evidence://acme/dissolution/approved"],
+    // The dissolution-disposition ladder: dissolution_pending -> dissolving ->
+    // per-domain outcomes -> terminal record -> complete_dissolution. The
+    // record body binds the exact admitted initiation and the active
+    // continuity profile; its status is server-derived, never caller-set.
+    const dissolutionFamilies = [
+      ...continuityFamilies,
+      DISSOLUTION_DISPOSITION_FAMILY,
+      DISSOLUTION_RECEIPT_FAMILY,
+      "autonomous-system-chain-revisions",
+    ];
+    const lifecycleProfile = fixture(
+      "lifecycle-continuity-profile-v1/positive-successor-governed.json",
+    );
+    const lifecycleProfileRoot = artifactHash(
+      "ioi.lifecycle-continuity-profile-artifact-jcs-sha256.v1",
+      lifecycleProfile,
+    );
+    const initiateTransitionRef = state.transition_ref;
+    const initiateTransitionRoot = state.transition_root;
+    const dispositionId = `dissolution-disposition://acme/system-alpha/initiate/${initiateTransitionRoot.slice("sha256:".length)}`;
+    const dissolutionPolicies = {
+      active_work: "policy://acme/lifecycle/work-disposition",
+      outstanding_obligations: "policy://acme/lifecycle/obligations",
+      authority_revocation: "policy://acme/lifecycle/revoke-authority",
+      worker_and_node_shutdown: "policy://acme/lifecycle/shutdown",
+      data_export_retention_and_erasure:
+        "policy://acme/lifecycle/data-disposition",
+      network_exit: "policy://acme/lifecycle/network-exit",
+      tombstone: "policy://acme/lifecycle/tombstone",
+    };
+    const recordedDomains = Object.keys(dissolutionPolicies);
+    const dispositionRecord = {
+      schema_version: "ioi.autonomous-system-dissolution-disposition.v1",
+      dissolution_disposition_id: dispositionId,
+      system_id: chain.system_id,
+      lifecycle_profile_ref: lifecycleProfile.lifecycle_profile_id,
+      lifecycle_profile_root: lifecycleProfileRoot,
+      initiate_transition_ref: initiateTransitionRef,
+      initiate_transition_root: initiateTransitionRoot,
+      outcome_domains: {
+        ...Object.fromEntries(
+          recordedDomains.map((domain) => [
+            domain,
+            {
+              policy_ref: dissolutionPolicies[domain],
+              state: "pending",
+              evidence_refs: [],
+              receipt_refs: [],
+            },
+          ]),
+        ),
+        // The admitted profile declares no asset contracts: the record waives
+        // against the profile's own null declaration, never a silent skip.
+        assets: {
+          policy_ref: "policy://profile-null-declaration",
+          state: "waived_under_policy",
+          evidence_refs: [],
+          receipt_refs: [],
+        },
+      },
+      escalation_decision_refs: [],
+      complete_transition_ref: null,
+      status: "open",
+      created_at: "2026-07-26T00:00:00Z",
+    };
+
+    // A grant minted for the record-outcome scope over the open request's
+    // exact coordinates cannot cross the open operation's wallet boundary.
+    const beforeWrongScope = familiesSnapshot(dataDir, dissolutionFamilies);
+    const wrongScopeOpenRequest = requestFor({
+      trigger_evidence_refs: [
+        "evidence://acme/dissolution/disposition-wrong-scope",
+      ],
+      dissolution_disposition: dispositionRecord,
     });
-    const completeAuthority = await challengeAndGrant(
+    const wrongScopeAuthority = await challengeAndWrongTargetGrant(
       call,
       resolver,
+      pathFor("open_dissolution_disposition"),
+      wrongScopeOpenRequest,
+      "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
+      expectedAuthority,
+    );
+    const wrongScope = await call(
+      "POST",
+      pathFor("open_dissolution_disposition"),
+      {
+        ...wrongScopeOpenRequest,
+        wallet_approval_grant: requireValue(
+          wrongScopeAuthority.grant,
+          "M1.5d lacks the intentionally mis-scoped disposition grant",
+        ),
+      },
+    );
+    ok(
+      "M1.5d WRONG SCOPE: a record-outcome-scoped grant cannot authorize opening the dissolution disposition",
+      wrongScope.status === 403 &&
+        wrongScope.body.error?.code ===
+          "system_lifecycle_wallet_consumption_refused" &&
+        beforeWrongScope === familiesSnapshot(dataDir, dissolutionFamilies),
+      `${wrongScope.status}/${wrongScope.body.error?.code || "no-code"}`,
+    );
+
+    const beforeOpenProbes = familiesSnapshot(dataDir, dissolutionFamilies);
+    const wrongInitiateRecord = clone(dispositionRecord);
+    wrongInitiateRecord.initiate_transition_root = `sha256:${"7".repeat(64)}`;
+    const wrongInitiate = await call(
+      "POST",
+      pathFor("open_dissolution_disposition"),
+      requestFor({ dissolution_disposition: wrongInitiateRecord }),
+    );
+    const wrongProfileRecord = clone(dispositionRecord);
+    wrongProfileRecord.lifecycle_profile_root = artifactHash(
+      "ioi.lifecycle-continuity-profile-artifact-jcs-sha256.v1",
+      { ...clone(lifecycleProfile), version: "9.9.9" },
+    );
+    const wrongProfile = await call(
+      "POST",
+      pathFor("open_dissolution_disposition"),
+      requestFor({ dissolution_disposition: wrongProfileRecord }),
+    );
+    const openProbesLeftNoEvidence =
+      beforeOpenProbes === familiesSnapshot(dataDir, dissolutionFamilies);
+    const opened = await commit(
+      "open_dissolution_disposition",
+      "scope:autonomous_system.continuity.open_dissolution_disposition",
+      { dissolution_disposition: dispositionRecord },
+    );
+    const openRoot = artifactHash(
+      DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN,
+      dispositionRecord,
+    );
+    const dissolvingGet = await call(
+      "GET",
+      pathFor("record_dissolution_domain_outcome"),
+    );
+    ok(
+      "M1.5d DISPOSITION OPEN: only the exact record body over the admitted initiation opens the dissolving ladder",
+      wrongInitiate.status === 422 &&
+        String(wrongInitiate.body.error?.message).includes(
+          "exact initiate_dissolution transition",
+        ) &&
+        wrongProfile.status === 422 &&
+        String(wrongProfile.body.error?.message).includes(
+          "does not root the active lifecycle profile",
+        ) &&
+        openProbesLeftNoEvidence &&
+        opened.sequence === 12 &&
+        opened.autonomous_system_chain?.status === "dissolving" &&
+        opened.transition?.schema_version ===
+          "ioi.autonomous-system-dissolution-disposition-transition.v1" &&
+        opened.transition?.predecessor_disposition_root === null &&
+        opened.transition?.recorded_domain === null &&
+        opened.transition?.resulting_disposition_root === openRoot &&
+        familyFiles(dataDir, DISSOLUTION_DISPOSITION_FAMILY).includes(
+          `asddr_${openRoot.slice("sha256:".length)}.json`,
+        ) &&
+        dissolvingGet.status === 200 &&
+        dissolvingGet.body.chain_head?.status === "dissolving" &&
+        dissolvingGet.body.eligible_now?.status_admitted === true,
+      `wrong-initiate=${wrongInitiate.status}/${wrongInitiate.body.error?.message || "no-message"} wrong-profile=${wrongProfile.status}/${wrongProfile.body.error?.message || "no-message"} opened=${opened.sequence}/${opened.autonomous_system_chain?.status} get=${dissolvingGet.body.chain_head?.status}`,
+    );
+
+    const beforeSecondOpen = familiesSnapshot(dataDir, dissolutionFamilies);
+    const secondOpen = await call(
+      "POST",
+      pathFor("open_dissolution_disposition"),
+      requestFor({ dissolution_disposition: dispositionRecord }),
+    );
+    const secondOpenGet = await call(
+      "GET",
+      pathFor("open_dissolution_disposition"),
+    );
+    ok(
+      "M1.5d DISPOSITION SINGLETON: a second disposition record cannot open over the dissolving System",
+      secondOpen.status === 422 &&
+        String(secondOpen.body.error?.message).includes(
+          "cannot lawfully leave dissolving",
+        ) &&
+        secondOpenGet.status === 200 &&
+        secondOpenGet.body.eligible_now?.status_admitted === false &&
+        secondOpenGet.body.eligible_now?.blockers?.some(
+          (blocker) => blocker.code === "predecessor_status_not_admitted",
+        ) &&
+        beforeSecondOpen === familiesSnapshot(dataDir, dissolutionFamilies),
+      `${secondOpen.status}/${secondOpen.body.error?.message || "no-message"} blockers=${canonicalJson(secondOpenGet.body.eligible_now?.blockers || null)}`,
+    );
+
+    // The dissolving status is reserved to the disposition ladder: the
+    // generic protected-transition route cannot lawfully leave it.
+    const beforeReserved = familiesSnapshot(dataDir, dissolutionFamilies);
+    const reservedStatus = await call(
+      "POST",
+      protectedPathFor("pause"),
+      requestFor(),
+    );
+    const reservedStatusLeftNoEvidence =
+      beforeReserved === familiesSnapshot(dataDir, dissolutionFamilies);
+
+    const outcomeFor = (domain, extra = {}) => ({
+      domain,
+      state: "completed",
+      policy_ref: dissolutionPolicies[domain],
+      evidence_refs: [`evidence://acme/dissolution/${domain}`],
+      receipt_refs: [`receipt://acme/dissolution/${domain}`],
+      ...extra,
+    });
+    const expectedDisposition = clone(dispositionRecord);
+    const applyExpected = (domain) => {
+      expectedDisposition.outcome_domains[domain] = {
+        policy_ref: dissolutionPolicies[domain],
+        state: "completed",
+        evidence_refs: [`evidence://acme/dissolution/${domain}`],
+        receipt_refs: [`receipt://acme/dissolution/${domain}`],
+      };
+      expectedDisposition.status = recordedDomains.every(
+        (name) => expectedDisposition.outcome_domains[name].state !== "pending",
+      )
+        ? "terminal_complete"
+        : "open";
+    };
+    const firstOutcome = await commit(
+      "record_dissolution_domain_outcome",
+      "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
+      { dissolution_domain_outcome: outcomeFor("active_work") },
+    );
+    applyExpected("active_work");
+    const activeWorkRoot = artifactHash(
+      DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN,
+      expectedDisposition,
+    );
+    const beforeOutcomeProbes = familiesSnapshot(dataDir, dissolutionFamilies);
+    const duplicate = await call(
+      "POST",
+      pathFor("record_dissolution_domain_outcome"),
+      requestFor({ dissolution_domain_outcome: outcomeFor("active_work") }),
+    );
+    const wrongPolicy = await call(
+      "POST",
+      pathFor("record_dissolution_domain_outcome"),
+      requestFor({
+        dissolution_domain_outcome: outcomeFor("outstanding_obligations", {
+          policy_ref: "policy://acme/other",
+        }),
+      }),
+    );
+    const escalatedWithoutDecision = await call(
+      "POST",
+      pathFor("record_dissolution_domain_outcome"),
+      requestFor({
+        dissolution_domain_outcome: outcomeFor("outstanding_obligations", {
+          state: "escalated",
+        }),
+      }),
+    );
+    ok(
+      "M1.5d DOMAIN OUTCOME: one policy-bound receipted outcome records exactly once per domain",
+      firstOutcome.sequence === 13 &&
+        firstOutcome.autonomous_system_chain?.status === "dissolving" &&
+        firstOutcome.transition?.recorded_domain === "active_work" &&
+        firstOutcome.transition?.predecessor_disposition_root === openRoot &&
+        firstOutcome.transition?.resulting_disposition_root ===
+          activeWorkRoot &&
+        duplicate.status === 422 &&
+        String(duplicate.body.error?.message).includes(
+          "recorded exactly once",
+        ) &&
+        wrongPolicy.status === 422 &&
+        String(wrongPolicy.body.error?.message).includes(
+          "does not bind a policy",
+        ) &&
+        escalatedWithoutDecision.status === 422 &&
+        String(escalatedWithoutDecision.body.error?.message).includes(
+          "escalation decision ref",
+        ) &&
+        beforeOutcomeProbes === familiesSnapshot(dataDir, dissolutionFamilies),
+      `first=${firstOutcome.sequence}/${firstOutcome.transition?.recorded_domain} duplicate=${duplicate.status}/${duplicate.body.error?.message || "no-message"} wrong-policy=${wrongPolicy.status}/${wrongPolicy.body.error?.message || "no-message"} escalated=${escalatedWithoutDecision.status}/${escalatedWithoutDecision.body.error?.message || "no-message"}`,
+    );
+
+    // Completion cannot cross the wallet boundary while any domain is still
+    // pending; the refusal is recompared after the ladder fully terminates.
+    const beforePendingComplete = familiesSnapshot(
+      dataDir,
+      dissolutionFamilies,
+    );
+    const pendingComplete = await call(
+      "POST",
       pathFor("complete_dissolution"),
-      completeRequest,
-      "scope:autonomous_system.continuity.complete_dissolution",
+      requestFor({
+        trigger_evidence_refs: ["evidence://acme/dissolution/approved"],
+      }),
+    );
+    const pendingCompleteLeftNoEvidence =
+      beforePendingComplete === familiesSnapshot(dataDir, dissolutionFamilies);
+    for (const domain of [
+      "outstanding_obligations",
+      "authority_revocation",
+      "worker_and_node_shutdown",
+      "data_export_retention_and_erasure",
+      "network_exit",
+    ]) {
+      await commit(
+        "record_dissolution_domain_outcome",
+        "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
+        { dissolution_domain_outcome: outcomeFor(domain) },
+      );
+      applyExpected(domain);
+    }
+
+    // Crash after the exact wallet consumption of the final domain outcome:
+    // restart converges the tombstone record exactly once from its intent.
+    const tombstoneRequest = requestFor({
+      dissolution_domain_outcome: outcomeFor("tombstone"),
+    });
+    const tombstoneAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      pathFor("record_dissolution_domain_outcome"),
+      tombstoneRequest,
+      "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
       expectedAuthority,
     );
     await plane.stop();
@@ -6324,18 +6866,22 @@ async function runNamedContinuityJourney() {
       env: {
         ...resolver.env,
         IOI_TEST_FORCE_SYSTEM_CONTINUITY_AFTER_WALLET_CONSUMPTION:
-          "complete_dissolution",
+          "record_dissolution_domain_outcome",
       },
     });
     call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
-    const interrupted = await call("POST", pathFor("complete_dissolution"), {
-      ...completeRequest,
-      wallet_approval_grant: requireValue(
-        completeAuthority.grant,
-        "M1.5d complete dissolution lacks a grant",
-      ),
-    });
+    const interrupted = await call(
+      "POST",
+      pathFor("record_dissolution_domain_outcome"),
+      {
+        ...tombstoneRequest,
+        wallet_approval_grant: requireValue(
+          tombstoneAuthority.grant,
+          "M1.5d tombstone outcome lacks a grant",
+        ),
+      },
+    );
     requireValue(
       interrupted.status === 500 &&
         familyFiles(dataDir, CONTINUITY_INTENT_FAMILY).length === 1,
@@ -6349,25 +6895,158 @@ async function runNamedContinuityJourney() {
       dataDir,
       CONTINUITY_INTENT_FAMILY,
     );
-    const final = await call("GET", pathFor("complete_dissolution"));
+    applyExpected("tombstone");
+    const terminalRoot = artifactHash(
+      DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN,
+      expectedDisposition,
+    );
+    const converged = await call(
+      "GET",
+      pathFor("record_dissolution_domain_outcome"),
+    );
     ok(
       "M1.5d REPLAY: a crash after exact wallet consumption converges one named transition on restart",
       cleared &&
-        final.status === 200 &&
-        final.body.chain_head?.latest_sequence === 12 &&
-        final.body.chain_head?.status === "dissolved" &&
-        final.body.committed_entries?.length === 1,
-      `cleared=${cleared} sequence=${final.body.chain_head?.latest_sequence} status=${final.body.chain_head?.status}`,
+        converged.status === 200 &&
+        converged.body.chain_head?.latest_sequence === 19 &&
+        converged.body.chain_head?.status === "dissolving" &&
+        converged.body.committed_entries?.length === 7 &&
+        familyFiles(dataDir, DISSOLUTION_DISPOSITION_FAMILY).includes(
+          `asddr_${terminalRoot.slice("sha256:".length)}.json`,
+        ),
+      `cleared=${cleared} sequence=${converged.body.chain_head?.latest_sequence} status=${converged.body.chain_head?.status} entries=${converged.body.committed_entries?.length}`,
+    );
+    chain = converged.body.chain_head;
+    state = { lifecycle_state_root: chain.latest_state_root };
+
+    const completed = await commit(
+      "complete_dissolution",
+      "scope:autonomous_system.continuity.complete_dissolution",
+      { trigger_evidence_refs: ["evidence://acme/dissolution/approved"] },
     );
     ok(
+      "M1.5d TERMINAL FLOOR: completion refuses over pending domains and admits only the fully terminal disposition record",
+      pendingComplete.status === 422 &&
+        String(pendingComplete.body.error?.message).includes(
+          "terminal disposition record",
+        ) &&
+        pendingCompleteLeftNoEvidence &&
+        completed.sequence === 20 &&
+        completed.autonomous_system_chain?.status === "dissolved" &&
+        completed.lifecycle_state?.status === "dissolved" &&
+        completed.transition?.transition_kind === "complete_dissolution",
+      `pending=${pendingComplete.status}/${pendingComplete.body.error?.message || "no-message"} completed=${completed.sequence}/${completed.autonomous_system_chain?.status}`,
+    );
+
+    const expectedReceiptUnion = recordedDomains
+      .map((domain) => `receipt://acme/dissolution/${domain}`)
+      .sort();
+    const finalDisposition = clone(expectedDisposition);
+    finalDisposition.complete_transition_ref =
+      "lifecycle-transition://acme/system-alpha/continuity/sequence/20";
+    const finalDispositionRoot = artifactHash(
+      DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN,
+      finalDisposition,
+    );
+    const dissolutionReceiptFiles = familyFiles(
+      dataDir,
+      DISSOLUTION_RECEIPT_FAMILY,
+    );
+    const dissolutionReceipt =
+      dissolutionReceiptFiles.length === 1
+        ? JSON.parse(
+            readFileSync(
+              join(
+                dataDir,
+                DISSOLUTION_RECEIPT_FAMILY,
+                dissolutionReceiptFiles[0],
+              ),
+              "utf8",
+            ),
+          )
+        : null;
+    const dissolutionReceiptRoot = dissolutionReceipt
+      ? artifactHash(
+          "ioi.autonomous-system-dissolution-receipt-artifact-jcs-sha256.v1",
+          dissolutionReceipt,
+        )
+      : null;
+    const agentgresReceiptFrames = parseMuxFrames(
+      readFileSync(join(dataDir, "substrate", "muxlog.bin")),
+    ).filter(
+      (frame) =>
+        frame.value.frame === "Admitted" &&
+        frame.value.op?.domain === DISSOLUTION_RECEIPT_FAMILY,
+    );
+    ok(
+      "M1.5d RECEIPT BINDING: the committed completion carries the record's receipt union and mints the dissolution receipt exactly once",
+      sameJson(
+        completed.transition?.disposition_receipt_refs,
+        expectedReceiptUnion,
+      ) &&
+        dissolutionReceiptFiles.length === 1 &&
+        dissolutionReceiptRoot !== null &&
+        dissolutionReceiptFiles[0] ===
+          `asdr_${dissolutionReceiptRoot.slice("sha256:".length)}.json` &&
+        dissolutionReceipt?.op === "complete_dissolution" &&
+        dissolutionReceipt?.assurance_posture === "dissolution_committed" &&
+        dissolutionReceipt?.dissolution_disposition_ref === dispositionId &&
+        dissolutionReceipt?.dissolution_disposition_root ===
+          finalDispositionRoot &&
+        dissolutionReceipt?.initiate_transition_root ===
+          initiateTransitionRoot &&
+        sameJson(
+          Object.keys(
+            dissolutionReceipt?.domain_outcome_commitments || {},
+          ).sort(),
+          [...recordedDomains, "assets"].sort(),
+        ) &&
+        familyFiles(dataDir, DISSOLUTION_DISPOSITION_FAMILY).includes(
+          `asddr_${finalDispositionRoot.slice("sha256:".length)}.json`,
+        ) &&
+        agentgresReceiptFrames.length === 1 &&
+        sameJson(
+          agentgresReceiptFrames[0].value.op?.payload,
+          dissolutionReceipt,
+        ),
+      `union=${canonicalJson(completed.transition?.disposition_receipt_refs || null)} receipts=${dissolutionReceiptFiles.length} op=${dissolutionReceipt?.op || "none"} posture=${dissolutionReceipt?.assurance_posture || "none"} frames=${agentgresReceiptFrames.length}`,
+    );
+
+    const finalGet = await call("GET", pathFor("complete_dissolution"));
+    const ladderOps = completed.operation_log?.entries
+      ?.slice(-10)
+      .map((entry) => entry.operation_name);
+    ok(
+      "M1.5d STATUS LADDER: dissolved is reachable only through the full disposition ladder while generic transitions refuse the dissolving System",
+      reservedStatus.status === 422 &&
+        String(reservedStatus.body.error?.message).includes(
+          "outside the generic family",
+        ) &&
+        reservedStatusLeftNoEvidence &&
+        finalGet.status === 200 &&
+        finalGet.body.chain_head?.status === "dissolved" &&
+        finalGet.body.chain_head?.latest_sequence === 20 &&
+        finalGet.body.committed_entries?.length === 1 &&
+        sameJson(ladderOps, [
+          "initiate_dissolution",
+          "open_dissolution_disposition",
+          ...recordedDomains.map(() => "record_dissolution_domain_outcome"),
+          "complete_dissolution",
+        ]),
+      `reserved=${reservedStatus.status}/${reservedStatus.body.error?.code || "no-code"}/${reservedStatus.body.error?.message || "no-message"} ladder=${ladderOps?.join(",") || "none"} final=${finalGet.body.chain_head?.status}`,
+    );
+
+    ok(
       "M1.5d CONTINUITY: local enrollment, exit, verified migration, succession, and residual-closed dissolution commit as one exact chain",
-      final.status === 200 &&
-        final.body.chain_head?.latest_sequence === 12 &&
-        familyFiles(dataDir, CONTINUITY_RECEIPT_FAMILY).length === 7 &&
+      finalGet.status === 200 &&
+        finalGet.body.chain_head?.latest_sequence === 20 &&
+        familyFiles(dataDir, CONTINUITY_RECEIPT_FAMILY).length === 15 &&
         familyFiles(dataDir, MIGRATION_ACK_RECEIPT_FAMILY).length === 1 &&
-        familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length === 10 &&
-        final.body.chain_head?.network_enrollment_ref === null,
-      `receipts=${familyFiles(dataDir, CONTINUITY_RECEIPT_FAMILY).length} states=${familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length}`,
+        familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length === 18 &&
+        familyFiles(dataDir, DISSOLUTION_DISPOSITION_FAMILY).length === 9 &&
+        familyFiles(dataDir, DISSOLUTION_RECEIPT_FAMILY).length === 1 &&
+        finalGet.body.chain_head?.network_enrollment_ref === null,
+      `receipts=${familyFiles(dataDir, CONTINUITY_RECEIPT_FAMILY).length} states=${familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length} dispositions=${familyFiles(dataDir, DISSOLUTION_DISPOSITION_FAMILY).length}`,
     );
   } finally {
     if (peerPlane) await peerPlane.stop();
@@ -6378,8 +7057,22 @@ async function runNamedContinuityJourney() {
 }
 
 async function runDualSystemProjectionJourney() {
-  const resolver = await startOwnedWalletResolver();
-  const dataDir = createOwnedTempDir("ioi-dual-system-projection-");
+  const checkpoint = journeyCheckpointLane("dual-system-projection");
+  const resolver = await startOwnedWalletResolver(
+    checkpoint?.mode === "restore"
+      ? {
+          resumeResourceDir: checkpointOwnedTempPath(
+            checkpoint.manifest.wallet_fixture_dir,
+            "wallet_fixture_dir",
+            "ioi-wallet-network-pa-",
+          ),
+        }
+      : {},
+  );
+  const dataDir =
+    checkpoint?.mode === "restore"
+      ? restoreCheckpointDataDir(checkpoint)
+      : createOwnedTempDir("ioi-dual-system-projection-");
   let plane;
   try {
     plane = await startVerifierPlane({ dataDir, env: resolver.env });
@@ -6387,40 +7080,46 @@ async function runDualSystemProjectionJourney() {
     let call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
     const projectionPath = `${GENESIS_ROUTE}/projection`;
-    const empty = await call("GET", `${projectionPath}?view=compact`);
-    ok(
-      "M1.7 HONEST EMPTY: compact projection reports no admitted Systems without fabricated defaults",
-      empty.status === 200 &&
-        empty.body.state === "honest_empty" &&
-        empty.body.systems?.length === 0 &&
-        empty.body.nonclaims?.authority === false,
-      `${empty.status}/${empty.body.state || empty.body.error?.code}`,
-    );
-    const alphaBody = exactGenesisBody();
-    const betaBody = rebindGenesisBodySystem(alphaBody, {
-      systemId: "system://acme/system-beta",
-      genesisId: "genesis://acme/system-beta/zero",
-      constitutionRef: "constitution://acme/system-beta/v1",
-      deploymentProfileRef:
-        "deployment-profile://acme/system-beta/local/revision/sha256:" +
-        "d".repeat(64),
-      orderingProfileRef: "ordering-profile://acme/system-beta/poa1",
-      oracleProfileRef:
-        "oracle-evidence-profile://acme/system-beta/public-records",
-      lifecycleProfileRef: "lifecycle-profile://acme/system-beta/default",
-    });
-    const alpha = await bootstrapActiveSystem(
-      call,
-      resolver,
-      dataDir,
-      alphaBody,
-    );
-    const beta = await bootstrapActiveSystem(
-      call,
-      resolver,
-      dataDir,
-      betaBody,
-    );
+    let alpha;
+    let beta;
+    if (checkpoint?.mode === "restore") {
+      replayCapturedCheckpointProofs(checkpoint);
+      ({ alpha, beta } = checkpoint.manifest.bootstrap_outputs);
+    } else {
+      const empty = await call("GET", `${projectionPath}?view=compact`);
+      ok(
+        "M1.7 HONEST EMPTY: compact projection reports no admitted Systems without fabricated defaults",
+        empty.status === 200 &&
+          empty.body.state === "honest_empty" &&
+          empty.body.systems?.length === 0 &&
+          empty.body.nonclaims?.authority === false,
+        `${empty.status}/${empty.body.state || empty.body.error?.code}`,
+      );
+      const alphaBody = exactGenesisBody();
+      const betaBody = rebindGenesisBodySystem(alphaBody, {
+        systemId: "system://acme/system-beta",
+        genesisId: "genesis://acme/system-beta/zero",
+        constitutionRef: "constitution://acme/system-beta/v1",
+        deploymentProfileRef:
+          "deployment-profile://acme/system-beta/local/revision/sha256:" +
+          "d".repeat(64),
+        orderingProfileRef: "ordering-profile://acme/system-beta/poa1",
+        oracleProfileRef:
+          "oracle-evidence-profile://acme/system-beta/public-records",
+        lifecycleProfileRef: "lifecycle-profile://acme/system-beta/default",
+      });
+      alpha = await bootstrapActiveSystem(call, resolver, dataDir, alphaBody);
+      beta = await bootstrapActiveSystem(call, resolver, dataDir, betaBody);
+      if (checkpoint?.mode === "capture") {
+        await captureJourneyCheckpoint({
+          lane: checkpoint,
+          plane,
+          resolver,
+          dataDir,
+          bootstrapOutputs: { alpha, beta },
+        });
+      }
+    }
     ok(
       "M1.6 DUAL GENESIS: one reusable package admits and activates two distinct System identities with distinct live roots",
       alpha.chain.system_id !== beta.chain.system_id &&
@@ -8364,6 +9063,22 @@ async function run() {
         `${FOCUSED_VERIFIER_OPT_IN_ENV}=1 is required to run a non-certifying journey subset`,
       );
     }
+    const checkpointLane = activeCheckpointLane();
+    if (checkpointLane) {
+      if (process.env[CERTIFICATION_MODE_ENV] === "1") {
+        throw new Error(
+          `${CERTIFICATION_MODE_ENV}=1 refuses the checkpoint lane; unset ${CHECKPOINT_DIR_ENV}/${CHECKPOINT_MODE_ENV}`,
+        );
+      }
+      if (
+        selectedJourneys.length !== 1 ||
+        !CHECKPOINT_CAPABLE_JOURNEYS.has(selectedJourneys[0])
+      ) {
+        throw new Error(
+          `the checkpoint lane requires ${JOURNEY_SELECTOR_ENV} to select exactly one checkpoint-capable journey (${[...CHECKPOINT_CAPABLE_JOURNEYS].join(",")})`,
+        );
+      }
+    }
     for (const name of selectedJourneys) {
       const journey = journeys.get(name);
       await executeJourneyWithCensus(name, journey);
@@ -8378,6 +9093,18 @@ async function run() {
     `owned=${ownedResources.size} removed=${[...ownedResources.keys()].filter((path) => !existsSync(path)).length} process_groups=${ownedProcessGroups.size} descendants_remaining=${[...ownedProcessGroups].filter(([processGroupId, startTimeTicks]) => ownedProcessGroupIdentityIsAlive(processGroupId, startTimeTicks)).length}`,
   );
   if (fatal) {
+    if (fatal.checkpointCaptureComplete === true) {
+      const passed = results.filter((result) => result.pass).length;
+      console.log(`${passed}/${results.length} passed`);
+      if (passed !== results.length) {
+        process.exitCode = 1;
+        return;
+      }
+      console.log(
+        `system sequence-zero checkpoint capture: COMPLETE (${fatal.message}; non-certifying lane, held bar not claimed)`,
+      );
+      return;
+    }
     const blocked = String(fatal.message || fatal).startsWith("BLOCKED:");
     console.error(`${blocked ? "BLOCKED" : "VERIFIER CRASH"}:`, fatal);
     process.exitCode = blocked ? 2 : 1;

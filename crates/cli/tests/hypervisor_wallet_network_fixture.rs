@@ -101,12 +101,14 @@ const PROTECTED_TRANSITION_OPS: [&str; 14] = [
     "revoke",
     "decommission",
 ];
-const NAMED_CONTINUITY_SCOPES: [&str; 8] = [
+const NAMED_CONTINUITY_SCOPES: [&str; 10] = [
     "scope:autonomous_system.continuity.initiate_succession",
     "scope:autonomous_system.continuity.complete_succession",
     "scope:autonomous_system.continuity.migrate",
     "scope:autonomous_system.continuity.migration_destination_acknowledge",
     "scope:autonomous_system.continuity.initiate_dissolution",
+    "scope:autonomous_system.continuity.open_dissolution_disposition",
+    "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
     "scope:autonomous_system.continuity.complete_dissolution",
     "scope:autonomous_system.network_enrollment.local.enroll",
     "scope:autonomous_system.network_enrollment.local.exit",

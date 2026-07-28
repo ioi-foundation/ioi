@@ -17,6 +17,8 @@ use super::system_activation::{
 use super::system_lifecycle_transitions::validate_activation_identity;
 
 const LIFECYCLE_PROFILE_CONTRACT: &str = "schema://ioi/foundations/lifecycle-continuity-profile/v1";
+const DISSOLUTION_DISPOSITION_CONTRACT: &str =
+    "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1";
 const NETWORK_ENROLLMENT_CONTRACT: &str = "schema://ioi/foundations/ioi-network-enrollment/v1";
 const MIGRATION_DESTINATION_ACK_CONTRACT: &str =
     "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1";
@@ -37,6 +39,10 @@ pub enum ContinuityTransitionOp {
     Migrate,
     /// Open governed dissolution without terminating live effects.
     InitiateDissolution,
+    /// Open the dissolution-disposition record over the admitted initiation.
+    OpenDissolutionDisposition,
+    /// Record exactly one residual-domain outcome on the open record.
+    RecordDissolutionDomainOutcome,
     /// Complete dissolution after every residual is disposed.
     CompleteDissolution,
     /// Admit a local-only, zero-assurance enrollment.
@@ -47,11 +53,13 @@ pub enum ContinuityTransitionOp {
 
 impl ContinuityTransitionOp {
     /// Every M1.5d operation in stable order.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 9] = [
         Self::InitiateSuccession,
         Self::CompleteSuccession,
         Self::Migrate,
         Self::InitiateDissolution,
+        Self::OpenDissolutionDisposition,
+        Self::RecordDissolutionDomainOutcome,
         Self::CompleteDissolution,
         Self::EnrollLocal,
         Self::ExitLocalEnrollment,
@@ -64,6 +72,8 @@ impl ContinuityTransitionOp {
             Self::CompleteSuccession => "complete_succession",
             Self::Migrate => "migrate",
             Self::InitiateDissolution => "initiate_dissolution",
+            Self::OpenDissolutionDisposition => "open_dissolution_disposition",
+            Self::RecordDissolutionDomainOutcome => "record_dissolution_domain_outcome",
             Self::CompleteDissolution => "complete_dissolution",
             Self::EnrollLocal => "enroll_local",
             Self::ExitLocalEnrollment => "exit_local_enrollment",
@@ -82,6 +92,12 @@ impl ContinuityTransitionOp {
             Self::CompleteSuccession => "scope:autonomous_system.continuity.complete_succession",
             Self::Migrate => "scope:autonomous_system.continuity.migrate",
             Self::InitiateDissolution => "scope:autonomous_system.continuity.initiate_dissolution",
+            Self::OpenDissolutionDisposition => {
+                "scope:autonomous_system.continuity.open_dissolution_disposition"
+            }
+            Self::RecordDissolutionDomainOutcome => {
+                "scope:autonomous_system.continuity.record_dissolution_domain_outcome"
+            }
             Self::CompleteDissolution => "scope:autonomous_system.continuity.complete_dissolution",
             Self::EnrollLocal => "scope:autonomous_system.network_enrollment.local.enroll",
             Self::ExitLocalEnrollment => "scope:autonomous_system.network_enrollment.local.exit",
@@ -96,7 +112,10 @@ impl ContinuityTransitionOp {
             Self::Migrate => Some("migrate"),
             Self::InitiateDissolution => Some("initiate_dissolution"),
             Self::CompleteDissolution => Some("complete_dissolution"),
-            Self::EnrollLocal | Self::ExitLocalEnrollment => None,
+            Self::OpenDissolutionDisposition
+            | Self::RecordDissolutionDomainOutcome
+            | Self::EnrollLocal
+            | Self::ExitLocalEnrollment => None,
         }
     }
 
@@ -105,6 +124,7 @@ impl ContinuityTransitionOp {
             Self::InitiateSuccession => "succession_pending",
             Self::CompleteSuccession => "successor_governed",
             Self::InitiateDissolution => "dissolution_pending",
+            Self::OpenDissolutionDisposition | Self::RecordDissolutionDomainOutcome => "dissolving",
             Self::CompleteDissolution => "dissolved",
             Self::Migrate | Self::EnrollLocal | Self::ExitLocalEnrollment => match predecessor {
                 "successor_governed" => "successor_governed",
@@ -125,9 +145,376 @@ impl ContinuityTransitionOp {
             Self::Migrate | Self::EnrollLocal | Self::ExitLocalEnrollment => {
                 matches!(predecessor, "active" | "successor_governed")
             }
-            Self::CompleteDissolution => predecessor == "dissolution_pending",
+            Self::OpenDissolutionDisposition => predecessor == "dissolution_pending",
+            Self::RecordDissolutionDomainOutcome => predecessor == "dissolving",
+            // Completion admits only over a live disposition record, which
+            // exists only in the dissolving status.
+            Self::CompleteDissolution => predecessor == "dissolving",
         }
     }
+}
+
+/// The eight residual outcome domains, in canonical order.
+pub const DISSOLUTION_OUTCOME_DOMAINS: [&str; 8] = [
+    "active_work",
+    "assets",
+    "outstanding_obligations",
+    "authority_revocation",
+    "worker_and_node_shutdown",
+    "data_export_retention_and_erasure",
+    "network_exit",
+    "tombstone",
+];
+
+/// JCS artifact root of one dissolution-disposition record.
+pub fn dissolution_disposition_root(record: &Value) -> Result<String, String> {
+    jcs_hash(&json!({
+        "domain": "ioi.autonomous-system-dissolution-disposition-artifact-jcs-sha256.v1",
+        "artifact": record,
+    }))
+}
+
+/// The active profile's declared policy refs for one outcome domain. Assets
+/// declare a contract-ref set; every other domain declares one policy ref.
+fn profile_domain_policy_refs(profile: &Value, domain: &str) -> Vec<String> {
+    let dissolution = profile.get("dissolution").cloned().unwrap_or(Value::Null);
+    match domain {
+        "assets" => dissolution
+            .get("asset_disposition_contract_refs")
+            .and_then(Value::as_array)
+            .map(|values| {
+                values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default(),
+        "active_work" => dissolution
+            .get("active_work_disposition_policy_ref")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .into_iter()
+            .collect(),
+        "outstanding_obligations" => dissolution
+            .get("outstanding_obligation_policy_ref")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .into_iter()
+            .collect(),
+        _ => dissolution
+            .get(format!("{domain}_policy_ref"))
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .into_iter()
+            .collect(),
+    }
+}
+
+/// Derive the record status from its domains; the caller never chooses it.
+pub fn derive_disposition_status(record: &Value) -> Result<&'static str, String> {
+    let mut escalated = false;
+    for domain in DISSOLUTION_OUTCOME_DOMAINS {
+        let state = record
+            .pointer(&format!("/outcome_domains/{domain}/state"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("disposition record lacks the {domain} domain state"))?;
+        match state {
+            "pending" | "failed_closed" => return Ok("open"),
+            "escalated" => escalated = true,
+            "completed" | "waived_under_policy" => {}
+            other => {
+                return Err(format!(
+                    "disposition domain {domain} has unknown state {other}"
+                ))
+            }
+        }
+    }
+    Ok(if escalated {
+        "terminal_with_escalations"
+    } else {
+        "terminal_complete"
+    })
+}
+
+/// Validate a newly opened disposition record against the exact initiate
+/// transition and the active lifecycle profile. Admission evidence is
+/// resolved by this validator, never asserted by the caller (INV-37).
+pub fn validate_open_dissolution_disposition(
+    record: &Value,
+    system_id: &str,
+    initiate_transition_ref: &str,
+    initiate_transition_root: &str,
+    lifecycle_profile: &Value,
+) -> Result<(), String> {
+    validate_architecture_contract(DISSOLUTION_DISPOSITION_CONTRACT, record)
+        .map_err(|error| format!("dissolution disposition record is invalid: {error}"))?;
+    let expected_id = format!(
+        "dissolution-disposition://{}/initiate/{}",
+        namespace(system_id)?,
+        initiate_transition_root
+            .strip_prefix("sha256:")
+            .unwrap_or(initiate_transition_root)
+    );
+    if record
+        .get("dissolution_disposition_id")
+        .and_then(Value::as_str)
+        != Some(expected_id.as_str())
+    {
+        return Err("disposition record does not carry its canonical identity".to_owned());
+    }
+    if record.get("system_id").and_then(Value::as_str) != Some(system_id)
+        || record
+            .get("initiate_transition_ref")
+            .and_then(Value::as_str)
+            != Some(initiate_transition_ref)
+        || record
+            .get("initiate_transition_root")
+            .and_then(Value::as_str)
+            != Some(initiate_transition_root)
+    {
+        return Err(
+            "disposition record does not bind the exact initiate_dissolution transition".to_owned(),
+        );
+    }
+    if record.get("lifecycle_profile_ref") != lifecycle_profile.get("lifecycle_profile_id") {
+        return Err("disposition record does not bind the active lifecycle profile".to_owned());
+    }
+    let expected_profile_root = jcs_hash(&json!({
+        "domain": "ioi.lifecycle-continuity-profile-artifact-jcs-sha256.v1",
+        "artifact": lifecycle_profile,
+    }))?;
+    if record.get("lifecycle_profile_root").and_then(Value::as_str)
+        != Some(expected_profile_root.as_str())
+    {
+        return Err("disposition record does not root the active lifecycle profile".to_owned());
+    }
+    if record.get("status").and_then(Value::as_str) != Some("open")
+        || !record
+            .get("complete_transition_ref")
+            .is_some_and(Value::is_null)
+        || record
+            .get("escalation_decision_refs")
+            .and_then(Value::as_array)
+            .is_none_or(|values| !values.is_empty())
+    {
+        return Err("a newly opened disposition record must be open with no completion".to_owned());
+    }
+    for domain in DISSOLUTION_OUTCOME_DOMAINS {
+        let entry = record
+            .pointer(&format!("/outcome_domains/{domain}"))
+            .ok_or_else(|| format!("disposition record lacks the {domain} domain"))?;
+        let state = entry.get("state").and_then(Value::as_str);
+        let policy_ref = entry.get("policy_ref").and_then(Value::as_str);
+        let declared = profile_domain_policy_refs(lifecycle_profile, domain);
+        if declared.is_empty() {
+            // The profile's own null declaration: the record waives against it
+            // explicitly rather than silently skipping the domain.
+            if state != Some("waived_under_policy")
+                || policy_ref != Some("policy://profile-null-declaration")
+            {
+                return Err(format!(
+                    "the active profile declares no {domain} policy; the record must waive under the profile's null declaration"
+                ));
+            }
+        } else {
+            if state != Some("pending") {
+                return Err(format!(
+                    "domain {domain} must open pending; outcomes are recorded one at a time"
+                ));
+            }
+            if policy_ref.is_none_or(|value| !declared.iter().any(|d| d == value)) {
+                return Err(format!(
+                    "domain {domain} does not bind a policy the active profile declares"
+                ));
+            }
+        }
+        let empty = |key: &str| {
+            entry
+                .get(key)
+                .and_then(Value::as_array)
+                .is_some_and(Vec::is_empty)
+        };
+        if state == Some("pending") && (!empty("evidence_refs") || !empty("receipt_refs")) {
+            return Err(format!(
+                "pending domain {domain} cannot carry outcome evidence"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Apply one caller-declared domain outcome to the current record, returning
+/// the updated record. Exactly one domain moves out of `pending`; the record
+/// status is re-derived, never caller-set.
+pub fn apply_dissolution_domain_outcome(
+    current: &Value,
+    outcome: &Value,
+    lifecycle_profile: &Value,
+) -> Result<(Value, String), String> {
+    let domain = outcome
+        .get("domain")
+        .and_then(Value::as_str)
+        .filter(|value| DISSOLUTION_OUTCOME_DOMAINS.contains(value))
+        .ok_or("domain outcome must name exactly one canonical outcome domain")?;
+    let state = outcome
+        .get("state")
+        .and_then(Value::as_str)
+        .filter(|value| {
+            matches!(
+                *value,
+                "completed" | "waived_under_policy" | "escalated" | "failed_closed"
+            )
+        })
+        .ok_or("domain outcome must resolve to a terminal domain state")?;
+    let current_state = current
+        .pointer(&format!("/outcome_domains/{domain}/state"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("current record lacks the {domain} domain"))?;
+    if current_state != "pending" {
+        return Err(format!(
+            "domain {domain} is already {current_state}; an outcome is recorded exactly once"
+        ));
+    }
+    let policy_ref = outcome
+        .get("policy_ref")
+        .and_then(Value::as_str)
+        .ok_or("domain outcome must bind its policy")?;
+    let declared = profile_domain_policy_refs(lifecycle_profile, domain);
+    if !declared.iter().any(|value| value == policy_ref) {
+        return Err(format!(
+            "domain {domain} outcome does not bind a policy the active profile declares"
+        ));
+    }
+    let refs = |key: &str| -> Result<Vec<String>, String> {
+        let values = outcome
+            .get(key)
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let out: Vec<String> = values
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect();
+        if out.len() != values.len() {
+            return Err(format!("{key} contains a non-string ref"));
+        }
+        ensure_distinct(&out, key)?;
+        Ok(out)
+    };
+    let evidence_refs = refs("evidence_refs")?;
+    let receipt_refs = refs("receipt_refs")?;
+    if evidence_refs
+        .iter()
+        .any(|value| !canonical_ref(value, &["evidence://", "artifact://", "receipt://"]))
+    {
+        return Err("domain outcome evidence contains a non-canonical ref".to_owned());
+    }
+    if receipt_refs
+        .iter()
+        .any(|value| !canonical_ref(value, &["receipt://"]))
+    {
+        return Err("domain outcome receipts contain a non-receipt ref".to_owned());
+    }
+    let escalation_decision_ref = outcome
+        .get("escalation_decision_ref")
+        .and_then(Value::as_str);
+    match state {
+        "completed" => {
+            if evidence_refs.is_empty() && receipt_refs.is_empty() {
+                return Err(format!(
+                    "completed domain {domain} requires outcome evidence"
+                ));
+            }
+        }
+        "failed_closed" => {
+            if evidence_refs.is_empty() {
+                return Err(format!(
+                    "failed_closed domain {domain} must retain its failure evidence"
+                ));
+            }
+        }
+        "escalated" => {
+            if escalation_decision_ref.is_none_or(|value| !canonical_ref(value, &["decision://"])) {
+                return Err(format!(
+                    "escalated domain {domain} requires its escalation decision ref"
+                ));
+            }
+        }
+        _ => {}
+    }
+    if state != "escalated" && escalation_decision_ref.is_some() {
+        return Err("an escalation decision ref is admitted only on escalation".to_owned());
+    }
+
+    let mut updated = current.clone();
+    updated["outcome_domains"][domain] = json!({
+        "policy_ref": policy_ref,
+        "state": state,
+        "evidence_refs": evidence_refs,
+        "receipt_refs": receipt_refs,
+    });
+    if let Some(decision_ref) = escalation_decision_ref {
+        let mut decisions: Vec<String> = updated
+            .get("escalation_decision_refs")
+            .and_then(Value::as_array)
+            .map(|values| {
+                values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default();
+        decisions.push(decision_ref.to_owned());
+        ensure_distinct(&decisions, "escalation decisions")?;
+        updated["escalation_decision_refs"] = json!(decisions);
+    }
+    updated["status"] = json!(derive_disposition_status(&updated)?);
+    Ok((updated, domain.to_owned()))
+}
+
+/// Validate that the record is terminal so completion may admit, and resolve
+/// the domain receipt refs the completing transition must carry.
+pub fn validate_terminal_disposition(
+    record: &Value,
+    system_id: &str,
+) -> Result<Vec<String>, String> {
+    validate_architecture_contract(DISSOLUTION_DISPOSITION_CONTRACT, record)
+        .map_err(|error| format!("dissolution disposition record is invalid: {error}"))?;
+    if record.get("system_id").and_then(Value::as_str) != Some(system_id) {
+        return Err("disposition record does not belong to this System".to_owned());
+    }
+    let derived = derive_disposition_status(record)?;
+    if derived == "open" {
+        return Err(
+            "complete_dissolution is admissible only over a terminal disposition record".to_owned(),
+        );
+    }
+    if record.get("status").and_then(Value::as_str) != Some(derived) {
+        return Err("disposition record status diverges from its derived domains".to_owned());
+    }
+    if derived == "terminal_with_escalations"
+        && record
+            .get("escalation_decision_refs")
+            .and_then(Value::as_array)
+            .is_none_or(Vec::is_empty)
+    {
+        return Err("escalated dissolution requires its escalation decision refs".to_owned());
+    }
+    let mut receipts: Vec<String> = Vec::new();
+    for domain in DISSOLUTION_OUTCOME_DOMAINS {
+        if let Some(values) = record
+            .pointer(&format!("/outcome_domains/{domain}/receipt_refs"))
+            .and_then(Value::as_array)
+        {
+            receipts.extend(values.iter().filter_map(Value::as_str).map(str::to_owned));
+        }
+    }
+    receipts.sort();
+    receipts.dedup();
+    Ok(receipts)
 }
 
 /// Closed caller declaration. Empty or irrelevant fields are rejected rather
@@ -161,6 +548,12 @@ pub struct ContinuityTransitionDeclaration {
     /// Exact local enrollment successor body.
     #[serde(default)]
     pub network_enrollment: Option<Value>,
+    /// Exact dissolution-disposition record body, only on open.
+    #[serde(default)]
+    pub dissolution_disposition: Option<Value>,
+    /// Exactly one domain outcome, only on record_dissolution_domain_outcome.
+    #[serde(default)]
+    pub dissolution_domain_outcome: Option<Value>,
 }
 
 /// Pure server-derived plan for one named continuity transition.
@@ -184,6 +577,9 @@ pub struct CompiledContinuityTransitionPlan {
     pub authority_effect: Value,
     /// Validated enrollment body, if this is an enrollment operation.
     pub network_enrollment: Option<Value>,
+    /// The disposition record as it must be durably persisted after this
+    /// step, for the dissolution-disposition operations and completion.
+    pub dissolution_disposition: Option<Value>,
 }
 
 fn canonical_ref(value: &str, prefixes: &[&str]) -> bool {
@@ -265,6 +661,14 @@ fn validate_declaration(
                 "network_enrollment",
                 declaration.network_enrollment.is_some(),
             ),
+            (
+                "dissolution_disposition",
+                declaration.dissolution_disposition.is_some(),
+            ),
+            (
+                "dissolution_domain_outcome",
+                declaration.dissolution_domain_outcome.is_some(),
+            ),
         ];
         present
             .into_iter()
@@ -281,6 +685,10 @@ fn validate_declaration(
             "migration_destination_ack_root",
         ][..],
         ContinuityTransitionOp::InitiateDissolution => &[][..],
+        ContinuityTransitionOp::OpenDissolutionDisposition => &["dissolution_disposition"][..],
+        ContinuityTransitionOp::RecordDissolutionDomainOutcome => {
+            &["dissolution_domain_outcome"][..]
+        }
         ContinuityTransitionOp::CompleteDissolution => &[][..],
         ContinuityTransitionOp::EnrollLocal => &["network_enrollment"][..],
         ContinuityTransitionOp::ExitLocalEnrollment => &["network_enrollment"][..],
@@ -342,6 +750,21 @@ fn validate_declaration(
             }
         }
         ContinuityTransitionOp::CompleteDissolution => {}
+        ContinuityTransitionOp::OpenDissolutionDisposition => {
+            if declaration.dissolution_disposition.is_none() {
+                return Err(
+                    "opening dissolution disposition requires the exact record body".to_owned(),
+                );
+            }
+        }
+        ContinuityTransitionOp::RecordDissolutionDomainOutcome => {
+            if declaration.dissolution_domain_outcome.is_none() {
+                return Err(
+                    "recording a dissolution outcome requires exactly one domain outcome"
+                        .to_owned(),
+                );
+            }
+        }
         ContinuityTransitionOp::EnrollLocal | ContinuityTransitionOp::ExitLocalEnrollment => {
             if declaration.network_enrollment.is_none() {
                 return Err(
@@ -492,6 +915,7 @@ pub fn compile_continuity_transition_plan(
     declaration: &ContinuityTransitionDeclaration,
     trusted_successor_authority_binding: Option<&Value>,
     trusted_migration_destination_ack: Option<&Value>,
+    trusted_dissolution_disposition: Option<&Value>,
 ) -> Result<CompiledContinuityTransitionPlan, String> {
     validate_activation_identity(activation_effect)?;
     validate_architecture_contract(SYSTEM_CHAIN_CONTRACT, chain_head)
@@ -767,6 +1191,86 @@ pub fn compile_continuity_transition_plan(
             .filter(|value| !value.is_null())
             .and_then(|value| value.as_str().map(str::to_owned))
     };
+    // Dissolution-disposition record resolution. The record is resolved from
+    // durable owner inputs, never asserted by the caller (INV-37): the routes
+    // load the current record and pass it as trusted input; the caller's
+    // declaration may carry only the open body or one domain outcome.
+    let mut disposition_ref: Value = Value::Null;
+    let mut predecessor_disposition_root: Value = Value::Null;
+    let mut resulting_disposition_root: Value = Value::Null;
+    let mut recorded_dissolution_domain: Value = Value::Null;
+    let mut disposition_receipt_refs: Vec<String> = Vec::new();
+    let mut resulting_disposition_record: Option<Value> = None;
+    match op {
+        ContinuityTransitionOp::OpenDissolutionDisposition => {
+            if trusted_dissolution_disposition.is_some() {
+                return Err(
+                    "a live disposition record already exists; one record per dissolution"
+                        .to_owned(),
+                );
+            }
+            let record = declaration
+                .dissolution_disposition
+                .as_ref()
+                .ok_or("opening dissolution disposition requires the exact record body")?;
+            // Only initiate_dissolution yields dissolution_pending, so the
+            // exact predecessor step IS the admitted initiation.
+            let initiate_ref = required_string(&previous_step.state, "/transition_ref")?;
+            let initiate_root = required_string(&previous_step.state, "/transition_root")?;
+            validate_open_dissolution_disposition(
+                record,
+                system_id,
+                initiate_ref,
+                initiate_root,
+                lifecycle_profile,
+            )?;
+            disposition_ref = record["dissolution_disposition_id"].clone();
+            resulting_disposition_root = json!(dissolution_disposition_root(record)?);
+            resulting_disposition_record = Some(record.clone());
+        }
+        ContinuityTransitionOp::RecordDissolutionDomainOutcome => {
+            let current = trusted_dissolution_disposition
+                .ok_or("recording an outcome requires the live disposition record")?;
+            if current.get("system_id").and_then(Value::as_str) != Some(system_id) {
+                return Err("live disposition record does not belong to this System".to_owned());
+            }
+            let outcome = declaration
+                .dissolution_domain_outcome
+                .as_ref()
+                .ok_or("recording a dissolution outcome requires exactly one domain outcome")?;
+            let (updated, domain) =
+                apply_dissolution_domain_outcome(current, outcome, lifecycle_profile)?;
+            validate_architecture_contract(DISSOLUTION_DISPOSITION_CONTRACT, &updated)
+                .map_err(|error| format!("updated disposition record is invalid: {error}"))?;
+            disposition_ref = current["dissolution_disposition_id"].clone();
+            predecessor_disposition_root = json!(dissolution_disposition_root(current)?);
+            resulting_disposition_root = json!(dissolution_disposition_root(&updated)?);
+            recorded_dissolution_domain = json!(domain);
+            resulting_disposition_record = Some(updated);
+        }
+        ContinuityTransitionOp::CompleteDissolution => {
+            let current = trusted_dissolution_disposition
+                .ok_or("complete_dissolution requires the live disposition record")?;
+            disposition_receipt_refs = validate_terminal_disposition(current, system_id)?;
+            disposition_ref = current["dissolution_disposition_id"].clone();
+            predecessor_disposition_root = json!(dissolution_disposition_root(current)?);
+            let mut finalized = current.clone();
+            finalized["complete_transition_ref"] = json!(format!(
+                "lifecycle-transition://{}/continuity/sequence/{sequence}",
+                namespace(system_id)?
+            ));
+            resulting_disposition_root = json!(dissolution_disposition_root(&finalized)?);
+            resulting_disposition_record = Some(finalized);
+        }
+        _ => {
+            if trusted_dissolution_disposition.is_some() {
+                return Err(
+                    "a disposition record was supplied to a non-dissolution operation".to_owned(),
+                );
+            }
+        }
+    }
+
     let residual_disposition = if op == ContinuityTransitionOp::CompleteDissolution {
         let empty_array = |pointer: &str| {
             chain_head
@@ -785,7 +1289,10 @@ pub fn compile_continuity_transition_plan(
             );
         }
         json!({
-            "source":"server_derived_live_chain",
+            "source":"dissolution_disposition_record",
+            "dissolution_disposition_ref":disposition_ref,
+            "dissolution_disposition_root":predecessor_disposition_root,
+            "domain_receipt_refs":disposition_receipt_refs,
             "predecessor_chain_head_root":chain_head_root,
             "node_membership_refs":chain_head["node_membership_refs"],
             "worker_instance_refs":chain_head["worker_instance_refs"],
@@ -882,6 +1389,27 @@ pub fn compile_continuity_transition_plan(
         "runtime_effect_admitted": false,
         "operation_commitment": Value::Null,
     });
+    // The disposition fields exist ONLY on the dissolution operations. The
+    // other operations' effects keep their exact pre-disposition shape: their
+    // transition envelopes embed this material under closed contracts, and
+    // their operation commitments must not shift under an unrelated feature.
+    if matches!(
+        op,
+        ContinuityTransitionOp::OpenDissolutionDisposition
+            | ContinuityTransitionOp::RecordDissolutionDomainOutcome
+            | ContinuityTransitionOp::CompleteDissolution
+    ) {
+        authority_effect["dissolution_disposition_ref"] = disposition_ref;
+        authority_effect["predecessor_disposition_root"] = predecessor_disposition_root;
+        authority_effect["resulting_disposition_root"] = resulting_disposition_root;
+        authority_effect["recorded_dissolution_domain"] = recorded_dissolution_domain;
+        // Receipt refs exist only at completion: the disposition-transition
+        // envelope's closed material deliberately excludes them, and only
+        // the completing lifecycle transition carries the record's receipts.
+        if op == ContinuityTransitionOp::CompleteDissolution {
+            authority_effect["disposition_receipt_refs"] = json!(disposition_receipt_refs);
+        }
+    }
     let operation_commitment = jcs_hash(&json!({
         "domain": CONTINUITY_OPERATION_HASH_PROFILE,
         "effect": authority_effect,
@@ -898,6 +1426,7 @@ pub fn compile_continuity_transition_plan(
         resulting_state_root,
         authority_effect,
         network_enrollment: declaration.network_enrollment.clone(),
+        dissolution_disposition: resulting_disposition_record,
     })
 }
 
@@ -957,6 +1486,8 @@ mod tests {
             residual_disposition_receipt_refs: vec![],
             live_effect_refs: vec![],
             network_enrollment: None,
+            dissolution_disposition: None,
+            dissolution_domain_outcome: None,
         }
     }
     fn migration_ack() -> Value {
@@ -1049,6 +1580,7 @@ mod tests {
                 None
             },
             migration_acknowledgement.as_ref(),
+            None,
         )
     }
 
@@ -1109,19 +1641,278 @@ mod tests {
         declaration.residual_disposition_receipt_refs = vec!["receipt://residual/closed".into()];
         assert!(compile(
             ContinuityTransitionOp::CompleteDissolution,
-            "dissolution_pending",
+            "dissolving",
             &declaration,
         )
         .unwrap_err()
         .contains("not admitted"));
+        // The one-way ladder: completion can no longer leave
+        // dissolution_pending directly; only a terminal disposition record
+        // reached through dissolving admits it.
         let declaration = empty();
-        let plan = compile(
+        assert!(compile(
             ContinuityTransitionOp::CompleteDissolution,
             "dissolution_pending",
             &declaration,
         )
-        .expect("dissolve");
-        assert_eq!(plan.resulting_status, "dissolved");
+        .unwrap_err()
+        .contains("cannot lawfully leave"));
+        assert!(compile(
+            ContinuityTransitionOp::CompleteDissolution,
+            "dissolving",
+            &declaration,
+        )
+        .unwrap_err()
+        .contains("requires the live disposition record"));
+    }
+
+    fn profile() -> Value {
+        fixture("lifecycle-continuity-profile-v1/positive-successor-governed.json")
+    }
+
+    fn dissolution_step(sequence: u64, status: &str) -> UnverifiedCommittedSystemLifecycleStep {
+        let mut previous = step(sequence, status);
+        previous.state["transition_ref"] = json!(format!(
+            "lifecycle-transition://acme/system-alpha/continuity/sequence/{sequence}"
+        ));
+        previous.state["transition_root"] = json!(h(20));
+        previous
+    }
+
+    fn open_record() -> Value {
+        let lifecycle_profile = profile();
+        let profile_root = jcs_hash(&json!({
+            "domain": "ioi.lifecycle-continuity-profile-artifact-jcs-sha256.v1",
+            "artifact": lifecycle_profile,
+        }))
+        .expect("profile root");
+        let initiate_root = h(20);
+        let root_tail = initiate_root.strip_prefix("sha256:").expect("hash");
+        let domain = |policy: &str| json!({"policy_ref": policy, "state": "pending", "evidence_refs": [], "receipt_refs": []});
+        json!({
+            "schema_version": "ioi.autonomous-system-dissolution-disposition.v1",
+            "dissolution_disposition_id":
+                format!("dissolution-disposition://acme/system-alpha/initiate/{root_tail}"),
+            "system_id": "system://acme/system-alpha",
+            "lifecycle_profile_ref": lifecycle_profile["lifecycle_profile_id"],
+            "lifecycle_profile_root": profile_root,
+            "initiate_transition_ref":
+                "lifecycle-transition://acme/system-alpha/continuity/sequence/4",
+            "initiate_transition_root": initiate_root,
+            "outcome_domains": {
+                "active_work": domain("policy://acme/lifecycle/work-disposition"),
+                // The fixture profile declares no asset contracts: the record
+                // waives against the profile null declaration, never skips.
+                "assets": {"policy_ref": "policy://profile-null-declaration",
+                    "state": "waived_under_policy", "evidence_refs": [], "receipt_refs": []},
+                "outstanding_obligations": domain("policy://acme/lifecycle/obligations"),
+                "authority_revocation": domain("policy://acme/lifecycle/revoke-authority"),
+                "worker_and_node_shutdown": domain("policy://acme/lifecycle/shutdown"),
+                "data_export_retention_and_erasure": domain("policy://acme/lifecycle/data-disposition"),
+                "network_exit": domain("policy://acme/lifecycle/network-exit"),
+                "tombstone": domain("policy://acme/lifecycle/tombstone"),
+            },
+            "escalation_decision_refs": [],
+            "complete_transition_ref": Value::Null,
+            "status": "open",
+            "created_at": "2026-07-26T00:00:00Z",
+        })
+    }
+
+    fn compile_dissolution(
+        op: ContinuityTransitionOp,
+        sequence: u64,
+        status: &str,
+        declaration: &ContinuityTransitionDeclaration,
+        trusted_record: Option<&Value>,
+    ) -> Result<CompiledContinuityTransitionPlan, String> {
+        let chain = fixture("autonomous-system-chain-v1/positive-active-sequence-two.json");
+        compile_continuity_transition_plan(
+            op,
+            &activation(),
+            &dissolution_step(sequence, status),
+            &chain,
+            "constitution://acme/system-alpha/v1",
+            &profile(),
+            None,
+            declaration,
+            None,
+            None,
+            trusted_record,
+        )
+    }
+
+    #[test]
+    fn dissolution_disposes_every_residual_through_the_record_then_completes() {
+        // Open over the exact initiate step.
+        let mut declaration = empty();
+        declaration.dissolution_disposition = Some(open_record());
+        let opened = compile_dissolution(
+            ContinuityTransitionOp::OpenDissolutionDisposition,
+            4,
+            "dissolution_pending",
+            &declaration,
+            None,
+        )
+        .expect("open");
+        assert_eq!(opened.resulting_status, "dissolving");
+        let mut record = opened.dissolution_disposition.clone().expect("record");
+        assert_eq!(record["status"], "open");
+
+        // A second live record is refused.
+        assert!(compile_dissolution(
+            ContinuityTransitionOp::OpenDissolutionDisposition,
+            4,
+            "dissolution_pending",
+            &declaration,
+            Some(&record),
+        )
+        .unwrap_err()
+        .contains("one record per dissolution"));
+
+        // Record every pending domain outcome, one at a time.
+        let outcomes: [(&str, &str, &str); 7] = [
+            (
+                "active_work",
+                "policy://acme/lifecycle/work-disposition",
+                "completed",
+            ),
+            (
+                "outstanding_obligations",
+                "policy://acme/lifecycle/obligations",
+                "completed",
+            ),
+            (
+                "authority_revocation",
+                "policy://acme/lifecycle/revoke-authority",
+                "completed",
+            ),
+            (
+                "worker_and_node_shutdown",
+                "policy://acme/lifecycle/shutdown",
+                "completed",
+            ),
+            (
+                "data_export_retention_and_erasure",
+                "policy://acme/lifecycle/data-disposition",
+                "completed",
+            ),
+            (
+                "network_exit",
+                "policy://acme/lifecycle/network-exit",
+                "waived_under_policy",
+            ),
+            (
+                "tombstone",
+                "policy://acme/lifecycle/tombstone",
+                "completed",
+            ),
+        ];
+        let mut sequence = 5;
+        for (domain, policy, state) in outcomes {
+            // Completion is refused while any domain is still pending.
+            let pending_complete = compile_dissolution(
+                ContinuityTransitionOp::CompleteDissolution,
+                sequence,
+                "dissolving",
+                &empty(),
+                Some(&record),
+            );
+            assert!(pending_complete
+                .unwrap_err()
+                .contains("terminal disposition record"));
+            let mut declaration = empty();
+            declaration.dissolution_domain_outcome = Some(json!({
+                "domain": domain,
+                "state": state,
+                "policy_ref": policy,
+                "evidence_refs": [format!("evidence://dissolution/{domain}")],
+                "receipt_refs": [format!("receipt://dissolution/{domain}")],
+            }));
+            let step_plan = compile_dissolution(
+                ContinuityTransitionOp::RecordDissolutionDomainOutcome,
+                sequence,
+                "dissolving",
+                &declaration,
+                Some(&record),
+            )
+            .expect(domain);
+            assert_eq!(step_plan.resulting_status, "dissolving");
+            record = step_plan.dissolution_disposition.clone().expect("updated");
+            // Recording the same domain twice is refused.
+            let replay = compile_dissolution(
+                ContinuityTransitionOp::RecordDissolutionDomainOutcome,
+                sequence,
+                "dissolving",
+                &declaration,
+                Some(&record),
+            );
+            assert!(replay.unwrap_err().contains("recorded exactly once"));
+            sequence += 1;
+        }
+        assert_eq!(record["status"], "terminal_complete");
+
+        // Wrong policy binding is refused.
+        let mut bad = empty();
+        bad.dissolution_domain_outcome = Some(json!({
+            "domain": "active_work", "state": "completed",
+            "policy_ref": "policy://acme/other", "evidence_refs": ["evidence://x"],
+            "receipt_refs": [],
+        }));
+        assert!(compile_dissolution(
+            ContinuityTransitionOp::RecordDissolutionDomainOutcome,
+            sequence,
+            "dissolving",
+            &bad,
+            Some(&open_record()),
+        )
+        .unwrap_err()
+        .contains("does not bind a policy"));
+
+        // Escalation without its decision ref is refused.
+        let mut bad = empty();
+        bad.dissolution_domain_outcome = Some(json!({
+            "domain": "active_work", "state": "escalated",
+            "policy_ref": "policy://acme/lifecycle/work-disposition",
+            "evidence_refs": [], "receipt_refs": [],
+        }));
+        assert!(compile_dissolution(
+            ContinuityTransitionOp::RecordDissolutionDomainOutcome,
+            sequence,
+            "dissolving",
+            &bad,
+            Some(&open_record()),
+        )
+        .unwrap_err()
+        .contains("escalation decision ref"));
+
+        // Completion over the terminal record dissolves, binds the record,
+        // and carries the domain receipt refs the server resolved.
+        let complete = compile_dissolution(
+            ContinuityTransitionOp::CompleteDissolution,
+            sequence,
+            "dissolving",
+            &empty(),
+            Some(&record),
+        )
+        .expect("complete");
+        assert_eq!(complete.resulting_status, "dissolved");
+        assert_eq!(
+            complete.authority_effect["residual_disposition"]["source"],
+            "dissolution_disposition_record"
+        );
+        let receipts = complete.authority_effect["disposition_receipt_refs"]
+            .as_array()
+            .expect("receipts")
+            .len();
+        // Seven recorded domains each retained one receipt; the auto-waived
+        // assets domain (profile null declaration) retains none.
+        assert_eq!(receipts, 7);
+        let finalized = complete.dissolution_disposition.expect("finalized");
+        assert!(finalized["complete_transition_ref"]
+            .as_str()
+            .expect("ref")
+            .starts_with("lifecycle-transition://"));
     }
 
     #[test]
