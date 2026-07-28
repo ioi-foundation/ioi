@@ -24,7 +24,7 @@ pub use assert::{
     wait_for_stake_to_be, wait_until,
 };
 pub use build::{build_mock_verifier_artifact, build_test_artifacts};
-pub use cluster::{TestCluster, TestClusterBuilder};
+pub use cluster::{TestCluster, TestClusterBuilder, CLUSTER_STATE_DIR_ENV};
 pub use genesis::{add_genesis_identity, add_genesis_identity_custom};
 pub use rpc::{submit_transaction, submit_transaction_no_wait};
 // [RENAMED] Re-export SigningOracleGuard

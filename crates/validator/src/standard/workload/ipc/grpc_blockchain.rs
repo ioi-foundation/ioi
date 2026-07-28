@@ -290,7 +290,16 @@ where
             let machine = self.ctx.machine.lock().await;
             (machine.status().clone(), machine.consensus_type())
         };
-        let durable_status = if matches!(consensus_type, ConsensusType::Aft) {
+        // TESTING-ONLY resume lane (see crate::standard::
+        // testing_trivial_aft_restart_anchor_enabled): GuardianMajority
+        // harness chains carry no derivable canonical collapse surfaces, so
+        // the collapse-backed demotion below would permanently report height
+        // 0 and a resumed harness chain could never re-hydrate its tip. With
+        // the env set (only by the stable-state-dir testing harness) the raw
+        // execution status is reported instead. Production never sets it.
+        let durable_status = if matches!(consensus_type, ConsensusType::Aft)
+            && !crate::standard::testing_trivial_aft_restart_anchor_enabled()
+        {
             let mut candidates = Vec::new();
             for height in (1..=status.height).rev() {
                 let Some(block) = self

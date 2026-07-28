@@ -246,6 +246,34 @@ impl<'a> BinaryFeatureConfig<'a> {
     }
 }
 
+/// Where a validator's on-disk material (identity key, genesis, configs,
+/// certs, and the workload's durable chain state) lives for the lifetime of
+/// the process.
+///
+/// `Ephemeral` is the historical default: a private `tempfile::tempdir()`
+/// removed on drop. `Stable` is the opt-in resume lane: a caller-supplied
+/// directory that survives the validator so a SECOND launch from the same
+/// directory RESUMES the chain (the workload detects the existing
+/// `workload_state.db` and recovers its durable head instead of loading
+/// genesis).
+pub enum TestValidatorDir {
+    Ephemeral(Arc<TempDir>),
+    Stable(PathBuf),
+}
+
+impl TestValidatorDir {
+    pub fn path(&self) -> &Path {
+        match self {
+            TestValidatorDir::Ephemeral(dir) => dir.path(),
+            TestValidatorDir::Stable(path) => path.as_path(),
+        }
+    }
+
+    fn is_stable(&self) -> bool {
+        matches!(self, TestValidatorDir::Stable(_))
+    }
+}
+
 pub struct TestValidator {
     pub keypair: identity::Keypair,
     pub pqc_keypair: Option<MldsaKeyPair>,
@@ -257,7 +285,7 @@ pub struct TestValidator {
     pub workload_telemetry_addr: String,
     pub p2p_addr: Multiaddr, // This is now the full address including /p2p/PEER_ID
     pub certs_dir_path: PathBuf,
-    _temp_dir: Arc<TempDir>,
+    _state_dir: TestValidatorDir,
     pub backend: Box<dyn TestBackend>,
     orch_log_tx: broadcast::Sender<String>,
     pub workload_log_tx: broadcast::Sender<String>,
@@ -388,6 +416,7 @@ impl TestValidator {
         role: ValidatorRole,
         aft_safety_mode: AftSafetyMode,
         guardian_config_toml: Option<String>,
+        stable_state_dir: Option<PathBuf>,
     ) -> Result<ValidatorGuard> {
         let guardianized_mode = !matches!(aft_safety_mode, AftSafetyMode::ClassicBft);
         debug_assert!(
@@ -463,13 +492,42 @@ impl TestValidator {
         }
 
         let peer_id = keypair.public().to_peer_id();
-        let temp_dir = Arc::new(tempfile::tempdir()?);
-        let certs_dir_path = temp_dir.path().join("certs");
+        let state_dir = match stable_state_dir {
+            Some(dir) => {
+                if use_docker {
+                    return Err(anyhow!(
+                        "stable validator state dirs are not supported with the docker backend"
+                    ));
+                }
+                std::fs::create_dir_all(&dir)?;
+                TestValidatorDir::Stable(dir)
+            }
+            None => TestValidatorDir::Ephemeral(Arc::new(tempfile::tempdir()?)),
+        };
+        let certs_dir_path = state_dir.path().join("certs");
         std::fs::create_dir_all(&certs_dir_path)?;
 
-        let pqc_keypair =
+        // Stable-dir resume must reuse the exact PQC keypair the chain first
+        // launched with; a fresh keypair here would silently detach the
+        // validator from any PQC material already referenced on-chain.
+        let pqc_key_path = state_dir.path().join("pqc_key.json");
+        let pqc_keypair = if state_dir.is_stable() && pqc_key_path.exists() {
+            let body: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(&pqc_key_path)?)?;
+            let public_hex = body["public"]
+                .as_str()
+                .ok_or_else(|| anyhow!("stable pqc_key.json lacks a public key"))?;
+            let private_hex = body["private"]
+                .as_str()
+                .ok_or_else(|| anyhow!("stable pqc_key.json lacks a private key"))?;
+            Some(
+                MldsaKeyPair::from_bytes(&hex::decode(public_hex)?, &hex::decode(private_hex)?)
+                    .map_err(|error| anyhow!(error.to_string()))?,
+            )
+        } else {
             Some(MldsaScheme::new(ioi_crypto::security::SecurityLevel::Level2).generate_keypair())
-                .transpose()?;
+                .transpose()?
+        };
 
         // [FIX] Ensure all ports for this validator are distinct to prevent bind collisions.
         // We use deterministic port assignment based on `base_port` instead of `portpicker`.
@@ -507,7 +565,7 @@ impl TestValidator {
 
         let rpc_addr = format!("127.0.0.1:{}", rpc_port);
 
-        let keypair_path = temp_dir.path().join("identity.key");
+        let keypair_path = state_dir.path().join("identity.key");
         let test_password = "test-password";
         std::env::set_var("IOI_GUARDIAN_KEY_PASS", test_password);
         ioi_validator::common::GuardianContainer::save_encrypted_file(
@@ -515,12 +573,11 @@ impl TestValidator {
             &keypair.to_protobuf_encoding()?,
         )?;
 
-        let genesis_path = temp_dir.path().join("genesis.json");
+        let genesis_path = state_dir.path().join("genesis.json");
         std::fs::write(&genesis_path, genesis_content)?;
 
-        let config_dir_path = temp_dir.path().to_path_buf();
+        let config_dir_path = state_dir.path().to_path_buf();
 
-        let pqc_key_path = config_dir_path.join("pqc_key.json");
         if let Some(kp) = pqc_keypair.as_ref() {
             let pub_bytes: Vec<u8> = SigningKeyPair::public_key(kp).to_bytes();
             let priv_bytes: Vec<u8> = SigningKeyPair::private_key(kp).to_bytes();
@@ -609,7 +666,7 @@ impl TestValidator {
         std::fs::write(&orch_config_path, toml::to_string(&orchestration_config)?)?;
 
         let workload_config_path = config_dir_path.join("workload.toml");
-        let workload_state_file = temp_dir.path().join("workload_state.json");
+        let workload_state_file = state_dir.path().join("workload_state.json");
         let mut workload_config = WorkloadConfig {
             runtimes: vec!["WASM".to_string()],
             state_tree: state_tree_enum,
@@ -643,7 +700,7 @@ impl TestValidator {
         };
 
         if state_tree_type == "Verkle" {
-            let srs_path = temp_dir.path().join("srs.bin");
+            let srs_path = state_dir.path().join("srs.bin");
             let params = KZGParams::new_insecure_for_testing(12345, 255);
             params.save_to_file(&srs_path).map_err(|e| anyhow!(e))?;
             workload_config.srs_file_path = Some(if use_docker {
@@ -701,11 +758,16 @@ impl TestValidator {
 
         let mut backend: Box<dyn TestBackend> = if use_docker {
             drop(port_reservations);
+            let TestValidatorDir::Ephemeral(docker_temp_dir) = &state_dir else {
+                return Err(anyhow!(
+                    "stable validator state dirs are not supported with the docker backend"
+                ));
+            };
             let docker_config = DockerBackendConfig {
                 rpc_addr: rpc_addr.clone(),
                 p2p_addr: full_p2p_addr.clone(), // Use full addr but docker ignores PeerID on listen
                 agentic_model_path: agentic_model_path.map(PathBuf::from),
-                temp_dir: temp_dir.clone(),
+                temp_dir: docker_temp_dir.clone(),
                 config_dir_path: config_dir_path.clone(),
                 certs_dir_path: certs_dir_path.clone(),
             };
@@ -776,6 +838,13 @@ impl TestValidator {
                 .env("IOI_SHMEM_ID", &shmem_id) // <--- INJECT UNIQUE ID
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
+            if state_dir.is_stable() {
+                // Stable-state-dir resume: GuardianMajority harness chains
+                // publish no canonical-collapse anchors, so the workload
+                // adopts its raw durable head on reopen (see the
+                // testing-only lane in crates/validator/src/standard/workload/setup.rs).
+                workload_cmd.env("IOI_TESTING_AFT_TRIVIAL_RESTART_ANCHOR", "1");
+            }
             if let Some(rust_log) = workload_rust_log() {
                 workload_cmd.env("RUST_LOG", rust_log);
             }
@@ -833,6 +902,12 @@ impl TestValidator {
                 .env("IOI_SHMEM_ID", &shmem_id) // <--- INJECT UNIQUE ID
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
+            if state_dir.is_stable() {
+                // Stable-state-dir resume: orchestration tip hydration and
+                // consensus restart continuity use the same testing-only
+                // lane as the workload (see crates/validator).
+                orch_cmd.env("IOI_TESTING_AFT_TRIVIAL_RESTART_ANCHOR", "1");
+            }
             if let Some(value) = std::env::var_os("IOI_AFT_BENCH_TRACE") {
                 orch_cmd.env("IOI_AFT_BENCH_TRACE", value);
                 if let Some(dir) = std::env::var_os("IOI_AFT_BENCH_TRACE_DIR") {
@@ -997,7 +1072,7 @@ impl TestValidator {
             workload_telemetry_addr,
             p2p_addr: full_p2p_addr, // Store the FULL address here
             certs_dir_path,
-            _temp_dir: temp_dir,
+            _state_dir: state_dir,
             backend,
             orch_log_tx,
             workload_log_tx,

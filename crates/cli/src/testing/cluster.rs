@@ -45,6 +45,62 @@ use std::time::Duration;
 use tempfile::TempDir;
 
 const VALIDATOR_PORT_STRIDE: u16 = 100;
+
+/// Env opt-in for durable cluster state. When set (and no builder override is
+/// given), all validator/cluster durable state lives under this directory and
+/// a SECOND construction from the same directory RESUMES the chain (same
+/// chain id, same validator identities, same ports, durable heights and
+/// nonces intact) instead of re-initializing from genesis. One cluster per
+/// state directory. Unset => historical private-tempdir behavior.
+pub const CLUSTER_STATE_DIR_ENV: &str = "IOI_TESTING_CLUSTER_STATE_DIR";
+const CLUSTER_STATE_MANIFEST_FILE: &str = "cluster-state.json";
+const CLUSTER_STATE_SCHEMA_VERSION: u32 = 1;
+
+/// Durable identity of a stable-state-dir cluster. Written atomically only
+/// after the first build fully succeeds; its absence over a non-empty
+/// directory is treated as a partial or foreign tree and refused outright.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct PersistedClusterState {
+    schema_version: u32,
+    chain_id: u32,
+    consensus_type: String,
+    state_tree: String,
+    commitment_scheme: String,
+    aft_safety_mode: String,
+    num_validators: usize,
+    port_block_start: u16,
+    validator_base_ports: Vec<u16>,
+    validator_identity_keys_hex: Vec<String>,
+    genesis_content: String,
+    guardian_config_toml: Option<String>,
+}
+
+enum ClusterStatePlan {
+    Ephemeral,
+    FreshInit {
+        root: PathBuf,
+    },
+    Resume {
+        root: PathBuf,
+        manifest: PersistedClusterState,
+    },
+}
+
+impl ClusterStatePlan {
+    fn root(&self) -> Option<&PathBuf> {
+        match self {
+            ClusterStatePlan::Ephemeral => None,
+            ClusterStatePlan::FreshInit { root } => Some(root),
+            ClusterStatePlan::Resume { root, .. } => Some(root),
+        }
+    }
+
+    fn validator_state_dir(&self, index: usize) -> Option<PathBuf> {
+        self.root()
+            .map(|root| root.join(format!("validator-{index}")))
+    }
+}
+
 struct ValidatorPortAllocation {
     bases: Vec<u16>,
     reservations: Vec<Vec<TcpListener>>,
@@ -137,6 +193,57 @@ fn allocate_validator_port_bases(num_validators: usize) -> Result<ValidatorPortA
     ))
 }
 
+/// Resume lane: re-reserve the EXACT port block a stable-state-dir cluster
+/// recorded at first init. Genesis-committed guardian endpoints and the
+/// coordinates handed to external consumers embed these ports, so a resumed
+/// chain must come back at the same addresses; if the block is unavailable
+/// the resume fails closed rather than silently rebinding.
+fn reserve_recorded_validator_port_bases(
+    block_start: u16,
+    bases: &[u16],
+) -> Result<ValidatorPortAllocation> {
+    let lock_dir = std::env::temp_dir().join("ioi-test-port-blocks");
+    fs::create_dir_all(&lock_dir)?;
+    let lock_path = lock_dir.join(format!("{block_start}.lock"));
+    if lock_path.exists() {
+        reclaim_stale_port_block_lock(&lock_path);
+    }
+    let mut lock_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&lock_path)
+        .map_err(|error| {
+            anyhow!(
+                "cluster resume requires its recorded validator port block {block_start} \
+                 (lock {}): {error}",
+                lock_path.display()
+            )
+        })?;
+
+    let mut reservations = Vec::with_capacity(bases.len());
+    for base_port in bases {
+        match reserve_validator_ports(*base_port) {
+            Ok(listeners) => reservations.push(listeners),
+            Err(error) => {
+                drop(lock_file);
+                let _ = fs::remove_file(&lock_path);
+                return Err(anyhow!(
+                    "cluster resume could not re-reserve its recorded validator ports at \
+                     base {base_port}: {error}"
+                ));
+            }
+        }
+    }
+
+    use std::io::Write as _;
+    writeln!(lock_file, "pid={}", std::process::id())?;
+    Ok(ValidatorPortAllocation {
+        bases: bases.to_vec(),
+        reservations,
+        lock_path,
+    })
+}
+
 // Helper to fetch peer count from metrics
 async fn fetch_peer_count(metrics_addr: &str) -> String {
     let url = format!("http://{}/metrics", metrics_addr);
@@ -209,6 +316,7 @@ pub struct TestClusterBuilder {
     roles: BTreeMap<usize, ValidatorRole>,
     aft_safety_mode: AftSafetyMode,
     guardian_config_toml: Option<String>,
+    state_dir: Option<PathBuf>,
 }
 
 impl Default for TestClusterBuilder {
@@ -238,7 +346,53 @@ impl Default for TestClusterBuilder {
             roles: BTreeMap::new(),
             aft_safety_mode: AftSafetyMode::GuardianMajority,
             guardian_config_toml: None,
+            state_dir: None,
         }
+    }
+}
+
+fn resolve_cluster_state_plan(builder_state_dir: Option<PathBuf>) -> Result<ClusterStatePlan> {
+    let root = match builder_state_dir
+        .or_else(|| std::env::var_os(CLUSTER_STATE_DIR_ENV).map(PathBuf::from))
+    {
+        Some(root) => root,
+        None => return Ok(ClusterStatePlan::Ephemeral),
+    };
+    let manifest_path = root.join(CLUSTER_STATE_MANIFEST_FILE);
+    if manifest_path.exists() {
+        let raw = fs::read_to_string(&manifest_path).map_err(|error| {
+            anyhow!(
+                "cluster state manifest {} exists but could not be read; refusing to \
+                 re-initialize over existing state: {error}",
+                manifest_path.display()
+            )
+        })?;
+        let manifest: PersistedClusterState = serde_json::from_str(&raw).map_err(|error| {
+            anyhow!(
+                "cluster state manifest {} is malformed; refusing to re-initialize over \
+                 existing state: {error}",
+                manifest_path.display()
+            )
+        })?;
+        if manifest.schema_version != CLUSTER_STATE_SCHEMA_VERSION {
+            return Err(anyhow!(
+                "cluster state manifest {} has schema {} but this harness speaks {}; \
+                 refusing to re-initialize over existing state",
+                manifest_path.display(),
+                manifest.schema_version,
+                CLUSTER_STATE_SCHEMA_VERSION
+            ));
+        }
+        Ok(ClusterStatePlan::Resume { root, manifest })
+    } else if root.exists() && fs::read_dir(&root)?.next().is_some() {
+        Err(anyhow!(
+            "cluster state dir {} is non-empty but has no {CLUSTER_STATE_MANIFEST_FILE}; \
+             refusing to initialize over a partial or foreign tree",
+            root.display()
+        ))
+    } else {
+        fs::create_dir_all(&root)?;
+        Ok(ClusterStatePlan::FreshInit { root })
     }
 }
 
@@ -254,7 +408,7 @@ fn libp2p_keypair_from_dcrypt_seed(seed: [u8; 32]) -> libp2p::identity::Keypair 
 }
 
 struct AutoGuardianHarness {
-    temp_dir: Arc<TempDir>,
+    temp_dir: Option<Arc<TempDir>>,
     guardian_config_toml: String,
     transparency_log_descriptors: Vec<(Vec<u8>, Vec<u8>)>,
     committee_manifests: Vec<(Vec<u8>, Vec<u8>)>,
@@ -317,11 +471,25 @@ fn build_auto_guardian_harness(
     validator_keys: &[identity::Keypair],
     validator_base_ports: &[u16],
     safety_mode: AftSafetyMode,
+    stable_artifacts_dir: Option<PathBuf>,
 ) -> Result<AutoGuardianHarness> {
-    let temp_dir = Arc::new(tempfile::tempdir()?);
+    // Stable-state-dir clusters place the committee keys the guardian config
+    // references by absolute path under the caller's directory so a resumed
+    // cluster can keep signing against the manifests committed at genesis.
+    let (temp_dir, artifacts_dir) = match stable_artifacts_dir {
+        Some(dir) => {
+            fs::create_dir_all(&dir)?;
+            (None, dir)
+        }
+        None => {
+            let temp_dir = Arc::new(tempfile::tempdir()?);
+            let artifacts_dir = temp_dir.path().to_path_buf();
+            (Some(temp_dir), artifacts_dir)
+        }
+    };
     let committee_keys = [BlsKeyPair::generate()?, BlsKeyPair::generate()?];
     let transparency_log_key = identity::Keypair::generate_ed25519();
-    let transparency_log_key_path = temp_dir.path().join("guardian-log.key");
+    let transparency_log_key_path = artifacts_dir.join("guardian-log.key");
     std::fs::write(
         &transparency_log_key_path,
         transparency_log_key.to_protobuf_encoding()?,
@@ -331,7 +499,7 @@ fn build_auto_guardian_harness(
         .iter()
         .enumerate()
         .map(|(index, keypair)| {
-            let private_key_path = temp_dir.path().join(format!("guardian-member-{index}.bls"));
+            let private_key_path = artifacts_dir.join(format!("guardian-member-{index}.bls"));
             std::fs::write(
                 &private_key_path,
                 hex::encode(SigningKeyPair::private_key(keypair).to_bytes()),
@@ -387,9 +555,8 @@ fn build_auto_guardian_harness(
                 .map(|member_index| {
                     let keypair = BlsKeyPair::generate()?;
                     let global_index = (committee_index * 2) + member_index;
-                    let private_key_path = temp_dir
-                        .path()
-                        .join(format!("witness-member-{global_index}.bls"));
+                    let private_key_path =
+                        artifacts_dir.join(format!("witness-member-{global_index}.bls"));
                     std::fs::write(
                         &private_key_path,
                         hex::encode(SigningKeyPair::private_key(&keypair).to_bytes()),
@@ -503,6 +670,17 @@ fn build_auto_guardian_harness(
                     .map_err(|e| anyhow!(e.to_string()))?,
             ));
         }
+        // PERF NOTE (investigated 2026-07-28): checkpoint_interval_blocks
+        // only exists on witness-committee genesis objects, so it is inert
+        // for GuardianMajority clusters (the harness default and the wallet
+        // fixture's mode) — no per-block witness checkpoint work happens
+        // there at all. In witness modes the sole runtime consumer
+        // (aft/guardian_majority/collapse_verification.rs) treats it as a
+        // boolean: any value > 0 requires a transparency-log checkpoint on
+        // EVERY witness certificate. Raising it above 1 therefore changes
+        // nothing measurable, and 0 would disable checkpoint enforcement and
+        // weaken witness-mode e2e coverage. It stays a literal 1 and is
+        // intentionally not configurable.
         let seed = GuardianWitnessEpochSeed {
             epoch: 1,
             seed: [7u8; 32],
@@ -727,8 +905,103 @@ impl TestClusterBuilder {
         self
     }
 
+    /// Opt-in durable cluster state (see [`CLUSTER_STATE_DIR_ENV`]): all
+    /// validator durable state lives under `dir` and a second build from the
+    /// same directory resumes the chain instead of re-initializing.
+    pub fn with_state_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.state_dir = Some(dir.into());
+        self
+    }
+
     pub async fn build(mut self) -> Result<TestCluster> {
         let guardianized_mode = !matches!(self.aft_safety_mode, AftSafetyMode::ClassicBft);
+        let state_plan = resolve_cluster_state_plan(self.state_dir.take())?;
+        if let ClusterStatePlan::Resume { root, manifest } = &state_plan {
+            if self.keypairs.is_some() || self.validator0_key_override.is_some() {
+                return Err(anyhow!(
+                    "cluster resume derives validator identities from {}; do not supply \
+                     keypairs or seed overrides",
+                    root.display()
+                ));
+            }
+            let compatibility = [
+                (
+                    "chain_id",
+                    manifest.chain_id.to_string(),
+                    self.chain_id.0.to_string(),
+                ),
+                (
+                    "consensus_type",
+                    manifest.consensus_type.clone(),
+                    self.consensus_type.clone(),
+                ),
+                (
+                    "state_tree",
+                    manifest.state_tree.clone(),
+                    self.state_tree.clone(),
+                ),
+                (
+                    "commitment_scheme",
+                    manifest.commitment_scheme.clone(),
+                    self.commitment_scheme.clone(),
+                ),
+                (
+                    "aft_safety_mode",
+                    manifest.aft_safety_mode.clone(),
+                    format!("{:?}", self.aft_safety_mode),
+                ),
+                (
+                    "num_validators",
+                    manifest.num_validators.to_string(),
+                    self.num_validators.to_string(),
+                ),
+            ];
+            for (field, recorded, requested) in compatibility {
+                if recorded != requested {
+                    return Err(anyhow!(
+                        "cluster resume {field} mismatch against {}: recorded={recorded} \
+                         requested={requested}",
+                        root.display()
+                    ));
+                }
+            }
+            if manifest.validator_identity_keys_hex.len() != manifest.num_validators
+                || manifest.validator_base_ports.len() != manifest.num_validators
+                || manifest.num_validators == 0
+            {
+                return Err(anyhow!(
+                    "cluster state manifest at {} is internally inconsistent; refusing to \
+                     re-initialize over existing state",
+                    root.display()
+                ));
+            }
+            // Fail closed if any validator's durable chain state is missing:
+            // launching over an empty dir would silently restart from genesis.
+            for index in 0..manifest.num_validators {
+                let db_path = root
+                    .join(format!("validator-{index}"))
+                    .join("workload_state.db");
+                if !db_path.exists() {
+                    return Err(anyhow!(
+                        "cluster resume requires durable chain state at {}; refusing to \
+                         silently re-initialize from genesis",
+                        db_path.display()
+                    ));
+                }
+            }
+            let recorded_keys = manifest
+                .validator_identity_keys_hex
+                .iter()
+                .map(|encoded| {
+                    let bytes = hex::decode(encoded)
+                        .map_err(|error| anyhow!("recorded validator key is not hex: {error}"))?;
+                    identity::Keypair::from_protobuf_encoding(&bytes)
+                        .map_err(|error| anyhow!("recorded validator key is malformed: {error}"))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            self.keypairs = Some(recorded_keys);
+            self.num_validators = manifest.num_validators;
+        }
         let mut validator_keys = self.keypairs.take().unwrap_or_else(|| {
             (0..self.num_validators)
                 .map(|_| identity::Keypair::generate_ed25519())
@@ -757,17 +1030,51 @@ impl TestClusterBuilder {
             bases: validator_base_ports,
             reservations: validator_port_reservations,
             lock_path: validator_port_lock_path,
-        } = allocate_validator_port_bases(validator_keys.len())?;
+        } = match &state_plan {
+            ClusterStatePlan::Resume { manifest, .. } => reserve_recorded_validator_port_bases(
+                manifest.port_block_start,
+                &manifest.validator_base_ports,
+            )?,
+            _ => allocate_validator_port_bases(validator_keys.len())?,
+        };
         let mut validator_port_reservations = validator_port_reservations
             .into_iter()
             .map(Some)
             .collect::<Vec<_>>();
 
-        let shared_guardian_harness = if guardianized_mode && self.guardian_config_toml.is_none() {
+        if let ClusterStatePlan::Resume { root, manifest } = &state_plan {
+            if guardianized_mode && self.guardian_config_toml.is_none() {
+                // Resume reuses the exact guardian committee the chain was
+                // born with: its manifests are committed in genesis state and
+                // its private keys live under the state dir, referenced by
+                // absolute path from the recorded config.
+                let recorded = manifest.guardian_config_toml.clone().ok_or_else(|| {
+                    anyhow!(
+                        "cluster resume at {} has no recorded guardian config; supply the \
+                         original guardian config toml explicitly",
+                        root.display()
+                    )
+                })?;
+                self.guardian_config_toml = Some(recorded);
+                if !self
+                    .initial_services
+                    .iter()
+                    .any(|service| matches!(service, InitialServiceConfig::GuardianRegistry(_)))
+                {
+                    self.initial_services
+                        .push(InitialServiceConfig::GuardianRegistry(Default::default()));
+                }
+            }
+        }
+        let build_fresh_guardian_harness = !matches!(state_plan, ClusterStatePlan::Resume { .. })
+            && guardianized_mode
+            && self.guardian_config_toml.is_none();
+        let shared_guardian_harness = if build_fresh_guardian_harness {
             let harness = build_auto_guardian_harness(
                 &validator_keys,
                 &validator_base_ports,
                 self.aft_safety_mode,
+                state_plan.root().map(|root| root.join("guardian-harness")),
             )
             .map_err(|error| {
                 let _ = fs::remove_file(&validator_port_lock_path);
@@ -814,65 +1121,78 @@ impl TestClusterBuilder {
             None
         };
 
-        // [FIX] Insert default genesis configuration to register validators
-        // and set block timing. This ensures nodes don't stall on startup.
-        self.genesis_modifiers.insert(
-            0,
-            Box::new(
-                |builder: &mut GenesisBuilder, keys: &Vec<identity::Keypair>| {
-                    let mut validators = Vec::new();
-                    for key in keys {
-                        let account_id = builder.add_identity(key);
-                        validators.push(ValidatorV1 {
-                            account_id,
-                            weight: 1,
-                            consensus_key: ActiveKeyRecord {
-                                suite: SignatureSuite::ED25519,
-                                public_key_hash: account_id.0,
-                                since_height: 0,
+        if matches!(state_plan, ClusterStatePlan::Resume { .. }) {
+            // Genesis is never re-applied on resume: the durable state DB
+            // already exists, so the workload recovers its head instead of
+            // loading genesis. The recorded content is reused verbatim below
+            // and the (randomized) genesis modifiers are intentionally
+            // skipped.
+            self.genesis_modifiers.clear();
+        } else {
+            // [FIX] Insert default genesis configuration to register validators
+            // and set block timing. This ensures nodes don't stall on startup.
+            self.genesis_modifiers.insert(
+                0,
+                Box::new(
+                    |builder: &mut GenesisBuilder, keys: &Vec<identity::Keypair>| {
+                        let mut validators = Vec::new();
+                        for key in keys {
+                            let account_id = builder.add_identity(key);
+                            validators.push(ValidatorV1 {
+                                account_id,
+                                weight: 1,
+                                consensus_key: ActiveKeyRecord {
+                                    suite: SignatureSuite::ED25519,
+                                    public_key_hash: account_id.0,
+                                    since_height: 0,
+                                },
+                            });
+                        }
+
+                        // Sort to ensure canonical order
+                        validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
+
+                        let vs = ValidatorSetsV1 {
+                            current: ValidatorSetV1 {
+                                effective_from_height: 1,
+                                total_weight: validators.iter().map(|v| v.weight).sum(),
+                                validators,
                             },
-                        });
-                    }
+                            next: None,
+                        };
+                        builder.set_validators(&vs);
 
-                    // Sort to ensure canonical order
-                    validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
-
-                    let vs = ValidatorSetsV1 {
-                        current: ValidatorSetV1 {
-                            effective_from_height: 1,
-                            total_weight: validators.iter().map(|v| v.weight).sum(),
-                            validators,
-                        },
-                        next: None,
-                    };
-                    builder.set_validators(&vs);
-
-                    // Set default block timing (1s blocks for fast tests)
-                    let timing_params = BlockTimingParams {
-                        base_interval_secs: 1,
-                        min_interval_secs: 1,
-                        max_interval_secs: 5,
-                        target_gas_per_block: 10_000_000,
-                        ..Default::default()
-                    };
-                    let timing_runtime = BlockTimingRuntime {
-                        effective_interval_secs: 1,
-                        effective_interval_ms: 1_000,
-                        ema_gas_used: 0,
-                    };
-                    builder.set_block_timing(&timing_params, &timing_runtime);
-                },
-            ),
-        );
-
-        let mut builder = GenesisBuilder::new();
-        for modifier in self.genesis_modifiers.drain(..) {
-            modifier(&mut builder, &validator_keys);
+                        // Set default block timing (1s blocks for fast tests)
+                        let timing_params = BlockTimingParams {
+                            base_interval_secs: 1,
+                            min_interval_secs: 1,
+                            max_interval_secs: 5,
+                            target_gas_per_block: 10_000_000,
+                            ..Default::default()
+                        };
+                        let timing_runtime = BlockTimingRuntime {
+                            effective_interval_secs: 1,
+                            effective_interval_ms: 1_000,
+                            ema_gas_used: 0,
+                        };
+                        builder.set_block_timing(&timing_params, &timing_runtime);
+                    },
+                ),
+            );
         }
-        let genesis_content = serde_json::json!({
-            "genesis_state": builder
-        })
-        .to_string();
+
+        let genesis_content = if let ClusterStatePlan::Resume { manifest, .. } = &state_plan {
+            manifest.genesis_content.clone()
+        } else {
+            let mut builder = GenesisBuilder::new();
+            for modifier in self.genesis_modifiers.drain(..) {
+                modifier(&mut builder, &validator_keys);
+            }
+            serde_json::json!({
+                "genesis_state": builder
+            })
+            .to_string()
+        };
 
         let mut service_policies = ioi_types::config::default_service_policies();
         for (k, v) in self.service_policies_override.clone() {
@@ -953,6 +1273,7 @@ impl TestClusterBuilder {
                 .get(&0)
                 .cloned()
                 .unwrap_or(ValidatorRole::Consensus);
+            let captured_state_dir = state_plan.validator_state_dir(0);
 
             let guard = TestValidator::launch(
                 key_clone,
@@ -981,6 +1302,7 @@ impl TestClusterBuilder {
                 role,
                 captured_safety_mode,
                 captured_guardian_config,
+                captured_state_dir,
             )
             .await
             .map_err(|error| {
@@ -1036,6 +1358,7 @@ impl TestClusterBuilder {
                     .get(&i)
                     .cloned()
                     .unwrap_or(ValidatorRole::Consensus);
+                let captured_state_dir = state_plan.validator_state_dir(i);
 
                 let fut = async move {
                     TestValidator::launch(
@@ -1065,6 +1388,7 @@ impl TestClusterBuilder {
                         role,
                         captured_safety_mode,
                         captured_guardian_config,
+                        captured_state_dir,
                     )
                     .await
                 };
@@ -1121,6 +1445,7 @@ impl TestClusterBuilder {
                     .get(&i)
                     .cloned()
                     .unwrap_or(ValidatorRole::Consensus);
+                let captured_state_dir = state_plan.validator_state_dir(i);
 
                 let fut = async move {
                     TestValidator::launch(
@@ -1154,6 +1479,7 @@ impl TestClusterBuilder {
                         role,
                         captured_safety_mode,
                         captured_guardian_config,
+                        captured_state_dir,
                     )
                     .await
                 };
@@ -1425,10 +1751,45 @@ impl TestClusterBuilder {
             }
         }
 
+        // The durable identity manifest is written only after the whole
+        // cluster is up: a crash before this point leaves a manifest-less
+        // tree that the next build refuses (fail closed) instead of silently
+        // resuming half-initialized state.
+        if let ClusterStatePlan::FreshInit { root } = &state_plan {
+            let manifest = PersistedClusterState {
+                schema_version: CLUSTER_STATE_SCHEMA_VERSION,
+                chain_id: self.chain_id.0,
+                consensus_type: self.consensus_type.clone(),
+                state_tree: self.state_tree.clone(),
+                commitment_scheme: self.commitment_scheme.clone(),
+                aft_safety_mode: format!("{:?}", self.aft_safety_mode),
+                num_validators: validator_keys.len(),
+                port_block_start: validator_base_ports[0],
+                validator_base_ports: validator_base_ports.clone(),
+                validator_identity_keys_hex: validator_keys
+                    .iter()
+                    .map(|key| {
+                        key.to_protobuf_encoding()
+                            .map(hex::encode)
+                            .map_err(|error| anyhow!("validator key encode failed: {error}"))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                genesis_content: genesis_content.clone(),
+                guardian_config_toml: self.guardian_config_toml.clone(),
+            };
+            let manifest_path = root.join(CLUSTER_STATE_MANIFEST_FILE);
+            let temp_path = root.join(format!(
+                "{CLUSTER_STATE_MANIFEST_FILE}.{}.tmp",
+                std::process::id()
+            ));
+            fs::write(&temp_path, serde_json::to_vec_pretty(&manifest)?)?;
+            fs::rename(&temp_path, &manifest_path)?;
+        }
+
         Ok(TestCluster {
             validators,
             genesis_content,
-            _shared_artifacts: shared_guardian_harness.map(|harness| harness.temp_dir),
+            _shared_artifacts: shared_guardian_harness.and_then(|harness| harness.temp_dir),
             _port_block_lock_path: Some(validator_port_lock_path),
         })
     }

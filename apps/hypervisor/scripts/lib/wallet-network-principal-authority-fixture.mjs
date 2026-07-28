@@ -251,6 +251,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
   baseEnv = process.env,
   rootSeedHex,
   resumeResourceDir,
+  persistChainState = false,
 } = {}) {
   const normalizedRootSeed = rootSeedHex == null
     ? null
@@ -269,12 +270,14 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
     );
     mkdirSync(fixtureDir, { mode: 0o700 });
   } else {
-    // Checkpoint-lane resume: reclaim the EXACT recorded fixture path so any
-    // absolute-path reference a restored daemon plane carries stays valid.
-    // The wallet chain state itself lives in the cargo test's private
-    // TestCluster tempdirs (crates/cli/src/testing) and cannot be resumed
-    // from this directory; the fixture re-initializes its deterministic
-    // authority topology (same seeds, same chain_id) at the same path.
+    // Checkpoint-lane TRUE RESUME: reclaim the EXACT recorded fixture path so
+    // any absolute-path reference a restored daemon plane carries stays
+    // valid, and RESUME the recorded wallet chain from the durable cluster
+    // state the capture archived under <fixtureDir>/chain-state (see
+    // IOI_TESTING_CLUSTER_STATE_DIR in crates/cli/src/testing/cluster.rs).
+    // Old wallet raw state — committed consumptions, nonces, receipts — is
+    // preserved; only this life's control files are cleared so readiness and
+    // ownership are re-published by the resumed fixture process.
     fixtureDir = path.resolve(String(resumeResourceDir));
     if (
       path.dirname(fixtureDir) !== path.resolve(tmpdir()) ||
@@ -284,8 +287,36 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
         "wallet.network fixture resume path must be a verifier-owned wallet fixture directory",
       );
     }
-    rmSync(fixtureDir, { recursive: true, force: true });
-    mkdirSync(fixtureDir, { mode: 0o700 });
+    if (
+      !existsSync(
+        path.join(fixtureDir, "chain-state", "cluster-state.json"),
+      )
+    ) {
+      throw new Error(
+        "wallet.network fixture resume requires archived durable chain state at " +
+          `${path.join(fixtureDir, "chain-state")}; re-capture this checkpoint`,
+      );
+    }
+    for (const controlEntry of [
+      "shutdown",
+      "ready.json",
+      "commands",
+      ".ioi-verifier-owner.json",
+      "hypervisor-wallet-transactions.lock",
+      "wallet-network-ca.key",
+      "wallet-network-ca.pem",
+      "wallet-network-ca.srl",
+      "wallet-network-server.key",
+      "wallet-network-server.csr",
+      "wallet-network-server.pem",
+      "wallet-network-server.ext",
+    ]) {
+      rmSync(path.join(fixtureDir, controlEntry), {
+        recursive: true,
+        force: true,
+      });
+    }
+    persistChainState = true;
   }
   try {
     publishFixtureOwnerMarker(
@@ -302,19 +333,40 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
   let tlsProxy;
   let cleanupFinished = false;
   let stopPromise = null;
+  // Opt-in release fixture: builds the cargo-test fixture process AND the
+  // node binaries it launches (IOI_TEST_BUILD_PROFILE) with optimizations.
+  // Chain and authorization semantics are identical; only wall-clock changes.
+  const releaseFixture = process.env.IOI_WALLET_FIXTURE_RELEASE === "1";
   const cargoArgs = [
     "test", "-p", "ioi-cli",
+    ...(releaseFixture ? ["--release"] : []),
     "--test", "hypervisor_wallet_network_fixture",
     "wallet_network_principal_authority_fixture",
     "--", "--ignored", "--nocapture",
   ];
+  const spawnEnv = {
+    ...baseEnv,
+  };
+  // The durable-chain-state opt-in is explicit per fixture start: never let
+  // an ambient IOI_TESTING_CLUSTER_STATE_DIR leak a foreign state dir into
+  // this fixture's private cluster.
+  delete spawnEnv.IOI_TESTING_CLUSTER_STATE_DIR;
+  if (persistChainState) {
+    spawnEnv.IOI_TESTING_CLUSTER_STATE_DIR = path.join(
+      fixtureDir,
+      "chain-state",
+    );
+  }
+  if (releaseFixture) {
+    spawnEnv.IOI_TEST_BUILD_PROFILE = "release";
+  }
   const child = spawn(
     process.execPath,
     [guardianPath],
     {
       cwd: repoRoot,
       env: {
-        ...baseEnv,
+        ...spawnEnv,
         CARGO_TERM_COLOR: "never",
         IOI_HYPERVISOR_WALLET_FIXTURE_DIR: fixtureDir,
         IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_PID: String(process.pid),

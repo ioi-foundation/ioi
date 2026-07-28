@@ -77,6 +77,8 @@ use std::collections::HashMap;
 
 const AFT_RESTART_RECOVERY_WINDOW: u64 = 4;
 
+use crate::standard::testing_trivial_aft_restart_anchor_enabled;
+
 fn aft_restart_recovery_start_height(end_height: u64) -> u64 {
     end_height
         .saturating_sub(AFT_RESTART_RECOVERY_WINDOW.saturating_sub(1))
@@ -303,6 +305,26 @@ where
         if let Ok((raw_head_height, _)) = store.head() {
             if raw_head_height > 0 {
                 let recovered_anchor = match config.consensus_type {
+                    // TESTING-ONLY opt-in (IOI_TESTING_AFT_TRIVIAL_RESTART_ANCHOR=1,
+                    // set by the stable-state-dir testing harness in
+                    // crates/cli/src/testing): GuardianMajority harness chains
+                    // never publish canonical collapse objects (that
+                    // publication lane runs only under the Asymptote sealed
+                    // path), so the restart-safe anchor search below can
+                    // never succeed for them. The harness resumes by
+                    // adopting the raw durable head exactly like the non-AFT
+                    // lane. Production never sets this env; without it the
+                    // behavior is byte-identical.
+                    ConsensusType::Aft if testing_trivial_aft_restart_anchor_enabled() => {
+                        tracing::warn!(
+                            target: "workload",
+                            raw_head_height,
+                            "IOI_TESTING_AFT_TRIVIAL_RESTART_ANCHOR=1: adopting the raw durable head without a canonical-collapse anchor (testing harness resume)."
+                        );
+                        store
+                            .get_block_by_height(raw_head_height)?
+                            .map(|block| (raw_head_height, block.header.state_root.0))
+                    }
                     ConsensusType::Aft => recover_restart_safe_aft_anchor(
                         &mut state_tree,
                         store.as_ref(),
