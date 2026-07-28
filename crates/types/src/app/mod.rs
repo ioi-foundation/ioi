@@ -5,6 +5,9 @@
 pub mod action;
 /// Data structures for external adapter contracts.
 pub mod adapter;
+/// M2 agentgres replay/recovery seam: fence-bound suffix admission,
+/// lost-suffix candidate derivation, and recovery record production.
+pub mod agentgres_replay;
 /// Data structures for agentic semantic consensus.
 pub mod agentic;
 /// Shared Chat outcome routing and artifact contracts.

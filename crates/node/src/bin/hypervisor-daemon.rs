@@ -156,6 +156,8 @@ mod system_projection_routes;
 mod system_protected_transition_routes;
 #[path = "hypervisor_daemon_routes/system_sequence_zero_routes.rs"]
 mod system_sequence_zero_routes;
+#[path = "hypervisor_daemon_routes/system_topology_routes.rs"]
+mod system_topology_routes;
 #[path = "hypervisor_daemon_routes/system_writer_routes.rs"]
 mod system_writer_routes;
 #[path = "hypervisor_daemon_routes/transformation_run_routes.rs"]
@@ -2175,6 +2177,10 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/autonomous-systems/:id/membership/projection",
             get(system_membership_routes::handle_get_projection),
+        )
+        .route(
+            system_topology_routes::MINIMUM_TOPOLOGY_ROUTE,
+            get(system_topology_routes::handle_get_minimum_topology),
         )
         .route(
             "/v1/hypervisor/autonomous-systems/:id/membership/desired-topology",
