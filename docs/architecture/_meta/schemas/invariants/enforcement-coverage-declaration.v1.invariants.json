@@ -1,0 +1,27 @@
+{
+  "$id": "invariant://ioi/components/daemon-runtime/enforcement-coverage-declaration/evidence-and-gaps/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+  "rules": [
+    {
+      "rule_id": "enforcement_coverage.receipt.evidence.required_when_receipted",
+      "description": "A positive receipted claim binds at least one receipt evidence reference in addition to a non-none receipt scope.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.receipt.evidence_refs",
+        "when_path": "$.claims.receipted",
+        "values": [true]
+      }
+    },
+    {
+      "rule_id": "enforcement_coverage.gap.required_when_uncovered",
+      "description": "An uncovered claim identifies at least one exact known gap rather than relying on a node-wide label.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.known_gaps",
+        "when_path": "$.claims.uncovered",
+        "values": [true]
+      }
+    }
+  ]
+}

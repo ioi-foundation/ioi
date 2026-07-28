@@ -39,6 +39,14 @@ pub(crate) enum AuthorityPolicyContext<'a> {
         system_id: &'a str,
         genesis_id: &'a str,
     },
+    HypervisorOsNode {
+        estate_namespace: &'a str,
+        node_id: &'a str,
+    },
+    HypervisorEnvironment {
+        estate_namespace: &'a str,
+        subject_ref: &'a str,
+    },
 }
 
 #[derive(Clone, Copy)]
@@ -80,6 +88,39 @@ impl AuthorityContract {
             }
             "acknowledge_migration_destination" => {
                 "scope:autonomous_system.continuity.migration_destination_acknowledge".to_owned()
+            }
+            "admit_node"
+            | "attest_readiness"
+            | "advance_catchup"
+            | "promote_role"
+            | "drain_node"
+            | "remove_node"
+            | "declare_desired_topology" => {
+                format!("scope:autonomous_system.membership.{op}")
+            }
+            "admit_node_identity"
+            | "submit_boot_receipt"
+            | "mark_node_ready"
+            | "declare_boot_profile"
+            | "declare_temporal_profile" => {
+                format!("scope:hypervisoros.node.{op}")
+            }
+            "genesis"
+            | "same_node_restore"
+            | "replacement_restore"
+            | "promotion"
+            | "declare_failover_profile"
+            | "resolve_lost_suffix" => {
+                format!("scope:autonomous_system.writer.{op}")
+            }
+            "declare_route_binding"
+            | "record_backup"
+            | "declare_change_plan"
+            | "advance_change_plan_stage"
+            | "open_cleanup_obligation"
+            | "satisfy_cleanup_obligation"
+            | "escalate_cleanup_obligation" => {
+                format!("scope:hypervisor_environment.{op}")
             }
             "enroll_local" => "scope:autonomous_system.network_enrollment.local.enroll".to_owned(),
             "exit_local_enrollment" => {
@@ -367,6 +408,20 @@ pub(crate) fn decision_policy_hash_for_context(
         } => {
             material.insert("genesis_id".into(), json!(genesis_id));
             material.insert("system_id".into(), json!(system_id));
+        }
+        AuthorityPolicyContext::HypervisorOsNode {
+            estate_namespace,
+            node_id,
+        } => {
+            material.insert("estate_namespace".into(), json!(estate_namespace));
+            material.insert("node_id".into(), json!(node_id));
+        }
+        AuthorityPolicyContext::HypervisorEnvironment {
+            estate_namespace,
+            subject_ref,
+        } => {
+            material.insert("estate_namespace".into(), json!(estate_namespace));
+            material.insert("environment_subject_ref".into(), json!(subject_ref));
         }
     }
     material.insert("required_authority_ref".into(), json!(required_authority));

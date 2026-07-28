@@ -1,0 +1,17 @@
+{
+  "$id": "invariant://ioi/foundations/ordering-finality-recovery/cas-proof/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
+  "rules": [
+    {
+      "rule_id": "ordering_finality_recovery.trigger_evidence.bound_when_progressed",
+      "description": "A recovery past proposal binds nonempty trigger evidence; authority is never invented from a bare status string.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.status",
+        "values": ["evidence_pending", "authorized", "admitted", "committed"],
+        "path": "$.trigger_evidence_refs"
+      }
+    }
+  ]
+}

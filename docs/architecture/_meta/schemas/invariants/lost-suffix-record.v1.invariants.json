@@ -1,0 +1,25 @@
+{
+  "$id": "invariant://ioi/foundations/lost-suffix-record/retained-custody/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
+  "rules": [
+    {
+      "rule_id": "lost_suffix_record.entries.match_declared_count",
+      "description": "The custody rows cover exactly the declared excluded-operation count: a silently dropped row breaks the record.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.excluded_suffix.entries",
+        "count_path": "$.excluded_suffix.operation_count"
+      }
+    },
+    {
+      "rule_id": "lost_suffix_record.entries.unique_offsets",
+      "description": "Each excluded operation offset has exactly one custody row.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.excluded_suffix.entries",
+        "fields": ["operation_offset"]
+      }
+    }
+  ]
+}

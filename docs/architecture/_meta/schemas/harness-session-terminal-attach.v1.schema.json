@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
+  "title": "HarnessSessionTerminalAttach",
+  "description": "The terminal-attach admission the runtime kernel composes from an admitted HarnessSessionSpawn and its matching HarnessSessionReadiness (runtime_harness_session_terminal_attach_admission.rs): the client may create and write the host PTY only after this record binds the spawned command, readiness proof, authority scopes, receipt refs, transcript stream, and workspace root. The client attach contract carries the daemon-resolved command line, its initial write, and the client-custody PTY transport; the transcript projection opens awaiting the client stream with the daemon-resolved command as its stdin line. The client is a PTY transport, never the source of runtime truth.",
+  "x-ioi-schema-version": "ioi.runtime.harness_session_terminal_attach.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "attach_id",
+    "decision",
+    "attach_state",
+    "attach_lane",
+    "spawn_id",
+    "readiness_id",
+    "session_binding_ref",
+    "session_route_ref",
+    "agent_harness_adapter_id",
+    "client_attach_contract",
+    "terminal_transcript_projection",
+    "authority_scope_refs",
+    "receipt_refs",
+    "agentgres_operation_refs",
+    "state_root",
+    "attached_at",
+    "requiresDaemonGate",
+    "runtimeTruthSource",
+    "terminal_attach_invariant"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.runtime.harness_session_terminal_attach.v1"
+    },
+    "attach_id": {
+      "type": "string",
+      "pattern": "^harness-session-terminal-attach:[^\\s]{1,300}$"
+    },
+    "decision": { "const": "admitted" },
+    "attach_state": { "const": "client_pty_attach_admitted" },
+    "attach_lane": { "const": "hypervisor_client_terminal_adapter" },
+    "spawn_id": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "readiness_id": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "launch_id": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "session_binding_ref": {
+      "type": "string",
+      "pattern": "^harness-session-binding:[^\\s]{1,400}$"
+    },
+    "session_route_ref": {
+      "type": "string",
+      "pattern": "^session-route:[^\\s]{1,240}$"
+    },
+    "harness_selection_ref": {
+      "type": "string",
+      "pattern": "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$"
+    },
+    "agent_harness_adapter_id": {
+      "anyOf": [
+        { "type": "string", "minLength": 1, "maxLength": 200 },
+        { "type": "null" }
+      ]
+    },
+    "model_configuration_ref": {
+      "type": "string",
+      "pattern": "^model-config:[^\\s]{1,240}$"
+    },
+    "model_route_ref": {
+      "type": "string",
+      "pattern": "^model-route:[^\\s]{1,240}$"
+    },
+    "model_name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "workspace_ref": {
+      "type": "string",
+      "pattern": "^workspace://[^\\s]{1,240}$"
+    },
+    "workspace_root": { "type": "string", "minLength": 1, "maxLength": 400 },
+    "terminal_session_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "command_contract_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "command_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pty_transport"],
+      "properties": {
+        "pty_transport": { "const": "hypervisor_client_terminal_adapter" },
+        "process_custody": {
+          "const": "client_host_pty_after_daemon_spawn_admission"
+        },
+        "resolved_argv": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "type": "string", "minLength": 1, "maxLength": 400 }
+        }
+      }
+    },
+    "workspace_mount_policy": {
+      "enum": [
+        "public_trunk",
+        "redacted_projection",
+        "plain_workspace",
+        "ctee_private_workspace"
+      ]
+    },
+    "privacy_posture_ref": {
+      "type": "string",
+      "pattern": "^privacy:[^\\s]{1,200}$"
+    },
+    "receipt_policy_ref": {
+      "type": "string",
+      "pattern": "^receipt-policy:[^\\s]{1,240}$"
+    },
+    "client_attach_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_line",
+        "initial_write",
+        "transcript_stream_ref",
+        "pty_transport",
+        "process_custody"
+      ],
+      "properties": {
+        "command_line": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "initial_write": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 2001
+        },
+        "transcript_stream_ref": {
+          "type": "string",
+          "pattern": "^agentgres://trace/[^\\s]{1,240}$"
+        },
+        "pty_transport": { "const": "hypervisor_client_terminal_adapter" },
+        "process_custody": {
+          "const": "client_host_pty_after_daemon_attach_admission"
+        },
+        "root": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "rows": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "cols": { "type": "integer", "minimum": 1, "maximum": 10000 }
+      }
+    },
+    "terminal_transcript_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "transcript_id",
+        "transcript_state",
+        "transcript_stream_ref",
+        "cursor",
+        "lines",
+        "runtimeTruthSource"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.runtime.harness_terminal_transcript_projection.v1"
+        },
+        "transcript_id": {
+          "type": "string",
+          "pattern": "^harness-terminal-transcript:[^\\s]{1,300}$"
+        },
+        "transcript_state": { "const": "awaiting_client_stream" },
+        "transcript_stream_ref": {
+          "type": "string",
+          "pattern": "^agentgres://trace/[^\\s]{1,240}$"
+        },
+        "cursor": { "type": "integer", "minimum": 0, "maximum": 0 },
+        "lines": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["stream", "text"],
+            "properties": {
+              "stream": { "enum": ["system", "stdin"] },
+              "text": { "type": "string", "minLength": 1, "maxLength": 2000 }
+            }
+          }
+        },
+        "runtimeTruthSource": { "const": "daemon-runtime" }
+      }
+    },
+    "authority_scope_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "type": "string", "pattern": "^scope:[^\\s]{1,200}$" }
+    },
+    "receipt_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 48,
+      "items": { "type": "string", "pattern": "^receipt://[^\\s]{1,240}$" }
+    },
+    "agentgres_operation_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 48,
+      "items": {
+        "type": "string",
+        "pattern": "^agentgres://operation/[^\\s]{1,240}$"
+      }
+    },
+    "state_root": {
+      "type": "string",
+      "pattern": "^agentgres://state-root/[^\\s]{1,240}$"
+    },
+    "attached_at": { "$ref": "#/$defs/canonicalDateTime" },
+    "requiresDaemonGate": { "const": true },
+    "runtimeTruthSource": { "const": "daemon-runtime" },
+    "terminal_attach_invariant": {
+      "const": "The client may create and write to the host PTY only after the daemon binds the spawned command, readiness proof, authority scopes, receipt refs, transcript stream, and workspace root in this attach object."
+    }
+  },
+  "$defs": {
+    "canonicalDateTime": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

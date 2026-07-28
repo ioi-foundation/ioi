@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+  "title": "HypervisorOSNode",
+  "description": "Admitted HypervisorOS node identity record: public sealed-identity binding (suite, public key, recomputable commitment, wallet.network sealing alias reference — never private material), exact measured-boot profile binding, enforcement-profile integration, and the candidate|measured|ready|quarantined|retired status ladder. measured and ready are structurally unreachable without a bound verified boot receipt.",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.hypervisoros-node.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "node_record_id",
+    "node_id",
+    "profile",
+    "owner_ref",
+    "daemon_ref",
+    "boot_profile_ref",
+    "boot_profile_root",
+    "measurement_policy_ref",
+    "ctee_policy_ref",
+    "node_enforcement_profile_ref",
+    "enforcement_coverage_declaration_refs",
+    "agentgres_domain_ref",
+    "supported_worker_substrates",
+    "supported_mount_profiles",
+    "forbidden_bypasses",
+    "receipts_required",
+    "sealed_identity",
+    "attestation",
+    "node_epoch",
+    "status",
+    "last_transition_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.components.daemon-runtime.hypervisoros-node.v1"
+    },
+    "node_record_id": {
+      "type": "string",
+      "pattern": "^hypervisoros-node://[^\\s]{1,248}$"
+    },
+    "node_id": { "$ref": "#/$defs/runtimeRef" },
+    "profile": { "const": "hypervisoros_bare_metal" },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:wallet|provider|org)://[^\\s]{1,248}$"
+    },
+    "daemon_ref": { "$ref": "#/$defs/runtimeRef" },
+    "boot_profile_ref": {
+      "type": "string",
+      "pattern": "^boot-profile://[^\\s]{1,248}$"
+    },
+    "boot_profile_root": { "$ref": "#/$defs/hash" },
+    "measurement_policy_ref": {
+      "type": "string",
+      "pattern": "^measurement-policy://[^\\s]{1,248}$"
+    },
+    "ctee_policy_ref": { "$ref": "#/$defs/policyRef" },
+    "node_enforcement_profile_ref": {
+      "anyOf": [
+        { "type": "string", "pattern": "^node-enforcement://[^\\s]{1,248}$" },
+        { "type": "null" }
+      ]
+    },
+    "enforcement_coverage_declaration_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^enforcement-coverage://[^\\s]{1,248}$"
+      },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "agentgres_domain_ref": {
+      "type": "string",
+      "pattern": "^agentgres://domain/[^\\s]{1,240}$"
+    },
+    "supported_worker_substrates": {
+      "type": "array",
+      "items": { "enum": ["vm", "microvm", "container", "wasm", "model_server"] },
+      "minItems": 1,
+      "maxItems": 5,
+      "uniqueItems": true
+    },
+    "supported_mount_profiles": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "public_mount",
+          "redacted_mount",
+          "plaintext_free_model_mount",
+          "ctee_private_workspace"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 4,
+      "uniqueItems": true
+    },
+    "forbidden_bypasses": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "direct_plaintext_private_mount",
+          "unreceipted_tool_execution",
+          "raw_secret_env_injection",
+          "daemonless_model_server",
+          "unscoped_network_egress"
+        ]
+      },
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true
+    },
+    "receipts_required": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "HypervisorOSBootReceipt",
+          "NodeMeasurementReceipt",
+          "ModelMountReceipt",
+          "PrivateInferenceReceipt",
+          "CapabilityExitReceipt",
+          "ExecutableDeniedReceipt",
+          "EgressDetectionReceipt"
+        ]
+      },
+      "minItems": 7,
+      "maxItems": 7,
+      "uniqueItems": true
+    },
+    "sealed_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key_suite",
+        "identity_public_key",
+        "identity_key_commitment",
+        "sealed_identity_alias",
+        "sealing_receipt_ref"
+      ],
+      "properties": {
+        "key_suite": { "enum": ["ed25519"] },
+        "identity_public_key": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "identity_key_commitment": { "$ref": "#/$defs/hash" },
+        "sealed_identity_alias": {
+          "type": "string",
+          "pattern": "^vault://[^\\s]{1,248}$"
+        },
+        "sealing_receipt_ref": { "$ref": "#/$defs/nullableReceiptRef" }
+      }
+    },
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boot_receipt_ref",
+        "boot_receipt_root",
+        "verified_boot_epoch",
+        "verified_rollback_counter",
+        "temporal_validity_evaluation_ref",
+        "verified_at"
+      ],
+      "properties": {
+        "boot_receipt_ref": { "$ref": "#/$defs/nullableReceiptRef" },
+        "boot_receipt_root": { "$ref": "#/$defs/nullableHash" },
+        "verified_boot_epoch": { "$ref": "#/$defs/nullableCounter" },
+        "verified_rollback_counter": { "$ref": "#/$defs/nullableCounter" },
+        "temporal_validity_evaluation_ref": {
+          "anyOf": [{ "$ref": "#/$defs/evaluationRef" }, { "type": "null" }]
+        },
+        "verified_at": { "$ref": "#/$defs/nullableDateTime" }
+      }
+    },
+    "node_epoch": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "status": {
+      "enum": ["candidate", "measured", "ready", "quarantined", "retired"]
+    },
+    "last_transition_at": { "$ref": "#/$defs/nullableDateTime" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": { "status": { "enum": ["measured", "ready"] } },
+        "required": ["status"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "attestation": {
+            "type": "object",
+            "properties": {
+              "boot_receipt_ref": { "type": "string" },
+              "boot_receipt_root": { "type": "string" },
+              "verified_boot_epoch": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "verified_rollback_counter": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "temporal_validity_evaluation_ref": { "type": "string" }
+            },
+            "required": [
+              "boot_receipt_ref",
+              "boot_receipt_root",
+              "verified_boot_epoch",
+              "verified_rollback_counter",
+              "temporal_validity_evaluation_ref"
+            ]
+          }
+        },
+        "required": ["attestation"]
+      }
+    }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nullableHash": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "runtimeRef": { "type": "string", "pattern": "^runtime://[^\\s]{1,248}$" },
+    "policyRef": { "type": "string", "pattern": "^policy://[^\\s]{1,248}$" },
+    "nullableReceiptRef": {
+      "anyOf": [
+        { "type": "string", "pattern": "^receipt://[^\\s]{1,248}$" },
+        { "type": "null" }
+      ]
+    },
+    "evaluationRef": {
+      "type": "string",
+      "pattern": "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$"
+    },
+    "nullableCounter": {
+      "anyOf": [
+        { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        { "type": "null" }
+      ]
+    },
+    "nullableDateTime": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        { "type": "null" }
+      ]
+    }
+  }
+}

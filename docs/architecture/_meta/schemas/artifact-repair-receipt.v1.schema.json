@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+  "title": "ArtifactRepairReceipt",
+  "description": "The daemon storage-plane repair receipt (storage_backend_routes op_repair). A repaired outcome exists only with a verified replacement commitment: the daemon custody bytes re-hash to the admitted state root (custody_state_root_verified is structurally true), the replacement commitment is bound, and the closed incidents are named. A failed repair is an honest repair_failed receipt with its named reason — an unverified repair can never mint a repaired outcome (INV-37).",
+  "x-ioi-schema-version": "ioi.hypervisor.artifact-repair-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "repair_id",
+    "repair_ref",
+    "archive_ref",
+    "material_ref",
+    "backend_ref",
+    "source",
+    "outcome",
+    "incident_refs",
+    "at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.artifact-repair-receipt.v1"
+    },
+    "repair_id": {
+      "type": "string",
+      "pattern": "^arr_[0-9a-f]+$",
+      "maxLength": 64
+    },
+    "repair_ref": {
+      "type": "string",
+      "pattern": "^artifact-repair-receipt://arr_[0-9a-f]+$",
+      "maxLength": 96
+    },
+    "archive_ref": {
+      "type": "string",
+      "pattern": "^storage-archive://[^\\s]+$",
+      "maxLength": 512
+    },
+    "material_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "backend_ref": {
+      "type": "string",
+      "pattern": "^storage-backend://[^\\s]+$",
+      "maxLength": 512
+    },
+    "source": {
+      "const": "daemon_custody"
+    },
+    "outcome": {
+      "enum": [
+        "repaired",
+        "repair_failed"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "old_commitment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/commitment"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "new_commitment": {
+      "$ref": "#/$defs/commitment"
+    },
+    "state_root": {
+      "$ref": "#/$defs/sha256Hash"
+    },
+    "verification": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/verificationEvidence"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "incident_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^artifact-availability-incident://[^\\s]+$",
+        "maxLength": 512
+      }
+    },
+    "admission_note": {
+      "const": "the replacement commitment preserves meaning ONLY because it is linked here to the same material_ref, state_root, and receipt chain — a new CID alone repairs nothing"
+    },
+    "at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    }
+  },
+  "if": {
+    "properties": {
+      "outcome": {
+        "const": "repaired"
+      }
+    },
+    "required": [
+      "outcome"
+    ]
+  },
+  "then": {
+    "required": [
+      "old_commitment",
+      "new_commitment",
+      "state_root",
+      "verification",
+      "admission_note"
+    ],
+    "properties": {
+      "old_commitment": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/commitment"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "new_commitment": {
+        "$ref": "#/$defs/commitment"
+      },
+      "state_root": {
+        "$ref": "#/$defs/sha256Hash"
+      },
+      "verification": {
+        "type": "object",
+        "required": [
+          "custody_state_root_verified",
+          "read_back_verified"
+        ],
+        "properties": {
+          "custody_state_root_verified": {
+            "const": true
+          },
+          "read_back_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "admission_note": {
+        "const": "the replacement commitment preserves meaning ONLY because it is linked here to the same material_ref, state_root, and receipt chain — a new CID alone repairs nothing"
+      }
+    }
+  },
+  "else": {
+    "required": [
+      "reason"
+    ],
+    "properties": {
+      "reason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      }
+    }
+  },
+  "$defs": {
+    "sha256Hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "commitment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "address",
+        "stored_sha256",
+        "size_bytes",
+        "mode",
+        "read_back_verified"
+      ],
+      "properties": {
+        "address": {
+          "type": "string",
+          "pattern": "^(?:cas|local-cas|ipfs|filecoin)://[^\\s]+$",
+          "maxLength": 512
+        },
+        "stored_sha256": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "mode": {
+          "enum": [
+            "real_local",
+            "fixture_evidence",
+            "live_evidence"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "read_back_verified": {
+          "type": "boolean"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "verificationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "custody_state_root_verified": {
+          "const": true
+        },
+        "read_back_verified": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "actual": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "expected": {
+          "$ref": "#/$defs/sha256Hash"
+        }
+      }
+    }
+  }
+}

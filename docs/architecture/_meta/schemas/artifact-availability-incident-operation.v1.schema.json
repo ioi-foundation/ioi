@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+  "title": "ArtifactAvailabilityIncidentOperation",
+  "description": "The Agentgres operation envelope the runtime kernel derives when it admits an artifact availability incident. The envelope is the lifecycle-transition admission: it binds the incident to its artifact/payload/backend refs, affected Agentgres objects, incident and repair receipts, verification and restore/import refs, and the incident state root. A restore-validity claim of restore_import_refs_bound structurally requires restore/import refs; a terminal repaired/closed lifecycle state requires repair receipts and verification refs (INV-37).",
+  "x-ioi-schema-version": "ioi.agentgres.artifact_availability_incident_operation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "operation_ref",
+    "operation_kind",
+    "incident_id",
+    "artifact_ref",
+    "payload_ref",
+    "backend_ref",
+    "lifecycle_state",
+    "incident_kind",
+    "affected_object_refs",
+    "incident_receipt_refs",
+    "repair_receipt_refs",
+    "verification_refs",
+    "restore_import_refs",
+    "fallback_backend_refs",
+    "quarantine_refs",
+    "payload_bytes_mutated",
+    "restore_validity",
+    "state_root",
+    "receipt_refs",
+    "runtimeTruthSource",
+    "agentgresTruthSource"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.agentgres.artifact_availability_incident_operation.v1"
+    },
+    "operation_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "operation_kind": {
+      "const": "artifact_availability_incident"
+    },
+    "incident_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "artifact_ref": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]+$",
+      "maxLength": 512
+    },
+    "payload_ref": {
+      "type": "string",
+      "pattern": "^payload://[^\\s]+$",
+      "maxLength": 512
+    },
+    "backend_ref": {
+      "type": "string",
+      "pattern": "^storage://[^\\s]+$",
+      "maxLength": 512
+    },
+    "lifecycle_state": {
+      "enum": [
+        "opened",
+        "fallback_attempted",
+        "repaired",
+        "quarantined",
+        "unrecoverable",
+        "closed"
+      ]
+    },
+    "incident_kind": {
+      "enum": [
+        "missing",
+        "unavailable",
+        "invalid_hash",
+        "invalid_cid",
+        "decrypt_failed",
+        "backend_unavailable",
+        "stale_replica"
+      ]
+    },
+    "affected_object_refs": {
+      "$ref": "#/$defs/requiredRefs"
+    },
+    "incident_receipt_refs": {
+      "$ref": "#/$defs/requiredRefs"
+    },
+    "repair_receipt_refs": {
+      "$ref": "#/$defs/refs"
+    },
+    "verification_refs": {
+      "$ref": "#/$defs/refs"
+    },
+    "restore_import_refs": {
+      "$ref": "#/$defs/refs"
+    },
+    "fallback_backend_refs": {
+      "$ref": "#/$defs/refs"
+    },
+    "quarantine_refs": {
+      "$ref": "#/$defs/refs"
+    },
+    "payload_bytes_mutated": {
+      "type": "boolean"
+    },
+    "restore_validity": {
+      "enum": [
+        "no_restore_import",
+        "restore_import_refs_bound"
+      ]
+    },
+    "state_root": {
+      "type": "string",
+      "pattern": "^agentgres://state-root/artifact-availability-incident/[^\\s]+$",
+      "maxLength": 512
+    },
+    "receipt_refs": {
+      "$ref": "#/$defs/requiredRefs"
+    },
+    "runtimeTruthSource": {
+      "const": "daemon-runtime"
+    },
+    "agentgresTruthSource": {
+      "const": "agentgres-operation"
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "requiredRefs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    }
+  }
+}

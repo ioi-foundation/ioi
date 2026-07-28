@@ -1,0 +1,16 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-desired-topology/declared-only/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-desired-topology/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_desired_topology.role_targets.unique",
+      "description": "Each role is declared at most once.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.role_targets",
+        "fields": ["role"]
+      }
+    }
+  ]
+}

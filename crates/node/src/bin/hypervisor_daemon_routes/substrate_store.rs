@@ -76,6 +76,31 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-constitution-amendment-approval-decisions",
     "autonomous-system-constitution-amendment-approval-authority-evidence",
     "autonomous-system-constitutions",
+    "autonomous-system-desired-topologies",
+    "autonomous-system-node-memberships",
+    "autonomous-system-membership-transitions",
+    "autonomous-system-membership-receipts",
+    "autonomous-system-membership-successor-claims",
+    "autonomous-system-failover-profiles",
+    "autonomous-system-writer-epoch-transitions",
+    "autonomous-system-writer-receipts",
+    "autonomous-system-writer-successor-claims",
+    "autonomous-system-lost-suffix-records",
+    "hypervisoros-boot-profiles",
+    "hypervisoros-temporal-profiles",
+    "hypervisoros-node-records",
+    "hypervisoros-boot-receipts",
+    "hypervisoros-node-transitions",
+    "hypervisoros-node-attestation-receipts",
+    "hypervisoros-node-successor-claims",
+    "hypervisor-environment-route-bindings",
+    "hypervisor-environment-backups",
+    "hypervisor-change-plans",
+    "hypervisor-change-plan-stage-advances",
+    "hypervisor-resource-cleanup-obligations",
+    "hypervisor-environment-lifecycle-transitions",
+    "hypervisor-environment-lifecycle-receipts",
+    "hypervisor-environment-lifecycle-successor-claims",
 ];
 
 struct HandleSlot {
@@ -399,6 +424,22 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             "predecessor_chain_root",
             format!("sha256:{}", record_id.strip_prefix("ascwr_").unwrap_or("")),
         ),
+        "autonomous-system-membership-successor-claims" => (
+            "predecessor_membership_root",
+            format!("sha256:{}", record_id.strip_prefix("asmsc_").unwrap_or("")),
+        ),
+        "autonomous-system-writer-successor-claims" => (
+            "predecessor_claim_root",
+            format!("sha256:{}", record_id.strip_prefix("aswsc_").unwrap_or("")),
+        ),
+        "hypervisoros-node-successor-claims" => (
+            "predecessor_node_set_root",
+            format!("sha256:{}", record_id.strip_prefix("hvnsc_").unwrap_or("")),
+        ),
+        "hypervisor-environment-lifecycle-successor-claims" => (
+            "predecessor_plane_root",
+            format!("sha256:{}", record_id.strip_prefix("hvelsc_").unwrap_or("")),
+        ),
         "autonomous-system-dissolution-dispositions"
         | "autonomous-system-dissolution-receipts"
         | "autonomous-system-lifecycle-authority-consumptions"
@@ -412,7 +453,28 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         | "autonomous-system-network-enrollments"
         | "autonomous-system-amendment-receipts"
         | "autonomous-system-constitution-amendments"
-        | "autonomous-system-constitutions" => {
+        | "autonomous-system-constitutions"
+        | "autonomous-system-desired-topologies"
+        | "autonomous-system-node-memberships"
+        | "autonomous-system-membership-transitions"
+        | "autonomous-system-membership-receipts"
+        | "autonomous-system-failover-profiles"
+        | "autonomous-system-writer-epoch-transitions"
+        | "autonomous-system-writer-receipts"
+        | "autonomous-system-lost-suffix-records"
+        | "hypervisor-environment-route-bindings"
+        | "hypervisor-environment-backups"
+        | "hypervisor-change-plans"
+        | "hypervisor-change-plan-stage-advances"
+        | "hypervisor-resource-cleanup-obligations"
+        | "hypervisor-environment-lifecycle-transitions"
+        | "hypervisor-environment-lifecycle-receipts"
+        | "hypervisoros-boot-profiles"
+        | "hypervisoros-temporal-profiles"
+        | "hypervisoros-node-records"
+        | "hypervisoros-boot-receipts"
+        | "hypervisoros-node-transitions"
+        | "hypervisoros-node-attestation-receipts" => {
             unreachable!("identity is validated by the family-specific branch")
         }
         _ => unreachable!("required-admission domains are exhaustively matched"),
@@ -730,6 +792,31 @@ fn validate_required_identity(
         "autonomous-system-chain-revisions" => "asc_",
         "autonomous-system-chain-successor-claims" => "ascsc_",
         "autonomous-system-chain-writer-reservations" => "ascwr_",
+        "autonomous-system-desired-topologies" => "asdt_",
+        "autonomous-system-node-memberships" => "asnm_",
+        "autonomous-system-membership-transitions" => "asmt_",
+        "autonomous-system-membership-receipts" => "asmr_",
+        "autonomous-system-membership-successor-claims" => "asmsc_",
+        "autonomous-system-failover-profiles" => "aswfp_",
+        "autonomous-system-writer-epoch-transitions" => "aswt_",
+        "autonomous-system-writer-receipts" => "aswr_",
+        "autonomous-system-writer-successor-claims" => "aswsc_",
+        "autonomous-system-lost-suffix-records" => "aslsr_",
+        "hypervisoros-boot-profiles" => "hvbp_",
+        "hypervisoros-temporal-profiles" => "hvtp_",
+        "hypervisoros-node-records" => "hvnr_",
+        "hypervisoros-boot-receipts" => "hvbr_",
+        "hypervisoros-node-transitions" => "hvnt_",
+        "hypervisoros-node-attestation-receipts" => "hvnar_",
+        "hypervisoros-node-successor-claims" => "hvnsc_",
+        "hypervisor-environment-route-bindings" => "hverb_",
+        "hypervisor-environment-backups" => "hveb_",
+        "hypervisor-change-plans" => "hvcp_",
+        "hypervisor-change-plan-stage-advances" => "hvcpsa_",
+        "hypervisor-resource-cleanup-obligations" => "hvrco_",
+        "hypervisor-environment-lifecycle-transitions" => "hvet_",
+        "hypervisor-environment-lifecycle-receipts" => "hvelr_",
+        "hypervisor-environment-lifecycle-successor-claims" => "hvelsc_",
         _ => unreachable!("required-admission domains are exhaustively matched"),
     };
     if !record_id.strip_prefix(required_prefix).is_some_and(|tail| {
@@ -838,6 +925,324 @@ fn validate_required_identity(
         }
         return Ok(());
     }
+    if record_dir == "autonomous-system-desired-topologies" {
+        // A desired topology is named by its candidate-style content root over
+        // the whole declared body; it carries no self-root field and can never
+        // stand in for observed membership truth.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record
+            .get("desired_topology_id")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres desired topology lacks 'desired_topology_id'",
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.autonomous-system-desired-topology-jcs-sha256.v1",
+            "topology": record,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the desired topology root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-failover-profiles" {
+        // A declared failover profile is named by its content root over the
+        // whole declared body; it carries no self-root field and never stands
+        // in for an observed writer, health, or fencing fact.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record
+            .get("failover_profile_id")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres failover profile lacks 'failover_profile_id'",
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.autonomous-system-failover-profile-jcs-sha256.v1",
+            "profile": record,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the failover profile root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-lost-suffix-records" {
+        // A lost-suffix revision is named by its timeless content root: the
+        // volatile recorded_at stamp is outside the identity so any stored
+        // revision recomputes byte-exactly.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record
+            .get("lost_suffix_record_id")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres lost-suffix revision lacks 'lost_suffix_record_id'",
+            ));
+        }
+        let mut timeless = record.clone();
+        timeless["recorded_at"] = Value::Null;
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.lost-suffix-record-revision-jcs-sha256.v1",
+            "record": timeless,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the timeless lost-suffix revision root",
+            ));
+        }
+        return Ok(());
+    }
+    if matches!(
+        record_dir,
+        "hypervisor-environment-route-bindings"
+            | "hypervisor-environment-backups"
+            | "hypervisor-change-plans"
+            | "hypervisor-change-plan-stage-advances"
+            | "hypervisor-environment-lifecycle-transitions"
+            | "hypervisor-environment-lifecycle-receipts"
+    ) {
+        // Environment-lifecycle records are named by their whole-record
+        // content root; declared commitments inside the record (route binding
+        // hash, plan hash, manifest root) are pinned separately by registered
+        // invariants and never stand in for observed truth.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let (domain, identity_field) = match record_dir {
+            "hypervisor-environment-route-bindings" => (
+                "ioi.hypervisor-environment-lifecycle-artifact-jcs-sha256.v1",
+                "route_binding_ref",
+            ),
+            "hypervisor-environment-backups" => (
+                "ioi.hypervisor-environment-lifecycle-artifact-jcs-sha256.v1",
+                "backup_ref",
+            ),
+            "hypervisor-change-plans" | "hypervisor-change-plan-stage-advances" => (
+                "ioi.hypervisor-environment-lifecycle-artifact-jcs-sha256.v1",
+                "plan_ref",
+            ),
+            "hypervisor-environment-lifecycle-transitions" => (
+                "ioi.hypervisor-environment-lifecycle-transition-jcs-sha256.v1",
+                "transition_id",
+            ),
+            "hypervisor-environment-lifecycle-receipts" => (
+                "ioi.hypervisor-environment-lifecycle-receipt-jcs-sha256.v1",
+                "receipt_id",
+            ),
+            _ => unreachable!(),
+        };
+        if record.get(identity_field).and_then(Value::as_str).is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("required Agentgres record lacks '{identity_field}'"),
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({"domain": domain, "artifact": record}))
+            .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the environment-lifecycle artifact root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "hypervisor-resource-cleanup-obligations" {
+        // An obligation revision is named by its content root; a revision can
+        // therefore never be silently rewritten, and parent loss can only
+        // append an escalated successor revision.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record
+            .get("cleanup_obligation_ref")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres cleanup obligation lacks 'cleanup_obligation_ref'",
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.hypervisor-resource-cleanup-obligation-revision-jcs-sha256.v1",
+            "record": record,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the cleanup obligation revision root",
+            ));
+        }
+        return Ok(());
+    }
+    if matches!(
+        record_dir,
+        "hypervisoros-boot-profiles" | "hypervisoros-temporal-profiles"
+    ) {
+        // Declared desired records are named by their content root over the
+        // whole declared body; they carry no self-root field and never stand
+        // in for observed measurement truth.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let (domain, identity_field) = if record_dir == "hypervisoros-boot-profiles" {
+            (
+                "ioi.hypervisoros-boot-profile-jcs-sha256.v1",
+                "boot_profile_id",
+            )
+        } else {
+            (
+                "ioi.temporal-verification-profile-record-jcs-sha256.v1",
+                "profile_ref",
+            )
+        };
+        if record.get(identity_field).and_then(Value::as_str).is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("required Agentgres record lacks '{identity_field}'"),
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({"domain": domain, "profile": record}))
+            .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the declared profile root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "hypervisoros-node-records" {
+        // A node record revision is named by its timeless content root:
+        // volatile stamping is outside the identity so the root recomputes
+        // from any stored revision exactly as the compiler derived it.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record
+            .get("node_record_id")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres node record lacks 'node_record_id'",
+            ));
+        }
+        let mut timeless = record.clone();
+        timeless["attestation"]["verified_at"] = Value::Null;
+        timeless["last_transition_at"] = Value::Null;
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.hypervisoros-node-record-jcs-sha256.v1",
+            "record": timeless,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the timeless node record root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "hypervisoros-boot-receipts" {
+        // A committed boot receipt is named by its timeless content root; the
+        // volatile verification stamp is outside the identity.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record.get("receipt_id").and_then(Value::as_str).is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres boot receipt lacks 'receipt_id'",
+            ));
+        }
+        let mut timeless = record.clone();
+        timeless["verification"]["verified_at"] = Value::Null;
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.hypervisoros-boot-receipt-jcs-sha256.v1",
+            "receipt": timeless,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the timeless boot receipt root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-node-memberships" {
+        // A node membership revision is named by its timeless content root:
+        // volatile observation timestamps are outside the identity so the root
+        // recomputes from any stored revision exactly as the compiler derived
+        // it before the wallet clock existed.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record
+            .get("node_membership_id")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres node membership lacks 'node_membership_id'",
+            ));
+        }
+        let mut timeless = record.clone();
+        if let Some(assignments) = timeless
+            .get_mut("role_assignments")
+            .and_then(Value::as_array_mut)
+        {
+            for assignment in assignments {
+                assignment["valid_from"] = Value::Null;
+            }
+        }
+        timeless["synchronization"]["verified_at"] = Value::Null;
+        timeless["observation"]["last_heartbeat_at"] = Value::Null;
+        timeless["observation"]["last_observed_at"] = Value::Null;
+        timeless["observation"]["observation_expires_at"] = Value::Null;
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.autonomous-system-node-membership-record-jcs-sha256.v1",
+            "record": timeless,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the timeless membership record root",
+            ));
+        }
+        return Ok(());
+    }
     if record_dir == "autonomous-system-constitution-amendments" {
         // The retained declaration carries no self-root field; its identity
         // is the content-addressed declaration root under the compiler's
@@ -936,6 +1341,12 @@ fn validate_required_identity(
             | "autonomous-system-dissolution-receipts"
             | "autonomous-system-network-enrollments"
             | "autonomous-system-amendment-receipts"
+            | "autonomous-system-membership-transitions"
+            | "autonomous-system-membership-receipts"
+            | "autonomous-system-writer-epoch-transitions"
+            | "autonomous-system-writer-receipts"
+            | "hypervisoros-node-transitions"
+            | "hypervisoros-node-attestation-receipts"
     ) {
         let encoded = record_id
             .strip_prefix(required_prefix)
@@ -1002,6 +1413,30 @@ fn validate_required_identity(
             "autonomous-system-network-enrollments" => (
                 "ioi.autonomous-system-network-enrollment-artifact-jcs-sha256.v1",
                 "network_enrollment_id",
+            ),
+            "autonomous-system-membership-transitions" => (
+                "ioi.autonomous-system-membership-transition-jcs-sha256.v1",
+                "membership_transition_id",
+            ),
+            "autonomous-system-membership-receipts" => (
+                "ioi.autonomous-system-membership-receipt-jcs-sha256.v1",
+                "receipt_id",
+            ),
+            "autonomous-system-writer-epoch-transitions" => (
+                "ioi.autonomous-system-writer-epoch-transition-artifact-jcs-sha256.v1",
+                "writer_epoch_transition_id",
+            ),
+            "autonomous-system-writer-receipts" => (
+                "ioi.autonomous-system-writer-receipt-jcs-sha256.v1",
+                "receipt_id",
+            ),
+            "hypervisoros-node-transitions" => (
+                "ioi.hypervisoros-node-transition-jcs-sha256.v1",
+                "node_transition_id",
+            ),
+            "hypervisoros-node-attestation-receipts" => (
+                "ioi.hypervisoros-node-attestation-receipt-jcs-sha256.v1",
+                "receipt_id",
             ),
             "autonomous-system-amendment-receipts" => (
                 match record.get("schema_version").and_then(Value::as_str) {

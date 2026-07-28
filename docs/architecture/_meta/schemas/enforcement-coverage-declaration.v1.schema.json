@@ -1,0 +1,1147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+  "title": "EnforcementCoverageDeclaration",
+  "description": "One evidence-backed enforcement coverage declaration for an exact profile or adapter revision, platform, surface, action class, and scope. The declaration reports coverage facts without owning policy, authority, execution, or durable runtime truth. declaration_id is not self-authenticating: the consuming deployment evidence or operability index must bind the exact declaration artifact reference and content hash. Any change to claims, status, freshness, evidence, or other declaration bytes produces a new content-bound snapshot rather than mutating an accepted snapshot.",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.enforcement-coverage-declaration.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "declaration_id",
+    "subject",
+    "scope",
+    "claims",
+    "mechanisms",
+    "platform",
+    "required_privilege",
+    "custom_os_kernel_module_required_for_claim",
+    "bypass",
+    "operating_mode",
+    "decision_source",
+    "final_invoker",
+    "availability",
+    "receipt",
+    "verification",
+    "known_gaps",
+    "limitations",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.components.daemon-runtime.enforcement-coverage-declaration.v1"
+    },
+    "declaration_id": {
+      "type": "string",
+      "pattern": "^enforcement-coverage://[^\\s]{1,248}$",
+      "description": "Stable logical identifier only; consumers must separately verify the exact declaration artifact reference and content hash."
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "profile_or_adapter_ref",
+        "version",
+        "content_hash",
+        "implementation_ref",
+        "deployment_profile_ref"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "node_enforcement_profile",
+            "authority_gateway_profile"
+          ]
+        },
+        "profile_or_adapter_ref": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$",
+          "maxLength": 256
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "implementation_ref": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "deployment_profile_ref": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["surface", "action_class", "boundary", "scope_ref"],
+      "properties": {
+        "surface": {
+          "$ref": "#/$defs/canonicalName"
+        },
+        "action_class": {
+          "$ref": "#/$defs/canonicalName"
+        },
+        "boundary": {
+          "enum": [
+            "managed_workload",
+            "host",
+            "application",
+            "adapter",
+            "external_service",
+            "physical_unit",
+            "other_declared"
+          ]
+        },
+        "scope_ref": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      }
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "discovered",
+        "observable",
+        "attributable",
+        "mediated",
+        "preventable",
+        "receipted",
+        "uncovered"
+      ],
+      "properties": {
+        "discovered": {
+          "$ref": "#/$defs/claimState"
+        },
+        "observable": {
+          "$ref": "#/$defs/claimState"
+        },
+        "attributable": {
+          "$ref": "#/$defs/claimState"
+        },
+        "mediated": {
+          "$ref": "#/$defs/claimState"
+        },
+        "preventable": {
+          "$ref": "#/$defs/claimState"
+        },
+        "receipted": {
+          "$ref": "#/$defs/claimState"
+        },
+        "uncovered": {
+          "$ref": "#/$defs/claimState"
+        }
+      }
+    },
+    "mechanisms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mechanism_id",
+          "kind",
+          "implementation_ref",
+          "version",
+          "roles"
+        ],
+        "properties": {
+          "mechanism_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+          },
+          "kind": {
+            "enum": [
+              "daemon_gate",
+              "sandbox",
+              "seccomp",
+              "ebpf",
+              "lsm",
+              "network_proxy",
+              "datawall",
+              "ctee_policy",
+              "tee_attestation",
+              "platform_native_user_space",
+              "platform_native_privileged",
+              "application_adapter",
+              "harness_adapter",
+              "mcp_gateway",
+              "shell_wrapper",
+              "filesystem_watcher",
+              "browser_extension",
+              "api_gateway",
+              "ci_gate",
+              "webhook_gate",
+              "receipt_ingestion",
+              "custom_os_kernel_module",
+              "other_declared"
+            ]
+          },
+          "implementation_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "discovery",
+                "observation",
+                "attribution",
+                "mediation",
+                "prevention",
+                "receipt_emission"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 6,
+            "uniqueItems": true
+          }
+        }
+      },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family",
+        "version",
+        "architecture",
+        "execution_context",
+        "native_security_facility_refs"
+      ],
+      "properties": {
+        "family": {
+          "enum": ["linux", "macos", "windows", "portable", "other_declared"]
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "architecture": {
+          "enum": ["x86_64", "aarch64", "portable", "other_declared"]
+        },
+        "execution_context": {
+          "enum": [
+            "user_session",
+            "managed_host",
+            "container",
+            "vm",
+            "microvm",
+            "bare_metal",
+            "hosted_service",
+            "other_declared"
+          ]
+        },
+        "native_security_facility_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        }
+      }
+    },
+    "required_privilege": {
+      "enum": ["user", "elevated", "os_privileged", "kernel", "hardware_backed"]
+    },
+    "custom_os_kernel_module_required_for_claim": {
+      "type": "boolean"
+    },
+    "bypass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resistance", "assumptions", "known_bypass_refs"],
+      "properties": {
+        "resistance": {
+          "enum": ["none", "cooperative", "best_effort", "managed_host", "measured_host"]
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "known_bypass_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        }
+      }
+    },
+    "operating_mode": {
+      "enum": [
+        "active_enforcement",
+        "audit_only",
+        "passive_observation",
+        "receipt_ingestion_only",
+        "uncovered"
+      ]
+    },
+    "decision_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "decision_source_ref",
+        "policy_ref",
+        "authority_provider_ref"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "daemon_policy_engine",
+            "owner_policy_service",
+            "adapter_local_policy",
+            "human_approval",
+            "none",
+            "unknown"
+          ]
+        },
+        "decision_source_ref": {
+          "$ref": "#/$defs/nullableCanonicalRef"
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/nullableCanonicalRef"
+        },
+        "authority_provider_ref": {
+          "$ref": "#/$defs/nullableCanonicalRef"
+        }
+      }
+    },
+    "final_invoker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "invoker_ref"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "daemon",
+            "workload_broker",
+            "adapter",
+            "application",
+            "external_service",
+            "human",
+            "none",
+            "unknown"
+          ]
+        },
+        "invoker_ref": {
+          "$ref": "#/$defs/nullableCanonicalRef"
+        }
+      }
+    },
+    "availability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["online_behavior", "offline_behavior", "failure_posture"],
+      "properties": {
+        "online_behavior": {
+          "$ref": "#/$defs/availabilityBehavior"
+        },
+        "offline_behavior": {
+          "$ref": "#/$defs/availabilityBehavior"
+        },
+        "failure_posture": {
+          "enum": [
+            "fail_closed",
+            "fail_open",
+            "audit_only",
+            "quarantine",
+            "not_applicable",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "contract_refs", "evidence_refs"],
+      "properties": {
+        "scope": {
+          "enum": [
+            "none",
+            "observation",
+            "decision",
+            "effect",
+            "observation_and_decision",
+            "observation_and_effect",
+            "decision_and_effect",
+            "observation_decision_and_effect"
+          ]
+        },
+        "contract_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/evidenceRefs"
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verifier_ref",
+        "verification_method_ref",
+        "evidence_refs",
+        "evaluated_at",
+        "freshness_status",
+        "valid_until",
+        "freshness_policy_ref"
+      ],
+      "properties": {
+        "verifier_ref": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "verification_method_ref": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceRef"
+          },
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true
+        },
+        "evaluated_at": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "freshness_status": {
+          "enum": ["current", "stale", "expired", "unverified"]
+        },
+        "valid_until": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/dateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "freshness_policy_ref": {
+          "$ref": "#/$defs/nullableCanonicalRef"
+        }
+      }
+    },
+    "known_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gap_id", "description", "affected_path", "mitigation_ref"],
+        "properties": {
+          "gap_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "affected_path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "mitigation_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          }
+        }
+      },
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "status": {
+      "enum": ["draft", "verified", "stale", "revoked"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "uncovered": {
+                "const": true
+              }
+            },
+            "required": ["uncovered"]
+          }
+        },
+        "required": ["claims"]
+      },
+      "then": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "discovered": {
+                "$ref": "#/$defs/notTrueClaimState"
+              },
+              "observable": {
+                "$ref": "#/$defs/notTrueClaimState"
+              },
+              "attributable": {
+                "$ref": "#/$defs/notTrueClaimState"
+              },
+              "mediated": {
+                "$ref": "#/$defs/notTrueClaimState"
+              },
+              "preventable": {
+                "$ref": "#/$defs/notTrueClaimState"
+              },
+              "receipted": {
+                "$ref": "#/$defs/notTrueClaimState"
+              }
+            }
+          },
+          "operating_mode": {
+            "const": "uncovered"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operating_mode": {
+            "const": "uncovered"
+          }
+        },
+        "required": ["operating_mode"]
+      },
+      "then": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "uncovered": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "verified"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "verification": {
+            "type": "object",
+            "properties": {
+              "freshness_status": {
+                "const": "current"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "mediated": {
+                "const": true
+              }
+            },
+            "required": ["mediated"]
+          }
+        },
+        "required": ["claims"]
+      },
+      "then": {
+        "properties": {
+          "decision_source": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "daemon_policy_engine",
+                  "owner_policy_service",
+                  "adapter_local_policy",
+                  "human_approval"
+                ]
+              },
+              "decision_source_ref": {
+                "$ref": "#/$defs/canonicalRef"
+              }
+            }
+          },
+          "final_invoker": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "daemon",
+                  "workload_broker",
+                  "adapter",
+                  "application",
+                  "external_service",
+                  "human"
+                ]
+              },
+              "invoker_ref": {
+                "$ref": "#/$defs/canonicalRef"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "preventable": {
+                "const": true
+              }
+            },
+            "required": ["preventable"]
+          }
+        },
+        "required": ["claims"]
+      },
+      "then": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "mediated": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "attributable": {
+                "const": true
+              }
+            },
+            "required": ["attributable"]
+          }
+        },
+        "required": ["claims"]
+      },
+      "then": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "observable": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "receipted": {
+                "const": true
+              }
+            },
+            "required": ["receipted"]
+          }
+        },
+        "required": ["claims"]
+      },
+      "then": {
+        "properties": {
+          "receipt": {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "enum": [
+                  "observation",
+                  "decision",
+                  "effect",
+                  "observation_and_decision",
+                  "observation_and_effect",
+                  "decision_and_effect",
+                  "observation_decision_and_effect"
+                ]
+              },
+              "contract_refs": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operating_mode": {
+            "enum": [
+              "audit_only",
+              "passive_observation",
+              "receipt_ingestion_only"
+            ]
+          }
+        },
+        "required": ["operating_mode"]
+      },
+      "then": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "mediated": {
+                "$ref": "#/$defs/notTrueClaimState"
+              },
+              "preventable": {
+                "$ref": "#/$defs/notTrueClaimState"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "availability": {
+            "type": "object",
+            "properties": {
+              "failure_posture": {
+                "const": "audit_only"
+              }
+            },
+            "required": ["failure_posture"]
+          }
+        },
+        "required": ["availability"]
+      },
+      "then": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "preventable": {
+                "$ref": "#/$defs/notTrueClaimState"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "discovered": {
+                "const": true
+              }
+            },
+            "required": ["discovered"]
+          }
+        },
+        "required": ["claims"]
+      },
+      "then": {
+        "properties": {
+          "mechanisms": {
+            "type": "array",
+            "minItems": 1,
+            "contains": {
+              "$ref": "#/$defs/mechanismWithDiscoveryRole"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "observable": {
+                "const": true
+              }
+            },
+            "required": ["observable"]
+          }
+        },
+        "required": ["claims"]
+      },
+      "then": {
+        "properties": {
+          "mechanisms": {
+            "type": "array",
+            "minItems": 1,
+            "contains": {
+              "$ref": "#/$defs/mechanismWithObservationRole"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "attributable": {
+                "const": true
+              }
+            },
+            "required": ["attributable"]
+          }
+        },
+        "required": ["claims"]
+      },
+      "then": {
+        "properties": {
+          "mechanisms": {
+            "type": "array",
+            "minItems": 1,
+            "contains": {
+              "$ref": "#/$defs/mechanismWithAttributionRole"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "mediated": {
+                "const": true
+              }
+            },
+            "required": ["mediated"]
+          }
+        },
+        "required": ["claims"]
+      },
+      "then": {
+        "properties": {
+          "mechanisms": {
+            "type": "array",
+            "minItems": 1,
+            "contains": {
+              "$ref": "#/$defs/mechanismWithMediationRole"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "preventable": {
+                "const": true
+              }
+            },
+            "required": ["preventable"]
+          }
+        },
+        "required": ["claims"]
+      },
+      "then": {
+        "properties": {
+          "mechanisms": {
+            "type": "array",
+            "minItems": 1,
+            "contains": {
+              "$ref": "#/$defs/mechanismWithPreventionRole"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "claims": {
+            "type": "object",
+            "properties": {
+              "receipted": {
+                "const": true
+              }
+            },
+            "required": ["receipted"]
+          }
+        },
+        "required": ["claims"]
+      },
+      "then": {
+        "properties": {
+          "mechanisms": {
+            "type": "array",
+            "minItems": 1,
+            "contains": {
+              "$ref": "#/$defs/mechanismWithReceiptEmissionRole"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "custom_os_kernel_module_required_for_claim": {
+            "const": true
+          }
+        },
+        "required": ["custom_os_kernel_module_required_for_claim"]
+      },
+      "then": {
+        "properties": {
+          "required_privilege": {
+            "const": "kernel"
+          },
+          "mechanisms": {
+            "type": "array",
+            "minItems": 1,
+            "contains": {
+              "$ref": "#/$defs/customOsKernelModuleMechanism"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "claimState": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "const": "unknown"
+        }
+      ]
+    },
+    "notTrueClaimState": {
+      "anyOf": [
+        {
+          "const": false
+        },
+        {
+          "const": "unknown"
+        }
+      ]
+    },
+    "mechanismWithDiscoveryRole": {
+      "$ref": "#/$defs/mechanismRoleDiscovery"
+    },
+    "mechanismWithObservationRole": {
+      "$ref": "#/$defs/mechanismRoleObservation"
+    },
+    "mechanismWithAttributionRole": {
+      "$ref": "#/$defs/mechanismRoleAttribution"
+    },
+    "mechanismWithMediationRole": {
+      "$ref": "#/$defs/mechanismRoleMediation"
+    },
+    "mechanismWithPreventionRole": {
+      "$ref": "#/$defs/mechanismRolePrevention"
+    },
+    "mechanismWithReceiptEmissionRole": {
+      "$ref": "#/$defs/mechanismRoleReceiptEmission"
+    },
+    "mechanismRoleDiscovery": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "contains": {
+            "const": "discovery"
+          }
+        }
+      },
+      "required": ["roles"]
+    },
+    "mechanismRoleObservation": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "contains": {
+            "const": "observation"
+          }
+        }
+      },
+      "required": ["roles"]
+    },
+    "mechanismRoleAttribution": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "contains": {
+            "const": "attribution"
+          }
+        }
+      },
+      "required": ["roles"]
+    },
+    "mechanismRoleMediation": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "contains": {
+            "const": "mediation"
+          }
+        }
+      },
+      "required": ["roles"]
+    },
+    "mechanismRolePrevention": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "contains": {
+            "const": "prevention"
+          }
+        }
+      },
+      "required": ["roles"]
+    },
+    "mechanismRoleReceiptEmission": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "contains": {
+            "const": "receipt_emission"
+          }
+        }
+      },
+      "required": ["roles"]
+    },
+    "customOsKernelModuleMechanism": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "custom_os_kernel_module"
+        }
+      },
+      "required": ["kind"]
+    },
+    "canonicalName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$"
+    },
+    "nullableCanonicalRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "canonicalRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:evidence|receipt|artifact)://[^\\s]{1,248}$"
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidenceRef"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "dateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "availabilityBehavior": {
+      "enum": [
+        "enforce",
+        "audit",
+        "deny",
+        "queue",
+        "allow",
+        "quarantine",
+        "not_applicable",
+        "unknown"
+      ]
+    }
+  }
+}

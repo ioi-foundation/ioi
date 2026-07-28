@@ -1,0 +1,64 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-environment-route-binding/immutable-commitment/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_environment_route_binding.route_binding_hash.recomputes",
+      "description": "The route-binding hash recomputes over the complete immutable body including the allocated ref and exact nullable fields, excluding only route_binding_hash.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.hypervisor-environment-route-binding-commitment-jcs-sha256.v1"
+          },
+          "schema_version": { "path": "$.schema_version" },
+          "route_binding_ref": { "path": "$.route_binding_ref" },
+          "predecessor_route_binding_ref": {
+            "path": "$.predecessor_route_binding_ref"
+          },
+          "owner_principal_ref": { "path": "$.owner_principal_ref" },
+          "environment_ref": { "path": "$.environment_ref" },
+          "session_ref": { "path": "$.session_ref" },
+          "system_ref": { "path": "$.system_ref" },
+          "service_ref": { "path": "$.service_ref" },
+          "port_ref": { "path": "$.port_ref" },
+          "target_endpoint_ref": { "path": "$.target_endpoint_ref" },
+          "target_port": { "path": "$.target_port" },
+          "target_protocol": { "path": "$.target_protocol" },
+          "hostname_or_address": { "path": "$.hostname_or_address" },
+          "path_prefix": { "path": "$.path_prefix" },
+          "network_scope": { "path": "$.network_scope" },
+          "route_provider_ref": { "path": "$.route_provider_ref" },
+          "dns_provider_ref": { "path": "$.dns_provider_ref" },
+          "certificate_provider_ref": { "path": "$.certificate_provider_ref" },
+          "port_exposure_policy_ref": { "path": "$.port_exposure_policy_ref" },
+          "ownership_proof_requirement_ref": {
+            "path": "$.ownership_proof_requirement_ref"
+          },
+          "tls_policy_ref": { "path": "$.tls_policy_ref" },
+          "renewal_policy_ref": { "path": "$.renewal_policy_ref" },
+          "traffic_policy_ref": { "path": "$.traffic_policy_ref" },
+          "privacy_and_information_flow_policy_refs": {
+            "path": "$.privacy_and_information_flow_policy_refs"
+          },
+          "authority_requirement_refs": {
+            "path": "$.authority_requirement_refs"
+          },
+          "budget_or_quote_ref": { "path": "$.budget_or_quote_ref" },
+          "expected_active_head_ref": { "path": "$.expected_active_head_ref" },
+          "activation_generation": { "path": "$.activation_generation" },
+          "expected_receipt_contract_refs": {
+            "path": "$.expected_receipt_contract_refs"
+          },
+          "asserts_observed_route_truth": {
+            "path": "$.asserts_observed_route_truth"
+          }
+        },
+        "expected_path": "$.route_binding_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

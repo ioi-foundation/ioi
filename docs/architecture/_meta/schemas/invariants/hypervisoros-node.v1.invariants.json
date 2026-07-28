@@ -1,0 +1,32 @@
+{
+  "$id": "invariant://ioi/components/daemon-runtime/hypervisoros-node/sealed-identity-and-proof/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisoros_node.identity_key_commitment.recomputes",
+      "description": "The sealed-identity key commitment recomputes from the public binding alone; no private material participates.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.hypervisoros-node-identity-commitment-jcs-sha256.v1" },
+          "key_suite": { "path": "$.sealed_identity.key_suite" },
+          "identity_public_key": { "path": "$.sealed_identity.identity_public_key" }
+        },
+        "expected_path": "$.sealed_identity.identity_key_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "hypervisoros_node.ready.requires_temporal_evaluation",
+      "description": "A ready node binds the temporal validity evaluation its verified receipt was judged fresh by; readiness is never a bare assertion.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.attestation.temporal_validity_evaluation_ref",
+        "when_path": "$.status",
+        "values": ["ready"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/exact-predecessor-binding/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_development_environment_recipe_resolution.resolved_tasks.unique_names",
+      "description": "Resolved task names remain unique so required_task_refs match one exact task run.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.resolved_tasks",
+        "fields": ["name"]
+      }
+    },
+    {
+      "rule_id": "hypervisor_development_environment_recipe_resolution.resolved_services.unique_names",
+      "description": "Resolved service names remain unique so required_service_refs match one exact service.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.resolved_services",
+        "fields": ["name"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/harness-session-binding/receipt-expectations-bound/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
+  "rules": [
+    {
+      "rule_id": "harness_session_binding.receipt_preview.bound",
+      "description": "The binding's launch receipt preview must appear in its expected receipt refs (kernel refusal harness_session_binding_receipt_preview_unbound).",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.expected_receipt_refs",
+        "expected_path": "$.receipt_preview_ref"
+      }
+    },
+    {
+      "rule_id": "harness_session_binding.receipt_policy.bound",
+      "description": "The binding's receipt policy must appear in its expected receipt refs (kernel refusal harness_session_binding_receipt_policy_unbound).",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.expected_receipt_refs",
+        "expected_path": "$.receipt_policy_ref"
+      }
+    }
+  ]
+}

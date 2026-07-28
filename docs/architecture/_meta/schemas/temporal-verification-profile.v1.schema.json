@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1",
+  "title": "TemporalVerificationProfile",
+  "description": "Immutable, versioned policy declaring which temporal propositions one operation class must establish, admissible evidence and failure-domain policy, uncertainty and holdover bounds, and post-discontinuity behavior. A policy/profile only: not a clock, time oracle, authority grant, continuity database, or executable. The declarative body lives under one declaration object whose recomputable content root is profile_hash.",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.temporal-verification-profile.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_ref",
+    "profile_version",
+    "profile_hash",
+    "declaration",
+    "grants_authority",
+    "predecessor_profile_root",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.components.daemon-runtime.temporal-verification-profile.v1"
+    },
+    "profile_ref": { "$ref": "#/$defs/policyRef" },
+    "profile_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "profile_hash": { "$ref": "#/$defs/hash" },
+    "declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applicable_operation_classes",
+        "required_claims",
+        "evidence_policy",
+        "continuity_policy",
+        "disconnected_policy",
+        "required_effect_fence_profile_ref"
+      ],
+      "properties": {
+        "applicable_operation_classes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operationClass" },
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "required_claims": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/claimKind" },
+          "minItems": 1,
+          "maxItems": 6,
+          "uniqueItems": true
+        },
+        "evidence_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "admitted_source_profile_refs",
+            "required_failure_domain_separation",
+            "maximum_uncertainty_ms",
+            "maximum_evidence_age_ms"
+          ],
+          "properties": {
+            "admitted_source_profile_refs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/policyRef" },
+              "minItems": 1,
+              "maxItems": 16,
+              "uniqueItems": true
+            },
+            "required_failure_domain_separation": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["minimum_distinct_source_domains"],
+              "properties": {
+                "minimum_distinct_source_domains": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 16
+                }
+              }
+            },
+            "maximum_uncertainty_ms": { "$ref": "#/$defs/nullableBoundMs" },
+            "maximum_evidence_age_ms": { "$ref": "#/$defs/nullableBoundMs" }
+          }
+        },
+        "continuity_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "protected_namespace_floor_kinds",
+            "rollback_domain_ref",
+            "accepted_outside_domain_anchor_classes",
+            "reanchor_after_boot_or_restore"
+          ],
+          "properties": {
+            "protected_namespace_floor_kinds": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "authority_key_set",
+                  "authority_revocation",
+                  "receipt_checkpoint",
+                  "owner_generation",
+                  "signed_update_version_and_image_head"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 5,
+              "uniqueItems": true
+            },
+            "rollback_domain_ref": {
+              "type": "string",
+              "pattern": "^failure-domain://[^\\s]{1,248}$"
+            },
+            "accepted_outside_domain_anchor_classes": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1, "maxLength": 64 },
+              "minItems": 1,
+              "maxItems": 16,
+              "uniqueItems": true
+            },
+            "reanchor_after_boot_or_restore": {
+              "enum": ["required", "policy_bounded"]
+            }
+          }
+        },
+        "disconnected_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "allowed_operation_classes",
+            "maximum_holdover_ms",
+            "maximum_revocation_exposure_ms",
+            "call_or_effect_budget_ref",
+            "reconnect_action"
+          ],
+          "properties": {
+            "allowed_operation_classes": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/operationClass" },
+              "maxItems": 8,
+              "uniqueItems": true
+            },
+            "maximum_holdover_ms": { "$ref": "#/$defs/nullableBoundMs" },
+            "maximum_revocation_exposure_ms": { "$ref": "#/$defs/nullableBoundMs" },
+            "call_or_effect_budget_ref": {
+              "anyOf": [{ "$ref": "#/$defs/policyRef" }, { "type": "null" }]
+            },
+            "reconnect_action": {
+              "enum": ["revalidate_and_reconcile", "quarantine", "fail_closed"]
+            }
+          }
+        },
+        "required_effect_fence_profile_ref": {
+          "anyOf": [{ "$ref": "#/$defs/policyRef" }, { "type": "null" }]
+        }
+      }
+    },
+    "grants_authority": { "const": false },
+    "predecessor_profile_root": {
+      "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }]
+    },
+    "status": { "enum": ["declared", "superseded"] },
+    "created_at": { "$ref": "#/$defs/dateTime" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "policyRef": { "type": "string", "pattern": "^policy://[^\\s]{1,248}$" },
+    "operationClass": {
+      "enum": [
+        "external_effect",
+        "node_admission",
+        "boot_verification",
+        "readiness_projection",
+        "physical_bounded_continuation"
+      ]
+    },
+    "claimKind": {
+      "enum": [
+        "absolute_time_interval",
+        "challenge_freshness",
+        "elapsed_duration",
+        "owner_epoch",
+        "status_as_of",
+        "continuity_floor"
+      ]
+    },
+    "nullableBoundMs": {
+      "anyOf": [
+        { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        { "type": "null" }
+      ]
+    },
+    "dateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

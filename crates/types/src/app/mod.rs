@@ -5,6 +5,9 @@
 pub mod action;
 /// Data structures for external adapter contracts.
 pub mod adapter;
+/// M2 agentgres replay/recovery seam: fence-bound suffix admission,
+/// lost-suffix candidate derivation, and recovery record production.
+pub mod agentgres_replay;
 /// Data structures for agentic semantic consensus.
 pub mod agentic;
 /// Shared Chat outcome routing and artifact contracts.
@@ -24,6 +27,13 @@ pub mod generated {
 pub mod guardianized;
 /// Workflow-addressable agent harness component contracts.
 pub mod harness;
+/// M2 environment lifecycle plane: owner-bound route bindings,
+/// manifest-complete backups, staged restore/activation plans, and durable
+/// cleanup obligations.
+pub mod hypervisor_environment_lifecycle;
+/// HypervisorOS node-attestation plane: boot profiles, boot receipts,
+/// sealed-identity binding, temporal freshness, and readiness derivation.
+pub mod hypervisoros_node_attestation;
 /// Data structures for on-chain identity, including the canonical AccountId.
 pub mod identity;
 /// Typed first-party inference workload contracts.
@@ -46,6 +56,9 @@ pub mod system_continuity_transitions;
 /// Pure compiler for package-bound proposed System genesis artifacts.
 pub mod system_genesis;
 pub mod system_lifecycle_transitions;
+pub mod system_membership_transitions;
+/// Writer-epoch, final-invoker fence, and lost-suffix custody compilers.
+pub mod system_writer_fence;
 /// Data structures for deterministic block timing.
 pub mod timing; // [NEW]
 /// Data structures for wallet.network control-plane and session artifacts.

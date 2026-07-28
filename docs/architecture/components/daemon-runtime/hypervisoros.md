@@ -10,7 +10,7 @@ Type-2 runtime, or cloud agent harness.
 Superseded by: none.
 Last alignment pass: 2026-07-26.
 Doctrine status: canonical
-Implementation status: speculative (bare-metal node profile design; no HypervisorOS build; no EnforcementCoverageDeclaration substrate is on current master — registry entry, schema, fixtures, projections, and the runtime lifecycle module were all lost or never landed in the refactor and must be (re)registered)
+Implementation status: mixed (bare-metal node profile design remains speculative with no HypervisorOS build; the EnforcementCoverageDeclaration substrate is (re)registered in this tree — registry entry, v1 schema, invariants, fixtures, generated projections, and the runtime lifecycle module `crates/services/src/agentic/runtime/enforcement_coverage.rs` — with no route producer or daemon admission wiring yet; the HypervisorOSNode / HypervisorOSBootProfile / HypervisorOSBootReceipt contracts are registered in this tree with the daemon node-attestation plane — types compiler, governed routes, durable substrate families, unit proofs — while the physical measured-boot producer remains unbuilt)
 Last implementation audit: 2026-07-19
 
 ## Canonical Definition
@@ -461,6 +461,31 @@ Rules, restating the register in
 
 ## Minimal Implementation Objects
 
+### HypervisorOSNode
+
+This section is the owner anchor of the registered contract
+`schema://ioi/components/daemon-runtime/hypervisoros-node/v1`. The registered
+wire shape refines the minimal object below with the fields the node-attestation
+plane requires, each rule testable:
+
+- **Sealed identity is public-binding only.** The record carries the node
+  identity key's suite, public key, recomputable key commitment, and the
+  wallet.network sealing alias/receipt reference. Private key material never
+  appears in any node record, transition, receipt, artifact, or log; the sealed
+  material lives only behind the wallet.network secret store per the secret
+  release rule.
+- **Measured-boot binding is exact.** `boot_profile_ref` binds together with
+  the exact declared boot-profile content root; a node bound to a superseded or
+  foreign profile revision fails closed at every compile.
+- **Status ladder.** `candidate | measured | ready | quarantined | retired`,
+  derived from the canonical events (`hypervisoros.boot.measured`,
+  `hypervisoros.node.ready`, `hypervisoros.node.quarantined`). `measured` and
+  `ready` are structurally unreachable without a bound verified
+  `HypervisorOSBootReceipt`: ready-before-proof is not representable.
+- **Enforcement integration.** `node_enforcement_profile_ref` may bind only
+  `EnforcementCoverageDeclaration` records resolved as `verified_current`;
+  declaration refs are server-resolved, never caller-asserted (`INV-37`).
+
 ```yaml
 HypervisorOSNode:
   node_id: runtime://...
@@ -499,6 +524,29 @@ HypervisorOSNode:
     - EgressDetectionReceipt
 ```
 
+### HypervisorOSBootProfile
+
+This section is the owner anchor of the registered contract
+`schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1` — the
+DESIRED boot posture, a distinct owner-authorized record that never asserts an
+observed measurement. Registered refinements, each rule testable:
+
+- **Measurement floors are exact values.** The declared image, kernel, initrd,
+  daemon-binary, package-manifest, and driver-manifest hashes are the floors a
+  boot receipt must meet exactly; `required_posture` is the minimum admissible
+  effective posture.
+- **Rollback floor is a monotonic version floor.** The registered wire shape
+  names the numeric floor that `protected_namespace_floor_kind:
+  signed_update_version_and_image_head` describes: a
+  `rollback_floor.minimum_version_counter` (with optional pinned image head)
+  that an observed receipt counter must meet or exceed, and that a successor
+  profile declaration may never decrease.
+- **Temporal binding.** The profile binds the exact
+  `TemporalVerificationProfile` (ref and hash) that qualifies boot-receipt
+  freshness, mirroring the `PersistentHypervisorOSNode` freshness block.
+- **Replacement is compare-and-swap.** A redeclaration cites the exact
+  predecessor profile root; at most one profile per estate is `declared`.
+
 ```yaml
 HypervisorOSBootProfile:
   boot_profile_id: boot_profile://...
@@ -534,6 +582,33 @@ HypervisorOSBootProfile:
     protected_namespace_floor_kind: signed_update_version_and_image_head
     reanchor_after_boot_restore_or_replacement: required | policy_bounded
 ```
+
+### HypervisorOSBootReceipt
+
+This section is the owner anchor of the registered contract
+`schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1` — the
+OBSERVED measured boot, kept distinct from the desired profile record.
+Registered refinements, each rule testable:
+
+- **Observation / verification / signature split.** The registered wire shape
+  groups every node-produced field under one `observation` object (including
+  the assurance block, quote/measurement evidence refs, the observed rollback
+  counter, and the temporal state), carries the daemon-derived
+  verified-against-profile verdict material under `verification`, and binds a
+  `signature` block whose `signed_material_hash` is the recomputable content
+  root over the receipt identity plus the complete observation. The node signs
+  only what it observed; it never signs its own verdict.
+- **Signature chain.** The signer public key must be the admitted node
+  record's sealed-identity public key under its declared suite; any other
+  signer is a forged attestation and fails closed.
+- **Verified means all of.** A `verified` verdict requires: measurements equal
+  to the declared profile floors, effective posture at or above the required
+  posture, appraisal `pass` with a consumed single-use nonce and `current`
+  revocation state, the observed rollback counter at or above the declared
+  floor (and never below a previously verified counter), a strictly advancing
+  `boot_epoch`, a valid signature chain, and an `online_fresh`
+  `TemporalValidityEvaluation` bound to the exact temporal profile and this
+  receipt. Anything less is refused, never rounded up.
 
 ```yaml
 HypervisorOSBootReceipt:

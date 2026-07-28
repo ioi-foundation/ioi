@@ -2775,6 +2775,8 @@ External harnesses must not silently fall back from a local/private model route
 to a provider-trust model route; provider-trust or adapter-native routes are
 explicit privacy posture states.
 
+### HarnessSessionBinding
+
 The launch result must include a `HarnessSessionBinding`:
 
 ```text
@@ -2798,6 +2800,21 @@ HarnessSessionBinding
   requires_daemon_gate: true
 ```
 
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/harness-session-binding/v1`
+(`ioi.hypervisor.harness_session_binding.v1`) with this section as
+`canonical_owner_ref`. The registered v1 pins the shape the runtime kernel
+gate actually admits (`runtime_harness_session_binding_admission.rs`), so the
+gate's refusal states are structurally unrepresentable: a harness
+runtime-truth claim, a provider-trust model route (an explicit provider-trust
+lease lane does not exist yet), an external adapter claiming
+`ctee_private_workspace` custody, a hypervisor model mount without verified
+or fixture-available local endpoints, loaded instances, and a
+`model-config:local/` configuration, and an authority scope set without
+`scope:workspace.read`. `brokered_capability_manifest_ref`,
+`mcp_gateway_profile_refs`, `connector_refs`, and `example_root_ref` are
+canon-declared but not yet read by the kernel; they are registered optional.
+
 The binding is not sufficient by itself. Hypervisor Core must first request a
 daemon-side `HypervisorSessionLaunchRecipeAdmission`, then a
 `HarnessSessionBindingAdmission`, then a `HarnessSessionLaunch`, then a
@@ -2809,6 +2826,33 @@ DeepSeek TUI over the local OpenAI-compatible Codex OSS / Qwen model route
 without provider API authentication, while blocking provider-trust shortcuts,
 external harness cTEE custody claims, missing local model endpoints/instances,
 and any harness runtime-truth claim.
+
+### HypervisorSessionLaunchRecipeAdmission
+
+`HypervisorSessionLaunchRecipeAdmission` is the first daemon-side link of that
+chain: it binds recipe, target binding, project, session route, model route,
+privacy posture, authority scopes, receipt preview/expectations, and Agentgres
+operation refs before any harness binding may be admitted. Registered wire
+contract: contract id
+`schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1`
+(`ioi.runtime.hypervisor_session_launch_recipe_admission.v1`,
+`runtime_hypervisor_session_launch_recipe_admission.rs`) with this section as
+`canonical_owner_ref`. The registered shape pins the kind-to-surface map, the
+workbench adapter-target requirement, `admitted_for_session_binding`, the
+daemon gate, and the receipt-preview-in-expectations invariant. The kernel
+requires but does not prefix-validate `project_ref`; the registered contract
+pins the `project:` prefix, so a kernel echo of a non-project ref fails the
+contract rather than passing silently.
+
+### HarnessSessionBindingAdmission
+
+`HarnessSessionBindingAdmission` is the admitted-binding record
+(`admitted_for_harness_launch`) with the appended admission receipt.
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/harness-session-binding-admission/v1`
+(`ioi.runtime.harness_session_binding_admission.v1`) with this section as
+`canonical_owner_ref`; it pins the same structural refusal set as the binding
+contract plus `harness_runtime_truth_claimed: false` on every admitted record.
 
 The first launch-ready host-dev contract is Codex OSS over local Ollama/Qwen:
 
@@ -2827,6 +2871,8 @@ HarnessSessionLaunch
     api_format: openai_compatible
   secret_release_policy: none
 ```
+
+### HarnessSessionSpawn
 
 The launch contract still does not run the process. It resolves the harness,
 model mount, authority posture, workspace policy, command template, and receipt
@@ -2852,9 +2898,41 @@ HarnessSessionSpawn
   secret_release_policy: none
 ```
 
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/harness-session-spawn/v1`
+(`ioi.runtime.harness_session_spawn.v1`) with this section as
+`canonical_owner_ref`. No in-tree producer emits the spawn record yet; the
+registered v1 pins the consumer-enforced boundary of the terminal-attach
+kernel gate (`runtime_harness_session_terminal_attach_admission.rs
+require_spawn`): `decision: admitted`, `spawn_state:
+ready_for_client_pty_attach`, daemon gate and daemon runtime truth, the
+hypervisor client PTY transport, and a daemon-resolved
+`terminal_attach_contract.command_line`. Recorded divergence: the dev-replay
+mock (`scripts/hypervisor-app-dev-replay-server.mjs`) emits `spawn_state:
+host_spawn_admitted`, which the kernel gate refuses and the registered schema
+rejects; the mock is a client fixture, never daemon truth.
+
+### HarnessSessionReadiness
+
 Spawn readiness is still not terminal execution authority. The daemon must
 admit a `HarnessSessionReadiness` record proving the local harness route is
-usable, then admit a `HarnessSessionTerminalAttach` record:
+usable. Registered wire contract: contract id
+`schema://ioi/components/hypervisor/harness-session-readiness/v1`
+(`ioi.runtime.harness_session_readiness.v1`) with this section as
+`canonical_owner_ref`. The registered v1 pins the attach-gate boundary
+(`require_readiness`: `decision: ready`, `readiness_state:
+ready_for_harness_pty_attach`, and the exact `spawn_id`, `launch_id`, and
+`session_binding_ref` of the spawn it proves) and makes fabricated readiness
+structurally unrepresentable (INV-37): readiness requires at least one named
+probe check, every check must have passed and cite non-empty
+`evidence_refs`, and check ids may not repeat. A readiness record without its
+spawn predecessor or without probe evidence fails the contract. Recorded
+divergence: the dev-replay mock emits `readiness_state: host_ready`, which
+both the kernel gate and the registered schema refuse.
+
+### HarnessSessionTerminalAttach
+
+The daemon must then admit a `HarnessSessionTerminalAttach` record:
 
 ```text
 HarnessSessionTerminalAttach
@@ -2872,6 +2950,18 @@ HarnessSessionTerminalAttach
     schema_version: ioi.runtime.harness_terminal_transcript_projection.v1
     transcript_state: awaiting_client_stream
 ```
+
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/harness-session-terminal-attach/v1`
+(`ioi.runtime.harness_session_terminal_attach.v1`, kernel-produced by
+`runtime_harness_session_terminal_attach_admission.rs`) with this section as
+`canonical_owner_ref`. The registered v1 pins `client_pty_attach_admitted`
+over the hypervisor client terminal adapter lane, requires the exact
+`spawn_id`/`readiness_id` predecessors, and registers two invariants: the
+client attach contract and the transcript projection cite the same
+daemon-owned transcript stream, and the transcript's opening stdin line is
+byte-equal to the daemon-resolved command line (the client never authors the
+initial command record).
 
 The native Hypervisor client may attach a host PTY only after the attach
 admission exists, then write the daemon-resolved `initial_write` and stream

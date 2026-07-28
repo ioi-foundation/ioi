@@ -1,0 +1,16 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/receipt-preview-bound/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_session_launch_recipe_admission.receipt_preview.bound",
+      "description": "The admission's receipt preview must be one of its own expected receipt refs; an admission can never preview a receipt it does not expect (kernel refusal hypervisor_session_launch_recipe_receipt_preview_unbound).",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.expected_receipt_refs",
+        "expected_path": "$.receipt_preview_ref"
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/artifact-repair-receipt/verified-repair/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+  "rules": [
+    {
+      "rule_id": "artifact_repair_receipt.repair_ref.binds_repair_id",
+      "description": "The repair ref is derived from this exact repair id; a receipt can never point at a different repair. The verified-repair discipline itself is structural: a repaired outcome requires the replacement commitment, the admitted state root, custody_state_root_verified true, and the admission note, while repair_failed requires its named reason.",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.repair_ref",
+        "prefix": "artifact-repair-receipt://",
+        "expected_path": "$.repair_id"
+      }
+    }
+  ]
+}

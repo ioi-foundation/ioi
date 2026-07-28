@@ -1,0 +1,35 @@
+{
+  "schema_version": "ioi.hypervisor.storage-archive-object.v1",
+  "archive_id": "sao_0a1b2c3d4e5f607",
+  "archive_ref": "storage-archive://sao_0a1b2c3d4e5f607",
+  "backend_ref": "storage-backend://sba_5e6f7a8b9c0d1e2",
+  "backend_kind": "local_disk",
+  "material_ref": "provider-material://pm_env-alpha-workspace",
+  "environment_ref": "environment://local/env-alpha",
+  "provider_account_ref": "provider-account://pacc_3f2e1d0c",
+  "state_root": "sha256:fd61a03af4f77d870fc21e05e7e80678095c92d808cfb3b5c279ee04c74aca13",
+  "media_type": "application/x-tar+gzip",
+  "payload_bytes": 2048,
+  "commitment": {
+    "address": "cas://sha256/60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752",
+    "stored_sha256": "sha256:60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752",
+    "size_bytes": 2100,
+    "path": "/var/lib/ioi/storage-backends/sba_5e6f7a8b9c0d1e2/objects/60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752.bin",
+    "mode": "real_local",
+    "read_back_verified": true,
+    "warning": null
+  },
+  "encryption": {
+    "scheme": "sealed_wallet_secret (Argon2id KDF + AEAD)",
+    "key_source": "wallet-secret-pass",
+    "plaintext_at_backend": false
+  },
+  "status": "available",
+  "availability_note": "storage availability is NOT restore truth — restore admits only after fetch + commitment hash + decrypt + admitted state_root all verify",
+  "authority": "cid holders may restore this archive",
+  "grant_ref": "grant://wallet.network/storage-archive/export/7f3a2b1c",
+  "receipt_refs": [
+    "agentgres://storage-receipt/stc_1a2b3c4d5e6f708"
+  ],
+  "exported_at": "2026-07-28T12:00:00.000Z"
+}

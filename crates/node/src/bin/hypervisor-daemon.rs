@@ -84,6 +84,10 @@ mod governance_routes;
 mod governed_authority;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
+#[path = "hypervisor_daemon_routes/hypervisor_environment_routes.rs"]
+mod hypervisor_environment_routes;
+#[path = "hypervisor_daemon_routes/hypervisoros_node_routes.rs"]
+mod hypervisoros_node_routes;
 #[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
 mod ioi_agent_routes;
 #[path = "hypervisor_daemon_routes/ioi_intelligence_routes.rs"]
@@ -144,12 +148,18 @@ mod system_amendment_routes;
 mod system_continuity_routes;
 #[path = "hypervisor_daemon_routes/system_genesis_routes.rs"]
 mod system_genesis_routes;
+#[path = "hypervisor_daemon_routes/system_membership_routes.rs"]
+mod system_membership_routes;
 #[path = "hypervisor_daemon_routes/system_projection_routes.rs"]
 mod system_projection_routes;
 #[path = "hypervisor_daemon_routes/system_protected_transition_routes.rs"]
 mod system_protected_transition_routes;
 #[path = "hypervisor_daemon_routes/system_sequence_zero_routes.rs"]
 mod system_sequence_zero_routes;
+#[path = "hypervisor_daemon_routes/system_topology_routes.rs"]
+mod system_topology_routes;
+#[path = "hypervisor_daemon_routes/system_writer_routes.rs"]
+mod system_writer_routes;
 #[path = "hypervisor_daemon_routes/transformation_run_routes.rs"]
 mod transformation_run_routes;
 #[path = "hypervisor_daemon_routes/vast_candidate_source.rs"]
@@ -476,6 +486,10 @@ async fn async_main() -> anyhow::Result<()> {
             system_continuity_routes::CONTINUITY_INTENT_DIR,
             system_continuity_routes::MIGRATION_ACK_INTENT_DIR,
             system_continuity_routes::MIGRATION_ACK_RESERVATION_DIR,
+            system_membership_routes::MEMBERSHIP_INTENT_DIR,
+            system_writer_routes::WRITER_INTENT_DIR,
+            hypervisoros_node_routes::NODE_INTENT_DIR,
+            hypervisor_environment_routes::ENVIRONMENT_INTENT_DIR,
         ],
     )?;
     seed_default_state(&data_dir);
@@ -2120,6 +2134,92 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/autonomous-systems/:id/continuity/:op",
             get(system_continuity_routes::handle_get_transition)
                 .post(system_continuity_routes::handle_transition)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
+            "/v1/hypervisor/environments/lifecycle/projection",
+            get(hypervisor_environment_routes::handle_get_environment_projection),
+        )
+        .route(
+            "/v1/hypervisor/environments/lifecycle/:op",
+            get(hypervisor_environment_routes::handle_get_environment_transition)
+                .post(hypervisor_environment_routes::handle_environment_transition)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
+            "/v1/hypervisor/hypervisoros/nodes/projection",
+            get(hypervisoros_node_routes::handle_get_node_projection),
+        )
+        .route(
+            "/v1/hypervisor/hypervisoros/nodes/boot-profile",
+            post(hypervisoros_node_routes::handle_declare_boot_profile).layer(
+                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
+            ),
+        )
+        .route(
+            "/v1/hypervisor/hypervisoros/nodes/temporal-profile",
+            post(hypervisoros_node_routes::handle_declare_temporal_profile).layer(
+                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
+            ),
+        )
+        .route(
+            "/v1/hypervisor/hypervisoros/nodes/transitions/:op",
+            get(hypervisoros_node_routes::handle_get_node_transition)
+                .post(hypervisoros_node_routes::handle_node_transition)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/membership/projection",
+            get(system_membership_routes::handle_get_projection),
+        )
+        .route(
+            system_topology_routes::MINIMUM_TOPOLOGY_ROUTE,
+            get(system_topology_routes::handle_get_minimum_topology),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/membership/desired-topology",
+            post(system_membership_routes::handle_declare_desired_topology).layer(
+                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
+            ),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/membership/:op",
+            get(system_membership_routes::handle_get_transition)
+                .post(system_membership_routes::handle_transition)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/writer/epoch",
+            get(system_writer_routes::handle_get_epoch),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/writer/failover-profile",
+            post(system_writer_routes::handle_declare_failover_profile).layer(
+                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
+            ),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/writer/lost-suffixes",
+            get(system_writer_routes::handle_get_lost_suffixes),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/writer/lost-suffixes/resolution",
+            post(system_writer_routes::handle_lost_suffix_resolution).layer(
+                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
+            ),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/writer/transitions/:kind",
+            get(system_writer_routes::handle_get_transition)
+                .post(system_writer_routes::handle_transition)
                 .layer(DefaultBodyLimit::max(
                     system_activation_routes::MAX_REQUEST_BYTES,
                 )),

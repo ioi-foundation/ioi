@@ -1,0 +1,59 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-change-plan/immutable-plan/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_change_plan.plan_hash.recomputes",
+      "description": "The plan hash covers the complete canonical immutable plan body including the allocated ref, exact nullable fields, and every ordered step, gate, rollback, restore, and activation input; it excludes only plan_hash. State roots, receipts, observations, execution output, and refusal reasons are never members of this preimage.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.hypervisor-change-plan-commitment-jcs-sha256.v1"
+          },
+          "schema_version": { "path": "$.schema_version" },
+          "plan_ref": { "path": "$.plan_ref" },
+          "target_ref": { "path": "$.target_ref" },
+          "observed_ref": { "path": "$.observed_ref" },
+          "system_ref": { "path": "$.system_ref" },
+          "work_subject_ref": { "path": "$.work_subject_ref" },
+          "plan_type": { "path": "$.plan_type" },
+          "steps": { "path": "$.steps" },
+          "rollback_steps": { "path": "$.rollback_steps" },
+          "gate_refs": { "path": "$.gate_refs" },
+          "affected_refs": { "path": "$.affected_refs" },
+          "maintenance_window_ref": { "path": "$.maintenance_window_ref" },
+          "suppression_window_ref": { "path": "$.suppression_window_ref" },
+          "authority_scope_refs": { "path": "$.authority_scope_refs" },
+          "temporal_verification_profile_ref": {
+            "path": "$.temporal_verification_profile_ref"
+          },
+          "authority_currentness_floor_ref": {
+            "path": "$.authority_currentness_floor_ref"
+          },
+          "lifecycle_continuity_floor_ref": {
+            "path": "$.lifecycle_continuity_floor_ref"
+          },
+          "ordering_finality_profile_ref": {
+            "path": "$.ordering_finality_profile_ref"
+          },
+          "activation": { "path": "$.activation" },
+          "restore": { "path": "$.restore" }
+        },
+        "expected_path": "$.plan_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "hypervisor_change_plan.steps.unique",
+      "description": "Each ordered stage index appears at most once; a duplicated stage cannot smuggle re-entry.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.steps",
+        "fields": ["step_index"]
+      }
+    }
+  ]
+}

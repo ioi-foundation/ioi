@@ -1,0 +1,24 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/harness-session-readiness/probe-evidence-required/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
+  "rules": [
+    {
+      "rule_id": "harness_session_readiness.checks.unique_ids",
+      "description": "Each probe check id appears at most once; readiness can never double-count one probe as two pieces of evidence (INV-37: transport observations never become admitted truth by repetition).",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.checks",
+        "fields": ["id"]
+      }
+    },
+    {
+      "rule_id": "harness_session_readiness.identity.distinct_from_spawn",
+      "description": "Readiness is a derived proof over one spawn: readiness_id never aliases the spawn_id it proves.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": ["$.readiness_id", "$.spawn_id"]
+      }
+    }
+  ]
+}

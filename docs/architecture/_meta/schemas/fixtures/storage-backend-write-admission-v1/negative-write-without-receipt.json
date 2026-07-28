@@ -1,0 +1,12 @@
+{
+  "schema_version": "ioi.storage_backend_write_admission.v1",
+  "storage_backend_ref": "storage://runtime-state/local",
+  "object_ref": "agentgres://runtime-state/artifacts/artifact-one/records/artifacts/artifact-one.json",
+  "content_hash": "sha256:abababababababababababababababababababababababababababababababab",
+  "artifact_refs": [],
+  "payload_refs": [
+    "payload://runtime/artifacts/artifact-one/records/artifacts/artifact-one.json"
+  ],
+  "receipt_refs": [],
+  "admission_hash": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+}

@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
+  "title": "TemporalValidityEvaluation",
+  "description": "One evaluation binding an exact TemporalVerificationProfile, subject, operation class, and owner-produced evidence to per-claim results. Each requested proposition is one flattened claim row with its own established|indeterminate|failed|unavailable status and claim-specific result columns; one established claim never fills a missing sibling. The evaluation asserts no admit/wait/attenuate/refuse verdict. evaluation_hash is the recomputable content root over the complete body.",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.temporal-validity-evaluation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evaluation_id",
+    "profile_ref",
+    "profile_hash",
+    "subject_ref",
+    "subject_hash",
+    "operation_class",
+    "evidence_refs",
+    "source_failure_domain_refs",
+    "claims",
+    "temporal_posture",
+    "evidence_horizon",
+    "invalidation_triggers",
+    "obligations",
+    "evaluation_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.components.daemon-runtime.temporal-validity-evaluation.v1"
+    },
+    "evaluation_id": {
+      "type": "string",
+      "pattern": "^temporal-evaluation://[^\\s]{1,248}$"
+    },
+    "profile_ref": { "$ref": "#/$defs/policyRef" },
+    "profile_hash": { "$ref": "#/$defs/hash" },
+    "subject_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*(?:://|:)[^\\s]{1,240}$"
+    },
+    "subject_hash": { "$ref": "#/$defs/hash" },
+    "operation_class": {
+      "enum": [
+        "external_effect",
+        "node_admission",
+        "boot_verification",
+        "readiness_projection",
+        "physical_bounded_continuation"
+      ]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceRef" },
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "source_failure_domain_refs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^failure-domain://[^\\s]{1,248}$" },
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "status", "reason_codes"],
+        "properties": {
+          "kind": {
+            "enum": [
+              "absolute_time_interval",
+              "challenge_freshness",
+              "elapsed_duration",
+              "owner_epoch",
+              "status_as_of",
+              "continuity_floor"
+            ]
+          },
+          "status": {
+            "enum": ["established", "indeterminate", "failed", "unavailable"]
+          },
+          "earliest": { "$ref": "#/$defs/nullableDateTime" },
+          "latest": { "$ref": "#/$defs/nullableDateTime" },
+          "uncertainty_ms": { "$ref": "#/$defs/nullableCounter" },
+          "challenge_ref": {
+            "anyOf": [
+              { "type": "string", "pattern": "^challenge://[^\\s]{1,248}$" },
+              { "type": "null" }
+            ]
+          },
+          "maximum_age_ms": { "$ref": "#/$defs/nullableCounter" },
+          "boot_or_incarnation_ref": {
+            "anyOf": [{ "$ref": "#/$defs/evidenceRef" }, { "type": "null" }]
+          },
+          "lower_bound_ms": { "$ref": "#/$defs/nullableCounter" },
+          "upper_bound_ms": { "$ref": "#/$defs/nullableCounter" },
+          "namespace_ref": { "$ref": "#/$defs/nullableString" },
+          "epoch_kind": { "$ref": "#/$defs/nullableString" },
+          "observed_version_or_epoch": { "$ref": "#/$defs/nullableCounter" },
+          "required_minimum_version_or_epoch": { "$ref": "#/$defs/nullableCounter" },
+          "observed_head_hash": { "$ref": "#/$defs/nullableHash" },
+          "status_subject_ref": { "$ref": "#/$defs/nullableString" },
+          "status_kind": { "$ref": "#/$defs/nullableString" },
+          "status_value_hash": { "$ref": "#/$defs/nullableHash" },
+          "as_of": { "$ref": "#/$defs/nullableDateTime" },
+          "floor_kind": { "$ref": "#/$defs/nullableString" },
+          "accepted_version_or_epoch": { "$ref": "#/$defs/nullableCounter" },
+          "accepted_head_hash": { "$ref": "#/$defs/nullableHash" },
+          "outside_rollback_domain_evidence_refs": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/evidenceRef" },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "maxItems": 32,
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "temporal_posture": {
+      "enum": ["online_fresh", "bounded_offline", "historical_only", "insufficient"]
+    },
+    "evidence_horizon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["valid_from", "valid_until"],
+      "properties": {
+        "valid_from": { "$ref": "#/$defs/nullableDateTime" },
+        "valid_until": { "$ref": "#/$defs/nullableDateTime" }
+      }
+    },
+    "invalidation_triggers": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "obligations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "evaluation_hash": { "$ref": "#/$defs/hash" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nullableHash": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "policyRef": { "type": "string", "pattern": "^policy://[^\\s]{1,248}$" },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+    },
+    "nullableString": {
+      "anyOf": [
+        { "type": "string", "minLength": 1, "maxLength": 256 },
+        { "type": "null" }
+      ]
+    },
+    "nullableCounter": {
+      "anyOf": [
+        { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        { "type": "null" }
+      ]
+    },
+    "nullableDateTime": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        { "type": "null" }
+      ]
+    }
+  }
+}

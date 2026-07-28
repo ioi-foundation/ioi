@@ -14,7 +14,9 @@ Implementation status: partial (env lifecycle, providers, readiness, warm pools,
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs`
-Last implementation audit: 2026-07-19
+  - `crates/node/src/bin/hypervisor_daemon_routes/hypervisor_environment_routes.rs`
+  - `crates/types/src/app/hypervisor_environment_lifecycle.rs`
+Last implementation audit: 2026-07-28
 
 ## Canonical Definition
 
@@ -634,6 +636,8 @@ HypervisorEnvironmentPort
   route_binding_refs
 ```
 
+### HypervisorEnvironmentRouteBinding
+
 A port is a daemon-visible socket or service endpoint. An externally
 addressable route has independent cardinality, ownership proof, certificate,
 provider, cutover, cost, and revocation semantics, so it uses one immutable
@@ -721,6 +725,33 @@ Rules, each testable:
 - Port observation and route-binding drift stay distinct: a port's
   reachability facts never stand in for a route's drift posture, and route
   drift never mutates port state.
+
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1`
+(`ioi.hypervisor-environment-route-binding.v1`) with this section as
+`canonical_owner_ref`. The registered shape resolves three gaps the prose above
+left unbound, each testable:
+
+- **Route ownership is explicit.** Every binding names its owning
+  `owner_principal_ref` (`wallet:// | org:// | project://`) beside the optional
+  owning `system_ref`. An observed route fact whose owner or System departs the
+  declared binding is **owner drift** and compiles to a named refusal
+  (`owner_drift`) — never a silent re-parenting of the route.
+- **Route identity is the declared tuple** `hostname_or_address` +
+  `path_prefix` + `target_protocol`. An observed route-shaped surface whose
+  resolution, certificate chain, TLS floor, endpoint, provider records, or
+  exposure departs the active binding for that identity is **route drift**
+  (the drift classes above) and compiles to a named refusal (`route_drift`);
+  the observed binding is never adopted as declared truth. The registered
+  invariant pins `route_binding_hash` to recompute over the complete immutable
+  body excluding only itself, and `asserts_observed_route_truth` is pinned
+  `false` structurally.
+- **Lineage is compare-and-swap.** A genesis binding carries
+  `predecessor_route_binding_ref: null`, `activation_generation: 1`, and a null
+  `expected_active_head_ref`; every successor cites the exact predecessor
+  revision, an expected active head, and `activation_generation` exactly one
+  above it. Two uncited declared revisions for one route identity are a fork
+  and fail closed.
 
 The status object streams to clients as session events, not a one-shot poll:
 
@@ -825,6 +856,8 @@ candidate, and admitted override set into the Project or recipe lineage.
 
 ## Development Environment Recipe
 
+### HypervisorDevelopmentEnvironmentRecipe
+
 `HypervisorDevelopmentEnvironmentRecipe` is the reusable setup contract for
 Developer Workspace and other development-oriented sessions. It describes how a
 development environment should be assembled, but it is not provider truth,
@@ -895,6 +928,27 @@ discovery-engine revision, selected candidate, or override set requires new
 proposal or recipe content; no compatibility adapter may silently re-run
 discovery behind an admitted recipe.
 
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1`
+(`ioi.hypervisor.development-environment-recipe.v1`) with this section as
+`canonical_owner_ref`. The registered v1 pins the shape the daemon actually
+produces and persists today (`recipe_routes.rs new_recipe` /
+`detect_recipe_fields`), which is narrower than the prose envelope above.
+Recorded canon-to-code divergences, each testable against the registered
+schema: the produced ref is `recipe_ref` (`recipe_<hex>`), not the
+`development-environment-recipe://.../revision/...` scheme, and no
+`content_hash` is emitted; discovery-lineage, checkout, initializer, policy,
+privacy-posture, authority-scope-template, and receipt-policy fields are not
+yet produced; the produced substrate vocabulary is
+`local_host | devcontainer | container` (canon's `host`, `microvm`, `wasm`,
+`browser_sandbox`, `vm`, and `hypervisoros_node` are unproduced); explicit
+recipe admission copies caller fields without validation, so only
+detection-shaped task/service/port rows are inside the registered contract.
+Registered invariants pin task, service, and port identity uniqueness because
+resolution derives its required edges by name/number.
+
+### HypervisorDevelopmentEnvironmentRecipeResolution
+
 `HypervisorDevelopmentEnvironmentRecipeResolution` is the daemon-produced,
 Agentgres-recorded decision that turns a recipe into concrete
 session/environment ingredients. A `resolved` decision may feed a startup
@@ -938,6 +992,20 @@ The owner allocates
 exact nullable fields, while excluding only `resolution_hash` and the later
 Agentgres root and receipts. Those later records bind the resolution ref and
 hash externally.
+
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1`
+(wire literal `ioi.hypervisor.environment-recipe-resolution.v1`, the constant
+the daemon actually emits) with this section as `canonical_owner_ref`. The
+registered v1 pins the produced shape (`recipe_routes.rs resolve_recipe`):
+`resolution_ref`/`readiness_gate_ref` are `reso_<hex>`/`gate_<hex>` ids, not
+the revision-URI scheme, and no `resolution_hash`, `disposition`,
+`session_ref`, `provider_candidate_ref`, resolved editor/connectivity/
+isolation refs, `state_root_ref`, or `receipt_refs` are produced yet. The
+canon rule that a blocked candidate is a refusal rather than a partially
+populated resolution IS registered structurally: `blocked_reason` is pinned
+`null`, so a "resolution with a blocked reason" is unrepresentable under the
+contract.
 
 A blocked candidate is not a partially populated resolution. It emits a
 separate refusal:
@@ -1214,6 +1282,8 @@ Snapshot or backup bytes may live in local disk, object storage, CAS/Filecoin,
 or provider storage. They are restore material only. Restore validity remains
 Agentgres-operation-backed.
 
+### HypervisorEnvironmentBackup
+
 `HypervisorEnvironmentBackup` is one durable Agentgres-backed lifecycle
 aggregate for an environment backup. It reuses artifact and storage owners
 rather than creating provider-specific backup truth:
@@ -1267,6 +1337,42 @@ a manifest written before its referenced artifacts cannot produce `complete`.
 Verification retrieves and hashes the actual bytes; a checksum delivered only
 beside the same untrusted payload is not independent release or custody proof.
 
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/hypervisor-environment-backup/v1`
+(`ioi.hypervisor-environment-backup.v1`) with this section as
+`canonical_owner_ref`. The registered shape resolves the manifest gap the prose
+above left unbound, each rule testable:
+
+- **The content manifest is structural.** The backup carries
+  `manifest_artifact_count` and `manifest_rows`, one row per payload artifact:
+  `artifact_ref`, `sha256`, `size_bytes`, and a declared role. Registered
+  invariants pin `manifest_rows` and the top-level `artifact_refs` to the exact
+  declared count and pin each artifact to at most one row — a backup missing
+  any manifest row is structurally invalid, never merely degraded.
+- **The manifest root is a recomputable commitment.** `manifest_root`
+  recomputes over the exact rows bound to this `backup_ref`,
+  `environment_ref`, and captured `source_state_root_ref`
+  (`ioi.hypervisor-environment-backup-manifest-jcs-sha256.v1`). Restore
+  staging references a backup only through this commitment; a manifest whose
+  root does not recompute cannot become restore material.
+- **`complete` is structurally gated.** A `complete` backup requires at least
+  one manifest row, at least one content commitment, and at least one receipt;
+  an empty or unreceipted `complete` is not representable.
+
+M2 storage-cut integration note (this family is integrated, not
+re-registered): the backup manifest is the live-reference census the storage
+claim leans on — a payload artifact cited by a live backup cannot be cleaned
+out of the record without breaking `manifest_artifact_count`, row/ref
+equality, and the recomputable `manifest_root`, so "cleanup of live refs"
+is structurally a record-breaking act, never a silent one. `hold_refs` is the
+registered structural hold surface on this record; no code path enforces
+holds yet (the canonical hold rule lives on the deferred `StorageProfile` in
+[`../storage-backends/doctrine.md`](../storage-backends/doctrine.md), recorded
+there as a gap). The storage-plane byte custody behind `destination_ref` is
+registered separately as
+`schema://ioi/components/hypervisor/storage-archive-object/v1` with its
+incident and repair contracts.
+
 Restore reuses `HypervisorChangePlan` rather than creating a parallel restore
 plan family. When `plan_type = environment_restore`, the immutable plan also
 binds:
@@ -1311,6 +1417,8 @@ cancellation. Missing manifests, same-size byte substitution, wrong decryption
 material, stale preparation, failed root recomputation, or failed readiness
 cannot become restore success through a provider response or service restart.
 
+### HypervisorResourceCleanupObligation
+
 `HypervisorResourceCleanupObligation` preserves provider-resource cleanup after
 its originating environment, Session, Project, plan, or provider connection is
 deleted or unreachable:
@@ -1339,7 +1447,7 @@ HypervisorResourceCleanupObligation
   required_authority_refs
   lifecycle_head_ref
   status:
-    pending | retry_scheduled | blocked | reconciling |
+    pending | retry_scheduled | blocked | reconciling | escalated |
     completed | quarantined | abandoned
   attempt_count
   last_attempt_ref?
@@ -1353,6 +1461,27 @@ it only when the exact provider namespace and resource identity commitment were
 queried; otherwise absence remains ambiguous. Completion, quarantine, or
 authorized abandonment is an admitted, receipted disposition rather than
 garbage-collection inference.
+
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1`
+(`ioi.hypervisor-resource-cleanup-obligation.v1`) with this section as
+`canonical_owner_ref`. The registered shape resolves two gaps the prose above
+left unbound, each rule testable:
+
+- **`escalated` is a first-class obligation status.** The sibling failure
+  objects below already carry `escalated`; the obligation ladder now does too.
+  Loss of the obligation's parent object (`parent_loss`) or of the provider
+  connection the disposition depends on (`provider_loss`) transitions an open
+  obligation to `escalated` with a structurally required escalation record
+  (`escalation_reason`, the exact `lost_parent_ref`, and at least one evidence
+  ref). Escalation preserves every resource identity commitment; parent or
+  provider loss can never erase, shrink, or close an obligation.
+- **Obligation history is compare-and-swap revisions.** Every revision carries
+  `revision` and `predecessor_obligation_root`; revision one has a null
+  predecessor and every successor cites the exact prior revision root.
+  Registered invariants pin each resource identity commitment to at most one
+  row and pin every closing status (`completed | quarantined | abandoned`) to
+  at least one receipt — an unreceipted close is not representable.
 
 ## Agent Work Services In Environments
 
@@ -2002,6 +2131,8 @@ protocol authority provider, Agentgres admission, and receipt/replay semantics.
 
 ### Plans, Gates, And Execution
 
+#### HypervisorChangePlan
+
 `HypervisorChangePlan` is the visible, inspectable unit of environment change.
 It should include:
 
@@ -2147,6 +2278,31 @@ decision; it never becomes success by projection. A late successful observation
 for an older plan cannot reclaim the active target after a newer admitted
 successor. Expected-active-head or generation mismatch fails closed into a new
 plan or reconciliation.
+
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/hypervisor-change-plan/v1`
+(`ioi.hypervisor-change-plan.v1`) with the `HypervisorChangePlan` section above
+as `canonical_owner_ref`, admitting `plan_type: environment_restore` first.
+The registered shape makes the staged-restore ladder explicit, each rule
+testable:
+
+- **Stages are ordered and closed.** `steps` carries unique, ordered
+  `step_index` rows over the closed stage ladder `read_only_preflight ->
+  restore_apply -> post_restore_validation -> activation ->
+  cleanup_reconciliation`, each with declared precondition and
+  evidence-requirement refs. Stage progress is committed as distinct records;
+  it never rewrites the immutable plan, whose registered `plan_hash` invariant
+  recomputes over the complete body excluding only itself.
+- **Advancement is forward-only.** A stage may advance only to the exact next
+  undischarged `step_index` with its preconditions resolved; a completed stage
+  can never be re-entered (`backward_stage` refusal), and the restore stage
+  discharges only when every backup-manifest row verifies against resolved
+  artifact digests — a missing row or digest mismatch is an
+  `incomplete_restoration` refusal, never partial success.
+- **Stale activation refuses.** A plan bound to a superseded route-binding
+  revision, expected active head, or candidate generation compiles to a
+  `stale_activation` refusal (`activation_outcome: refused_superseded`); it
+  never advances or reclaims the active head.
 
 Cleanup duties outlive the object whose deletion requested them. VMs, volumes,
 routes, certificates, leases, reservations, credentials, storage material,

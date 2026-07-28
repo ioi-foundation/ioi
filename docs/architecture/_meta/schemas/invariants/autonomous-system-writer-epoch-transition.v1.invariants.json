@@ -1,0 +1,102 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-writer-epoch-transition/content-commitment/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_writer_epoch_transition.content_commitment.recomputes",
+      "description": "The transition hash recomputes over every field except writer_epoch_transition_hash and continuity_cas.resulting_head.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-writer-epoch-transition-commitment-jcs-sha256.v1"
+          },
+          "schema_version": { "path": "$.schema_version" },
+          "writer_epoch_transition_id": { "path": "$.writer_epoch_transition_id" },
+          "transition_kind": { "path": "$.transition_kind" },
+          "system_id": { "path": "$.system_id" },
+          "deployment_profile_ref": { "path": "$.deployment_profile_ref" },
+          "deployment_profile_root": { "path": "$.deployment_profile_root" },
+          "failover_profile_ref": { "path": "$.failover_profile_ref" },
+          "failover_profile_root": { "path": "$.failover_profile_root" },
+          "ordering_profile_ref": { "path": "$.ordering_profile_ref" },
+          "ordering_profile_root": { "path": "$.ordering_profile_root" },
+          "predecessor_transition_ref": { "path": "$.predecessor_transition_ref" },
+          "predecessor_transition_hash": { "path": "$.predecessor_transition_hash" },
+          "expected_membership_root": { "path": "$.expected_membership_root" },
+          "resulting_membership_root": { "path": "$.resulting_membership_root" },
+          "prior_writer": { "path": "$.prior_writer" },
+          "successor_writer": { "path": "$.successor_writer" },
+          "continuity": { "path": "$.continuity" },
+          "continuity_cas_mechanism": { "path": "$.continuity_cas.mechanism" },
+          "continuity_cas_substrate_ref": { "path": "$.continuity_cas.substrate_ref" },
+          "continuity_cas_expected_head": { "path": "$.continuity_cas.expected_head" },
+          "continuity_cas_proof_ref": { "path": "$.continuity_cas.proof_ref" },
+          "authority": { "path": "$.authority" },
+          "displaced_writer_fencing": { "path": "$.displaced_writer_fencing" },
+          "timing_evidence": { "path": "$.timing_evidence" },
+          "resource_fences": { "path": "$.resource_fences" },
+          "lost_suffix_record_ref": { "path": "$.lost_suffix_record_ref" },
+          "admission_receipt_ref": { "path": "$.admission_receipt_ref" },
+          "committed_at": { "path": "$.committed_at" }
+        },
+        "expected_path": "$.writer_epoch_transition_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_writer_epoch_transition.cas_resulting_head.binds_commitment",
+      "description": "The durable continuity CAS resulting head equals the same content commitment, so the CAS binds the exact immutable transition.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-writer-epoch-transition-commitment-jcs-sha256.v1"
+          },
+          "schema_version": { "path": "$.schema_version" },
+          "writer_epoch_transition_id": { "path": "$.writer_epoch_transition_id" },
+          "transition_kind": { "path": "$.transition_kind" },
+          "system_id": { "path": "$.system_id" },
+          "deployment_profile_ref": { "path": "$.deployment_profile_ref" },
+          "deployment_profile_root": { "path": "$.deployment_profile_root" },
+          "failover_profile_ref": { "path": "$.failover_profile_ref" },
+          "failover_profile_root": { "path": "$.failover_profile_root" },
+          "ordering_profile_ref": { "path": "$.ordering_profile_ref" },
+          "ordering_profile_root": { "path": "$.ordering_profile_root" },
+          "predecessor_transition_ref": { "path": "$.predecessor_transition_ref" },
+          "predecessor_transition_hash": { "path": "$.predecessor_transition_hash" },
+          "expected_membership_root": { "path": "$.expected_membership_root" },
+          "resulting_membership_root": { "path": "$.resulting_membership_root" },
+          "prior_writer": { "path": "$.prior_writer" },
+          "successor_writer": { "path": "$.successor_writer" },
+          "continuity": { "path": "$.continuity" },
+          "continuity_cas_mechanism": { "path": "$.continuity_cas.mechanism" },
+          "continuity_cas_substrate_ref": { "path": "$.continuity_cas.substrate_ref" },
+          "continuity_cas_expected_head": { "path": "$.continuity_cas.expected_head" },
+          "continuity_cas_proof_ref": { "path": "$.continuity_cas.proof_ref" },
+          "authority": { "path": "$.authority" },
+          "displaced_writer_fencing": { "path": "$.displaced_writer_fencing" },
+          "timing_evidence": { "path": "$.timing_evidence" },
+          "resource_fences": { "path": "$.resource_fences" },
+          "lost_suffix_record_ref": { "path": "$.lost_suffix_record_ref" },
+          "admission_receipt_ref": { "path": "$.admission_receipt_ref" },
+          "committed_at": { "path": "$.committed_at" }
+        },
+        "expected_path": "$.continuity_cas.resulting_head",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_writer_epoch_transition.resource_fences.unique",
+      "description": "Each consequential resource carries at most one declared fence.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.resource_fences",
+        "fields": ["resource_id"]
+      }
+    }
+  ]
+}

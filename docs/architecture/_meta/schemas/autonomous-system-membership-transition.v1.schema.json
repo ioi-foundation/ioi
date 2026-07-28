@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-membership-transition/v1",
+  "title": "AutonomousSystemMembershipTransition",
+  "description": "Committed compare-and-swap step of one System's observed membership set: admission, readiness attestation, catch-up advance, role promotion, drain, or removal, with predecessor and resulting membership roots and a closed governed effect. Writer authority is constantly not admitted here.",
+  "x-ioi-schema-version": "ioi.autonomous-system-membership-transition.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "membership_transition_id",
+    "system_id",
+    "op",
+    "sequence",
+    "node_membership_ref",
+    "node_id",
+    "predecessor_membership_root",
+    "resulting_membership_root",
+    "predecessor_record_root",
+    "resulting_record_root",
+    "operation_commitment",
+    "authority_effect_material",
+    "evidence_refs",
+    "authority_grant_refs",
+    "receipt_refs",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.autonomous-system-membership-transition.v1" },
+    "membership_transition_id": {
+      "type": "string",
+      "pattern": "^membership-transition://[^\\s]{1,248}$"
+    },
+    "system_id": { "$ref": "#/$defs/systemRef" },
+    "op": { "$ref": "#/$defs/membershipOp" },
+    "sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "node_membership_ref": { "$ref": "#/$defs/nodeMembershipRef" },
+    "node_id": { "$ref": "#/$defs/nodeRef" },
+    "predecessor_membership_root": { "$ref": "#/$defs/hash" },
+    "resulting_membership_root": { "$ref": "#/$defs/hash" },
+    "predecessor_record_root": { "$ref": "#/$defs/nullableHash" },
+    "resulting_record_root": { "$ref": "#/$defs/hash" },
+    "operation_commitment": { "$ref": "#/$defs/hash" },
+    "authority_effect_material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "op",
+        "required_scope",
+        "sequence",
+        "system_id",
+        "genesis_ref",
+        "source_governing_authority_ref",
+        "node_membership_ref",
+        "node_id",
+        "node_owner_ref",
+        "membership_epoch",
+        "deployment_profile_ref",
+        "deployment_profile_root",
+        "desired_topology_ref",
+        "desired_topology_root",
+        "predecessor_status",
+        "resulting_status",
+        "predecessor_membership_root",
+        "resulting_membership_root",
+        "predecessor_record_root",
+        "resulting_record_root",
+        "declared_readiness",
+        "readiness_attestation_ref",
+        "catchup_operation_offset",
+        "catchup_receipt_ref",
+        "verified_state_root",
+        "target_role",
+        "role_lease_ref",
+        "evidence_refs",
+        "desired_topology_is_observed_truth",
+        "writer_authority_admitted",
+        "authority_widened",
+        "operation_commitment"
+      ],
+      "properties": {
+        "schema_version": { "const": "ioi.autonomous-system-membership-authority-effect.v1" },
+        "op": { "$ref": "#/$defs/membershipOp" },
+        "required_scope": {
+          "type": "string",
+          "pattern": "^scope:autonomous_system[.]membership[.][a-z_]{1,64}$"
+        },
+        "sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "system_id": { "$ref": "#/$defs/systemRef" },
+        "genesis_ref": { "type": "string", "pattern": "^genesis://[^\\s]{1,248}$" },
+        "source_governing_authority_ref": { "$ref": "#/$defs/canonicalRef" },
+        "node_membership_ref": { "$ref": "#/$defs/nodeMembershipRef" },
+        "node_id": { "$ref": "#/$defs/nodeRef" },
+        "node_owner_ref": {
+          "anyOf": [
+            { "type": "string", "pattern": "^(?:wallet|org|project)://[^\\s]{1,248}$" },
+            { "type": "null" }
+          ]
+        },
+        "membership_epoch": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "deployment_profile_ref": { "$ref": "#/$defs/deploymentRevisionRef" },
+        "deployment_profile_root": { "$ref": "#/$defs/hash" },
+        "desired_topology_ref": { "$ref": "#/$defs/desiredTopologyRef" },
+        "desired_topology_root": { "$ref": "#/$defs/hash" },
+        "predecessor_status": {
+          "anyOf": [{ "$ref": "#/$defs/membershipStatus" }, { "type": "null" }]
+        },
+        "resulting_status": { "$ref": "#/$defs/membershipStatus" },
+        "predecessor_membership_root": { "$ref": "#/$defs/hash" },
+        "resulting_membership_root": { "$ref": "#/$defs/hash" },
+        "predecessor_record_root": { "$ref": "#/$defs/nullableHash" },
+        "resulting_record_root": { "$ref": "#/$defs/hash" },
+        "declared_readiness": {
+          "anyOf": [{ "enum": ["ready", "degraded"] }, { "type": "null" }]
+        },
+        "readiness_attestation_ref": { "$ref": "#/$defs/nullableEvidenceRef" },
+        "catchup_operation_offset": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            { "type": "null" }
+          ]
+        },
+        "catchup_receipt_ref": {
+          "anyOf": [
+            { "type": "string", "pattern": "^receipt://[^\\s]{1,248}$" },
+            { "type": "null" }
+          ]
+        },
+        "verified_state_root": { "$ref": "#/$defs/nullableHash" },
+        "target_role": {
+          "anyOf": [{ "$ref": "#/$defs/nodeRole" }, { "type": "null" }]
+        },
+        "role_lease_ref": {
+          "anyOf": [
+            { "type": "string", "pattern": "^lease://[^\\s]{1,248}$" },
+            { "type": "null" }
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidenceRef" },
+          "maxItems": 64,
+          "uniqueItems": true
+        },
+        "desired_topology_is_observed_truth": { "const": false },
+        "writer_authority_admitted": { "const": false },
+        "authority_widened": { "const": false },
+        "operation_commitment": { "type": "null" }
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceRef" },
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "authority_grant_refs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^grant://[^\\s]{1,248}$" },
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "receipt_refs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^receipt://[^\\s]{1,248}$" },
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "status": { "const": "committed" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nullableHash": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "systemRef": { "type": "string", "pattern": "^system://[^\\s]{1,248}$" },
+    "nodeRef": { "type": "string", "pattern": "^node://[^\\s]{1,248}$" },
+    "nodeMembershipRef": {
+      "type": "string",
+      "pattern": "^node-membership://[^\\s]{1,248}$"
+    },
+    "desiredTopologyRef": {
+      "type": "string",
+      "pattern": "^desired-topology://[^\\s]{1,248}$"
+    },
+    "deploymentRevisionRef": {
+      "type": "string",
+      "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+    },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+    },
+    "nullableEvidenceRef": {
+      "anyOf": [{ "$ref": "#/$defs/evidenceRef" }, { "type": "null" }]
+    },
+    "membershipOp": {
+      "enum": [
+        "admit_node",
+        "attest_readiness",
+        "advance_catchup",
+        "promote_role",
+        "drain_node",
+        "remove_node"
+      ]
+    },
+    "membershipStatus": {
+      "enum": [
+        "candidate",
+        "attesting",
+        "admitted",
+        "active",
+        "draining",
+        "suspended",
+        "revoked",
+        "left",
+        "failed_closed"
+      ]
+    },
+    "nodeRole": {
+      "enum": [
+        "admission_writer",
+        "hot_standby",
+        "state_replica",
+        "projection_replica",
+        "execution_worker",
+        "artifact_replica",
+        "verifier",
+        "availability_witness",
+        "gateway",
+        "authority_member",
+        "consensus_member"
+      ]
+    }
+  }
+}

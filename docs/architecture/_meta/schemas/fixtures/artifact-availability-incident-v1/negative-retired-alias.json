@@ -1,0 +1,61 @@
+{
+  "schema_version": "ioi.runtime.artifact_availability_incident.v1",
+  "incident_id": "artifact-availability-incident:artifact_acme_system-alpha_workspace-snapshot_2026-07-28:missing",
+  "artifact_ref": "artifact://acme/system-alpha/workspace-snapshot/2026-07-28",
+  "payload_ref": "payload://acme/system-alpha/workspace-snapshot/2026-07-28",
+  "backend_ref": "storage://local-disk/primary",
+  "incident_kind": "missing",
+  "lifecycle_state": "opened",
+  "expected_hash": null,
+  "observed_hash": null,
+  "expected_cid": null,
+  "observed_cid": null,
+  "agentgres_operation_refs": [
+    "agentgres://operation/storage/incident/0001"
+  ],
+  "repair_receipt_refs": [],
+  "incident_receipt_refs": [
+    "receipt://storage/incident/0001"
+  ],
+  "fallback_backend_refs": [],
+  "quarantine_refs": [],
+  "affected_object_refs": [
+    "agentgres://object/workspace-snapshot/2026-07-28"
+  ],
+  "verification_refs": [],
+  "restore_import_refs": [],
+  "payload_bytes_mutated": false,
+  "admitted_at": "2026-07-28T12:00:00.000Z",
+  "runtimeTruthSource": "daemon-runtime",
+  "agentgres_operation": {
+    "schema_version": "ioi.agentgres.artifact_availability_incident_operation.v1",
+    "operation_ref": "agentgres://operation/storage/incident/0001",
+    "operation_kind": "artifact_availability_incident",
+    "incident_id": "artifact-availability-incident:artifact_acme_system-alpha_workspace-snapshot_2026-07-28:missing",
+    "artifact_ref": "artifact://acme/system-alpha/workspace-snapshot/2026-07-28",
+    "payload_ref": "payload://acme/system-alpha/workspace-snapshot/2026-07-28",
+    "backend_ref": "storage://local-disk/primary",
+    "lifecycle_state": "opened",
+    "incident_kind": "missing",
+    "affected_object_refs": [
+      "agentgres://object/workspace-snapshot/2026-07-28"
+    ],
+    "incident_receipt_refs": [
+      "receipt://storage/incident/0001"
+    ],
+    "repair_receipt_refs": [],
+    "verification_refs": [],
+    "restore_import_refs": [],
+    "fallback_backend_refs": [],
+    "quarantine_refs": [],
+    "payload_bytes_mutated": false,
+    "restore_validity": "no_restore_import",
+    "state_root": "agentgres://state-root/artifact-availability-incident/artifact-availability-incident_artifact_acme_system-alpha_workspace-snapshot_2026-07-28_missing",
+    "receipt_refs": [
+      "receipt://storage/incident/0001"
+    ],
+    "runtimeTruthSource": "daemon-runtime",
+    "agentgresTruthSource": "agentgres-operation"
+  },
+  "artifactRef": "artifact://legacy/alias"
+}

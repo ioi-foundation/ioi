@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+  "title": "HypervisorEnvironmentBackup",
+  "description": "One durable environment backup aggregate: the captured source state root, the complete content manifest with one per-artifact digest row for every referenced payload artifact, custody/encryption/retention bindings, and the lifecycle status ladder. Only status 'complete' is eligible restore material, and completeness is structural: the declared artifact count, the manifest rows, and the top-level artifact refs must all agree, and the manifest root must recompute from the exact rows. A backup missing any manifest row is invalid, never merely degraded; restore staging references a backup only through this manifest commitment.",
+  "x-ioi-schema-version": "ioi.hypervisor-environment-backup.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "backup_ref",
+    "environment_ref",
+    "session_ref",
+    "system_ref",
+    "work_subject_ref",
+    "backup_policy_ref",
+    "trigger",
+    "actor_ref",
+    "schedule_or_change_plan_ref",
+    "source_state_root_ref",
+    "source_object_head_refs",
+    "source_checkpoint_or_suffix_boundary_refs",
+    "capture_profile_ref",
+    "execution_substrate_ref",
+    "destination_ref",
+    "custody_profile_ref",
+    "artifact_refs",
+    "manifest_artifact_ref",
+    "manifest_root",
+    "manifest_artifact_count",
+    "manifest_rows",
+    "content_commitment_refs",
+    "encryption_ref",
+    "key_epoch_ref",
+    "retention_policy_ref",
+    "expires_at",
+    "hold_refs",
+    "authority_requirement_refs",
+    "authority_grant_refs",
+    "daemon_operation_refs",
+    "provider_operation_refs",
+    "lifecycle_head_ref",
+    "status",
+    "evidence_refs",
+    "receipt_refs"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.hypervisor-environment-backup.v1" },
+    "backup_ref": {
+      "type": "string",
+      "pattern": "^environment-backup://[^\\s]{1,240}$"
+    },
+    "environment_ref": {
+      "type": "string",
+      "pattern": "^environment://[^\\s]{1,240}$"
+    },
+    "session_ref": {
+      "anyOf": [
+        { "type": "string", "pattern": "^session://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "system_ref": {
+      "anyOf": [
+        { "type": "string", "pattern": "^system://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "work_subject_ref": {
+      "anyOf": [{ "$ref": "#/$defs/canonicalRef" }, { "type": "null" }]
+    },
+    "backup_policy_ref": { "$ref": "#/$defs/policyRef" },
+    "trigger": {
+      "enum": ["manual", "scheduled", "webhook", "pre_change", "shutdown", "policy"]
+    },
+    "actor_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:wallet|org|project|runtime)://[^\\s]{1,240}$"
+        },
+        { "type": "null" }
+      ]
+    },
+    "schedule_or_change_plan_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:schedule|change-plan|event)://[^\\s]{1,240}$"
+        },
+        { "type": "null" }
+      ]
+    },
+    "source_state_root_ref": {
+      "type": "string",
+      "pattern": "^state-root://sha256:[0-9a-f]{64}$"
+    },
+    "source_object_head_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/canonicalRef" }
+    },
+    "source_checkpoint_or_suffix_boundary_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/canonicalRef" }
+    },
+    "capture_profile_ref": { "$ref": "#/$defs/policyRef" },
+    "execution_substrate_ref": {
+      "type": "string",
+      "pattern": "^(?:runtime|environment|provider|provider-account)://[^\\s]{1,240}$"
+    },
+    "destination_ref": {
+      "type": "string",
+      "pattern": "^storage://[^\\s]{1,240}$"
+    },
+    "custody_profile_ref": { "$ref": "#/$defs/policyRef" },
+    "artifact_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/artifactRef" }
+    },
+    "manifest_artifact_ref": {
+      "anyOf": [{ "$ref": "#/$defs/artifactRef" }, { "type": "null" }]
+    },
+    "manifest_root": { "$ref": "#/$defs/hash" },
+    "manifest_artifact_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 256
+    },
+    "manifest_rows": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_ref", "sha256", "size_bytes", "role"],
+        "properties": {
+          "artifact_ref": { "$ref": "#/$defs/artifactRef" },
+          "sha256": { "$ref": "#/$defs/hash" },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "role": {
+            "enum": [
+              "environment_backup_payload",
+              "workspace_snapshot",
+              "evidence",
+              "checkpoint"
+            ]
+          }
+        }
+      }
+    },
+    "content_commitment_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:commitment|evidence)://[^\\s]{1,240}$"
+      }
+    },
+    "encryption_ref": {
+      "anyOf": [
+        { "type": "string", "pattern": "^encryption://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "key_epoch_ref": {
+      "anyOf": [{ "$ref": "#/$defs/canonicalRef" }, { "type": "null" }]
+    },
+    "retention_policy_ref": { "$ref": "#/$defs/policyRef" },
+    "expires_at": {
+      "anyOf": [{ "$ref": "#/$defs/canonicalDateTime" }, { "type": "null" }]
+    },
+    "hold_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/canonicalRef" }
+    },
+    "authority_requirement_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/canonicalRef" }
+    },
+    "authority_grant_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "type": "string", "pattern": "^grant://[^\\s]{1,240}$" }
+    },
+    "daemon_operation_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/canonicalRef" }
+    },
+    "provider_operation_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/canonicalRef" }
+    },
+    "lifecycle_head_ref": { "$ref": "#/$defs/canonicalRef" },
+    "status": {
+      "enum": [
+        "requested",
+        "capturing",
+        "finalizing",
+        "complete",
+        "failed",
+        "cancelled",
+        "expired",
+        "pruned"
+      ]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,240}$"
+      }
+    },
+    "receipt_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "type": "string", "pattern": "^receipt://[^\\s]{1,240}$" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "complete" } } },
+      "then": {
+        "properties": {
+          "manifest_artifact_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256
+          },
+          "manifest_rows": { "type": "array", "minItems": 1 },
+          "artifact_refs": { "type": "array", "minItems": 1 },
+          "content_commitment_refs": { "type": "array", "minItems": 1 },
+          "receipt_refs": { "type": "array", "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "policyRef": { "type": "string", "pattern": "^policy://[^\\s]{1,240}$" },
+    "artifactRef": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,240}$"
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"
+    },
+    "canonicalDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

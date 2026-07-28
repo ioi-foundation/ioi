@@ -1,0 +1,26 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/durable-custody/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_resource_cleanup_obligation.resource_refs.unique",
+      "description": "Each resource identity commitment appears at most once; one obligation never double-counts a resource.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.resource_refs",
+        "fields": ["identity_commitment"]
+      }
+    },
+    {
+      "rule_id": "hypervisor_resource_cleanup_obligation.closing_disposition.receipted",
+      "description": "Completion, quarantine, or authorized abandonment is an admitted, receipted disposition, never garbage-collection inference: a closing status requires at least one receipt.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.receipt_refs",
+        "when_path": "$.status",
+        "values": ["completed", "quarantined", "abandoned"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-development-environment-recipe/task-service-port-identity/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_development_environment_recipe.init_tasks.unique_names",
+      "description": "Recipe resolution derives required_task_refs by task name; a duplicated init-task name would double-count or shadow a required edge.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.init_tasks",
+        "fields": ["name"]
+      }
+    },
+    {
+      "rule_id": "hypervisor_development_environment_recipe.prebuild_tasks.unique_names",
+      "description": "Prebuild task names are resolution identities and must be unique within the recipe.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.prebuild_tasks",
+        "fields": ["name"]
+      }
+    },
+    {
+      "rule_id": "hypervisor_development_environment_recipe.post_start_tasks.unique_names",
+      "description": "Post-start task names are resolution identities and must be unique within the recipe.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.post_start_tasks",
+        "fields": ["name"]
+      }
+    },
+    {
+      "rule_id": "hypervisor_development_environment_recipe.services.unique_names",
+      "description": "Service names gate readiness (required_service_refs match on name); a duplicated service name would make the readiness edge ambiguous.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.services",
+        "fields": ["name"]
+      }
+    },
+    {
+      "rule_id": "hypervisor_development_environment_recipe.ports.unique",
+      "description": "One declared port row per port number; the resolution's required_port_refs must never double-count a port.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.ports",
+        "fields": ["port"]
+      }
+    }
+  ]
+}

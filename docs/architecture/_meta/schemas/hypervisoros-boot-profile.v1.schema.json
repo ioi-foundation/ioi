@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
+  "title": "HypervisorOSBootProfile",
+  "description": "DESIRED boot posture for HypervisorOS nodes of one estate: exact measurement floors, minimum admissible attestation posture, a monotonic rollback version floor, and the exact TemporalVerificationProfile binding that qualifies boot-receipt freshness. This is an owner-authorized desired record; it never asserts an observed measurement.",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.hypervisoros-boot-profile.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "boot_profile_id",
+    "owner_ref",
+    "image_hash",
+    "kernel_hash",
+    "initrd_hash",
+    "daemon_binary_hash",
+    "package_manifest_hash",
+    "driver_manifest_hash",
+    "gpu_profile",
+    "secure_boot",
+    "tpm_measurement",
+    "attestation_assurance",
+    "update_policy",
+    "temporal_verification_profile_ref",
+    "temporal_verification_profile_hash",
+    "asserts_observed_measurement",
+    "predecessor_boot_profile_root",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.components.daemon-runtime.hypervisoros-boot-profile.v1"
+    },
+    "boot_profile_id": {
+      "type": "string",
+      "pattern": "^boot-profile://[^\\s]{1,248}$"
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:wallet|provider|org)://[^\\s]{1,248}$"
+    },
+    "image_hash": { "$ref": "#/$defs/hash" },
+    "kernel_hash": { "$ref": "#/$defs/hash" },
+    "initrd_hash": { "$ref": "#/$defs/hash" },
+    "daemon_binary_hash": { "$ref": "#/$defs/hash" },
+    "package_manifest_hash": { "$ref": "#/$defs/hash" },
+    "driver_manifest_hash": { "$ref": "#/$defs/hash" },
+    "gpu_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "model_hint"],
+      "properties": {
+        "class": { "enum": ["consumer", "datacenter", "confidential_capable"] },
+        "model_hint": { "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    },
+    "secure_boot": { "enum": ["enabled", "disabled", "policy_declared"] },
+    "tpm_measurement": { "enum": ["enabled", "disabled", "unavailable"] },
+    "attestation_assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "appraisal_policy_ref",
+        "required_posture",
+        "trusted_endorsement_refs",
+        "trusted_reference_value_refs",
+        "maximum_appraisal_age_ms",
+        "maximum_reattestation_interval_ms"
+      ],
+      "properties": {
+        "appraisal_policy_ref": { "$ref": "#/$defs/policyRef" },
+        "required_posture": { "$ref": "#/$defs/posture" },
+        "trusted_endorsement_refs": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^endorsement://[^\\s]{1,248}$" },
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "trusted_reference_value_refs": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^reference://[^\\s]{1,248}$" },
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "maximum_appraisal_age_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "maximum_reattestation_interval_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "update_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signed_updates_required",
+        "rollback_protection_profile_ref",
+        "rollback_domain_ref",
+        "protected_namespace_floor_kind",
+        "rollback_floor",
+        "reanchor_after_boot_restore_or_replacement"
+      ],
+      "properties": {
+        "signed_updates_required": { "const": true },
+        "rollback_protection_profile_ref": { "$ref": "#/$defs/policyRef" },
+        "rollback_domain_ref": {
+          "type": "string",
+          "pattern": "^failure-domain://[^\\s]{1,248}$"
+        },
+        "protected_namespace_floor_kind": {
+          "const": "signed_update_version_and_image_head"
+        },
+        "rollback_floor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minimum_version_counter", "floor_image_head_hash"],
+          "properties": {
+            "minimum_version_counter": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "floor_image_head_hash": { "$ref": "#/$defs/nullableHash" }
+          }
+        },
+        "reanchor_after_boot_restore_or_replacement": {
+          "enum": ["required", "policy_bounded"]
+        }
+      }
+    },
+    "temporal_verification_profile_ref": { "$ref": "#/$defs/policyRef" },
+    "temporal_verification_profile_hash": { "$ref": "#/$defs/hash" },
+    "asserts_observed_measurement": { "const": false },
+    "predecessor_boot_profile_root": {
+      "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }]
+    },
+    "status": { "enum": ["declared", "superseded"] },
+    "created_at": { "$ref": "#/$defs/dateTime" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nullableHash": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "policyRef": { "type": "string", "pattern": "^policy://[^\\s]{1,248}$" },
+    "posture": {
+      "enum": [
+        "trusted_operator",
+        "software_only",
+        "measured_boot",
+        "secure_element",
+        "cpu_tee",
+        "gpu_confidential_compute",
+        "cpu_tee_and_gpu_confidential_compute"
+      ]
+    },
+    "dateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

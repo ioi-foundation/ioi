@@ -1,0 +1,322 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-node-membership/v1",
+  "title": "AutonomousSystemNodeMembership",
+  "description": "Observed per-node membership record for one bounded System: admitted identity, roles, readiness posture, catch-up watermark, state-root binding, and the canonical status ladder. This is observed truth only; desired topology lives in a distinct record and never fabricates any field here.",
+  "x-ioi-schema-version": "ioi.autonomous-system-node-membership.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "node_membership_id",
+    "system_id",
+    "deployment_profile_ref",
+    "node_id",
+    "node_owner_ref",
+    "membership_epoch",
+    "membership_lease_ref",
+    "role_assignments",
+    "failure_domain_refs",
+    "failure_independence_evidence_refs",
+    "node_attestation_refs",
+    "conformance_profile_refs",
+    "admission",
+    "synchronization",
+    "writer_fencing",
+    "observation",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.autonomous-system-node-membership.v1" },
+    "node_membership_id": {
+      "type": "string",
+      "pattern": "^node-membership://[^\\s]{1,248}$"
+    },
+    "system_id": { "$ref": "#/$defs/systemRef" },
+    "deployment_profile_ref": { "$ref": "#/$defs/deploymentRevisionRef" },
+    "node_id": { "$ref": "#/$defs/nodeRef" },
+    "node_owner_ref": {
+      "type": "string",
+      "pattern": "^(?:wallet|org|project)://[^\\s]{1,248}$"
+    },
+    "membership_epoch": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "membership_lease_ref": { "$ref": "#/$defs/leaseRef" },
+    "role_assignments": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "role_scope_refs",
+          "authority_grant_refs",
+          "role_lease_ref",
+          "admitted_epoch",
+          "valid_from",
+          "expires_at"
+        ],
+        "properties": {
+          "role": { "$ref": "#/$defs/nodeRole" },
+          "role_scope_refs": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/canonicalRef" },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "authority_grant_refs": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/grantRef" },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "role_lease_ref": { "$ref": "#/$defs/nullableLeaseRef" },
+          "admitted_epoch": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "valid_from": { "$ref": "#/$defs/nullableDateTime" },
+          "expires_at": { "$ref": "#/$defs/nullableDateTime" }
+        }
+      }
+    },
+    "failure_domain_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/canonicalRef" },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "failure_independence_evidence_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceRef" },
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "node_attestation_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceRef" },
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "conformance_profile_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/canonicalRef" },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal_ref",
+        "decision_ref",
+        "admitted_constitution_root",
+        "admitted_manifest_root",
+        "admitted_deployment_profile_root"
+      ],
+      "properties": {
+        "proposal_ref": { "type": "string", "pattern": "^proposal://[^\\s]{1,248}$" },
+        "decision_ref": { "type": "string", "pattern": "^decision://[^\\s]{1,248}$" },
+        "admitted_constitution_root": { "$ref": "#/$defs/hash" },
+        "admitted_manifest_root": { "$ref": "#/$defs/hash" },
+        "admitted_deployment_profile_root": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "synchronization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoint_ref",
+        "operation_offset",
+        "verified_state_root",
+        "catchup_receipt_ref",
+        "verified_at"
+      ],
+      "properties": {
+        "checkpoint_ref": {
+          "anyOf": [
+            { "type": "string", "pattern": "^checkpoint://[^\\s]{1,248}$" },
+            { "type": "null" }
+          ]
+        },
+        "operation_offset": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "verified_state_root": { "$ref": "#/$defs/nullableHash" },
+        "catchup_receipt_ref": { "$ref": "#/$defs/nullableReceiptRef" },
+        "verified_at": { "$ref": "#/$defs/nullableDateTime" }
+      }
+    },
+    "writer_fencing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "writer_epoch",
+        "writer_epoch_transition_ref",
+        "writer_epoch_transition_hash",
+        "writer_lease_ref",
+        "promotion_receipt_ref"
+      ],
+      "properties": {
+        "writer_epoch": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            { "type": "null" }
+          ]
+        },
+        "writer_epoch_transition_ref": {
+          "anyOf": [
+            { "type": "string", "pattern": "^writer-transition://[^\\s]{1,248}$" },
+            { "type": "null" }
+          ]
+        },
+        "writer_epoch_transition_hash": { "$ref": "#/$defs/nullableHash" },
+        "writer_lease_ref": { "$ref": "#/$defs/nullableLeaseRef" },
+        "promotion_receipt_ref": { "$ref": "#/$defs/nullableReceiptRef" }
+      },
+      "if": {
+        "type": "object",
+        "properties": {
+          "writer_epoch": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "writer_epoch_transition_ref": { "type": "string" },
+          "writer_epoch_transition_hash": { "type": "string" },
+          "writer_lease_ref": { "type": "string" },
+          "promotion_receipt_ref": { "type": "string" }
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "readiness",
+        "health_observation_ref",
+        "heartbeat_ref",
+        "readiness_evidence_refs",
+        "last_heartbeat_at",
+        "last_observed_at",
+        "observation_expires_at"
+      ],
+      "properties": {
+        "readiness": {
+          "enum": ["unknown", "syncing", "ready", "degraded", "unreachable", "failed_closed"]
+        },
+        "health_observation_ref": {
+          "anyOf": [
+            { "type": "string", "pattern": "^(?:agentgres|event)://[^\\s]{1,248}$" },
+            { "type": "null" }
+          ]
+        },
+        "heartbeat_ref": {
+          "anyOf": [
+            { "type": "string", "pattern": "^(?:event|receipt)://[^\\s]{1,248}$" },
+            { "type": "null" }
+          ]
+        },
+        "readiness_evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidenceRef" },
+          "maxItems": 64,
+          "uniqueItems": true
+        },
+        "last_heartbeat_at": { "$ref": "#/$defs/nullableDateTime" },
+        "last_observed_at": { "$ref": "#/$defs/nullableDateTime" },
+        "observation_expires_at": { "$ref": "#/$defs/nullableDateTime" }
+      }
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "attesting",
+        "admitted",
+        "active",
+        "draining",
+        "suspended",
+        "revoked",
+        "left",
+        "failed_closed"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "observation": {
+            "type": "object",
+            "properties": { "readiness": { "const": "ready" } },
+            "required": ["readiness"]
+          }
+        },
+        "required": ["observation"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "synchronization": {
+            "type": "object",
+            "properties": {
+              "verified_state_root": { "type": "string" },
+              "catchup_receipt_ref": { "type": "string" }
+            },
+            "required": ["verified_state_root", "catchup_receipt_ref"]
+          }
+        },
+        "required": ["synchronization"]
+      }
+    }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nullableHash": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "systemRef": { "type": "string", "pattern": "^system://[^\\s]{1,248}$" },
+    "nodeRef": { "type": "string", "pattern": "^node://[^\\s]{1,248}$" },
+    "deploymentRevisionRef": {
+      "type": "string",
+      "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "leaseRef": { "type": "string", "pattern": "^lease://[^\\s]{1,248}$" },
+    "nullableLeaseRef": { "anyOf": [{ "$ref": "#/$defs/leaseRef" }, { "type": "null" }] },
+    "nullableReceiptRef": {
+      "anyOf": [
+        { "type": "string", "pattern": "^receipt://[^\\s]{1,248}$" },
+        { "type": "null" }
+      ]
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+    },
+    "grantRef": { "type": "string", "pattern": "^grant://[^\\s]{1,248}$" },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+    },
+    "nodeRole": {
+      "enum": [
+        "admission_writer",
+        "hot_standby",
+        "state_replica",
+        "projection_replica",
+        "execution_worker",
+        "artifact_replica",
+        "verifier",
+        "availability_witness",
+        "gateway",
+        "authority_member",
+        "consensus_member"
+      ]
+    },
+    "nullableDateTime": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        { "type": "null" }
+      ]
+    }
+  }
+}
