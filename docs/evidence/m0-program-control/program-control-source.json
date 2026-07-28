@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-27",
+  "as_of_date": "2026-07-28",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -372,7 +372,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/objects/bounded-system-genesis.md",
-      "source_sha256": "eb863aee5cab195da7ec195088700a3c4c2cb3a86459748d7b1171945493b4c1"
+      "source_sha256": "7cfde298938ac076433a4f72090b08b73333ec5f1ffe83955b2220041093b0d7"
     },
     {
       "role": "landed owner canon",
@@ -477,7 +477,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/platform-operability.md",
-      "source_sha256": "b731038841daa1354eda6cb1cfa22630afb72a67647a337ba7398158f1f81e62"
+      "source_sha256": "e70943af1d34c7b6c06be156d57f17b21a1ef888cae79c9566b8c644413335a9"
     },
     {
       "role": "landed owner canon",
@@ -507,7 +507,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
-      "source_sha256": "f96ca0465ef05b105f00df58ca4181ed5004d6842aed107c0e1c5214823ee4ff"
+      "source_sha256": "971ac013517b427f38506584f355fbce6a661e59a4965ae15185f33efe5f682b"
     },
     {
       "role": "landed owner canon",
@@ -517,7 +517,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/providers-and-environments.md",
-      "source_sha256": "c8d7aa320ad381547f8439dabdb807c940077c651514e2fbc2cf49b58cd9fc6d"
+      "source_sha256": "500e807fec7a172a548dc1f750d76d6e6def872015a168ff77913449a7146ca2"
     },
     {
       "role": "landed owner canon",
@@ -559,7 +559,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "0179b75b89387ebff662645a74d8fd9beb1584bff040c378b68b89793651e060"
+            "source_sha256": "eadb9b2ae48b70f98e4c86dc304293f431ad0a2bfe1e78dc8ae3c9a58a175441"
           },
           {
             "note": "enumerated IBC HTTP registry",
@@ -734,7 +734,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "0179b75b89387ebff662645a74d8fd9beb1584bff040c378b68b89793651e060"
+            "source_sha256": "eadb9b2ae48b70f98e4c86dc304293f431ad0a2bfe1e78dc8ae3c9a58a175441"
           },
           {
             "note": "enumerated signer POST /sign surface",
@@ -1657,19 +1657,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "f251ea8bd47310493ecd34924d4095c24ecd432357dfbd8b11e1ef54be849f1b",
-    "review_epoch_id": "m1-7-product-surfaces-census-reentry-review-2026-07-27",
-    "review_lock_sha256": "632d56a39afc62854186954b38fddc0b724db86493b411b2d1d2f78e9949e677",
+    "program_source_material_sha256": "9f56c852247cf68b25c843bc5804c6b845c4ba93967e6d884217320499279660",
+    "review_epoch_id": "m2-build-wave-census-reentry-review-2026-07-28",
+    "review_lock_sha256": "b8d1d91f252579a693592f787994144616dc0afb48d6a56197c27164beb5a6d7",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
-    "reviewed_as_of": "2026-07-27",
-    "reviewed_entry_set_sha256": "ad440483e2e4b4bc410b03e4557bcb20927433c0b747ea0621adfe0a5702d6c7",
-    "reviewed_identity_set_sha256": "a81358ef702c171aec372ac3d3bd2c583c818ac40296dc8e933a2bd9e443caf5",
-    "reviewer_label": "claude-fable-5-m0-closure",
+    "reviewed_as_of": "2026-07-28",
+    "reviewed_entry_set_sha256": "d975ae0cff0fe1108a344f2ee1abcfdc413701ee2368c410e1687ab8829b68da",
+    "reviewed_identity_set_sha256": "81eb8481e2608afa9c948eae13aaa2ec2c8453cb10f0bc335f36b8164e351305",
+    "reviewer_label": "claude-fable-5-m2-wave-census",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "1b82b4c231d04a1ac209dc3bb01f182b718accffd24ce870424ffdc7855850eb",
-    "snapshot_head_sequence": 20,
-    "snapshot_predecessor_entry_sha256": "d28fa10c91ce3077cee69b2f5620d387b8dc312fb8200d90ec8eb48181b24030",
+    "snapshot_head_entry_sha256": "45335a09d601925aa1c1ec2fc5613b4fcf1f68d956dfd924f77689bd8bd345d8",
+    "snapshot_head_sequence": 21,
+    "snapshot_predecessor_entry_sha256": "1b82b4c231d04a1ac209dc3bb01f182b718accffd24ce870424ffdc7855850eb",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

@@ -2156,15 +2156,17 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/hypervisoros/nodes/boot-profile",
-            post(hypervisoros_node_routes::handle_declare_boot_profile).layer(
-                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
-            ),
+            post(hypervisoros_node_routes::handle_declare_boot_profile)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
         )
         .route(
             "/v1/hypervisor/hypervisoros/nodes/temporal-profile",
-            post(hypervisoros_node_routes::handle_declare_temporal_profile).layer(
-                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
-            ),
+            post(hypervisoros_node_routes::handle_declare_temporal_profile)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
         )
         .route(
             "/v1/hypervisor/hypervisoros/nodes/transitions/:op",
@@ -2179,14 +2181,15 @@ async fn async_main() -> anyhow::Result<()> {
             get(system_membership_routes::handle_get_projection),
         )
         .route(
-            system_topology_routes::MINIMUM_TOPOLOGY_ROUTE,
+            "/v1/hypervisor/autonomous-systems/:id/topology/minimum",
             get(system_topology_routes::handle_get_minimum_topology),
         )
         .route(
             "/v1/hypervisor/autonomous-systems/:id/membership/desired-topology",
-            post(system_membership_routes::handle_declare_desired_topology).layer(
-                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
-            ),
+            post(system_membership_routes::handle_declare_desired_topology)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
         )
         .route(
             "/v1/hypervisor/autonomous-systems/:id/membership/:op",
@@ -2202,9 +2205,10 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/autonomous-systems/:id/writer/failover-profile",
-            post(system_writer_routes::handle_declare_failover_profile).layer(
-                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
-            ),
+            post(system_writer_routes::handle_declare_failover_profile)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
         )
         .route(
             "/v1/hypervisor/autonomous-systems/:id/writer/lost-suffixes",
@@ -2212,9 +2216,10 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/autonomous-systems/:id/writer/lost-suffixes/resolution",
-            post(system_writer_routes::handle_lost_suffix_resolution).layer(
-                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
-            ),
+            post(system_writer_routes::handle_lost_suffix_resolution)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
         )
         .route(
             "/v1/hypervisor/autonomous-systems/:id/writer/transitions/:kind",

@@ -396,12 +396,28 @@
       "predecessor_entry_sha256": "d28fa10c91ce3077cee69b2f5620d387b8dc312fb8200d90ec8eb48181b24030",
       "reviewer_id": "claude-fable-5-m0-closure",
       "sequence": 20
+    },
+    {
+      "epoch_id": "m2-build-wave-census-reentry-review-2026-07-28",
+      "latest_epoch_identity_set_sha256": "81eb8481e2608afa9c948eae13aaa2ec2c8453cb10f0bc335f36b8164e351305",
+      "latest_epoch_reviewed_entry_count": 1319,
+      "latest_epoch_reviewed_entry_set_sha256": "d975ae0cff0fe1108a344f2ee1abcfdc413701ee2368c410e1687ab8829b68da",
+      "program_source_material_sha256": "9f56c852247cf68b25c843bc5804c6b845c4ba93967e6d884217320499279660",
+      "review_lock_sha256": "b8d1d91f252579a693592f787994144616dc0afb48d6a56197c27164beb5a6d7",
+      "reviewed_as_of": "2026-07-28",
+      "total_reviewed_entry_count": 1572,
+      "total_reviewed_entry_set_sha256": "699ebcf0b932ca6c37fb22fb610f6217a7ac8414c7cc484dbe6bc6c950fd7423",
+      "total_reviewed_identity_set_sha256": "3bb733405e18c27c1ae7985617037ce3deb9a06dadadfc4b684f094aa38a03f0",
+      "authorship_binding": "self_declared_unsigned",
+      "predecessor_entry_sha256": "1b82b4c231d04a1ac209dc3bb01f182b718accffd24ce870424ffdc7855850eb",
+      "reviewer_id": "claude-fable-5-m2-wave-census",
+      "sequence": 21
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "1b82b4c231d04a1ac209dc3bb01f182b718accffd24ce870424ffdc7855850eb",
-    "epoch_id": "m1-7-product-surfaces-census-reentry-review-2026-07-27",
-    "sequence": 20
+    "entry_sha256": "45335a09d601925aa1c1ec2fc5613b4fcf1f68d956dfd924f77689bd8bd345d8",
+    "epoch_id": "m2-build-wave-census-reentry-review-2026-07-28",
+    "sequence": 21
   }
 }
