@@ -132,6 +132,8 @@ mod resource_routes;
 mod room_participation_routes;
 #[path = "hypervisor_daemon_routes/runpod_candidate_source.rs"]
 mod runpod_candidate_source;
+#[path = "hypervisor_daemon_routes/scm_publication_routes.rs"]
+mod scm_publication_routes;
 #[path = "hypervisor_daemon_routes/state_machine_routes.rs"]
 mod state_machine_routes;
 #[path = "hypervisor_daemon_routes/storage_backend_routes.rs"]
@@ -2935,9 +2937,26 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/scm-connect/github-app/installation",
             post(lifecycle_routes::handle_github_app_installation),
         )
+        // The publication crossing, rebuilt against the registered
+        // ScmPublicationEffect contract: an admitted destination binding, an
+        // enumerated proposal-bound change set, an expected-head
+        // compare-and-swap, and two separately receipted sub-effects.
         .route(
             "/v1/hypervisor/environments/:id/scm/publish",
-            post(lifecycle_routes::handle_scm_publish),
+            post(scm_publication_routes::handle_scm_publish),
+        )
+        .route(
+            "/v1/hypervisor/scm-destination-bindings",
+            get(scm_publication_routes::handle_destination_binding_list)
+                .post(scm_publication_routes::handle_destination_binding_admit),
+        )
+        .route(
+            "/v1/hypervisor/scm-publication-proposals",
+            post(scm_publication_routes::handle_publication_proposal_admit),
+        )
+        .route(
+            "/v1/hypervisor/scm-publication-effects",
+            get(scm_publication_routes::handle_publication_effect_list),
         )
         // T7-E: interactive PTY terminals bound to an environment_ref.
         .route(

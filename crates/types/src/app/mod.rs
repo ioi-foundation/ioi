@@ -48,6 +48,10 @@ pub mod penalties;
 pub mod runtime;
 /// Compatibility re-export surface for unified agent runtime contracts.
 pub mod runtime_contracts;
+/// Source-control publication plane: the compiler for one immutable,
+/// receipted `ScmPublicationEffect` (bounded destination, proposal-bound
+/// change set, expected-head compare-and-swap, two receipted sub-effects).
+pub mod scm_publication;
 /// Data structures for economic settlement.
 pub mod settlement;
 pub mod system_activation;
