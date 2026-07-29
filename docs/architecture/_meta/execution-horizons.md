@@ -4,7 +4,7 @@ Status: canonical architecture note.
 Canonical owner: this file for the horizon framing that separates the launch wedge from long-horizon breadth without narrowing canon.
 Supersedes: readings of the canon that mistake speculative breadth for current shipped surface, or that treat horizon labels as scope deletion.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-07-29.
 Doctrine status: canonical
 Implementation status: mixed (this note classifies; subject owners carry per-file status)
 Last implementation audit: 2026-07-05
@@ -143,35 +143,31 @@ vertical, not by simulating the entire roadmap.
 ## Undeniable-product proof gate
 
 The first profile crosses from architecture demonstration to product proof only
-when one operator can complete this visible journey through supported product
-surfaces and public contracts:
+when one operator completes this twenty-two-step journey of checkable
+product/operator states through supported surfaces and public contracts:
 
-```text
-verify the selected release, signer, integrity, and supply-chain evidence
-  -> preview install paths, endpoints, custody, supervision, egress, and effects
-  -> install and bootstrap deployment-local identity and authority posture
-  -> start the client, daemon, and declared Agentgres posture
-  -> pass bounded readiness and inspect status, doctor findings, and logs
-  -> authenticate through the deployment-local or connected identity lane
-  -> choose the bounded software-change template
-  -> describe the goal, repository, constraints, authority, and acceptance
-  -> inspect and explicitly accept any discovery candidate and overrides
-  -> validate, preview, and simulate one compiled package/genesis proposal
-  -> approve genesis and inspect the stable System
-  -> start or admit the GoalRun in its OutcomeRoom-backed work context
-  -> observe planning, claimed work, attempts, verification, and blockers
-  -> review the exact proposed repository effect
-  -> satisfy the lane's exact scoped authority ceremony
-  -> let the daemon revalidate and execute or refuse the effect
-  -> inspect the diff, tests, evidence admission, receipt chain, state root,
-     costs, provider route, and learning eligibility
-  -> replay the decision and effect from exported evidence
-  -> create and verify a manifest-complete backup
-  -> prepare a restore without mutation, then apply or refuse it through a
-     fenced change plan and verify the resulting root/readiness
-  -> propose an upgrade, exercise rollback or recall, and retire the System
-  -> stop and uninstall without implicit data wipe
-```
+1. verify the selected release, signer, integrity, and supply-chain evidence
+2. preview install paths, endpoints, custody, supervision, egress, and effects
+3. install and bootstrap deployment-local identity and authority posture
+4. start the client, daemon, and declared Agentgres posture
+5. pass bounded readiness and inspect status, doctor findings, and logs
+6. authenticate through the deployment-local or connected identity lane
+7. choose the bounded software-change template
+8. describe the goal, repository, constraints, authority, and acceptance
+9. inspect and explicitly accept any discovery candidate and overrides
+10. validate, preview, and simulate one compiled package/genesis proposal
+11. approve genesis and inspect the stable System
+12. start or admit the GoalRun in its OutcomeRoom-backed work context
+13. observe planning, claimed work, attempts, verification, and blockers
+14. review the exact proposed repository effect
+15. satisfy the lane's exact scoped authority ceremony
+16. let the daemon revalidate and execute or refuse the effect
+17. inspect the diff, tests, evidence admission, receipt chain, state root, costs, provider route, and learning eligibility
+18. replay the decision and effect from exported evidence
+19. create and verify a manifest-complete backup
+20. prepare a restore without mutation, then apply or refuse it through a fenced change plan and verify the resulting root/readiness
+21. propose an upgrade, exercise rollback or recall, and retire the System
+22. stop and uninstall without implicit data wipe
 
 The gate fails if any step requires hidden database edits, a privileged
 one-off script unavailable to the product, copied bearer authority, an
@@ -226,6 +222,44 @@ non-mutation, active-head preservation under failed/late execution,
 uninstall-without-wipe, export/import portability, and the amount of
 architecture vocabulary exposed to a first-time operator. Thresholds and baseline cohorts are
 release-program decisions; omitting the measurements is not.
+
+**The continuous maintenance lane.** That journey is the goal-initiated
+activation mode; the same institution has a second — continuous maintenance —
+where a product signal raises an AutomationRun, the run opens or updates a
+typed HypervisorWorkItem, and only an item needing adaptive convergence
+escalates into a GoalRun through the ordinary GoalRunActivation crossing. Both
+converge on one spine — same admission, evaluation, exact-effect authority,
+receipts, recovery, and evidence — with no second runtime, plane, or authority
+path. The goal-initiated mode closes the internal product-proof rung; the
+continuous lane is the differentiator of the selected external design-partner
+profile only, and leaves that rung's generic claim — "independent users
+complete the journey on their data with disclosed support and limits" —
+unchanged (ADR 0024).
+
+**External-surface integrity rule.** No surface reachable during a claimed
+journey may present externally derived product identity, faculty naming,
+taxonomy, sample data, branding, assets, links, or vocabulary as its own. Each
+compiles from IOI's canonical catalogs, uses IOI-owned taxonomy and examples,
+carries no externally derived implementation as a fallback, and omits or
+honestly marks unavailable whatever is not operationally bound; a catalog need
+not implement every entry. The rule names no source, binds only the claim's
+reachable surfaces — not the whole repository, not unreachable internal or
+reference material — and never bars licensed, attributed dependencies, whose
+notices stay. Externally derived surfaces are transitional scaffolding, not
+intended architecture: each retires atomically when its IOI replacement is
+Hypervisor-bound — compiled from IOI's canonical surface/catalog registrations,
+reading real daemon/Agentgres owner state, routing consequential actions
+through authority, receipts, and final invokers, handling empty, denied,
+degraded, recovery, and failure states, passing its operational journey,
+accessibility, and product-truth gates, and keeping no externally derived
+production fallback. All six hold or it is not bound: visual parity is never
+evidence of binding, and keeping two sources for one surface is its own failure
+mode. Surfaces in a claim's reachable closure retire before that claim; the
+rest retire as their replacements become operational, and block nothing.
+Shipping product is first-party IOI UX bound to Hypervisor contracts;
+non-shipping provenance is isolated reference evidence plus required notices;
+an external source is never a runtime dependency, fallback, taxonomy owner, or
+product surface.
 
 ## The first proof — a ruling
 
