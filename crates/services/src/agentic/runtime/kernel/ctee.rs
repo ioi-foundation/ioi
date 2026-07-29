@@ -1,3 +1,22 @@
+//! cTEE private-workspace ADMISSION PLANNER.
+//!
+//! CLAIM TRUTH — read this before citing anything here as a confidential-compute property.
+//! This module performs NO execution: no process, no VM, no enclave, and no verification of any
+//! attestation. It validates the shape of an invocation, applies the custody-lane policy, and
+//! emits a receipt-shaped record. Specifically:
+//!
+//! - `execute_and_admit` never runs the described action; its result status is a constant.
+//! - `execution_result_ref` is a formatted string, not a handle to a computation.
+//! - `state_root_after` is a hash of the REQUEST (`state_root_before` + invocation + receipt),
+//!   not of any computed state.
+//! - [`CteeNodeTrust::trusted_for_plaintext`] and `attestation_ref` are CALLER-SUPPLIED over
+//!   HTTP. Nothing verifies a quote, a measurement, or a signature; a present non-empty string
+//!   is the whole of "attestation" here.
+//!
+//! The policy refusals ARE real — an untrusted node cannot take a plaintext mount, and
+//! caller-supplied expected heads are rejected. They just guard a planner, not an enclave.
+//! Report [`CTEE_ISOLATION_STANDING`] rather than a confidential-compute claim.
+
 use super::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresAdmissionError, AgentgresAdmissionRecord,
     AgentgresOperationProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
@@ -19,6 +38,19 @@ pub const CTEE_PRIVATE_WORKSPACE_RECEIPT_SCHEMA_VERSION: &str =
     "ioi.ctee_private_workspace_receipt.v1";
 pub const CTEE_PLAINTEXT_UNTRUSTED_NEGATIVE_CONFORMANCE: &str =
     "cTEE private workspace plaintext mount on an untrusted node fails";
+
+/// The WITHDRAWN isolation label for this backend.
+///
+/// CONTAINMENT: nothing in this module establishes a trusted-execution or confidential-compute
+/// property. Surfaces reporting on the cTEE backend must publish this string instead of a
+/// hardware/enclave isolation claim.
+pub const CTEE_ISOLATION_STANDING: &str = "unverified_no_execution_backend";
+
+/// Whether the described action was actually performed by this module.
+///
+/// CONTAINMENT: always `false`. This planner admits and records; it does not execute. Callers
+/// previously reported `action_executed: true` for a code path that runs nothing.
+pub const CTEE_ACTION_EXECUTED: bool = false;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CteePrivateWorkspaceError {

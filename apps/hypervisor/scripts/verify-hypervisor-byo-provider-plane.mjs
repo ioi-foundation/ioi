@@ -271,8 +271,19 @@ async function run() {
     && cls["byo-ssh-node"]?.provider_eligibility?.credential_kind === "ssh_key"
     && cls["byo-ssh-node"]?.provider_eligibility?.spend_posture === "customer_borne_byo"
     && (cls["byo-ssh-node"]?.provider_eligibility?.required_capabilities || []).includes("ssh"));
-  ok("class enabled-honesty: microvm gap fixed; vm/devcontainer honestly disabled (no real path)",
-    cls["microvm"]?.enabled === true && cls["microvm"]?.enabled_backing?.real === true
+  // EVIDENCE QUARANTINE (emergency containment): the microVM half of this bar used to assert
+  // `cls["microvm"].enabled === true && enabled_backing.real === true` against a handler arm
+  // that was an unconditional constant. It tested a literal, could never fail, and carried zero
+  // information about isolation availability — while being labelled "enabled-honesty". That
+  // sub-claim is NON-AUTHORITATIVE and must not be cited as evidence that a microVM lane is
+  // operational. The handler now probes the pinned, checksum-verified VM toolchain, so the
+  // honest bar is that the reported value MATCHES the probe — on a host with no toolchain the
+  // correct answer is `enabled: false` with a named reason, and that must PASS.
+  ok("class enabled-honesty: microvm enablement is probe-derived (not asserted); vm/devcontainer honestly disabled",
+    typeof cls["microvm"]?.enabled === "boolean"
+    && cls["microvm"]?.enabled === cls["microvm"]?.enabled_backing?.real
+    && (cls["microvm"]?.enabled === true
+        || typeof cls["microvm"]?.enabled_backing?.unavailable_reason === "string")
     && cls["local-workspace-v0"]?.enabled === true
     && cls["vm"]?.enabled === false && cls["vm"]?.enabled_backing?.real === false
     && cls["devcontainer"]?.enabled === false);

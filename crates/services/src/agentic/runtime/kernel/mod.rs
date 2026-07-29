@@ -16,6 +16,7 @@ pub mod coding_tool_step_module;
 pub mod coding_tool_workspace;
 pub mod ctee;
 pub mod deadline;
+pub mod emergency_containment;
 pub mod evidence;
 pub mod governed_admission;
 pub mod governed_receipt;

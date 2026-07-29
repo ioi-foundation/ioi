@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::ctee::{CteeNodeTrust, PrivateWorkspaceCteeModule};
+use super::ctee::{self, CteeNodeTrust, PrivateWorkspaceCteeModule};
 use super::marketplace::{
     WorkerServicePackageInvocationCore, WorkerServicePackageInvocationRequest,
 };
@@ -97,7 +97,14 @@ pub fn execute_private_workspace_ctee_action_protocol_response(
         "schema_version": "ioi.runtime.ctee_private_workspace_admission.v1",
         "object": "ioi.runtime_ctee_private_workspace_admission",
         "status": "admitted",
-        "action_executed": true,
+        // CONTAINMENT (claim truth): the cTEE module ADMITS; it executes nothing. This field was
+        // hardcoded `true` for a path that spawns no process, boots no VM, enters no enclave, and
+        // verifies no attestation. It now reports what is true, alongside the withdrawn isolation
+        // label so a consumer cannot read admission as confidential execution.
+        "action_executed": ctee::CTEE_ACTION_EXECUTED,
+        "isolation_standing": ctee::CTEE_ISOLATION_STANDING,
+        "attestation_verified": false,
+        "node_trust_source": "caller_supplied_unverified",
         "source": "rust_ctee_private_workspace_protocol",
         "backend": "ctee_operator",
         "thread_id": request.thread_id,
@@ -363,7 +370,18 @@ mod tests {
             "ioi.runtime_ctee_private_workspace_admission"
         );
         assert_eq!(response["status"], "admitted");
-        assert_eq!(response["action_executed"], true);
+        // CONTAINMENT (claim truth): this assertion previously pinned `action_executed == true`.
+        // It was pinning an OVERCLAIM: the cTEE path spawns no process, boots no VM, enters no
+        // enclave, and verifies no attestation, so nothing was ever executed. The bar now pins
+        // what the code actually does — admission without execution — plus the withdrawn
+        // isolation standing and the fact that node trust arrived from the caller unverified.
+        assert_eq!(response["action_executed"], false);
+        assert_eq!(
+            response["isolation_standing"],
+            "unverified_no_execution_backend"
+        );
+        assert_eq!(response["attestation_verified"], false);
+        assert_eq!(response["node_trust_source"], "caller_supplied_unverified");
         assert_eq!(response["thread_id"], "thread:ctee");
         assert_eq!(response["agent_id"], "agent:ctee");
         assert_eq!(

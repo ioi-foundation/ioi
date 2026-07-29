@@ -24,6 +24,10 @@ use sha2::{Digest, Sha256};
 use super::lifecycle_routes::{
     authorize_capability_lease, open_scm_token, seal_scm_token, CapabilityLeaseRequest,
 };
+use ioi_services::agentic::runtime::kernel::emergency_containment::{
+    close_deletion, DeletionOutcome,
+};
+
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
 fn nanos() -> u128 {
@@ -38,6 +42,46 @@ fn safe(seg: &str) -> String {
         "_",
     )
 }
+/// Derive the EXACT deletion outcome for a provider teardown.
+///
+/// CARVE-OUT: deletion of an existing provider resource always remains callable — this helper
+/// never refuses. It replaces a hardcoded `cleanup_verified: true` that every adapter emitted
+/// even when the provider-native destroy explicitly reported `destroyed: false` or when the
+/// remote-workspace cleanup was `"unreachable"`.
+///
+/// Mapping (`unknown` is first-class and never coerced):
+/// - `succeeded` — the provider confirmed destruction AND the remote cleanup was not unreachable.
+/// - `failed`    — the provider explicitly reported it did not destroy the resource.
+/// - `unknown`   — the provider returned no `destroyed` verdict, or the remote half was
+///   unreachable, so absence cannot be claimed.
+///
+/// Returns `(teardown_state, cleanup_verified, deletion_disposition)`.
+fn provider_teardown_disposition(
+    resource_ref: &str,
+    native_teardown: &Value,
+    remote_cleanup: &Value,
+) -> (&'static str, bool, Value) {
+    let destroyed = native_teardown.get("destroyed").and_then(Value::as_bool);
+    let remote_unreachable = remote_cleanup.as_str() == Some("unreachable");
+    let outcome = match (destroyed, remote_unreachable) {
+        (Some(true), false) => DeletionOutcome::Succeeded,
+        (Some(false), _) => DeletionOutcome::Failed,
+        // No verdict at all, or destroyed-but-remote-half-unreachable: honestly unknown.
+        (None, _) | (Some(true), true) => DeletionOutcome::Unknown,
+    };
+    let disposition = close_deletion(resource_ref, outcome);
+    let state = match outcome {
+        DeletionOutcome::Succeeded => "torn_down",
+        DeletionOutcome::Failed => "teardown_failed",
+        DeletionOutcome::Unknown => "torn_down_unverified",
+    };
+    (
+        state,
+        outcome == DeletionOutcome::Succeeded,
+        disposition.to_json(),
+    )
+}
+
 fn copy_tree(src: &Path, dst: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
@@ -1209,6 +1253,29 @@ impl EnvironmentProvider for VastProvider {
             });
             let body = created?;
             let native_id = body.get("new_contract").cloned().unwrap_or(Value::Null);
+
+            // CONTAINMENT (cleanup availability): the billable lease now EXISTS. Every step below
+            // is fallible, and the full record was previously only persisted at the very end — so
+            // a keygen, read, or seal failure returned Err after the GPU was already leased and
+            // billing, leaving no record at all. `delete` then failed `vast_instance_absent`
+            // forever: a resource the operator could not destroy.
+            //
+            // Persist a minimal TEARDOWN HANDLE immediately, before anything else can fail. It
+            // carries the provider-native id, so deletion stays callable no matter what follows.
+            // The full record overwrites this one on the success path.
+            let teardown_handle = json!({
+                "schema_version": "ioi.hypervisor.vast-instance.v1",
+                "record_id": record_id, "instance_id": format!("vast_{native_id}"),
+                "account_id": self.account_id(), "account_ref": self.account["account_ref"],
+                "environment_ref": env_ref, "status": "provisioning_incomplete",
+                "execution_mode": "live",
+                "teardown_policy": plan["teardown_policy"],
+                "provider_native": { "instance_id": native_id, "note": "provider-native id — evidence only, never restore truth" },
+                "created_at": iso_now(),
+                "containment_note": "teardown handle persisted immediately after the billable lease; delete stays callable even if provisioning fails below",
+            });
+            self.save_instance(data_dir, &teardown_handle);
+
             // Ephemeral per-instance ssh keypair: private key SEALED onto the record (never
             // plaintext), public key attached to the Vast account for this lease.
             let keydir = Path::new(data_dir).join("provider-ssh");
@@ -1494,14 +1561,28 @@ impl EnvironmentProvider for VastProvider {
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — no real instance existed" })
         };
-        inst["status"] = json!("torn_down");
+        // CARVE-OUT: record the EXACT deletion outcome. `teardown_state` was unconditionally
+        // "torn_down" and `cleanup_verified` unconditionally true, even when the provider-native
+        // destroy reported `destroyed: false`. Non-succeeded outcomes now open a durable obligation.
+        let (teardown_state, cleanup_verified, deletion_disposition) =
+            provider_teardown_disposition(
+                &format!(
+                    "provider-account://{}/resource/{}",
+                    self.account_id(),
+                    safe(env_ref)
+                ),
+                &native_teardown,
+                &remote_cleanup,
+            );
+        inst["status"] = json!(teardown_state);
         inst["torn_down_at"] = json!(iso_now());
+        inst["deletion_disposition"] = deletion_disposition.clone();
         self.save_instance(data_dir, &inst);
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
-                   "instance_id": inst["instance_id"], "teardown_state": "torn_down",
+                   "instance_id": inst["instance_id"], "teardown_state": teardown_state,
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }),
+                   "cleanup_verified": cleanup_verified, "deletion_disposition": deletion_disposition }),
         )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
@@ -1989,14 +2070,28 @@ impl EnvironmentProvider for RunPodProvider {
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — no real pod existed" })
         };
-        inst["status"] = json!("torn_down");
+        // CARVE-OUT: record the EXACT deletion outcome. `teardown_state` was unconditionally
+        // "torn_down" and `cleanup_verified` unconditionally true, even when the provider-native
+        // destroy reported `destroyed: false`. Non-succeeded outcomes now open a durable obligation.
+        let (teardown_state, cleanup_verified, deletion_disposition) =
+            provider_teardown_disposition(
+                &format!(
+                    "provider-account://{}/resource/{}",
+                    self.account_id(),
+                    safe(env_ref)
+                ),
+                &native_teardown,
+                &remote_cleanup,
+            );
+        inst["status"] = json!(teardown_state);
         inst["torn_down_at"] = json!(iso_now());
+        inst["deletion_disposition"] = deletion_disposition.clone();
         self.save_instance(data_dir, &inst);
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
-                   "instance_id": inst["instance_id"], "teardown_state": "torn_down",
+                   "instance_id": inst["instance_id"], "teardown_state": teardown_state,
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }),
+                   "cleanup_verified": cleanup_verified, "deletion_disposition": deletion_disposition }),
         )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
@@ -2521,14 +2616,28 @@ impl EnvironmentProvider for LambdaProvider {
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — no real VM existed" })
         };
-        inst["status"] = json!("torn_down");
+        // CARVE-OUT: record the EXACT deletion outcome. `teardown_state` was unconditionally
+        // "torn_down" and `cleanup_verified` unconditionally true, even when the provider-native
+        // destroy reported `destroyed: false`. Non-succeeded outcomes now open a durable obligation.
+        let (teardown_state, cleanup_verified, deletion_disposition) =
+            provider_teardown_disposition(
+                &format!(
+                    "provider-account://{}/resource/{}",
+                    self.account_id(),
+                    safe(env_ref)
+                ),
+                &native_teardown,
+                &remote_cleanup,
+            );
+        inst["status"] = json!(teardown_state);
         inst["torn_down_at"] = json!(iso_now());
+        inst["deletion_disposition"] = deletion_disposition.clone();
         self.save_instance(data_dir, &inst);
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
-                   "instance_id": inst["instance_id"], "teardown_state": "torn_down",
+                   "instance_id": inst["instance_id"], "teardown_state": teardown_state,
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }),
+                   "cleanup_verified": cleanup_verified, "deletion_disposition": deletion_disposition }),
         )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
@@ -2929,8 +3038,22 @@ impl EnvironmentProvider for GcpProvider {
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — instance deleted, Persistent Disk auto-deleted with the instance; no real GCP instance existed" })
         };
-        inst["status"] = json!("torn_down");
+        // CARVE-OUT: record the EXACT deletion outcome. `teardown_state` was unconditionally
+        // "torn_down" and `cleanup_verified` unconditionally true, even when the provider-native
+        // destroy reported `destroyed: false`. Non-succeeded outcomes now open a durable obligation.
+        let (teardown_state, cleanup_verified, deletion_disposition) =
+            provider_teardown_disposition(
+                &format!(
+                    "provider-account://{}/resource/{}",
+                    self.account_id(),
+                    safe(env_ref)
+                ),
+                &native_teardown,
+                &remote_cleanup,
+            );
+        inst["status"] = json!(teardown_state);
         inst["torn_down_at"] = json!(iso_now());
+        inst["deletion_disposition"] = deletion_disposition.clone();
         Self::push_event(
             &mut inst,
             "instance_deleted",
@@ -2939,9 +3062,9 @@ impl EnvironmentProvider for GcpProvider {
         self.save_instance(data_dir, &inst);
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
-                   "instance_name": inst["instance_name"], "teardown_state": "torn_down",
+                   "instance_name": inst["instance_name"], "teardown_state": teardown_state,
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }),
+                   "cleanup_verified": cleanup_verified, "deletion_disposition": deletion_disposition }),
         )
     }
     fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
@@ -3495,8 +3618,22 @@ impl EnvironmentProvider for K8sProvider {
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — workload/PVC/service deleted in the namespace; no real cluster workload existed" })
         };
-        w["status"] = json!("torn_down");
+        // CARVE-OUT: record the EXACT deletion outcome. `teardown_state` was unconditionally
+        // "torn_down" and `cleanup_verified` unconditionally true, even when the provider-native
+        // destroy reported `destroyed: false`. Non-succeeded outcomes now open a durable obligation.
+        let (teardown_state, cleanup_verified, deletion_disposition) =
+            provider_teardown_disposition(
+                &format!(
+                    "provider-account://{}/resource/{}",
+                    self.account_id(),
+                    safe(env_ref)
+                ),
+                &native_teardown,
+                &fs_cleanup,
+            );
+        w["status"] = json!(teardown_state);
         w["torn_down_at"] = json!(iso_now());
+        w["deletion_disposition"] = deletion_disposition.clone();
         Self::push_event(
             &mut w,
             "workload_deleted",
@@ -3505,9 +3642,9 @@ impl EnvironmentProvider for K8sProvider {
         self.save_workload(data_dir, &w);
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
-                   "workload_name": w["workload_name"], "teardown_state": "torn_down",
+                   "workload_name": w["workload_name"], "teardown_state": teardown_state,
                    "workload_fs_cleanup": fs_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }),
+                   "cleanup_verified": cleanup_verified, "deletion_disposition": deletion_disposition }),
         )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
@@ -3904,8 +4041,22 @@ impl EnvironmentProvider for AzureProvider {
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — VM deleted, managed OS disk deleted with the VM per delete option; no real Azure VM existed" })
         };
-        inst["status"] = json!("torn_down");
+        // CARVE-OUT: record the EXACT deletion outcome. `teardown_state` was unconditionally
+        // "torn_down" and `cleanup_verified` unconditionally true, even when the provider-native
+        // destroy reported `destroyed: false`. Non-succeeded outcomes now open a durable obligation.
+        let (teardown_state, cleanup_verified, deletion_disposition) =
+            provider_teardown_disposition(
+                &format!(
+                    "provider-account://{}/resource/{}",
+                    self.account_id(),
+                    safe(env_ref)
+                ),
+                &native_teardown,
+                &remote_cleanup,
+            );
+        inst["status"] = json!(teardown_state);
         inst["torn_down_at"] = json!(iso_now());
+        inst["deletion_disposition"] = deletion_disposition.clone();
         Self::push_event(
             &mut inst,
             "vm_deleted",
@@ -3914,9 +4065,9 @@ impl EnvironmentProvider for AzureProvider {
         self.save_instance(data_dir, &inst);
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
-                   "vm_name": inst["vm_name"], "teardown_state": "torn_down",
+                   "vm_name": inst["vm_name"], "teardown_state": teardown_state,
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }),
+                   "cleanup_verified": cleanup_verified, "deletion_disposition": deletion_disposition }),
         )
     }
     fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
@@ -4322,8 +4473,22 @@ impl EnvironmentProvider for AwsProvider {
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — instance terminated, EBS root volume deleted on termination; no real AWS instance existed" })
         };
-        inst["status"] = json!("torn_down");
+        // CARVE-OUT: record the EXACT deletion outcome. `teardown_state` was unconditionally
+        // "torn_down" and `cleanup_verified` unconditionally true, even when the provider-native
+        // destroy reported `destroyed: false`. Non-succeeded outcomes now open a durable obligation.
+        let (teardown_state, cleanup_verified, deletion_disposition) =
+            provider_teardown_disposition(
+                &format!(
+                    "provider-account://{}/resource/{}",
+                    self.account_id(),
+                    safe(env_ref)
+                ),
+                &native_teardown,
+                &remote_cleanup,
+            );
+        inst["status"] = json!(teardown_state);
         inst["torn_down_at"] = json!(iso_now());
+        inst["deletion_disposition"] = deletion_disposition.clone();
         Self::push_event(
             &mut inst,
             "instance_terminated",
@@ -4332,9 +4497,9 @@ impl EnvironmentProvider for AwsProvider {
         self.save_instance(data_dir, &inst);
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
-                   "instance_id": inst["instance_id"], "teardown_state": "torn_down",
+                   "instance_id": inst["instance_id"], "teardown_state": teardown_state,
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }),
+                   "cleanup_verified": cleanup_verified, "deletion_disposition": deletion_disposition }),
         )
     }
     fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
@@ -4892,8 +5057,22 @@ impl EnvironmentProvider for AkashProvider {
                 self.save_lease(data_dir, &lease);
             }
         }
-        dep["status"] = json!("torn_down");
+        // CARVE-OUT: record the EXACT deletion outcome. `teardown_state` was unconditionally
+        // "torn_down" and `cleanup_verified` unconditionally true, even when the provider-native
+        // destroy reported `destroyed: false`. Non-succeeded outcomes now open a durable obligation.
+        let (teardown_state, cleanup_verified, deletion_disposition) =
+            provider_teardown_disposition(
+                &format!(
+                    "provider-account://{}/resource/{}",
+                    self.account_id(),
+                    safe(env_ref)
+                ),
+                &native_teardown,
+                &remote_cleanup,
+            );
+        dep["status"] = json!(teardown_state);
         dep["torn_down_at"] = json!(iso_now());
+        dep["deletion_disposition"] = deletion_disposition.clone();
         Self::push_event(
             &mut dep,
             "closed",
@@ -4902,9 +5081,9 @@ impl EnvironmentProvider for AkashProvider {
         self.save_deployment(data_dir, &dep);
         Ok(
             json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
-                   "deployment_ref": dep["deployment_ref"], "teardown_state": "torn_down",
+                   "deployment_ref": dep["deployment_ref"], "teardown_state": teardown_state,
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }),
+                   "cleanup_verified": cleanup_verified, "deletion_disposition": deletion_disposition }),
         )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
@@ -6277,4 +6456,103 @@ pub(crate) async fn handle_provider_operations(State(st): State<Arc<DaemonState>
     Json(
         json!({ "schema_version": "ioi.hypervisor.provider-operations.v1", "operations": ops, "at": iso_now() }),
     )
+}
+
+#[cfg(test)]
+mod containment_tests {
+    use super::*;
+
+    // ---- CARVE-OUT: provider deletion stays callable and reports exactly ----
+
+    #[test]
+    fn a_confirmed_provider_destroy_is_succeeded_and_opens_no_obligation() {
+        let (state, verified, disposition) = provider_teardown_disposition(
+            "provider-account://acct/resource/env_1",
+            &json!({ "destroyed": true }),
+            &json!("gone"),
+        );
+        assert_eq!(state, "torn_down");
+        assert!(verified);
+        assert_eq!(disposition["outcome"], json!("succeeded"));
+        assert!(disposition["cleanup_obligation_ref"].is_null());
+    }
+
+    #[test]
+    fn an_explicit_destroy_failure_is_failed_and_opens_an_obligation() {
+        // This is the case that used to be reported as `cleanup_verified: true`.
+        let (state, verified, disposition) = provider_teardown_disposition(
+            "provider-account://acct/resource/env_1",
+            &json!({ "destroyed": false, "error": "api_error", "warning": "TEARDOWN MAY BE INCOMPLETE" }),
+            &json!("gone"),
+        );
+        assert_eq!(state, "teardown_failed");
+        assert!(!verified);
+        assert_eq!(disposition["outcome"], json!("failed"));
+        assert!(!disposition["cleanup_obligation_ref"].is_null());
+    }
+
+    #[test]
+    fn an_unimplemented_live_teardown_is_failed_never_verified() {
+        let (state, verified, disposition) = provider_teardown_disposition(
+            "provider-account://acct/resource/env_1",
+            &json!({ "destroyed": false, "error": "aws_live_api_flow_not_implemented" }),
+            &json!("gone"),
+        );
+        assert_eq!(state, "teardown_failed");
+        assert!(!verified);
+        assert_eq!(disposition["outcome"], json!("failed"));
+    }
+
+    #[test]
+    fn an_unreachable_remote_half_degrades_to_unknown_not_success() {
+        // Provider says destroyed, but the remote workspace cleanup could not be reached:
+        // absence is not provable, so the outcome is UNKNOWN and an obligation stays open.
+        let (state, verified, disposition) = provider_teardown_disposition(
+            "provider-account://acct/resource/env_1",
+            &json!({ "destroyed": true }),
+            &json!("unreachable"),
+        );
+        assert_eq!(state, "torn_down_unverified");
+        assert!(!verified);
+        assert_eq!(disposition["outcome"], json!("unknown"));
+        assert!(!disposition["cleanup_obligation_ref"].is_null());
+    }
+
+    #[test]
+    fn a_missing_destroyed_verdict_is_unknown_never_coerced() {
+        let (state, verified, disposition) = provider_teardown_disposition(
+            "provider-account://acct/resource/env_1",
+            &json!({ "note": "simulated control plane" }),
+            &json!("gone"),
+        );
+        assert_eq!(state, "torn_down_unverified");
+        assert!(!verified);
+        assert_eq!(disposition["outcome"], json!("unknown"));
+    }
+
+    #[test]
+    fn provider_deletion_is_total_and_never_refuses() {
+        // The carve-out: every combination yields a disposition; none is an error.
+        for destroyed in [
+            json!({ "destroyed": true }),
+            json!({ "destroyed": false }),
+            json!({}),
+        ] {
+            for remote in [json!("gone"), json!("unreachable")] {
+                let (state, _, disposition) =
+                    provider_teardown_disposition("provider://r", &destroyed, &remote);
+                assert!(matches!(
+                    state,
+                    "torn_down" | "teardown_failed" | "torn_down_unverified"
+                ));
+                let outcome = disposition["outcome"].as_str().unwrap();
+                assert!(matches!(outcome, "succeeded" | "failed" | "unknown"));
+                // Non-succeeded ALWAYS opens a durable obligation.
+                assert_eq!(
+                    disposition["cleanup_obligation_ref"].is_null(),
+                    outcome == "succeeded"
+                );
+            }
+        }
+    }
 }

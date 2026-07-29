@@ -306,8 +306,18 @@ closed with `PROVIDER_KIND_LIFECYCLE_NOT_IMPLEMENTED` — never a fake cloud.
 Environment classes are durable records (`ioi.hypervisor.environment-class.v1`) with
 `provider_eligibility` (provider kinds, required capabilities, credential kind, spend
 posture). `enabled` is computed at read time and is true only when a real provider/account
-path backs the class: local always; microvm while the VmMonitor lane is operational;
-`byo-ssh-node` only while a verified `baremetal_ssh` account exists.
+path backs the class: local always; microvm only while the pinned, checksum-verified VM
+toolchain resolves on the host; `byo-ssh-node` only while a verified `baremetal_ssh`
+account exists.
+
+Claim-truth note (emergency containment, 2026-07-29): the microvm arm previously returned an
+unconditional `enabled: true, real: true` constant that probed nothing, so a host with no
+monitor binary and no pinned toolchain still advertised an operational microVM lane — which
+violated this section's own rule. The arm now resolves the same toolchain `build_vm_spec`
+requires and reports `enabled: false` with a named `unavailable_reason` when it does not. The
+done-bar assertion that pinned the old constant asserted a literal and is quarantined as
+non-authoritative; it is retained, rewritten to check that the reported value matches the
+probe. See [INV-38](../../foundations/invariants.md).
 
 ## Surfaces
 
