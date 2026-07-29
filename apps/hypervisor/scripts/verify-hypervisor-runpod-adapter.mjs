@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
 const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
+const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
@@ -165,9 +166,62 @@ async function run() {
   const del = await opWithGrant("delete");
   const recon2 = (await jd("GET", "/v1/hypervisor/provider-spend/reconciliation")).j;
   const expClosed = (recon2.rows || []).find((e) => e.exposure_ref === exp.exposure_ref) || {};
-  ok("teardown tears down + closes the exposure and releases the reservation",
-    del.j.ok === true && del.j.evidence?.teardown_state === "torn_down"
-    && expClosed.status === "closed" && recon2.budget?.reserved_open_estimates === 0);
+  // BRANCH 1 of the teardown contract — PROVEN ABSENT. The provider-native destroy confirmed
+  // and the remote cleanup half was reachable, so this is the only branch that may report
+  // cleanup_verified. It owes nothing. (Before PR #129 this assertion was
+  // `teardown_state === "torn_down"` unconditionally, which the adapter emitted as a hardcoded
+  // constant — the bar was pinning the overclaim and could not have failed.)
+  const provenAbsent = teardownFindings(del, "torn_down");
+  ok("proven-absent teardown reports torn_down, owes NO cleanup obligation, closes the exposure and releases the reservation",
+    provenAbsent.length === 0
+    && expClosed.status === "closed" && recon2.budget?.reserved_open_estimates === 0,
+    provenAbsent.join("; "));
+
+  // ── 4b. The other two teardown outcomes, exercised for real ──
+  // Deletion must stay CALLABLE in every branch, and neither non-succeeded branch may ever be
+  // reported as verified. Both are reachable locally: the UNVERIFIED branch by making the
+  // remote cleanup half fail (the workspace root is made unwritable, so the remote `rm -rf`
+  // cannot prove absence), the FAILED branch by the adapter's own
+  // `endpoint.simulate_teardown_failure` lever. No cloud credential is involved in either.
+  ok("the teardown-outcome checker still rejects every overclaim it names (self-test)",
+    selfTestTeardownContract().length === 0, selfTestTeardownContract().join("; "));
+
+  const envMain = env;
+  const preflight = async () => jd("POST", `/v1/hypervisor/provider-accounts/${rp.account_id}/preflight`);
+  // UNVERIFIED: absence cannot be re-observed, so the outcome is Unknown — never coerced.
+  env = `env-rp-unverified-${tag}`;
+  await opWithGrant("create", { candidate_ref: cand.candidate_ref, max_hourly_usd: 0.7, teardown_policy: "always_teardown_required" });
+  await opWithGrant("start");
+  const broke = await opWithGrant("workrun", { command: "chmod 500 .." });
+  const delUnverified = await opWithGrant("delete");
+  const unverified = teardownFindings(delUnverified, "torn_down_unverified");
+  const obsUnverified = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "observe", environment_ref: env });
+  ok("an UNREACHABLE cleanup half is torn_down_unverified with a durable obligation, is never reported verified, and delete still answers",
+    broke.j.evidence?.exit_code === 0 && unverified.length === 0
+    && delUnverified.j.evidence?.remote_workspace_cleanup === "unreachable"
+    && obsUnverified.j.evidence?.teardown_state !== "torn_down",
+    unverified.join("; "));
+  await opWithGrant("workrun", { command: "chmod 700 .." });
+  const delRepaired = await opWithGrant("delete");
+  ok("once the cleanup half is reachable again the SAME resource tears down provably and the obligation is discharged",
+    teardownFindings(delRepaired, "torn_down").length === 0,
+    teardownFindings(delRepaired, "torn_down").join("; "));
+
+  // FAILED: the provider-native destroy explicitly reported it did not destroy.
+  env = `env-rp-failed-${tag}`;
+  await opWithGrant("create", { candidate_ref: cand.candidate_ref, max_hourly_usd: 0.7, teardown_policy: "always_teardown_required" });
+  await opWithGrant("start");
+  await jd("PATCH", `/v1/hypervisor/provider-accounts/${rp.account_id}`, { endpoint: { ...simEndpoint, simulate_teardown_failure: true } });
+  await preflight();
+  const delFailed = await opWithGrant("delete");
+  const failed = teardownFindings(delFailed, "teardown_failed");
+  ok("an explicit destroy failure is teardown_failed with a durable obligation, is never reported verified, and delete still answers",
+    failed.length === 0 && delFailed.j.evidence?.native_teardown?.destroyed === false,
+    failed.join("; "));
+  await jd("PATCH", `/v1/hypervisor/provider-accounts/${rp.account_id}`, { endpoint: simEndpoint });
+  await preflight();
+  await opWithGrant("delete");
+  env = envMain;
 
   // ── 5. Receipts / ledger / surfaces ──
   const receipts = ((await jd("GET", "/v1/hypervisor/provider-receipts")).j.receipts || [])

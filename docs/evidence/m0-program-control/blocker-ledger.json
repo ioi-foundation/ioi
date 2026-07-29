@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-28",
+  "as_of_date": "2026-07-29",
   "blockers": [
     {
       "blocker_id": "BLK-M0-SELECTED-PACKAGE-GENESIS",
@@ -306,7 +306,7 @@
     },
     {
       "blocker_id": "BLK-M0-FINAL-INVOKER-PROOF",
-      "reference_count": 693,
+      "reference_count": 697,
       "references": [
         "http:hypervisor-daemon:DELETE /scim/v2/Groups/:id",
         "http:hypervisor-daemon:DELETE /scim/v2/Users/:id",
@@ -557,6 +557,8 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/resource/work-queue",
         "http:hypervisor-daemon:GET /v1/hypervisor/scim-configurations",
         "http:hypervisor-daemon:GET /v1/hypervisor/scm-connectors",
+        "http:hypervisor-daemon:GET /v1/hypervisor/scm-destination-bindings",
+        "http:hypervisor-daemon:GET /v1/hypervisor/scm-publication-effects",
         "http:hypervisor-daemon:GET /v1/hypervisor/secrets",
         "http:hypervisor-daemon:GET /v1/hypervisor/session-execution-bindings/:id",
         "http:hypervisor-daemon:GET /v1/hypervisor/session-execution-bindings/:id/events",
@@ -873,6 +875,8 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/scm-connectors",
         "http:hypervisor-daemon:POST /v1/hypervisor/scm-connectors/:id/abandon-pull-request",
         "http:hypervisor-daemon:POST /v1/hypervisor/scm-connectors/:id/credential",
+        "http:hypervisor-daemon:POST /v1/hypervisor/scm-destination-bindings",
+        "http:hypervisor-daemon:POST /v1/hypervisor/scm-publication-proposals",
         "http:hypervisor-daemon:POST /v1/hypervisor/secrets",
         "http:hypervisor-daemon:POST /v1/hypervisor/secrets/:id/value",
         "http:hypervisor-daemon:POST /v1/hypervisor/service-composition-receipt-bundles",
@@ -1582,7 +1586,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "9a6d55fcdbee3ebf02289a2534b0d697416b2b4a7ec689f8f43c4570b4b2505f",
+  "build_fingerprint": "3f129042da5e14dda8c97156b0a46756a9f93dfb78c9025d0035e8415b4cbc45",
   "counts": {
     "by_state": {
       "open": 23,
