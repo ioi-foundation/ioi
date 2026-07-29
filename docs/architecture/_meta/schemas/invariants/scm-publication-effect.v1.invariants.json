@@ -1,0 +1,222 @@
+{
+  "$id": "invariant://ioi/components/connectors-tools/scm-publication-effect/bounded-publication/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+  "rules": [
+    {
+      "rule_id": "scm_publication_effect.content_commitment.recomputes",
+      "description": "The publication effect hash recomputes over every field except publication_effect_hash, so the declared destination, change set, compare-and-swap, idempotency material, and per-effect outcomes are all committed material.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-effect-commitment-jcs-sha256.v1"
+          },
+          "schema_version": { "path": "$.schema_version" },
+          "publication_effect_id": { "path": "$.publication_effect_id" },
+          "work_subject": { "path": "$.work_subject" },
+          "authority": { "path": "$.authority" },
+          "destination": { "path": "$.destination" },
+          "change_set": { "path": "$.change_set" },
+          "remote_cas": { "path": "$.remote_cas" },
+          "idempotency": { "path": "$.idempotency" },
+          "effects": { "path": "$.effects" },
+          "overall_outcome": { "path": "$.overall_outcome" },
+          "nonclaims": { "path": "$.nonclaims" },
+          "committed_at": { "path": "$.committed_at" }
+        },
+        "expected_path": "$.publication_effect_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.change_set.file_set_digest.recomputes",
+      "description": "The file-set digest recomputes over the bound proposal, the base revision, and the exact enumerated file rows, so the published change set is the declared set and nothing else.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-effect-file-set-jcs-sha256.v1"
+          },
+          "proposal_ref": { "path": "$.work_subject.proposal_ref" },
+          "proposal_content_commitment": {
+            "path": "$.change_set.proposal_content_commitment"
+          },
+          "base_revision_id": { "path": "$.change_set.base_revision_id" },
+          "files": { "path": "$.change_set.files" }
+        },
+        "expected_path": "$.change_set.file_set_digest",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.change_set.binds_proposal_commitment",
+      "description": "The change set carries the exact content commitment of the proposal it was computed from, and that commitment equals the bound work subject proposal hash.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.change_set.proposal_content_commitment",
+          "$.work_subject.proposal_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.change_set.files.bind_proposal",
+      "description": "Every published file row is attributed to the one bound proposal; an unattributed or foreign file cannot ride along.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.change_set.files",
+        "field": "proposal_ref",
+        "expected_path": "$.work_subject.proposal_ref"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.change_set.files.unique_paths",
+      "description": "Each repository-relative path appears at most once in the published change set.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.change_set.files",
+        "fields": ["path"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.destination.binding_covers_repository",
+      "description": "The repository the effect names is the repository the admitted destination binding covers; the destination never resolves from free caller text.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.destination.destination_binding_ref",
+        "expected_path": "$.destination.repository_ref",
+        "prefix": "scm-destination-binding://",
+        "strip_prefix": "repository://",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.remote_cas.expected_target_head.declared",
+      "description": "When the target ref is expected to exist, the effect declares the exact remote head it was computed against; an absent expected head is a refusal, never an unconditional advance.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.remote_cas.expected_target_head",
+        "when_path": "$.remote_cas.target_ref_precondition",
+        "values": ["expected_head"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.remote_cas.expected_base_head.binds_change_set_base",
+      "description": "The expected base head is the exact revision the change set was computed onto; a declared head detached from the change-set base is a stale compare-and-swap and is refused.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.remote_cas.expected_base_head",
+          "$.change_set.base_revision_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.remote_cas.resulting_target_head.binds_resulting_revision",
+      "description": "The resulting remote head equals the resulting revision of the published change set, so a remote advance can never be reported for material the effect did not commit.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.remote_cas.resulting_target_head",
+          "$.change_set.resulting_revision_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.idempotency.key.recomputes",
+      "description": "The idempotency key recomputes over the bound proposal, the admitted destination binding, the target ref precondition and expected head, and the file-set digest, so an exact resubmission converges and any changed material is a different submission.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-effect-idempotency-jcs-sha256.v1"
+          },
+          "proposal_ref": { "path": "$.work_subject.proposal_ref" },
+          "proposal_hash": { "path": "$.work_subject.proposal_hash" },
+          "destination_binding_ref": {
+            "path": "$.destination.destination_binding_ref"
+          },
+          "destination_binding_hash": {
+            "path": "$.destination.destination_binding_hash"
+          },
+          "repository_ref": { "path": "$.destination.repository_ref" },
+          "target_ref": { "path": "$.destination.target_ref" },
+          "target_ref_precondition": {
+            "path": "$.remote_cas.target_ref_precondition"
+          },
+          "expected_target_head": {
+            "path": "$.remote_cas.expected_target_head"
+          },
+          "file_set_digest": { "path": "$.change_set.file_set_digest" }
+        },
+        "expected_path": "$.idempotency.idempotency_key",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.idempotency.replay.binds_prior_effect",
+      "description": "A converged or conflicting replay names the prior publication effect it converged against; a replay disposition without a prior effect is unrepresentable.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.idempotency.prior_effect_ref",
+        "when_path": "$.idempotency.submission_disposition",
+        "values": ["converged_replay", "refused_conflicting_replay"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.idempotency.replay.binds_prior_hash",
+      "description": "A replay also carries the prior effect content commitment, so convergence is asserted against exact material rather than an identifier alone.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.idempotency.prior_effect_hash",
+        "when_path": "$.idempotency.submission_disposition",
+        "values": ["converged_replay", "refused_conflicting_replay"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.effects.receipts.distinct",
+      "description": "The publication and the review request are separately receipted; one receipt can never stand for both sub-effects.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.effects.publication.receipt_ref",
+          "$.effects.review_request.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.effects.review_request.receipt_declared",
+      "description": "An opened or failed review request carries its own receipt; a failed review request is receipted as its own honest outcome rather than absorbed into the publication receipt.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effects.review_request.receipt_ref",
+        "when_path": "$.effects.review_request.outcome",
+        "values": ["opened", "failed"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.effects.publication.refusal_code_declared",
+      "description": "A refused or partially applied publication declares the exact refusal code it failed closed on.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effects.publication.refusal_code",
+        "when_path": "$.effects.publication.outcome",
+        "values": ["refused", "partially_applied"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.effects.review_request.refusal_code_declared",
+      "description": "A failed or refused review request declares the exact refusal code, so a review-request failure is never reported as an empty success.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effects.review_request.refusal_code",
+        "when_path": "$.effects.review_request.outcome",
+        "values": ["failed", "refused"]
+      }
+    }
+  ]
+}

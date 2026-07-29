@@ -1,0 +1,667 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+  "title": "ScmPublicationEffect",
+  "description": "One immutable, receipted source-control publication effect. It binds an enumerated proposal-bound file set to an admitted remote destination, advances the target ref only under an expected-head compare-and-swap, and carries the publication and the review-request as separately receipted sub-effects with their own honest outcomes. No representable field can request an overwrite of the remote head, express a whole-workspace change set, name a destination outside the admitted binding, or report success over a failed sub-effect.",
+  "x-ioi-schema-version": "ioi.scm-publication-effect.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "publication_effect_id",
+    "publication_effect_hash",
+    "work_subject",
+    "authority",
+    "destination",
+    "change_set",
+    "remote_cas",
+    "idempotency",
+    "effects",
+    "overall_outcome",
+    "nonclaims",
+    "committed_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.scm-publication-effect.v1"
+    },
+    "publication_effect_id": {
+      "$ref": "#/$defs/publicationEffectRef"
+    },
+    "publication_effect_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "work_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposal_ref", "proposal_hash", "work_run_ref"],
+      "properties": {
+        "proposal_ref": {
+          "$ref": "#/$defs/proposalRef"
+        },
+        "proposal_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "work_run_ref": {
+          "type": "string",
+          "pattern": "^work-run://[^\\s]{1,248}$"
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_grant_refs",
+        "authority_scope_refs",
+        "capability_lease_ref",
+        "admission_receipt_ref"
+      ],
+      "properties": {
+        "authority_grant_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^grant://[^\\s]{1,248}$"
+          },
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "authority_scope_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scopeRef"
+          },
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "capability_lease_ref": {
+          "type": "string",
+          "pattern": "^lease://[^\\s]{1,248}$"
+        },
+        "admission_receipt_ref": {
+          "$ref": "#/$defs/receiptRef"
+        }
+      }
+    },
+    "destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolution",
+        "connector_ref",
+        "connector_revision_hash",
+        "destination_binding_ref",
+        "destination_binding_hash",
+        "repository_ref",
+        "target_ref",
+        "base_ref"
+      ],
+      "properties": {
+        "resolution": {
+          "const": "admitted_connector_binding"
+        },
+        "connector_ref": {
+          "type": "string",
+          "pattern": "^connector://[^\\s]{1,248}$"
+        },
+        "connector_revision_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "destination_binding_ref": {
+          "type": "string",
+          "pattern": "^scm-destination-binding://[^\\s]{1,248}$"
+        },
+        "destination_binding_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "repository_ref": {
+          "type": "string",
+          "pattern": "^repository://[^\\s]{1,224}$"
+        },
+        "target_ref": {
+          "type": "string",
+          "pattern": "^scm-ref://[^\\s]{1,248}$"
+        },
+        "base_ref": {
+          "type": "string",
+          "pattern": "^scm-ref://[^\\s]{1,248}$"
+        }
+      }
+    },
+    "change_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "change_set_kind",
+        "proposal_content_commitment",
+        "base_revision_id",
+        "files",
+        "file_set_digest",
+        "resulting_revision_id"
+      ],
+      "properties": {
+        "change_set_kind": {
+          "const": "proposal_bound_file_set"
+        },
+        "proposal_content_commitment": {
+          "$ref": "#/$defs/hash"
+        },
+        "base_revision_id": {
+          "$ref": "#/$defs/revisionId"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/changeSetFile"
+          },
+          "minItems": 1,
+          "maxItems": 512,
+          "uniqueItems": true
+        },
+        "file_set_digest": {
+          "$ref": "#/$defs/hash"
+        },
+        "resulting_revision_id": {
+          "$ref": "#/$defs/nullableRevisionId"
+        }
+      }
+    },
+    "remote_cas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mechanism",
+        "remote_update_mode",
+        "stale_head_disposition",
+        "target_ref_precondition",
+        "expected_target_head",
+        "expected_base_head",
+        "observed_at",
+        "observation_evidence_ref",
+        "resulting_target_head",
+        "proof_ref"
+      ],
+      "properties": {
+        "mechanism": {
+          "const": "expected_head_compare_and_swap"
+        },
+        "remote_update_mode": {
+          "const": "expected_head_advance_or_refuse"
+        },
+        "stale_head_disposition": {
+          "const": "refuse_never_overwrite"
+        },
+        "target_ref_precondition": {
+          "enum": ["expected_head", "must_not_exist"]
+        },
+        "expected_target_head": {
+          "$ref": "#/$defs/nullableRevisionId"
+        },
+        "expected_base_head": {
+          "$ref": "#/$defs/revisionId"
+        },
+        "observed_at": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "observation_evidence_ref": {
+          "$ref": "#/$defs/evidenceRef"
+        },
+        "resulting_target_head": {
+          "$ref": "#/$defs/nullableRevisionId"
+        },
+        "proof_ref": {
+          "$ref": "#/$defs/evidenceRef"
+        }
+      }
+    },
+    "idempotency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idempotency_key",
+        "submission_disposition",
+        "prior_effect_ref",
+        "prior_effect_hash"
+      ],
+      "properties": {
+        "idempotency_key": {
+          "$ref": "#/$defs/hash"
+        },
+        "submission_disposition": {
+          "enum": [
+            "first_admission",
+            "converged_replay",
+            "refused_conflicting_replay"
+          ]
+        },
+        "prior_effect_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/publicationEffectRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "prior_effect_hash": {
+          "$ref": "#/$defs/nullableHash"
+        }
+      }
+    },
+    "effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publication", "review_request"],
+      "properties": {
+        "publication": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "effect_kind",
+            "outcome",
+            "receipt_ref",
+            "refusal_code",
+            "evidence_refs"
+          ],
+          "properties": {
+            "effect_kind": {
+              "const": "scm_publication"
+            },
+            "outcome": {
+              "enum": ["published", "partially_applied", "refused"]
+            },
+            "receipt_ref": {
+              "$ref": "#/$defs/receiptRef"
+            },
+            "refusal_code": {
+              "$ref": "#/$defs/nullableShortToken"
+            },
+            "evidence_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidenceRef"
+              },
+              "minItems": 1,
+              "maxItems": 16,
+              "uniqueItems": true
+            }
+          }
+        },
+        "review_request": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "effect_kind",
+            "outcome",
+            "receipt_ref",
+            "refusal_code",
+            "evidence_refs"
+          ],
+          "properties": {
+            "effect_kind": {
+              "const": "scm_review_request"
+            },
+            "outcome": {
+              "enum": [
+                "opened",
+                "failed",
+                "refused",
+                "not_requested",
+                "not_attempted"
+              ]
+            },
+            "receipt_ref": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/receiptRef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "refusal_code": {
+              "$ref": "#/$defs/nullableShortToken"
+            },
+            "evidence_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/evidenceRef"
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "overall_outcome": {
+      "enum": [
+        "published_with_review_request",
+        "published_review_request_not_requested",
+        "review_request_failed",
+        "partially_applied",
+        "refused"
+      ]
+    },
+    "nonclaims": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "grants_no_authority",
+          "no_remote_acceptance_beyond_receipt_evidence",
+          "asserts_no_review_approval"
+        ]
+      },
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true
+    },
+    "committed_at": {
+      "$ref": "#/$defs/dateTime"
+    }
+  },
+  "allOf": [
+    {
+      "type": "object",
+      "if": {
+        "type": "object",
+        "properties": {
+          "overall_outcome": {
+            "const": "published_with_review_request"
+          }
+        },
+        "required": ["overall_outcome"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "effects": {
+            "type": "object",
+            "properties": {
+              "publication": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "const": "published"
+                  }
+                }
+              },
+              "review_request": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "const": "opened"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "if": {
+        "type": "object",
+        "properties": {
+          "overall_outcome": {
+            "const": "published_review_request_not_requested"
+          }
+        },
+        "required": ["overall_outcome"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "effects": {
+            "type": "object",
+            "properties": {
+              "publication": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "const": "published"
+                  }
+                }
+              },
+              "review_request": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "const": "not_requested"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "if": {
+        "type": "object",
+        "properties": {
+          "overall_outcome": {
+            "const": "review_request_failed"
+          }
+        },
+        "required": ["overall_outcome"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "effects": {
+            "type": "object",
+            "properties": {
+              "publication": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "const": "published"
+                  }
+                }
+              },
+              "review_request": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "const": "failed"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "if": {
+        "type": "object",
+        "properties": {
+          "overall_outcome": {
+            "const": "partially_applied"
+          }
+        },
+        "required": ["overall_outcome"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "effects": {
+            "type": "object",
+            "properties": {
+              "publication": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "const": "partially_applied"
+                  }
+                }
+              },
+              "review_request": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "const": "not_attempted"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "if": {
+        "type": "object",
+        "properties": {
+          "overall_outcome": {
+            "const": "refused"
+          }
+        },
+        "required": ["overall_outcome"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "effects": {
+            "type": "object",
+            "properties": {
+              "publication": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "const": "refused"
+                  }
+                }
+              },
+              "review_request": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "enum": ["refused", "not_attempted"]
+                  }
+                }
+              }
+            }
+          },
+          "change_set": {
+            "type": "object",
+            "properties": {
+              "resulting_revision_id": {
+                "type": "null"
+              }
+            }
+          },
+          "remote_cas": {
+            "type": "object",
+            "properties": {
+              "resulting_target_head": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "nullableHash": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/hash"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "revisionId": {
+      "type": "string",
+      "pattern": "^scm-revision:[0-9a-f]{40,64}$"
+    },
+    "nullableRevisionId": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/revisionId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "publicationEffectRef": {
+      "type": "string",
+      "pattern": "^scm-publication-effect://[^\\s]{1,248}$"
+    },
+    "proposalRef": {
+      "type": "string",
+      "pattern": "^proposal://[^\\s]{1,248}$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,248}$"
+    },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+    },
+    "scopeRef": {
+      "type": "string",
+      "pattern": "^scope:[a-z0-9][a-z0-9._:/-]{0,127}$"
+    },
+    "shortToken": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._:/-]{0,127}$"
+    },
+    "nullableShortToken": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/shortToken"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "changeSetFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "change_kind", "content_digest", "proposal_ref"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"
+        },
+        "change_kind": {
+          "enum": ["added", "modified", "removed"]
+        },
+        "content_digest": {
+          "$ref": "#/$defs/nullableHash"
+        },
+        "proposal_ref": {
+          "$ref": "#/$defs/proposalRef"
+        }
+      }
+    }
+  }
+}

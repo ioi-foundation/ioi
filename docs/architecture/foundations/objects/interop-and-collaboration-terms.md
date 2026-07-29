@@ -4,9 +4,9 @@ Status: canonical low-level reference.
 Canonical owner: this file for the shared object shapes of AIIP bounded-execution-domain identity and standards bindings, the dispute rail object family, and conditional-cooperation collaboration terms.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-07-29.
 Doctrine status: canonical
-Implementation status: mixed (`DisputeRailBundle` v1 has a registered schema, invariants, fixtures, and generated projections; the dispute kernel, AIIP transport and bindings, and conditional-cooperation terms remain planned)
+Implementation status: mixed (`DisputeRailBundle` v1 has a registered schema, invariants, fixtures, and generated projections; the dispute kernel, AIIP transport and bindings, and conditional-cooperation terms remain planned; the owner-qualified `UpgradeProposalEnvelope` target-owner shape is a canon shape change with no registered contract, projection, or runtime route behind it)
 Last implementation audit: 2026-07-25
 
 ## Purpose
@@ -953,7 +953,9 @@ ModuleInvocationEnvelope:
 ```yaml
 UpgradeProposalEnvelope:
   proposal_id: proposal://...
-  system_id: system://...
+  target_owner_ref: user://... | org://... | project://... | system://... | domain://...
+  system_id: system://... | null
+  originating_work_subject: TypedWorkSubjectBinding | null
   proposal_profile: standard | improvement_promotion | improvement_agenda_patch
   change_class: release_upgrade | ordinary_upgrade | constitutional_amendment | deployment_change | membership_change | lifecycle_transition | network_enrollment_change
   target_kind: package_release | policy_module | service_module | workflow_graph | goal_run_profile | workflow_template | harness_profile | skill_manifest | runtime_tool_contract | evaluator | improvement_agenda | improvement_governance_profile | contract | tool_binding | model_route | memory_schema | projection_schema | settlement_rule | dispute_rule | authority_envelope | constitution | deployment_profile | node_membership | failover_profile | ordering_admission_finality_profile | oracle_evidence_profile | lifecycle_continuity_profile | network_enrollment
@@ -987,10 +989,81 @@ UpgradeProposalEnvelope:
   status: drafted | submitted | approved | rejected | escalated | committed | rolled_back
 ```
 
+`target_owner_ref` names the owner whose governance decides this change, and it
+is the envelope's only owner field. Its admissible kinds are exactly the owner
+kinds canon already recognizes for this family; the set introduces no new owner
+kind. `user://...`, `org://...`, `project://...`, and `system://...` are the
+`owner_ref` set of `ImprovementAgendaEnvelope`, `ImprovementCampaignEnvelope`,
+and `ImprovementGovernanceProfileEnvelope`
+([`bounded-improvement.md`](./bounded-improvement.md),
+[`bounded-system-genesis.md`](./bounded-system-genesis.md)); `domain://...` is
+admitted because `GoalRunEnvelope` and `WorkLifecycleRecordEnvelope` already
+carry it in their own `owner_ref`
+([`goal-run-execution.md`](./goal-run-execution.md),
+[`work-results-and-lifecycle.md`](./work-results-and-lifecycle.md)). A proposal
+never mints an owner, and an unlisted owner scheme fails admission.
+
+`system_id` is non-null exactly when `target_owner_ref` is a `system://...`
+ref, and it must then equal that ref. A `user://...`, `org://...`,
+`project://...`, or `domain://...` target owner requires `system_id: null`.
+Two shapes fail admission: a non-null `system_id` under a non-System target
+owner, and a null `system_id` under a System target owner. This matches the
+paired `owner_ref`/`system_id` shape its sibling Agenda, Campaign, and
+improvement-governance-profile envelopes already use, and it matches the
+decision side, where `UpgradeDecisionEnvelope.decided_by` already admits
+`wallet://...`, `org://...`, `policy://...`, and `governance://...` deciders
+alongside `system://...`. The proposal was the only member of the family that
+required a System unconditionally.
+
+`originating_work_subject` records which admitted work produced the candidate.
+It carries the shared `TypedWorkSubjectBinding`
+([`work-execution.md`](./work-execution.md)), so its `kind` and `ref` must
+agree and it remains non-owning: it confers no authority, is never required to
+equal `target_owner_ref`, and a proposer's work subject never becomes the
+target owner. It is null when no admitted work subject produced the proposal.
+
+A standalone GoalRun, direct Session, AutomationSpec run, or Project may
+therefore file a proposal with no System in existence whenever the target it
+names is owned by a non-System owner; proposing against a System-owned target
+binds that System's existing `system_id` and still never requires the proposer
+to mint one. Neither case forces System genesis, which is the promise stated by
+[`core-clients-surfaces.md`](../../components/hypervisor/core-clients-surfaces.md).
+A Session reaches this path through the GoalRun it activates, whose
+`source_context_binding.target_session_ref` retains the session; `session://`,
+`goal://`, and `work_run://` are work subjects here, never owner kinds.
+
+Whether a System is required is a property of the change class and target kind,
+never of the envelope shape. Five change classes are System-scoped by
+definition and admit only a `system://...` target owner with a matching non-null
+`system_id`: `constitutional_amendment`, `deployment_change`,
+`membership_change`, `lifecycle_transition`, and `network_enrollment_change`.
+The same requirement follows the target: `constitution`, `deployment_profile`,
+`node_membership`, `failover_profile`, `ordering_admission_finality_profile`,
+`oracle_evidence_profile`, `lifecycle_continuity_profile`, and
+`network_enrollment` resolve to bounded-System objects that each require their
+own `system_id`, so naming one of them under a non-System target owner fails
+admission. `release_upgrade` and `ordinary_upgrade` carry no System requirement
+of their own and inherit whatever their named target requires. A System-scoped
+proposal therefore keeps exactly the strength it held when `system_id` was
+unconditional: the same bound `system_id`, the same constitution-declared
+decision path, and the same protected-change routing.
+
 Protected target kinds route through the decision path declared by the active
-constitution. Ordinary upgrade approval is insufficient. Agents may propose a
+constitution when the target owner is a System, and otherwise through the owner
+scope's declared governance path named by `required_decision_profile_ref`.
+Ordinary upgrade approval is insufficient in either case. Agents may propose a
 constitutional amendment only when the constitution permits it; they never
-self-commit one.
+self-commit one, and no non-System owner has a constitutional-amendment path at
+all.
+
+Implementation status: this owner-qualified shape is canon only. No registered
+schema, invariant set, fixture, generated projection, or runtime route emits or
+accepts `target_owner_ref`, `originating_work_subject`, or a null `system_id`
+on this envelope; the receipt registry in
+[`events-receipts-delivery-bundles.md`](../../components/daemon-runtime/events-receipts-delivery-bundles.md)
+still publishes the `upgrade_proposal` receipt without them. A registered
+contract revision must land before any wire consumer reads or writes the
+owner-qualified shape.
 
 `improvement_promotion` is non-null only when `proposal_profile` is
 `improvement_promotion`; otherwise every nested field is null or empty. It

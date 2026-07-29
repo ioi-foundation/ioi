@@ -4401,6 +4401,83 @@ export type AutonomousSystemDissolutionReceiptV1 = {
   created_at: string;
 };
 
+export type ScmPublicationEffectV1 = {
+  schema_version: "ioi.scm-publication-effect.v1";
+  publication_effect_id: string;
+  publication_effect_hash: string;
+  work_subject: {
+      proposal_ref: string;
+      proposal_hash: string;
+      work_run_ref: string;
+    };
+  authority: {
+      authority_grant_refs: Array<string>;
+      authority_scope_refs: Array<string>;
+      capability_lease_ref: string;
+      admission_receipt_ref: string;
+    };
+  destination: {
+      resolution: "admitted_connector_binding";
+      connector_ref: string;
+      connector_revision_hash: string;
+      destination_binding_ref: string;
+      destination_binding_hash: string;
+      repository_ref: string;
+      target_ref: string;
+      base_ref: string;
+    };
+  change_set: {
+      change_set_kind: "proposal_bound_file_set";
+      proposal_content_commitment: string;
+      base_revision_id: string;
+      files: Array<{
+              path: string;
+              change_kind: "added" | "modified" | "removed";
+              content_digest: string | null;
+              proposal_ref: string;
+            }>;
+      file_set_digest: string;
+      resulting_revision_id: string | null;
+    };
+  remote_cas: {
+      mechanism: "expected_head_compare_and_swap";
+      remote_update_mode: "expected_head_advance_or_refuse";
+      stale_head_disposition: "refuse_never_overwrite";
+      target_ref_precondition: "expected_head" | "must_not_exist";
+      expected_target_head: string | null;
+      expected_base_head: string;
+      observed_at: string;
+      observation_evidence_ref: string;
+      resulting_target_head: string | null;
+      proof_ref: string;
+    };
+  idempotency: {
+      idempotency_key: string;
+      submission_disposition: "first_admission" | "converged_replay" | "refused_conflicting_replay";
+      prior_effect_ref: string | null;
+      prior_effect_hash: string | null;
+    };
+  effects: {
+      publication: {
+            effect_kind: "scm_publication";
+            outcome: "published" | "partially_applied" | "refused";
+            receipt_ref: string;
+            refusal_code: string | null;
+            evidence_refs: Array<string>;
+          };
+      review_request: {
+            effect_kind: "scm_review_request";
+            outcome: "opened" | "failed" | "refused" | "not_requested" | "not_attempted";
+            receipt_ref: string | null;
+            refusal_code: string | null;
+            evidence_refs: Array<string>;
+          };
+    };
+  overall_outcome: "published_with_review_request" | "published_review_request_not_requested" | "review_request_failed" | "partially_applied" | "refused";
+  nonclaims: Array<"grants_no_authority" | "no_remote_acceptance_beyond_receipt_evidence" | "asserts_no_review_approval">;
+  committed_at: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -7258,6 +7335,134 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "autonomous_system_dissolution_receipt.transitions.distinct"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-new-target-ref.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-converged-replay.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-absent-expected-head.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect.remote_cas.expected_target_head.declared"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-stale-expected-head.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect.remote_cas.expected_base_head.binds_change_set_base"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-unbound-destination.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect.destination.binding_covers_repository"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect.change_set.files.bind_proposal"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect.effects.receipts.distinct"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect.idempotency.replay.binds_prior_effect"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect.idempotency.key.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect.content_commitment.recomputes"
   }
 ] as const;
 
@@ -12336,6 +12541,118 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-new-target-ref.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-new-target-ref.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-converged-replay.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-converged-replay.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-absent-expected-head.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-absent-expected-head.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-stale-expected-head.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-stale-expected-head.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-unbound-destination.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-unbound-destination.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -13272,6 +13589,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[A-Za-z0-9_-]{43}$",
   "^[A-Za-z0-9_-]{86}$",
   "^[A-Za-z0-9_.-]+$",
+  "^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$",
   "^[^\\s][ -~]{0,2047}$",
   "^[a-z0-9](?:[a-z0-9.:-]{0,251}[a-z0-9]|)$",
   "^[a-z0-9][a-z0-9._:/-]{0,127}$",
@@ -13340,6 +13658,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$",
   "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$",
   "^conformance-profile://[^\\s]{1,248}$",
+  "^connector://[^\\s]{1,248}$",
   "^constitution-amendment://[^\\s]{1,248}$",
   "^constitution://[A-Za-z0-9._:/-]+$",
   "^constitution://[^\\s]{1,248}$",
@@ -13453,6 +13772,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt[^\\s]{1,260}$",
   "^recipe_[0-9a-f]{1,32}$",
   "^reference://[^\\s]{1,248}$",
+  "^repository://[^\\s]{1,224}$",
   "^reso_[0-9a-f]{1,32}$",
   "^resource-lease://[^\\s]+$",
   "^run://[^\\s]+$",
@@ -13462,9 +13782,14 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^schema://[^\\s]+$",
   "^schema://[^\\s]{1,240}$",
   "^schema://[^\\s]{1,248}$",
+  "^scm-destination-binding://[^\\s]{1,248}$",
+  "^scm-publication-effect://[^\\s]{1,248}$",
+  "^scm-ref://[^\\s]{1,248}$",
+  "^scm-revision:[0-9a-f]{40,64}$",
   "^scope:[^\\s]{1,200}$",
   "^scope:[a-z0-9._-]+$",
   "^scope:[a-z0-9._:-]{1,180}$",
+  "^scope:[a-z0-9][a-z0-9._:/-]{0,127}$",
   "^scope:[a-z0-9_.:-]{1,120}$",
   "^scope:[a-z][a-z0-9._-]*$",
   "^scope:[a-z][a-z0-9._-]{0,127}$",
@@ -13520,6 +13845,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$",
   "^wallet[.]network://approval-effect-consumption/[^\\s]{1,248}$",
   "^wallet[.]network://principal-authority-binding/[0-9a-f]{64}$",
+  "^work-run://[^\\s]{1,248}$",
   "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workload://[^\\s]{1,248}$",
@@ -13613,7 +13939,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1": "sha256:829cd261784b99f11a98ecef6bd3ad40767f54253f6115ed476b773c86737572",
   "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1": "sha256:6cd4afd940b5d7157144516ae9aeecad1c41159e7a1ee4d18ed9d2b151396f5b",
   "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1": "sha256:64fc7bceebf6e18119387f16940b0cf4e68c2b8a1a5d6caed6b1a76502607513",
-  "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1": "sha256:7e303b8ded639767da86d7daf1941b05ea800a3f43ad22e5881a6986281cbecf"
+  "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1": "sha256:7e303b8ded639767da86d7daf1941b05ea800a3f43ad22e5881a6986281cbecf",
+  "schema://ioi/components/connectors-tools/scm-publication-effect/v1": "sha256:00f65134dab87fe98063d3cc720268553cd1cd96862df5dfe7ec00041de0abff"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -47978,6 +48305,709 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/components/connectors-tools/scm-publication-effect/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+    "title": "ScmPublicationEffect",
+    "description": "One immutable, receipted source-control publication effect. It binds an enumerated proposal-bound file set to an admitted remote destination, advances the target ref only under an expected-head compare-and-swap, and carries the publication and the review-request as separately receipted sub-effects with their own honest outcomes. No representable field can request an overwrite of the remote head, express a whole-workspace change set, name a destination outside the admitted binding, or report success over a failed sub-effect.",
+    "x-ioi-schema-version": "ioi.scm-publication-effect.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "publication_effect_id",
+      "publication_effect_hash",
+      "work_subject",
+      "authority",
+      "destination",
+      "change_set",
+      "remote_cas",
+      "idempotency",
+      "effects",
+      "overall_outcome",
+      "nonclaims",
+      "committed_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.scm-publication-effect.v1"
+      },
+      "publication_effect_id": {
+        "$ref": "#/$defs/publicationEffectRef"
+      },
+      "publication_effect_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "work_subject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proposal_ref",
+          "proposal_hash",
+          "work_run_ref"
+        ],
+        "properties": {
+          "proposal_ref": {
+            "$ref": "#/$defs/proposalRef"
+          },
+          "proposal_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "work_run_ref": {
+            "type": "string",
+            "pattern": "^work-run://[^\\s]{1,248}$"
+          }
+        }
+      },
+      "authority": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority_grant_refs",
+          "authority_scope_refs",
+          "capability_lease_ref",
+          "admission_receipt_ref"
+        ],
+        "properties": {
+          "authority_grant_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^grant://[^\\s]{1,248}$"
+            },
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true
+          },
+          "authority_scope_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/scopeRef"
+            },
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true
+          },
+          "capability_lease_ref": {
+            "type": "string",
+            "pattern": "^lease://[^\\s]{1,248}$"
+          },
+          "admission_receipt_ref": {
+            "$ref": "#/$defs/receiptRef"
+          }
+        }
+      },
+      "destination": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resolution",
+          "connector_ref",
+          "connector_revision_hash",
+          "destination_binding_ref",
+          "destination_binding_hash",
+          "repository_ref",
+          "target_ref",
+          "base_ref"
+        ],
+        "properties": {
+          "resolution": {
+            "const": "admitted_connector_binding"
+          },
+          "connector_ref": {
+            "type": "string",
+            "pattern": "^connector://[^\\s]{1,248}$"
+          },
+          "connector_revision_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "destination_binding_ref": {
+            "type": "string",
+            "pattern": "^scm-destination-binding://[^\\s]{1,248}$"
+          },
+          "destination_binding_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "repository_ref": {
+            "type": "string",
+            "pattern": "^repository://[^\\s]{1,224}$"
+          },
+          "target_ref": {
+            "type": "string",
+            "pattern": "^scm-ref://[^\\s]{1,248}$"
+          },
+          "base_ref": {
+            "type": "string",
+            "pattern": "^scm-ref://[^\\s]{1,248}$"
+          }
+        }
+      },
+      "change_set": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "change_set_kind",
+          "proposal_content_commitment",
+          "base_revision_id",
+          "files",
+          "file_set_digest",
+          "resulting_revision_id"
+        ],
+        "properties": {
+          "change_set_kind": {
+            "const": "proposal_bound_file_set"
+          },
+          "proposal_content_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "base_revision_id": {
+            "$ref": "#/$defs/revisionId"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/changeSetFile"
+            },
+            "minItems": 1,
+            "maxItems": 512,
+            "uniqueItems": true
+          },
+          "file_set_digest": {
+            "$ref": "#/$defs/hash"
+          },
+          "resulting_revision_id": {
+            "$ref": "#/$defs/nullableRevisionId"
+          }
+        }
+      },
+      "remote_cas": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mechanism",
+          "remote_update_mode",
+          "stale_head_disposition",
+          "target_ref_precondition",
+          "expected_target_head",
+          "expected_base_head",
+          "observed_at",
+          "observation_evidence_ref",
+          "resulting_target_head",
+          "proof_ref"
+        ],
+        "properties": {
+          "mechanism": {
+            "const": "expected_head_compare_and_swap"
+          },
+          "remote_update_mode": {
+            "const": "expected_head_advance_or_refuse"
+          },
+          "stale_head_disposition": {
+            "const": "refuse_never_overwrite"
+          },
+          "target_ref_precondition": {
+            "enum": [
+              "expected_head",
+              "must_not_exist"
+            ]
+          },
+          "expected_target_head": {
+            "$ref": "#/$defs/nullableRevisionId"
+          },
+          "expected_base_head": {
+            "$ref": "#/$defs/revisionId"
+          },
+          "observed_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "observation_evidence_ref": {
+            "$ref": "#/$defs/evidenceRef"
+          },
+          "resulting_target_head": {
+            "$ref": "#/$defs/nullableRevisionId"
+          },
+          "proof_ref": {
+            "$ref": "#/$defs/evidenceRef"
+          }
+        }
+      },
+      "idempotency": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "idempotency_key",
+          "submission_disposition",
+          "prior_effect_ref",
+          "prior_effect_hash"
+        ],
+        "properties": {
+          "idempotency_key": {
+            "$ref": "#/$defs/hash"
+          },
+          "submission_disposition": {
+            "enum": [
+              "first_admission",
+              "converged_replay",
+              "refused_conflicting_replay"
+            ]
+          },
+          "prior_effect_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/publicationEffectRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prior_effect_hash": {
+            "$ref": "#/$defs/nullableHash"
+          }
+        }
+      },
+      "effects": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "publication",
+          "review_request"
+        ],
+        "properties": {
+          "publication": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "effect_kind",
+              "outcome",
+              "receipt_ref",
+              "refusal_code",
+              "evidence_refs"
+            ],
+            "properties": {
+              "effect_kind": {
+                "const": "scm_publication"
+              },
+              "outcome": {
+                "enum": [
+                  "published",
+                  "partially_applied",
+                  "refused"
+                ]
+              },
+              "receipt_ref": {
+                "$ref": "#/$defs/receiptRef"
+              },
+              "refusal_code": {
+                "$ref": "#/$defs/nullableShortToken"
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidenceRef"
+                },
+                "minItems": 1,
+                "maxItems": 16,
+                "uniqueItems": true
+              }
+            }
+          },
+          "review_request": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "effect_kind",
+              "outcome",
+              "receipt_ref",
+              "refusal_code",
+              "evidence_refs"
+            ],
+            "properties": {
+              "effect_kind": {
+                "const": "scm_review_request"
+              },
+              "outcome": {
+                "enum": [
+                  "opened",
+                  "failed",
+                  "refused",
+                  "not_requested",
+                  "not_attempted"
+                ]
+              },
+              "receipt_ref": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/receiptRef"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "refusal_code": {
+                "$ref": "#/$defs/nullableShortToken"
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidenceRef"
+                },
+                "maxItems": 16,
+                "uniqueItems": true
+              }
+            }
+          }
+        }
+      },
+      "overall_outcome": {
+        "enum": [
+          "published_with_review_request",
+          "published_review_request_not_requested",
+          "review_request_failed",
+          "partially_applied",
+          "refused"
+        ]
+      },
+      "nonclaims": {
+        "type": "array",
+        "items": {
+          "enum": [
+            "grants_no_authority",
+            "no_remote_acceptance_beyond_receipt_evidence",
+            "asserts_no_review_approval"
+          ]
+        },
+        "minItems": 3,
+        "maxItems": 3,
+        "uniqueItems": true
+      },
+      "committed_at": {
+        "$ref": "#/$defs/dateTime"
+      }
+    },
+    "allOf": [
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "overall_outcome": {
+              "const": "published_with_review_request"
+            }
+          },
+          "required": [
+            "overall_outcome"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "publication": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "published"
+                    }
+                  }
+                },
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "opened"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "overall_outcome": {
+              "const": "published_review_request_not_requested"
+            }
+          },
+          "required": [
+            "overall_outcome"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "publication": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "published"
+                    }
+                  }
+                },
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "not_requested"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "overall_outcome": {
+              "const": "review_request_failed"
+            }
+          },
+          "required": [
+            "overall_outcome"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "publication": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "published"
+                    }
+                  }
+                },
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "failed"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "overall_outcome": {
+              "const": "partially_applied"
+            }
+          },
+          "required": [
+            "overall_outcome"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "publication": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "partially_applied"
+                    }
+                  }
+                },
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "not_attempted"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "overall_outcome": {
+              "const": "refused"
+            }
+          },
+          "required": [
+            "overall_outcome"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "publication": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "refused"
+                    }
+                  }
+                },
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "enum": [
+                        "refused",
+                        "not_attempted"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "change_set": {
+              "type": "object",
+              "properties": {
+                "resulting_revision_id": {
+                  "type": "null"
+                }
+              }
+            },
+            "remote_cas": {
+              "type": "object",
+              "properties": {
+                "resulting_target_head": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "revisionId": {
+        "type": "string",
+        "pattern": "^scm-revision:[0-9a-f]{40,64}$"
+      },
+      "nullableRevisionId": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/revisionId"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "publicationEffectRef": {
+        "type": "string",
+        "pattern": "^scm-publication-effect://[^\\s]{1,248}$"
+      },
+      "proposalRef": {
+        "type": "string",
+        "pattern": "^proposal://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+      },
+      "scopeRef": {
+        "type": "string",
+        "pattern": "^scope:[a-z0-9][a-z0-9._:/-]{0,127}$"
+      },
+      "shortToken": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._:/-]{0,127}$"
+      },
+      "nullableShortToken": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/shortToken"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "changeSetFile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "change_kind",
+          "content_digest",
+          "proposal_ref"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"
+          },
+          "change_kind": {
+            "enum": [
+              "added",
+              "modified",
+              "removed"
+            ]
+          },
+          "content_digest": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "proposal_ref": {
+            "$ref": "#/$defs/proposalRef"
+          }
+        }
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -54726,6 +55756,282 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "path": "$.tombstone_commitment"
       }
     }
+  ],
+  "schema://ioi/components/connectors-tools/scm-publication-effect/v1": [
+    {
+      "rule_id": "scm_publication_effect.content_commitment.recomputes",
+      "description": "The publication effect hash recomputes over every field except publication_effect_hash, so the declared destination, change set, compare-and-swap, idempotency material, and per-effect outcomes are all committed material.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-effect-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "publication_effect_id": {
+            "path": "$.publication_effect_id"
+          },
+          "work_subject": {
+            "path": "$.work_subject"
+          },
+          "authority": {
+            "path": "$.authority"
+          },
+          "destination": {
+            "path": "$.destination"
+          },
+          "change_set": {
+            "path": "$.change_set"
+          },
+          "remote_cas": {
+            "path": "$.remote_cas"
+          },
+          "idempotency": {
+            "path": "$.idempotency"
+          },
+          "effects": {
+            "path": "$.effects"
+          },
+          "overall_outcome": {
+            "path": "$.overall_outcome"
+          },
+          "nonclaims": {
+            "path": "$.nonclaims"
+          },
+          "committed_at": {
+            "path": "$.committed_at"
+          }
+        },
+        "expected_path": "$.publication_effect_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.change_set.file_set_digest.recomputes",
+      "description": "The file-set digest recomputes over the bound proposal, the base revision, and the exact enumerated file rows, so the published change set is the declared set and nothing else.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-effect-file-set-jcs-sha256.v1"
+          },
+          "proposal_ref": {
+            "path": "$.work_subject.proposal_ref"
+          },
+          "proposal_content_commitment": {
+            "path": "$.change_set.proposal_content_commitment"
+          },
+          "base_revision_id": {
+            "path": "$.change_set.base_revision_id"
+          },
+          "files": {
+            "path": "$.change_set.files"
+          }
+        },
+        "expected_path": "$.change_set.file_set_digest",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.change_set.binds_proposal_commitment",
+      "description": "The change set carries the exact content commitment of the proposal it was computed from, and that commitment equals the bound work subject proposal hash.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.change_set.proposal_content_commitment",
+          "$.work_subject.proposal_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.change_set.files.bind_proposal",
+      "description": "Every published file row is attributed to the one bound proposal; an unattributed or foreign file cannot ride along.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.change_set.files",
+        "field": "proposal_ref",
+        "expected_path": "$.work_subject.proposal_ref"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.change_set.files.unique_paths",
+      "description": "Each repository-relative path appears at most once in the published change set.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.change_set.files",
+        "fields": [
+          "path"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.destination.binding_covers_repository",
+      "description": "The repository the effect names is the repository the admitted destination binding covers; the destination never resolves from free caller text.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.destination.destination_binding_ref",
+        "expected_path": "$.destination.repository_ref",
+        "prefix": "scm-destination-binding://",
+        "strip_prefix": "repository://",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.remote_cas.expected_target_head.declared",
+      "description": "When the target ref is expected to exist, the effect declares the exact remote head it was computed against; an absent expected head is a refusal, never an unconditional advance.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.remote_cas.expected_target_head",
+        "when_path": "$.remote_cas.target_ref_precondition",
+        "values": [
+          "expected_head"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.remote_cas.expected_base_head.binds_change_set_base",
+      "description": "The expected base head is the exact revision the change set was computed onto; a declared head detached from the change-set base is a stale compare-and-swap and is refused.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.remote_cas.expected_base_head",
+          "$.change_set.base_revision_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.remote_cas.resulting_target_head.binds_resulting_revision",
+      "description": "The resulting remote head equals the resulting revision of the published change set, so a remote advance can never be reported for material the effect did not commit.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.remote_cas.resulting_target_head",
+          "$.change_set.resulting_revision_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.idempotency.key.recomputes",
+      "description": "The idempotency key recomputes over the bound proposal, the admitted destination binding, the target ref precondition and expected head, and the file-set digest, so an exact resubmission converges and any changed material is a different submission.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-effect-idempotency-jcs-sha256.v1"
+          },
+          "proposal_ref": {
+            "path": "$.work_subject.proposal_ref"
+          },
+          "proposal_hash": {
+            "path": "$.work_subject.proposal_hash"
+          },
+          "destination_binding_ref": {
+            "path": "$.destination.destination_binding_ref"
+          },
+          "destination_binding_hash": {
+            "path": "$.destination.destination_binding_hash"
+          },
+          "repository_ref": {
+            "path": "$.destination.repository_ref"
+          },
+          "target_ref": {
+            "path": "$.destination.target_ref"
+          },
+          "target_ref_precondition": {
+            "path": "$.remote_cas.target_ref_precondition"
+          },
+          "expected_target_head": {
+            "path": "$.remote_cas.expected_target_head"
+          },
+          "file_set_digest": {
+            "path": "$.change_set.file_set_digest"
+          }
+        },
+        "expected_path": "$.idempotency.idempotency_key",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.idempotency.replay.binds_prior_effect",
+      "description": "A converged or conflicting replay names the prior publication effect it converged against; a replay disposition without a prior effect is unrepresentable.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.idempotency.prior_effect_ref",
+        "when_path": "$.idempotency.submission_disposition",
+        "values": [
+          "converged_replay",
+          "refused_conflicting_replay"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.idempotency.replay.binds_prior_hash",
+      "description": "A replay also carries the prior effect content commitment, so convergence is asserted against exact material rather than an identifier alone.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.idempotency.prior_effect_hash",
+        "when_path": "$.idempotency.submission_disposition",
+        "values": [
+          "converged_replay",
+          "refused_conflicting_replay"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.effects.receipts.distinct",
+      "description": "The publication and the review request are separately receipted; one receipt can never stand for both sub-effects.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.effects.publication.receipt_ref",
+          "$.effects.review_request.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.effects.review_request.receipt_declared",
+      "description": "An opened or failed review request carries its own receipt; a failed review request is receipted as its own honest outcome rather than absorbed into the publication receipt.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effects.review_request.receipt_ref",
+        "when_path": "$.effects.review_request.outcome",
+        "values": [
+          "opened",
+          "failed"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.effects.publication.refusal_code_declared",
+      "description": "A refused or partially applied publication declares the exact refusal code it failed closed on.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effects.publication.refusal_code",
+        "when_path": "$.effects.publication.outcome",
+        "values": [
+          "refused",
+          "partially_applied"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect.effects.review_request.refusal_code_declared",
+      "description": "A failed or refused review request declares the exact refusal code, so a review-request failure is never reported as an empty success.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effects.review_request.refusal_code",
+        "when_path": "$.effects.review_request.outcome",
+        "values": [
+          "failed",
+          "refused"
+        ]
+      }
+    }
   ]
 };
 
@@ -56073,4 +57379,10 @@ export function validateAutonomousSystemDissolutionReceiptV1(
   value: unknown,
 ): value is AutonomousSystemDissolutionReceiptV1 {
   return validateArchitectureContract("schema://ioi/foundations/autonomous-system-dissolution-receipt/v1", value).ok;
+}
+
+export function validateScmPublicationEffectV1(
+  value: unknown,
+): value is ScmPublicationEffectV1 {
+  return validateArchitectureContract("schema://ioi/components/connectors-tools/scm-publication-effect/v1", value).ok;
 }
