@@ -10,8 +10,8 @@ Supersedes: older flattened tool capability examples in plans/specs.
 Superseded by: none.
 Last alignment pass: 2026-07-29.
 Doctrine status: canonical
-Implementation status: partial (the RuntimeToolContract owner and daemon tool catalog are live, the registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate, and a conforming `ScmPublicationEffect` runtime path is live on `POST /v1/hypervisor/environments/{id}/scm/publish`; production IFC propagation/enforcement, MCP resource/prompt/elicitation/task/App propagation, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, remaining browser/computer-use families, immutable gateway requirements, `LocalAgentPairingSessionEnvelope` bindings, room-admitted local-agent gateway issuance, and a bound review-request host surface remain planned)
-Last implementation audit: 2026-07-29 (contract substrate; production IFC enforcement not claimed; `ScmPublicationEffect` has a conforming runtime path whose refusal branches are each pinned by a test against the registered negative fixture, with the review-request host surface still unbound)
+Implementation status: partial (the RuntimeToolContract owner and daemon tool catalog are live, the registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate, and a conforming `ScmPublicationEffect` runtime path is live on `POST /v1/hypervisor/environments/{id}/scm/publish`; production IFC propagation/enforcement, MCP resource/prompt/elicitation/task/App propagation, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, remaining browser/computer-use families, immutable gateway requirements, `LocalAgentPairingSessionEnvelope` bindings, room-admitted local-agent gateway issuance, a bound review-request host surface, and the whole of `ioi.scm-publication-effect.v2` remain planned)
+Last implementation audit: 2026-07-29 (contract substrate; production IFC enforcement not claimed; `ScmPublicationEffect` v1 has a conforming runtime path whose refusal branches are each pinned by a test against the registered negative fixture, with the review-request host surface still unbound; `ScmPublicationEffect` v2 is registered contract substrate only and is implemented by nothing)
 
 ## Purpose
 
@@ -436,7 +436,21 @@ DELETE /v1/connectors/{connector_id}/subscriptions/{subscription_id}
 
 ## Source-Control Publication
 
+Two registered contracts stand in this family. Version 1 is the historical
+record of the merged publication route and keeps its own narrower nonclaim set.
+Version 2 is the owner anchor for publication as one durable logical operation
+with recovery and reconciliation. The claim boundary between them is stated
+under [ScmPublicationEffect v2](#scmpublicationeffect-v2) and is decided by
+which contract a route is compiled against, never by which section a reader
+reaches first.
+
 ### ScmPublicationEffect
+
+This section is retained as historical evidence for
+`ioi.scm-publication-effect.v1`, the contract the merged route implements. Its
+three nonclaims are exactly the three it registered; it makes no statement about
+retry, recovery, or reconciliation, and nothing below widens it. The v2 section
+that follows does not edit this one.
 
 `ScmPublicationEffect` is the immutable, receipted record of exactly one
 source-control publication crossing: an enumerated, proposal-bound file set
@@ -603,6 +617,213 @@ Deferred: the review-request surface has no admitted host-API binding yet, so
 `GitProcessScmPort::open_review_request` returns the honest
 `review-request-rejected-by-remote` failure as its own receipted sub-effect
 rather than a silent success; a bound review surface is the next leg.
+
+### ScmPublicationEffect v2
+
+`ScmPublicationEffect` v2 carries one source-control publication as **one
+durable logical operation** rather than one isolated crossing. It exists to
+close a single owner ruling:
+
+> Retry-after-lost-response must be one logical SCM operation. A retry must
+> never create another commit or review request merely because the first
+> attempt advanced the observed head.
+
+The `ScmPublicationOperation` identity is what makes that possible: it is
+allocated and committed before any remote contact, it is derived from declared
+intent only, and it survives every observation of the remote.
+
+```text
+schema_version: ioi.scm-publication-effect.v2
+publication_effect_id / publication_effect_hash
+execution_semantics: at_most_once_execution_plus_reconciliation
+operation:
+  operation_ref / operation_key
+  operation_key_domain: excludes_observed_remote_state
+  identity:                            # the ScmPublicationOperation identity
+    work_run_ref
+    proposal_ref / proposal_hash
+    connector_ref / connector_revision_hash
+    destination_binding_ref / destination_binding_hash
+    repository_ref / target_ref / base_ref / base_revision_id
+    change_set_kind: proposal_bound_file_set
+    files: [ path, change_kind, content_digest, proposal_ref ]
+    file_set_digest
+    review_intent: requested | not_requested
+    frozen_commit_metadata:
+      commit_message_digest / authorship_commitment
+      authored_at / commit_timestamp / metadata_digest
+    intended_revision_id
+authority:
+  authority_grant_refs / authority_scope_refs
+  capability_lease_ref / admission_receipt_ref
+preparation:
+  prepared_record_ref / prepared_record_hash / prepared_persisted_at
+  persistence_order: prepared_persisted_before_remote_effect
+  prepared_persistence_evidence_ref
+attempt:
+  attempt_ref / attempt_number
+  cas:
+    mechanism: expected_head_compare_and_swap
+    remote_update_mode: expected_head_advance_or_refuse
+    stale_head_disposition: refuse_never_overwrite
+    target_ref_precondition: expected_head | must_not_exist
+    expected_target_head                 # the ONLY home of observed state
+    observed_at / observation_evidence_ref
+  cas_fingerprint / frozen_cas_fingerprint
+  dispatch:
+    prepared_record_hash
+    dispatch_observation: proven_absent | proven_present | indeterminate
+    dispatch_evidence_refs
+recovery:
+  resolution_disposition:
+    first_dispatch | replayed_terminal_result |
+    recovered_converged_remote | retried_frozen_cas |
+    reconciliation_required
+  remote_effect_invoked
+  remote_convergence: matches_intended_revision | diverged | unobserved
+  precondition_recheck: holds | moved | unobserved
+  prior_terminal_effect_ref / prior_terminal_effect_hash
+  reconciliation_code / recovery_evidence_refs
+outcome:
+  resulting_revision: null | { revision_id, target_head }
+  proof_ref
+effects:
+  publication:
+    outcome: published | partially_applied | refused | reconciliation_required
+    receipt_ref / refusal_code / evidence_refs
+  review_request:
+    outcome: opened | failed | refused | not_requested |
+             not_attempted | reconciliation_required
+    receipt_ref / refusal_code / evidence_refs
+    reconciliation:
+      operation_key                      # its own, never the publication's
+      resolution_disposition / remote_effect_invoked / reconciliation_code
+overall_outcome
+nonclaims
+committed_at
+```
+
+- **The operation identity is observation-independent.** `operation_key`
+  recomputes over `operation.identity` and nothing else, and `identity` is a
+  closed object whose members are all declared intent: the work run, the
+  proposal, the admitted destination binding, the target and base refs, the
+  enumerated file set, the review intent, the frozen commit metadata, and the
+  `intended_revision_id` that intent determines. There is no member for an
+  observed remote head, so a head observation cannot enter the identity, and an
+  implementation that folded one into the key produces a key that does not
+  recompute. Two attempts separated by a lost response therefore carry the same
+  operation, which is what "one logical operation" means here.
+- **The expected head lives in the attempt fingerprint, not the identity.**
+  `attempt.cas.expected_target_head` is the single home of observed remote
+  state, and `attempt.cas_fingerprint` recomputes over the operation key, the
+  target-ref precondition, that expected head, and the frozen base revision.
+  The split is the whole mechanism: identity is stable across observations,
+  the fingerprint is what an observation is allowed to change.
+- **The compare-and-swap is frozen for the life of the operation.**
+  `cas_fingerprint` must equal `frozen_cas_fingerprint`. A retry reuses the
+  compare-and-swap frozen at preparation; a retry that re-observed the head and
+  recomputed a different precondition is not an attempt of this operation and
+  has no representation. As in v1, `remote_update_mode` and
+  `stale_head_disposition` are single literals and the record is a closed
+  object, so a forced overwrite has no field to travel through.
+- **`Prepared` is persisted before the remote effect is invoked.**
+  `persistence_order` is the single literal
+  `prepared_persisted_before_remote_effect`, and a dispatch is only describable
+  against the Prepared record it names: `attempt.dispatch.prepared_record_hash`
+  must equal `preparation.prepared_record_hash`. A remote effect invoked before
+  Prepared reached durable storage has no commitment to cite.
+- **Re-entry resolves by exactly one of four routes, or it refuses.** If a
+  terminal result already exists for the operation, it is replayed
+  (`replayed_terminal_result`) and `remote_effect_invoked` is `false` — no
+  further remote effect. If the remote already equals the intended revision,
+  the original success is recovered (`recovered_converged_remote`), again with
+  `remote_effect_invoked` `false` and `remote_convergence`
+  `matches_intended_revision`. If dispatch is proven absent and the original
+  precondition still holds, the same frozen compare-and-swap is retried
+  (`retried_frozen_cas`, requiring `dispatch_observation` `proven_absent` and
+  `precondition_recheck` `holds`). Otherwise the operation refuses as
+  `reconciliation_required`, invokes nothing, declares a
+  `reconciliation_code`, and leaves `outcome.resulting_revision` null for an
+  operator to resolve.
+- **A fresh child commit has no representation.** Either
+  `outcome.resulting_revision` is null, or its `revision_id` and `target_head`
+  both equal `operation.identity.intended_revision_id`. Because the commit
+  metadata, the base revision, and the file set are all frozen inside the
+  identity, the intended revision is fixed at preparation; a retry cannot
+  compute a second commit onto a moved head and report it as this operation's
+  result.
+- **The review request reconciles independently.**
+  `effects.review_request.reconciliation` carries its own `operation_key`,
+  derived from the publication operation key, the frozen review intent, and the
+  target ref, and required to differ from it. The review sub-effect therefore
+  has its own disposition, its own `remote_effect_invoked`, its own
+  reconciliation code, and its own receipt. A publication may be terminal while
+  its review request is still `reconciliation_required`, stated as
+  `published_review_request_reconciliation_required`; resolving one never
+  resolves the other, and a review-request ambiguity cannot be absorbed into
+  the publication operation.
+- **This is at-most-once execution plus reconciliation. It is NOT an
+  exactly-once claim.** `execution_semantics` is the single literal
+  `at_most_once_execution_plus_reconciliation`, and
+  `asserts_no_exactly_once_execution` is a required nonclaim on every record.
+  The contract bounds the estate to invoking the remote effect at most once per
+  frozen compare-and-swap and to refusing into a named reconciliation state
+  whenever it cannot prove which side of a lost response it is on. It does not
+  promise that the effect happened exactly once, and it does not promise that
+  reconciliation succeeds. Any prose that states or implies exactly-once
+  delivery for this family is wrong.
+- **Nonclaims.** The record carries exactly four: it grants no authority, it
+  proves nothing about the remote beyond its own receipts and evidence refs, it
+  never asserts that a review was approved or accepted, and it asserts no
+  exactly-once execution.
+
+Fault coverage. Each named case is pinned by a registered fixture under
+`docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/`:
+
+| Fault case | Behaviour required | Pinning fixture |
+| --- | --- | --- |
+| Lost response **before** the remote dispatch | Dispatch is proven absent and the precondition still holds, so the same frozen compare-and-swap is retried under the same operation | `positive-lost-response-before-dispatch-retry-same-frozen-cas.json`; refusal pinned by `negative-retry-recomputed-cas-onto-moved-head.json` |
+| Lost response **after dispatch, before persistence** | The remote already equals the intended revision, so the original success is recovered with no further remote effect | `positive-lost-response-after-dispatch-before-persistence-recovered.json`; refusal pinned by `negative-converged-recovery-reinvoked-remote-effect.json` |
+| Lost response **after persistence, before the response** | A terminal result exists, so it is replayed with no further remote effect and it names the prior terminal effect | `positive-lost-response-after-persistence-replayed-terminal.json`; refusal pinned by `negative-replay-without-prior-terminal-effect.json` |
+| **Moved-head ambiguity** | Neither replay, convergence, nor a proven-absent dispatch applies, so the operation refuses as `reconciliation_required` and creates nothing | `positive-moved-head-ambiguity-reconciliation-required.json`; refusal pinned by `negative-moved-head-fresh-child-commit.json` |
+| **Review-request ambiguity** | The review sub-effect reconciles on its own key while the publication stays terminal | `positive-review-request-ambiguity-independent-reconciliation.json`; refusal pinned by `negative-review-request-ambiguity-absorbed-into-publication.json` |
+
+Observation independence itself is pinned twice: structurally by
+`negative-observed-head-in-operation-identity.json`, which shows the identity
+has no member an observed head could occupy, and by computation in
+`negative-operation-key-bound-to-observed-head.json`, where a key derived from
+the observed head no longer recomputes over the identity.
+
+Registered wire contract: contract id
+`schema://ioi/components/connectors-tools/scm-publication-effect/v2`
+(`ioi.scm-publication-effect.v2`) with this `ScmPublicationEffect v2` section as
+`canonical_owner_ref`. Its registry evolution fields declare
+`successor_of` = the v1 contract id, `compatibility` = `breaking`,
+`migration_policy` = `explicit_adapter_required`, and
+`predecessor_remains_valid` = `true`; the v1 entry declares v2 as its
+`successor_contract_id`. Nothing in the v1 schema, invariants, fixtures, or
+nonclaims was edited.
+
+**The v1/v2 claim boundary.** v1 and v2 are both registered and both readable.
+v1 remains a valid, non-retracted contract, and its narrower nonclaim set
+stands: it describes one crossing and claims nothing about retry, recovery, or
+reconciliation. v2 is a breaking successor with an explicit adapter migration —
+the estate **reads v1 and v2 and writes v2** once a route is compiled against
+v2. A v1 record must never be read as if it carried the v2 operation identity,
+the frozen compare-and-swap, or the reconciliation dispositions, and a v2
+record must never be flattened into a v1 record: the migration is the adapter,
+not a field-name mapping. Which contract governs a given crossing is settled by
+the contract that route compiles against.
+
+Implementation status: not implemented. Nothing in the estate builds, reads, or
+persists an `ioi.scm-publication-effect.v2` record; v2 exists here as
+registered schema, invariants, fixtures, and generated projections only. The
+merged v1 route on
+`POST /v1/hypervisor/environments/{id}/scm/publish` remains in force and
+remains compiled against v1 until the v2 implementation cut lands, and no
+runtime honesty claim in the v1 section above is transferred to v2. The v2
+implementation cut owns the durable operation store, the Prepared write path,
+the re-entry resolver, and the independent review-request reconciler.
 
 ## Risk Classes
 

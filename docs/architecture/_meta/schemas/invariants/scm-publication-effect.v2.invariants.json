@@ -1,0 +1,304 @@
+{
+  "$id": "invariant://ioi/components/connectors-tools/scm-publication-effect/one-logical-operation/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+  "rules": [
+    {
+      "rule_id": "scm_publication_effect_v2.content_commitment.recomputes",
+      "description": "The publication effect hash recomputes over every field except publication_effect_hash, so the operation identity, the preparation record, the attempt fingerprint, the recovery disposition, the outcome, and both sub-effect outcomes are all committed material.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-effect-commitment-jcs-sha256.v2"
+          },
+          "schema_version": { "path": "$.schema_version" },
+          "publication_effect_id": { "path": "$.publication_effect_id" },
+          "execution_semantics": { "path": "$.execution_semantics" },
+          "operation": { "path": "$.operation" },
+          "authority": { "path": "$.authority" },
+          "preparation": { "path": "$.preparation" },
+          "attempt": { "path": "$.attempt" },
+          "recovery": { "path": "$.recovery" },
+          "outcome": { "path": "$.outcome" },
+          "effects": { "path": "$.effects" },
+          "overall_outcome": { "path": "$.overall_outcome" },
+          "nonclaims": { "path": "$.nonclaims" },
+          "committed_at": { "path": "$.committed_at" }
+        },
+        "expected_path": "$.publication_effect_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.operation.key.recomputes",
+      "description": "The operation key recomputes over the operation identity and NOTHING else. The identity is a closed object carrying the work run, the proposal, the admitted destination binding, the target and base refs, the enumerated file set, the review intent, the frozen commit metadata, and the intended revision; it has no field for an observed remote head. An implementation that folded a head observation into the key therefore cannot produce a key that recomputes, which is what makes the operation identity observation-independent and a retry the same logical operation.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-operation-identity-jcs-sha256.v2"
+          },
+          "identity": { "path": "$.operation.identity" }
+        },
+        "expected_path": "$.operation.operation_key",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.operation.identity.file_set_digest.recomputes",
+      "description": "The file-set digest recomputes over the bound proposal, the frozen base revision, and the exact enumerated file rows, so the file set inside the operation identity is the declared set and nothing else.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-operation-file-set-jcs-sha256.v2"
+          },
+          "proposal_ref": { "path": "$.operation.identity.proposal_ref" },
+          "proposal_hash": { "path": "$.operation.identity.proposal_hash" },
+          "base_revision_id": {
+            "path": "$.operation.identity.base_revision_id"
+          },
+          "files": { "path": "$.operation.identity.files" }
+        },
+        "expected_path": "$.operation.identity.file_set_digest",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.operation.identity.commit_metadata.frozen",
+      "description": "The commit metadata digest recomputes over the message commitment, the authorship commitment, and both declared timestamps, so the commit the operation intends is frozen at preparation and cannot be re-derived on a later attempt.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-frozen-commit-metadata-jcs-sha256.v2"
+          },
+          "commit_message_digest": {
+            "path": "$.operation.identity.frozen_commit_metadata.commit_message_digest"
+          },
+          "authorship_commitment": {
+            "path": "$.operation.identity.frozen_commit_metadata.authorship_commitment"
+          },
+          "authored_at": {
+            "path": "$.operation.identity.frozen_commit_metadata.authored_at"
+          },
+          "commit_timestamp": {
+            "path": "$.operation.identity.frozen_commit_metadata.commit_timestamp"
+          }
+        },
+        "expected_path": "$.operation.identity.frozen_commit_metadata.metadata_digest",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.operation.identity.files.bind_proposal",
+      "description": "Every file row inside the operation identity is attributed to the one bound proposal; an unattributed or foreign file cannot ride along.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.operation.identity.files",
+        "field": "proposal_ref",
+        "expected_path": "$.operation.identity.proposal_ref"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.operation.identity.files.unique_paths",
+      "description": "Each repository-relative path appears at most once in the operation's frozen file set.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.operation.identity.files",
+        "fields": ["path"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.destination.binding_covers_repository",
+      "description": "The repository the operation names is the repository the admitted destination binding covers; the destination never resolves from free caller text.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.operation.identity.destination_binding_ref",
+        "expected_path": "$.operation.identity.repository_ref",
+        "prefix": "scm-destination-binding://",
+        "strip_prefix": "repository://",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.preparation.precedes_remote_effect",
+      "description": "A dispatch is only describable against the Prepared record that was persisted before it: the dispatch carries the Prepared content commitment, and it must equal the persisted preparation commitment. A remote effect invoked before Prepared was persisted has no commitment to name.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.attempt.dispatch.prepared_record_hash",
+          "$.preparation.prepared_record_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.attempt.cas_fingerprint.recomputes",
+      "description": "The attempt fingerprint recomputes over the operation key, the target ref precondition, the observed expected head, and the frozen base revision. This is the only place the observed remote head is committed, which is what keeps it out of the operation identity.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-attempt-cas-jcs-sha256.v2"
+          },
+          "operation_key": { "path": "$.operation.operation_key" },
+          "target_ref_precondition": {
+            "path": "$.attempt.cas.target_ref_precondition"
+          },
+          "expected_target_head": {
+            "path": "$.attempt.cas.expected_target_head"
+          },
+          "base_revision_id": {
+            "path": "$.operation.identity.base_revision_id"
+          }
+        },
+        "expected_path": "$.attempt.cas_fingerprint",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.attempt.cas.frozen",
+      "description": "Every attempt of one operation carries the frozen compare-and-swap: this attempt's fingerprint must equal the fingerprint frozen at preparation. A retry that re-observed the remote head and recomputed a different precondition is not an attempt of this operation and is unrepresentable; a moved head must be refused as reconciliation_required instead.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.attempt.cas_fingerprint", "$.attempt.frozen_cas_fingerprint"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.attempt.cas.expected_target_head.declared",
+      "description": "When the target ref is expected to exist, the attempt declares the exact remote head it was computed against; an absent expected head is a refusal, never an unconditional advance.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.attempt.cas.expected_target_head",
+        "when_path": "$.attempt.cas.target_ref_precondition",
+        "values": ["expected_head"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.recovery.replay.binds_prior_terminal",
+      "description": "A replayed terminal result names the prior terminal publication effect it replayed; a replay disposition without a prior terminal effect is unrepresentable, so a replay can never be manufactured to skip a remote effect that never happened.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.recovery.prior_terminal_effect_ref",
+        "when_path": "$.recovery.resolution_disposition",
+        "values": ["replayed_terminal_result"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.recovery.replay.binds_prior_hash",
+      "description": "A replay also carries the prior terminal effect's content commitment, so the replayed result is asserted against exact material rather than an identifier alone.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.recovery.prior_terminal_effect_hash",
+        "when_path": "$.recovery.resolution_disposition",
+        "values": ["replayed_terminal_result"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.recovery.reconciliation.code_declared",
+      "description": "A reconciliation_required resolution declares the exact reconciliation code an operator must act on; an unresolved operation is never an empty refusal.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.recovery.reconciliation_code",
+        "when_path": "$.recovery.resolution_disposition",
+        "values": ["reconciliation_required"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.outcome.never_fresh_child_commit",
+      "description": "Either no revision was created, or the created revision is exactly the revision the operation froze. A resulting revision that differs from intended_revision_id would be a second commit produced by a retry, and it has no representation.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.outcome.resulting_revision",
+        "field": "revision_id",
+        "expected_path": "$.operation.identity.intended_revision_id"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.outcome.head_binds_intended_revision",
+      "description": "When a revision exists, the remote head reported for the target ref equals that same frozen intended revision, so a remote advance can never be reported for material this operation did not freeze.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.outcome.resulting_revision",
+        "field": "target_head",
+        "expected_path": "$.operation.identity.intended_revision_id"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.effects.receipts.distinct",
+      "description": "The publication and the review request are separately receipted; one receipt can never stand for both sub-effects.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.effects.publication.receipt_ref",
+          "$.effects.review_request.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.effects.review_request.reconciles_independently",
+      "description": "The review request reconciles as its own logical operation: its reconciliation key is derived from, and must differ from, the publication operation key. A review-request ambiguity therefore cannot be absorbed into the publication operation, and resolving one never resolves the other.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.effects.review_request.reconciliation.operation_key",
+          "$.operation.operation_key"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.effects.review_request.reconciliation.key_recomputes",
+      "description": "The review-request reconciliation key recomputes over the publication operation key, the frozen review intent, and the target ref, so the review sub-effect is bound to the same publication without sharing its identity.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-review-request-operation-jcs-sha256.v2"
+          },
+          "publication_operation_key": { "path": "$.operation.operation_key" },
+          "review_intent": { "path": "$.operation.identity.review_intent" },
+          "target_ref": { "path": "$.operation.identity.target_ref" }
+        },
+        "expected_path": "$.effects.review_request.reconciliation.operation_key",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.effects.review_request.receipt_declared",
+      "description": "An opened or failed review request carries its own receipt; a failed review request is receipted as its own honest outcome rather than absorbed into the publication receipt.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effects.review_request.receipt_ref",
+        "when_path": "$.effects.review_request.outcome",
+        "values": ["opened", "failed"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.effects.publication.refusal_code_declared",
+      "description": "A refused, partially applied, or unresolved publication declares the exact code it failed closed on.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effects.publication.refusal_code",
+        "when_path": "$.effects.publication.outcome",
+        "values": ["refused", "partially_applied", "reconciliation_required"]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.effects.review_request.refusal_code_declared",
+      "description": "A failed, refused, or unresolved review request declares its exact code, so a review-request failure or ambiguity is never reported as an empty success.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effects.review_request.refusal_code",
+        "when_path": "$.effects.review_request.outcome",
+        "values": ["failed", "refused", "reconciliation_required"]
+      }
+    }
+  ]
+}

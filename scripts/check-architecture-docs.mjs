@@ -3195,6 +3195,7 @@ const SIZE_WAIVERS = new Map([
   ["components/daemon-runtime/events-receipts-delivery-bundles.md", "REVIEW: exhaustive receipt registry; splitting by receipt family is viable but would fragment one registry"],
   ["components/daemon-runtime/api.md", "single public API reference; readers scan it as one endpoint surface"],
   ["components/hypervisor/providers-and-environments.md", "REVIEW: provider plane and environment lifecycle are separable subjects"],
+  ["components/connectors-tools/contracts.md", "REVIEW: crossed 800 lines when the ScmPublicationEffect v2 owner anchor landed (2026-07-29); the Source-Control Publication family (v1 retained as historical evidence beside the v2 owner) is the named split candidate, deferred so the registered v1 canonical_owner_ref anchor does not move before the v2 implementation cut"],
   ["components/daemon-runtime/embodied-runtime.md", "one two-speed embodied contract; splitting separates strata that only make sense together"],
   ["components/hypervisor/foundry.md", "one model/worker/eval/training owner"],
   ["components/agentgres/api-object-model.md", "one object-model reference"],

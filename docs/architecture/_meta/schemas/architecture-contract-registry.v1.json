@@ -4828,7 +4828,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -4914,6 +4914,124 @@
           "path": "fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json",
           "expected_failure": "invariant",
           "expected_rule_id": "scm_publication_effect.content_commitment.recomputes"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+      "canonical_name": "ScmPublicationEffect",
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#scmpublicationeffect-v2",
+      "schema_version": "ioi.scm-publication-effect.v2",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "scm-publication-effect.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/connectors-tools/scm-publication-effect/one-logical-operation/v2",
+          "path": "invariants/scm-publication-effect.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ScmPublicationEffectV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ScmPublicationEffectV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/scm-publication-effect-v2/positive-first-dispatch-published-with-review-request.json",
+        "fixtures/scm-publication-effect-v2/positive-lost-response-before-dispatch-retry-same-frozen-cas.json",
+        "fixtures/scm-publication-effect-v2/positive-lost-response-after-dispatch-before-persistence-recovered.json",
+        "fixtures/scm-publication-effect-v2/positive-lost-response-after-persistence-replayed-terminal.json",
+        "fixtures/scm-publication-effect-v2/positive-moved-head-ambiguity-reconciliation-required.json",
+        "fixtures/scm-publication-effect-v2/positive-review-request-ambiguity-independent-reconciliation.json",
+        "fixtures/scm-publication-effect-v2/positive-new-target-ref-must-not-exist.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-observed-head-in-operation-identity.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-operation-key-bound-to-observed-head.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect_v2.operation.key.recomputes"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-retry-recomputed-cas-onto-moved-head.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect_v2.attempt.cas.frozen"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-converged-recovery-reinvoked-remote-effect.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-replay-without-prior-terminal-effect.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect_v2.recovery.replay.binds_prior_terminal"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-moved-head-fresh-child-commit.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect_v2.outcome.never_fresh_child_commit"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-review-request-ambiguity-absorbed-into-publication.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect_v2.effects.review_request.reconciles_independently"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-remote-effect-before-prepared-persistence.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect_v2.preparation.precedes_remote_effect"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-unbound-destination.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect_v2.destination.binding_covers_repository"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-shared-effect-receipt.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect_v2.effects.receipts.distinct"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-overwrite-remote-head-requested.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-whole-workspace-change-set.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json",
+          "expected_failure": "schema"
         }
       ]
     }
