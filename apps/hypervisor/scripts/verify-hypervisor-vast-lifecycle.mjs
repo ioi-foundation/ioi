@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
 const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
+const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const DATA = process.env.IOI_HYPERVISOR_DATA_DIR || path.join(os.homedir(), ".ioi", "hypervisor", "data");
@@ -191,11 +192,63 @@ async function run() {
   ok("outage injection on a marketplace instance fails closed with a named reason",
     outage.j.ok === false && /vast_outage_injection_not_supported/.test(outage.j.reason || ""));
   const deleted = await opWithGrant(vast.account_id, "delete");
-  ok("teardown tears the instance down and says so (remote cleanup + native teardown state)",
-    deleted.j.ok === true && deleted.j.evidence?.teardown_state === "torn_down"
-    && deleted.j.evidence?.cleanup_verified === true);
+  // BRANCH 1 of the teardown contract — PROVEN ABSENT. Only this branch may report
+  // cleanup_verified, and it owes no cleanup obligation. Before PR #129 the adapter emitted
+  // `teardown_state: "torn_down"` and `cleanup_verified: true` as hardcoded constants, so the
+  // old form of this assertion was pinning the overclaim and could not have failed.
+  const provenAbsent = teardownFindings(deleted, "torn_down");
+  ok("proven-absent teardown reports torn_down + cleanup_verified and owes NO cleanup obligation",
+    provenAbsent.length === 0, provenAbsent.join("; "));
+  ok("the teardown-outcome checker still rejects every overclaim it names (self-test)",
+    selfTestTeardownContract().length === 0, selfTestTeardownContract().join("; "));
   const obs = await opWithGrant(vast.account_id, "observe");
   ok("observe reports the torn-down instance honestly", obs.j.evidence?.teardown_state === "torn_down");
+
+  // ── 6b. The other two teardown outcomes, exercised for real ──
+  // Deletion must stay CALLABLE in every branch and neither non-succeeded branch may ever be
+  // reported as verified. Both are reachable with NO Vast credential: the UNVERIFIED branch by
+  // making the remote cleanup half fail (the workspace root is left unwritable so the remote
+  // `rm -rf` cannot prove absence), the FAILED branch by the adapter's own
+  // `endpoint.simulate_teardown_failure` lever.
+  const mainEnv = env;
+  const simVastEndpoint = { mode: "simulator", fixture_file: offersFile,
+    ssh: { host: fixture.host, port: fixture.port, user: fixture.user, key_file: fixture.client_key_path } };
+  const reprice = async () => {
+    const r = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
+    return (r.candidates || []).find((c) => c.provider_kind === "vast") || {};
+  };
+  env = `env-vlc-unverified-${tag}`;
+  await opWithGrant(vast.account_id, "create", { candidate_ref: (await reprice()).candidate_ref, max_hourly_usd: 0.5, teardown_policy: "always_teardown_required" });
+  await opWithGrant(vast.account_id, "start");
+  const brokeU = await opWithGrant(vast.account_id, "workrun", { command: "chmod 500 .." });
+  const delU = await opWithGrant(vast.account_id, "delete");
+  const unverified = teardownFindings(delU, "torn_down_unverified");
+  const obsU = await opWithGrant(vast.account_id, "observe");
+  ok("an UNREACHABLE cleanup half is torn_down_unverified with a durable obligation, is never reported verified, and delete still answers",
+    brokeU.j.evidence?.exit_code === 0 && unverified.length === 0
+    && delU.j.evidence?.remote_workspace_cleanup === "unreachable"
+    && obsU.j.evidence?.teardown_state !== "torn_down",
+    unverified.join("; "));
+  await opWithGrant(vast.account_id, "workrun", { command: "chmod 700 .." });
+  const delURepaired = await opWithGrant(vast.account_id, "delete");
+  ok("once the cleanup half is reachable again the SAME instance tears down provably and the obligation is discharged",
+    teardownFindings(delURepaired, "torn_down").length === 0,
+    teardownFindings(delURepaired, "torn_down").join("; "));
+
+  env = `env-vlc-failed-${tag}`;
+  await opWithGrant(vast.account_id, "create", { candidate_ref: (await reprice()).candidate_ref, max_hourly_usd: 0.5, teardown_policy: "always_teardown_required" });
+  await jd("PATCH", `/v1/hypervisor/provider-accounts/${vast.account_id}`, { endpoint: { ...simVastEndpoint, simulate_teardown_failure: true } });
+  await jd("POST", `/v1/hypervisor/provider-accounts/${vast.account_id}/preflight`);
+  const delF = await opWithGrant(vast.account_id, "delete");
+  const failed = teardownFindings(delF, "teardown_failed");
+  ok("an explicit destroy failure is teardown_failed with a durable obligation, is never reported verified, and delete still answers",
+    failed.length === 0 && delF.j.evidence?.native_teardown?.destroyed === false
+    && /TEARDOWN MAY BE INCOMPLETE/.test(delF.j.evidence?.native_teardown?.warning || ""),
+    failed.join("; "));
+  await jd("PATCH", `/v1/hypervisor/provider-accounts/${vast.account_id}`, { endpoint: simVastEndpoint });
+  await jd("POST", `/v1/hypervisor/provider-accounts/${vast.account_id}/preflight`);
+  await opWithGrant(vast.account_id, "delete");
+  env = mainEnv;
 
   // ── 7. Receipts: every op minted enriched ProviderOperationReceipts ──
   const receipts = ((await jd("GET", "/v1/hypervisor/provider-receipts")).j.receipts || [])

@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-28",
+  "as_of_date": "2026-07-29",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -337,7 +337,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/execution-horizons.md",
-      "source_sha256": "8ebe908654859bac21906ab433571ee4d218094e983eacc47e7ff4c5671fd31f"
+      "source_sha256": "360c68f0d83abed94ba4e6ab484e04fe178d3e179c3de1b84a17963fb45dce2e"
     },
     {
       "role": "landed owner canon",
@@ -412,7 +412,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
-      "source_sha256": "06500434c3286f5d45f202e81f985496820f878130d444354f4ef7bc1e295b88"
+      "source_sha256": "78f0414fc63525ee914e102f8b4058971d2b2426227cade64c80311cd6b70c17"
     },
     {
       "role": "landed owner canon",
@@ -452,7 +452,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/invariants.md",
-      "source_sha256": "60c28094705b684987d5a353ed07224bc5248d08428a36aeb0c34d6281a98c48"
+      "source_sha256": "a333e4b653ea3402f6217fe2cfb314f842de8de6a6586eb542178431f377c8f5"
     },
     {
       "role": "landed owner canon",
@@ -507,7 +507,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
-      "source_sha256": "971ac013517b427f38506584f355fbce6a661e59a4965ae15185f33efe5f682b"
+      "source_sha256": "11636564cbc780be257490b18d29fd274bb4436f69e73f6e6bb537fb57271e14"
     },
     {
       "role": "landed owner canon",
@@ -554,12 +554,12 @@
           {
             "note": "enumerated conditional session-preview registry",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-            "source_sha256": "2d226ffc3d7298d4cea4b7bd910fe0a18774f183f8dc4fedc25f90347591e2ff"
+            "source_sha256": "a093cbc66159bd4a288f82fb682c754f149d1bc38fa1901ee6f8a67a275238c3"
           },
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "eadb9b2ae48b70f98e4c86dc304293f431ad0a2bfe1e78dc8ae3c9a58a175441"
+            "source_sha256": "e770328154a9171950eebc095fd5fef7b42571836c7e59d73e032191dfb950d6"
           },
           {
             "note": "enumerated IBC HTTP registry",
@@ -719,7 +719,7 @@
           {
             "note": "ephemeral free-port reservation and private child runtime, reached through enumerated daemon and proxy entries",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/editor_host.rs",
-            "source_sha256": "f44dfe08043c59e6d07ff5bd5a8cf65382a2d845b158edd4b0aba6c83410057c"
+            "source_sha256": "aabb6cd0ae50b28ec61981c79b1299eda380eee6580747431d05fad3f7918645"
           },
           {
             "note": "enumerated dynamic lease-gated editor proxy wildcard",
@@ -729,12 +729,12 @@
           {
             "note": "enumerated conditional session-preview registry",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-            "source_sha256": "2d226ffc3d7298d4cea4b7bd910fe0a18774f183f8dc4fedc25f90347591e2ff"
+            "source_sha256": "a093cbc66159bd4a288f82fb682c754f149d1bc38fa1901ee6f8a67a275238c3"
           },
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "eadb9b2ae48b70f98e4c86dc304293f431ad0a2bfe1e78dc8ae3c9a58a175441"
+            "source_sha256": "e770328154a9171950eebc095fd5fef7b42571836c7e59d73e032191dfb950d6"
           },
           {
             "note": "enumerated signer POST /sign surface",
@@ -1657,19 +1657,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "3ea96e06a17e1590c03bf762b582fddc229d1d637780dfe303f02049d6d556e6",
-    "review_epoch_id": "proof-infra-chain-resume-census-reentry-review-2026-07-28",
-    "review_lock_sha256": "e16652aa21d881f7e45e1555c7d92c4537fb55a018ae2b2d3a3d0cedd394b9f5",
+    "program_source_material_sha256": "ae0833e0f21cb2d513cb6f57d4dffd1878a6c2932b947cd8e16f31a2177f2706",
+    "review_epoch_id": "route-final-invoker-census-successor-after-publication-rebuild-review-2026-07-29",
+    "review_lock_sha256": "8d901a2e9f504069e1e78209ec2321e156d90a3d4f85fe0a8cb7c9b48cc7d2d9",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
-    "reviewed_as_of": "2026-07-28",
-    "reviewed_entry_set_sha256": "c51e8f59d37b3442039ca18be4acab06e8eac46c00020d9a3ea0462207e8ba48",
-    "reviewed_identity_set_sha256": "bd796f403663f4c2b3f99c970c68d956d7daaf7a88a2b042660c88eb10d89577",
-    "reviewer_label": "claude-fable-5-proof-infra-census",
+    "reviewed_as_of": "2026-07-29",
+    "reviewed_entry_set_sha256": "d8a0b8f851823181e833f0723199365fff21f4ab3c39e69e4f3df91c0b0da6c2",
+    "reviewed_identity_set_sha256": "d583d38a8dc59dbd5201be374735179ab2b7f013031f9c115ab3c81d66e2e715",
+    "reviewer_label": "claude-opus-5-publication-rebuild-census-successor",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "eccf31846441b14907be6af1a5d92add98a72d94cc9a37ce4481f7df5819730f",
-    "snapshot_head_sequence": 22,
-    "snapshot_predecessor_entry_sha256": "45335a09d601925aa1c1ec2fc5613b4fcf1f68d956dfd924f77689bd8bd345d8",
+    "snapshot_head_entry_sha256": "cfb4112d93f3f3626bf823400ffb1a8845ecf703feca36cc5821a508a3d54102",
+    "snapshot_head_sequence": 23,
+    "snapshot_predecessor_entry_sha256": "eccf31846441b14907be6af1a5d92add98a72d94cc9a37ce4481f7df5819730f",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

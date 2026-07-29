@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
 const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
+const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
@@ -237,9 +238,17 @@ async function run() {
   const del1 = await opWithGrant("delete");
   const recon2 = (await jd("GET", "/v1/hypervisor/provider-spend/reconciliation")).j;
   const exp1closed = (recon2.rows || []).find((e) => e.exposure_ref === exp1.exposure_ref) || {};
-  ok("close confirms teardown (idempotent over the revoked lease) and closes the exposure",
-    del1.j.ok === true && del1.j.evidence?.teardown_state === "torn_down"
-    && exp1closed.status === "closed" && recon2.budget?.reserved_open_estimates === 0);
+  // BRANCH 1 of the teardown contract — PROVEN ABSENT. Only this branch may report
+  // cleanup_verified, and it owes no cleanup obligation. Before PR #129 the adapter emitted
+  // `teardown_state: "torn_down"` and `cleanup_verified: true` as hardcoded constants, so the
+  // old form of this assertion was pinning the overclaim and could not have failed.
+  const provenAbsent = teardownFindings(del1, "torn_down");
+  ok("close confirms teardown (idempotent over the revoked lease), owes NO cleanup obligation, and closes the exposure",
+    provenAbsent.length === 0
+    && exp1closed.status === "closed" && recon2.budget?.reserved_open_estimates === 0,
+    provenAbsent.join("; "));
+  ok("the teardown-outcome checker still rejects every overclaim it names (self-test)",
+    selfTestTeardownContract().length === 0, selfTestTeardownContract().join("; "));
   const sim2 = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
   const cand2 = (sim2.candidates || []).find((c) => c.provider_kind === "akash" && c.provider_address === "akash1gpuprov4090xq") || {};
   const redeployBase = { provider_id: accountId, op: "redeploy", environment_ref: env,
@@ -278,9 +287,41 @@ async function run() {
   const del2 = await opWithGrant("delete");
   const recon3 = (await jd("GET", "/v1/hypervisor/provider-spend/reconciliation")).j;
   const exp2warn = (recon3.rows || []).find((e) => e.account_ref === ak.account_ref && e.environment_ref === env && e.status !== "closed") || {};
-  ok("failed lease close → exposure closed_with_warning naming the still-accruing risk",
-    del2.j.ok === true && exp2warn.status === "closed_with_warning"
-    && /INCOMPLETE TEARDOWN/.test(exp2warn.warning || ""));
+  // BRANCH 2 — FAILED. The lease-close explicitly reported it did not close, so the deployment
+  // is presumed live and a durable cleanup obligation opens; deletion still ANSWERS.
+  const failed = teardownFindings(del2, "teardown_failed");
+  ok("failed lease close → teardown_failed with a durable obligation, never reported verified, and exposure closed_with_warning naming the still-accruing risk",
+    failed.length === 0 && del2.j.evidence?.native_teardown?.destroyed === false
+    && exp2warn.status === "closed_with_warning"
+    && /INCOMPLETE TEARDOWN/.test(exp2warn.warning || ""),
+    failed.join("; "));
+
+  // BRANCH 3 — UNKNOWN. The lease-close half returns, but the remote workspace cleanup half is
+  // made unreachable (its root is left unwritable so the remote `rm -rf` cannot prove absence).
+  // Absence is unproven: torn_down_unverified, never coerced to success, obligation open, and
+  // deletion still ANSWERS. No Akash credential or chain transaction is involved.
+  await jd("PATCH", `/v1/hypervisor/provider-accounts/${ak.account_id}`, { endpoint: simEndpoint });
+  await jd("POST", `/v1/hypervisor/provider-accounts/${ak.account_id}/preflight`);
+  const envU = `env-akU-${tag}`;
+  const mainEnv = env;
+  env = envU;
+  const candU = ((await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j.candidates || [])
+    .find((c) => c.provider_kind === "akash" && c.provider_address === "akash1gpuprov4090xq") || {};
+  await opWithGrant("create", { candidate_ref: candU.candidate_ref, max_hourly_usd: 0.4, teardown_policy: "always_teardown_required" });
+  await opWithGrant("start");
+  const brokeU = await opWithGrant("workrun", { command: "chmod 500 .." });
+  const delU = await opWithGrant("delete");
+  const unverified = teardownFindings(delU, "torn_down_unverified");
+  ok("an UNREACHABLE cleanup half is torn_down_unverified with a durable obligation, is never reported verified, and delete still answers",
+    brokeU.j.evidence?.exit_code === 0 && unverified.length === 0
+    && delU.j.evidence?.remote_workspace_cleanup === "unreachable",
+    unverified.join("; "));
+  await opWithGrant("workrun", { command: "chmod 700 .." });
+  const delURepaired = await opWithGrant("delete");
+  ok("once the cleanup half is reachable again the SAME deployment closes provably and the obligation is discharged",
+    teardownFindings(delURepaired, "torn_down").length === 0,
+    teardownFindings(delURepaired, "torn_down").join("; "));
+  env = mainEnv;
   const ledger = ((await jd("GET", "/v1/hypervisor/work-ledger")).j.entries || [])
     .filter((e) => e.kind === "provider_crossing" && e.account_ref === ak.account_ref);
   ok("Work Ledger provider crossings include the Akash lifecycle (create + redeploy) with exposure backlinks",

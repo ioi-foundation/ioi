@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
 const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
+const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
@@ -123,11 +124,19 @@ async function run() {
   const del = await opWithGrant("delete", env1);
   const r3 = await recon();
   const exp1c = (r3.rows || []).find((e) => e.exposure_ref === exp1.exposure_ref) || {};
-  ok("teardown closes the exposure honestly (teardown receipt + state) and releases the reservation",
-    del.j.ok === true && exp1c.status === "closed" && exp1c.teardown_state === "torn_down"
+  // BRANCH 1 of the teardown contract — PROVEN ABSENT. Only this branch may report
+  // cleanup_verified, and it owes no cleanup obligation. Before PR #129 the adapter emitted
+  // `teardown_state: "torn_down"` and `cleanup_verified: true` as hardcoded constants, so the
+  // old form of this assertion was pinning the overclaim and could not have failed.
+  const provenAbsent = teardownFindings(del, "torn_down");
+  ok("proven-absent teardown owes NO cleanup obligation, closes the exposure honestly (teardown receipt + state) and releases the reservation",
+    provenAbsent.length === 0 && exp1c.status === "closed" && exp1c.teardown_state === "torn_down"
     && String(exp1c.teardown_receipt_ref || "").startsWith("agentgres://provider-receipt/")
     && r3.budget?.reserved_open_estimates === 0 && r3.budget?.remaining_headroom === 1
-    && r3.teardown_finalized?.count >= 1);
+    && r3.teardown_finalized?.count >= 1,
+    provenAbsent.join("; "));
+  ok("the teardown-outcome checker still rejects every overclaim it names (self-test)",
+    selfTestTeardownContract().length === 0, selfTestTeardownContract().join("; "));
   const secondNow = await opWithGrant("create", env2, { candidate_ref: cand.candidate_ref, max_hourly_usd: 0.6 });
   ok("released headroom admits the next quote-backed create", secondNow.j.ok === true);
 
@@ -137,11 +146,43 @@ async function run() {
   const delWarn = await opWithGrant("delete", env2);
   const r4 = await recon();
   const exp2 = (r4.rows || []).find((e) => e.environment_ref === env2) || {};
-  ok("incomplete teardown → closed_with_warning + a standing incomplete-teardown warning with refs",
-    delWarn.j.ok === true && exp2.status === "closed_with_warning"
+  // BRANCH 2 — FAILED. The provider-native destroy explicitly reported it did not destroy, so
+  // the resource is presumed live: teardown_failed, cleanup_verified false, a durable cleanup
+  // obligation open, and the exposure closed WITH WARNING rather than silently closed. Deletion
+  // still ANSWERS.
+  const failed = teardownFindings(delWarn, "teardown_failed");
+  ok("incomplete teardown → teardown_failed with a durable obligation, never reported verified, closed_with_warning + a standing incomplete-teardown warning with refs",
+    failed.length === 0 && delWarn.j.evidence?.native_teardown?.destroyed === false
+    && exp2.status === "closed_with_warning"
     && /INCOMPLETE TEARDOWN/.test(exp2.warning || "")
     && (r4.incomplete_teardown_warnings || []).some((w) => w.exposure_ref === exp2.exposure_ref)
-    && r4.unsettled_estimates?.count >= 1);
+    && r4.unsettled_estimates?.count >= 1,
+    failed.join("; "));
+
+  // BRANCH 3 — UNKNOWN. The provider half returns, but the remote workspace cleanup half is made
+  // unreachable (its root is left unwritable so the remote `rm -rf` cannot prove absence).
+  // Absence is unproven: torn_down_unverified, never coerced to success, a durable obligation
+  // stays open, and the spend exposure must NOT be silently closed as settled either.
+  await jd("PATCH", `/v1/hypervisor/provider-accounts/${vast.account_id}`, { endpoint: simEndpoint });
+  await jd("POST", `/v1/hypervisor/provider-accounts/${vast.account_id}/preflight`);
+  const envU = `env-recon-unverified-${tag}`;
+  envs.push(envU);
+  const candU = ((await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j.candidates || [])
+    .find((c) => c.provider_kind === "vast") || {};
+  await opWithGrant("create", envU, { candidate_ref: candU.candidate_ref, max_hourly_usd: 0.6 });
+  await opWithGrant("start", envU);
+  const brokeU = await opWithGrant("workrun", envU, { command: "chmod 500 .." });
+  const delU = await opWithGrant("delete", envU);
+  const unverified = teardownFindings(delU, "torn_down_unverified");
+  ok("an UNREACHABLE cleanup half is torn_down_unverified with a durable obligation, is never reported verified, and delete still answers",
+    brokeU.j.evidence?.exit_code === 0 && unverified.length === 0
+    && delU.j.evidence?.remote_workspace_cleanup === "unreachable",
+    unverified.join("; "));
+  await opWithGrant("workrun", envU, { command: "chmod 700 .." });
+  const delURepaired = await opWithGrant("delete", envU);
+  ok("once the cleanup half is reachable again the SAME resource tears down provably and the obligation is discharged",
+    teardownFindings(delURepaired, "torn_down").length === 0,
+    teardownFindings(delURepaired, "torn_down").join("; "));
 
   // ── 7. Fixture/advisory + unpriced quotes never create exposure (refused before exposure) ──
   const exposuresBefore = (await recon()).rows.length;

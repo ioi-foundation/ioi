@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
+const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
@@ -236,10 +237,46 @@ async function run() {
     && receipts.some((r) => r.op === "create" && r.outcome === "ok" && r.budget_discovery?.scope === "cluster_customer_operated"));
   const stopped = await opWithGrant("stop");
   const del1 = await opWithGrant("delete");
-  ok("stop/delete are honest cluster ops (no metered lane; PVC posture named; teardown always)",
+  // BRANCH 1 of the teardown contract — PROVEN ABSENT. Only this branch may report
+  // cleanup_verified, and it owes no cleanup obligation. Before PR #129 the adapter emitted
+  // `teardown_state: "torn_down"` and `cleanup_verified: true` as hardcoded constants, so the
+  // old form of this assertion was pinning the overclaim and could not have failed.
+  const provenAbsent = teardownFindings(del1, "torn_down");
+  ok("stop/delete are honest cluster ops (no metered lane; PVC posture named); proven-absent teardown owes NO cleanup obligation",
     stopped.j.ok === true && /no direct provider price/.test(stopped.j.evidence?.spend_note || "")
-    && del1.j.ok === true && del1.j.evidence?.teardown_state === "torn_down"
-    && del1.j.evidence?.native_teardown?.destroyed === true);
+    && provenAbsent.length === 0
+    && del1.j.evidence?.native_teardown?.destroyed === true,
+    provenAbsent.join("; "));
+  ok("the teardown-outcome checker still rejects every overclaim it names (self-test)",
+    selfTestTeardownContract().length === 0, selfTestTeardownContract().join("; "));
+
+  // BRANCH 2 — FAILED. The namespace delete explicitly reports it did not destroy, so the
+  // workload/PVC are presumed live and a durable cleanup obligation opens. Deletion still
+  // ANSWERS: containment never strands an operator with a workload they cannot delete.
+  //
+  // BRANCH 3 (torn_down_unverified) IS NOT EXERCISED HERE, AND IS NOT FAKED. Unlike every
+  // ssh-backed adapter, this provider's cleanup half is a LOCAL workdir removal whose result is
+  // `true` or `"already_absent_or_skipped"` — it is never the `"unreachable"` verdict that
+  // produces the Unknown class. Reaching it would require a real cluster whose API server is
+  // reachable for the delete call and unreachable for the confirming re-observation, which no
+  // local fixture can honestly stand in for. The Unknown branch is proven on the ssh-backed
+  // adapters (vast, runpod, lambda_cloud, aws, azure, gcp, akash) and by the emergency
+  // containment kernel's own unit tests over close_deletion/DeletionOutcome.
+  const envF = `env-k8sF-${tag}`;
+  await jd("PATCH", `/v1/hypervisor/provider-accounts/${k8s.account_id}`, { endpoint: { ...simEndpoint, simulate_teardown_failure: true } });
+  await jd("POST", `/v1/hypervisor/provider-accounts/${k8s.account_id}/preflight`);
+  const simF = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
+  const candF = (simF.candidates || []).find((c) => c.provider_kind === "k8s" && c.namespace === "ioi-sim") || {};
+  await opWithGrant("create", { environment_ref: envF, candidate_ref: candF.candidate_ref, namespace: "ioi-sim",
+    resources: { cpu_milli: 1000, memory_gb: 2, gpu: 0 }, teardown_policy: "always_teardown_required" });
+  const delF = await opWithGrant("delete", { environment_ref: envF });
+  const failed = teardownFindings(delF, "teardown_failed");
+  ok("a failed namespace delete is teardown_failed with a durable obligation, is never reported verified, and delete still answers",
+    failed.length === 0 && delF.j.evidence?.native_teardown?.destroyed === false,
+    failed.join("; "));
+  await jd("PATCH", `/v1/hypervisor/provider-accounts/${k8s.account_id}`, { endpoint: simEndpoint });
+  await jd("POST", `/v1/hypervisor/provider-accounts/${k8s.account_id}/preflight`);
+  await opWithGrant("delete", { environment_ref: envF });
 
   // ── 7. KubeVirt: explicitly KubeVirt VMIs; CRDs absent fails closed ──
   const env2 = `env-k8s2-${tag}`;

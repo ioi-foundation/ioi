@@ -64,6 +64,17 @@ const RUST_EXTERNAL_EFFECT_CALLS = new Set([
   "write_all",
 ]);
 const RUST_EXTERNAL_PURE_CALLS = new Set([
+  // The emergency-containment kernel's admission decisions
+  // (crates/services/src/agentic/runtime/kernel/emergency_containment.rs). Every one is a
+  // pure total function over its arguments -- it opens no file, spawns no process, writes
+  // no record, and returns either Ok or a typed ContainmentRefusal. They are named `admit_*`
+  // so `effectRelevantRustCall` treats them as effect-relevant and fails closed until they
+  // are classified; classifying them PURE is a claim about these three functions only, and
+  // it is why they may cross the crate boundary without an effect leaf being invented for
+  // them. Contrast the `admit_*` entries in RUST_EXTERNAL_EFFECT_CALLS above, which persist.
+  "admit_cache_path",
+  "admit_cache_scope",
+  "admit_isolated_execution",
   "write_validator_sets",
 ]);
 const RUST_OPEN_OPTIONS_MUTATING_METHODS = new Set([
