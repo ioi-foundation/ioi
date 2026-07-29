@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-28",
-  "build_fingerprint": "2b14ea2f7169c3a51a68caf21e7776f460c918fab35f09291a799714fd2779af",
+  "build_fingerprint": "9a6d55fcdbee3ebf02289a2534b0d697416b2b4a7ec689f8f43c4570b4b2505f",
   "counts": {
     "by_classification": {
       "compatibility": 92,
@@ -170397,7 +170397,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 285,
-        "sha256": "2d325987f3de897d7534771e5e1b22cc29a398761ac996c62500b4d52e19f6af"
+        "sha256": "4929709f8deaf9df8370aaf0a3c800c5407ead408f8c698656c4e21a24bd441b"
       },
       "discovery_source_anchor": {
         "line": 27,
@@ -170413,16 +170413,16 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
         "resolution": "handler_boundary_only",
-        "source_anchor_sha256": "2cc59d2f5f65b44c82228d03905e87be701966fb96dea3195b924c9326b297be",
+        "source_anchor_sha256": "abc0f568719b37edfc4abd9509cc7b2ef03367052ab2e35060422b2368631cdd",
         "source_file": "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs",
         "symbol": "get_status"
       },
       "handler": "get_status",
       "handler_anchor": {
         "line": 285,
-        "sha256": "2d325987f3de897d7534771e5e1b22cc29a398761ac996c62500b4d52e19f6af"
+        "sha256": "4929709f8deaf9df8370aaf0a3c800c5407ead408f8c698656c4e21a24bd441b"
       },
-      "handler_anchor_sha256": "2d325987f3de897d7534771e5e1b22cc29a398761ac996c62500b4d52e19f6af",
+      "handler_anchor_sha256": "4929709f8deaf9df8370aaf0a3c800c5407ead408f8c698656c4e21a24bd441b",
       "handler_resolution": "function_body",
       "handler_source_file": "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs",
       "handler_source_symbol": "get_status",
@@ -170468,7 +170468,7 @@
       "registration_anchor_sha256": "6af9e096c39cfa82419ebcf0ae084807b1a78b7d557516609076fd5f7af91ebe",
       "review_origin": "explicit_m0_review",
       "review_status": "reviewed",
-      "reviewed_as_of": "2026-07-18",
+      "reviewed_as_of": "2026-07-28",
       "rpc_method": "GetStatus",
       "rpc_service": null,
       "selected_profile_applicability": "not_selected",
@@ -170506,7 +170506,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
         "resolution": "handler_boundary_only",
-        "source_anchor_sha256": "2cc59d2f5f65b44c82228d03905e87be701966fb96dea3195b924c9326b297be",
+        "source_anchor_sha256": "abc0f568719b37edfc4abd9509cc7b2ef03367052ab2e35060422b2368631cdd",
         "source_file": "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs",
         "symbol": "process_block"
       },
@@ -170561,7 +170561,7 @@
       "registration_anchor_sha256": "e799977292b1b1ab93151bd87edd0c0a05d9ed729e49084a80c5dfba561bb212",
       "review_origin": "explicit_m0_review",
       "review_status": "reviewed",
-      "reviewed_as_of": "2026-07-18",
+      "reviewed_as_of": "2026-07-28",
       "rpc_method": "ProcessBlock",
       "rpc_service": null,
       "selected_profile_applicability": "not_selected",
@@ -170599,7 +170599,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
         "resolution": "handler_boundary_only",
-        "source_anchor_sha256": "2cc59d2f5f65b44c82228d03905e87be701966fb96dea3195b924c9326b297be",
+        "source_anchor_sha256": "abc0f568719b37edfc4abd9509cc7b2ef03367052ab2e35060422b2368631cdd",
         "source_file": "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs",
         "symbol": "update_block_header"
       },
@@ -170654,7 +170654,7 @@
       "registration_anchor_sha256": "f92652cb602b3972aea9ced445a5728cb0e28da0e623532c85ec0a70603d8f2f",
       "review_origin": "explicit_m0_review",
       "review_status": "reviewed",
-      "reviewed_as_of": "2026-07-18",
+      "reviewed_as_of": "2026-07-28",
       "rpc_method": "UpdateBlockHeader",
       "rpc_service": null,
       "selected_profile_applicability": "not_selected",
@@ -170675,7 +170675,7 @@
       "classification": "internal_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 758,
+        "line": 767,
         "sha256": "b8195fc4c784ed03f96d8a463f75b2397449383a9f0735d5ca13cb5ece75cbfa"
       },
       "discovery_source_anchor": {
@@ -170692,13 +170692,13 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
         "resolution": "handler_boundary_only",
-        "source_anchor_sha256": "2cc59d2f5f65b44c82228d03905e87be701966fb96dea3195b924c9326b297be",
+        "source_anchor_sha256": "abc0f568719b37edfc4abd9509cc7b2ef03367052ab2e35060422b2368631cdd",
         "source_file": "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs",
         "symbol": "call_contract"
       },
       "handler": "call_contract",
       "handler_anchor": {
-        "line": 758,
+        "line": 767,
         "sha256": "b8195fc4c784ed03f96d8a463f75b2397449383a9f0735d5ca13cb5ece75cbfa"
       },
       "handler_anchor_sha256": "b8195fc4c784ed03f96d8a463f75b2397449383a9f0735d5ca13cb5ece75cbfa",
@@ -170747,7 +170747,7 @@
       "registration_anchor_sha256": "c60035553a2d55c85e9f53d7dc51953b43cb7c711d45bb6876f5eaaa0be62e79",
       "review_origin": "explicit_m0_review",
       "review_status": "reviewed",
-      "reviewed_as_of": "2026-07-18",
+      "reviewed_as_of": "2026-07-28",
       "rpc_method": "CallContract",
       "rpc_service": null,
       "selected_profile_applicability": "not_selected",
@@ -170768,7 +170768,7 @@
       "classification": "internal_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 737,
+        "line": 746,
         "sha256": "1d7077468f12fdb98f40f69ee59313b8f0e8fe586eca3f31f0ceae1fd1b038b6"
       },
       "discovery_source_anchor": {
@@ -170785,13 +170785,13 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
         "resolution": "handler_boundary_only",
-        "source_anchor_sha256": "2cc59d2f5f65b44c82228d03905e87be701966fb96dea3195b924c9326b297be",
+        "source_anchor_sha256": "abc0f568719b37edfc4abd9509cc7b2ef03367052ab2e35060422b2368631cdd",
         "source_file": "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs",
         "symbol": "deploy_contract"
       },
       "handler": "deploy_contract",
       "handler_anchor": {
-        "line": 737,
+        "line": 746,
         "sha256": "1d7077468f12fdb98f40f69ee59313b8f0e8fe586eca3f31f0ceae1fd1b038b6"
       },
       "handler_anchor_sha256": "1d7077468f12fdb98f40f69ee59313b8f0e8fe586eca3f31f0ceae1fd1b038b6",
@@ -170840,7 +170840,7 @@
       "registration_anchor_sha256": "cdff1c02075f05ed475129f632edb3d6a49547947ed5d3d29ce9c43652befc00",
       "review_origin": "explicit_m0_review",
       "review_status": "reviewed",
-      "reviewed_as_of": "2026-07-18",
+      "reviewed_as_of": "2026-07-28",
       "rpc_method": "DeployContract",
       "rpc_service": null,
       "selected_profile_applicability": "not_selected",
@@ -170861,7 +170861,7 @@
       "classification": "read_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 784,
+        "line": 793,
         "sha256": "77e5b539256c1dff9d7d3641b22a528658605d9ddb8d71721d15ae383cdc5db5"
       },
       "discovery_source_anchor": {
@@ -170877,7 +170877,7 @@
       "final_invoker": null,
       "handler": "query_contract",
       "handler_anchor": {
-        "line": 784,
+        "line": 793,
         "sha256": "77e5b539256c1dff9d7d3641b22a528658605d9ddb8d71721d15ae383cdc5db5"
       },
       "handler_anchor_sha256": "77e5b539256c1dff9d7d3641b22a528658605d9ddb8d71721d15ae383cdc5db5",
@@ -170947,7 +170947,7 @@
       "classification": "read_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 857,
+        "line": 866,
         "sha256": "fd69dbe317138fdc24b9c0973d5131154a237f2de173b0c69a5e969b1974fadc"
       },
       "discovery_source_anchor": {
@@ -170963,7 +170963,7 @@
       "final_invoker": null,
       "handler": "get_next_staked_validators",
       "handler_anchor": {
-        "line": 857,
+        "line": 866,
         "sha256": "fd69dbe317138fdc24b9c0973d5131154a237f2de173b0c69a5e969b1974fadc"
       },
       "handler_anchor_sha256": "fd69dbe317138fdc24b9c0973d5131154a237f2de173b0c69a5e969b1974fadc",
@@ -171033,7 +171033,7 @@
       "classification": "read_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 839,
+        "line": 848,
         "sha256": "289bdb157ca84ba0343b2ef0413319c2d5e86195a43d0c60af4572c85c8f1caf"
       },
       "discovery_source_anchor": {
@@ -171049,7 +171049,7 @@
       "final_invoker": null,
       "handler": "get_staked_validators",
       "handler_anchor": {
-        "line": 839,
+        "line": 848,
         "sha256": "289bdb157ca84ba0343b2ef0413319c2d5e86195a43d0c60af4572c85c8f1caf"
       },
       "handler_anchor_sha256": "289bdb157ca84ba0343b2ef0413319c2d5e86195a43d0c60af4572c85c8f1caf",
@@ -171119,7 +171119,7 @@
       "classification": "plan_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 480,
+        "line": 489,
         "sha256": "77196aaa569e81b1343cfc46a62186640f498c9cb7cb776700712e84a829c824"
       },
       "discovery_source_anchor": {
@@ -171135,7 +171135,7 @@
       "final_invoker": null,
       "handler": "check_transactions",
       "handler_anchor": {
-        "line": 480,
+        "line": 489,
         "sha256": "77196aaa569e81b1343cfc46a62186640f498c9cb7cb776700712e84a829c824"
       },
       "handler_anchor_sha256": "77196aaa569e81b1343cfc46a62186640f498c9cb7cb776700712e84a829c824",
@@ -171205,7 +171205,7 @@
       "classification": "read_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 679,
+        "line": 688,
         "sha256": "357cd5a14ff2a833a5ef3d9ab05423622423840c6da2666bb8aa039ba2b3e7bb"
       },
       "discovery_source_anchor": {
@@ -171221,7 +171221,7 @@
       "final_invoker": null,
       "handler": "prefix_scan",
       "handler_anchor": {
-        "line": 679,
+        "line": 688,
         "sha256": "357cd5a14ff2a833a5ef3d9ab05423622423840c6da2666bb8aa039ba2b3e7bb"
       },
       "handler_anchor_sha256": "357cd5a14ff2a833a5ef3d9ab05423622423840c6da2666bb8aa039ba2b3e7bb",
@@ -171291,7 +171291,7 @@
       "classification": "read_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 650,
+        "line": 659,
         "sha256": "56fc16cadde9941d84f86e543cc783962177e5fe8e084c2586455a76995bf3cc"
       },
       "discovery_source_anchor": {
@@ -171307,7 +171307,7 @@
       "final_invoker": null,
       "handler": "query_raw_state",
       "handler_anchor": {
-        "line": 650,
+        "line": 659,
         "sha256": "56fc16cadde9941d84f86e543cc783962177e5fe8e084c2586455a76995bf3cc"
       },
       "handler_anchor_sha256": "56fc16cadde9941d84f86e543cc783962177e5fe8e084c2586455a76995bf3cc",
@@ -171377,7 +171377,7 @@
       "classification": "read_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 592,
+        "line": 601,
         "sha256": "1009c5d7591c08e1ac92cb479b18b9acb6397bcb4a769b5d699c186aeb6c7867"
       },
       "discovery_source_anchor": {
@@ -171393,7 +171393,7 @@
       "final_invoker": null,
       "handler": "query_state_at",
       "handler_anchor": {
-        "line": 592,
+        "line": 601,
         "sha256": "1009c5d7591c08e1ac92cb479b18b9acb6397bcb4a769b5d699c186aeb6c7867"
       },
       "handler_anchor_sha256": "1009c5d7591c08e1ac92cb479b18b9acb6397bcb4a769b5d699c186aeb6c7867",
@@ -171463,7 +171463,7 @@
       "classification": "compatibility",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 934,
+        "line": 943,
         "sha256": "d56d949be314e235a96d9616ec3d32c1443d064acfe4271398b2b352e048a011"
       },
       "discovery_source_anchor": {
@@ -171479,7 +171479,7 @@
       "final_invoker": null,
       "handler": "check_and_tally_proposals",
       "handler_anchor": {
-        "line": 934,
+        "line": 943,
         "sha256": "d56d949be314e235a96d9616ec3d32c1443d064acfe4271398b2b352e048a011"
       },
       "handler_anchor_sha256": "d56d949be314e235a96d9616ec3d32c1443d064acfe4271398b2b352e048a011",
@@ -171549,7 +171549,7 @@
       "classification": "internal_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 943,
+        "line": 952,
         "sha256": "e546dd6a15c1392e4a9b69811dd8584c8606a55ffa71fb3ac52c5e5f2390a252"
       },
       "discovery_source_anchor": {
@@ -171566,13 +171566,13 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
         "resolution": "handler_boundary_only",
-        "source_anchor_sha256": "2cc59d2f5f65b44c82228d03905e87be701966fb96dea3195b924c9326b297be",
+        "source_anchor_sha256": "abc0f568719b37edfc4abd9509cc7b2ef03367052ab2e35060422b2368631cdd",
         "source_file": "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs",
         "symbol": "debug_pin_height"
       },
       "handler": "debug_pin_height",
       "handler_anchor": {
-        "line": 943,
+        "line": 952,
         "sha256": "e546dd6a15c1392e4a9b69811dd8584c8606a55ffa71fb3ac52c5e5f2390a252"
       },
       "handler_anchor_sha256": "e546dd6a15c1392e4a9b69811dd8584c8606a55ffa71fb3ac52c5e5f2390a252",
@@ -171621,7 +171621,7 @@
       "registration_anchor_sha256": "7e7e74e583e12212582d5419ca6c6d703977eaab35d0a471f0383e54ea3f337c",
       "review_origin": "explicit_m0_review",
       "review_status": "reviewed",
-      "reviewed_as_of": "2026-07-18",
+      "reviewed_as_of": "2026-07-28",
       "rpc_method": "DebugPinHeight",
       "rpc_service": null,
       "selected_profile_applicability": "not_selected",
@@ -171642,7 +171642,7 @@
       "classification": "internal_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 959,
+        "line": 968,
         "sha256": "ac9629f84b1aa087973b69b7edaeb28f982247d0ec4bf0f40bf5e852ab803a8f"
       },
       "discovery_source_anchor": {
@@ -171659,13 +171659,13 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
         "resolution": "handler_boundary_only",
-        "source_anchor_sha256": "2cc59d2f5f65b44c82228d03905e87be701966fb96dea3195b924c9326b297be",
+        "source_anchor_sha256": "abc0f568719b37edfc4abd9509cc7b2ef03367052ab2e35060422b2368631cdd",
         "source_file": "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs",
         "symbol": "debug_trigger_gc"
       },
       "handler": "debug_trigger_gc",
       "handler_anchor": {
-        "line": 959,
+        "line": 968,
         "sha256": "ac9629f84b1aa087973b69b7edaeb28f982247d0ec4bf0f40bf5e852ab803a8f"
       },
       "handler_anchor_sha256": "ac9629f84b1aa087973b69b7edaeb28f982247d0ec4bf0f40bf5e852ab803a8f",
@@ -171714,7 +171714,7 @@
       "registration_anchor_sha256": "cbd65cbdb6fb8a5785d3fb3225923e4ce2c60b7ab0a3eee1a4953a00a625d8e4",
       "review_origin": "explicit_m0_review",
       "review_status": "reviewed",
-      "reviewed_as_of": "2026-07-18",
+      "reviewed_as_of": "2026-07-28",
       "rpc_method": "DebugTriggerGc",
       "rpc_service": null,
       "selected_profile_applicability": "not_selected",
@@ -171735,7 +171735,7 @@
       "classification": "internal_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 951,
+        "line": 960,
         "sha256": "f1dad252566ff0e8c7d0c2f2bb4a612ad0f88f57294a89724599508244cc3539"
       },
       "discovery_source_anchor": {
@@ -171752,13 +171752,13 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
         "resolution": "handler_boundary_only",
-        "source_anchor_sha256": "2cc59d2f5f65b44c82228d03905e87be701966fb96dea3195b924c9326b297be",
+        "source_anchor_sha256": "abc0f568719b37edfc4abd9509cc7b2ef03367052ab2e35060422b2368631cdd",
         "source_file": "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs",
         "symbol": "debug_unpin_height"
       },
       "handler": "debug_unpin_height",
       "handler_anchor": {
-        "line": 951,
+        "line": 960,
         "sha256": "f1dad252566ff0e8c7d0c2f2bb4a612ad0f88f57294a89724599508244cc3539"
       },
       "handler_anchor_sha256": "f1dad252566ff0e8c7d0c2f2bb4a612ad0f88f57294a89724599508244cc3539",
@@ -171807,7 +171807,7 @@
       "registration_anchor_sha256": "aa185aac104760320c21ed05a70612e0adf4385360eda1cc86f25673dd5c068b",
       "review_origin": "explicit_m0_review",
       "review_status": "reviewed",
-      "reviewed_as_of": "2026-07-18",
+      "reviewed_as_of": "2026-07-28",
       "rpc_method": "DebugUnpinHeight",
       "rpc_service": null,
       "selected_profile_applicability": "not_selected",
@@ -171828,7 +171828,7 @@
       "classification": "read_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 914,
+        "line": 923,
         "sha256": "87fb124d0375f37382a7eda8209863ccf443e5d705b1e8ac9df16dfa9a305af3"
       },
       "discovery_source_anchor": {
@@ -171844,7 +171844,7 @@
       "final_invoker": null,
       "handler": "get_expected_model_hash",
       "handler_anchor": {
-        "line": 914,
+        "line": 923,
         "sha256": "87fb124d0375f37382a7eda8209863ccf443e5d705b1e8ac9df16dfa9a305af3"
       },
       "handler_anchor_sha256": "87fb124d0375f37382a7eda8209863ccf443e5d705b1e8ac9df16dfa9a305af3",

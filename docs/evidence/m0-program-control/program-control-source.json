@@ -709,7 +709,7 @@
           {
             "note": "test support, not a shipped application listener",
             "source_file": "crates/cli/src/testing/validator.rs",
-            "source_sha256": "00c93f69a2139e51a7814d8e4e7a3df4467ee3b48d76ae26151f81cf6d289765"
+            "source_sha256": "f16f48ef0dd4405502287f5f69712125510b851387e5828b509011d676455562"
           },
           {
             "note": "enumerated conditional Guardian gRPC registry",
@@ -1657,19 +1657,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "9f56c852247cf68b25c843bc5804c6b845c4ba93967e6d884217320499279660",
-    "review_epoch_id": "m2-build-wave-census-reentry-review-2026-07-28",
-    "review_lock_sha256": "b8d1d91f252579a693592f787994144616dc0afb48d6a56197c27164beb5a6d7",
+    "program_source_material_sha256": "3ea96e06a17e1590c03bf762b582fddc229d1d637780dfe303f02049d6d556e6",
+    "review_epoch_id": "proof-infra-chain-resume-census-reentry-review-2026-07-28",
+    "review_lock_sha256": "e16652aa21d881f7e45e1555c7d92c4537fb55a018ae2b2d3a3d0cedd394b9f5",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
     "reviewed_as_of": "2026-07-28",
-    "reviewed_entry_set_sha256": "d975ae0cff0fe1108a344f2ee1abcfdc413701ee2368c410e1687ab8829b68da",
-    "reviewed_identity_set_sha256": "81eb8481e2608afa9c948eae13aaa2ec2c8453cb10f0bc335f36b8164e351305",
-    "reviewer_label": "claude-fable-5-m2-wave-census",
+    "reviewed_entry_set_sha256": "c51e8f59d37b3442039ca18be4acab06e8eac46c00020d9a3ea0462207e8ba48",
+    "reviewed_identity_set_sha256": "bd796f403663f4c2b3f99c970c68d956d7daaf7a88a2b042660c88eb10d89577",
+    "reviewer_label": "claude-fable-5-proof-infra-census",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "45335a09d601925aa1c1ec2fc5613b4fcf1f68d956dfd924f77689bd8bd345d8",
-    "snapshot_head_sequence": 21,
-    "snapshot_predecessor_entry_sha256": "1b82b4c231d04a1ac209dc3bb01f182b718accffd24ce870424ffdc7855850eb",
+    "snapshot_head_entry_sha256": "eccf31846441b14907be6af1a5d92add98a72d94cc9a37ce4481f7df5819730f",
+    "snapshot_head_sequence": 22,
+    "snapshot_predecessor_entry_sha256": "45335a09d601925aa1c1ec2fc5613b4fcf1f68d956dfd924f77689bd8bd345d8",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },
