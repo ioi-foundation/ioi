@@ -448,16 +448,26 @@ Rules, restating the register in
   truth, or durable runtime state, and schema validity alone is not runtime
   verification. Only `verified_current` declarations may be advertised or
   relied on by any profile.
-- Target registration: contract id
+- Registration: contract id
   `schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1`
-  in the architecture contract registry, with this section as
-  `canonical_owner_ref`. That registration, its schema/invariant/fixture
-  files, generated projections, **and the runtime lifecycle module are all
-  absent from current master** — a pre-refactor audit recorded them, and the
-  refactor did not carry them forward. Nothing may claim registry residency
-  or runtime enforcement for this contract until it is (re)registered and
-  (re)landed. The honest current state is recorded in
-  [`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md).
+  is registered in the architecture contract registry with this section as
+  `canonical_owner_ref`. Its schema, invariants, fixtures, generated
+  Rust/TypeScript projections, and the runtime lifecycle module
+  `crates/services/src/agentic/runtime/enforcement_coverage.rs` are **present
+  on current master** — the substrate a pre-refactor audit recorded was
+  re-landed there. What remains absent is the **route producer and daemon
+  admission wiring**: no route writes a declaration, and
+  `EnforcementCoverageRegistry` has no callers, so no declaration is ever
+  produced at runtime. Registry residency may therefore be claimed;
+  **runtime enforcement may not**, and no profile may advertise or rely on
+  coverage until a producer exists. The per-claim gap is recorded below and
+  in [`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md).
+- Known gap (recorded, not claimed): the registered invariants enforce
+  evidence only for `receipted` and `uncovered`. A `mediated` positive claim
+  is admitted against the **global** evidence bag, so evidence establishing
+  only discovery satisfies a mediated requirement. The per-claim
+  `verification_evidence_refs` rule stated above is owner doctrine that the
+  registered contract does not yet enforce.
 
 ## Minimal Implementation Objects
 
