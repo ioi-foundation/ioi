@@ -412,12 +412,28 @@
       "predecessor_entry_sha256": "1b82b4c231d04a1ac209dc3bb01f182b718accffd24ce870424ffdc7855850eb",
       "reviewer_id": "claude-fable-5-m2-wave-census",
       "sequence": 21
+    },
+    {
+      "epoch_id": "proof-infra-chain-resume-census-reentry-review-2026-07-28",
+      "latest_epoch_identity_set_sha256": "bd796f403663f4c2b3f99c970c68d956d7daaf7a88a2b042660c88eb10d89577",
+      "latest_epoch_reviewed_entry_count": 1327,
+      "latest_epoch_reviewed_entry_set_sha256": "c51e8f59d37b3442039ca18be4acab06e8eac46c00020d9a3ea0462207e8ba48",
+      "program_source_material_sha256": "3ea96e06a17e1590c03bf762b582fddc229d1d637780dfe303f02049d6d556e6",
+      "review_lock_sha256": "e16652aa21d881f7e45e1555c7d92c4537fb55a018ae2b2d3a3d0cedd394b9f5",
+      "reviewed_as_of": "2026-07-28",
+      "total_reviewed_entry_count": 1572,
+      "total_reviewed_entry_set_sha256": "bda93b0857325c8541a8564dfdfa2f892757505b229986527f84297cf605126c",
+      "total_reviewed_identity_set_sha256": "3bb733405e18c27c1ae7985617037ce3deb9a06dadadfc4b684f094aa38a03f0",
+      "authorship_binding": "self_declared_unsigned",
+      "predecessor_entry_sha256": "45335a09d601925aa1c1ec2fc5613b4fcf1f68d956dfd924f77689bd8bd345d8",
+      "reviewer_id": "claude-fable-5-proof-infra-census",
+      "sequence": 22
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "45335a09d601925aa1c1ec2fc5613b4fcf1f68d956dfd924f77689bd8bd345d8",
-    "epoch_id": "m2-build-wave-census-reentry-review-2026-07-28",
-    "sequence": 21
+    "entry_sha256": "eccf31846441b14907be6af1a5d92add98a72d94cc9a37ce4481f7df5819730f",
+    "epoch_id": "proof-infra-chain-resume-census-reentry-review-2026-07-28",
+    "sequence": 22
   }
 }
