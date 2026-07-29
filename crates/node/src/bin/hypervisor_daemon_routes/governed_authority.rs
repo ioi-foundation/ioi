@@ -30,6 +30,27 @@ pub(crate) enum Governance {
     Participant,
 }
 
+/// Scope prefix of the source-control publication family. Disjoint from every
+/// other family in `operation_scope`: no lifecycle, environment, membership,
+/// writer, node, or enrollment scope shares this root.
+pub(crate) const SCM_PUBLICATION_SCOPE_PREFIX: &str = "scope:scm.publication";
+/// The one scope that authorizes advancing a remote target ref.
+pub(crate) const SCM_PUBLICATION_ADVANCE_TARGET_REF_SCOPE: &str =
+    "scope:scm.publication.advance-target-ref";
+/// The one scope that authorizes opening a review request on the remote.
+pub(crate) const SCM_PUBLICATION_OPEN_REVIEW_REQUEST_SCOPE: &str =
+    "scope:scm.publication.open-review-request";
+/// The source-control publication authority contract.
+pub(crate) const SCM_PUBLICATION_AUTHORITY: AuthorityContract = AuthorityContract {
+    scope_prefix: SCM_PUBLICATION_SCOPE_PREFIX,
+    policy_domain: "hypervisor.scm.publication.policy.v1",
+    request_domain: "hypervisor.scm.publication.request.v1",
+    resolution_domain: "hypervisor.scm.publication.resolution.v1",
+    code_prefix: "scm_publication",
+    host_label: "estate",
+    participant_label: "delegate",
+};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AuthorityPolicyContext<'a> {
     OutcomeRoom {
@@ -69,6 +90,17 @@ impl AuthorityContract {
     }
 
     pub(crate) fn operation_scope(self, op: &str) -> String {
+        // Source-control publication owns a scope family disjoint from every
+        // local plane: advancing a REMOTE target ref and opening a review
+        // request on someone else's host are two distinct authorities, and
+        // neither is any lifecycle, environment, membership, or writer scope.
+        if self.scope_prefix == SCM_PUBLICATION_SCOPE_PREFIX {
+            return match op {
+                "advance_target_ref" => SCM_PUBLICATION_ADVANCE_TARGET_REF_SCOPE.to_owned(),
+                "open_review_request" => SCM_PUBLICATION_OPEN_REVIEW_REQUEST_SCOPE.to_owned(),
+                _ => format!("{SCM_PUBLICATION_SCOPE_PREFIX}.{op}"),
+            };
+        }
         // Named M1.5d continuity and local-enrollment operations have owner
         // scopes deliberately disjoint from the generic lifecycle family.
         // Keep the mapping here because this function owns every policy,
@@ -1075,4 +1107,75 @@ pub(crate) fn decision_authority_posture(contract: AuthorityContract) -> Value {
         "pending_governed_intents": if configured { "bounded post-readiness replay attempts authenticated re-resolution against exact immutable coordinates; failures retain intents unchanged" } else { "retained fail-closed until wallet.network is configured" },
         "runtimeTruthSource": "daemon-runtime",
     })
+}
+
+#[cfg(test)]
+mod scm_publication_scope_tests {
+    use super::*;
+
+    /// Every other family's `AuthorityContract` scope prefix that ships today.
+    /// The publication family must be disjoint from all of them, so a grant
+    /// minted for any local plane can never authorize a remote crossing.
+    const EXISTING_SCOPE_PREFIXES: &[&str] = &[
+        "scope:autonomous_system.lifecycle",
+        "scope:autonomous_system.continuity",
+        "scope:autonomous_system.membership",
+        "scope:autonomous_system.writer",
+        "scope:autonomous_system.network_enrollment",
+        "scope:hypervisoros.node",
+        "scope:hypervisor_environment",
+        "scope:outcome_room",
+    ];
+
+    #[test]
+    fn publication_scopes_are_disjoint_from_every_other_family() {
+        for prefix in EXISTING_SCOPE_PREFIXES {
+            assert!(
+                !SCM_PUBLICATION_SCOPE_PREFIX.starts_with(prefix),
+                "the publication family must not sit under '{prefix}'"
+            );
+            assert!(
+                !prefix.starts_with(SCM_PUBLICATION_SCOPE_PREFIX),
+                "'{prefix}' must not sit under the publication family"
+            );
+        }
+        for scope in [
+            SCM_PUBLICATION_ADVANCE_TARGET_REF_SCOPE,
+            SCM_PUBLICATION_OPEN_REVIEW_REQUEST_SCOPE,
+        ] {
+            assert!(scope.starts_with(SCM_PUBLICATION_SCOPE_PREFIX));
+            for prefix in EXISTING_SCOPE_PREFIXES {
+                assert!(!scope.starts_with(prefix), "{scope} leaked into {prefix}");
+            }
+        }
+        assert_ne!(
+            SCM_PUBLICATION_ADVANCE_TARGET_REF_SCOPE, SCM_PUBLICATION_OPEN_REVIEW_REQUEST_SCOPE,
+            "advancing a remote ref and opening a review are two authorities"
+        );
+    }
+
+    #[test]
+    fn publication_operations_resolve_their_exact_named_scopes() {
+        assert_eq!(
+            SCM_PUBLICATION_AUTHORITY.operation_scope("advance_target_ref"),
+            SCM_PUBLICATION_ADVANCE_TARGET_REF_SCOPE
+        );
+        assert_eq!(
+            SCM_PUBLICATION_AUTHORITY.operation_scope("open_review_request"),
+            SCM_PUBLICATION_OPEN_REVIEW_REQUEST_SCOPE
+        );
+        // The lifecycle family is untouched by the new arm.
+        let lifecycle = AuthorityContract {
+            scope_prefix: "scope:autonomous_system.lifecycle",
+            ..SCM_PUBLICATION_AUTHORITY
+        };
+        assert_eq!(
+            lifecycle.operation_scope("declare_route_binding"),
+            "scope:hypervisor_environment.declare_route_binding"
+        );
+        assert_eq!(
+            lifecycle.operation_scope("initialize"),
+            "scope:autonomous_system.lifecycle.initialize"
+        );
+    }
 }

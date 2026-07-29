@@ -101,6 +101,10 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "hypervisor-environment-lifecycle-transitions",
     "hypervisor-environment-lifecycle-receipts",
     "hypervisor-environment-lifecycle-successor-claims",
+    "scm-destination-bindings",
+    "scm-publication-proposals",
+    "scm-publication-effects",
+    "scm-publication-receipts",
 ];
 
 struct HandleSlot {
@@ -467,6 +471,10 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         | "hypervisor-change-plans"
         | "hypervisor-change-plan-stage-advances"
         | "hypervisor-resource-cleanup-obligations"
+        | "scm-destination-bindings"
+        | "scm-publication-proposals"
+        | "scm-publication-effects"
+        | "scm-publication-receipts"
         | "hypervisor-environment-lifecycle-transitions"
         | "hypervisor-environment-lifecycle-receipts"
         | "hypervisoros-boot-profiles"
@@ -817,6 +825,10 @@ fn validate_required_identity(
         "hypervisor-environment-lifecycle-transitions" => "hvet_",
         "hypervisor-environment-lifecycle-receipts" => "hvelr_",
         "hypervisor-environment-lifecycle-successor-claims" => "hvelsc_",
+        "scm-destination-bindings" => "scmdb_",
+        "scm-publication-proposals" => "scmpp_",
+        "scm-publication-effects" => "scmpe_",
+        "scm-publication-receipts" => "scmpr_",
         _ => unreachable!("required-admission domains are exhaustively matched"),
     };
     if !record_id.strip_prefix(required_prefix).is_some_and(|tail| {
@@ -1068,6 +1080,50 @@ fn validate_required_identity(
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "required Agentgres key does not match the environment-lifecycle artifact root",
+            ));
+        }
+        return Ok(());
+    }
+    if matches!(
+        record_dir,
+        "scm-destination-bindings"
+            | "scm-publication-proposals"
+            | "scm-publication-effects"
+            | "scm-publication-receipts"
+    ) {
+        // Source-control publication records are named by their whole-record
+        // content root, so a committed effect, the binding it resolved
+        // through, the proposal it shipped, and either sub-effect receipt can
+        // never be silently rewritten under the same key. The commitments
+        // declared INSIDE each record (the binding revision hash, the proposal
+        // content commitment, the effect content commitment, the file-set
+        // digest, the idempotency key) are pinned separately by the registered
+        // ScmPublicationEffect invariants and never stand in for this root.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let identity_field = match record_dir {
+            "scm-destination-bindings" => "destination_binding_ref",
+            "scm-publication-proposals" => "proposal_ref",
+            "scm-publication-effects" => "publication_effect_id",
+            "scm-publication-receipts" => "receipt_ref",
+            _ => unreachable!(),
+        };
+        if record.get(identity_field).and_then(Value::as_str).is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("required Agentgres record lacks '{identity_field}'"),
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.hypervisor.scm-publication-artifact-jcs-sha256.v1",
+            "artifact": record,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the publication artifact root",
             ));
         }
         return Ok(());
@@ -1482,6 +1538,20 @@ fn validate_required_identity(
             "required Agentgres record '{record_dir}/{record_id}' has a mismatched '{identity_field}' identity"
         ),
     ))
+}
+
+/// Drop the process-local writer handle so the next call reconstructs the
+/// plane from the durable log alone. Restart-shaped tests use this to prove a
+/// projection is REBUILT and not merely remembered.
+#[cfg(test)]
+pub(crate) fn reset_handle_for_test() {
+    if let Some(mutex) = HANDLE.get() {
+        if let Ok(mut slot) = mutex.lock() {
+            if let Some(current) = slot.take() {
+                let _ = current.handle.shutdown();
+            }
+        }
+    }
 }
 
 #[cfg(test)]

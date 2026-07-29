@@ -10,8 +10,8 @@ Supersedes: older flattened tool capability examples in plans/specs.
 Superseded by: none.
 Last alignment pass: 2026-07-29.
 Doctrine status: canonical
-Implementation status: partial (the RuntimeToolContract owner and daemon tool catalog are live, and the registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate; production IFC propagation/enforcement, MCP resource/prompt/elicitation/task/App propagation, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, remaining browser/computer-use families, immutable gateway requirements, `LocalAgentPairingSessionEnvelope` bindings, room-admitted local-agent gateway issuance, and the whole `ScmPublicationEffect` family remain planned)
-Last implementation audit: 2026-07-29 (contract substrate; production IFC enforcement not claimed; `ScmPublicationEffect` is a target contract with no conforming runtime path)
+Implementation status: partial (the RuntimeToolContract owner and daemon tool catalog are live, the registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate, and a conforming `ScmPublicationEffect` runtime path is live on `POST /v1/hypervisor/environments/{id}/scm/publish`; production IFC propagation/enforcement, MCP resource/prompt/elicitation/task/App propagation, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, remaining browser/computer-use families, immutable gateway requirements, `LocalAgentPairingSessionEnvelope` bindings, room-admitted local-agent gateway issuance, and a bound review-request host surface remain planned)
+Last implementation audit: 2026-07-29 (contract substrate; production IFC enforcement not claimed; `ScmPublicationEffect` has a conforming runtime path whose refusal branches are each pinned by a test against the registered negative fixture, with the review-request host surface still unbound)
 
 ## Purpose
 
@@ -530,6 +530,18 @@ and is pinned by a registered fixture.
   an admitted connector/lease binding held by the estate, never from free
   caller-supplied text; a repository outside the binding is refused before any
   remote contact.
+- **A source identity that names more than one revision is refused, not
+  guessed.** The destination-binding and proposal families are
+  content-addressed, so a logical ref is not a key: a rebinding or a revised
+  proposal is a second admitted record carrying the same ref. Resolution is
+  therefore BY the revision the effect pins — `destination_binding_hash` and
+  `proposal_hash` — and a ref resolves only when every record carrying it pins
+  the same one. When they disagree the crossing refuses by name
+  (`ambiguous_destination_binding_ref`, `ambiguous_proposal_ref`), states the ref
+  and how many records collide, and contacts no remote. There is deliberately no
+  caller-supplied revision selector: under INV-37 caller text never chooses which
+  server truth a publication compiles against, so an ambiguous identity is an
+  estate-integrity defect for an operator to resolve, not a choice to delegate.
 - **Publication and review request are separate receipted outcomes.** The two
   sub-effects carry their own outcome enum, their own `receipt_ref`, and their
   own `refusal_code`, and the two receipts must be distinct. An opened or
@@ -566,18 +578,31 @@ proposal, a review-request failure reported as overall success, one receipt
 shared across both sub-effects, a replay without a prior effect, an
 idempotency key that does not recompute, and a detached content commitment.
 
-Implementation status: planned. No current runtime path satisfies this
-contract, and none of the rules above is enforced in master today. The
-`handle_scm_publish` route in
-`crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs`
-(`POST /v1/hypervisor/environments/{id}/scm/publish`) is the route that must be
-rebuilt against it: it currently accepts a caller-supplied destination string
-against a host-level connector, stages the whole workspace rather than a
-proposal-bound file set, advances the remote ref with no expected-head
-compare-and-swap, binds no proposal, work run, or idempotency material, and
-reports overall success even when the review request failed. Until that route
-is rebuilt, this section is the target contract and not a description of
-running behavior.
+Implementation status: implemented (single-node estate; the review-request
+surface is declared and receipted but not yet bound to a host review API).
+`POST /v1/hypervisor/environments/{id}/scm/publish` is owned by
+`crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs` and
+compiles through `crates/types/src/app/scm_publication.rs`, which validates
+every built effect against this contract inside the build path. The defective
+route that stood in `lifecycle_routes.rs` — caller-supplied destination string,
+`git add -A` whole-workspace stage, `push --force` with no expected-head
+comparison, no proposal/work-run/idempotency binding, discarded persist
+results, and overall success reported over a failed pull-request creation — was
+REMOVED, not wrapped. In its place the destination resolves from an admitted
+`scm-destination-binding` whose revision hash recomputes, the change set is the
+enumerated proposal-bound file set whose declared post-images are re-digested
+out of the workspace before any commit is built, the remote head advances only
+under a daemon-observed expected-head compare-and-swap, both sub-effects are
+separately receipted and persisted (locally, through the Agentgres
+required-admission boundary, and re-read) before any outcome is reported, and
+`overall_outcome` is derived from both sub-effects. Every refusal branch named
+above is a named refusal dimension in the compiler and is pinned by a test
+against its registered negative fixture.
+
+Deferred: the review-request surface has no admitted host-API binding yet, so
+`GitProcessScmPort::open_review_request` returns the honest
+`review-request-rejected-by-remote` failure as its own receipted sub-effect
+rather than a silent success; a bound review surface is the next leg.
 
 ## Risk Classes
 
