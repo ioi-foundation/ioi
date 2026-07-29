@@ -365,6 +365,23 @@ collect — they do not satisfy preconditions.
 Owner application: [`../components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md),
 [`../components/daemon-runtime/api.md`](../components/daemon-runtime/api.md).
 
+**INV-38 — An isolation claim is measured, and it never degrades silently.** A
+surface may publish an isolation label only for a boundary the runtime observed
+at the time it reports it; a declared substrate, a requested profile, or a
+class catalog entry is an intent, not a measurement. When a declared isolated
+substrate is unavailable, the operation REFUSES by a named reason — it never
+falls back to a weaker locus while retaining the stronger label, and an
+operation that executes on the host cannot satisfy a declared kernel-isolation
+floor regardless of what else is running. When measurement does not support a
+label, the label is withdrawn to what is true (process-scoped, or explicitly
+unverified) rather than inherited from the declaration. Evidence that asserts a
+property it did not measure is quarantined: retained for the record, never
+citable as proof, never deleted.
+Owner application:
+[`security-privacy-policy-invariants.md`](./security-privacy-policy-invariants.md),
+[`../components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md),
+[`../components/hypervisor/byo-provider-plane.md`](../components/hypervisor/byo-provider-plane.md).
+
 ## Citation Rule
 
 When a doc needs one of these invariants, it writes one line — the ID, an

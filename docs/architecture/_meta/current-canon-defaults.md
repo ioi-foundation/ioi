@@ -497,6 +497,39 @@ synchronized.
   after possible effect becomes rollback/reconciliation/cleanup, and a
   `HypervisorResourceCleanupObligation` survives parent deletion until its
   exact provider resource is reconciled;
+- emergency containment (2026-07-29) applies [INV-38](../foundations/invariants.md)
+  to the environment/provider planes. An environment that declared a `vm_kernel`
+  isolation floor REFUSES rather than falling back to the host: workspace exec
+  refuses `isolation_required_substrate_unavailable` when no guest is live, and
+  the host-executed WorkRun turn and the host PTY refuse
+  `isolation_required_host_execution_refused`. The resource-isolation and
+  connectivity profiles are keyed on the MEASURED boot outcome, so a failed
+  microVM boot publishes `process_scoped` plus a
+  `measured_isolation: unverified_isolation_declared_vm_kernel_substrate_unavailable`
+  marker instead of inheriting `vm_kernel`. Environment-class `enabled` for
+  microvm is probe-derived from the pinned checksum-verified VM toolchain. The
+  cTEE private-workspace module is an ADMISSION PLANNER that executes nothing
+  and verifies no attestation; it reports `action_executed: false`,
+  `isolation_standing: unverified_no_execution_backend`, and
+  `node_trust_source: caller_supplied_unverified`;
+- two containment gates exist, and BOTH default OFF. Enabling either is an
+  explicit operator opt-in that re-admits a path whose safety is not
+  established: `IOI_ALLOW_UNVERIFIED_WORKSPACE_RESTORE` (default OFF) re-admits
+  extraction of guest-authored workspace material onto the host filesystem
+  without admitted-digest provenance, and `IOI_ALLOW_UNBOUNDED_GUEST_TRANSFER`
+  (default OFF) re-admits a guest-declared transfer length above the 1 GiB host
+  allocation ceiling. Absent, empty, `0`, and `false` all mean OFF. Recipe build
+  caches are keyed by owning System/tenant scope AND recipe — an unattributed
+  cache is refused, not shared — and every declared `cache_paths` entry must be
+  relative and non-escaping;
+- deletion of an EXISTING resource always remains callable under containment. It
+  returns an exact `succeeded | failed | unknown` outcome, where `unknown` is
+  first-class and is never coerced into either neighbour: a delete call that
+  returned without a confirming re-observation is `unknown`, not `succeeded`. A
+  non-`succeeded` outcome opens a durable cleanup obligation. Provider adapters
+  derive `cleanup_verified` and `teardown_state`
+  (`torn_down | teardown_failed | torn_down_unverified`) from the observed
+  provider verdict rather than asserting completion;
 - Hypervisor Core is the shared runtime/control substrate whose execution
   owner is the Hypervisor Daemon; it is not a peer runtime beside the daemon,
   not a replacement for wallet.network, and not a replacement for Agentgres;

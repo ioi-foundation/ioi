@@ -12,6 +12,11 @@ use std::sync::Arc;
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
+use ioi_services::agentic::runtime::kernel::emergency_containment::{
+    admit_cache_path, admit_cache_scope, admit_isolated_execution, close_deletion,
+    truthful_isolation_label, unsafe_path_gate, DeclaredIsolation, DeletionOutcome, ExecutionLocus,
+    IsolatedSubstrate, UNVERIFIED_WORKSPACE_RESTORE_GATE,
+};
 use ioi_types::app::agentic::InferenceOptions;
 use serde_json::{json, Value};
 
@@ -1115,40 +1120,82 @@ fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result
     Ok(())
 }
 
-fn recipe_cache_dir(data_dir: &str, recipe_ref: &str) -> std::path::PathBuf {
+/// The owning scope segment of a recipe cache.
+///
+/// CONTAINMENT: the cache used to be keyed on `recipe_ref` ALONE, so every System/tenant on the
+/// node sharing a recipe also shared one cache directory — and the restored content is then
+/// executed by the prebuild/init tasks. That is a cross-tenant cache-poisoning to code-execution
+/// primitive. The owning scope is now part of the key, and a recipe with no owning scope is
+/// refused rather than silently pooled into a shared cache.
+fn recipe_cache_scope(recipe: &Value) -> Option<String> {
+    for key in ["system_ref", "system_id", "owner_ref", "account_ref"] {
+        if let Some(scope) = recipe.get(key).and_then(|v| v.as_str()) {
+            if let Ok(scope) = admit_cache_scope(Some(scope)) {
+                return Some(scope);
+            }
+        }
+    }
+    None
+}
+
+fn recipe_cache_dir(data_dir: &str, recipe_ref: &str, scope: &str) -> std::path::PathBuf {
     std::path::Path::new(data_dir)
         .join("recipe-cache")
+        .join(safe_id(scope))
         .join(safe_id(recipe_ref))
 }
 
-/// Restore the recipe's declared `cache_paths` from the recipe-keyed cache into the workspace
+/// Admit the recipe's declared `cache_paths`, dropping any that is absolute or escapes the root.
+///
+/// CONTAINMENT: `Path::join` does not normalize. A `cache_paths` entry of `"/root/.ssh"` made
+/// `join` discard the base entirely, and `"../../environments/<other>/workspace"` walked out of
+/// both the cache dir and the workspace. Entries are validated before use.
+fn admitted_cache_paths(recipe: &Value) -> Vec<String> {
+    recipe
+        .get("cache_paths")
+        .and_then(|v| v.as_array())
+        .map(|paths| {
+            paths
+                .iter()
+                .filter_map(|p| p.as_str())
+                .filter(|rel| admit_cache_path(rel).is_ok())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Restore the recipe's declared `cache_paths` from the scope-keyed cache into the workspace
 /// (warmup). Returns (cache_hit, restored_paths) — a second env from the same recipe is faster.
 fn restore_recipe_cache(data_dir: &str, recipe: &Value, ws: &str) -> (bool, Vec<String>) {
     let recipe_ref = recipe["recipe_ref"].as_str().unwrap_or("");
-    let cache = recipe_cache_dir(data_dir, recipe_ref);
+    let Some(scope) = recipe_cache_scope(recipe) else {
+        // Unattributed cache: refuse to read it rather than serve another tenant's bytes.
+        return (false, Vec::new());
+    };
+    let cache = recipe_cache_dir(data_dir, recipe_ref, &scope);
     let mut hit = Vec::new();
-    if let Some(paths) = recipe.get("cache_paths").and_then(|v| v.as_array()) {
-        for rel in paths.iter().filter_map(|p| p.as_str()) {
-            let src = cache.join(rel);
-            if src.exists() {
-                let _ = copy_dir_all(&src, &std::path::Path::new(ws).join(rel));
-                hit.push(rel.to_string());
-            }
+    for rel in admitted_cache_paths(recipe) {
+        let src = cache.join(&rel);
+        if src.exists() {
+            let _ = copy_dir_all(&src, &std::path::Path::new(ws).join(&rel));
+            hit.push(rel);
         }
     }
     (!hit.is_empty(), hit)
 }
 
-/// Save the recipe's `cache_paths` from the workspace into the recipe-keyed cache (after prebuild).
+/// Save the recipe's `cache_paths` from the workspace into the scope-keyed cache (after prebuild).
 fn save_recipe_cache(data_dir: &str, recipe: &Value, ws: &str) {
     let recipe_ref = recipe["recipe_ref"].as_str().unwrap_or("");
-    let cache = recipe_cache_dir(data_dir, recipe_ref);
-    if let Some(paths) = recipe.get("cache_paths").and_then(|v| v.as_array()) {
-        for rel in paths.iter().filter_map(|p| p.as_str()) {
-            let src = std::path::Path::new(ws).join(rel);
-            if src.exists() {
-                let _ = copy_dir_all(&src, &cache.join(rel));
-            }
+    let Some(scope) = recipe_cache_scope(recipe) else {
+        return;
+    };
+    let cache = recipe_cache_dir(data_dir, recipe_ref, &scope);
+    for rel in admitted_cache_paths(recipe) {
+        let src = std::path::Path::new(ws).join(&rel);
+        if src.exists() {
+            let _ = copy_dir_all(&src, &cache.join(&rel));
         }
     }
 }
@@ -1261,6 +1308,22 @@ fn export_guest_workspace(st: &DaemonState, env_id: &str, ws: &str) -> Result<()
     let vm = vms
         .get(env_id)
         .ok_or_else(|| AppError(StatusCode::CONFLICT, "no live microVM for env".into()))?;
+    // CONTAINMENT: the guest is the UNTRUSTED party — this environment is labelled
+    // `trust_posture: untrusted_code_capable`. These bytes are guest-authored, carry no digest
+    // the daemon admitted beforehand, and are extracted onto the HOST filesystem with no
+    // member-level traversal/symlink/permission guard. That is an unverified-provenance restore
+    // across the isolation boundary, so it is gated behind an explicit opt-in that defaults OFF.
+    if let Err(refusal) = unsafe_path_gate(
+        UNVERIFIED_WORKSPACE_RESTORE_GATE,
+        std::env::var(UNVERIFIED_WORKSPACE_RESTORE_GATE)
+            .ok()
+            .as_deref(),
+    ) {
+        return Err(AppError(
+            StatusCode::CONFLICT,
+            format!("{}: {}", refusal.reason, refusal.detail),
+        ));
+    }
     let tar = monitor.export_workspace(vm).map_err(|e| {
         AppError(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1276,14 +1339,57 @@ fn export_guest_workspace(st: &DaemonState, env_id: &str, ws: &str) -> Result<()
     Ok(())
 }
 
-/// Shut down + remove an env's live microVM if present (idempotent). Teardown leaves no orphan VM.
-fn teardown_microvm(st: &DaemonState, env_id: &str) {
-    use super::microvm::{CloudHypervisorMonitor, VmMonitor};
+/// Shut down + remove an env's live microVM if present (idempotent).
+///
+/// CARVE-OUT: deletion of an EXISTING resource always remains callable — this function never
+/// refuses. What containment changes is HONESTY. It previously discarded the stop result
+/// (`let _ = ...`) and the doc claimed "leaves no orphan VM", which the code never verified.
+/// It now returns an exact `succeeded | failed | unknown` disposition and opens a durable
+/// cleanup obligation whenever the outcome is not `succeeded`. `unknown` is first-class: the
+/// monitor's `stop` cannot prove the guest process is gone, so a stop that merely returned Ok
+/// is `unknown`, never `succeeded`.
+fn teardown_microvm(st: &DaemonState, env_id: &str) -> Value {
+    let resource_ref = format!("microvm://environment/{env_id}");
     let mut vm = match st.live_vms.lock().unwrap().remove(env_id) {
         Some(v) => v,
-        None => return,
+        // Nothing live to tear down: the resource is observably absent from this daemon.
+        None => return close_deletion(&resource_ref, DeletionOutcome::Succeeded).to_json(),
     };
-    let _ = CloudHypervisorMonitor.stop(&mut vm);
+    // CONTAINMENT (cleanup availability): teardown used to hardcode `CloudHypervisorMonitor`
+    // even for a VM booted under QEMU or Firecracker. `QemuMonitor` overrides `connect` to use
+    // AF_VSOCK while the default uses a UDS, so the graceful shutdown byte was written to the
+    // wrong transport and never reached those guests. Resolve the monitor that actually booted
+    // this VM from the environment record so graceful stop reaches the right guest.
+    let monitor_id = load_env(&st.data_dir, env_id)
+        .and_then(|env| env["status"]["vm"]["monitor"].as_str().map(str::to_string))
+        .unwrap_or_else(|| "cloud-hypervisor".to_string());
+    let monitor = super::microvm::make_monitor(&monitor_id);
+    let pid = vm.pid;
+    let call_succeeded = monitor.stop(&mut vm).is_ok();
+    // Re-observe: proof of absence is the process no longer existing, not the call returning.
+    let proven_absent = !process_alive(pid);
+    close_deletion(
+        &resource_ref,
+        DeletionOutcome::classify(call_succeeded, proven_absent),
+    )
+    .to_json()
+}
+
+/// Post-teardown observation: is the monitor process still present?
+///
+/// `kill(pid, 0)` reports liveness without signalling. An error other than "no such process"
+/// (e.g. EPERM) means we genuinely do not know, so it reports alive and the outcome degrades to
+/// `unknown` rather than a false `succeeded`.
+fn process_alive(pid: u32) -> bool {
+    if pid == 0 {
+        return false;
+    }
+    // SAFETY: signal 0 performs error checking only; it never delivers a signal.
+    let rc = unsafe { libc::kill(pid as libc::pid_t, 0) };
+    if rc == 0 {
+        return true;
+    }
+    std::io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)
 }
 
 // ---- WS-7: stop / idle / activity policy ----
@@ -1312,7 +1418,9 @@ fn stop_environment(st: &DaemonState, env: &mut Value, id: &str, condition_kind:
         "info",
         &format!("stopping ({mode}): {msg}"),
     );
-    teardown_microvm(st, id); // graceful poweroff + socket cleanup (no orphan VM)
+    // CARVE-OUT: stop always runs. Its exact outcome is recorded rather than assumed.
+    let disposition = teardown_microvm(st, id);
+    record_cleanup_disposition(st, env, &disposition);
     for c in [
         "sandbox",
         "resource_isolation",
@@ -1324,14 +1432,53 @@ fn stop_environment(st: &DaemonState, env: &mut Value, id: &str, condition_kind:
     }
     set_phase(env, "stopped");
     recompute_readiness(env);
+    // CLAIM TRUTH: "no orphans" used to be asserted unconditionally while the stop result was
+    // discarded. The message now reports the measured teardown outcome.
+    let outcome = disposition["outcome"].as_str().unwrap_or("unknown");
     observe(
         env,
         "stopping",
         "provisioner",
         condition_kind,
         "info",
-        "environment stopped (workspace retained, no orphans)",
+        &format!("environment stopped (workspace retained; microVM teardown: {outcome})"),
     );
+}
+
+/// Record one cleanup disposition on the environment record.
+///
+/// CARVE-OUT SUPPORT: a non-`succeeded` deletion opens a DURABLE cleanup obligation that
+/// survives on the record. Obligations accumulate and are never erased by a later teardown —
+/// only an explicit receipted disposition may close one.
+fn record_cleanup_disposition(st: &DaemonState, env: &mut Value, disposition: &Value) {
+    env["status"]["last_cleanup_disposition"] = disposition.clone();
+    if disposition["cleanup_obligation_ref"].is_null() {
+        return;
+    }
+    if !env["status"]["cleanup_obligations"].is_array() {
+        env["status"]["cleanup_obligations"] = json!([]);
+    }
+    let obligation = json!({
+        "cleanup_obligation_ref": disposition["cleanup_obligation_ref"],
+        "resource_ref": disposition["resource_ref"],
+        "outcome": disposition["outcome"],
+        "status": "pending",
+        "detail": disposition["detail"],
+        "opened_at": iso_now(),
+    });
+    env["status"]["cleanup_obligations"]
+        .as_array_mut()
+        .expect("cleanup_obligations initialized as an array above")
+        .push(obligation.clone());
+    // Durable beyond the environment record: an obligation must survive parent deletion.
+    if let Some(id) = disposition["cleanup_obligation_ref"].as_str() {
+        let _ = persist_record(
+            &st.data_dir,
+            "cleanup-obligations",
+            &safe_id(id),
+            &obligation,
+        );
+    }
 }
 
 // ---- WS-9: provider failure recovery (incident → candidate → attempt → reconcile → receipts) ----
@@ -1550,7 +1697,26 @@ pub(crate) async fn handle_environment_classes(State(st): State<Arc<DaemonState>
             let id = record["id"].as_str().unwrap_or("").to_string();
             let (enabled, backing) = match id.as_str() {
                 "local-workspace-v0" => (true, json!({ "path": "local host workspace", "real": true })),
-                "microvm" => (true, json!({ "path": "VmMonitor lane (cloud-hypervisor primary; QEMU/Firecracker)", "real": true, "honesty_note": "previously mislabeled enabled:false while the lane was operational" })),
+                // CONTAINMENT (claim truth): this arm was the unconditional constant
+                // `(true, {"real": true})`. It probed nothing, so on a host with no monitor
+                // binary and no pinned VM toolchain the daemon still advertised
+                // `microvm: enabled=true, real=true` — violating this handler's own stated
+                // honesty rule that "a class is enabled only when a real provider/account path
+                // backs it". Enablement is now MEASURED by resolving the pinned, checksum-verified
+                // toolchain that `build_vm_spec` actually requires.
+                "microvm" => {
+                    let toolchain = super::microvm::resolve_toolchain(&st.home_dir);
+                    let operational = toolchain.is_ok();
+                    (
+                        operational,
+                        json!({
+                            "path": "VmMonitor lane (cloud-hypervisor primary; QEMU/Firecracker)",
+                            "real": operational,
+                            "probe": "resolve_toolchain (pinned supply-manifest + sha256 re-hash)",
+                            "unavailable_reason": toolchain.err(),
+                        }),
+                    )
+                }
                 "byo-ssh-node" => (
                     verified_ssh_accounts > 0,
                     json!({ "path": "verified baremetal_ssh ProviderAccount(s)", "verified_accounts": verified_ssh_accounts, "real": verified_ssh_accounts > 0 }),
@@ -2222,10 +2388,24 @@ pub(crate) async fn handle_environment_action(
 
             // WS-10 — record the resource isolation + connectivity profiles (microVM cpu/mem are
             // monitor-enforced; ports namespace-isolated in-guest).
+            //
+            // CONTAINMENT (claim truth): these profiles are keyed on `microvm_ok` — the MEASURED
+            // boot outcome — not on `is_microvm`, the declaration. Previously a microVM whose boot
+            // FAILED still published `enforcement: "vm_kernel (monitor-enforced cpu/mem)"` and
+            // `namespace_isolated: true`, which no longer held. A declared-but-unbooted
+            // environment now reports the weaker truth and carries a withdrawn-label marker.
             env["status"]["resource_isolation_profile"] =
-                resource_isolation_profile(is_microvm, 2, 1024);
+                resource_isolation_profile(microvm_ok, 2, 1024);
             env["status"]["connectivity_profile"] =
-                connectivity_profile(recipe.as_ref(), is_microvm);
+                connectivity_profile(recipe.as_ref(), microvm_ok);
+            env["status"]["measured_isolation"] = json!(truthful_isolation_label(
+                if is_microvm {
+                    DeclaredIsolation::VmKernel
+                } else {
+                    DeclaredIsolation::ProcessScoped
+                },
+                IsolatedSubstrate::observed(microvm_ok),
+            ));
 
             // WS-3 — typed Services / Tasks / Ports. If a recipe is bound, resolve it, RUN its
             // tasks (in-guest for microVM, on the host for local), build typed services/ports, and
@@ -2427,8 +2607,15 @@ pub(crate) async fn handle_environment_action(
             );
         }
         "delete" => {
+            // CARVE-OUT: deletion of an EXISTING environment REMAINS CALLABLE under every
+            // containment in this cut. It never refuses. It returns an exact
+            // `succeeded | failed | unknown` outcome and opens a durable cleanup obligation
+            // whenever the outcome is not `succeeded`, so an operator is never stranded with a
+            // resource they cannot delete — and never told a resource is gone when it may not be.
             set_phase(&mut env, "stopping");
-            teardown_microvm(&st, &id);
+            let disposition = teardown_microvm(&st, &id);
+            record_cleanup_disposition(&st, &mut env, &disposition);
+            env["status"]["deletion_outcome"] = disposition["outcome"].clone();
             let dir = std::path::Path::new(&st.data_dir)
                 .join("environments")
                 .join(safe_id(&id));
@@ -2440,19 +2627,23 @@ pub(crate) async fn handle_environment_action(
             env["status"]["deleted"] = json!(true);
             set_phase(&mut env, "deleted"); // terminal — not "stopped" (the env is gone, not idle)
             recompute_readiness(&mut env);
+            let outcome = disposition["outcome"].as_str().unwrap_or("unknown");
             observe(
                 &mut env,
                 "deleting",
                 "storage",
                 "state_wiped",
                 "info",
-                "environment deleted (scoped workspace removed)",
+                &format!(
+                    "environment deleted (scoped workspace removed; microVM teardown: {outcome})"
+                ),
             );
         }
         "inject-failure" => {
             // WS-9: simulate a provider crash — kill the VM out-of-band; the env still believes
             // it is running until recovery reconciles. The HOST workspace + branches are untouched.
-            teardown_microvm(&st, &id);
+            let disposition = teardown_microvm(&st, &id);
+            record_cleanup_disposition(&st, &mut env, &disposition);
             set_component(
                 &mut env,
                 "sandbox",
@@ -2859,6 +3050,29 @@ pub(crate) async fn handle_workspace_exec(
 
     // WS-4: if a live microVM backs this env, the terminal runs IN-GUEST (real kernel boundary).
     let in_guest = st.live_vms.lock().unwrap().contains_key(env_id);
+
+    // CONTAINMENT: an environment that DECLARED a vm_kernel isolation floor must never silently
+    // execute on the host when its guest is gone (daemon restart, VM crash, teardown). Previously
+    // this fell through to `bash -lc` on the host while the durable record still advertised
+    // `minimum_isolation: vm_kernel`. Refuse by name instead of falling back.
+    if let Err(refusal) = admit_isolated_execution(
+        DeclaredIsolation::from_env_status(&env["status"]),
+        IsolatedSubstrate::observed(in_guest),
+        ExecutionLocus::Guest,
+    ) {
+        return Ok(Json(json!({
+            "ok": false,
+            "refused": true,
+            "reason": refusal.reason,
+            "detail": refusal.detail,
+            "executed": false,
+            "executed_in": "none",
+            "exit_code": 126,
+            "stdout": "",
+            "stderr": "isolation required but no isolated substrate is live (fail-closed)"
+        })));
+    }
+
     let (stdout, stderr, exit_code) = if in_guest {
         use super::microvm::{CloudHypervisorMonitor, VmMonitor};
         let vms = st.live_vms.lock().unwrap();
@@ -3114,10 +3328,15 @@ pub(crate) async fn handle_env_config(
 ///
 /// This is the real Build-Rule inner loop. The daemon's model route (`hypervisor:native-fixture`
 /// offline; a mounted model when present) generates content; the child harness writes it as a
-/// REAL edit on the WorkRun's scoped patch branch and commits under a child identity. The host
-/// repo is never touched — all mutation is confined to the environment's scoped workspace, so
-/// `host_mutation` stays false and the turn is recorded `review_state: proposed` for the
-/// operator/authority gate (daemon EXECUTES · wallet AUTHORIZES the eventual merge crossing).
+/// REAL edit on the WorkRun's scoped patch branch and commits under a child identity.
+///
+/// CLAIM TRUTH: this turn executes ON THE HOST — host `git` subprocesses and a host
+/// `std::fs::write`. The IOI source repo is not touched and mutation is confined to the
+/// environment's scoped workspace, but that is `host_repo_mutation: false`, NOT
+/// `host_mutation: false`. The record reports both, measured rather than asserted (INV-38).
+/// An environment that declared a `vm_kernel` isolation floor refuses this route outright.
+/// The turn is recorded `review_state: proposed` for the operator/authority gate
+/// (daemon EXECUTES · wallet AUTHORIZES the eventual merge crossing).
 pub(crate) async fn handle_workrun_execute(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -3146,6 +3365,21 @@ pub(crate) async fn handle_workrun_execute(
         })?
         .to_string();
     let branch = wr["branch"].as_str().unwrap_or("HEAD").to_string();
+
+    // CONTAINMENT: this turn executes host-side — host `git` processes and a host
+    // `std::fs::write` against the scoped workspace. That cannot honour a declared vm_kernel
+    // isolation floor, so an environment that declared one refuses here rather than executing
+    // host-side and then recording `host_mutation: false`.
+    if let Err(refusal) = admit_isolated_execution(
+        DeclaredIsolation::from_env_status(&env["status"]),
+        IsolatedSubstrate::observed(st.live_vms.lock().unwrap().contains_key(&env_id)),
+        ExecutionLocus::Host,
+    ) {
+        return Err(AppError(
+            StatusCode::CONFLICT,
+            format!("{}: {}", refusal.reason, refusal.detail),
+        ));
+    }
 
     // Ensure we are on the WorkRun's scoped patch branch — never the host repo, never main.
     run_git(&ws, &["checkout", "-q", &branch]).map_err(|e| {
@@ -3272,7 +3506,14 @@ pub(crate) async fn handle_workrun_execute(
         "output_preview": preview,
         "file_changed": rel,
         "commit": commit,
-        "host_mutation": false,
+        // CONTAINMENT (claim truth): this turn wrote to the host filesystem and ran host `git`
+        // processes. The former hardcoded `host_mutation: false` asserted a fact the code never
+        // measured (INV-37). What is actually true is narrower: the IOI source repo was not
+        // touched; the scoped workspace on the host WAS.
+        "host_mutation": true,
+        "host_mutation_scope": "environment_scoped_workspace",
+        "host_repo_mutation": false,
+        "executed_in": "host",
         "at": now
     });
     if !wr["turns"].is_array() {
@@ -3290,7 +3531,11 @@ pub(crate) async fn handle_workrun_execute(
     wr["route_id"] = json!(route.route_id);
     wr["head_commit"] = json!(commit);
     wr["working_tree_clean"] = json!(dirty.is_empty());
-    wr["host_mutation"] = json!(false);
+    // CONTAINMENT (claim truth): measured, not asserted — see the turn record above.
+    wr["host_mutation"] = json!(true);
+    wr["host_mutation_scope"] = json!("environment_scoped_workspace");
+    wr["host_repo_mutation"] = json!(false);
+    wr["executed_in"] = json!("host");
     wr["updated_at"] = json!(now);
     persist_record(&st.data_dir, "workruns", &id, &wr).map_err(|e| {
         AppError(
@@ -3300,4 +3545,197 @@ pub(crate) async fn handle_workrun_execute(
     })?;
 
     Ok(Json(json!({ "workRun": wr, "turn": turn })))
+}
+
+#[cfg(test)]
+mod containment_tests {
+    use super::*;
+
+    fn microvm_env_status() -> Value {
+        json!({
+            "minimum_isolation": "vm_kernel",
+            "substrate": "microvm",
+            "isolation_claim": "cross_tenant_capable",
+            "trust_posture": "untrusted_code_capable",
+        })
+    }
+
+    fn local_env_status() -> Value {
+        json!({
+            "minimum_isolation": "process + scoped worktree/runtime state",
+            "substrate": "local_host",
+            "isolation_claim": "not_cross_tenant",
+        })
+    }
+
+    // ---- isolation: refuse, never fall back ----
+
+    #[test]
+    fn exec_refuses_host_fallback_when_a_declared_microvm_is_not_live() {
+        // This is the exec route's decision, extracted: previously the same inputs fell through
+        // to `bash -lc` on the host while the record still advertised vm_kernel isolation.
+        let refusal = admit_isolated_execution(
+            DeclaredIsolation::from_env_status(&microvm_env_status()),
+            IsolatedSubstrate::observed(false),
+            ExecutionLocus::Guest,
+        )
+        .expect_err("exec must refuse rather than run on the host");
+        assert_eq!(refusal.reason, "isolation_required_substrate_unavailable");
+    }
+
+    #[test]
+    fn exec_still_runs_in_guest_when_the_microvm_is_live() {
+        assert!(admit_isolated_execution(
+            DeclaredIsolation::from_env_status(&microvm_env_status()),
+            IsolatedSubstrate::observed(true),
+            ExecutionLocus::Guest,
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn a_host_executed_workrun_refuses_under_a_declared_isolation_requirement() {
+        // handle_workrun_execute runs host `git` + a host `std::fs::write`. Under a declared
+        // vm_kernel floor that is refused even when a VM happens to be live.
+        for live in [true, false] {
+            let refusal = admit_isolated_execution(
+                DeclaredIsolation::from_env_status(&microvm_env_status()),
+                IsolatedSubstrate::observed(live),
+                ExecutionLocus::Host,
+            )
+            .expect_err("host-executed WorkRun must refuse");
+            assert_eq!(refusal.reason, "isolation_required_host_execution_refused");
+        }
+    }
+
+    #[test]
+    fn local_environments_are_unaffected_by_containment() {
+        // Containment reduces claims; it must not break the honest process-scoped lane.
+        assert!(admit_isolated_execution(
+            DeclaredIsolation::from_env_status(&local_env_status()),
+            IsolatedSubstrate::observed(false),
+            ExecutionLocus::Host,
+        )
+        .is_ok());
+    }
+
+    // ---- withdrawn labels ----
+
+    #[test]
+    fn a_failed_microvm_boot_no_longer_publishes_vm_kernel_enforcement() {
+        // resource_isolation_profile is now keyed on the MEASURED boot outcome.
+        let measured_fail = resource_isolation_profile(false, 2, 1024);
+        assert_eq!(measured_fail["enforcement"], json!("process_scoped"));
+        assert_eq!(measured_fail["ports"]["namespace_isolated"], json!(false));
+
+        let measured_ok = resource_isolation_profile(true, 2, 1024);
+        assert_eq!(
+            measured_ok["enforcement"],
+            json!("vm_kernel (monitor-enforced cpu/mem)")
+        );
+    }
+
+    #[test]
+    fn the_withdrawn_label_names_what_is_actually_unverified() {
+        assert_eq!(
+            truthful_isolation_label(
+                DeclaredIsolation::VmKernel,
+                IsolatedSubstrate::observed(false)
+            ),
+            "unverified_isolation_declared_vm_kernel_substrate_unavailable"
+        );
+    }
+
+    // ---- feature-gated unsafe paths ----
+
+    #[test]
+    fn the_guest_to_host_workspace_restore_is_off_by_default() {
+        let refusal = unsafe_path_gate(UNVERIFIED_WORKSPACE_RESTORE_GATE, None)
+            .expect_err("guest->host restore must be gated OFF by default");
+        assert_eq!(refusal.reason, "unsafe_path_gate_disabled");
+        assert!(unsafe_path_gate(UNVERIFIED_WORKSPACE_RESTORE_GATE, Some("1")).is_ok());
+    }
+
+    // ---- cache containment ----
+
+    #[test]
+    fn recipe_cache_paths_that_escape_the_root_are_dropped() {
+        let recipe = json!({
+            "recipe_ref": "recipe://demo",
+            "system_ref": "system://tenant-a",
+            "cache_paths": ["node_modules", "../../etc", "/root/.ssh", "target"],
+        });
+        assert_eq!(
+            admitted_cache_paths(&recipe),
+            vec!["node_modules", "target"]
+        );
+    }
+
+    #[test]
+    fn an_unattributed_recipe_cache_is_not_shared_across_tenants() {
+        // No owning scope -> no cache at all, rather than a node-global shared directory.
+        let unattributed = json!({ "recipe_ref": "recipe://demo", "cache_paths": ["target"] });
+        assert!(recipe_cache_scope(&unattributed).is_none());
+        assert_eq!(
+            restore_recipe_cache("/tmp/ioi-containment-test", &unattributed, "/tmp/ws"),
+            (false, Vec::new())
+        );
+
+        // Two tenants sharing a recipe get two different cache directories.
+        let a = recipe_cache_dir("/d", "recipe://demo", "system://tenant-a");
+        let b = recipe_cache_dir("/d", "recipe://demo", "system://tenant-b");
+        assert_ne!(a, b);
+    }
+
+    // ---- CARVE-OUT: deletion stays callable with all three outcomes ----
+
+    #[test]
+    fn environment_deletion_reports_each_of_the_three_outcomes_with_obligations() {
+        for (outcome, expects_obligation) in [
+            (DeletionOutcome::Succeeded, false),
+            (DeletionOutcome::Failed, true),
+            (DeletionOutcome::Unknown, true),
+        ] {
+            let disposition = close_deletion("microvm://environment/env_1", outcome);
+            assert_eq!(disposition.outcome, outcome);
+            assert_eq!(
+                disposition.cleanup_obligation_ref.is_some(),
+                expects_obligation,
+                "{outcome:?} obligation expectation"
+            );
+        }
+    }
+
+    #[test]
+    fn a_teardown_that_cannot_prove_absence_is_unknown_not_succeeded() {
+        // teardown_microvm re-observes the monitor pid; a stop call that merely returned Ok is
+        // never reported as a proven deletion.
+        assert_eq!(
+            DeletionOutcome::classify(true, false),
+            DeletionOutcome::Unknown
+        );
+    }
+
+    #[test]
+    fn a_non_succeeded_deletion_records_a_durable_obligation_on_the_record() {
+        let disposition = close_deletion("microvm://environment/env_1", DeletionOutcome::Unknown);
+        let st_dir = std::env::temp_dir().join("ioi-containment-oblig-test");
+        let _ = std::fs::create_dir_all(&st_dir);
+        let mut env = json!({ "status": {} });
+        // Exercise the record-shaping half without a DaemonState.
+        env["status"]["last_cleanup_disposition"] = disposition.to_json();
+        env["status"]["cleanup_obligations"] = json!([{
+            "cleanup_obligation_ref": disposition.cleanup_obligation_ref,
+            "outcome": disposition.outcome.as_str(),
+            "status": "pending",
+        }]);
+        assert_eq!(
+            env["status"]["cleanup_obligations"][0]["outcome"],
+            json!("unknown")
+        );
+        assert_eq!(
+            env["status"]["cleanup_obligations"][0]["status"],
+            json!("pending")
+        );
+    }
 }

@@ -293,10 +293,29 @@ pub(crate) async fn start_oss_runtime(
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
     let Some(version) = version else {
+        // CONTAINMENT (cleanup availability): the launcher shell forks the server WITHOUT exec,
+        // so killing only the shell orphaned the child, which kept holding the port. On this path
+        // the runtime was never registered in `st.editor_runtimes`, so `stop_oss_runtime` could
+        // not reach it either — a resource created that nothing could destroy. Kill the whole
+        // process GROUP here, exactly as `stop_oss_runtime` already does on the happy path, and
+        // report whether the group is provably gone rather than assuming it.
         let mut child = child;
+        let pid = child.id() as libc::pid_t;
+        // SAFETY: a negative pid signals the process group the launcher created with setsid.
+        unsafe {
+            libc::kill(-pid, libc::SIGKILL);
+        }
         let _ = child.kill();
         let _ = child.wait();
-        return Err(format!("openvscode-server did not report /version on 127.0.0.1:{port} within timeout (see {log_path})"));
+        let group_gone = unsafe { libc::kill(-pid, 0) } != 0;
+        let cleanup = if group_gone {
+            "process group reaped"
+        } else {
+            "process group MAY still hold the port — cleanup unverified"
+        };
+        return Err(format!(
+            "openvscode-server did not report /version on 127.0.0.1:{port} within timeout ({cleanup}; see {log_path})"
+        ));
     };
 
     st.editor_runtimes.lock().unwrap().insert(

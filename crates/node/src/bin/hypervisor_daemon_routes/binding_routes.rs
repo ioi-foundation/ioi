@@ -23,6 +23,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::Json;
+use ioi_services::agentic::runtime::kernel::emergency_containment::{
+    admit_isolated_execution, DeclaredIsolation, ExecutionLocus, IsolatedSubstrate,
+};
 use serde_json::{json, Value};
 
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
@@ -390,6 +393,27 @@ pub(crate) async fn handle_terminal_create(
         .or_else(|| sstr(&body, "environment_id"))
         .unwrap_or_default();
     let env_id = ref_id(&env_ref).to_string();
+
+    // CONTAINMENT: this route spawns an interactive HOST shell (a real PTY, caller-chosen
+    // binary, no guardrail deny-list) and attributes it to an environment. When that environment
+    // declared a `vm_kernel` isolation floor, a host PTY cannot honour it, so it is refused by
+    // name. A process-scoped environment is unaffected — there the label already matches reality.
+    if let Some(env) = load_env(&st.data_dir, &env_id) {
+        let live = st.live_vms.lock().unwrap().contains_key(&env_id);
+        if let Err(refusal) = admit_isolated_execution(
+            DeclaredIsolation::from_env_status(&env["status"]),
+            IsolatedSubstrate::observed(live),
+            ExecutionLocus::Host,
+        ) {
+            return Json(json!({
+                "ok": false,
+                "refused": true,
+                "reason": refusal.reason,
+                "detail": refusal.detail,
+            }));
+        }
+    }
+
     let cwd = match sstr(&body, "cwd").or_else(|| workspace_of(&st.data_dir, &env_id)) {
         Some(c) => c,
         None => {

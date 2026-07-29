@@ -13,6 +13,9 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
+use ioi_services::agentic::runtime::kernel::emergency_containment::{
+    admit_guest_transfer_len, UNBOUNDED_GUEST_TRANSFER_GATE,
+};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -229,7 +232,16 @@ pub(crate) trait VmMonitor {
         let mut l = [0u8; 8];
         s.read_exact(&mut l)
             .map_err(|e| format!("export len: {e}"))?;
-        let len = u64::from_le_bytes(l) as usize;
+        // CONTAINMENT: the guest is the untrusted party and it declares this length. The host
+        // used to allocate it verbatim, so a malicious or broken guest returning u64::MAX aborted
+        // the daemon — a guest-to-host denial of service straight across the isolation boundary.
+        // The declaration is now bounded, with an explicit opt-in that defaults OFF.
+        let len = admit_guest_transfer_len(
+            u64::from_le_bytes(l),
+            std::env::var(UNBOUNDED_GUEST_TRANSFER_GATE).ok().as_deref(),
+        )
+        .map_err(|refusal| format!("{}: {}", refusal.reason, refusal.detail))?
+            as usize;
         let mut buf = vec![0u8; len];
         s.read_exact(&mut buf)
             .map_err(|e| format!("export read: {e}"))?;
