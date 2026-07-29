@@ -1,0 +1,141 @@
+{
+  "schema_version": "ioi.scm-publication-effect.v2",
+  "publication_effect_id": "scm-publication-effect://ioi/hypervisor/eff-neg-recomputed-cas",
+  "publication_effect_hash": "sha256:1246792377be291989d028900c984696878fd353d02ad0fdbc5b3f034bcfb501",
+  "execution_semantics": "at_most_once_execution_plus_reconciliation",
+  "operation": {
+    "operation_ref": "scm-publication-operation://ioi/hypervisor/op-0007",
+    "operation_key": "sha256:1f16c1be72f94fc1ec3d17f2e3d33e899225ca5d113ef411d07dacb9dd0b5847",
+    "operation_key_domain": "excludes_observed_remote_state",
+    "identity": {
+      "work_run_ref": "work-run://ioi/hypervisor/wr-2026-07-29-0007",
+      "proposal_ref": "proposal://ioi/hypervisor/prp-2026-07-29-0007",
+      "proposal_hash": "sha256:1a33e1e4de7f1ec7e729c1d5b9975f7b2a67cc6906b0e8759d67ee5cda948011",
+      "connector_ref": "connector://ioi/scm/primary",
+      "connector_revision_hash": "sha256:16b90aaa5a432e221983c5bae8c4fd5945dd6a5b64e9dc7130abb220cbcbf974",
+      "destination_binding_ref": "scm-destination-binding://ioi/hypervisor/binding-0007",
+      "destination_binding_hash": "sha256:fcccb34e240b20f666d9b06f87c9b5da1b5c0994bfec27155cf9fe00e127bca3",
+      "repository_ref": "repository://ioi/hypervisor",
+      "target_ref": "scm-ref://heads/publication/wr-2026-07-29-0007",
+      "base_ref": "scm-ref://heads/main",
+      "base_revision_id": "scm-revision:020a2facac31d707752c73e047da057d52c08cb5",
+      "change_set_kind": "proposal_bound_file_set",
+      "files": [
+        {
+          "path": "crates/types/src/app/scm_publication.rs",
+          "change_kind": "modified",
+          "content_digest": "sha256:c45fdbca3b21c049e64126da175a78677a8ceba1567ed039b199a0c6f849f1e8",
+          "proposal_ref": "proposal://ioi/hypervisor/prp-2026-07-29-0007"
+        },
+        {
+          "path": "docs/architecture/components/connectors-tools/contracts.md",
+          "change_kind": "modified",
+          "content_digest": "sha256:057766cf3be687624a69f3ffab24c7e5b992bec411c053f87221ed55225acf05",
+          "proposal_ref": "proposal://ioi/hypervisor/prp-2026-07-29-0007"
+        }
+      ],
+      "file_set_digest": "sha256:d17bd25e898f134c0ad7456215e53b19ca07f052198075350f19efc531b69ae7",
+      "review_intent": "requested",
+      "frozen_commit_metadata": {
+        "commit_message_digest": "sha256:5f25fb335ca6cf2c1e3d84931f268d3385aa4ecc3adb9dc63c695d0cbd611698",
+        "authorship_commitment": "sha256:3108153812ef278ed3983136324166ade41d5d81931d4ba3b04839ecb587c0be",
+        "authored_at": "2026-07-29T11:58:00Z",
+        "commit_timestamp": "2026-07-29T11:58:00Z",
+        "metadata_digest": "sha256:eae58ce9a52808adca3e80dedf8cd1b78701e2e740c353be8314ae86a26d7769"
+      },
+      "intended_revision_id": "scm-revision:8ff97e4b64e68183bc23de9c4b12de1a0c528850"
+    }
+  },
+  "authority": {
+    "authority_grant_refs": [
+      "grant://ioi/hypervisor/scm-publish-0007"
+    ],
+    "authority_scope_refs": [
+      "scope:scm.publish"
+    ],
+    "capability_lease_ref": "lease://ioi/hypervisor/scm-0007",
+    "admission_receipt_ref": "receipt://ioi/hypervisor/admission-0007"
+  },
+  "preparation": {
+    "prepared_record_ref": "scm-publication-prepared://ioi/hypervisor/prep-0007",
+    "prepared_record_hash": "sha256:3604dfe3080fa3ee5f6c141d53ca0946490b33a20ad3118d0c3037f60533a284",
+    "prepared_persisted_at": "2026-07-29T11:59:00Z",
+    "persistence_order": "prepared_persisted_before_remote_effect",
+    "prepared_persistence_evidence_ref": "receipt://ioi/hypervisor/prepared-persist-0007"
+  },
+  "attempt": {
+    "attempt_ref": "scm-publication-attempt://ioi/hypervisor/att-0007-2",
+    "attempt_number": 2,
+    "cas": {
+      "mechanism": "expected_head_compare_and_swap",
+      "remote_update_mode": "expected_head_advance_or_refuse",
+      "stale_head_disposition": "refuse_never_overwrite",
+      "target_ref_precondition": "expected_head",
+      "expected_target_head": "scm-revision:5a66a065833690fed3fc028a280e3808e8968650",
+      "observed_at": "2026-07-29T11:59:30Z",
+      "observation_evidence_ref": "evidence://ioi/hypervisor/head-observation-0007"
+    },
+    "cas_fingerprint": "sha256:787a07b2f06fe3bc7fc59d8fcf0a1163d3c4648c9dd75e8cfde78823d08f7a15",
+    "frozen_cas_fingerprint": "sha256:4bc20dc3e4c7bb2b6d875343f1a29688260ee8018cd625876c968ef95d853d98",
+    "dispatch": {
+      "prepared_record_hash": "sha256:3604dfe3080fa3ee5f6c141d53ca0946490b33a20ad3118d0c3037f60533a284",
+      "dispatch_observation": "proven_absent",
+      "dispatch_evidence_refs": [
+        "evidence://ioi/hypervisor/dispatch-observation-0007"
+      ]
+    }
+  },
+  "recovery": {
+    "resolution_disposition": "retried_frozen_cas",
+    "remote_effect_invoked": true,
+    "remote_convergence": "matches_intended_revision",
+    "precondition_recheck": "holds",
+    "prior_terminal_effect_ref": null,
+    "prior_terminal_effect_hash": null,
+    "reconciliation_code": null,
+    "recovery_evidence_refs": [
+      "evidence://ioi/hypervisor/recovery-probe-0007"
+    ]
+  },
+  "outcome": {
+    "resulting_revision": {
+      "revision_id": "scm-revision:8ff97e4b64e68183bc23de9c4b12de1a0c528850",
+      "target_head": "scm-revision:8ff97e4b64e68183bc23de9c4b12de1a0c528850"
+    },
+    "proof_ref": "receipt://ioi/hypervisor/publication-proof-0007"
+  },
+  "effects": {
+    "publication": {
+      "effect_kind": "scm_publication",
+      "outcome": "published",
+      "receipt_ref": "receipt://ioi/hypervisor/publication-0007",
+      "refusal_code": null,
+      "evidence_refs": [
+        "evidence://ioi/hypervisor/publication-evidence-0007"
+      ]
+    },
+    "review_request": {
+      "effect_kind": "scm_review_request",
+      "outcome": "opened",
+      "receipt_ref": "receipt://ioi/hypervisor/review-request-0007",
+      "refusal_code": null,
+      "evidence_refs": [
+        "evidence://ioi/hypervisor/review-request-evidence-0007"
+      ],
+      "reconciliation": {
+        "operation_key": "sha256:5ed0853610e00494bc3526ffb9900fd7858aa7ed776a9bdd626abe38523b0ed1",
+        "resolution_disposition": "retried_frozen_cas",
+        "remote_effect_invoked": true,
+        "reconciliation_code": null
+      }
+    }
+  },
+  "overall_outcome": "published_with_review_request",
+  "nonclaims": [
+    "grants_no_authority",
+    "no_remote_acceptance_beyond_receipt_evidence",
+    "asserts_no_review_approval",
+    "asserts_no_exactly_once_execution"
+  ],
+  "committed_at": "2026-07-29T12:00:00Z"
+}

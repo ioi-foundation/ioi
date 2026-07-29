@@ -4478,6 +4478,123 @@ export type ScmPublicationEffectV1 = {
   committed_at: string;
 };
 
+export type ScmPublicationEffectV2 = {
+  schema_version: "ioi.scm-publication-effect.v2";
+  publication_effect_id: string;
+  publication_effect_hash: string;
+  execution_semantics: "at_most_once_execution_plus_reconciliation";
+  operation: {
+      operation_ref: string;
+      operation_key: string;
+      operation_key_domain: "excludes_observed_remote_state";
+      identity: {
+            work_run_ref: string;
+            proposal_ref: string;
+            proposal_hash: string;
+            connector_ref: string;
+            connector_revision_hash: string;
+            destination_binding_ref: string;
+            destination_binding_hash: string;
+            repository_ref: string;
+            target_ref: string;
+            base_ref: string;
+            base_revision_id: string;
+            change_set_kind: "proposal_bound_file_set";
+            files: Array<{
+                      path: string;
+                      change_kind: "added" | "modified" | "removed";
+                      content_digest: string | null;
+                      proposal_ref: string;
+                    }>;
+            file_set_digest: string;
+            review_intent: "requested" | "not_requested";
+            frozen_commit_metadata: {
+                    commit_message_digest: string;
+                    authorship_commitment: string;
+                    authored_at: string;
+                    commit_timestamp: string;
+                    metadata_digest: string;
+                  };
+            intended_revision_id: string;
+          };
+    };
+  authority: {
+      authority_grant_refs: Array<string>;
+      authority_scope_refs: Array<string>;
+      capability_lease_ref: string;
+      admission_receipt_ref: string;
+    };
+  preparation: {
+      prepared_record_ref: string;
+      prepared_record_hash: string;
+      prepared_persisted_at: string;
+      persistence_order: "prepared_persisted_before_remote_effect";
+      prepared_persistence_evidence_ref: string;
+    };
+  attempt: {
+      attempt_ref: string;
+      attempt_number: number;
+      cas: {
+            mechanism: "expected_head_compare_and_swap";
+            remote_update_mode: "expected_head_advance_or_refuse";
+            stale_head_disposition: "refuse_never_overwrite";
+            target_ref_precondition: "expected_head" | "must_not_exist";
+            expected_target_head: string | null;
+            observed_at: string;
+            observation_evidence_ref: string;
+          };
+      cas_fingerprint: string;
+      frozen_cas_fingerprint: string;
+      dispatch: {
+            prepared_record_hash: string;
+            dispatch_observation: "proven_absent" | "proven_present" | "indeterminate";
+            dispatch_evidence_refs: Array<string>;
+          };
+    };
+  recovery: {
+      resolution_disposition: "first_dispatch" | "replayed_terminal_result" | "recovered_converged_remote" | "retried_frozen_cas" | "reconciliation_required";
+      remote_effect_invoked: boolean;
+      remote_convergence: "matches_intended_revision" | "diverged" | "unobserved";
+      precondition_recheck: "holds" | "moved" | "unobserved";
+      prior_terminal_effect_ref: string | null;
+      prior_terminal_effect_hash: string | null;
+      reconciliation_code: string | null;
+      recovery_evidence_refs: Array<string>;
+    };
+  outcome: {
+      resulting_revision: {
+            revision_id: string;
+            target_head: string;
+          } | null;
+      proof_ref: string;
+    };
+  effects: {
+      publication: {
+            effect_kind: "scm_publication";
+            outcome: "published" | "partially_applied" | "refused" | "reconciliation_required";
+            receipt_ref: string;
+            refusal_code: string | null;
+            evidence_refs: Array<string>;
+          };
+      review_request: {
+            effect_kind: "scm_review_request";
+            outcome: "opened" | "failed" | "refused" | "not_requested" | "not_attempted" | "reconciliation_required";
+            receipt_ref: string | null;
+            refusal_code: string | null;
+            evidence_refs: Array<string>;
+            reconciliation: {
+                    operation_key: string;
+                    resolution_disposition: "first_dispatch" | "replayed_terminal_result" | "recovered_converged_remote" | "retried_frozen_cas" | "reconciliation_required" | "not_engaged";
+                    remote_effect_invoked: boolean;
+                    reconciliation_code: string | null;
+                  };
+          };
+    };
+  overall_outcome: "published_with_review_request" | "published_review_request_not_requested" | "review_request_failed" | "published_review_request_reconciliation_required" | "partially_applied" | "refused" | "reconciliation_required";
+  nonclaims: Array<"grants_no_authority" | "no_remote_acceptance_beyond_receipt_evidence" | "asserts_no_review_approval" | "asserts_no_exactly_once_execution">;
+  committed_at: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -7463,6 +7580,182 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "scm_publication_effect.content_commitment.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-first-dispatch-published-with-review-request.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-before-dispatch-retry-same-frozen-cas.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-dispatch-before-persistence-recovered.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-persistence-replayed-terminal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-moved-head-ambiguity-reconciliation-required.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-review-request-ambiguity-independent-reconciliation.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-new-target-ref-must-not-exist.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-observed-head-in-operation-identity.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-operation-key-bound-to-observed-head.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect_v2.operation.key.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-retry-recomputed-cas-onto-moved-head.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect_v2.attempt.cas.frozen"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-converged-recovery-reinvoked-remote-effect.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-replay-without-prior-terminal-effect.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect_v2.recovery.replay.binds_prior_terminal"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-moved-head-fresh-child-commit.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect_v2.outcome.never_fresh_child_commit"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-ambiguity-absorbed-into-publication.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect_v2.effects.review_request.reconciles_independently"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-remote-effect-before-prepared-persistence.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect_v2.preparation.precedes_remote_effect"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-unbound-destination.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect_v2.destination.binding_covers_repository"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-shared-effect-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "scm_publication_effect_v2.effects.receipts.distinct"
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-overwrite-remote-head-requested.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-whole-workspace-change-set.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -12653,6 +12946,160 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-first-dispatch-published-with-review-request.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-first-dispatch-published-with-review-request.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-before-dispatch-retry-same-frozen-cas.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-before-dispatch-retry-same-frozen-cas.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-dispatch-before-persistence-recovered.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-dispatch-before-persistence-recovered.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-persistence-replayed-terminal.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-persistence-replayed-terminal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-moved-head-ambiguity-reconciliation-required.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-moved-head-ambiguity-reconciliation-required.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-review-request-ambiguity-independent-reconciliation.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-review-request-ambiguity-independent-reconciliation.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-new-target-ref-must-not-exist.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-new-target-ref-must-not-exist.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-observed-head-in-operation-identity.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-observed-head-in-operation-identity.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-operation-key-bound-to-observed-head.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-operation-key-bound-to-observed-head.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-retry-recomputed-cas-onto-moved-head.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-retry-recomputed-cas-onto-moved-head.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-converged-recovery-reinvoked-remote-effect.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-converged-recovery-reinvoked-remote-effect.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-replay-without-prior-terminal-effect.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-replay-without-prior-terminal-effect.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-moved-head-fresh-child-commit.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-moved-head-fresh-child-commit.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-ambiguity-absorbed-into-publication.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-ambiguity-absorbed-into-publication.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-remote-effect-before-prepared-persistence.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-remote-effect-before-prepared-persistence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-unbound-destination.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-unbound-destination.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-shared-effect-receipt.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-shared-effect-receipt.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-overwrite-remote-head-requested.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-overwrite-remote-head-requested.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-whole-workspace-change-set.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-whole-workspace-change-set.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json",
+    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -13783,7 +14230,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^schema://[^\\s]{1,240}$",
   "^schema://[^\\s]{1,248}$",
   "^scm-destination-binding://[^\\s]{1,248}$",
+  "^scm-publication-attempt://[^\\s]{1,248}$",
   "^scm-publication-effect://[^\\s]{1,248}$",
+  "^scm-publication-operation://[^\\s]{1,248}$",
+  "^scm-publication-prepared://[^\\s]{1,248}$",
   "^scm-ref://[^\\s]{1,248}$",
   "^scm-revision:[0-9a-f]{40,64}$",
   "^scope:[^\\s]{1,200}$",
@@ -13940,7 +14390,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1": "sha256:6cd4afd940b5d7157144516ae9aeecad1c41159e7a1ee4d18ed9d2b151396f5b",
   "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1": "sha256:64fc7bceebf6e18119387f16940b0cf4e68c2b8a1a5d6caed6b1a76502607513",
   "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1": "sha256:7e303b8ded639767da86d7daf1941b05ea800a3f43ad22e5881a6986281cbecf",
-  "schema://ioi/components/connectors-tools/scm-publication-effect/v1": "sha256:00f65134dab87fe98063d3cc720268553cd1cd96862df5dfe7ec00041de0abff"
+  "schema://ioi/components/connectors-tools/scm-publication-effect/v1": "sha256:00f65134dab87fe98063d3cc720268553cd1cd96862df5dfe7ec00041de0abff",
+  "schema://ioi/components/connectors-tools/scm-publication-effect/v2": "sha256:04da1c21908882140b9e9c435566684301ad24a9160219eeb5f33cce43f84759"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -49008,6 +49459,1562 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/components/connectors-tools/scm-publication-effect/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
+    "title": "ScmPublicationEffect",
+    "description": "One immutable, receipted source-control publication crossing carried as one durable logical operation. The ScmPublicationOperation identity is observation-independent: it covers the work run, the proposal, the admitted destination binding, the target ref, the enumerated file set, the review intent, and frozen commit metadata, and it never contains an observed remote head. The observed head lives only in the per-attempt compare-and-swap fingerprint. A Prepared record is persisted before any remote effect is invoked, and a re-entry resolves by replaying an existing terminal result, recovering an already-converged remote revision, retrying the same frozen compare-and-swap when dispatch is proven absent and the original precondition still holds, or refusing as reconciliation_required. This contract states at-most-once execution plus reconciliation; it is not an exactly-once claim, and no representable field can advance a fresh child commit, request an overwrite of the remote head, express a whole-workspace change set, name a destination outside the admitted binding, absorb a review-request reconciliation into the publication, or report success over a failed or unresolved sub-effect.",
+    "x-ioi-schema-version": "ioi.scm-publication-effect.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "publication_effect_id",
+      "publication_effect_hash",
+      "execution_semantics",
+      "operation",
+      "authority",
+      "preparation",
+      "attempt",
+      "recovery",
+      "outcome",
+      "effects",
+      "overall_outcome",
+      "nonclaims",
+      "committed_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.scm-publication-effect.v2"
+      },
+      "publication_effect_id": {
+        "$ref": "#/$defs/publicationEffectRef"
+      },
+      "publication_effect_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "execution_semantics": {
+        "const": "at_most_once_execution_plus_reconciliation"
+      },
+      "operation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation_ref",
+          "operation_key",
+          "operation_key_domain",
+          "identity"
+        ],
+        "properties": {
+          "operation_ref": {
+            "$ref": "#/$defs/operationRef"
+          },
+          "operation_key": {
+            "$ref": "#/$defs/hash"
+          },
+          "operation_key_domain": {
+            "const": "excludes_observed_remote_state"
+          },
+          "identity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "work_run_ref",
+              "proposal_ref",
+              "proposal_hash",
+              "connector_ref",
+              "connector_revision_hash",
+              "destination_binding_ref",
+              "destination_binding_hash",
+              "repository_ref",
+              "target_ref",
+              "base_ref",
+              "base_revision_id",
+              "change_set_kind",
+              "files",
+              "file_set_digest",
+              "review_intent",
+              "frozen_commit_metadata",
+              "intended_revision_id"
+            ],
+            "properties": {
+              "work_run_ref": {
+                "type": "string",
+                "pattern": "^work-run://[^\\s]{1,248}$"
+              },
+              "proposal_ref": {
+                "$ref": "#/$defs/proposalRef"
+              },
+              "proposal_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "connector_ref": {
+                "type": "string",
+                "pattern": "^connector://[^\\s]{1,248}$"
+              },
+              "connector_revision_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "destination_binding_ref": {
+                "type": "string",
+                "pattern": "^scm-destination-binding://[^\\s]{1,248}$"
+              },
+              "destination_binding_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "repository_ref": {
+                "type": "string",
+                "pattern": "^repository://[^\\s]{1,224}$"
+              },
+              "target_ref": {
+                "type": "string",
+                "pattern": "^scm-ref://[^\\s]{1,248}$"
+              },
+              "base_ref": {
+                "type": "string",
+                "pattern": "^scm-ref://[^\\s]{1,248}$"
+              },
+              "base_revision_id": {
+                "$ref": "#/$defs/revisionId"
+              },
+              "change_set_kind": {
+                "const": "proposal_bound_file_set"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/changeSetFile"
+                },
+                "minItems": 1,
+                "maxItems": 512,
+                "uniqueItems": true
+              },
+              "file_set_digest": {
+                "$ref": "#/$defs/hash"
+              },
+              "review_intent": {
+                "enum": [
+                  "requested",
+                  "not_requested"
+                ]
+              },
+              "frozen_commit_metadata": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "commit_message_digest",
+                  "authorship_commitment",
+                  "authored_at",
+                  "commit_timestamp",
+                  "metadata_digest"
+                ],
+                "properties": {
+                  "commit_message_digest": {
+                    "$ref": "#/$defs/hash"
+                  },
+                  "authorship_commitment": {
+                    "$ref": "#/$defs/hash"
+                  },
+                  "authored_at": {
+                    "$ref": "#/$defs/dateTime"
+                  },
+                  "commit_timestamp": {
+                    "$ref": "#/$defs/dateTime"
+                  },
+                  "metadata_digest": {
+                    "$ref": "#/$defs/hash"
+                  }
+                }
+              },
+              "intended_revision_id": {
+                "$ref": "#/$defs/revisionId"
+              }
+            }
+          }
+        }
+      },
+      "authority": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority_grant_refs",
+          "authority_scope_refs",
+          "capability_lease_ref",
+          "admission_receipt_ref"
+        ],
+        "properties": {
+          "authority_grant_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^grant://[^\\s]{1,248}$"
+            },
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true
+          },
+          "authority_scope_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/scopeRef"
+            },
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true
+          },
+          "capability_lease_ref": {
+            "type": "string",
+            "pattern": "^lease://[^\\s]{1,248}$"
+          },
+          "admission_receipt_ref": {
+            "$ref": "#/$defs/receiptRef"
+          }
+        }
+      },
+      "preparation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "prepared_record_ref",
+          "prepared_record_hash",
+          "prepared_persisted_at",
+          "persistence_order",
+          "prepared_persistence_evidence_ref"
+        ],
+        "properties": {
+          "prepared_record_ref": {
+            "$ref": "#/$defs/preparedRef"
+          },
+          "prepared_record_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "prepared_persisted_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "persistence_order": {
+            "const": "prepared_persisted_before_remote_effect"
+          },
+          "prepared_persistence_evidence_ref": {
+            "$ref": "#/$defs/evidenceRef"
+          }
+        }
+      },
+      "attempt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt_ref",
+          "attempt_number",
+          "cas",
+          "cas_fingerprint",
+          "frozen_cas_fingerprint",
+          "dispatch"
+        ],
+        "properties": {
+          "attempt_ref": {
+            "$ref": "#/$defs/attemptRef"
+          },
+          "attempt_number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64
+          },
+          "cas": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mechanism",
+              "remote_update_mode",
+              "stale_head_disposition",
+              "target_ref_precondition",
+              "expected_target_head",
+              "observed_at",
+              "observation_evidence_ref"
+            ],
+            "properties": {
+              "mechanism": {
+                "const": "expected_head_compare_and_swap"
+              },
+              "remote_update_mode": {
+                "const": "expected_head_advance_or_refuse"
+              },
+              "stale_head_disposition": {
+                "const": "refuse_never_overwrite"
+              },
+              "target_ref_precondition": {
+                "enum": [
+                  "expected_head",
+                  "must_not_exist"
+                ]
+              },
+              "expected_target_head": {
+                "$ref": "#/$defs/nullableRevisionId"
+              },
+              "observed_at": {
+                "$ref": "#/$defs/dateTime"
+              },
+              "observation_evidence_ref": {
+                "$ref": "#/$defs/evidenceRef"
+              }
+            }
+          },
+          "cas_fingerprint": {
+            "$ref": "#/$defs/hash"
+          },
+          "frozen_cas_fingerprint": {
+            "$ref": "#/$defs/hash"
+          },
+          "dispatch": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "prepared_record_hash",
+              "dispatch_observation",
+              "dispatch_evidence_refs"
+            ],
+            "properties": {
+              "prepared_record_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "dispatch_observation": {
+                "enum": [
+                  "proven_absent",
+                  "proven_present",
+                  "indeterminate"
+                ]
+              },
+              "dispatch_evidence_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidenceRef"
+                },
+                "minItems": 1,
+                "maxItems": 8,
+                "uniqueItems": true
+              }
+            }
+          }
+        }
+      },
+      "recovery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resolution_disposition",
+          "remote_effect_invoked",
+          "remote_convergence",
+          "precondition_recheck",
+          "prior_terminal_effect_ref",
+          "prior_terminal_effect_hash",
+          "reconciliation_code",
+          "recovery_evidence_refs"
+        ],
+        "properties": {
+          "resolution_disposition": {
+            "$ref": "#/$defs/resolutionDisposition"
+          },
+          "remote_effect_invoked": {
+            "type": "boolean"
+          },
+          "remote_convergence": {
+            "enum": [
+              "matches_intended_revision",
+              "diverged",
+              "unobserved"
+            ]
+          },
+          "precondition_recheck": {
+            "enum": [
+              "holds",
+              "moved",
+              "unobserved"
+            ]
+          },
+          "prior_terminal_effect_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/publicationEffectRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prior_terminal_effect_hash": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "reconciliation_code": {
+            "$ref": "#/$defs/nullableShortToken"
+          },
+          "recovery_evidence_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/evidenceRef"
+            },
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true
+          }
+        }
+      },
+      "outcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resulting_revision",
+          "proof_ref"
+        ],
+        "properties": {
+          "resulting_revision": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/resultingRevision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "proof_ref": {
+            "$ref": "#/$defs/evidenceRef"
+          }
+        }
+      },
+      "effects": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "publication",
+          "review_request"
+        ],
+        "properties": {
+          "publication": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "effect_kind",
+              "outcome",
+              "receipt_ref",
+              "refusal_code",
+              "evidence_refs"
+            ],
+            "properties": {
+              "effect_kind": {
+                "const": "scm_publication"
+              },
+              "outcome": {
+                "enum": [
+                  "published",
+                  "partially_applied",
+                  "refused",
+                  "reconciliation_required"
+                ]
+              },
+              "receipt_ref": {
+                "$ref": "#/$defs/receiptRef"
+              },
+              "refusal_code": {
+                "$ref": "#/$defs/nullableShortToken"
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidenceRef"
+                },
+                "minItems": 1,
+                "maxItems": 16,
+                "uniqueItems": true
+              }
+            }
+          },
+          "review_request": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "effect_kind",
+              "outcome",
+              "receipt_ref",
+              "refusal_code",
+              "evidence_refs",
+              "reconciliation"
+            ],
+            "properties": {
+              "effect_kind": {
+                "const": "scm_review_request"
+              },
+              "outcome": {
+                "enum": [
+                  "opened",
+                  "failed",
+                  "refused",
+                  "not_requested",
+                  "not_attempted",
+                  "reconciliation_required"
+                ]
+              },
+              "receipt_ref": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/receiptRef"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "refusal_code": {
+                "$ref": "#/$defs/nullableShortToken"
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidenceRef"
+                },
+                "maxItems": 16,
+                "uniqueItems": true
+              },
+              "reconciliation": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation_key",
+                  "resolution_disposition",
+                  "remote_effect_invoked",
+                  "reconciliation_code"
+                ],
+                "properties": {
+                  "operation_key": {
+                    "$ref": "#/$defs/hash"
+                  },
+                  "resolution_disposition": {
+                    "$ref": "#/$defs/reviewResolutionDisposition"
+                  },
+                  "remote_effect_invoked": {
+                    "type": "boolean"
+                  },
+                  "reconciliation_code": {
+                    "$ref": "#/$defs/nullableShortToken"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "overall_outcome": {
+        "enum": [
+          "published_with_review_request",
+          "published_review_request_not_requested",
+          "review_request_failed",
+          "published_review_request_reconciliation_required",
+          "partially_applied",
+          "refused",
+          "reconciliation_required"
+        ]
+      },
+      "nonclaims": {
+        "type": "array",
+        "items": {
+          "enum": [
+            "grants_no_authority",
+            "no_remote_acceptance_beyond_receipt_evidence",
+            "asserts_no_review_approval",
+            "asserts_no_exactly_once_execution"
+          ]
+        },
+        "minItems": 4,
+        "maxItems": 4,
+        "uniqueItems": true
+      },
+      "committed_at": {
+        "$ref": "#/$defs/dateTime"
+      }
+    },
+    "allOf": [
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "overall_outcome": {
+              "const": "published_with_review_request"
+            }
+          },
+          "required": [
+            "overall_outcome"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "publication": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "published"
+                    }
+                  }
+                },
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "opened"
+                    }
+                  }
+                }
+              }
+            },
+            "outcome": {
+              "type": "object",
+              "properties": {
+                "resulting_revision": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "overall_outcome": {
+              "const": "published_review_request_not_requested"
+            }
+          },
+          "required": [
+            "overall_outcome"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "publication": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "published"
+                    }
+                  }
+                },
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "not_requested"
+                    }
+                  }
+                }
+              }
+            },
+            "outcome": {
+              "type": "object",
+              "properties": {
+                "resulting_revision": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "overall_outcome": {
+              "const": "review_request_failed"
+            }
+          },
+          "required": [
+            "overall_outcome"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "publication": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "published"
+                    }
+                  }
+                },
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "failed"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "overall_outcome": {
+              "const": "published_review_request_reconciliation_required"
+            }
+          },
+          "required": [
+            "overall_outcome"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "publication": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "published"
+                    }
+                  }
+                },
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "reconciliation_required"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "overall_outcome": {
+              "const": "partially_applied"
+            }
+          },
+          "required": [
+            "overall_outcome"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "publication": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "partially_applied"
+                    }
+                  }
+                },
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "not_attempted"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "overall_outcome": {
+              "const": "refused"
+            }
+          },
+          "required": [
+            "overall_outcome"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "publication": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "refused"
+                    }
+                  }
+                },
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "enum": [
+                        "refused",
+                        "not_attempted"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "outcome": {
+              "type": "object",
+              "properties": {
+                "resulting_revision": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "overall_outcome": {
+              "const": "reconciliation_required"
+            }
+          },
+          "required": [
+            "overall_outcome"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "publication": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "reconciliation_required"
+                    }
+                  }
+                },
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "enum": [
+                        "not_attempted",
+                        "reconciliation_required"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "recovery": {
+              "type": "object",
+              "properties": {
+                "resolution_disposition": {
+                  "const": "reconciliation_required"
+                }
+              }
+            },
+            "outcome": {
+              "type": "object",
+              "properties": {
+                "resulting_revision": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "recovery": {
+              "type": "object",
+              "properties": {
+                "resolution_disposition": {
+                  "const": "replayed_terminal_result"
+                }
+              },
+              "required": [
+                "resolution_disposition"
+              ]
+            }
+          },
+          "required": [
+            "recovery"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "recovery": {
+              "type": "object",
+              "properties": {
+                "remote_effect_invoked": {
+                  "const": false
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "recovery": {
+              "type": "object",
+              "properties": {
+                "resolution_disposition": {
+                  "const": "recovered_converged_remote"
+                }
+              },
+              "required": [
+                "resolution_disposition"
+              ]
+            }
+          },
+          "required": [
+            "recovery"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "recovery": {
+              "type": "object",
+              "properties": {
+                "remote_effect_invoked": {
+                  "const": false
+                },
+                "remote_convergence": {
+                  "const": "matches_intended_revision"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "recovery": {
+              "type": "object",
+              "properties": {
+                "resolution_disposition": {
+                  "const": "retried_frozen_cas"
+                }
+              },
+              "required": [
+                "resolution_disposition"
+              ]
+            }
+          },
+          "required": [
+            "recovery"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "recovery": {
+              "type": "object",
+              "properties": {
+                "remote_effect_invoked": {
+                  "const": true
+                },
+                "precondition_recheck": {
+                  "const": "holds"
+                }
+              }
+            },
+            "attempt": {
+              "type": "object",
+              "properties": {
+                "dispatch": {
+                  "type": "object",
+                  "properties": {
+                    "dispatch_observation": {
+                      "const": "proven_absent"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "recovery": {
+              "type": "object",
+              "properties": {
+                "resolution_disposition": {
+                  "const": "reconciliation_required"
+                }
+              },
+              "required": [
+                "resolution_disposition"
+              ]
+            }
+          },
+          "required": [
+            "recovery"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "recovery": {
+              "type": "object",
+              "properties": {
+                "remote_effect_invoked": {
+                  "const": false
+                }
+              }
+            },
+            "outcome": {
+              "type": "object",
+              "properties": {
+                "resulting_revision": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "attempt": {
+              "type": "object",
+              "properties": {
+                "cas": {
+                  "type": "object",
+                  "properties": {
+                    "target_ref_precondition": {
+                      "const": "must_not_exist"
+                    }
+                  },
+                  "required": [
+                    "target_ref_precondition"
+                  ]
+                }
+              },
+              "required": [
+                "cas"
+              ]
+            }
+          },
+          "required": [
+            "attempt"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "attempt": {
+              "type": "object",
+              "properties": {
+                "cas": {
+                  "type": "object",
+                  "properties": {
+                    "expected_target_head": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "type": "object",
+              "properties": {
+                "identity": {
+                  "type": "object",
+                  "properties": {
+                    "review_intent": {
+                      "const": "not_requested"
+                    }
+                  },
+                  "required": [
+                    "review_intent"
+                  ]
+                }
+              },
+              "required": [
+                "identity"
+              ]
+            }
+          },
+          "required": [
+            "operation"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "enum": [
+                        "not_requested",
+                        "not_attempted"
+                      ]
+                    },
+                    "reconciliation": {
+                      "type": "object",
+                      "properties": {
+                        "resolution_disposition": {
+                          "const": "not_engaged"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "type": "object",
+              "properties": {
+                "identity": {
+                  "type": "object",
+                  "properties": {
+                    "review_intent": {
+                      "const": "requested"
+                    }
+                  },
+                  "required": [
+                    "review_intent"
+                  ]
+                }
+              },
+              "required": [
+                "identity"
+              ]
+            }
+          },
+          "required": [
+            "operation"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "enum": [
+                        "opened",
+                        "failed",
+                        "refused",
+                        "not_attempted",
+                        "reconciliation_required"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "opened"
+                    }
+                  },
+                  "required": [
+                    "outcome"
+                  ]
+                }
+              },
+              "required": [
+                "review_request"
+              ]
+            }
+          },
+          "required": [
+            "effects"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "reconciliation": {
+                      "type": "object",
+                      "properties": {
+                        "resolution_disposition": {
+                          "enum": [
+                            "first_dispatch",
+                            "replayed_terminal_result",
+                            "recovered_converged_remote",
+                            "retried_frozen_cas"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "const": "reconciliation_required"
+                    }
+                  },
+                  "required": [
+                    "outcome"
+                  ]
+                }
+              },
+              "required": [
+                "review_request"
+              ]
+            }
+          },
+          "required": [
+            "effects"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "reconciliation": {
+                      "type": "object",
+                      "properties": {
+                        "resolution_disposition": {
+                          "const": "reconciliation_required"
+                        },
+                        "remote_effect_invoked": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "reconciliation": {
+                      "type": "object",
+                      "properties": {
+                        "resolution_disposition": {
+                          "const": "not_engaged"
+                        }
+                      },
+                      "required": [
+                        "resolution_disposition"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "reconciliation"
+                  ]
+                }
+              },
+              "required": [
+                "review_request"
+              ]
+            }
+          },
+          "required": [
+            "effects"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "object",
+              "properties": {
+                "review_request": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "enum": [
+                        "not_requested",
+                        "not_attempted"
+                      ]
+                    },
+                    "reconciliation": {
+                      "type": "object",
+                      "properties": {
+                        "remote_effect_invoked": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "revisionId": {
+        "type": "string",
+        "pattern": "^scm-revision:[0-9a-f]{40,64}$"
+      },
+      "nullableRevisionId": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/revisionId"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "publicationEffectRef": {
+        "type": "string",
+        "pattern": "^scm-publication-effect://[^\\s]{1,248}$"
+      },
+      "operationRef": {
+        "type": "string",
+        "pattern": "^scm-publication-operation://[^\\s]{1,248}$"
+      },
+      "attemptRef": {
+        "type": "string",
+        "pattern": "^scm-publication-attempt://[^\\s]{1,248}$"
+      },
+      "preparedRef": {
+        "type": "string",
+        "pattern": "^scm-publication-prepared://[^\\s]{1,248}$"
+      },
+      "proposalRef": {
+        "type": "string",
+        "pattern": "^proposal://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+      },
+      "scopeRef": {
+        "type": "string",
+        "pattern": "^scope:[a-z0-9][a-z0-9._:/-]{0,127}$"
+      },
+      "shortToken": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._:/-]{0,127}$"
+      },
+      "nullableShortToken": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/shortToken"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resolutionDisposition": {
+        "enum": [
+          "first_dispatch",
+          "replayed_terminal_result",
+          "recovered_converged_remote",
+          "retried_frozen_cas",
+          "reconciliation_required"
+        ]
+      },
+      "reviewResolutionDisposition": {
+        "enum": [
+          "first_dispatch",
+          "replayed_terminal_result",
+          "recovered_converged_remote",
+          "retried_frozen_cas",
+          "reconciliation_required",
+          "not_engaged"
+        ]
+      },
+      "resultingRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_id",
+          "target_head"
+        ],
+        "properties": {
+          "revision_id": {
+            "$ref": "#/$defs/revisionId"
+          },
+          "target_head": {
+            "$ref": "#/$defs/revisionId"
+          }
+        }
+      },
+      "changeSetFile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "change_kind",
+          "content_digest",
+          "proposal_ref"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"
+          },
+          "change_kind": {
+            "enum": [
+              "added",
+              "modified",
+              "removed"
+            ]
+          },
+          "content_digest": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "proposal_ref": {
+            "$ref": "#/$defs/proposalRef"
+          }
+        }
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -56032,6 +58039,371 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/components/connectors-tools/scm-publication-effect/v2": [
+    {
+      "rule_id": "scm_publication_effect_v2.content_commitment.recomputes",
+      "description": "The publication effect hash recomputes over every field except publication_effect_hash, so the operation identity, the preparation record, the attempt fingerprint, the recovery disposition, the outcome, and both sub-effect outcomes are all committed material.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-effect-commitment-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "publication_effect_id": {
+            "path": "$.publication_effect_id"
+          },
+          "execution_semantics": {
+            "path": "$.execution_semantics"
+          },
+          "operation": {
+            "path": "$.operation"
+          },
+          "authority": {
+            "path": "$.authority"
+          },
+          "preparation": {
+            "path": "$.preparation"
+          },
+          "attempt": {
+            "path": "$.attempt"
+          },
+          "recovery": {
+            "path": "$.recovery"
+          },
+          "outcome": {
+            "path": "$.outcome"
+          },
+          "effects": {
+            "path": "$.effects"
+          },
+          "overall_outcome": {
+            "path": "$.overall_outcome"
+          },
+          "nonclaims": {
+            "path": "$.nonclaims"
+          },
+          "committed_at": {
+            "path": "$.committed_at"
+          }
+        },
+        "expected_path": "$.publication_effect_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.operation.key.recomputes",
+      "description": "The operation key recomputes over the operation identity and NOTHING else. The identity is a closed object carrying the work run, the proposal, the admitted destination binding, the target and base refs, the enumerated file set, the review intent, the frozen commit metadata, and the intended revision; it has no field for an observed remote head. An implementation that folded a head observation into the key therefore cannot produce a key that recomputes, which is what makes the operation identity observation-independent and a retry the same logical operation.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-operation-identity-jcs-sha256.v2"
+          },
+          "identity": {
+            "path": "$.operation.identity"
+          }
+        },
+        "expected_path": "$.operation.operation_key",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.operation.identity.file_set_digest.recomputes",
+      "description": "The file-set digest recomputes over the bound proposal, the frozen base revision, and the exact enumerated file rows, so the file set inside the operation identity is the declared set and nothing else.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-operation-file-set-jcs-sha256.v2"
+          },
+          "proposal_ref": {
+            "path": "$.operation.identity.proposal_ref"
+          },
+          "proposal_hash": {
+            "path": "$.operation.identity.proposal_hash"
+          },
+          "base_revision_id": {
+            "path": "$.operation.identity.base_revision_id"
+          },
+          "files": {
+            "path": "$.operation.identity.files"
+          }
+        },
+        "expected_path": "$.operation.identity.file_set_digest",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.operation.identity.commit_metadata.frozen",
+      "description": "The commit metadata digest recomputes over the message commitment, the authorship commitment, and both declared timestamps, so the commit the operation intends is frozen at preparation and cannot be re-derived on a later attempt.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-frozen-commit-metadata-jcs-sha256.v2"
+          },
+          "commit_message_digest": {
+            "path": "$.operation.identity.frozen_commit_metadata.commit_message_digest"
+          },
+          "authorship_commitment": {
+            "path": "$.operation.identity.frozen_commit_metadata.authorship_commitment"
+          },
+          "authored_at": {
+            "path": "$.operation.identity.frozen_commit_metadata.authored_at"
+          },
+          "commit_timestamp": {
+            "path": "$.operation.identity.frozen_commit_metadata.commit_timestamp"
+          }
+        },
+        "expected_path": "$.operation.identity.frozen_commit_metadata.metadata_digest",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.operation.identity.files.bind_proposal",
+      "description": "Every file row inside the operation identity is attributed to the one bound proposal; an unattributed or foreign file cannot ride along.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.operation.identity.files",
+        "field": "proposal_ref",
+        "expected_path": "$.operation.identity.proposal_ref"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.operation.identity.files.unique_paths",
+      "description": "Each repository-relative path appears at most once in the operation's frozen file set.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.operation.identity.files",
+        "fields": [
+          "path"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.destination.binding_covers_repository",
+      "description": "The repository the operation names is the repository the admitted destination binding covers; the destination never resolves from free caller text.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.operation.identity.destination_binding_ref",
+        "expected_path": "$.operation.identity.repository_ref",
+        "prefix": "scm-destination-binding://",
+        "strip_prefix": "repository://",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.preparation.precedes_remote_effect",
+      "description": "A dispatch is only describable against the Prepared record that was persisted before it: the dispatch carries the Prepared content commitment, and it must equal the persisted preparation commitment. A remote effect invoked before Prepared was persisted has no commitment to name.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.attempt.dispatch.prepared_record_hash",
+          "$.preparation.prepared_record_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.attempt.cas_fingerprint.recomputes",
+      "description": "The attempt fingerprint recomputes over the operation key, the target ref precondition, the observed expected head, and the frozen base revision. This is the only place the observed remote head is committed, which is what keeps it out of the operation identity.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-publication-attempt-cas-jcs-sha256.v2"
+          },
+          "operation_key": {
+            "path": "$.operation.operation_key"
+          },
+          "target_ref_precondition": {
+            "path": "$.attempt.cas.target_ref_precondition"
+          },
+          "expected_target_head": {
+            "path": "$.attempt.cas.expected_target_head"
+          },
+          "base_revision_id": {
+            "path": "$.operation.identity.base_revision_id"
+          }
+        },
+        "expected_path": "$.attempt.cas_fingerprint",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.attempt.cas.frozen",
+      "description": "Every attempt of one operation carries the frozen compare-and-swap: this attempt's fingerprint must equal the fingerprint frozen at preparation. A retry that re-observed the remote head and recomputed a different precondition is not an attempt of this operation and is unrepresentable; a moved head must be refused as reconciliation_required instead.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.attempt.cas_fingerprint",
+          "$.attempt.frozen_cas_fingerprint"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.attempt.cas.expected_target_head.declared",
+      "description": "When the target ref is expected to exist, the attempt declares the exact remote head it was computed against; an absent expected head is a refusal, never an unconditional advance.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.attempt.cas.expected_target_head",
+        "when_path": "$.attempt.cas.target_ref_precondition",
+        "values": [
+          "expected_head"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.recovery.replay.binds_prior_terminal",
+      "description": "A replayed terminal result names the prior terminal publication effect it replayed; a replay disposition without a prior terminal effect is unrepresentable, so a replay can never be manufactured to skip a remote effect that never happened.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.recovery.prior_terminal_effect_ref",
+        "when_path": "$.recovery.resolution_disposition",
+        "values": [
+          "replayed_terminal_result"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.recovery.replay.binds_prior_hash",
+      "description": "A replay also carries the prior terminal effect's content commitment, so the replayed result is asserted against exact material rather than an identifier alone.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.recovery.prior_terminal_effect_hash",
+        "when_path": "$.recovery.resolution_disposition",
+        "values": [
+          "replayed_terminal_result"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.recovery.reconciliation.code_declared",
+      "description": "A reconciliation_required resolution declares the exact reconciliation code an operator must act on; an unresolved operation is never an empty refusal.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.recovery.reconciliation_code",
+        "when_path": "$.recovery.resolution_disposition",
+        "values": [
+          "reconciliation_required"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.outcome.never_fresh_child_commit",
+      "description": "Either no revision was created, or the created revision is exactly the revision the operation froze. A resulting revision that differs from intended_revision_id would be a second commit produced by a retry, and it has no representation.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.outcome.resulting_revision",
+        "field": "revision_id",
+        "expected_path": "$.operation.identity.intended_revision_id"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.outcome.head_binds_intended_revision",
+      "description": "When a revision exists, the remote head reported for the target ref equals that same frozen intended revision, so a remote advance can never be reported for material this operation did not freeze.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.outcome.resulting_revision",
+        "field": "target_head",
+        "expected_path": "$.operation.identity.intended_revision_id"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.effects.receipts.distinct",
+      "description": "The publication and the review request are separately receipted; one receipt can never stand for both sub-effects.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.effects.publication.receipt_ref",
+          "$.effects.review_request.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.effects.review_request.reconciles_independently",
+      "description": "The review request reconciles as its own logical operation: its reconciliation key is derived from, and must differ from, the publication operation key. A review-request ambiguity therefore cannot be absorbed into the publication operation, and resolving one never resolves the other.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.effects.review_request.reconciliation.operation_key",
+          "$.operation.operation_key"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.effects.review_request.reconciliation.key_recomputes",
+      "description": "The review-request reconciliation key recomputes over the publication operation key, the frozen review intent, and the target ref, so the review sub-effect is bound to the same publication without sharing its identity.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.scm-review-request-operation-jcs-sha256.v2"
+          },
+          "publication_operation_key": {
+            "path": "$.operation.operation_key"
+          },
+          "review_intent": {
+            "path": "$.operation.identity.review_intent"
+          },
+          "target_ref": {
+            "path": "$.operation.identity.target_ref"
+          }
+        },
+        "expected_path": "$.effects.review_request.reconciliation.operation_key",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.effects.review_request.receipt_declared",
+      "description": "An opened or failed review request carries its own receipt; a failed review request is receipted as its own honest outcome rather than absorbed into the publication receipt.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effects.review_request.receipt_ref",
+        "when_path": "$.effects.review_request.outcome",
+        "values": [
+          "opened",
+          "failed"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.effects.publication.refusal_code_declared",
+      "description": "A refused, partially applied, or unresolved publication declares the exact code it failed closed on.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effects.publication.refusal_code",
+        "when_path": "$.effects.publication.outcome",
+        "values": [
+          "refused",
+          "partially_applied",
+          "reconciliation_required"
+        ]
+      }
+    },
+    {
+      "rule_id": "scm_publication_effect_v2.effects.review_request.refusal_code_declared",
+      "description": "A failed, refused, or unresolved review request declares its exact code, so a review-request failure or ambiguity is never reported as an empty success.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effects.review_request.refusal_code",
+        "when_path": "$.effects.review_request.outcome",
+        "values": [
+          "failed",
+          "refused",
+          "reconciliation_required"
+        ]
+      }
+    }
   ]
 };
 
@@ -57385,4 +59757,10 @@ export function validateScmPublicationEffectV1(
   value: unknown,
 ): value is ScmPublicationEffectV1 {
   return validateArchitectureContract("schema://ioi/components/connectors-tools/scm-publication-effect/v1", value).ok;
+}
+
+export function validateScmPublicationEffectV2(
+  value: unknown,
+): value is ScmPublicationEffectV2 {
+  return validateArchitectureContract("schema://ioi/components/connectors-tools/scm-publication-effect/v2", value).ok;
 }
