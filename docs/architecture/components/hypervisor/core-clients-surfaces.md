@@ -1542,7 +1542,17 @@ Systems may compare desired and observed topology, but Operations performs
 admitted provider, placement, fencing, failover, and member actions; Governance
 authorizes protected transitions; daemon/domain contracts execute; Agentgres
 records admitted truth. A direct Session, Project, AutomationSpec, or standalone
-GoalRun never requires System genesis.
+GoalRun never requires System genesis. That promise extends to governed change:
+an upgrade proposal binds an owner-qualified `target_owner_ref` and leaves
+`system_id` null for a non-System owner, so proposing a change against a
+non-System target mints no System, and proposing against a System-owned target
+binds that System's existing identity rather than creating one. A System
+remains required by change class and target kind — constitutional amendment,
+deployment, membership, lifecycle-transition, and network-enrollment changes are
+System-scoped and admit only a System target owner. The field-level rules are
+owned by
+[`objects/interop-and-collaboration-terms.md`](../../foundations/objects/interop-and-collaboration-terms.md)
+and are not restated here.
 
 Implementation status: target contract. Autonomous-system contract/API slices
 exist in canon, but a complete policy-filtered Systems inventory, permanent
