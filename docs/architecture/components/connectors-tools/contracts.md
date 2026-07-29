@@ -530,6 +530,18 @@ and is pinned by a registered fixture.
   an admitted connector/lease binding held by the estate, never from free
   caller-supplied text; a repository outside the binding is refused before any
   remote contact.
+- **A source identity that names more than one revision is refused, not
+  guessed.** The destination-binding and proposal families are
+  content-addressed, so a logical ref is not a key: a rebinding or a revised
+  proposal is a second admitted record carrying the same ref. Resolution is
+  therefore BY the revision the effect pins — `destination_binding_hash` and
+  `proposal_hash` — and a ref resolves only when every record carrying it pins
+  the same one. When they disagree the crossing refuses by name
+  (`ambiguous_destination_binding_ref`, `ambiguous_proposal_ref`), states the ref
+  and how many records collide, and contacts no remote. There is deliberately no
+  caller-supplied revision selector: under INV-37 caller text never chooses which
+  server truth a publication compiles against, so an ambiguous identity is an
+  estate-integrity defect for an operator to resolve, not a choice to delegate.
 - **Publication and review request are separate receipted outcomes.** The two
   sub-effects carry their own outcome enum, their own `receipt_ref`, and their
   own `refusal_code`, and the two receipts must be distinct. An opened or

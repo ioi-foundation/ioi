@@ -48,6 +48,7 @@ use ioi_types::app::scm_publication::{
     SCM_DESTINATION_BINDING_FAMILY, SCM_DESTINATION_BINDING_SCHEMA_VERSION,
     SCM_PUBLICATION_EFFECT_FAMILY, SCM_PUBLICATION_PROPOSAL_FAMILY,
     SCM_PUBLICATION_PROPOSAL_SCHEMA_VERSION, SCM_PUBLICATION_RECEIPT_FAMILY,
+    SCM_REFUSAL_AMBIGUOUS_DESTINATION_BINDING_REF, SCM_REFUSAL_AMBIGUOUS_PROPOSAL_REF,
 };
 
 use super::governed_authority::{
@@ -537,35 +538,137 @@ pub(crate) struct ScmPublicationSource {
     pub(crate) prior_effects: Vec<Value>,
 }
 
+/// How one logical ref resolves inside a content-addressed family.
+enum PinnedRecord {
+    /// Every admitted record carrying the ref pins the same revision.
+    Resolved(Box<Value>),
+    /// No admitted record carries the ref.
+    Absent,
+    /// Several admitted records carry the ref under DIFFERENT revisions.
+    Ambiguous {
+        /// How many admitted records carry the ref.
+        records: usize,
+        /// How many distinct revisions those records pin.
+        revisions: usize,
+    },
+}
+
+/// Resolve one logical ref to the single revision a publication may compile
+/// against.
+///
+/// Every family in this plane is content-addressed, so a logical ref is NOT a
+/// key: a rebound destination or a revised proposal is a second admitted record
+/// carrying the same ref. Taking the first match would make resolution follow
+/// directory iteration order and let a publication silently compile against a
+/// stale revision.
+///
+/// The plane already names an exact revision — the content commitment the
+/// effect pins (`destination_binding_hash`, `proposal_hash`) — so resolution is
+/// BY that revision: a ref is resolvable exactly when every record carrying it
+/// pins the same one, and the matches are ordered by it so the answer never
+/// depends on read order. When the records disagree the identity names more
+/// than one revision, and there is no caller-supplied selector to fall back on
+/// (INV-37: caller text never chooses which server truth applies), so the
+/// crossing refuses BY NAME and names the collision instead of guessing.
+fn resolve_pinned_revision(
+    records: Vec<Value>,
+    ref_field: &str,
+    revision_field: &str,
+    wanted: &str,
+) -> PinnedRecord {
+    let mut matched: Vec<((String, String), Value)> = records
+        .into_iter()
+        .filter(|record| record.get(ref_field).and_then(Value::as_str) == Some(wanted))
+        .map(|record| {
+            let revision = record
+                .get(revision_field)
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned();
+            // Content address breaks ties, so even two records that pin the
+            // same revision resolve to the same one on every read.
+            let address = scm_publication_artifact_root(&record).unwrap_or_default();
+            ((revision, address), record)
+        })
+        .collect();
+    if matched.is_empty() {
+        return PinnedRecord::Absent;
+    }
+    matched.sort_by(|left, right| left.0.cmp(&right.0));
+    let mut revisions: Vec<String> = matched
+        .iter()
+        .map(|((revision, _), _)| revision.clone())
+        .collect();
+    revisions.dedup();
+    if revisions.len() > 1 {
+        return PinnedRecord::Ambiguous {
+            records: matched.len(),
+            revisions: revisions.len(),
+        };
+    }
+    PinnedRecord::Resolved(Box::new(matched.remove(0).1))
+}
+
 /// Load the plane source for one submission, or fail closed by name.
 pub(crate) fn load_publication_source(
     data_dir: &str,
     destination_binding_ref: &str,
     proposal_ref: &str,
 ) -> Result<ScmPublicationSource, VErr> {
-    let binding = read_publication_family(data_dir, SCM_DESTINATION_BINDING_FAMILY)?
-        .into_iter()
-        .find(|record| {
-            record
-                .get("destination_binding_ref")
-                .and_then(Value::as_str)
-                == Some(destination_binding_ref)
-        })
-        .ok_or_else(|| {
-            verr(
+    let binding = match resolve_pinned_revision(
+        read_publication_family(data_dir, SCM_DESTINATION_BINDING_FAMILY)?,
+        "destination_binding_ref",
+        "destination_binding_hash",
+        destination_binding_ref,
+    ) {
+        PinnedRecord::Resolved(record) => *record,
+        PinnedRecord::Absent => {
+            return Err(verr(
                 "scm_publication_binding_not_admitted",
                 format!("no admitted destination binding '{destination_binding_ref}' exists"),
-            )
-        })?;
-    let proposal = read_publication_family(data_dir, SCM_PUBLICATION_PROPOSAL_FAMILY)?
-        .into_iter()
-        .find(|record| record.get("proposal_ref").and_then(Value::as_str) == Some(proposal_ref))
-        .ok_or_else(|| {
-            verr(
+            ))
+        }
+        PinnedRecord::Ambiguous { records, revisions } => {
+            return Err(verr(
+                "scm_publication_binding_ambiguous",
+                format!(
+                    "{SCM_REFUSAL_AMBIGUOUS_DESTINATION_BINDING_REF}: \
+                     '{destination_binding_ref}' is carried by {records} admitted records pinning \
+                     {revisions} different destination_binding_hash revisions; this estate will \
+                     not guess which revision a publication resolves through"
+                ),
+            ))
+        }
+    };
+    let proposal = match resolve_pinned_revision(
+        read_publication_family(data_dir, SCM_PUBLICATION_PROPOSAL_FAMILY)?,
+        "proposal_ref",
+        "proposal_hash",
+        proposal_ref,
+    ) {
+        PinnedRecord::Resolved(record) => *record,
+        PinnedRecord::Absent => {
+            return Err(verr(
                 "scm_publication_proposal_not_found",
                 format!("no bound proposal '{proposal_ref}' exists"),
-            )
-        })?;
+            ))
+        }
+        PinnedRecord::Ambiguous { records, revisions } => {
+            return Err(verr(
+                "scm_publication_proposal_ambiguous",
+                format!(
+                    "{SCM_REFUSAL_AMBIGUOUS_PROPOSAL_REF}: '{proposal_ref}' is carried by \
+                     {records} admitted records pinning {revisions} different proposal_hash \
+                     revisions; this estate will not guess which revision a publication compiles \
+                     against"
+                ),
+            ))
+        }
+    };
+    // `prior_effects` is deliberately the WHOLE family, not a lookup: the
+    // compiler needs every committed effect to decide convergence, and it
+    // matches them on the recomputed idempotency key (content, not a logical
+    // ref) with a deterministic sort. There is no first-match hazard there.
     let prior_effects = read_publication_family(data_dir, SCM_PUBLICATION_EFFECT_FAMILY)?;
     Ok(ScmPublicationSource {
         binding,
@@ -926,7 +1029,12 @@ fn status_for(code: &str) -> StatusCode {
         "scm_publication_binding_not_admitted" | "scm_publication_proposal_not_found" => {
             StatusCode::NOT_FOUND
         }
-        "scm_publication_refused" | "scm_publication_artifact_invalid" => StatusCode::CONFLICT,
+        // An identity that names several admitted revisions is a conflict in
+        // the estate's own records, not a missing record.
+        "scm_publication_binding_ambiguous"
+        | "scm_publication_proposal_ambiguous"
+        | "scm_publication_refused"
+        | "scm_publication_artifact_invalid" => StatusCode::CONFLICT,
         "scm_publication_remote_unobservable" => StatusCode::BAD_GATEWAY,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     }
@@ -1727,6 +1835,204 @@ mod tests {
             *port.crossings.borrow(),
             1,
             "the crossing happened; the estate refuses to CLAIM it landed durably"
+        );
+    }
+
+    // ---- an ambiguous source identity is refused, never guessed ----------
+    //
+    // Both families are content-addressed, so a logical ref is not a key: a
+    // rebinding or a revised proposal is a SECOND admitted record carrying the
+    // same ref. Resolving to whichever record was read first would let a
+    // publication compile against a stale revision under an identity the caller
+    // believes is exact.
+
+    const SEEDED_BINDING_REF: &str = "scm-destination-binding://acme/hypervisor/revision/0001";
+    const SEEDED_PROPOSAL_REF: &str = "proposal://acme/hypervisor/change/0001";
+
+    /// Admit a SECOND destination-binding revision under the seeded ref.
+    fn admit_rebound_destination(plane: &Plane, remote_url: &str) {
+        let mut binding = json!({
+            "schema_version": SCM_DESTINATION_BINDING_SCHEMA_VERSION,
+            "destination_binding_ref": SEEDED_BINDING_REF,
+            "destination_binding_hash": Value::Null,
+            "connector_ref": "connector://acme/scm/primary",
+            "connector_revision_hash": digest(0x0a),
+            "repository_ref": "repository://acme/hypervisor",
+            "base_ref": "scm-ref://acme/hypervisor/heads/integration",
+            "target_ref_namespace": "scm-ref://acme/hypervisor/heads/",
+            "remote_url": remote_url,
+            "admission_receipt_ref": "receipt://acme/scm-publication/admission/0002",
+        });
+        binding["destination_binding_hash"] =
+            json!(scm_destination_binding_hash(&binding).expect("binding hash"));
+        persist_publication_record(&plane.data_dir, SCM_DESTINATION_BINDING_FAMILY, &binding)
+            .expect("the second binding revision admits");
+    }
+
+    /// Admit a SECOND proposal revision under the seeded ref.
+    fn admit_revised_proposal(plane: &Plane, path: &str) {
+        let mut proposal = json!({
+            "schema_version": SCM_PUBLICATION_PROPOSAL_SCHEMA_VERSION,
+            "proposal_ref": SEEDED_PROPOSAL_REF,
+            "proposal_hash": Value::Null,
+            "change_set_kind": SCM_CHANGE_SET_KIND,
+            "base_revision_id": revision(0x11),
+            "files": [{
+                "path": path,
+                "change_kind": "modified",
+                "content_digest": digest(0x5e),
+                "proposal_ref": SEEDED_PROPOSAL_REF,
+            }],
+        });
+        proposal["proposal_hash"] =
+            json!(scm_publication_proposal_commitment(&proposal).expect("proposal commitment"));
+        persist_publication_record(&plane.data_dir, SCM_PUBLICATION_PROPOSAL_FAMILY, &proposal)
+            .expect("the second proposal revision admits");
+    }
+
+    #[test]
+    fn two_destination_binding_revisions_under_one_ref_refuse_by_name() {
+        let plane = seeded_plane();
+        admit_rebound_destination(&plane, "file:///srv/remotes/somewhere-else.git");
+        let port = ScriptedPort::landing();
+        let error = run(&plane, &port, &submission())
+            .expect_err("an ambiguous destination identity is never resolved");
+        assert_eq!(error.0, "scm_publication_binding_ambiguous");
+        assert!(
+            error
+                .1
+                .starts_with(&format!("{SCM_REFUSAL_AMBIGUOUS_DESTINATION_BINDING_REF}:")),
+            "the refusal leads with its registered dimension: {}",
+            error.1
+        );
+        assert!(
+            error.1.contains(SEEDED_BINDING_REF) && error.1.contains("2 admitted records"),
+            "the refusal names the ref and the collision size: {}",
+            error.1
+        );
+        assert_eq!(status_for(&error.0), StatusCode::CONFLICT);
+        assert_eq!(
+            *port.crossings.borrow(),
+            0,
+            "nothing crosses to a remote the estate could not resolve exactly"
+        );
+    }
+
+    #[test]
+    fn two_proposal_revisions_under_one_ref_refuse_by_name() {
+        let plane = seeded_plane();
+        admit_revised_proposal(&plane, "crates/node/src/other.rs");
+        let port = ScriptedPort::landing();
+        let error = run(&plane, &port, &submission())
+            .expect_err("an ambiguous proposal identity is never resolved");
+        assert_eq!(error.0, "scm_publication_proposal_ambiguous");
+        assert!(
+            error
+                .1
+                .starts_with(&format!("{SCM_REFUSAL_AMBIGUOUS_PROPOSAL_REF}:")),
+            "the refusal leads with its registered dimension: {}",
+            error.1
+        );
+        assert!(
+            error.1.contains(SEEDED_PROPOSAL_REF) && error.1.contains("2 admitted records"),
+            "the refusal names the ref and the collision size: {}",
+            error.1
+        );
+        assert_eq!(status_for(&error.0), StatusCode::CONFLICT);
+        assert_eq!(
+            *port.crossings.borrow(),
+            0,
+            "no bytes cross while the estate cannot say which revision they are"
+        );
+    }
+
+    #[test]
+    fn both_new_ambiguity_dimensions_are_registered_and_distinct() {
+        for dimension in [
+            SCM_REFUSAL_AMBIGUOUS_DESTINATION_BINDING_REF,
+            SCM_REFUSAL_AMBIGUOUS_PROPOSAL_REF,
+        ] {
+            assert!(
+                ioi_types::app::scm_publication::SCM_PUBLICATION_REFUSAL_DIMENSIONS
+                    .contains(&dimension),
+                "{dimension} must be a declared dimension of the plane"
+            );
+        }
+        assert_ne!(
+            SCM_REFUSAL_AMBIGUOUS_DESTINATION_BINDING_REF,
+            SCM_REFUSAL_AMBIGUOUS_PROPOSAL_REF
+        );
+    }
+
+    #[test]
+    fn one_admitted_revision_resolves_and_a_missing_one_still_refuses_not_found() {
+        let plane = seeded_plane();
+        let source =
+            load_publication_source(&plane.data_dir, SEEDED_BINDING_REF, SEEDED_PROPOSAL_REF)
+                .expect("a single admitted revision resolves exactly as before");
+        assert_eq!(
+            source.binding["destination_binding_ref"],
+            json!(SEEDED_BINDING_REF)
+        );
+        assert_eq!(source.proposal["proposal_ref"], json!(SEEDED_PROPOSAL_REF));
+
+        let missing_binding = load_publication_source(
+            &plane.data_dir,
+            "scm-destination-binding://acme/hypervisor/revision/never",
+            SEEDED_PROPOSAL_REF,
+        )
+        .err()
+        .expect("an unadmitted binding is still a not-found refusal");
+        assert_eq!(missing_binding.0, "scm_publication_binding_not_admitted");
+        assert_eq!(status_for(&missing_binding.0), StatusCode::NOT_FOUND);
+
+        let missing_proposal = load_publication_source(
+            &plane.data_dir,
+            SEEDED_BINDING_REF,
+            "proposal://acme/hypervisor/change/never",
+        )
+        .err()
+        .expect("an unbound proposal is still a not-found refusal");
+        assert_eq!(missing_proposal.0, "scm_publication_proposal_not_found");
+        assert_eq!(status_for(&missing_proposal.0), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn one_revision_recorded_twice_is_not_ambiguous() {
+        // `proposal_hash` commits to the declared material only, so a record
+        // that differs solely in a field OUTSIDE that commitment is the same
+        // revision recorded twice — one revision, so it resolves rather than
+        // refusing, and the publication still lands.
+        let plane = seeded_plane();
+        let seeded = read_publication_family(&plane.data_dir, SCM_PUBLICATION_PROPOSAL_FAMILY)
+            .expect("the seeded proposal reads back")
+            .into_iter()
+            .next()
+            .expect("one seeded proposal");
+        let mut restated = seeded.clone();
+        restated["work_run_ref"] = json!("work-run://acme/hypervisor/0001");
+        assert_eq!(
+            scm_publication_proposal_commitment(&restated).expect("commitment"),
+            seeded["proposal_hash"].as_str().expect("seeded hash"),
+            "the restated record pins the same revision"
+        );
+        persist_publication_record(&plane.data_dir, SCM_PUBLICATION_PROPOSAL_FAMILY, &restated)
+            .expect("the restated record admits as its own artifact");
+        assert_eq!(
+            read_publication_family(&plane.data_dir, SCM_PUBLICATION_PROPOSAL_FAMILY)
+                .expect("both records read back")
+                .len(),
+            2,
+            "two durable records now carry the one proposal ref"
+        );
+
+        let port = ScriptedPort::landing();
+        let report =
+            run(&plane, &port, &submission()).expect("one revision recorded twice still resolves");
+        assert_eq!(report.overall_outcome, "published_with_review_request");
+        assert_eq!(
+            report.effect["work_subject"]["proposal_hash"], seeded["proposal_hash"],
+            "the effect pins the one revision both records carry"
         );
     }
 

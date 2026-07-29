@@ -102,9 +102,23 @@ pub const SCM_REMOTE_UPDATE_MODE: &str = "expected_head_advance_or_refuse";
 /// The single admitted stale-head disposition.
 pub const SCM_STALE_HEAD_DISPOSITION: &str = "refuse_never_overwrite";
 
+/// Refusal dimension for a destination-binding ref that resolves to more than
+/// one admitted revision. The plane is content-addressed, so a logical ref can
+/// legitimately carry several revisions; the effect pins exactly one
+/// `destination_binding_hash`, so an identity that names several is refused
+/// rather than resolved by whichever record was read first.
+pub const SCM_REFUSAL_AMBIGUOUS_DESTINATION_BINDING_REF: &str = "ambiguous_destination_binding_ref";
+/// Refusal dimension for a proposal ref that resolves to more than one admitted
+/// revision, by the same rule: the effect pins exactly one `proposal_hash`.
+pub const SCM_REFUSAL_AMBIGUOUS_PROPOSAL_REF: &str = "ambiguous_proposal_ref";
+
 /// Every named refusal dimension of the publication plane's falsifiable claim.
 /// The first eleven are pinned one-for-one by a registered negative fixture.
-pub const SCM_PUBLICATION_REFUSAL_DIMENSIONS: [&str; 15] = [
+/// The last two are raised while the plane's trusted inputs are RESOLVED, before
+/// the compiler is reached, so they are pinned by route tests rather than by an
+/// effect fixture — no effect can be built at all when its own source identity
+/// is ambiguous.
+pub const SCM_PUBLICATION_REFUSAL_DIMENSIONS: [&str; 17] = [
     "absent_expected_head",
     "stale_expected_head",
     "remote_overwrite_requested",
@@ -120,6 +134,8 @@ pub const SCM_PUBLICATION_REFUSAL_DIMENSIONS: [&str; 15] = [
     "review_request_receipt_absent",
     "refusal_code_absent",
     "effect_contract_invalid",
+    SCM_REFUSAL_AMBIGUOUS_DESTINATION_BINDING_REF,
+    SCM_REFUSAL_AMBIGUOUS_PROPOSAL_REF,
 ];
 
 /// The publication sub-effect outcome.
