@@ -128,6 +128,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/autonomous-system-dissolution-disposition/v1", "sha256:6cd4afd940b5d7157144516ae9aeecad1c41159e7a1ee4d18ed9d2b151396f5b"),
     ("schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1", "sha256:64fc7bceebf6e18119387f16940b0cf4e68c2b8a1a5d6caed6b1a76502607513"),
     ("schema://ioi/foundations/autonomous-system-dissolution-receipt/v1", "sha256:7e303b8ded639767da86d7daf1941b05ea800a3f43ad22e5881a6986281cbecf"),
+    ("schema://ioi/components/connectors-tools/scm-publication-effect/v1", "sha256:00f65134dab87fe98063d3cc720268553cd1cd96862df5dfe7ec00041de0abff"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -48163,6 +48164,872 @@ pub enum AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsTombstoneSt
     Escalated,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ScmPublicationEffectV1 {
+    pub schema_version: ScmPublicationEffectV1SchemaVersion,
+    pub publication_effect_id: String,
+    pub publication_effect_hash: String,
+    pub work_subject: ScmPublicationEffectV1WorkSubject,
+    pub authority: ScmPublicationEffectV1Authority,
+    pub destination: ScmPublicationEffectV1Destination,
+    pub change_set: ScmPublicationEffectV1ChangeSet,
+    pub remote_cas: ScmPublicationEffectV1RemoteCas,
+    pub idempotency: ScmPublicationEffectV1Idempotency,
+    pub effects: ScmPublicationEffectV1Effects,
+    pub overall_outcome: ScmPublicationEffectV1OverallOutcome,
+    pub nonclaims: Vec<ScmPublicationEffectV1NonclaimsItem>,
+    pub committed_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ScmPublicationEffectV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","title":"ScmPublicationEffect","description":"One immutable, receipted source-control publication effect. It binds an enumerated proposal-bound file set to an admitted remote destination, advances the target ref only under an expected-head compare-and-swap, and carries the publication and the review-request as separately receipted sub-effects with their own honest outcomes. No representable field can request an overwrite of the remote head, express a whole-workspace change set, name a destination outside the admitted binding, or report success over a failed sub-effect.","x-ioi-schema-version":"ioi.scm-publication-effect.v1","type":"object","additionalProperties":false,"required":["schema_version","publication_effect_id","publication_effect_hash","work_subject","authority","destination","change_set","remote_cas","idempotency","effects","overall_outcome","nonclaims","committed_at"],"properties":{"schema_version":{"const":"ioi.scm-publication-effect.v1"},"publication_effect_id":{"$ref":"#/$defs/publicationEffectRef"},"publication_effect_hash":{"$ref":"#/$defs/hash"},"work_subject":{"type":"object","additionalProperties":false,"required":["proposal_ref","proposal_hash","work_run_ref"],"properties":{"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_hash":{"$ref":"#/$defs/hash"},"work_run_ref":{"type":"string","pattern":"^work-run://[^\\s]{1,248}$"}}},"authority":{"type":"object","additionalProperties":false,"required":["authority_grant_refs","authority_scope_refs","capability_lease_ref","admission_receipt_ref"],"properties":{"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"minItems":1,"maxItems":8,"uniqueItems":true},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/scopeRef"},"minItems":1,"maxItems":8,"uniqueItems":true},"capability_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}},"destination":{"type":"object","additionalProperties":false,"required":["resolution","connector_ref","connector_revision_hash","destination_binding_ref","destination_binding_hash","repository_ref","target_ref","base_ref"],"properties":{"resolution":{"const":"admitted_connector_binding"},"connector_ref":{"type":"string","pattern":"^connector://[^\\s]{1,248}$"},"connector_revision_hash":{"$ref":"#/$defs/hash"},"destination_binding_ref":{"type":"string","pattern":"^scm-destination-binding://[^\\s]{1,248}$"},"destination_binding_hash":{"$ref":"#/$defs/hash"},"repository_ref":{"type":"string","pattern":"^repository://[^\\s]{1,224}$"},"target_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"},"base_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"}}},"change_set":{"type":"object","additionalProperties":false,"required":["change_set_kind","proposal_content_commitment","base_revision_id","files","file_set_digest","resulting_revision_id"],"properties":{"change_set_kind":{"const":"proposal_bound_file_set"},"proposal_content_commitment":{"$ref":"#/$defs/hash"},"base_revision_id":{"$ref":"#/$defs/revisionId"},"files":{"type":"array","items":{"$ref":"#/$defs/changeSetFile"},"minItems":1,"maxItems":512,"uniqueItems":true},"file_set_digest":{"$ref":"#/$defs/hash"},"resulting_revision_id":{"$ref":"#/$defs/nullableRevisionId"}}},"remote_cas":{"type":"object","additionalProperties":false,"required":["mechanism","remote_update_mode","stale_head_disposition","target_ref_precondition","expected_target_head","expected_base_head","observed_at","observation_evidence_ref","resulting_target_head","proof_ref"],"properties":{"mechanism":{"const":"expected_head_compare_and_swap"},"remote_update_mode":{"const":"expected_head_advance_or_refuse"},"stale_head_disposition":{"const":"refuse_never_overwrite"},"target_ref_precondition":{"enum":["expected_head","must_not_exist"]},"expected_target_head":{"$ref":"#/$defs/nullableRevisionId"},"expected_base_head":{"$ref":"#/$defs/revisionId"},"observed_at":{"$ref":"#/$defs/dateTime"},"observation_evidence_ref":{"$ref":"#/$defs/evidenceRef"},"resulting_target_head":{"$ref":"#/$defs/nullableRevisionId"},"proof_ref":{"$ref":"#/$defs/evidenceRef"}}},"idempotency":{"type":"object","additionalProperties":false,"required":["idempotency_key","submission_disposition","prior_effect_ref","prior_effect_hash"],"properties":{"idempotency_key":{"$ref":"#/$defs/hash"},"submission_disposition":{"enum":["first_admission","converged_replay","refused_conflicting_replay"]},"prior_effect_ref":{"anyOf":[{"$ref":"#/$defs/publicationEffectRef"},{"type":"null"}]},"prior_effect_hash":{"$ref":"#/$defs/nullableHash"}}},"effects":{"type":"object","additionalProperties":false,"required":["publication","review_request"],"properties":{"publication":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_publication"},"outcome":{"enum":["published","partially_applied","refused"]},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":16,"uniqueItems":true}}},"review_request":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_review_request"},"outcome":{"enum":["opened","failed","refused","not_requested","not_attempted"]},"receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":16,"uniqueItems":true}}}}},"overall_outcome":{"enum":["published_with_review_request","published_review_request_not_requested","review_request_failed","partially_applied","refused"]},"nonclaims":{"type":"array","items":{"enum":["grants_no_authority","no_remote_acceptance_beyond_receipt_evidence","asserts_no_review_approval"]},"minItems":3,"maxItems":3,"uniqueItems":true},"committed_at":{"$ref":"#/$defs/dateTime"}},"allOf":[{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_with_review_request"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"opened"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_review_request_not_requested"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_requested"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"review_request_failed"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"failed"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"partially_applied"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"partially_applied"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_attempted"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"refused"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"refused"}}},"review_request":{"type":"object","properties":{"outcome":{"enum":["refused","not_attempted"]}}}}},"change_set":{"type":"object","properties":{"resulting_revision_id":{"type":"null"}}},"remote_cas":{"type":"object","properties":{"resulting_target_head":{"type":"null"}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"revisionId":{"type":"string","pattern":"^scm-revision:[0-9a-f]{40,64}$"},"nullableRevisionId":{"anyOf":[{"$ref":"#/$defs/revisionId"},{"type":"null"}]},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"publicationEffectRef":{"type":"string","pattern":"^scm-publication-effect://[^\\s]{1,248}$"},"proposalRef":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"},"scopeRef":{"type":"string","pattern":"^scope:[a-z0-9][a-z0-9._:/-]{0,127}$"},"shortToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9._:/-]{0,127}$"},"nullableShortToken":{"anyOf":[{"$ref":"#/$defs/shortToken"},{"type":"null"}]},"changeSetFile":{"type":"object","additionalProperties":false,"required":["path","change_kind","content_digest","proposal_ref"],"properties":{"path":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"},"change_kind":{"enum":["added","modified","removed"]},"content_digest":{"$ref":"#/$defs/nullableHash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ScmPublicationEffectV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            publication_effect_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"publication_effect_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"publication_effect_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            publication_effect_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"publication_effect_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"publication_effect_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_subject: serde_json::from_value::<ScmPublicationEffectV1WorkSubject>(
+                object
+                    .remove(r#"work_subject"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_subject"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority: serde_json::from_value::<ScmPublicationEffectV1Authority>(
+                object
+                    .remove(r#"authority"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            destination: serde_json::from_value::<ScmPublicationEffectV1Destination>(
+                object
+                    .remove(r#"destination"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"destination"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            change_set: serde_json::from_value::<ScmPublicationEffectV1ChangeSet>(
+                object
+                    .remove(r#"change_set"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"change_set"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            remote_cas: serde_json::from_value::<ScmPublicationEffectV1RemoteCas>(
+                object
+                    .remove(r#"remote_cas"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"remote_cas"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            idempotency: serde_json::from_value::<ScmPublicationEffectV1Idempotency>(
+                object
+                    .remove(r#"idempotency"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"idempotency"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effects: serde_json::from_value::<ScmPublicationEffectV1Effects>(
+                object
+                    .remove(r#"effects"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effects"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            overall_outcome: serde_json::from_value::<ScmPublicationEffectV1OverallOutcome>(
+                object
+                    .remove(r#"overall_outcome"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overall_outcome"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            nonclaims: serde_json::from_value::<Vec<ScmPublicationEffectV1NonclaimsItem>>(
+                object
+                    .remove(r#"nonclaims"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"nonclaims"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            committed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"committed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"committed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1SchemaVersion {
+    #[serde(rename = r#"ioi.scm-publication-effect.v1"#)]
+    IoiScmPublicationEffectV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ScmPublicationEffectV1WorkSubject {
+    pub proposal_ref: String,
+    pub proposal_hash: String,
+    pub work_run_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ScmPublicationEffectV1WorkSubject {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["proposal_ref","proposal_hash","work_run_ref"],"properties":{"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_hash":{"$ref":"#/$defs/hash"},"work_run_ref":{"type":"string","pattern":"^work-run://[^\\s]{1,248}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            proposal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_run_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_run_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_run_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ScmPublicationEffectV1Authority {
+    pub authority_grant_refs: Vec<String>,
+    pub authority_scope_refs: Vec<String>,
+    pub capability_lease_ref: String,
+    pub admission_receipt_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ScmPublicationEffectV1Authority {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["authority_grant_refs","authority_scope_refs","capability_lease_ref","admission_receipt_ref"],"properties":{"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"minItems":1,"maxItems":8,"uniqueItems":true},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/scopeRef"},"minItems":1,"maxItems":8,"uniqueItems":true},"capability_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            authority_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scope_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scope_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_lease_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_lease_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capability_lease_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ScmPublicationEffectV1Destination {
+    pub resolution: ScmPublicationEffectV1DestinationResolution,
+    pub connector_ref: String,
+    pub connector_revision_hash: String,
+    pub destination_binding_ref: String,
+    pub destination_binding_hash: String,
+    pub repository_ref: String,
+    pub target_ref: String,
+    pub base_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ScmPublicationEffectV1Destination {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["resolution","connector_ref","connector_revision_hash","destination_binding_ref","destination_binding_hash","repository_ref","target_ref","base_ref"],"properties":{"resolution":{"const":"admitted_connector_binding"},"connector_ref":{"type":"string","pattern":"^connector://[^\\s]{1,248}$"},"connector_revision_hash":{"$ref":"#/$defs/hash"},"destination_binding_ref":{"type":"string","pattern":"^scm-destination-binding://[^\\s]{1,248}$"},"destination_binding_hash":{"$ref":"#/$defs/hash"},"repository_ref":{"type":"string","pattern":"^repository://[^\\s]{1,224}$"},"target_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"},"base_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            resolution: serde_json::from_value::<ScmPublicationEffectV1DestinationResolution>(
+                object
+                    .remove(r#"resolution"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolution"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connector_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connector_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_revision_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connector_revision_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connector_revision_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            destination_binding_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"destination_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"destination_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            destination_binding_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"destination_binding_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"destination_binding_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            repository_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"repository_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"repository_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            base_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"base_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"base_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1DestinationResolution {
+    #[serde(rename = r#"admitted_connector_binding"#)]
+    AdmittedConnectorBinding,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ScmPublicationEffectV1ChangeSet {
+    pub change_set_kind: ScmPublicationEffectV1ChangeSetChangeSetKind,
+    pub proposal_content_commitment: String,
+    pub base_revision_id: String,
+    pub files: Vec<ScmPublicationEffectV1ChangeSetFilesItem>,
+    pub file_set_digest: String,
+    pub resulting_revision_id: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ScmPublicationEffectV1ChangeSet {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["change_set_kind","proposal_content_commitment","base_revision_id","files","file_set_digest","resulting_revision_id"],"properties":{"change_set_kind":{"const":"proposal_bound_file_set"},"proposal_content_commitment":{"$ref":"#/$defs/hash"},"base_revision_id":{"$ref":"#/$defs/revisionId"},"files":{"type":"array","items":{"$ref":"#/$defs/changeSetFile"},"minItems":1,"maxItems":512,"uniqueItems":true},"file_set_digest":{"$ref":"#/$defs/hash"},"resulting_revision_id":{"$ref":"#/$defs/nullableRevisionId"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            change_set_kind:
+                serde_json::from_value::<ScmPublicationEffectV1ChangeSetChangeSetKind>(
+                    object
+                        .remove(r#"change_set_kind"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"change_set_kind"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            proposal_content_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_content_commitment"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposal_content_commitment"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            base_revision_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"base_revision_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"base_revision_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            files: serde_json::from_value::<Vec<ScmPublicationEffectV1ChangeSetFilesItem>>(
+                object
+                    .remove(r#"files"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"files"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            file_set_digest: serde_json::from_value::<String>(
+                object
+                    .remove(r#"file_set_digest"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"file_set_digest"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_revision_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_revision_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_revision_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1ChangeSetChangeSetKind {
+    #[serde(rename = r#"proposal_bound_file_set"#)]
+    ProposalBoundFileSet,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ScmPublicationEffectV1ChangeSetFilesItem {
+    pub path: String,
+    pub change_kind: ScmPublicationEffectV1ChangeSetFilesItemChangeKind,
+    pub content_digest: Option<String>,
+    pub proposal_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ScmPublicationEffectV1ChangeSetFilesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["path","change_kind","content_digest","proposal_ref"],"properties":{"path":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"},"change_kind":{"enum":["added","modified","removed"]},"content_digest":{"$ref":"#/$defs/nullableHash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            path: serde_json::from_value::<String>(
+                object
+                    .remove(r#"path"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"path"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            change_kind:
+                serde_json::from_value::<ScmPublicationEffectV1ChangeSetFilesItemChangeKind>(
+                    object
+                        .remove(r#"change_kind"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"change_kind"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            content_digest: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"content_digest"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_digest"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1ChangeSetFilesItemChangeKind {
+    #[serde(rename = r#"added"#)]
+    Added,
+    #[serde(rename = r#"modified"#)]
+    Modified,
+    #[serde(rename = r#"removed"#)]
+    Removed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ScmPublicationEffectV1RemoteCas {
+    pub mechanism: ScmPublicationEffectV1RemoteCasMechanism,
+    pub remote_update_mode: ScmPublicationEffectV1RemoteCasRemoteUpdateMode,
+    pub stale_head_disposition: ScmPublicationEffectV1RemoteCasStaleHeadDisposition,
+    pub target_ref_precondition: ScmPublicationEffectV1RemoteCasTargetRefPrecondition,
+    pub expected_target_head: Option<String>,
+    pub expected_base_head: String,
+    pub observed_at: String,
+    pub observation_evidence_ref: String,
+    pub resulting_target_head: Option<String>,
+    pub proof_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ScmPublicationEffectV1RemoteCas {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["mechanism","remote_update_mode","stale_head_disposition","target_ref_precondition","expected_target_head","expected_base_head","observed_at","observation_evidence_ref","resulting_target_head","proof_ref"],"properties":{"mechanism":{"const":"expected_head_compare_and_swap"},"remote_update_mode":{"const":"expected_head_advance_or_refuse"},"stale_head_disposition":{"const":"refuse_never_overwrite"},"target_ref_precondition":{"enum":["expected_head","must_not_exist"]},"expected_target_head":{"$ref":"#/$defs/nullableRevisionId"},"expected_base_head":{"$ref":"#/$defs/revisionId"},"observed_at":{"$ref":"#/$defs/dateTime"},"observation_evidence_ref":{"$ref":"#/$defs/evidenceRef"},"resulting_target_head":{"$ref":"#/$defs/nullableRevisionId"},"proof_ref":{"$ref":"#/$defs/evidenceRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mechanism: serde_json::from_value::<ScmPublicationEffectV1RemoteCasMechanism>(
+                object
+                    .remove(r#"mechanism"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mechanism"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            remote_update_mode: serde_json::from_value::<
+                ScmPublicationEffectV1RemoteCasRemoteUpdateMode,
+            >(
+                object
+                    .remove(r#"remote_update_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"remote_update_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stale_head_disposition: serde_json::from_value::<
+                ScmPublicationEffectV1RemoteCasStaleHeadDisposition,
+            >(
+                object
+                    .remove(r#"stale_head_disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stale_head_disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_ref_precondition: serde_json::from_value::<
+                ScmPublicationEffectV1RemoteCasTargetRefPrecondition,
+            >(
+                object
+                    .remove(r#"target_ref_precondition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_ref_precondition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_target_head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expected_target_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expected_target_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_base_head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expected_base_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expected_base_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observation_evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observation_evidence_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"observation_evidence_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_target_head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_target_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_target_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proof_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proof_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proof_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1RemoteCasMechanism {
+    #[serde(rename = r#"expected_head_compare_and_swap"#)]
+    ExpectedHeadCompareAndSwap,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1RemoteCasRemoteUpdateMode {
+    #[serde(rename = r#"expected_head_advance_or_refuse"#)]
+    ExpectedHeadAdvanceOrRefuse,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1RemoteCasStaleHeadDisposition {
+    #[serde(rename = r#"refuse_never_overwrite"#)]
+    RefuseNeverOverwrite,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1RemoteCasTargetRefPrecondition {
+    #[serde(rename = r#"expected_head"#)]
+    ExpectedHead,
+    #[serde(rename = r#"must_not_exist"#)]
+    MustNotExist,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ScmPublicationEffectV1Idempotency {
+    pub idempotency_key: String,
+    pub submission_disposition: ScmPublicationEffectV1IdempotencySubmissionDisposition,
+    pub prior_effect_ref: Option<String>,
+    pub prior_effect_hash: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ScmPublicationEffectV1Idempotency {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["idempotency_key","submission_disposition","prior_effect_ref","prior_effect_hash"],"properties":{"idempotency_key":{"$ref":"#/$defs/hash"},"submission_disposition":{"enum":["first_admission","converged_replay","refused_conflicting_replay"]},"prior_effect_ref":{"anyOf":[{"$ref":"#/$defs/publicationEffectRef"},{"type":"null"}]},"prior_effect_hash":{"$ref":"#/$defs/nullableHash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            idempotency_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"idempotency_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"idempotency_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            submission_disposition: serde_json::from_value::<
+                ScmPublicationEffectV1IdempotencySubmissionDisposition,
+            >(
+                object
+                    .remove(r#"submission_disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"submission_disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            prior_effect_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"prior_effect_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"prior_effect_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            prior_effect_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"prior_effect_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"prior_effect_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1IdempotencySubmissionDisposition {
+    #[serde(rename = r#"first_admission"#)]
+    FirstAdmission,
+    #[serde(rename = r#"converged_replay"#)]
+    ConvergedReplay,
+    #[serde(rename = r#"refused_conflicting_replay"#)]
+    RefusedConflictingReplay,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ScmPublicationEffectV1Effects {
+    pub publication: ScmPublicationEffectV1EffectsPublication,
+    pub review_request: ScmPublicationEffectV1EffectsReviewRequest,
+}
+
+impl<'de> serde::Deserialize<'de> for ScmPublicationEffectV1Effects {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["publication","review_request"],"properties":{"publication":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_publication"},"outcome":{"enum":["published","partially_applied","refused"]},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":16,"uniqueItems":true}}},"review_request":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_review_request"},"outcome":{"enum":["opened","failed","refused","not_requested","not_attempted"]},"receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":16,"uniqueItems":true}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            publication: serde_json::from_value::<ScmPublicationEffectV1EffectsPublication>(
+                object
+                    .remove(r#"publication"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"publication"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            review_request: serde_json::from_value::<ScmPublicationEffectV1EffectsReviewRequest>(
+                object
+                    .remove(r#"review_request"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"review_request"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ScmPublicationEffectV1EffectsPublication {
+    pub effect_kind: ScmPublicationEffectV1EffectsPublicationEffectKind,
+    pub outcome: ScmPublicationEffectV1EffectsPublicationOutcome,
+    pub receipt_ref: String,
+    pub refusal_code: Option<String>,
+    pub evidence_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ScmPublicationEffectV1EffectsPublication {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_publication"},"outcome":{"enum":["published","partially_applied","refused"]},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":16,"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            effect_kind:
+                serde_json::from_value::<ScmPublicationEffectV1EffectsPublicationEffectKind>(
+                    object
+                        .remove(r#"effect_kind"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"effect_kind"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            outcome: serde_json::from_value::<ScmPublicationEffectV1EffectsPublicationOutcome>(
+                object
+                    .remove(r#"outcome"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            refusal_code: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"refusal_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"refusal_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1EffectsPublicationEffectKind {
+    #[serde(rename = r#"scm_publication"#)]
+    ScmPublication,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1EffectsPublicationOutcome {
+    #[serde(rename = r#"published"#)]
+    Published,
+    #[serde(rename = r#"partially_applied"#)]
+    PartiallyApplied,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ScmPublicationEffectV1EffectsReviewRequest {
+    pub effect_kind: ScmPublicationEffectV1EffectsReviewRequestEffectKind,
+    pub outcome: ScmPublicationEffectV1EffectsReviewRequestOutcome,
+    pub receipt_ref: Option<String>,
+    pub refusal_code: Option<String>,
+    pub evidence_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ScmPublicationEffectV1EffectsReviewRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_review_request"},"outcome":{"enum":["opened","failed","refused","not_requested","not_attempted"]},"receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":16,"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            effect_kind: serde_json::from_value::<
+                ScmPublicationEffectV1EffectsReviewRequestEffectKind,
+            >(
+                object
+                    .remove(r#"effect_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome: serde_json::from_value::<ScmPublicationEffectV1EffectsReviewRequestOutcome>(
+                object
+                    .remove(r#"outcome"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            refusal_code: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"refusal_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"refusal_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1EffectsReviewRequestEffectKind {
+    #[serde(rename = r#"scm_review_request"#)]
+    ScmReviewRequest,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1EffectsReviewRequestOutcome {
+    #[serde(rename = r#"opened"#)]
+    Opened,
+    #[serde(rename = r#"failed"#)]
+    Failed,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+    #[serde(rename = r#"not_requested"#)]
+    NotRequested,
+    #[serde(rename = r#"not_attempted"#)]
+    NotAttempted,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1OverallOutcome {
+    #[serde(rename = r#"published_with_review_request"#)]
+    PublishedWithReviewRequest,
+    #[serde(rename = r#"published_review_request_not_requested"#)]
+    PublishedReviewRequestNotRequested,
+    #[serde(rename = r#"review_request_failed"#)]
+    ReviewRequestFailed,
+    #[serde(rename = r#"partially_applied"#)]
+    PartiallyApplied,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ScmPublicationEffectV1NonclaimsItem {
+    #[serde(rename = r#"grants_no_authority"#)]
+    GrantsNoAuthority,
+    #[serde(rename = r#"no_remote_acceptance_beyond_receipt_evidence"#)]
+    NoRemoteAcceptanceBeyondReceiptEvidence,
+    #[serde(rename = r#"asserts_no_review_approval"#)]
+    AssertsNoReviewApproval,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -51021,6 +51888,134 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("autonomous_system_dissolution_receipt.transitions.distinct"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-new-target-ref.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-converged-replay.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-absent-expected-head.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("scm_publication_effect.remote_cas.expected_target_head.declared"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-stale-expected-head.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("scm_publication_effect.remote_cas.expected_base_head.binds_change_set_base"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-unbound-destination.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("scm_publication_effect.destination.binding_covers_repository"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("scm_publication_effect.change_set.files.bind_proposal"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("scm_publication_effect.effects.receipts.distinct"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("scm_publication_effect.idempotency.replay.binds_prior_effect"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("scm_publication_effect.idempotency.key.recomputes"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("scm_publication_effect.content_commitment.recomputes"),
     },
 ];
 
@@ -56525,6 +57520,182 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-new-target-ref.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-new-target-ref.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-converged-replay.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-converged-replay.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-absent-expected-head.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-absent-expected-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-stale-expected-head.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-stale-expected-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-unbound-destination.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-unbound-destination.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/scm-publication-effect/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -58004,6 +59175,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/autonomous-system-dissolution-disposition/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1","title":"AutonomousSystemDissolutionDisposition","description":"The named owner of dissolution residue: one record per dissolution binding every residual-disposition duty of the active continuity profile to a typed, evidenced, receipted outcome on one exact initiate_dissolution transition.","x-ioi-schema-version":"ioi.autonomous-system-dissolution-disposition.v1","type":"object","additionalProperties":false,"required":["schema_version","dissolution_disposition_id","system_id","lifecycle_profile_ref","lifecycle_profile_root","initiate_transition_ref","initiate_transition_root","outcome_domains","escalation_decision_refs","complete_transition_ref","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-dissolution-disposition.v1"},"dissolution_disposition_id":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"lifecycle_profile_root":{"$ref":"#/$defs/hash"},"initiate_transition_ref":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"initiate_transition_root":{"$ref":"#/$defs/hash"},"outcome_domains":{"type":"object","additionalProperties":false,"required":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"],"properties":{"active_work":{"$ref":"#/$defs/domainOutcome"},"assets":{"$ref":"#/$defs/domainOutcome"},"outstanding_obligations":{"$ref":"#/$defs/domainOutcome"},"authority_revocation":{"$ref":"#/$defs/domainOutcome"},"worker_and_node_shutdown":{"$ref":"#/$defs/domainOutcome"},"data_export_retention_and_erasure":{"$ref":"#/$defs/domainOutcome"},"network_exit":{"$ref":"#/$defs/domainOutcome"},"tombstone":{"$ref":"#/$defs/domainOutcome"}}},"escalation_decision_refs":{"type":"array","maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"}},"complete_transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["open","terminal_complete","terminal_with_escalations","superseded"]},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"status":{"const":"open"}}},"then":{"properties":{"complete_transition_ref":{"type":"null"}}}},{"if":{"properties":{"status":{"const":"terminal_complete"}}},"then":{"properties":{"complete_transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},{"type":"null"}]},"outcome_domains":{"type":"object","properties":{"active_work":{"$ref":"#/$defs/settledOutcome"},"assets":{"$ref":"#/$defs/settledOutcome"},"outstanding_obligations":{"$ref":"#/$defs/settledOutcome"},"authority_revocation":{"$ref":"#/$defs/settledOutcome"},"worker_and_node_shutdown":{"$ref":"#/$defs/settledOutcome"},"data_export_retention_and_erasure":{"$ref":"#/$defs/settledOutcome"},"network_exit":{"$ref":"#/$defs/settledOutcome"},"tombstone":{"$ref":"#/$defs/settledOutcome"}}}}}},{"if":{"properties":{"status":{"const":"terminal_with_escalations"}}},"then":{"properties":{"complete_transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},{"type":"null"}]},"outcome_domains":{"type":"object","properties":{"active_work":{"$ref":"#/$defs/terminalOutcome"},"assets":{"$ref":"#/$defs/terminalOutcome"},"outstanding_obligations":{"$ref":"#/$defs/terminalOutcome"},"authority_revocation":{"$ref":"#/$defs/terminalOutcome"},"worker_and_node_shutdown":{"$ref":"#/$defs/terminalOutcome"},"data_export_retention_and_erasure":{"$ref":"#/$defs/terminalOutcome"},"network_exit":{"$ref":"#/$defs/terminalOutcome"},"tombstone":{"$ref":"#/$defs/terminalOutcome"}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"domainOutcome":{"type":"object","additionalProperties":false,"required":["policy_ref","state","evidence_refs","receipt_refs"],"properties":{"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"state":{"enum":["pending","completed","waived_under_policy","escalated","failed_closed"]},"evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}}}},"settledOutcome":{"type":"object","properties":{"state":{"enum":["completed","waived_under_policy"]}}},"terminalOutcome":{"type":"object","properties":{"state":{"enum":["completed","waived_under_policy","escalated"]}}}}}"##),
     ("schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1","title":"AutonomousSystemDissolutionDispositionTransition","description":"Committed compare-and-swap transition that opens the dissolution-disposition record or records exactly one named domain outcome on it.","x-ioi-schema-version":"ioi.autonomous-system-dissolution-disposition-transition.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_transition_id","system_id","op","sequence","proposal_ref","proposal_root","decision_ref","decision_root","predecessor_state_root","resulting_state_root","dissolution_disposition_ref","predecessor_disposition_root","resulting_disposition_root","recorded_domain","operation_commitment","authority_effect_material","authority_grant_refs","receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-dissolution-disposition-transition.v1"},"lifecycle_transition_id":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"op":{"enum":["open_dissolution_disposition","record_dissolution_domain_outcome"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"decision_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/hash"},"dissolution_disposition_ref":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"predecessor_disposition_root":{"$ref":"#/$defs/nullableHash"},"resulting_disposition_root":{"$ref":"#/$defs/hash"},"recorded_domain":{"$ref":"#/$defs/nullableDomain"},"operation_commitment":{"$ref":"#/$defs/hash"},"authority_effect_material":{"type":"object","additionalProperties":false,"required":["schema_version","op","transition_kind","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","resulting_governing_authority_ref","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","constitution_ref","lifecycle_profile_ref","active_profile_set_ref","active_profile_set_root","chain_ref","current_network_enrollment_ref","current_network_enrollment_root","resulting_network_enrollment_ref","resulting_network_enrollment_root","trigger_evidence_refs","successor_candidate_ref","successor_authority_ref","successor_authority_binding","migration_destination_ack_ref","migration_destination_ack_root","migration_destination_ref","verified_migration_state_root","residual_disposition","live_effect_refs","identity_preserved","authority_widened","network_assurance_admitted","runtime_effect_admitted","operation_commitment","dissolution_disposition_ref","predecessor_disposition_root","resulting_disposition_root","recorded_dissolution_domain"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-authority-effect.v1"},"op":{"enum":["open_dissolution_disposition","record_dissolution_domain_outcome"]},"transition_kind":{"type":"null"},"required_scope":{"enum":["scope:autonomous_system.continuity.open_dissolution_disposition","scope:autonomous_system.continuity.record_dissolution_domain_outcome"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"resulting_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"predecessor_status":{"enum":["dissolution_pending","dissolving"]},"predecessor_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"resulting_status":{"const":"dissolving"},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"resulting_state_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[^\\s]{1,248}$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[^\\s]{1,248}$"},"current_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"current_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"trigger_evidence_refs":{"type":"array","maxItems":0},"successor_candidate_ref":{"type":"null"},"successor_authority_ref":{"type":"null"},"successor_authority_binding":{"type":"null"},"migration_destination_ack_ref":{"type":"null"},"migration_destination_ack_root":{"type":"null"},"migration_destination_ref":{"type":"null"},"verified_migration_state_root":{"type":"null"},"residual_disposition":{"type":"null"},"live_effect_refs":{"type":"array","maxItems":0},"identity_preserved":{"const":true},"authority_widened":{"const":false},"network_assurance_admitted":{"const":false},"runtime_effect_admitted":{"const":false},"operation_commitment":{"type":"null"},"dissolution_disposition_ref":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"predecessor_disposition_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resulting_disposition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"recorded_dissolution_domain":{"oneOf":[{"enum":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"]},{"type":"null"}]}}},"authority_grant_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}},"status":{"const":"committed"}},"allOf":[{"if":{"properties":{"op":{"const":"open_dissolution_disposition"}}},"then":{"properties":{"predecessor_disposition_root":{"type":"null"},"recorded_domain":{"type":"null"},"authority_effect_material":{"type":"object","properties":{"predecessor_status":{"const":"dissolution_pending"}}}}}},{"if":{"properties":{"op":{"const":"record_dissolution_domain_outcome"}}},"then":{"properties":{"predecessor_disposition_root":{"$ref":"#/$defs/hash"},"recorded_domain":{"$ref":"#/$defs/domain"},"authority_effect_material":{"type":"object","properties":{"predecessor_status":{"const":"dissolving"}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"nullableEnrollment":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"domain":{"enum":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"]},"nullableDomain":{"oneOf":[{"$ref":"#/$defs/domain"},{"type":"null"}]}}}"##),
     ("schema://ioi/foundations/autonomous-system-dissolution-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1","title":"AutonomousSystemDissolutionReceipt","description":"The named dissolution receipt, minted exactly once by complete_dissolution over a fully terminal disposition record. It binds the active continuity-profile root, the dissolution-disposition record root, the eight per-domain outcome commitments, the initiate and complete transition roots, predecessor and resulting state roots, the tombstone commitment, and the predecessor chain root. The artifact root domain is ioi.autonomous-system-dissolution-receipt-artifact-jcs-sha256.v1.","x-ioi-schema-version":"ioi.autonomous-system-dissolution-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","dissolution_receipt_id","system_id","op","sequence","required_scope","assurance_posture","lifecycle_profile_ref","lifecycle_profile_root","dissolution_disposition_ref","dissolution_disposition_root","domain_outcome_commitments","initiate_transition_ref","initiate_transition_root","complete_transition_ref","complete_transition_root","predecessor_state_root","resulting_state_root","tombstone_commitment","predecessor_chain_root","transition_receipt_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-dissolution-receipt.v1"},"dissolution_receipt_id":{"type":"string","pattern":"^dissolution-receipt://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"op":{"const":"complete_dissolution"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"required_scope":{"const":"scope:autonomous_system.continuity.complete_dissolution"},"assurance_posture":{"const":"dissolution_committed"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"lifecycle_profile_root":{"$ref":"#/$defs/hash"},"dissolution_disposition_ref":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"dissolution_disposition_root":{"$ref":"#/$defs/hash"},"domain_outcome_commitments":{"type":"object","additionalProperties":false,"required":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"],"properties":{"active_work":{"$ref":"#/$defs/domainOutcomeCommitment"},"assets":{"$ref":"#/$defs/domainOutcomeCommitment"},"outstanding_obligations":{"$ref":"#/$defs/domainOutcomeCommitment"},"authority_revocation":{"$ref":"#/$defs/domainOutcomeCommitment"},"worker_and_node_shutdown":{"$ref":"#/$defs/domainOutcomeCommitment"},"data_export_retention_and_erasure":{"$ref":"#/$defs/domainOutcomeCommitment"},"network_exit":{"$ref":"#/$defs/domainOutcomeCommitment"},"tombstone":{"$ref":"#/$defs/domainOutcomeCommitment"}}},"initiate_transition_ref":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"initiate_transition_root":{"$ref":"#/$defs/hash"},"complete_transition_ref":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"complete_transition_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/hash"},"tombstone_commitment":{"$ref":"#/$defs/hash"},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"transition_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"domainOutcomeCommitment":{"type":"object","additionalProperties":false,"required":["state","outcome_commitment"],"properties":{"state":{"enum":["completed","waived_under_policy","escalated"]},"outcome_commitment":{"$ref":"#/$defs/hash"}}}}}"##),
+    ("schema://ioi/components/connectors-tools/scm-publication-effect/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","title":"ScmPublicationEffect","description":"One immutable, receipted source-control publication effect. It binds an enumerated proposal-bound file set to an admitted remote destination, advances the target ref only under an expected-head compare-and-swap, and carries the publication and the review-request as separately receipted sub-effects with their own honest outcomes. No representable field can request an overwrite of the remote head, express a whole-workspace change set, name a destination outside the admitted binding, or report success over a failed sub-effect.","x-ioi-schema-version":"ioi.scm-publication-effect.v1","type":"object","additionalProperties":false,"required":["schema_version","publication_effect_id","publication_effect_hash","work_subject","authority","destination","change_set","remote_cas","idempotency","effects","overall_outcome","nonclaims","committed_at"],"properties":{"schema_version":{"const":"ioi.scm-publication-effect.v1"},"publication_effect_id":{"$ref":"#/$defs/publicationEffectRef"},"publication_effect_hash":{"$ref":"#/$defs/hash"},"work_subject":{"type":"object","additionalProperties":false,"required":["proposal_ref","proposal_hash","work_run_ref"],"properties":{"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_hash":{"$ref":"#/$defs/hash"},"work_run_ref":{"type":"string","pattern":"^work-run://[^\\s]{1,248}$"}}},"authority":{"type":"object","additionalProperties":false,"required":["authority_grant_refs","authority_scope_refs","capability_lease_ref","admission_receipt_ref"],"properties":{"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"minItems":1,"maxItems":8,"uniqueItems":true},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/scopeRef"},"minItems":1,"maxItems":8,"uniqueItems":true},"capability_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}},"destination":{"type":"object","additionalProperties":false,"required":["resolution","connector_ref","connector_revision_hash","destination_binding_ref","destination_binding_hash","repository_ref","target_ref","base_ref"],"properties":{"resolution":{"const":"admitted_connector_binding"},"connector_ref":{"type":"string","pattern":"^connector://[^\\s]{1,248}$"},"connector_revision_hash":{"$ref":"#/$defs/hash"},"destination_binding_ref":{"type":"string","pattern":"^scm-destination-binding://[^\\s]{1,248}$"},"destination_binding_hash":{"$ref":"#/$defs/hash"},"repository_ref":{"type":"string","pattern":"^repository://[^\\s]{1,224}$"},"target_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"},"base_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"}}},"change_set":{"type":"object","additionalProperties":false,"required":["change_set_kind","proposal_content_commitment","base_revision_id","files","file_set_digest","resulting_revision_id"],"properties":{"change_set_kind":{"const":"proposal_bound_file_set"},"proposal_content_commitment":{"$ref":"#/$defs/hash"},"base_revision_id":{"$ref":"#/$defs/revisionId"},"files":{"type":"array","items":{"$ref":"#/$defs/changeSetFile"},"minItems":1,"maxItems":512,"uniqueItems":true},"file_set_digest":{"$ref":"#/$defs/hash"},"resulting_revision_id":{"$ref":"#/$defs/nullableRevisionId"}}},"remote_cas":{"type":"object","additionalProperties":false,"required":["mechanism","remote_update_mode","stale_head_disposition","target_ref_precondition","expected_target_head","expected_base_head","observed_at","observation_evidence_ref","resulting_target_head","proof_ref"],"properties":{"mechanism":{"const":"expected_head_compare_and_swap"},"remote_update_mode":{"const":"expected_head_advance_or_refuse"},"stale_head_disposition":{"const":"refuse_never_overwrite"},"target_ref_precondition":{"enum":["expected_head","must_not_exist"]},"expected_target_head":{"$ref":"#/$defs/nullableRevisionId"},"expected_base_head":{"$ref":"#/$defs/revisionId"},"observed_at":{"$ref":"#/$defs/dateTime"},"observation_evidence_ref":{"$ref":"#/$defs/evidenceRef"},"resulting_target_head":{"$ref":"#/$defs/nullableRevisionId"},"proof_ref":{"$ref":"#/$defs/evidenceRef"}}},"idempotency":{"type":"object","additionalProperties":false,"required":["idempotency_key","submission_disposition","prior_effect_ref","prior_effect_hash"],"properties":{"idempotency_key":{"$ref":"#/$defs/hash"},"submission_disposition":{"enum":["first_admission","converged_replay","refused_conflicting_replay"]},"prior_effect_ref":{"anyOf":[{"$ref":"#/$defs/publicationEffectRef"},{"type":"null"}]},"prior_effect_hash":{"$ref":"#/$defs/nullableHash"}}},"effects":{"type":"object","additionalProperties":false,"required":["publication","review_request"],"properties":{"publication":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_publication"},"outcome":{"enum":["published","partially_applied","refused"]},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":16,"uniqueItems":true}}},"review_request":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_review_request"},"outcome":{"enum":["opened","failed","refused","not_requested","not_attempted"]},"receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":16,"uniqueItems":true}}}}},"overall_outcome":{"enum":["published_with_review_request","published_review_request_not_requested","review_request_failed","partially_applied","refused"]},"nonclaims":{"type":"array","items":{"enum":["grants_no_authority","no_remote_acceptance_beyond_receipt_evidence","asserts_no_review_approval"]},"minItems":3,"maxItems":3,"uniqueItems":true},"committed_at":{"$ref":"#/$defs/dateTime"}},"allOf":[{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_with_review_request"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"opened"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_review_request_not_requested"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_requested"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"review_request_failed"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"failed"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"partially_applied"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"partially_applied"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_attempted"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"refused"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"refused"}}},"review_request":{"type":"object","properties":{"outcome":{"enum":["refused","not_attempted"]}}}}},"change_set":{"type":"object","properties":{"resulting_revision_id":{"type":"null"}}},"remote_cas":{"type":"object","properties":{"resulting_target_head":{"type":"null"}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"revisionId":{"type":"string","pattern":"^scm-revision:[0-9a-f]{40,64}$"},"nullableRevisionId":{"anyOf":[{"$ref":"#/$defs/revisionId"},{"type":"null"}]},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"publicationEffectRef":{"type":"string","pattern":"^scm-publication-effect://[^\\s]{1,248}$"},"proposalRef":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"},"scopeRef":{"type":"string","pattern":"^scope:[a-z0-9][a-z0-9._:/-]{0,127}$"},"shortToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9._:/-]{0,127}$"},"nullableShortToken":{"anyOf":[{"$ref":"#/$defs/shortToken"},{"type":"null"}]},"changeSetFile":{"type":"object","additionalProperties":false,"required":["path","change_kind","content_digest","proposal_ref"],"properties":{"path":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"},"change_kind":{"enum":["added","modified","removed"]},"content_digest":{"$ref":"#/$defs/nullableHash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"}}}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -58092,6 +59264,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/autonomous-system-dissolution-disposition/v1", r#"[{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.active_work","description":"An escalated active_work outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.active_work.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.assets","description":"An escalated assets outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.assets.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.outstanding_obligations","description":"An escalated outstanding_obligations outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.outstanding_obligations.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.authority_revocation","description":"An escalated authority_revocation outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.authority_revocation.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.worker_and_node_shutdown","description":"An escalated worker_and_node_shutdown outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.worker_and_node_shutdown.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.data_export_retention_and_erasure","description":"An escalated data_export_retention_and_erasure outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.data_export_retention_and_erasure.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.network_exit","description":"An escalated network_exit outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.network_exit.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.tombstone","description":"An escalated tombstone outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.tombstone.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.terminal_escalations.require_decisions","description":"A record terminal with escalations names at least one escalation decision.","expression":{"operator":"non_empty_when_in","when_path":"$.status","values":["terminal_with_escalations"],"path":"$.escalation_decision_refs"}}]"#),
     ("schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1", r#"[{"rule_id":"autonomous_system_dissolution_disposition_transition.operation_commitment.recomputes","description":"The operation commitment recomputes from the complete closed authority effect.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-continuity-operation-commitment-jcs-sha256.v1"},"effect":{"path":"$.authority_effect_material"}},"expected_path":"$.operation_commitment","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_dissolution_disposition_transition.op.matches_effect","description":"The portable transition and governed effect name the same operation.","expression":{"operator":"fields_equal","paths":["$.op","$.authority_effect_material.op"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.system.matches_effect","description":"The portable transition and governed effect bind the same System.","expression":{"operator":"fields_equal","paths":["$.system_id","$.authority_effect_material.system_id"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.sequence.matches_effect","description":"The portable transition and governed effect bind the same sequence.","expression":{"operator":"fields_equal","paths":["$.sequence","$.authority_effect_material.sequence"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.predecessor_state.matches_effect","description":"The predecessor state root is not substitutable.","expression":{"operator":"fields_equal","paths":["$.predecessor_state_root","$.authority_effect_material.predecessor_state_root"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.resulting_state.matches_effect","description":"The resulting state root is not substitutable.","expression":{"operator":"fields_equal","paths":["$.resulting_state_root","$.authority_effect_material.resulting_state_root"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.disposition_record.matches_effect","description":"The dissolution-disposition record identity is not substitutable.","expression":{"operator":"fields_equal","paths":["$.dissolution_disposition_ref","$.authority_effect_material.dissolution_disposition_ref"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.predecessor_disposition_root.matches_effect","description":"The compare-and-swap predecessor disposition bytes are content-bound.","expression":{"operator":"fields_equal","paths":["$.predecessor_disposition_root","$.authority_effect_material.predecessor_disposition_root"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.resulting_disposition_root.matches_effect","description":"The resulting disposition bytes are content-bound.","expression":{"operator":"fields_equal","paths":["$.resulting_disposition_root","$.authority_effect_material.resulting_disposition_root"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.recorded_domain.matches_effect","description":"The recorded outcome domain is not substitutable.","expression":{"operator":"fields_equal","paths":["$.recorded_domain","$.authority_effect_material.recorded_dissolution_domain"]}}]"#),
     ("schema://ioi/foundations/autonomous-system-dissolution-receipt/v1", r#"[{"rule_id":"autonomous_system_dissolution_receipt.transitions.distinct","description":"The initiate and complete transitions are distinct chain steps; a receipt naming one transition twice is not a completion proof.","expression":{"operator":"fields_not_equal","paths":["$.initiate_transition_ref","$.complete_transition_ref"]}},{"rule_id":"autonomous_system_dissolution_receipt.transition_roots.distinct","description":"The initiate and complete transition roots commit different transition bytes.","expression":{"operator":"fields_not_equal","paths":["$.initiate_transition_root","$.complete_transition_root"]}},{"rule_id":"autonomous_system_dissolution_receipt.state_roots.advance","description":"Completion moves the System to a distinct dissolved state; predecessor and resulting state roots cannot coincide.","expression":{"operator":"fields_not_equal","paths":["$.predecessor_state_root","$.resulting_state_root"]}},{"rule_id":"autonomous_system_dissolution_receipt.tombstone.retained","description":"The receipt retains the terminal identity commitment.","expression":{"operator":"non_empty","path":"$.tombstone_commitment"}}]"#),
+    ("schema://ioi/components/connectors-tools/scm-publication-effect/v1", r#"[{"rule_id":"scm_publication_effect.content_commitment.recomputes","description":"The publication effect hash recomputes over every field except publication_effect_hash, so the declared destination, change set, compare-and-swap, idempotency material, and per-effect outcomes are all committed material.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-effect-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"publication_effect_id":{"path":"$.publication_effect_id"},"work_subject":{"path":"$.work_subject"},"authority":{"path":"$.authority"},"destination":{"path":"$.destination"},"change_set":{"path":"$.change_set"},"remote_cas":{"path":"$.remote_cas"},"idempotency":{"path":"$.idempotency"},"effects":{"path":"$.effects"},"overall_outcome":{"path":"$.overall_outcome"},"nonclaims":{"path":"$.nonclaims"},"committed_at":{"path":"$.committed_at"}},"expected_path":"$.publication_effect_hash","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect.change_set.file_set_digest.recomputes","description":"The file-set digest recomputes over the bound proposal, the base revision, and the exact enumerated file rows, so the published change set is the declared set and nothing else.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-effect-file-set-jcs-sha256.v1"},"proposal_ref":{"path":"$.work_subject.proposal_ref"},"proposal_content_commitment":{"path":"$.change_set.proposal_content_commitment"},"base_revision_id":{"path":"$.change_set.base_revision_id"},"files":{"path":"$.change_set.files"}},"expected_path":"$.change_set.file_set_digest","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect.change_set.binds_proposal_commitment","description":"The change set carries the exact content commitment of the proposal it was computed from, and that commitment equals the bound work subject proposal hash.","expression":{"operator":"fields_equal","paths":["$.change_set.proposal_content_commitment","$.work_subject.proposal_hash"]}},{"rule_id":"scm_publication_effect.change_set.files.bind_proposal","description":"Every published file row is attributed to the one bound proposal; an unattributed or foreign file cannot ride along.","expression":{"operator":"array_field_equals","array_path":"$.change_set.files","field":"proposal_ref","expected_path":"$.work_subject.proposal_ref"}},{"rule_id":"scm_publication_effect.change_set.files.unique_paths","description":"Each repository-relative path appears at most once in the published change set.","expression":{"operator":"array_unique_by_fields","array_path":"$.change_set.files","fields":["path"]}},{"rule_id":"scm_publication_effect.destination.binding_covers_repository","description":"The repository the effect names is the repository the admitted destination binding covers; the destination never resolves from free caller text.","expression":{"operator":"field_starts_with_path","path":"$.destination.destination_binding_ref","expected_path":"$.destination.repository_ref","prefix":"scm-destination-binding://","strip_prefix":"repository://","suffix":"/"}},{"rule_id":"scm_publication_effect.remote_cas.expected_target_head.declared","description":"When the target ref is expected to exist, the effect declares the exact remote head it was computed against; an absent expected head is a refusal, never an unconditional advance.","expression":{"operator":"non_empty_when_in","path":"$.remote_cas.expected_target_head","when_path":"$.remote_cas.target_ref_precondition","values":["expected_head"]}},{"rule_id":"scm_publication_effect.remote_cas.expected_base_head.binds_change_set_base","description":"The expected base head is the exact revision the change set was computed onto; a declared head detached from the change-set base is a stale compare-and-swap and is refused.","expression":{"operator":"fields_equal","paths":["$.remote_cas.expected_base_head","$.change_set.base_revision_id"]}},{"rule_id":"scm_publication_effect.remote_cas.resulting_target_head.binds_resulting_revision","description":"The resulting remote head equals the resulting revision of the published change set, so a remote advance can never be reported for material the effect did not commit.","expression":{"operator":"fields_equal","paths":["$.remote_cas.resulting_target_head","$.change_set.resulting_revision_id"]}},{"rule_id":"scm_publication_effect.idempotency.key.recomputes","description":"The idempotency key recomputes over the bound proposal, the admitted destination binding, the target ref precondition and expected head, and the file-set digest, so an exact resubmission converges and any changed material is a different submission.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-effect-idempotency-jcs-sha256.v1"},"proposal_ref":{"path":"$.work_subject.proposal_ref"},"proposal_hash":{"path":"$.work_subject.proposal_hash"},"destination_binding_ref":{"path":"$.destination.destination_binding_ref"},"destination_binding_hash":{"path":"$.destination.destination_binding_hash"},"repository_ref":{"path":"$.destination.repository_ref"},"target_ref":{"path":"$.destination.target_ref"},"target_ref_precondition":{"path":"$.remote_cas.target_ref_precondition"},"expected_target_head":{"path":"$.remote_cas.expected_target_head"},"file_set_digest":{"path":"$.change_set.file_set_digest"}},"expected_path":"$.idempotency.idempotency_key","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect.idempotency.replay.binds_prior_effect","description":"A converged or conflicting replay names the prior publication effect it converged against; a replay disposition without a prior effect is unrepresentable.","expression":{"operator":"non_empty_when_in","path":"$.idempotency.prior_effect_ref","when_path":"$.idempotency.submission_disposition","values":["converged_replay","refused_conflicting_replay"]}},{"rule_id":"scm_publication_effect.idempotency.replay.binds_prior_hash","description":"A replay also carries the prior effect content commitment, so convergence is asserted against exact material rather than an identifier alone.","expression":{"operator":"non_empty_when_in","path":"$.idempotency.prior_effect_hash","when_path":"$.idempotency.submission_disposition","values":["converged_replay","refused_conflicting_replay"]}},{"rule_id":"scm_publication_effect.effects.receipts.distinct","description":"The publication and the review request are separately receipted; one receipt can never stand for both sub-effects.","expression":{"operator":"fields_not_equal","paths":["$.effects.publication.receipt_ref","$.effects.review_request.receipt_ref"]}},{"rule_id":"scm_publication_effect.effects.review_request.receipt_declared","description":"An opened or failed review request carries its own receipt; a failed review request is receipted as its own honest outcome rather than absorbed into the publication receipt.","expression":{"operator":"non_empty_when_in","path":"$.effects.review_request.receipt_ref","when_path":"$.effects.review_request.outcome","values":["opened","failed"]}},{"rule_id":"scm_publication_effect.effects.publication.refusal_code_declared","description":"A refused or partially applied publication declares the exact refusal code it failed closed on.","expression":{"operator":"non_empty_when_in","path":"$.effects.publication.refusal_code","when_path":"$.effects.publication.outcome","values":["refused","partially_applied"]}},{"rule_id":"scm_publication_effect.effects.review_request.refusal_code_declared","description":"A failed or refused review request declares the exact refusal code, so a review-request failure is never reported as an empty success.","expression":{"operator":"non_empty_when_in","path":"$.effects.review_request.refusal_code","when_path":"$.effects.review_request.outcome","values":["failed","refused"]}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -58339,6 +59512,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (r#"^[A-Za-z0-9_-]{43}$"#, r#"^[A-Za-z0-9_-]{43}$"#),
     (r#"^[A-Za-z0-9_-]{86}$"#, r#"^[A-Za-z0-9_-]{86}$"#),
     (r#"^[A-Za-z0-9_.-]+$"#, r#"^[A-Za-z0-9_.-]+$"#),
+    (
+        r#"^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"#,
+        r#"^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"#,
+    ),
     (
         r#"^[^\s][ -~]{0,2047}$"#,
         r#"^[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}][ -~]{0,2047}$"#,
@@ -58595,6 +59772,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^conformance-profile://[^\s]{1,248}$"#,
         r#"^conformance-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^connector://[^\s]{1,248}$"#,
+        r#"^connector://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^constitution-amendment://[^\s]{1,248}$"#,
@@ -59036,6 +60217,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^reference://[^\s]{1,248}$"#,
         r#"^reference://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
+    (
+        r#"^repository://[^\s]{1,224}$"#,
+        r#"^repository://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,224}$"#,
+    ),
     (r#"^reso_[0-9a-f]{1,32}$"#, r#"^reso_[0-9a-f]{1,32}$"#),
     (
         r#"^resource-lease://[^\s]+$"#,
@@ -59067,6 +60252,22 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^schema://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^scm-destination-binding://[^\s]{1,248}$"#,
+        r#"^scm-destination-binding://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^scm-publication-effect://[^\s]{1,248}$"#,
+        r#"^scm-publication-effect://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^scm-ref://[^\s]{1,248}$"#,
+        r#"^scm-ref://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^scm-revision:[0-9a-f]{40,64}$"#,
+        r#"^scm-revision:[0-9a-f]{40,64}$"#,
+    ),
+    (
         r#"^scope:[^\s]{1,200}$"#,
         r#"^scope:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,200}$"#,
     ),
@@ -59074,6 +60275,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^scope:[a-z0-9._:-]{1,180}$"#,
         r#"^scope:[a-z0-9._:-]{1,180}$"#,
+    ),
+    (
+        r#"^scope:[a-z0-9][a-z0-9._:/-]{0,127}$"#,
+        r#"^scope:[a-z0-9][a-z0-9._:/-]{0,127}$"#,
     ),
     (
         r#"^scope:[a-z0-9_.:-]{1,120}$"#,
@@ -59288,6 +60493,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^wallet[.]network://principal-authority-binding/[0-9a-f]{64}$"#,
         r#"^wallet[.]network://principal-authority-binding/[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^work-run://[^\s]{1,248}$"#,
+        r#"^work-run://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^worker://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
@@ -60733,6 +61942,22 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-new-target-ref.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-new-target-ref.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-converged-replay.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-converged-replay.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-absent-expected-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-absent-expected-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-stale-expected-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-stale-expected-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-unbound-destination.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-unbound-destination.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -61161,6 +62386,11 @@ mod tests {
         },
         "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1" => {
             serde_json::from_value::<AutonomousSystemDissolutionReceiptV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/connectors-tools/scm-publication-effect/v1" => {
+            serde_json::from_value::<ScmPublicationEffectV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -61595,6 +62825,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/connectors-tools/scm-publication-effect/v1" => {
+            let projection = serde_json::from_value::<ScmPublicationEffectV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -61731,8 +62966,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            356,
-            "the registered golden corpus must remain the explicit 356-fixture bar",
+            372,
+            "the registered golden corpus must remain the explicit 372-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -61951,7 +63186,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 321,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 330,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }
