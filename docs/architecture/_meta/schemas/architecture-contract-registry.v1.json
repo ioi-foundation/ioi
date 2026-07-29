@@ -4816,6 +4816,106 @@
           "expected_rule_id": "autonomous_system_dissolution_receipt.transitions.distinct"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
+      "canonical_name": "ScmPublicationEffect",
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#scmpublicationeffect",
+      "schema_version": "ioi.scm-publication-effect.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "scm-publication-effect.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/connectors-tools/scm-publication-effect/bounded-publication/v1",
+          "path": "invariants/scm-publication-effect.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ScmPublicationEffectV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ScmPublicationEffectV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/scm-publication-effect-v1/positive-published-with-review-request.json",
+        "fixtures/scm-publication-effect-v1/positive-review-request-failed.json",
+        "fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json",
+        "fixtures/scm-publication-effect-v1/positive-new-target-ref.json",
+        "fixtures/scm-publication-effect-v1/positive-converged-replay.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/scm-publication-effect-v1/negative-absent-expected-head.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect.remote_cas.expected_target_head.declared"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v1/negative-stale-expected-head.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect.remote_cas.expected_base_head.binds_change_set_base"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v1/negative-unbound-destination.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect.destination.binding_covers_repository"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect.change_set.files.bind_proposal"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect.effects.receipts.distinct"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect.idempotency.replay.binds_prior_effect"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect.idempotency.key.recomputes"
+        },
+        {
+          "path": "fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "scm_publication_effect.content_commitment.recomputes"
+        }
+      ]
     }
   ]
 }

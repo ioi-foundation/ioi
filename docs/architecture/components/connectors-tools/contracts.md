@@ -4,13 +4,14 @@ Status: canonical low-level reference.
 Canonical owner: this file for RuntimeToolContract, ConnectorMapping
 references, immutable MCP gateway requirements, subject-scoped Hypervisor MCP
 Gateway profiles including post-pairing room-admission bindings, protocol
-normalization, tool API, connector API, risk classes, and approval rules.
+normalization, tool API, connector API, source-control publication effects,
+risk classes, and approval rules.
 Supersedes: older flattened tool capability examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-07-16.
+Last alignment pass: 2026-07-29.
 Doctrine status: canonical
-Implementation status: partial (the RuntimeToolContract owner and daemon tool catalog are live, and the registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate; production IFC propagation/enforcement, MCP resource/prompt/elicitation/task/App propagation, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, remaining browser/computer-use families, immutable gateway requirements, `LocalAgentPairingSessionEnvelope` bindings, and room-admitted local-agent gateway issuance remain planned)
-Last implementation audit: 2026-07-18 (contract substrate; production IFC enforcement not claimed)
+Implementation status: partial (the RuntimeToolContract owner and daemon tool catalog are live, and the registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate; production IFC propagation/enforcement, MCP resource/prompt/elicitation/task/App propagation, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, remaining browser/computer-use families, immutable gateway requirements, `LocalAgentPairingSessionEnvelope` bindings, room-admitted local-agent gateway issuance, and the whole `ScmPublicationEffect` family remain planned)
+Last implementation audit: 2026-07-29 (contract substrate; production IFC enforcement not claimed; `ScmPublicationEffect` is a target contract with no conforming runtime path)
 
 ## Purpose
 
@@ -432,6 +433,151 @@ GET  /v1/connectors/{connector_id}/subscriptions
 POST /v1/connectors/{connector_id}/subscriptions
 DELETE /v1/connectors/{connector_id}/subscriptions/{subscription_id}
 ```
+
+## Source-Control Publication
+
+### ScmPublicationEffect
+
+`ScmPublicationEffect` is the immutable, receipted record of exactly one
+source-control publication crossing: an enumerated, proposal-bound file set
+advanced onto one admitted remote destination under an expected-head
+compare-and-swap, with the publication and the review request carried as two
+separately receipted sub-effects. It is the only shape in which the estate may
+mutate a remote repository through a connector.
+
+```text
+schema_version
+publication_effect_id / publication_effect_hash
+work_subject:
+  proposal_ref / proposal_hash / work_run_ref
+authority:
+  authority_grant_refs / authority_scope_refs
+  capability_lease_ref / admission_receipt_ref
+destination:
+  resolution: admitted_connector_binding
+  connector_ref / connector_revision_hash
+  destination_binding_ref / destination_binding_hash
+  repository_ref / target_ref / base_ref
+change_set:
+  change_set_kind: proposal_bound_file_set
+  proposal_content_commitment
+  base_revision_id
+  files: [ path, change_kind, content_digest, proposal_ref ]
+  file_set_digest
+  resulting_revision_id
+remote_cas:
+  mechanism: expected_head_compare_and_swap
+  remote_update_mode: expected_head_advance_or_refuse
+  stale_head_disposition: refuse_never_overwrite
+  target_ref_precondition: expected_head | must_not_exist
+  expected_target_head / expected_base_head
+  observed_at / observation_evidence_ref
+  resulting_target_head / proof_ref
+idempotency:
+  idempotency_key
+  submission_disposition:
+    first_admission | converged_replay | refused_conflicting_replay
+  prior_effect_ref / prior_effect_hash
+effects:
+  publication:
+    effect_kind: scm_publication
+    outcome: published | partially_applied | refused
+    receipt_ref / refusal_code / evidence_refs
+  review_request:
+    effect_kind: scm_review_request
+    outcome: opened | failed | refused | not_requested | not_attempted
+    receipt_ref / refusal_code / evidence_refs
+overall_outcome:
+  published_with_review_request |
+  published_review_request_not_requested |
+  review_request_failed | partially_applied | refused
+nonclaims
+committed_at
+```
+
+The owner allocates `publication_effect_id` independently before hashing.
+`publication_effect_hash` covers the complete canonical body above, including
+the allocated ref, the destination binding, the exact enumerated file set and
+its digest, the compare-and-swap declaration, the idempotency material, and
+both sub-effect outcomes; it excludes only itself. Each rule below is testable
+and is pinned by a registered fixture.
+
+- **The remote head is a compare-and-swap, and an overwrite is
+  unrepresentable.** `remote_cas` declares the exact `expected_target_head`
+  the effect was computed against, and `expected_base_head` must equal
+  `change_set.base_revision_id`. A declared head detached from the change-set
+  base is a stale compare-and-swap and is refused, never reconciled by
+  overwriting. `remote_update_mode` and `stale_head_disposition` are single
+  literals — `expected_head_advance_or_refuse` and `refuse_never_overwrite` —
+  and the record is a closed object, so there is no field, flag, mode, or
+  extension point through which a caller can request a forced overwrite of the
+  remote head. Force is not disallowed by policy; it has no representation.
+  When `target_ref_precondition` is `expected_head`, an absent expected head is
+  itself a refusal.
+- **The change set is proposal-bound and enumerated.**
+  `change_set_kind` is the single literal `proposal_bound_file_set`; a
+  whole-workspace or working-tree snapshot has no representable kind. Every
+  published row names its `path`, `change_kind`, post-image `content_digest`,
+  and the one bound `proposal_ref`, paths are unique, and `file_set_digest`
+  recomputes over the bound proposal, the base revision, and the exact rows.
+  `change_set.proposal_content_commitment` must equal
+  `work_subject.proposal_hash`, so the set that ships is the set the proposal
+  committed to. The declared file set and its digest are inside the content
+  commitment.
+- **The destination is bounded by an admitted binding.** `resolution` is the
+  single literal `admitted_connector_binding`, and `destination_binding_ref`
+  must cover `repository_ref`. The remote destination therefore resolves from
+  an admitted connector/lease binding held by the estate, never from free
+  caller-supplied text; a repository outside the binding is refused before any
+  remote contact.
+- **Publication and review request are separate receipted outcomes.** The two
+  sub-effects carry their own outcome enum, their own `receipt_ref`, and their
+  own `refusal_code`, and the two receipts must be distinct. An opened or
+  failed review request must carry its own receipt; a failed review request is
+  its own honest terminal outcome, not an omission inside a publication
+  receipt. `overall_outcome` is bound to both sub-effect outcomes, and its only
+  success-bearing members — `published_with_review_request` and
+  `published_review_request_not_requested` — require the review request to be
+  `opened` or `not_requested`. A publication that succeeded while its review
+  request failed can only be stated as `review_request_failed`. Reporting
+  overall success over a failed or skipped sub-effect is structurally
+  impossible; it is not a reporting convention that a caller could violate.
+- **Resubmission converges instead of duplicating.** `idempotency_key`
+  recomputes over the bound proposal, the admitted destination binding, the
+  target ref and its precondition, the expected head, and the file-set digest.
+  An exact resubmission therefore carries the same key and converges; any
+  changed material is a different submission and cannot claim the earlier key.
+  A `converged_replay` or `refused_conflicting_replay` disposition must name
+  the prior effect ref and its content commitment.
+- **Nonclaims.** The record carries exactly the three declared nonclaims. It
+  grants no authority: the authority is the referenced grants and lease, and
+  this record only evidences that they were presented. It proves nothing about
+  the remote beyond what its own receipts and evidence refs bear. It never
+  asserts that any review was approved, merged, or accepted — an opened review
+  request is a request, not an approval.
+
+Registered wire contract: contract id
+`schema://ioi/components/connectors-tools/scm-publication-effect/v1`
+(`ioi.scm-publication-effect.v1`) with this `ScmPublicationEffect` section as
+`canonical_owner_ref`. Registered negative fixtures pin each refusal above:
+absent expected head, stale expected head, requested remote overwrite, unbound
+destination, whole-workspace change set, a file row unattributed to the bound
+proposal, a review-request failure reported as overall success, one receipt
+shared across both sub-effects, a replay without a prior effect, an
+idempotency key that does not recompute, and a detached content commitment.
+
+Implementation status: planned. No current runtime path satisfies this
+contract, and none of the rules above is enforced in master today. The
+`handle_scm_publish` route in
+`crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs`
+(`POST /v1/hypervisor/environments/{id}/scm/publish`) is the route that must be
+rebuilt against it: it currently accepts a caller-supplied destination string
+against a host-level connector, stages the whole workspace rather than a
+proposal-bound file set, advances the remote ref with no expected-head
+compare-and-swap, binds no proposal, work run, or idempotency material, and
+reports overall success even when the review request failed. Until that route
+is rebuilt, this section is the target contract and not a description of
+running behavior.
 
 ## Risk Classes
 
