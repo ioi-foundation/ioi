@@ -1,0 +1,40 @@
+import { Lt as e } from "./SegmentProvider-CXCNBY9U.js";
+import { cg as t, v_ as n } from "./vendor-DAwbZtf0.js";
+import { t as r } from "./button-6YP03Qf2.js";
+import { t as i } from "./IOIWaiting-BAp9o46t.js";
+var a = n(),
+  o = () => (
+    e(`Not Found`),
+    (0, a.jsxs)(`div`, {
+      className: `flex h-full flex-col items-center justify-center gap-6 px-4`,
+      children: [
+        (0, a.jsxs)(`div`, {
+          className: `flex items-center gap-3`,
+          role: `img`,
+          "aria-label": `404 — page not found`,
+          children: [
+            (0, a.jsx)(`span`, {
+              className: `text-8xl font-light tracking-tight text-content-tertiary sm:text-9xl`,
+              children: `4`,
+            }),
+            (0, a.jsx)(i, { size: `lg`, cycleInterval: 1500, className: `size-20 sm:size-24` }),
+            (0, a.jsx)(`span`, {
+              className: `text-8xl font-light tracking-tight text-content-tertiary sm:text-9xl`,
+              children: `4`,
+            }),
+          ],
+        }),
+        (0, a.jsx)(`p`, {
+          className: `text-base text-content-secondary`,
+          children: `IOI looked everywhere. This page doesn't exist.`,
+        }),
+        (0, a.jsx)(r, {
+          variant: `secondary`,
+          size: `md`,
+          asChild: !0,
+          children: (0, a.jsx)(t, { to: `/`, children: `Back to dashboard` }),
+        }),
+      ],
+    })
+  );
+export { o as NotFound };

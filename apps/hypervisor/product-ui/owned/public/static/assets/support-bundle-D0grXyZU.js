@@ -1,0 +1,167 @@
+const __vite__mapDeps = (
+  i,
+  m = __vite__mapDeps,
+  d = m.f ||
+    (m.f = [
+      globalThis.__toAssetUrl("assets/vendor-DAwbZtf0.js"),
+      globalThis.__toAssetUrl("assets/rolldown-runtime-CGYlQKCx.js"),
+      globalThis.__toAssetUrl("assets/@mux-DLaEVubF.js"),
+    ]),
+) => i.map((i) => d[i]);
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { Gh as t } from "./vendor-DAwbZtf0.js";
+import { tr as n } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { t as r } from "./toast-axaLeIzZ.js";
+import { _ as i } from "./agent-queries-CGWy3JAw.js";
+function a(e) {
+  return `conversation:${e}`;
+}
+var o = 50 * 1024 * 1024;
+function s(e, t) {
+  return e === `data` && t instanceof Uint8Array
+    ? ``
+    : t instanceof Uint8Array
+      ? c(t)
+      : typeof t == `bigint`
+        ? t.toString()
+        : t;
+}
+function c(e) {
+  let t = ``;
+  for (let n of e) t += String.fromCharCode(n);
+  return btoa(t);
+}
+async function l(e, t, n = o) {
+  if (!t) return JSON.stringify({ version: 1, executionId: e, chunks: [], streamState: null, messageList: null });
+  let r;
+  try {
+    r = await t.toSnapshot();
+  } catch {
+    return JSON.stringify({ version: 1, executionId: e, chunks: [], streamState: null, messageList: null });
+  }
+  let i = r.streamState ? JSON.stringify(r.streamState) : `null`,
+    a = JSON.stringify(
+      {
+        messages: r.messages,
+        pendingUserMessages: r.pendingUserMessages,
+        processedChunkIds: r.processedChunkIds,
+        oldestChunkId: r.oldestChunkId,
+        exhausted: r.exhausted,
+        completingHistory: r.completingHistory,
+      },
+      s,
+    ),
+    c = `{"version":1,"executionId":${JSON.stringify(e)},"chunks":[`,
+    l = `,"streamState":${i},"messageList":${a}}`,
+    u = [c],
+    d = c.length + l.length,
+    f = !1;
+  for (let e = 0; e < r.chunks.length; e++) {
+    let t = JSON.stringify(r.chunks[e], s),
+      i = e > 0 ? `,` : ``,
+      a = i.length + t.length;
+    if (d + a > n) {
+      f = !0;
+      break;
+    }
+    (u.push(i), u.push(t), (d += a));
+  }
+  return (u.push(`]`), f && u.push(`,"truncated":true`), u.push(l), u.join(``));
+}
+async function u(e, t, n) {
+  try {
+    let r = await fetch(t, { method: `GET`, headers: { Authorization: `Bearer ${n}` } });
+    if (!r.ok) {
+      let t = `Failed to download environment support bundle: ${r.status} ${r.statusText}\nTimestamp: ${new Date().toISOString()}`;
+      e.file(`environment-support-bundle-error.txt`, t);
+      return;
+    }
+    let i = await r.blob();
+    e.file(`environment-support-bundle.zip`, i);
+  } catch (t) {
+    let n = `Failed to download environment support bundle: ${String(t)}\nTimestamp: ${new Date().toISOString()}`;
+    e.file(`environment-support-bundle-error.txt`, n);
+  }
+}
+function d(e, t) {
+  let n = window.URL.createObjectURL(e),
+    r = document.createElement(`a`);
+  ((r.href = n),
+    (r.download = t),
+    document.body.appendChild(r),
+    r.click(),
+    document.body.removeChild(r),
+    window.URL.revokeObjectURL(n));
+}
+async function f(e, t, n, r) {
+  try {
+    if (r) {
+      let i = await l(t, r);
+      e.file(`${n}conversation-v2.json`, i);
+      return;
+    }
+    let o = await i(a(t));
+    if (o && o.chunk.length > 0) e.file(`${n}conversation-stream.jsonl`, o.chunk);
+    else {
+      let r = `No cached conversation data available for agent execution ${t}\nThis contains the conversation data as last seen by the user.\nTimestamp: ${new Date().toISOString()}`;
+      e.file(`${n}conversation-stream-unavailable.txt`, r);
+    }
+  } catch (t) {
+    let r = `Failed to load cached conversation data: ${String(t)}\nTimestamp: ${new Date().toISOString()}`;
+    e.file(`${n}conversation-stream-error.txt`, r);
+  }
+}
+async function p(e, t, n) {
+  await m(e, { executionId: ``, supportBundleUrl: t, token: n }, ``);
+}
+async function m(e, t, n) {
+  try {
+    let r = await fetch(t.supportBundleUrl, { method: `GET`, headers: { Authorization: `Bearer ${t.token}` } });
+    if (!r.ok) {
+      let t = `Failed to download agent execution support bundle: ${r.status} ${r.statusText}\nTimestamp: ${new Date().toISOString()}`;
+      e.file(`${n}agent-execution-support-bundle-error.txt`, t);
+      return;
+    }
+    let i = await r.blob();
+    e.file(`${n}agent-execution-support-bundle.zip`, i);
+  } catch (t) {
+    let r = `Failed to download agent execution support bundle: ${String(t)}\nTimestamp: ${new Date().toISOString()}`;
+    e.file(`${n}agent-execution-support-bundle-error.txt`, r);
+  }
+}
+async function h(i) {
+  let a = r({ title: `Generating support bundle...`, indefinite: !0 });
+  try {
+    let n = (
+        await t(
+          async () => {
+            let { default: t } = await import(`./vendor-DAwbZtf0.js`).then((t) => e(t.Zt(), 1));
+            return { default: t };
+          },
+          __vite__mapDeps([0, 1, 2]),
+          import.meta.url,
+        )
+      ).default,
+      o = new n(),
+      s = i.cachedConversationExecutionIds ?? i.executionBundles.map((e) => e.executionId),
+      c = s.length > 1 || i.executionBundles.length > 1,
+      l = [];
+    i.environmentBundle && l.push(u(o, i.environmentBundle.supportBundleUrl, i.environmentBundle.logsToken));
+    for (let e of i.executionBundles) {
+      let t = c ? `executions/${e.executionId}/` : ``;
+      l.push(m(o, e, t));
+    }
+    for (let e of s) {
+      let t = c ? `executions/${e}/` : ``,
+        n = i.messageStreams?.get(e) ?? null;
+      l.push(f(o, e, t, n));
+    }
+    (await Promise.all(l),
+      d(await o.generateAsync({ type: `blob` }), i.filename),
+      a.dismiss(),
+      r({ title: `Support bundle downloaded` }));
+  } catch (e) {
+    (a.dismiss(), r({ title: `Failed to download support bundle`, description: n(e) }));
+  }
+}
+export { a, d as i, p as n, u as r, h as t };

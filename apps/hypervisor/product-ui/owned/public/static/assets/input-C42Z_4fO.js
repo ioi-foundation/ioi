@@ -1,0 +1,93 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import { Bg as n, Ig as r, am as i, sm as a, v_ as o } from "./vendor-DAwbZtf0.js";
+import { t as s } from "./button-6YP03Qf2.js";
+import { t as c } from "./cn-DppMFCU8.js";
+import { t as l } from "./hooks-Cxw5RI6a.js";
+var u = e(t(), 1),
+  d = o(),
+  f = c(
+    `flex items-center gap-2 h-9 w-full max-w-[600px] px-3 py-2`,
+    `rounded-lg border border-border-light text-base`,
+    `focus-within:ring-content-primary disabled:cursor-text`,
+    `focus-within:ring-4 focus-within:ring-ring-default focus-visible:ring-4 focus-visible:ring-ring-default`,
+    `group-data-[state=error]:border-border-error group-data-[state=error]:ring-ring-destructive disabled:bg-inherit bg-surface-input`,
+    `[&[readonly]]:border-border-subtle [&[readonly]]:bg-transparent`,
+    `data-[readonly]:border-border-subtle data-[readonly]:bg-transparent`,
+  ),
+  p = c(
+    `flex h-full w-full max-w-[600px] focus-visible:ring-0 text-base p-0 border-0 outline-none`,
+    `file:border-0 file:bg-transparent file:text-sm file:font-medium`,
+    `disabled:cursor-text`,
+    `placeholder:text-content-muted border-border-base disabled:bg-surface-input text-content-primary bg-transparent`,
+    `[&[readonly]]:bg-transparent`,
+  ),
+  m = c(p, f),
+  h = u.forwardRef(({ className: e, readOnly: t, ...n }, r) =>
+    (0, d.jsx)(`div`, { ref: r, "data-readonly": t ? `` : void 0, className: c(f, e), ...n }),
+  );
+h.displayName = `Input.Root`;
+var g = u.forwardRef(({ className: e, ...t }, n) =>
+  (0, d.jsx)(`span`, { ref: n, className: c(`flex-shrink-0 text-content-secondary`, e), ...t }),
+);
+g.displayName = `Input.Prefix`;
+var _ = u.forwardRef(({ className: e, ...t }, n) =>
+  (0, d.jsx)(`span`, { ref: n, className: c(`flex-shrink-0 text-content-secondary`, e), ...t }),
+);
+_.displayName = `Input.Suffix`;
+var v = u.forwardRef(({ className: e, appearance: t, asChild: n = !1, children: i, ...a }, o) => {
+  let s = t === `code` ? `font-mono` : void 0;
+  return n
+    ? (0, d.jsx)(r, { ref: o, className: c(p, s, e), ...a, children: i })
+    : (0, d.jsx)(`input`, { ref: o, className: c(p, s, e), ...a });
+});
+v.displayName = `Input.Control`;
+var y = u.forwardRef(
+  ({ className: e, prefix: t, suffix: r, copyable: o, appearance: u, title: f, readOnly: p, ...y }, b) => {
+    let { copied: x, error: S, copy: C } = l(),
+      w = typeof y.value == `string` ? y.value : String(y.value ?? ``),
+      T = y[`data-tracking-id`],
+      E = p || o,
+      D = u === `code` ? `font-mono` : void 0;
+    return o
+      ? (0, d.jsxs)(`div`, {
+          className: `relative`,
+          children: [
+            (0, d.jsx)(h, {
+              readOnly: E,
+              children: (0, d.jsx)(v, { ref: b, className: c(`pr-12`, e), appearance: u, title: f, readOnly: E, ...y }),
+            }),
+            (0, d.jsx)(`div`, {
+              className: c(`absolute inset-y-0 right-2 flex items-center`, { hidden: !w }),
+              children: (0, d.jsx)(s, {
+                variant: `ghost`,
+                type: `button`,
+                className: `h-6 rounded-lg border-none p-1 text-content-tertiary hover:text-content-secondary hover:opacity-100`,
+                onClick: () => C(w),
+                "aria-label": f ?? `Copy to clipboard`,
+                title: f,
+                "data-tracking-id": T,
+                children: x
+                  ? (0, d.jsx)(a, { className: `text-content-success`, "aria-hidden": !0, size: 16 })
+                  : S
+                    ? (0, d.jsx)(n, { className: `text-content-danger`, "aria-hidden": !0, size: 16 })
+                    : (0, d.jsx)(i, { "aria-hidden": !0, size: 16 }),
+              }),
+            }),
+          ],
+        })
+      : t || r
+        ? (0, d.jsxs)(h, {
+            readOnly: E,
+            children: [
+              t && (0, d.jsx)(g, { children: t }),
+              (0, d.jsx)(v, { ref: b, className: e, appearance: u, title: f, readOnly: E, ...y }),
+              r && (0, d.jsx)(_, { children: r }),
+            ],
+          })
+        : (0, d.jsx)(`input`, { className: c(m, D, e), ref: b, title: f, readOnly: E, ...y });
+  },
+);
+y.displayName = `Input`;
+var b = Object.assign(y, { Root: h, Control: v, Prefix: g, Suffix: _ });
+export { b as t };

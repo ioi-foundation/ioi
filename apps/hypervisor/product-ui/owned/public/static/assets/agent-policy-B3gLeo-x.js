@@ -1,0 +1,59 @@
+import { za as e } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { R as t } from "./agent-queries-CGWy3JAw.js";
+import { g as n } from "./agent-mode-ClxEfnvU.js";
+import { n as r, o as i, p as a, t as o } from "./codex-settings-BPKiMIhT.js";
+var s = [t.IOI.id, t.InEnvironmentIOI.id];
+function c(e, r) {
+  return !r.isCodexRolloutEnabled || !r.agentPolicy || r.agentPolicy.allowedAgentIds.length === 0
+    ? e
+    : e.filter((e) =>
+        n(e)
+          ? r.agentPolicy?.allowedAgentIds.includes(t.InEnvironmentCodexAppAgent.id)
+          : s.some((e) => r.agentPolicy?.allowedAgentIds.includes(e)),
+      );
+}
+function l(e, t) {
+  return !t || !e || e.allowedCodexModels.length === 0 ? o : o.filter((t) => e.allowedCodexModels.includes(t.value));
+}
+function u(e, t) {
+  return !t || !e || e.allowedCodexReasoningEfforts.length === 0
+    ? r
+    : r.filter((t) => e.allowedCodexReasoningEfforts.includes(t.value));
+}
+function d(t, n) {
+  return !n || !t || t.allowedCodexServiceTiers.length === 0 || t.allowedCodexServiceTiers.includes(e.FAST);
+}
+function f(e, t, n) {
+  let r = i(e),
+    a = l(t, n),
+    o = u(t, n),
+    s = a.some((e) => e.value === r.model) ? r.model : (a[0]?.value ?? r.model);
+  return i({
+    model: s,
+    reasoningEffort: o.some((e) => e.value === r.reasoningEffort)
+      ? r.reasoningEffort
+      : (o[0]?.value ?? r.reasoningEffort),
+    serviceTier: p(r.serviceTier, s, t, n),
+  });
+}
+function p(t, n, r, i) {
+  let o = a(n) ? t : e.UNSPECIFIED,
+    s = r?.allowedCodexServiceTiers ?? [];
+  return !i || s.length === 0 || s.includes(o)
+    ? o
+    : s.includes(e.UNSPECIFIED)
+      ? e.UNSPECIFIED
+      : a(n) && s.includes(e.FAST)
+        ? e.FAST
+        : e.UNSPECIFIED;
+}
+function m(e, n) {
+  return [...(e ? s : []), ...(n ? [t.InEnvironmentCodexAppAgent.id] : [])];
+}
+function h(e, t) {
+  return [...e];
+}
+function g(t) {
+  return t ? [e.UNSPECIFIED, e.FAST] : [e.UNSPECIFIED];
+}
+export { c as a, h as c, f as i, l as n, m as o, u as r, g as s, d as t };

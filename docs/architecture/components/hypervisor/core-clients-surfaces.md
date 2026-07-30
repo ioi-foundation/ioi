@@ -1212,10 +1212,10 @@ applicable, and Provenance inspects evidence.
 Application surfaces are major product modes inside one or more first-class
 clients.
 
-Implementation status — shell ownership program (2026-07-05): the product
-shell is owned by ADOPTION, not recreation, so no "current version vs
-recreated version" gap exists for discrepancies to hide in. The running
-bundle is vendored as an editable source tree
+Implementation status — ported-seed ownership program (reconfirmed
+2026-07-30): the product shell and its ported applications are owned by
+ADOPTION, not recreation, so no "current version vs recreated version" gap
+may be introduced. The running bundle is vendored as an editable source tree
 (`apps/hypervisor/product-ui/owned/public`, built by
 `apps/hypervisor/scripts/vendor-product-ui.mjs`: app chunks beautified, third-party
 `vendor-*.js` verbatim, hand edits preserved as recorded owned-edits) and the
@@ -1231,6 +1231,15 @@ as owned-edits plus a reviewed baseline re-freeze in the same change; the
 first fold (the augmentation script tag moving into the owned index.html) is
 in. Serve-time code transforms must stay formatting-tolerant — they apply to
 both the minified original and the beautified owned source.
+
+This adopted estate is the executable seed, not merely comparative evidence.
+Migration proceeds per application by admitting the owner contract, rebinding
+the ported implementation, proving parity and negative no-fallback behavior,
+then retiring only that application's superseded reference or adapter path.
+No whole-estate bundle or server deletion is valid while any live ported app
+lacks an individually proved successor. A separate first-party client is valid
+for a canonical journey with no applicable seed, but remains a protocol client
+and cannot silently replace the Hypervisor estate or own its truth.
 
 ### The Autonomous-Systems Owner Applications
 

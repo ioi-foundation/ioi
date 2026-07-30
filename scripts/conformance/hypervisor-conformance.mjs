@@ -21,6 +21,7 @@ const TIERS = {
     npmRun("check:artifact-availability-incident"),
   ],
   app: [
+    npmRun("check:hypervisor-ported-seed:live"),
     npmRun("build:workbench"),
     ["npm", ["run", "build", "--workspace=@ioi/hypervisor-app"]],
     // check:hypervisor-app-shell retired: it e2e-tested the legacy ?view= shell and the

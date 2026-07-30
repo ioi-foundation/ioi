@@ -1,0 +1,155 @@
+import { _o as e, so as t, vo as n, xo as r, yo as i } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { i as a } from "./phase-DI4YEQQ1.js";
+var o = (function (e) {
+  return (
+    (e.Waiting = `waiting`),
+    (e.Running = `running`),
+    (e.Success = `success`),
+    (e.Failure = `failure`),
+    (e.Warning = `warning`),
+    (e.Empty = `empty`),
+    e
+  );
+})({});
+function s(e) {
+  if (a(e) && e.status?.machine?.failureMessage) return `failure`;
+  if (
+    m(e) ||
+    f(e) ||
+    (e.status?.machine?.session && e.spec?.machine?.session && e.spec?.machine?.session !== e.status?.machine?.session)
+  )
+    return `waiting`;
+  let t = h(e, (e) => !!e.status?.machine?.warningMessage);
+  switch (e.status?.machine?.phase) {
+    case r.UNSPECIFIED:
+    case r.STOPPING:
+    case r.STOPPED:
+    case r.DELETING:
+    case r.DELETED:
+      return `waiting`;
+    case r.CREATING:
+    case r.STARTING:
+      return `running`;
+    case r.RUNNING:
+      return t ? `warning` : `success`;
+    default:
+      return `waiting`;
+  }
+}
+function c(e) {
+  if (a(e) && e.status?.content?.failureMessage) return `failure`;
+  if (m(e) || f(e) || !p(e)) return `waiting`;
+  let t = !!e.status?.content;
+  if ((e.spec?.content?.session && t && e.spec.content.session !== e.status?.content?.session) || (!t && p(e)))
+    return `running`;
+  let r = h(e, (e) => !!e.status?.content?.warningMessage);
+  switch (e.status?.content?.phase) {
+    case n.CREATING:
+    case n.UPDATING:
+    case n.INITIALIZING:
+      return `running`;
+    case n.READY:
+      return r ? `warning` : `success`;
+    case n.FAILED:
+      return `failure`;
+    default:
+      return `waiting`;
+  }
+}
+function l(e) {
+  if (a(e) && e.status?.devcontainer?.failureMessage)
+    return { state: `failure`, canRebuild: !1, rebuildReason: void 0 };
+  let t = e.status?.content?.phase === n.READY;
+  if (m(e) || f(e) || !p(e) || !t) return { state: `waiting`, canRebuild: !1, rebuildReason: void 0 };
+  if (e.spec?.devcontainer?.session && e.spec.devcontainer.session !== e.status?.devcontainer?.session)
+    return { state: `running`, canRebuild: !1, rebuildReason: void 0 };
+  let o = !!e.status?.devcontainer,
+    s = e.status?.machine?.phase === r.RUNNING;
+  if (!o && t && s) return { state: `running`, canRebuild: !1, rebuildReason: void 0 };
+  let c = h(e, (e) => !!e.status?.devcontainer?.warningMessage);
+  switch (e.status?.devcontainer?.phase) {
+    case i.CREATING:
+      return { state: `running`, canRebuild: !1, rebuildReason: void 0 };
+    case i.RUNNING: {
+      let t = !(e?.status?.devcontainer?.devcontainerconfigInSync ?? !0),
+        n = !(e?.status?.devcontainer?.secretsInSync ?? !0);
+      return {
+        state: c ? `warning` : `success`,
+        canRebuild: t || n,
+        rebuildReason: t ? `config` : n ? `secrets` : void 0,
+      };
+    }
+    case i.FAILED:
+      return { state: `failure`, canRebuild: !1, rebuildReason: void 0 };
+    default:
+      return { state: `waiting`, canRebuild: !1, rebuildReason: void 0 };
+  }
+}
+function u(t) {
+  if (a(t) && t.status?.automationsFile?.failureMessage) return `failure`;
+  let i = t.status?.content?.phase === n.READY;
+  if (
+    m(t) ||
+    f(t) ||
+    !i ||
+    (t.spec?.automationsFile?.session &&
+      t.status?.automationsFile?.session &&
+      t.spec.automationsFile.session !== t.status?.automationsFile?.session)
+  )
+    return `waiting`;
+  if (t.status?.automationsFile?.automationsFilePresence === e.ABSENT) return `empty`;
+  let o = !!t.status?.automationsFile,
+    s = !!t.spec?.automationsFile,
+    c = t.status?.machine?.phase === r.RUNNING;
+  if (s && !o && i && c) return `running`;
+  if (t.status?.automationsFile?.phase === n.READY && t.status?.automationsFile?.warningMessage) return `warning`;
+  switch (t.status?.automationsFile?.phase) {
+    case n.CREATING:
+    case n.UPDATING:
+    case n.INITIALIZING:
+      return `running`;
+    case n.READY:
+      return `success`;
+    case n.FAILED:
+      return `failure`;
+    default:
+      return `waiting`;
+  }
+}
+function d(e) {
+  let t = e.status?.secrets ?? [],
+    r = e.spec?.secrets ?? [],
+    i = t.some((e) => e.phase === n.FAILED) || t.some((e) => !!e.failureMessage),
+    o = r.every((e) => t.some((t) => t.secretName === e.name && t.phase === n.READY));
+  if (a(e) && i) return `warning`;
+  if (m(e) || f(e) || !p(e)) return `waiting`;
+  if (r.length === 0) return `empty`;
+  let s = h(e, (e) => e.status?.secrets?.some((e) => e.warningMessage) ?? !1);
+  return o ? (s ? `warning` : `success`) : `running`;
+}
+function f(e) {
+  return (
+    !!e.status?.machine?.session &&
+    !!e.spec?.machine?.session &&
+    e.spec?.machine?.session !== e.status?.machine?.session
+  );
+}
+function p(e) {
+  return e.status?.machine?.phase === r.RUNNING;
+}
+function m(e) {
+  if (!e.status) return !0;
+  switch (e.status.phase) {
+    case t.UNSPECIFIED:
+    case t.STOPPING:
+    case t.STOPPED:
+    case t.DELETING:
+    case t.DELETED:
+      return !0;
+  }
+  return !1;
+}
+function h(e, t) {
+  return a(e) && t(e);
+}
+export { l as a, c as i, f as n, d as o, u as r, s, o as t };

@@ -2,53 +2,53 @@
   "artifact_files": [
     {
       "path": "docs/evidence/m0-program-control/effect-census.json",
-      "sha256": "df7be179fd6713d862535e887adb6b8ec0e11d196b54042aea641ec3b2a39b75"
+      "sha256": "ee0bc7462ff5d6b3a78a4b89e05e7470f61b903ab34ddf3ce05f7802ea4ecd52"
     },
     {
       "path": "docs/evidence/m0-program-control/selected-profile.json",
-      "sha256": "2cc3e736ee8a6f47549d7c197c88a918157fd46c5fb426dff3837b53f0623cd8"
+      "sha256": "ec2feb4b75599e96c1220a6ee8616f0c73f6f811ee5d8b2c5e7186adfbfca94c"
     },
     {
       "path": "docs/evidence/m0-program-control/pg-gate-map.json",
-      "sha256": "48c8af645c412117444053156ac1e70ae18f26b838a1f014efd4fad89342117c"
+      "sha256": "a6c8c9ff6a51ad161f099562ea534b1f8a8eb0811ff7e3ea600e0a685253f870"
     },
     {
       "path": "docs/evidence/m0-program-control/current-baselines.json",
-      "sha256": "51490bbac43320d87d74f5221c7cb2a53ffaa4264774a1e9099196f81b6985fb"
+      "sha256": "8b2e3b758399234c80562eaa19e67474173393bbc418e606e25924a8fa2b581d"
     },
     {
       "path": "docs/evidence/m0-program-control/blocker-ledger.json",
-      "sha256": "be8a5be37d5ca4dd70e9dd82c41b0d6cc6b192c49451cd056ea4f82cce43d81e"
+      "sha256": "3a300b3d98fbb213cc5f6a49157b36860a34198a09382062ef2ff97fb52ed229"
     },
     {
       "path": "docs/evidence/m0-program-control/release-ladder.json",
-      "sha256": "ebe62da26e0c063c709b307a558e978a83a22907bd853a2bb9947b5193054c27"
+      "sha256": "ce0ca28328da50e925896babcbdcacb698d34bc786adc7654bac918b031c47b0"
     },
     {
       "path": "docs/evidence/m0-program-control/program-evidence-index.json",
-      "sha256": "86e63d6e7cdfe40dfec71fa692c4768eeb639d70652fcfa0756c04e48fa5097a"
+      "sha256": "cf8521beb26f7138b81c1bc902385bafe1453e8e3ffcce1d8b91ea309a0ab138"
     },
     {
       "path": "docs/evidence/m0-program-control/m0-exit-report.json",
-      "sha256": "0a24d4f8c83895ebb075bc0accab6085265583de3f3d45bc535440fd23657778"
+      "sha256": "d51ce47355c8d0007fe0b65cf0f2c41c54e921b502fd1da5173847b6736fd55c"
     }
   ],
   "as_of_date": "2026-07-30",
-  "build_fingerprint": "2e1ef54c574d14d94d211da755029d162f9143e9031274418a4798235aa3a6c9",
+  "build_fingerprint": "bf58e957aacab3af7f5ac0450fafad3e0baa48ceca02135bb8cf2c1a6a720a70",
   "consumption_rule": "Consumers must run scripts/m0-program-control.mjs --check; matching filenames without matching hashes are stale.",
   "evidence_format": "ioi.m0.manifest.v1",
   "source_files": [
     {
       "path": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-      "sha256": "3e926beef843906b7d9cb1c83397d4b7c0846848586658cb37239e7ab0f01c9c"
+      "sha256": "f1f73ce5722f1885a2bf11c83fcf006d5c6a13be9523dde50cab43edabcb85c2"
     },
     {
       "path": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
-      "sha256": "6213282011950cbc6c3ea06c47a94de190e9220e985c47bca945c7f8a9c3ef96"
+      "sha256": "060906614c37aef74a4add6e4a064c055783ed7717f798d496fa5a737cb58679"
     },
     {
       "path": "docs/evidence/m0-program-control/program-control-source.json",
-      "sha256": "a6aabfd2e3d02d3a7317ce671fe74dcf26b564d510050d35290657123e763cab"
+      "sha256": "6aaa15e928eccbb0c2ff4963e99e401db4ec89dcf4b9d5008d47d4afe1aa66e3"
     },
     {
       "path": "docs/evidence/m0-program-control/README.md",

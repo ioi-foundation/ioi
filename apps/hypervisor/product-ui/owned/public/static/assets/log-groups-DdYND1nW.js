@@ -1,0 +1,145 @@
+import { d_ as e, e_ as t, m_ as n } from "./vendor-DAwbZtf0.js";
+var r = e(
+    `CiBnaXRwb2QvdjEvZW52aXJvbm1lbnRfbG9ncy5wcm90bxIJZ2l0cG9kLnYxIkEKEENyZWF0ZUxvZ1NlY3Rpb24SCgoCaWQYASABKAkSDQoFdGl0bGUYAiABKAkSEgoKY29udGludW91cxgDIAEoCCJjCg1FbmRMb2dTZWN0aW9uEgoKAmlkGAEgASgJEi0KB291dGNvbWUYAiABKA4yHC5naXRwb2QudjEuTG9nU2VjdGlvbk91dGNvbWUSFwoPc2Vjb25kc19lbGFwc2VkGAMgASgCKp0BChFMb2dTZWN0aW9uT3V0Y29tZRIjCh9MT0dfU0VDVElPTl9PVVRDT01FX1VOU1BFQ0lGSUVEEAASHwobTE9HX1NFQ1RJT05fT1VUQ09NRV9TVUNDRVNTEAESHwobTE9HX1NFQ1RJT05fT1VUQ09NRV9GQUlMVVJFEAISIQodTE9HX1NFQ1RJT05fT1VUQ09NRV9DQU5DRUxMRUQQA0IsWipnaXRodWIuY29tL2dpdHBvZC1pby9naXRwb2QtbmV4dC9hcGkvZ28vdjFiBnByb3RvMw`,
+  ),
+  i = n(r, 0),
+  a = n(r, 1),
+  o = (function (e) {
+    return (
+      (e[(e.UNSPECIFIED = 0)] = `UNSPECIFIED`),
+      (e[(e.SUCCESS = 1)] = `SUCCESS`),
+      (e[(e.FAILURE = 2)] = `FAILURE`),
+      (e[(e.CANCELLED = 3)] = `CANCELLED`),
+      e
+    );
+  })({}),
+  s = { SectionCreate: `[section-create]`, SectionLogLine: `[id:`, SectionEnd: `[section-end]` },
+  c = `no-log-group`,
+  l = RegExp(`^\\${s.SectionLogLine}([^\\]]+)\\](.*)$`),
+  u = RegExp(`^\\[([^\\]]+)\\] ([A-Za-z]+)(.*)$`);
+async function* d(e, t) {
+  for await (let n of v(e, t)) {
+    let e = [];
+    for (let t of n) {
+      let n = f(t.trim());
+      n && e.push(n);
+    }
+    yield e;
+  }
+}
+function f(e) {
+  if (e.trim() === ``) return;
+  let t = e.trim().substring(e.indexOf(`[`));
+  return e.includes(s.SectionCreate)
+    ? p(t)
+    : e.includes(s.SectionLogLine)
+      ? m(t)
+      : e.includes(s.SectionEnd)
+        ? _(t)
+        : h(e);
+}
+function p(e) {
+  let n;
+  try {
+    let r = JSON.parse(e.replace(s.SectionCreate, ``));
+    x(r) && (n = t(i, r));
+  } catch {
+    return;
+  }
+  if (!n) return;
+  let { $typeName: r, ...a } = n;
+  return { type: `SectionCreate`, ...a };
+}
+function m(e) {
+  let t = l.exec(e);
+  if (t === null) return;
+  let n = t[1].trim(),
+    { timestamp: r, logLevel: i, content: a } = g(t[2].replace(/^ /, ``));
+  return { type: `SectionLogLine`, id: n, timestamp: r ? new Date(r) : void 0, logLevel: i, line: a };
+}
+function h(e) {
+  return { type: `LegacyLogLine`, line: e };
+}
+function g(e) {
+  let t = e,
+    n,
+    r,
+    i = u.exec(e);
+  return (
+    i != null && ((n = i[1]), (r = i[2]), (t = i[3].replace(/^ /, ``))),
+    { timestamp: n, logLevel: r, content: t }
+  );
+}
+function _(e) {
+  let n;
+  try {
+    let r = JSON.parse(e.replace(s.SectionEnd, ``));
+    S(r) && (`success` in r && ((r.outcome = r.success ? o.SUCCESS : o.FAILURE), delete r.success), (n = t(a, r)));
+  } catch {
+    return;
+  }
+  if (!n) return;
+  let { $typeName: r, ...i } = n;
+  return { type: `SectionEnd`, ...i };
+}
+async function* v(e, t) {
+  let n = new TextDecoder(),
+    r = e.getReader(),
+    i = ``;
+  try {
+    for (; !t.aborted; ) {
+      let { done: e, value: t } = await r.read();
+      if (e) break;
+      let a = i + n.decode(t),
+        o = a.lastIndexOf(`
+`),
+        s = a.substring(0, o);
+      ((i = a.substring(o + 1)),
+        yield s.split(`
+`));
+    }
+    i && (yield [i]);
+  } finally {
+    r.releaseLock();
+  }
+}
+function y(e, t, n) {
+  let r = { ...e };
+  r[`no-log-group`] || (r[c] = { id: c, title: ``, continuous: !1, lines: [] });
+  for (let e of t)
+    switch (e.type) {
+      case `SectionCreate`:
+        ((r = b(r, e.id)), (r[e.id] = { ...r[e.id], title: e.title, continuous: e.continuous }));
+        break;
+      case `SectionLogLine`:
+        ((r = b(r, e.id)), (r[e.id] = { ...r[e.id], lines: [...r[e.id].lines, e] }));
+        break;
+      case `LegacyLogLine`:
+        r[c] = { ...r[c], lines: [...r[c].lines, e] };
+        break;
+      case `SectionEnd`:
+        ((r = b(r, e.id)), (r[e.id] = { ...r[e.id], outcome: e.outcome, secondsElapsed: e.secondsElapsed }));
+        break;
+    }
+  for (let e in r) r[e].lines = r[e].lines.slice(-n);
+  return r;
+}
+function b(e, t) {
+  return e[t] ? e : { ...e, [t]: { id: t, title: t, continuous: !1, lines: [] } };
+}
+function x(e) {
+  return C(e?.id) && C(e?.title);
+}
+function S(e) {
+  return C(e?.id) && (w(e?.success) || T(e?.outcome));
+}
+function C(e) {
+  return typeof e == `string`;
+}
+function w(e) {
+  return typeof e == `boolean`;
+}
+function T(e) {
+  return typeof e == `string`;
+}
+export { o as a, v as i, y as n, d as r, c as t };

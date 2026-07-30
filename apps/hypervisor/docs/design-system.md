@@ -4,10 +4,10 @@
 reference for the product's visual + interaction language. It is *descriptive of the
 current UX*, not aspirational — every value here is extracted from the running app.
 
-> **The product UI _is_ the product-ui bundle.** It is served by
-> `apps/hypervisor/scripts/serve-product-ui.mjs` (the reference bundle + an IOI `/api`
-> adapter), not by a hand-written React app. Treat the running app at **`:4173`** as the
-> source of truth; treat this doc as the index to it.
+> **The ported product UI is the executable seed.** It is served by
+> `apps/hypervisor/scripts/serve-product-ui.mjs` (the IOI-owned port plus an IOI `/api`
+> adapter). Treat the running app at **`:4173`** as the interaction and visual baseline;
+> architecture canon and daemon contracts remain the owners of product behavior and truth.
 
 ---
 
@@ -18,11 +18,14 @@ current UX*, not aspirational — every value here is extracted from the running
   `:4173` and inspect it — don't guess.
 - **Never hard-code raw colors.** Use the semantic tokens (`--surface-*`, `--content-*`,
   `--border-*`). They theme automatically (light/dark). Raw hex is a bug.
-- **Customize in the committed serve layer, not the snapshot.** The reference bundle lives
-  in a **committed product-ui bundle** — it is read-only. Product changes (e.g. the identity rename
-  `Levi Josman → John Doe`) go in `serve-product-ui.mjs` as response rewrites / an
-  `/api` adapter handler, so they're committed and survive product-ui bundle regeneration. See
+- **Work backward from the port.** Preserve the ported interaction and visual implementation,
+  then replace its fixtures and upstream assumptions with owner-backed IOI contracts. Until an
+  app-specific source adoption occurs, committed changes belong in the owned serve/augmentation
+  layer and the app's ported module. See
   [product-ui-api-integration.md](./product-ui-api-integration.md).
+- **Do not confuse reference retirement with app retirement.** Comparative capture routes and
+  raw source material may be discarded. A ported product surface remains the seed until that
+  exact app has owner binding, parity, negative no-fallback, and route-cutover proof.
 - **System-aware theming is mandatory.** The app honors `prefers-color-scheme`; both
   themes must work. Never force a single theme.
 - **Verify against `:4173`** (both `colorScheme: dark` and `light`) before claiming a UX
@@ -167,9 +170,10 @@ Subtle, fast (Radix + tailwindcss-animate). Driven by `data-state`:
 ## 9. How to make a UX change (checklist)
 
 1. Find it in the live app (`:4173`) and identify the tokens/classes it already uses.
-2. If it's a data/content change (names, copy, fixtures) → rewrite/adapter in
-   `serve-product-ui.mjs` (see the identity-rename pattern).
-3. If it's genuinely new UI → build it with the tokens + component patterns above so it's
-   indistinguishable from the reference; both themes; the §7 motion; §8 a11y.
+2. If it is a data/authority change, bind the existing ported control to its owner-backed
+   daemon contract through the app's serve/adapter/module path.
+3. If the journey has no suitable ported seed, a new first-party client or surface may be
+   built with these tokens and patterns. Record why no seed applies; do not use it to replace
+   unrelated ported apps.
 4. Verify on `:4173` in **dark and light**, screenshot-diff against the reference, confirm
    no operator-name or upstream-brand leakage, and no raw-hex regressions.

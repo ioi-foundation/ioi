@@ -1,0 +1,716 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import { Ld as n, Ml as r, Vd as i, k as a, v_ as o, wg as s, xg as c, zg as l } from "./vendor-DAwbZtf0.js";
+import { Dt as u, tr as d } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { p as f, u as p } from "./webhook_pb-C1T_Ekd7.js";
+import { n as m } from "./toast-axaLeIzZ.js";
+import { a as h, t as g } from "./button-6YP03Qf2.js";
+import { t as _ } from "./cn-DppMFCU8.js";
+import { t as v } from "./dialog-BtjFqa-w.js";
+import { n as y } from "./utils-C9bSuXia.js";
+import { t as b } from "./input-C42Z_4fO.js";
+import { M as x, w as S } from "./automations-CN21BoUy.js";
+import { t as C } from "./external-link-BKbp1Q22.js";
+import { t as w } from "./label-5ATlPnPj.js";
+import { i as T, n as E } from "./SourceControlProviderIcon-DRPBTuTO.js";
+import { t as D } from "./IconGitHub-DdVg_DwS.js";
+import { t as O } from "./delayed-DmSSX8Yq.js";
+import {
+  a as k,
+  b as A,
+  d as j,
+  h as M,
+  l as N,
+  m as P,
+  n as F,
+  o as I,
+  p as L,
+  t as R,
+  v as z,
+  y as B,
+} from "./webhook-config-CpInIrBu.js";
+import { t as V } from "./WebhookScopeField-DTyeik55.js";
+import { t as H } from "./use-go-back-C0iFybaN.js";
+var U = e(t(), 1),
+  W = o(),
+  G = (e) => I(e) && e.spec?.provider !== p.UNSPECIFIED && e.spec?.type !== f.UNSPECIFIED,
+  K = ({ webhook: e, open: t, onClose: n }) => {
+    let { toast: r } = m(),
+      i = c(),
+      a = L(),
+      [o, s] = (0, U.useState)(`confirm`),
+      { workflows: p, isLoading: h, hasRunningExecutions: _, hasBoundWorkflows: y } = A(e.id, t && o === `confirm`),
+      b = e.metadata?.name || `Unnamed webhook`,
+      w = (0, U.useCallback)(async () => {
+        try {
+          (await a.mutateAsync(e.id),
+            G(e)
+              ? s(`reminder`)
+              : (r({ title: `Webhook deleted`, description: `Webhook has been deleted successfully.` }), n(), i(S())));
+        } catch (e) {
+          r({ title: `Failed to delete webhook`, description: d(e) });
+        }
+      }, [a, e, r, n, i]),
+      T = (0, U.useCallback)(() => {
+        (s(`confirm`), n(), i(S()));
+      }, [n, i]),
+      E = (0, U.useCallback)(
+        (e) => {
+          e || (o === `reminder` ? T() : n());
+        },
+        [o, T, n],
+      ),
+      D = e.spec?.provider,
+      O = e.spec?.type,
+      j = e.spec?.scope || ``,
+      M = D === void 0 ? `your SCM provider` : R[D]?.name,
+      P = O === void 0 ? `` : F[O]?.name.toLowerCase(),
+      I = [];
+    if (D !== void 0 && O !== void 0) {
+      let t = e.spec?.organizationScope;
+      if (t?.name) {
+        let e = k(D, f.SCM_ORGANIZATION, t.name, !1, t.host);
+        e && I.push({ label: `${t.name} (organization)`, url: e });
+      }
+      let n = e.spec?.scopes;
+      if (n && n.length > 0)
+        for (let e of n) {
+          let t = N(e),
+            n = k(D, f.SCM_REPOSITORY, t, !1, e.host);
+          n && I.push({ label: t, url: n });
+        }
+      if (j && I.length === 0) {
+        let e = k(D, O, j);
+        e && I.push({ label: j, url: e });
+      }
+    }
+    return (0, W.jsx)(v, {
+      open: t,
+      onOpenChange: E,
+      children: (0, W.jsx)(v.Content, {
+        "data-testid": `delete-webhook-dialog`,
+        "data-track-location": u.DeleteWebhookDialog,
+        children:
+          o === `confirm`
+            ? (0, W.jsxs)(W.Fragment, {
+                children: [
+                  (0, W.jsxs)(v.Header, {
+                    className: `mb-0`,
+                    children: [
+                      (0, W.jsx)(v.Title, {
+                        children: y
+                          ? `Delete webhook`
+                          : (0, W.jsxs)(W.Fragment, { children: [`Delete webhook '`, b, `'`] }),
+                      }),
+                      (0, W.jsx)(v.Description, {
+                        children: `This removes the webhook from IOI. It will not delete the webhook in GitHub, GitLab, or Bitbucket.`,
+                      }),
+                    ],
+                  }),
+                  y &&
+                    (0, W.jsx)(v.Body, {
+                      children: (0, W.jsx)(`div`, {
+                        className: `rounded-lg border border-border-warning px-4 py-3 text-content-primary`,
+                        children: (0, W.jsxs)(`div`, {
+                          className: `flex gap-3`,
+                          children: [
+                            (0, W.jsx)(l, { size: 16, className: `mt-0.5 shrink-0 text-content-warning` }),
+                            (0, W.jsxs)(`div`, {
+                              className: `flex flex-col gap-3`,
+                              children: [
+                                (0, W.jsxs)(`p`, {
+                                  children: [
+                                    `Deleting this webhook will switch these automations to`,
+                                    ` `,
+                                    (0, W.jsx)(`strong`, { children: `Manual` }),
+                                    ` and stop future PR-triggered runs.`,
+                                  ],
+                                }),
+                                _ &&
+                                  (0, W.jsx)(`p`, {
+                                    children: `Any automation that is currently executing will continue until it completes.`,
+                                  }),
+                                (0, W.jsxs)(`div`, {
+                                  children: [
+                                    (0, W.jsx)(`p`, {
+                                      className: `font-medium`,
+                                      children: `The following automations will be affected:`,
+                                    }),
+                                    (0, W.jsx)(`ul`, {
+                                      className: `mt-1 list-inside list-disc`,
+                                      children: p.map(({ workflow: e, isRunning: t }) =>
+                                        (0, W.jsxs)(
+                                          `li`,
+                                          {
+                                            children: [
+                                              x(e),
+                                              t &&
+                                                (0, W.jsx)(`span`, {
+                                                  className: `ml-1 italic text-content-secondary`,
+                                                  children: `- Execution running`,
+                                                }),
+                                            ],
+                                          },
+                                          e.id,
+                                        ),
+                                      ),
+                                    }),
+                                  ],
+                                }),
+                              ],
+                            }),
+                          ],
+                        }),
+                      }),
+                    }),
+                  (0, W.jsxs)(v.Footer, {
+                    className: `justify-end`,
+                    children: [
+                      (0, W.jsx)(v.Close, {
+                        asChild: !0,
+                        children: (0, W.jsx)(g, {
+                          variant: `outline`,
+                          "data-testid": `delete-webhook-dialog-cancel`,
+                          children: `Cancel`,
+                        }),
+                      }),
+                      (0, W.jsx)(g, {
+                        variant: `destructive`,
+                        onClick: w,
+                        loading: a.isPending || h,
+                        disabled: h,
+                        "data-testid": `delete-webhook-dialog-confirm`,
+                        "data-tracking-id": `confirm-delete-webhook-delete-webhook-dialog`,
+                        children: `Delete webhook`,
+                      }),
+                    ],
+                  }),
+                ],
+              })
+            : (0, W.jsxs)(W.Fragment, {
+                children: [
+                  (0, W.jsxs)(v.Header, {
+                    className: `mb-0`,
+                    children: [
+                      (0, W.jsx)(v.Title, { children: `Webhook deleted` }),
+                      (0, W.jsxs)(v.Description, { children: [`The webhook '`, b, `' has been removed from IOI.`] }),
+                    ],
+                  }),
+                  (0, W.jsx)(v.Body, {
+                    children: (0, W.jsx)(`div`, {
+                      className: `rounded-lg border border-border-base px-4 py-3 text-content-primary`,
+                      children: (0, W.jsxs)(`div`, {
+                        className: `flex gap-3`,
+                        children: [
+                          (0, W.jsx)(l, { size: 16, className: `mt-0.5 shrink-0 text-content-warning` }),
+                          (0, W.jsxs)(`div`, {
+                            className: `flex flex-col gap-2`,
+                            children: [
+                              (0, W.jsxs)(`p`, {
+                                children: [
+                                  `Remember to also remove the webhook from your `,
+                                  M,
+                                  ` `,
+                                  P,
+                                  ` `,
+                                  `settings to stop sending events.`,
+                                ],
+                              }),
+                              I.length > 0 &&
+                                (0, W.jsx)(`ul`, {
+                                  className: `flex flex-col gap-1`,
+                                  children: I.map((e) =>
+                                    (0, W.jsx)(
+                                      `li`,
+                                      {
+                                        children: (0, W.jsx)(C, {
+                                          href: e.url,
+                                          iconSize: `sm`,
+                                          "data-testid": `delete-webhook-scm-settings-link`,
+                                          "data-tracking-id": `open-scm-settings-delete-webhook-dialog`,
+                                          children: e.label,
+                                        }),
+                                      },
+                                      e.url,
+                                    ),
+                                  ),
+                                }),
+                            ],
+                          }),
+                        ],
+                      }),
+                    }),
+                  }),
+                  (0, W.jsx)(v.Footer, {
+                    className: `justify-end`,
+                    children: (0, W.jsx)(g, {
+                      variant: `outline`,
+                      onClick: T,
+                      "data-testid": `delete-webhook-dialog-done`,
+                      "data-tracking-id": `done-delete-webhook-dialog`,
+                      children: `Done`,
+                    }),
+                  }),
+                ],
+              }),
+      }),
+    });
+  },
+  q = ({ webhookId: e, provider: t, open: n, onClose: r }) => {
+    let { toast: i } = m(),
+      { mutateAsync: a, isPending: o } = z(),
+      s = (0, U.useMemo)(() => {
+        switch (t) {
+          case p.GITHUB:
+            return `GitHub`;
+          case p.GITLAB:
+            return `GitLab`;
+          default:
+            return `your SCM provider`;
+        }
+      }, [t]),
+      c = (0, U.useCallback)(async () => {
+        try {
+          (await a(e), i({ title: `Webhook secret has been rotated` }), r());
+        } catch (e) {
+          i({ title: `Failed to rotate webhook secret`, description: d(e) });
+        }
+      }, [e, a, i, r]);
+    return (0, W.jsx)(v, {
+      open: n,
+      onOpenChange: r,
+      children: (0, W.jsxs)(v.Content, {
+        "data-testid": `rotate-webhook-secret-dialog`,
+        "data-track-location": u.RotateWebhookSecretDialog,
+        children: [
+          (0, W.jsxs)(v.Header, {
+            className: `mb-0`,
+            children: [
+              (0, W.jsx)(v.Title, { children: `Rotate webhook secret` }),
+              (0, W.jsx)(v.Description, { children: `This will invalidate the current secret token.` }),
+            ],
+          }),
+          (0, W.jsx)(v.Body, {
+            children: (0, W.jsx)(`div`, {
+              className: `rounded-lg border border-border-warning px-4 py-3 text-content-primary`,
+              children: (0, W.jsxs)(`div`, {
+                className: `flex gap-3`,
+                children: [
+                  (0, W.jsx)(l, { size: 16, className: `mt-0.5 shrink-0 text-content-warning` }),
+                  (0, W.jsxs)(`div`, {
+                    className: `flex flex-col gap-3`,
+                    children: [
+                      (0, W.jsxs)(`p`, {
+                        children: [
+                          `The current secret will stop working `,
+                          (0, W.jsx)(`strong`, { children: `immediately` }),
+                          ` after rotation.`,
+                        ],
+                      }),
+                      (0, W.jsxs)(`p`, {
+                        children: [
+                          `You will need to update the webhook secret in `,
+                          s,
+                          ` for signature verification to continue working.`,
+                        ],
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            }),
+          }),
+          (0, W.jsxs)(v.Footer, {
+            className: `justify-end`,
+            children: [
+              (0, W.jsx)(v.Close, {
+                asChild: !0,
+                children: (0, W.jsx)(g, {
+                  variant: `outline`,
+                  "data-testid": `rotate-webhook-secret-dialog-cancel`,
+                  children: `Cancel`,
+                }),
+              }),
+              (0, W.jsx)(g, {
+                variant: `destructive`,
+                onClick: c,
+                loading: o,
+                disabled: o,
+                "data-testid": `rotate-webhook-secret-dialog-confirm`,
+                "data-tracking-id": `confirm-rotate-secret-rotate-webhook-secret-dialog`,
+                children: `Rotate secret`,
+              }),
+            ],
+          }),
+        ],
+      }),
+    });
+  },
+  J = ({ open: e, onClose: t, webhook: n, isLoading: r }) => {
+    let i = n?.spec?.scope || ``,
+      a = JSON.stringify(n?.spec?.scopes ?? []),
+      o = JSON.stringify(n?.spec?.organizationScope ?? null),
+      s = `${n?.id ?? `none`}:${i}:${a}:${o}`;
+    return (0, W.jsx)(
+      Y,
+      { open: e, onClose: t, webhook: n, isLoading: r, webhookScope: i, scopesKey: a, orgScopeKey: o },
+      s,
+    );
+  },
+  Y = ({ open: e, onClose: t, webhook: n, isLoading: r, webhookScope: i, scopesKey: a, orgScopeKey: o }) => {
+    let { toast: s } = m(),
+      { data: c, isLoading: l } = M(n?.id),
+      { mutateAsync: _, isPending: y } = B(),
+      { canDeleteWebhook: x } = j(n?.id),
+      [S, C] = (0, U.useState)(!1),
+      [T, E] = (0, U.useState)(!1),
+      [D, k] = (0, U.useState)(i),
+      [A, N] = (0, U.useState)(() => {
+        let e = n?.spec?.scopes;
+        return e && e.length > 0 ? e.map((e) => ({ host: e.host, owner: e.owner, name: e.name })) : [];
+      }),
+      [P, F] = (0, U.useState)(() => {
+        let e = n?.spec?.organizationScope;
+        if (e) return { host: e.host, name: e.name };
+      }),
+      L = n?.spec?.provider ?? p.UNSPECIFIED,
+      R = n?.spec?.type ?? f.UNSPECIFIED,
+      z = n?.url || ``,
+      H = n ? I(n) : !1,
+      G = (e) => {
+        k(e);
+      },
+      J = (e) => {
+        N(e);
+      },
+      Y = A.length > 0 || !!P || !!D,
+      Q = (0, U.useMemo)(() => {
+        let e = JSON.stringify(A.map((e) => ({ host: e.host, owner: e.owner, name: e.name }))),
+          t = JSON.stringify(P ?? null);
+        return e !== a || t !== o;
+      }, [A, P, a, o]),
+      $ = async () => {
+        if (!(!n || !Y))
+          try {
+            (await _({
+              webhookId: n.id,
+              scope: D,
+              scopes: A.map((e) => ({ host: e.host, owner: e.owner, name: e.name })),
+              organizationScope: P,
+            }),
+              s({ title: `Webhook configured`, description: `You can now create an automation to use it.` }),
+              t());
+          } catch (e) {
+            s({ title: `Failed to update webhook scope`, description: d(e) });
+          }
+      };
+    return (0, W.jsxs)(v, {
+      open: e,
+      onOpenChange: t,
+      children: [
+        (0, W.jsxs)(v.Content, {
+          "data-testid": `webhook-details-dialog`,
+          "data-track-location": u.ConfigureWebhookDialog,
+          children: [
+            (0, W.jsxs)(v.Header, {
+              className: `mb-2`,
+              children: [
+                (0, W.jsx)(v.Title, { children: r ? `Loading...` : `Webhook configuration` }),
+                (0, W.jsx)(v.Description, {
+                  children: r
+                    ? `Loading webhook details`
+                    : `Set up a webhook to connect IOI with your GitHub, GitLab, or Bitbucket repositories.`,
+                }),
+              ],
+            }),
+            (0, W.jsx)(v.Body, {
+              className: `flex flex-col gap-4 px-0`,
+              children: r
+                ? (0, W.jsx)(O, {
+                    wait: 300,
+                    children: (0, W.jsx)(`div`, {
+                      className: `flex items-center justify-center py-8`,
+                      children: (0, W.jsx)(h, { className: `animate-spin`, size: `sm` }),
+                    }),
+                  })
+                : (0, W.jsxs)(`div`, {
+                    className: `flex flex-col gap-4`,
+                    children: [
+                      n && (0, W.jsx)(ee, { webhookId: n.id, initialName: n.metadata?.name || `` }),
+                      (0, W.jsx)(Z, { provider: L }),
+                      (0, W.jsx)(V, {
+                        provider: L,
+                        webhookType: R,
+                        value: D,
+                        onChange: G,
+                        scopes: A,
+                        onScopesChange: J,
+                        organizationScope: P,
+                        onOrganizationScopeChange: F,
+                        disabled: y,
+                      }),
+                      (0, W.jsxs)(`div`, {
+                        className: `flex flex-col gap-2`,
+                        children: [
+                          (0, W.jsx)(w, {
+                            className: `text-sm font-medium`,
+                            htmlFor: `payload-url`,
+                            children: `Payload URL`,
+                          }),
+                          (0, W.jsx)(b, {
+                            copyable: !0,
+                            id: `payload-url`,
+                            value: z,
+                            "data-testid": `payload-url-input`,
+                            "data-tracking-id": `copy-payload-url-webhook-details-dialog`,
+                          }),
+                          (0, W.jsx)(`span`, {
+                            className: `text-sm text-content-secondary`,
+                            children: `Use this endpoint to receive events from your SCM provider.`,
+                          }),
+                        ],
+                      }),
+                      (0, W.jsxs)(`div`, {
+                        className: `flex flex-col gap-2`,
+                        children: [
+                          (0, W.jsx)(w, {
+                            className: `text-sm font-medium`,
+                            htmlFor: `secret-token`,
+                            children: `Secret token`,
+                          }),
+                          (0, W.jsxs)(`div`, {
+                            className: `flex items-center gap-2`,
+                            children: [
+                              (0, W.jsx)(`div`, {
+                                className: `grow`,
+                                children: (0, W.jsx)(b, {
+                                  copyable: !0,
+                                  id: `secret-token`,
+                                  type: `password`,
+                                  value: c || ``,
+                                  disabled: l,
+                                  "data-testid": `secret-token-input`,
+                                  "data-tracking-id": `copy-secret-token-webhook-details-dialog`,
+                                }),
+                              }),
+                              (0, W.jsx)(g, {
+                                variant: `outline`,
+                                onClick: () => {
+                                  E(!0);
+                                },
+                                disabled: l,
+                                "data-testid": `rotate-secret-button`,
+                                "data-tracking-id": `rotate-secret-webhook-details-dialog`,
+                                LeadingIcon: X,
+                                "aria-label": `Rotate secret`,
+                              }),
+                            ],
+                          }),
+                          (0, W.jsx)(`span`, {
+                            className: `text-sm text-content-secondary`,
+                            children: `Use this token to verify webhook signatures.`,
+                          }),
+                        ],
+                      }),
+                    ],
+                  }),
+            }),
+            !r &&
+              (0, W.jsxs)(v.Footer, {
+                children: [
+                  (0, W.jsx)(g, {
+                    variant: `destructive-secondary`,
+                    onClick: () => {
+                      C(!0);
+                    },
+                    disabled: !x,
+                    "data-testid": `delete-webhook-button`,
+                    "data-tracking-id": `delete-webhook-details-dialog`,
+                    children: `Delete`,
+                  }),
+                  H
+                    ? (0, W.jsx)(W.Fragment, {
+                        children: Q
+                          ? (0, W.jsx)(g, {
+                              variant: `primary`,
+                              onClick: $,
+                              disabled: !Y || y,
+                              loading: y,
+                              "data-testid": `save-scope-webhook-button`,
+                              "data-tracking-id": `save-scope-webhook-details-dialog`,
+                              children: `Save`,
+                            })
+                          : (0, W.jsx)(v.Close, {
+                              asChild: !0,
+                              children: (0, W.jsx)(g, {
+                                variant: `outline`,
+                                "data-testid": `close-webhook-button`,
+                                children: `Done`,
+                              }),
+                            }),
+                      })
+                    : (0, W.jsxs)(`div`, {
+                        className: `flex gap-2`,
+                        children: [
+                          (0, W.jsx)(v.Close, {
+                            asChild: !0,
+                            children: (0, W.jsx)(g, {
+                              variant: `outline`,
+                              "data-testid": `do-it-later-webhook-button`,
+                              "data-tracking-id": `do-it-later-webhook-details-dialog`,
+                              children: `Do it later`,
+                            }),
+                          }),
+                          (0, W.jsx)(g, {
+                            variant: `primary`,
+                            onClick: $,
+                            disabled: !Y || y,
+                            loading: y,
+                            "data-testid": `save-scope-webhook-button`,
+                            "data-tracking-id": `done-webhook-details-dialog`,
+                            children: `Done`,
+                          }),
+                        ],
+                      }),
+                ],
+              }),
+          ],
+        }),
+        n &&
+          (0, W.jsxs)(W.Fragment, {
+            children: [
+              (0, W.jsx)(K, {
+                webhook: n,
+                open: S,
+                onClose: () => {
+                  C(!1);
+                },
+              }),
+              (0, W.jsx)(q, {
+                webhookId: n.id,
+                provider: L,
+                open: T,
+                onClose: () => {
+                  E(!1);
+                },
+              }),
+            ],
+          }),
+      ],
+    });
+  },
+  X = y(a),
+  Z = ({ provider: e }) =>
+    (0, W.jsxs)(`div`, {
+      className: `flex select-none flex-col`,
+      children: [
+        (0, W.jsx)(`span`, { className: `mb-2 text-sm font-medium text-content-primary`, children: `Location` }),
+        (0, W.jsxs)(`div`, {
+          className: `flex gap-3`,
+          children: [
+            (0, W.jsxs)(`div`, {
+              className: _(
+                `flex items-center gap-2 rounded-lg p-3`,
+                e === p.GITHUB
+                  ? `border-[1.5px] border-border-brand bg-surface-brand-subtle shadow`
+                  : `border border-border-base opacity-50`,
+                e !== p.GITHUB && `m-[0.5px]`,
+              ),
+              "data-testid": `webhook-provider-github-display`,
+              children: [
+                (0, W.jsx)(D, { size: `sm`, className: `text-content-primary` }),
+                (0, W.jsx)(`span`, { className: `text-sm text-content-primary`, children: `GitHub` }),
+              ],
+            }),
+            (0, W.jsxs)(`div`, {
+              className: _(
+                `flex items-center gap-2 rounded-lg p-3`,
+                e === p.GITLAB
+                  ? `border-[1.5px] border-border-brand bg-surface-brand-subtle shadow`
+                  : `border border-border-base opacity-50`,
+                e !== p.GITLAB && `m-[0.5px]`,
+              ),
+              "data-testid": `webhook-provider-gitlab-display`,
+              children: [
+                (0, W.jsx)(E, { size: `sm`, className: `text-content-primary` }),
+                (0, W.jsx)(`span`, { className: `text-sm text-content-primary`, children: `GitLab` }),
+              ],
+            }),
+            (0, W.jsxs)(`div`, {
+              className: _(
+                `flex items-center gap-2 rounded-lg p-3`,
+                e === p.BITBUCKET
+                  ? `border-[1.5px] border-border-brand bg-surface-brand-subtle shadow`
+                  : `border border-border-base opacity-50`,
+                e !== p.BITBUCKET && `m-[0.5px]`,
+              ),
+              "data-testid": `webhook-provider-bitbucket-display`,
+              children: [
+                (0, W.jsx)(T, { size: `sm`, className: `text-content-primary` }),
+                (0, W.jsx)(`span`, { className: `text-sm text-content-primary`, children: `Bitbucket` }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    }),
+  ee = ({ webhookId: e, initialName: t }) => {
+    let { toast: a } = m(),
+      { mutateAsync: o } = B(),
+      s = (0, U.useMemo)(() => {
+        let n = i(t),
+          s = i(t);
+        return {
+          nameAtom: n,
+          autoSaveEffect: r((t, r) => {
+            let i = t(n),
+              c = t.peek(s);
+            if (i === c) return;
+            let l = setTimeout(() => {
+              (async () => {
+                try {
+                  (await o({ webhookId: e, name: i.trim() || void 0 }), r(s, i));
+                } catch (e) {
+                  (a({ title: `Failed to update webhook name`, description: d(e) }), r(n, c));
+                }
+              })();
+            }, 500);
+            return () => clearTimeout(l);
+          }),
+        };
+      }, [e, o, a, t]),
+      [c, l] = n(s.nameAtom);
+    return (
+      n(s.autoSaveEffect),
+      (0, W.jsxs)(`div`, {
+        className: `flex flex-col gap-2`,
+        children: [
+          (0, W.jsx)(w, { className: `text-sm font-medium`, htmlFor: `webhook-name`, children: `Name` }),
+          (0, W.jsx)(b, {
+            "data-1p-ignore": !0,
+            "data-lpignore": `true`,
+            "data-protonpass-ignore": `true`,
+            id: `webhook-name`,
+            placeholder: `My Webhook`,
+            value: c,
+            onChange: (e) => l(e.target.value),
+            "data-testid": `webhook-name-input`,
+            maxLength: 80,
+          }),
+        ],
+      })
+    );
+  },
+  Q = () => {
+    let { webhookId: e } = s(),
+      t = c(),
+      n = H(S()),
+      { data: r, error: i, isLoading: a } = P(e);
+    return (
+      (0, U.useEffect)(() => {
+        i && t(S(), { replace: !0 });
+      }, [i, t]),
+      (0, W.jsx)(J, { webhook: r, open: !0, onClose: n, isLoading: a })
+    );
+  };
+export { Q as WebhookDetailsPage };

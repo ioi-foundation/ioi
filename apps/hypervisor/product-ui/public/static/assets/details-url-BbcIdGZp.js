@@ -1,0 +1,1 @@
+function e(e){return`/details/${e.environment.id}`}export{e as t};

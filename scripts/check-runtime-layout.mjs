@@ -565,16 +565,18 @@ assert(
     ]
       .join("\n")
       .includes("apps/hypervisor/src/windows/shared/hostWindowDrag.ts") &&
-    !exists("apps/hypervisor/scripts/serve-product-ui.mjs") &&
-    !exists("apps/hypervisor/scripts/ioi-api-adapter.mjs") &&
-    !exists("apps/hypervisor/product-ui") &&
-    exists("apps/hypervisor/src/data/productSurface.ts") &&
-    exists("apps/hypervisor/src/shell/AppShell.tsx") &&
+    exists("apps/hypervisor/scripts/serve-product-ui.mjs") &&
+    exists("apps/hypervisor/scripts/ioi-api-adapter.mjs") &&
+    exists("apps/hypervisor/product-ui/owned/public") &&
+    exists("apps/hypervisor/surfaces") &&
+    !exists("apps/hypervisor/src/data/productSurface.ts") &&
+    !exists("apps/hypervisor/src/shell/AppShell.tsx") &&
     hypervisorAppMainSource.includes(
       'import "@ioi/hypervisor-workbench/dist/style.css";',
     ) &&
-    hypervisorAppMainSource.includes('import { AppShell } from "./shell/AppShell";') &&
-    hypervisorAppMainSource.includes('import { RouteRefusalSurface } from "./surfaces/RouteRefusalSurface";'),
+    hypervisorAppMainSource.includes(
+      "The canonical Hypervisor product UI is the tracked product-ui bundle + IOI /api adapter",
+    ),
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
     "apps/hypervisor/src/windows/shared/hostWindowDrag.ts",
@@ -582,10 +584,12 @@ assert(
     "docs/architecture/_meta/source-of-truth-map.md",
     "docs/architecture/components/hypervisor/core-clients-surfaces.md",
     "apps/hypervisor/src/main.tsx",
-    "apps/hypervisor/src/data/productSurface.ts",
-    "apps/hypervisor/src/shell/AppShell.tsx",
+    "apps/hypervisor/scripts/serve-product-ui.mjs",
+    "apps/hypervisor/scripts/ioi-api-adapter.mjs",
+    "apps/hypervisor/product-ui/owned/public",
+    "apps/hypervisor/surfaces",
   ],
-  "Hypervisor shell and secondary canon docs must retain the source-owned application shell and must not reintroduce the retired compatibility bundle, adapter, hidden client header, or host drag helper.",
+  "Hypervisor must retain the IOI-owned ported app estate as its executable seed, reject an observation-based parallel shell, and must not reintroduce a hidden client header or host drag helper above that shell.",
 );
 assert(
   "hypervisor-dev-start-probe-no-dual-product-log-prefix",
@@ -1048,6 +1052,10 @@ assert(
       "node scripts/conformance/hypervisor-conformance.mjs receipts" &&
     packageJson.scripts["hypervisor-conformance:app"] ===
       "node scripts/conformance/hypervisor-conformance.mjs app" &&
+    packageJson.scripts["check:hypervisor-ported-seed"] ===
+      "node apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs" &&
+    exists("apps/hypervisor/ported-seed-preservation.v1.json") &&
+    exists("apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs") &&
     packageJson.scripts["hypervisor-conformance:compositor"] ===
       "node scripts/conformance/hypervisor-conformance.mjs compositor" &&
     packageJson.scripts["test:workflow-compositor-dogfood"] ===
@@ -1067,6 +1075,7 @@ assert(
     hypervisorConformanceSource.includes("check:architecture-docs") &&
     hypervisorConformanceSource.includes("check:conformance-docs") &&
     hypervisorConformanceSource.includes("check:runtime-layout") &&
+    hypervisorConformanceSource.includes("check:hypervisor-ported-seed:live") &&
     hypervisorConformanceSource.includes(
       "check:hypervisor-code-editor-adapter-host-paths",
     ) &&

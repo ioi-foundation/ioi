@@ -1,0 +1,13 @@
+import { v_ as e } from "./vendor-DAwbZtf0.js";
+import { t } from "./tooltip-6hqVQbwq.js";
+import { t as n } from "./Pill-99RRpZf2.js";
+import "./pill-AA_qJIlm.js";
+var r = e(),
+  i = `This service account is managed by IOI and cannot be edited or deleted.`,
+  a = () =>
+    (0, r.jsx)(t, {
+      content: i,
+      usePortal: !0,
+      children: (0, r.jsx)(`span`, { children: (0, r.jsx)(n, { variant: `neutral`, children: `Built-in` }) }),
+    });
+export { a as t };

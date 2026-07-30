@@ -1,0 +1,76 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import { Bl as n, v_ as r } from "./vendor-DAwbZtf0.js";
+import { g as i, m as a } from "./project-queries-BMZ3qCU_.js";
+import { t as o } from "./combobox-BkGa_nRF.js";
+var s = e(t(), 1),
+  c = r(),
+  l = { id: `all`, metadata: { name: `All Projects` } },
+  u = ({
+    selectedProject: e,
+    onProjectChange: t,
+    className: r,
+    disabled: u = !1,
+    excludeProjectIds: d,
+    placeholder: f = `All Projects`,
+    showAllOption: p = !0,
+  }) => {
+    let [m, h] = (0, s.useState)(``),
+      [g] = n(m, 250, { trailing: !0 }),
+      {
+        data: _,
+        hasNextPage: v,
+        fetchNextPage: y,
+        isFetchingNextPage: b,
+        isPending: x,
+        isFetching: S,
+      } = a({ search: g }),
+      { data: C } = i(e ?? void 0),
+      w = (0, s.useMemo)(() => (_ ? { projects: _.pages.flatMap((e) => e.projects) } : { projects: [] }), [_]),
+      T = (0, s.useMemo)(
+        () => (!d || d.length === 0 ? w.projects : w.projects.filter((e) => !d.includes(e.id))),
+        [w.projects, d],
+      ),
+      E = (0, s.useMemo)(() => {
+        if (!e) return;
+        let t = w.projects.find((t) => t.id === e);
+        return t ? t.metadata?.name : C?.metadata?.name;
+      }, [e, w.projects, C?.metadata?.name]),
+      D = (0, s.useCallback)(() => {
+        v && !b && y();
+      }, [v, b, y]),
+      O = (0, s.useMemo)(() => (!p || m || d ? T : [l, ...T]), [p, m, d, T]);
+    return (0, c.jsxs)(o, {
+      value: e ?? `all`,
+      onValueChange: t,
+      filterPlaceholder: `Search projects...`,
+      disabled: u || (w.projects.length === 0 && !x),
+      className: r,
+      loading: x,
+      children: [
+        (0, c.jsx)(o.Value, { children: (0, c.jsx)(o.ValueLabel, { children: e && E ? E : f }) }),
+        (0, c.jsxs)(o.Popover, {
+          className: `z-[999] w-96 max-w-[calc(100vw-1rem)]`,
+          sameWidth: !1,
+          children: [
+            (0, c.jsx)(o.SearchBox, { onValueChanged: h, loading: S || b }),
+            (0, c.jsx)(o.List, {
+              onScrollEnd: D,
+              scrollEndThreshold: 1e3,
+              items: O,
+              searchKeys: [],
+              disableFiltering: !0,
+              noMatchesComponent: (0, c.jsx)(o.Empty, { children: `No projects found` }),
+              children: (e) =>
+                (0, c.jsx)(
+                  o.ListItem,
+                  { value: e.id, children: (0, c.jsx)(o.ListItemTitle, { children: e.metadata?.name || e.id }) },
+                  e.id,
+                ),
+            }),
+          ],
+        }),
+      ],
+    });
+  };
+export { u as t };

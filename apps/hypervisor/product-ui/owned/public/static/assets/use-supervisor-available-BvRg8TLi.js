@@ -1,0 +1,200 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { Q as t } from "./SegmentProvider-CXCNBY9U.js";
+import { n } from "./@mux-DLaEVubF.js";
+import { Hf as r, Np as i, Of as a, Qf as o, Rf as s, ap as c, bp as l, v_ as u } from "./vendor-DAwbZtf0.js";
+import { js as d } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { t as f } from "./text-fFCFeCas.js";
+import { J as p } from "./environment-queries-zpiLcWfm.js";
+import { t as m } from "./useStartupSteps-BVqq8tIE.js";
+var h = e(n(), 1),
+  g = (e, t) => {
+    let [n, r] = (0, h.useState)(e),
+      [i, a] = (0, h.useState)(t),
+      [o, s] = (0, h.useState)(!1),
+      c = (0, h.useRef)(Date.now()),
+      l = (0, h.useRef)(null);
+    return (
+      (0, h.useEffect)(() => {
+        if (t === i) {
+          (r(e), (l.current = null));
+          return;
+        }
+        let n = Date.now() - c.current,
+          o = Math.max(0, 800 - n);
+        l.current = t;
+        let u,
+          d = setTimeout(() => {
+            (s(!0),
+              (u = setTimeout(() => {
+                (r(e), a(t), s(!1), (c.current = Date.now()), (l.current = null));
+              }, 300)));
+          }, o);
+        return () => {
+          (clearTimeout(d), clearTimeout(u));
+        };
+      }, [e, t, n, i]),
+      { displayLabel: n, displayStepId: i, isTransitioning: o }
+    );
+  },
+  _ = u(),
+  v = { provision: s, clone: c, secrets: o, devcontainer: i, automations: a },
+  y = ({ animate: e, variant: t = `brand` }) =>
+    (0, _.jsxs)(`svg`, {
+      width: `24`,
+      height: `24`,
+      viewBox: `0 0 24 24`,
+      fill: `none`,
+      className: e ? `animate-spin` : void 0,
+      style: e && t === `warning` ? { animationDirection: `reverse` } : void 0,
+      children: [
+        (0, _.jsx)(`circle`, {
+          cx: `12`,
+          cy: `12`,
+          r: `10`,
+          stroke: `currentColor`,
+          strokeWidth: `2`,
+          className: `text-border-base`,
+        }),
+        (0, _.jsx)(`path`, {
+          d: `M12 2C17.523 2 22 6.477 22 12`,
+          stroke: `currentColor`,
+          strokeWidth: `2`,
+          strokeLinecap: `round`,
+          className:
+            e && t === `warning`
+              ? `text-content-warning transition-colors duration-300`
+              : e
+                ? `text-content-brand transition-colors duration-300`
+                : `text-border-base transition-colors duration-300`,
+        }),
+      ],
+    }),
+  b = ({
+    environment: e,
+    onViewLogs: n,
+    showStoppedPrompt: i = !1,
+    showStoppingState: a = !1,
+    onStartEnvironment: o,
+    isStartingEnvironment: s = !1,
+  }) => {
+    let { activeStep: c } = m(e),
+      { label: u, id: d } = c,
+      { displayLabel: p, displayStepId: b, isTransitioning: x } = g(u, d),
+      S = v[b],
+      C = i && !s,
+      w = a ? `Shutting down…` : C ? `Start environment` : p,
+      T = a ? `stopping` : C ? `stopped` : b,
+      E = a ? l : C ? r : S,
+      [D, O] = (0, h.useState)(w),
+      [k, A] = (0, h.useState)(T),
+      [j, M] = (0, h.useState)(() => E),
+      [N, P] = (0, h.useState)(!1),
+      F = (0, h.useRef)(!1),
+      I = (0, h.useRef)(T);
+    return (
+      (0, h.useEffect)(() => {
+        if (I.current === T) {
+          (O(w), M(() => E));
+          return;
+        }
+        if (I.current !== `stopped` && I.current !== `stopping` && T !== `stopped` && T !== `stopping`) {
+          (O(w), A(T), M(() => E), (I.current = T));
+          return;
+        }
+        ((F.current = !0), P(!0));
+        let e = setTimeout(() => {
+          (O(w), A(T), M(() => E), P(!1), (I.current = T));
+        }, 200);
+        return () => clearTimeout(e);
+      }, [T, w, E]),
+      (0, _.jsxs)(`div`, {
+        className: `flex flex-1 flex-col items-center justify-center gap-4 p-8`,
+        children: [
+          (0, _.jsx)(y, { animate: !C, variant: a ? `warning` : `brand` }),
+          (0, _.jsxs)(`div`, {
+            className: `flex max-w-xs flex-col items-center gap-1 text-center`,
+            children: [
+              (0, _.jsx)(f, {
+                className: `text-lg font-medium text-content-primary`,
+                children: a ? `Stopping environment` : C ? `Environment stopped` : `Starting environment`,
+              }),
+              (0, _.jsx)(f, {
+                className: `text-base text-content-tertiary`,
+                children: a
+                  ? `Your environment is shutting down. Start it again to keep working.`
+                  : C
+                    ? `Start your environment to load this content and pick up where you left off.`
+                    : `Setting up your dev environment. The content will load once it's ready.`,
+              }),
+            ],
+          }),
+          (0, _.jsxs)(`button`, {
+            type: `button`,
+            "data-tracking-id": C ? `start-environment-file-tab` : `environment-starting-view-logs`,
+            onClick: C ? o : n,
+            disabled: C ? !1 : !n,
+            className: `group mt-1 cursor-pointer overflow-hidden disabled:cursor-default`,
+            children: [
+              (0, _.jsxs)(
+                `div`,
+                {
+                  className: `flex items-center justify-center gap-2 text-base text-content-tertiary transition-colors duration-150${C || (a && n) ? ` group-hover:text-content-primary` : ``}`,
+                  style: {
+                    animation:
+                      x || N ? `slideUpOut 200ms ease-in forwards` : F.current ? `slideUpIn 300ms ease-out` : `none`,
+                  },
+                  children: [
+                    (0, _.jsx)(j, { size: 16, className: `shrink-0 ${C ? `text-inherit` : `text-content-tertiary`}` }),
+                    C
+                      ? (0, _.jsx)(`p`, { className: `text-base text-inherit`, children: D })
+                      : (0, _.jsx)(t, { className: `text-base`, shimmer: !N, children: D }),
+                  ],
+                },
+                k,
+              ),
+              (0, _.jsx)(`style`, {
+                children: `
+                    @keyframes slideUpIn {
+                        from { opacity: 0; transform: translateY(8px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                    @keyframes slideUpOut {
+                        from { opacity: 1; transform: translateY(0); }
+                        to { opacity: 0; transform: translateY(-8px); }
+                    }
+                `,
+              }),
+            ],
+          }),
+        ],
+      })
+    );
+  };
+function x(e) {
+  return !!e.metadata?.name && !e.metadata.name.startsWith(`_`);
+}
+function S(e) {
+  let t = new Map();
+  for (let n of e) {
+    let e = n.metadata?.taskId;
+    if (!e) continue;
+    let r = t.get(e),
+      i = Number(n.metadata?.createdAt?.seconds ?? 0),
+      a = Number(r?.metadata?.createdAt?.seconds ?? 0);
+    (!r || i >= a) && t.set(e, n);
+  }
+  return t;
+}
+function C(e, t) {
+  return e.filter((e) => t.get(e.id)?.status?.phase === d.FAILED);
+}
+function w(e, t) {
+  return e
+    .map((e) => `${e.id}:${t.get(e.id)?.id ?? ``}`)
+    .sort()
+    .join(`|`);
+}
+function T(e) {
+  return p(e) !== null;
+}
+export { w as a, S as i, C as n, b as o, x as r, T as t };

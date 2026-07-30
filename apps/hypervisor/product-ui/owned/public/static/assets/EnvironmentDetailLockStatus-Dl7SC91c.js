@@ -1,0 +1,71 @@
+import { v_ as e } from "./vendor-DAwbZtf0.js";
+import { so as t, tn as n } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { t as r } from "./banner-CFcSGYsz.js";
+import { t as i } from "./external-link-BKbp1Q22.js";
+import { n as a, t as o } from "./lock-state-DcH8gxwt.js";
+var s = e(),
+  c = ({ state: e, strict: t, running: n }) =>
+    (0, s.jsxs)(s.Fragment, {
+      children: [
+        `Your organization administrator has set a maximum environment lifetime policy. `,
+        e === `blocked`
+          ? t
+            ? n
+              ? `When this environment stops, you will not be able to restart it.`
+              : `This environment can no longer be started or accessed.`
+            : `Continued use of this environment is non-compliant.`
+          : t
+            ? `Once exceeded, this environment will not be able to start again.`
+            : `Usage beyond the limit is non-compliant with your organization's policy.`,
+        ` Contact your admin for an extension.`,
+        ` `,
+        (0, s.jsx)(i, {
+          href: `https://ioi.com/docs/ioi/organizations/policies/environment-lifetime`,
+          iconSize: `sm`,
+          children: `Learn more`,
+        }),
+      ],
+    }),
+  l = ({ env: e }) => {
+    let { data: i } = n(),
+      l = e.metadata?.lockdownAt,
+      u = o(l),
+      d = a(l),
+      f = i?.maximumEnvironmentLifetimeStrict ?? !1,
+      p = e.status?.phase === t.RUNNING;
+    return !l || u === `normal`
+      ? null
+      : u === `blocked`
+        ? (0, s.jsx)(`div`, {
+            className: `px-3 pb-3 pt-2`,
+            children: (0, s.jsx)(r, {
+              variant: `danger`,
+              text: (0, s.jsxs)(`span`, {
+                children: [
+                  (0, s.jsx)(`span`, { className: `font-semibold`, children: `Non-compliant: ` }),
+                  (0, s.jsx)(c, { state: `blocked`, strict: f, running: p }),
+                ],
+              }),
+            }),
+          })
+        : (0, s.jsx)(`div`, {
+            className: `px-3 pb-3 pt-2`,
+            children: (0, s.jsx)(r, {
+              variant: `warning`,
+              text: (0, s.jsxs)(`span`, {
+                children: [
+                  (0, s.jsxs)(`span`, {
+                    className: `font-semibold`,
+                    children: [
+                      (0, s.jsx)(`span`, { children: `Remaining lifetime` }),
+                      d && (0, s.jsxs)(`span`, { children: [`: `, d] }),
+                    ],
+                  }),
+                  (0, s.jsx)(`span`, { children: ` — ` }),
+                  (0, s.jsx)(c, { state: `approaching`, strict: f, running: p }),
+                ],
+              }),
+            }),
+          });
+  };
+export { l as EnvironmentDetailLockStatus };

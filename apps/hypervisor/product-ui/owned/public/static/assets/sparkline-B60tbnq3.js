@@ -1,0 +1,76 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import { v_ as n } from "./vendor-DAwbZtf0.js";
+import { t as r } from "./cn-DppMFCU8.js";
+var i = e(t(), 1),
+  a = n(),
+  o = ({ data: e, width: t = 80, height: n = 24, className: o }) => {
+    let s = (0, i.useId)(),
+      c = e.some((e) => e > 0),
+      l = (0, i.useCallback)((e) => {
+        if (!e) return;
+        let t = e.getTotalLength();
+        ((e.style.strokeDasharray = `${t}`),
+          (e.style.strokeDashoffset = `${t}`),
+          e.getBoundingClientRect(),
+          (e.style.transition = `stroke-dashoffset 0.8s ease-out`),
+          (e.style.strokeDashoffset = `0`));
+      }, []),
+      u = r(`max-w-full shrink`, o),
+      d = { width: t, height: n };
+    if (!c)
+      return (0, a.jsx)(`svg`, {
+        viewBox: `0 0 ${t} ${n}`,
+        className: u,
+        style: d,
+        children: (0, a.jsx)(`line`, {
+          x1: 2,
+          y1: n - 2,
+          x2: t - 2,
+          y2: n - 2,
+          stroke: `currentColor`,
+          strokeWidth: 1.5,
+          strokeLinecap: `round`,
+          opacity: 0.3,
+        }),
+      });
+    let f = Math.max(...e),
+      p = n - 4,
+      m = t - 4,
+      h = e.length > 1 ? m / (e.length - 1) : 0,
+      g = e.map((e, t) => ({ x: 2 + t * h, y: 2 + p - (e / f) * p })),
+      _ = g.map((e, t) => `${t === 0 ? `M` : `L`}${e.x},${e.y}`).join(` `),
+      v = `${_} L${g[g.length - 1].x},${n} L${g[0].x},${n} Z`;
+    return (0, a.jsxs)(`svg`, {
+      viewBox: `0 0 ${t} ${n}`,
+      className: u,
+      style: d,
+      children: [
+        (0, a.jsx)(`defs`, {
+          children: (0, a.jsxs)(`linearGradient`, {
+            id: s,
+            x1: `0`,
+            y1: `0`,
+            x2: `0`,
+            y2: `1`,
+            children: [
+              (0, a.jsx)(`stop`, { offset: `0%`, stopColor: `currentColor`, stopOpacity: 0.2 }),
+              (0, a.jsx)(`stop`, { offset: `100%`, stopColor: `currentColor`, stopOpacity: 0 }),
+            ],
+          }),
+        }),
+        (0, a.jsx)(`path`, { d: v, fill: `url(#${s})`, className: `animate-sparkline-area-in` }),
+        (0, a.jsx)(`path`, {
+          ref: l,
+          d: _,
+          fill: `none`,
+          stroke: `currentColor`,
+          strokeWidth: 1.5,
+          strokeLinecap: `round`,
+          strokeLinejoin: `round`,
+          opacity: 0.6,
+        }),
+      ],
+    });
+  };
+export { o as t };

@@ -1,0 +1,232 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import { $g as n, v_ as r, xg as i } from "./vendor-DAwbZtf0.js";
+import { Qn as a, tr as o } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { t as s } from "./button-6YP03Qf2.js";
+import { t as c } from "./cn-DppMFCU8.js";
+import { t as l } from "./text-fFCFeCas.js";
+import { t as u } from "./IconExternalLink-Be096l4a.js";
+import {
+  A as d,
+  F as f,
+  I as p,
+  L as m,
+  M as h,
+  N as g,
+  O as _,
+  P as v,
+  Y as y,
+  a as b,
+  c as x,
+  d as S,
+  f as C,
+  g as w,
+  h as T,
+  i as E,
+  j as D,
+  k as O,
+  l as k,
+  m as A,
+  n as j,
+  o as M,
+  p as N,
+  r as P,
+  s as F,
+  t as I,
+  u as L,
+} from "./error-codes.generated-D3qX0jCC.js";
+var R = e(t(), 1),
+  z = {
+    actionId: `configure_git_auth`,
+    label: `Configure Git Authentication`,
+    target: { type: `dashboard_path`, path: `/settings/git-authentications` },
+  },
+  B = { [E.code]: [z], [b.code]: [z], [M.code]: [z], [F.code]: [z], [y.code]: [] },
+  V = {
+    content: [
+      {
+        patterns: [`Cannot find valid SSO`, `SSO session`],
+        error: {
+          errorCode: k.code,
+          userMessage: `Your SSO session has expired. Re-authenticate with your identity provider.`,
+          metadata: {},
+        },
+      },
+      {
+        patterns: [`HTTP Basic: Access denied`],
+        error: {
+          errorCode: M.code,
+          userMessage: `Git HTTP authentication denied. Check your credentials or re-authenticate.`,
+          metadata: {},
+        },
+      },
+      { patterns: [`Repository not found`], error: { errorCode: x.code, userMessage: x.userMessage, metadata: {} } },
+      { patterns: [`Invalid username`], error: { errorCode: F.code, userMessage: F.userMessage, metadata: {} } },
+      {
+        patterns: [`rate limit`, `rate_limit`],
+        error: { errorCode: y.code, userMessage: y.userMessage, metadata: {} },
+      },
+      {
+        patterns: [`CLONE_TARGET_MODE_UNSPECIFIED`],
+        error: { errorCode: L.code, userMessage: L.userMessage, metadata: {} },
+      },
+      {
+        patterns: [`authentication failed`, `not authenticated`],
+        error: { errorCode: b.code, userMessage: b.userMessage, metadata: {} },
+      },
+      { patterns: [`access denied`], error: { errorCode: E.code, userMessage: E.userMessage, metadata: {} } },
+    ],
+    machine: [
+      { patterns: [`ssm:SendCommand`, `SSM`], error: { errorCode: g.code, userMessage: g.userMessage, metadata: {} } },
+      {
+        patterns: [`InsufficientFreeAddresses`, `subnet`],
+        error: { errorCode: v.code, userMessage: v.userMessage, metadata: {} },
+      },
+      { patterns: [`terminated externally`], error: { errorCode: m.code, userMessage: m.userMessage, metadata: {} } },
+      {
+        patterns: [`could not reach the environment`, `Local Network permission`],
+        error: { errorCode: d.code, userMessage: d.userMessage, metadata: {} },
+      },
+      {
+        patterns: [`agent has been inactive`, `agent inactive`],
+        error: { errorCode: _.code, userMessage: _.userMessage, metadata: {} },
+      },
+      {
+        patterns: [`could not be prepared for snapshotting`],
+        error: { errorCode: h.code, userMessage: h.userMessage, metadata: {} },
+      },
+      {
+        patterns: [`failed to send the initial configuration`],
+        error: { errorCode: O.code, userMessage: O.userMessage, metadata: {} },
+      },
+      { patterns: [`out of capacity`], error: { errorCode: D.code, userMessage: D.userMessage, metadata: {} } },
+      { patterns: [`exited unexpectedly`], error: { errorCode: p.code, userMessage: p.userMessage, metadata: {} } },
+      { patterns: [`system exception`], error: { errorCode: f.code, userMessage: f.userMessage, metadata: {} } },
+    ],
+    automations: [
+      {
+        patterns: [`not found`, `no such file`],
+        error: { errorCode: I.code, userMessage: I.userMessage, metadata: {} },
+      },
+      {
+        patterns: [`syntax`, `parse error`, `unmarshal`, `cannot read`],
+        error: { errorCode: j.code, userMessage: j.userMessage, metadata: {} },
+      },
+      {
+        patterns: [`permission denied`, `403`],
+        error: { errorCode: P.code, userMessage: P.userMessage, metadata: {} },
+      },
+    ],
+    devcontainer: [
+      {
+        patterns: [`Creating recovery container`],
+        error: { errorCode: T.code, userMessage: T.userMessage, metadata: {} },
+      },
+      { patterns: [`DNS`, `name resolution`], error: { errorCode: N.code, userMessage: N.userMessage, metadata: {} } },
+      {
+        patterns: [`pull access denied`, `manifest unknown`, `unauthorized`],
+        error: { errorCode: w.code, userMessage: w.userMessage, metadata: {} },
+      },
+      {
+        patterns: [`Dockerfile`, `dockerfile parse`],
+        error: { errorCode: A.code, userMessage: A.userMessage, metadata: {} },
+      },
+      { patterns: [`Building dev container`], error: { errorCode: S.code, userMessage: S.userMessage, metadata: {} } },
+      {
+        patterns: [`Creating dev container`, `cannot run devcontainer up`],
+        error: { errorCode: C.code, userMessage: C.userMessage, metadata: {} },
+      },
+    ],
+  };
+function H(e, t) {
+  let n = e.toLowerCase();
+  for (let e of t) if (e.patterns.some((e) => n.includes(e.toLowerCase()))) return e.error;
+  return null;
+}
+var U = new Set([E.code, b.code, M.code, F.code, k.code, x.code]);
+function W(e, t) {
+  return !t?.repoUrl || !U.has(e.errorCode) ? e : { ...e, metadata: { ...e.metadata, repoUrl: t.repoUrl } };
+}
+function G(e, t, n) {
+  if (!t) return null;
+  let r = V[e];
+  if (!r) return null;
+  let i = H(t, r);
+  return i ? W(i, n) : null;
+}
+var K = r(),
+  q = ({ error: e, actions: t, rawMessage: n, className: r, "data-testid": i }) => {
+    let [a, o] = (0, R.useState)(!1),
+      s = (0, R.useMemo)(() => t ?? B[e.errorCode] ?? [], [t, e.errorCode]),
+      l = e.metadata.repoUrl;
+    return (0, K.jsxs)(`div`, {
+      className: c(`flex flex-col gap-2`, r),
+      "data-testid": i,
+      children: [
+        (0, K.jsx)(`p`, { className: `text-sm text-content-primary`, children: e.userMessage }),
+        l &&
+          (0, K.jsx)(`p`, {
+            className: `truncate font-mono text-xs`,
+            children: (0, K.jsx)(`a`, {
+              href: l,
+              target: `_blank`,
+              rel: `noreferrer`,
+              className: `text-content-link hover:underline`,
+              children: l,
+            }),
+          }),
+        s.length > 0 &&
+          (0, K.jsx)(`div`, {
+            className: `flex flex-wrap items-center gap-2`,
+            children: s.map((e, t) => (0, K.jsx)(J, { action: e, isPrimary: t === 0 }, e.actionId)),
+          }),
+        n &&
+          (0, K.jsxs)(`div`, {
+            className: `mt-1`,
+            children: [
+              (0, K.jsxs)(`button`, {
+                type: `button`,
+                onClick: () => o((e) => !e),
+                "data-tracking-id": `actionable-error-toggle-details`,
+                className: `text-xs text-content-secondary transition-colors hover:text-content-primary`,
+                children: [
+                  (0, K.jsx)(`span`, { children: a ? `Hide details` : `Show details` }),
+                  (0, K.jsx)(`span`, { className: `ml-1 font-mono text-content-tertiary`, children: e.errorCode }),
+                ],
+              }),
+              a &&
+                (0, K.jsx)(`pre`, {
+                  className: `mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-surface-02 p-2 text-xs text-content-secondary`,
+                  children: n,
+                }),
+            ],
+          }),
+      ],
+    });
+  },
+  J = ({ action: e, isPrimary: t }) => {
+    let n = i(),
+      r = (0, R.useCallback)(() => {
+        e.target.type === `dashboard_path`
+          ? n(e.target.path)
+          : window.open(e.target.url, `_blank`, `noopener,noreferrer`);
+      }, [e.target, n]),
+      a = e.target.type === `external_url`;
+    return (0, K.jsxs)(s, {
+      variant: t ? `secondary` : `ghost`,
+      size: `sm`,
+      onClick: r,
+      "data-tracking-id": `actionable-error-action-${e.actionId}`,
+      children: [e.label, a && (0, K.jsx)(u, { size: `sm` })],
+    });
+  },
+  Y = ({ error: e, className: t, messages: r, "data-testid": i }) => {
+    if (!e) return null;
+    let s = e instanceof n ? `error-message-connect-${e.code}` : `error-message`,
+      u = i ?? s,
+      d = e instanceof n ? a(e) : null;
+    return d
+      ? (0, K.jsx)(q, { error: d, rawMessage: e instanceof n ? e.rawMessage : void 0, className: t, "data-testid": u })
+      : (0, K.jsx)(l, { className: c(`text-base text-content-negative`, t), "data-testid": u, children: o(e, r) });
+  };
+export { G as i, q as n, B as r, Y as t };

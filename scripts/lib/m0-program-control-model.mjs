@@ -480,10 +480,24 @@ const DISCOVERY_COVERAGE = Object.freeze({
 
 const ACTIVE_JAVASCRIPT_EFFECT_SOURCE_COVERAGE = Object.freeze({
   "apps/benchmarks/src/App.tsx": "active application read projection",
-  "apps/hypervisor/src/data/goalRuns.ts":
-    "source-owned GoalRun and GoalRun-event read projections",
-  "apps/hypervisor/src/data/productSurface.ts":
-    "source-owned product-surface projection reads and durable preference mutation",
+  "apps/hypervisor/scripts/augmentation/10-run-timeline.js":
+    "dynamically concatenated product UI read crossing",
+  "apps/hypervisor/scripts/augmentation/35-app-catalog.js":
+    "dynamically concatenated product UI read crossing",
+  "apps/hypervisor/scripts/augmentation/40-home-explorer.js":
+    "dynamically concatenated product UI read crossing",
+  "apps/hypervisor/scripts/augmentation/50-new-session.js":
+    "dynamically concatenated product UI read, plan, and mutation crossings",
+  "apps/hypervisor/scripts/augmentation/70-cockpit-panel.js":
+    "dynamically concatenated product UI read and mutation crossings",
+  "apps/hypervisor/scripts/ioi-agent-runs.mjs":
+    "standing product UI daemon crossings",
+  "apps/hypervisor/scripts/ioi-api-adapter.mjs":
+    "standing product UI daemon crossings and local preference file",
+  "apps/hypervisor/scripts/serve-product-ui.mjs":
+    "standing product UI server, proxy, and daemon crossings",
+  "apps/hypervisor/scripts/system-genesis-surfaces.mjs":
+    "M1.7 system-genesis surfaces: readouts and verbatim daemon proxies",
   "apps/hypervisor/src/dev/hypervisorDevHostBridge.ts":
     "Vite development replay mutation crossing",
   "apps/hypervisor/src/dev/hypervisorDevReplayClient.ts":
@@ -496,6 +510,16 @@ const ACTIVE_JAVASCRIPT_EFFECT_SOURCE_COVERAGE = Object.freeze({
     "dynamic host bridge leaf; all active literal callers are enumerated",
   "apps/hypervisor/src/services/hypervisorLaunchState.ts":
     "active literal host commands and local compatibility state",
+  "apps/hypervisor/surfaces/approvals/index.mjs":
+    "standing product UI read and mutation crossings",
+  "apps/hypervisor/surfaces/ontology-context.mjs":
+    "standing product UI read crossing",
+  "apps/hypervisor/surfaces/ontology-manager/index.mjs":
+    "standing product UI read crossings",
+  "apps/hypervisor/surfaces/pipeline/index.mjs":
+    "standing product UI read crossings",
+  "apps/hypervisor/surfaces/sources/index.mjs":
+    "standing product UI read and mutation crossings",
   "apps/sas-xyz/v2/app.jsx": "active demo application browser compatibility state",
   "scripts/lib/mint-approval-grant.mjs":
     "explicit test-signer child-process crossing, dynamically loaded only by the development flag",
@@ -504,11 +528,62 @@ const ACTIVE_JAVASCRIPT_EFFECT_SOURCE_COVERAGE = Object.freeze({
 });
 
 const ACTIVE_JAVASCRIPT_SERVER_SOURCE_COVERAGE = Object.freeze({
+  "apps/hypervisor/product-ui/server.cjs":
+    "spawned reference UI compatibility server; dynamic mock and static fallback are file-locked",
+  "apps/hypervisor/scripts/serve-product-ui.mjs":
+    "standing product UI HTTP and WebSocket compatibility facade",
   "scripts/hypervisor-app-dev-replay-server.mjs":
     "explicit development replay HTTP server",
 });
 
 const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
+  "js-system-effect:apps/hypervisor/scripts/ioi-api-adapter.mjs#saveStore": Object.freeze({
+    surface: "hypervisor-product-ui-local-state",
+    operation: "ANY /api/ioi.v1.UserService/SetPreference",
+    method: "ANY",
+    path: "/api/ioi.v1.UserService/SetPreference",
+    active_state: "standing_serve_product_ui_compatibility_surface",
+  }),
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6434":
+    Object.freeze({
+      surface: "hypervisor-product-ui-process",
+      operation: "PROCESS_EXIT product-ui reference bundle unavailable",
+      method: "PROCESS_EXIT",
+      path: "serve-product-ui process",
+      active_state: "standing_serve_product_ui_startup_failure",
+    }),
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6438":
+    Object.freeze({
+      surface: "hypervisor-product-ui-process",
+      operation: "PROCESS_START product-ui reference server",
+      method: "PROCESS_START",
+      path: "REF_SERVER",
+      active_state: "standing_serve_product_ui_startup",
+    }),
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6444":
+    Object.freeze({
+      surface: "hypervisor-product-ui-process",
+      operation: "PROCESS_EXIT propagate product-ui reference server exit",
+      method: "PROCESS_EXIT",
+      path: "serve-product-ui process",
+      active_state: "standing_serve_product_ui_child_exit_handler",
+    }),
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6442":
+    Object.freeze({
+      surface: "hypervisor-product-ui-process",
+      operation: "SIGINT terminate product-ui reference server",
+      method: "SIGINT",
+      path: "productUi child",
+      active_state: "standing_serve_product_ui_signal_handler",
+    }),
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#waitForMirror":
+    Object.freeze({
+      surface: "hypervisor-product-ui-process",
+      operation: "PROCESS_EXIT product-ui reference server startup timeout",
+      method: "PROCESS_EXIT",
+      path: "serve-product-ui process",
+      active_state: "standing_serve_product_ui_startup_probe_failure",
+    }),
   "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#module_scope_line_3701":
     Object.freeze({
       surface: "hypervisor-dev-replay",
@@ -524,6 +599,14 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
       method: "PROCESS_EXIT",
       path: "hypervisor dev replay process",
       active_state: "development_replay_signal_handler",
+    }),
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6443":
+    Object.freeze({
+      surface: "hypervisor-product-ui-process",
+      operation: "SIGTERM terminate product-ui reference server",
+      method: "SIGTERM",
+      path: "productUi child",
+      active_state: "standing_serve_product_ui_signal_handler",
     }),
   "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#writeEvidenceFile":
     Object.freeze({
@@ -722,13 +805,17 @@ function assertExactCoverageSet(label, observed, expected) {
 
 function activeJavaScriptEffectSources(repoRoot) {
   const applicationFiles = activeApplicationSourceFiles(repoRoot);
-  const candidates = [...new Set([
-    ...applicationFiles,
+  const productUiFiles = [
     ...staticJavaScriptClosure(
       repoRoot,
-      "scripts/hypervisor-app-dev-replay-server.mjs",
+      "apps/hypervisor/scripts/serve-product-ui.mjs",
     ),
-    "scripts/lib/mint-approval-grant.mjs",
+    ...listFiles(repoRoot, "apps/hypervisor/scripts/augmentation", ".js"),
+  ];
+  const candidates = [...new Set([
+    ...applicationFiles,
+    ...productUiFiles,
+    "scripts/hypervisor-app-dev-replay-server.mjs",
   ])].sort();
   return candidates.filter((relativePath) => (
     /\binvoke(?:\s*<[^;>{}]+>)?\s*\(/u
@@ -740,6 +827,11 @@ function activeJavaScriptEffectSources(repoRoot) {
 function activeJavaScriptServerSources(repoRoot) {
   const candidates = [...new Set([
     ...activeApplicationSourceFiles(repoRoot),
+    ...staticJavaScriptClosure(
+      repoRoot,
+      "apps/hypervisor/scripts/serve-product-ui.mjs",
+    ),
+    "apps/hypervisor/product-ui/server.cjs",
     "scripts/hypervisor-app-dev-replay-server.mjs",
   ])].sort();
   const serverPattern =
@@ -1308,7 +1400,26 @@ export function discoverRepositorySurface(repoRoot) {
     ...JS_SYSTEM_EFFECT_ACTIONS[entry.identity],
   }));
 
-  const productUiOutbound = [];
+  const productUiOutbound = discoverJsOutboundCalls({
+    repoRoot,
+    relativePaths: [
+      "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "apps/hypervisor/scripts/ioi-api-adapter.mjs",
+      "apps/hypervisor/scripts/ioi-agent-runs.mjs",
+      ...listFiles(
+        repoRoot,
+        "apps/hypervisor/scripts/augmentation",
+        ".js",
+      ),
+      "apps/hypervisor/surfaces/approvals/index.mjs",
+      "apps/hypervisor/surfaces/ontology-context.mjs",
+      "apps/hypervisor/surfaces/ontology-manager/index.mjs",
+      "apps/hypervisor/surfaces/pipeline/index.mjs",
+      "apps/hypervisor/surfaces/sources/index.mjs",
+    ],
+    surface: "hypervisor-product-ui-outbound",
+    activeState: "standing_serve_product_ui_compatibility_surface",
+  });
 
   const hypervisorDevSourceFiles = applicationSourceFiles.filter((relativePath) => (
     relativePath.startsWith("apps/hypervisor/src/dev/")
@@ -1372,6 +1483,19 @@ export function discoverRepositorySurface(repoRoot) {
       symbol: "streamSessionTurn",
       httpMethod: "POST",
       httpPath: "configured model upstream /chat/completions",
+    }),
+    fileLockedEntry({
+      repoRoot,
+      identity:
+        "http:hypervisor-product-ui-reference-server:ANY /<dynamic-mock-or-static-route>",
+      kind: "http",
+      surface: "hypervisor-product-ui-reference-server",
+      operation: "ANY /<dynamic-mock-or-static-route>",
+      relativePath: "apps/hypervisor/product-ui/server.cjs",
+      symbol: "http.createServer compatibility dispatch",
+      activeState: "spawned_by_standing_serve_product_ui",
+      httpMethod: "ANY",
+      httpPath: "/<dynamic-mock-or-static-route>",
     }),
     fileLockedEntry({
       repoRoot,
@@ -3765,6 +3889,30 @@ export function createInitialProgramSource(repoRoot) {
         "crates/validator/src/common/guardian/server.rs",
         "Encrypted dynamic frames cannot be enumerated here; the internal wildcard channel entry and typed public/workload RPC registries are censused.",
       ),
+      sourceLock(
+        repoRoot,
+        "apps/hypervisor/product-ui/owned/public/static/assets/main-DLKYFe1Y.js",
+        "Harvested/generated compatibility bundle; active owned adapter and outbound crossings are censused instead of treating bundle code as authority.",
+      ),
+      sourceLock(
+        repoRoot,
+        "apps/hypervisor/scripts/serve-product-ui.mjs",
+        "Dynamic inbound compatibility dispatch and augmentation loading are file-locked while every statically visible outbound crossing is enumerated.",
+      ),
+      sourceLock(
+        repoRoot,
+        "apps/hypervisor/product-ui/server.cjs",
+        "The spawned reference server has dynamic fixture, missing-chunk, and static-file fallbacks; its single ANY compatibility boundary is censused and the whole dispatch is file-locked.",
+      ),
+      ...listFiles(
+        repoRoot,
+        "apps/hypervisor/scripts/augmentation",
+        ".js",
+      ).map((relativePath) => sourceLock(
+        repoRoot,
+        relativePath,
+        "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      )),
       sourceLock(
         repoRoot,
         "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs",

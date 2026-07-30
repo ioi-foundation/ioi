@@ -1,0 +1,27 @@
+import { cg as e, v_ as t } from "./vendor-DAwbZtf0.js";
+import { d as n } from "./runner_manager_pb-BYgy9Ytq.js";
+import { t as r } from "./banner-CFcSGYsz.js";
+var i = t(),
+  a = ({ runner: t, environment: a }) => {
+    if (!t || !a) return;
+    let o = t.status?.phase === n.INACTIVE,
+      s = t.status?.phase === n.DEGRADED;
+    if (o || s)
+      return (0, i.jsx)(r, {
+        text: (0, i.jsxs)(`span`, {
+          children: [
+            `This environment is experiencing technical issues. Please check the`,
+            ` `,
+            (0, i.jsx)(e, {
+              to: `/settings/runners/${t.runnerId}`,
+              className: `underline`,
+              children: `runner settings`,
+            }),
+            `.`,
+          ],
+        }),
+        variant: `danger`,
+        "data-testid": `remote-runner-issues`,
+      });
+  };
+export { a as t };

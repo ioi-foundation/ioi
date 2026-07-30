@@ -1331,10 +1331,12 @@ Implementation status (2026-07-30): the Rust daemon emits the v2 core taxonomy,
 loads the registered normalized surface record families, and compiles the
 request-scoped `HypervisorProductSurfaceProjection`. It also implements durable
 optimistic preference updates, bounded collection queries, and the typed 410
-retirement refusal. The source-owned client consumes that projection and does
-not infer launchability or capability depth. This implementation status is not
-release closure: per-surface operational-journey depth and product claims remain
-subject to their implementation-program gates and retained evidence.
+retirement refusal. The adopted ported client estate does not yet consume that
+projection app by app; its compatibility routes, fixture branches, and local
+catalog assumptions remain migration inputs. The daemon implementation is not
+client cutover or release closure: per-surface operational-journey depth and
+product claims remain subject to their implementation-program gates and
+retained evidence.
 
 ```http
 POST /v1/hypervisor/session-launch-recipe-admissions

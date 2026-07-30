@@ -1,0 +1,12 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+var n = e(t(), 1),
+  r = (e, t) => {
+    let [r, i] = (0, n.useState)(!1),
+      a = (0, n.useCallback)(() => {
+        i(!0);
+      }, []),
+      { success: o, error: s } = e.safeParse(t);
+    return { message: !o && r ? s.errors[0].message : ``, isValid: o, onBlur: a };
+  };
+export { r as t };

@@ -1,0 +1,10 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import { t as n } from "./main-DLKYFe1Y.js";
+var r = e(t(), 1),
+  i = () => {
+    let e = (0, r.useContext)(n);
+    if (!e) throw Error(`useShareResource must be used within ShareResourceModalProvider`);
+    return e;
+  };
+export { i as t };

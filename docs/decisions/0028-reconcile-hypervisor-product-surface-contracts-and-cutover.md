@@ -105,12 +105,24 @@ records, executable code, schemas, and proof can converge on one contract.
     workflow, system, dependency, work, and embodied graphs remain with their
     existing owners. Layout changes cannot mutate graph semantics.
 
-12. **The source-owned client is authoritative executable UI.** One
-    IOI-owned React application implements the shell, breadcrumb, back stack,
-    Open Application frame, routes, and operational journeys. Imported bundles,
-    adapters, screenshots, and comparative fixtures are replaceable evidence,
-    not product authority, runtime truth, or a shipping dependency. They are
-    retired after source-owned parity and negative cutover proof.
+12. **The ported app estate is the Hypervisor executable seed.** The IOI-owned
+    ported shell and application surfaces are worked backward from: each app is
+    bound in place to the daemon-compiled catalog, canonical routes, owner
+    contracts, and operational journeys. Raw captures, comparative routes,
+    screenshots, and dormant source material are evidence rather than product
+    authority, but that classification does not demote an adopted ported app.
+    Converting an app to a source build means extracting or adopting that exact
+    ported implementation; it does not permit a parallel visual recreation.
+    Only the individually superseded reference, fixture, adapter branch, or
+    route may be retired after app-specific parity and negative no-fallback
+    proof. The shared ported bundle/serve boundary may be retired only after
+    every live app has completed that cutover and the retained census has no
+    unresolved seed.
+
+    A distinct first-party client may be authored when a canonical product
+    journey has no suitable ported seed. Such a client remains a protocol
+    client over the same daemon-owned truth and may not replace unrelated
+    Hypervisor apps or create a second catalog, authority, or runtime plane.
 
 13. **Program-only controls stay program-owned.** `UX-00`, surface-to-journey
     bindings, cohort selection, usability thresholds, work-item status, gates,
@@ -150,11 +162,12 @@ records, executable code, schemas, and proof can converge on one contract.
 
 ## Cost Of Being Wrong And Reversal
 
-The source application and schemas are reversible behind the existing daemon
-boundary. Reversal must restore neither retired routes nor client-side
-authority inference. A changed Settings placement, page bound, or preference
-contract requires a new accepted decision and migration evidence; durable
-records must not be silently rewritten.
+App-specific bindings and schemas are reversible behind the existing daemon
+boundary. Reversal must preserve the last proved ported seed until its successor
+is independently recoverable and must restore neither retired routes nor
+client-side authority inference. A changed Settings placement, page bound, or
+preference contract requires a new accepted decision and migration evidence;
+durable records must not be silently rewritten.
 
 ## Canonical References
 

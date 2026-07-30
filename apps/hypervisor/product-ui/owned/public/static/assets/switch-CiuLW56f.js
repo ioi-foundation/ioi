@@ -1,0 +1,102 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import { Hc as n, Vc as r, v_ as i } from "./vendor-DAwbZtf0.js";
+import { t as a } from "./cn-DppMFCU8.js";
+import { t as o } from "./haptic-tWxzGXjs.js";
+var s = e(t(), 1),
+  c = i(),
+  l = (0, s.forwardRef)(
+    (
+      {
+        state: e,
+        isLoading: t = !1,
+        disabled: i,
+        onToggle: l,
+        id: d,
+        "data-testid": f,
+        "aria-label": p,
+        "data-tracking-id": m,
+        ...h
+      },
+      g,
+    ) => {
+      let _ = e === `checked`,
+        [v] = (0, s.useState)(e),
+        [y, b] = (0, s.useState)(!1);
+      (0, s.useEffect)(() => {
+        e !== v && b(!0);
+      }, [e, v]);
+      let x = y || t || e !== v;
+      return (0, c.jsx)(`div`, {
+        className: `flex w-9 justify-center pointer-coarse:w-10`,
+        ref: g,
+        ...h,
+        children: (0, c.jsx)(r, {
+          checked: _,
+          disabled: i,
+          onCheckedChange: (e) => {
+            (o(`light`), l(e));
+          },
+          "aria-label": p,
+          className: a(
+            `h-5 w-9 cursor-pointer rounded-full bg-black/10 dark:bg-white/10 disabled:cursor-default`,
+            `pointer-coarse:h-[22px] pointer-coarse:w-10`,
+            {
+              "transition-[width] duration-300": x,
+              "opacity-50": i && !t,
+              "data-[state=checked]:bg-content-success dark:data-[state=checked]:bg-content-success disabled:data-[state=checked]:bg-content-success":
+                !t,
+            },
+          ),
+          id: d,
+          "data-testid": f || d,
+          "data-tracking-id": m,
+          children: (0, c.jsx)(n, {
+            className: a(
+              `flex size-5 items-center justify-center data-[state=checked]:translate-x-[16px]`,
+              `pointer-coarse:size-[22px] pointer-coarse:data-[state=checked]:translate-x-[18px]`,
+              { "transition-transform duration-300": x },
+            ),
+            children: (0, c.jsx)(u, { className: `size-5 pointer-coarse:size-[22px]`, animating: t, state: e }),
+          }),
+        }),
+      });
+    },
+  );
+l.displayName = `Switch`;
+var u = ({ className: e, animating: t, state: n }) =>
+  (0, c.jsxs)(`svg`, {
+    width: `25`,
+    height: `25`,
+    viewBox: `0 0 25 25`,
+    fill: `none`,
+    xmlns: `http://www.w3.org/2000/svg`,
+    className: a(
+      {
+        "animate-spin text-content-brand duration-1000": t && n === `checked`,
+        "animate-spin text-content-yield duration-1000": t && n !== `checked`,
+      },
+      e,
+    ),
+    children: [
+      (0, c.jsx)(`circle`, {
+        cx: `12.5`,
+        cy: `12.5`,
+        r: 10,
+        className: a({
+          "fill-[rgb(var(--ioi-white))]": !t,
+          "fill-[rgb(var(--ioi-white))] dark:fill-[rgb(var(--ioi-gray-600))]": t,
+        }),
+      }),
+      (0, c.jsx)(`circle`, {
+        cx: `12.5`,
+        cy: `12.5`,
+        r: 11.5,
+        fill: `none`,
+        stroke: t ? `currentColor` : `transparent`,
+        strokeWidth: 2,
+        strokeDasharray: `18 76`,
+      }),
+    ],
+  });
+export { l as t };

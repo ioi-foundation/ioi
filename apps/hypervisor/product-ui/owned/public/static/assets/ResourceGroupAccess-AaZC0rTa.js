@@ -1,0 +1,237 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { L as t } from "./SegmentProvider-CXCNBY9U.js";
+import { n } from "./@mux-DLaEVubF.js";
+import { Xh as r, v_ as i, xg as a } from "./vendor-DAwbZtf0.js";
+import { Dr as o, hn as s, hr as c, lt as l } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { t as u } from "./cn-DppMFCU8.js";
+import { m as d } from "./group-queries-DjQDBYRu.js";
+import { t as f } from "./tooltip-6hqVQbwq.js";
+import { t as p } from "./avatar-CjN22mGB.js";
+import { n as m, r as h, t as g } from "./popover-D9TQszBd.js";
+import { t as _ } from "./GroupAvatar-CgR3bS1-.js";
+import { t as v } from "./use-role-assignments-by-resource-eixFv-mR.js";
+var y = e(n(), 1),
+  b = i(),
+  x = ({
+    resourceType: e,
+    resourceId: n,
+    maxVisible: i = 5,
+    className: x,
+    trackingPrefix: S = `resource`,
+    condensed: C = !1,
+    avatarSize: w = `sm`,
+  }) => {
+    let T = a(),
+      E = o(),
+      [D, O] = (0, y.useState)(!1),
+      { data: k } = l(),
+      { data: A, isLoading: j } = v(e, n),
+      M = (0, y.useMemo)(() => A ?? [], [A]),
+      N = (0, y.useMemo)(() => [...new Set(M.filter((e) => !e.derivedFromOrgRole).map((e) => e.groupId))], [M]),
+      { groups: P, isLoading: F } = d(N),
+      I = (0, y.useMemo)(() => N.map((e) => P.get(e)).filter((e) => !!e && !e.directShare), [N, P]),
+      L = (0, y.useMemo)(() => N.map((e) => P.get(e)).filter((e) => !!e && e.directShare), [N, P]),
+      { data: R } = r({
+        queryKey: c([
+          `directShareUsers`,
+          e,
+          n,
+          (0, y.useMemo)(
+            () =>
+              L.map((e) => e.id)
+                .sort()
+                .join(`,`),
+            [L],
+          ),
+        ]),
+        queryFn: async () => {
+          if (L.length === 0) return [];
+          let e = new Set();
+          return (
+            await Promise.all(
+              L.map(async (n) => {
+                let r = await E.groupService.listMemberships({ groupId: n.id, pagination: { pageSize: 100 } });
+                for (let n of r.members) {
+                  let r = t(n.subject);
+                  r && e.add(r);
+                }
+              }),
+            ),
+            Array.from(e)
+          );
+        },
+        enabled: L.length > 0,
+        staleTime: 3e4,
+      }),
+      { members: z } = s(R ?? []),
+      B = (0, y.useMemo)(() => {
+        let e = [];
+        for (let t of I) e.push({ type: `group`, id: t.id, name: t.name });
+        if (R)
+          for (let t of R) {
+            if (k?.id === t) continue;
+            let n = z.get(t);
+            n && e.push({ type: `user`, id: n.userId, name: n.fullName, avatarUrl: n.avatarUrl });
+          }
+        return e;
+      }, [I, R, z, k]);
+    if (j || F || B.length === 0) return null;
+    let V = B.slice(0, i),
+      H = B.slice(i),
+      U = H.length,
+      W = U > 0,
+      G = (e, t) => {
+        (t.stopPropagation(), T(`/settings/members/group/${e}`));
+      },
+      K = (e, t) => {
+        (t.stopPropagation(), T(`/settings/members?user=${e}`));
+      },
+      q = (e) =>
+        (0, b.jsxs)(
+          `button`,
+          {
+            type: `button`,
+            onClick: (t) => (e.type === `group` ? G(e.id, t) : K(e.id, t)),
+            className: `flex w-full min-w-0 cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-content-primary hover:bg-surface-secondary focus-visible:bg-surface-secondary focus-visible:outline-none`,
+            "data-tracking-id": `${S}-${e.type}-access-remaining-${e.id}`,
+            children: [
+              e.type === `group`
+                ? (0, b.jsx)(_, {
+                    groupName: e.name,
+                    size: `xs`,
+                    className: `shrink-0 rounded border border-border-light`,
+                  })
+                : (0, b.jsxs)(p, {
+                    size: 24,
+                    className: `size-6 shrink-0 rounded-full border border-border-light`,
+                    children: [
+                      (0, b.jsx)(p.Image, { src: e.avatarUrl, alt: e.name }),
+                      (0, b.jsx)(p.Initials, { name: e.name, size: 24 }),
+                    ],
+                  }),
+              (0, b.jsx)(`span`, { className: `min-w-0 truncate`, children: e.name }),
+            ],
+          },
+          `${e.type}-${e.id}`,
+        ),
+      J = (0, b.jsx)(`div`, { className: `flex flex-col gap-0.5`, children: B.map(q) }),
+      Y = (0, b.jsx)(`div`, { className: `flex flex-col gap-0.5`, children: H.map(q) });
+    if (C) {
+      let e = B.filter((e) => e.type === `group`).length,
+        t = B.filter((e) => e.type === `user`).length,
+        n = [];
+      (e > 0 && n.push(`${e} ${e === 1 ? `group` : `groups`}`), t > 0 && n.push(`${t} ${t === 1 ? `user` : `users`}`));
+      let r = n.join(`, `);
+      return (0, b.jsx)(`div`, {
+        className: u(`flex items-center`, x),
+        children: (0, b.jsxs)(g, {
+          children: [
+            (0, b.jsx)(h, {
+              asChild: !0,
+              children: (0, b.jsx)(`button`, {
+                type: `button`,
+                className: `whitespace-nowrap rounded text-sm text-content-secondary outline-none hover:underline focus-visible:ring-1 focus-visible:ring-content-primary`,
+                "aria-label": `Show groups and users with access`,
+                "data-testid": `condensed-group-access`,
+                "data-tracking-id": `${S}-access-summary`,
+                onClick: (e) => e.stopPropagation(),
+                children: r,
+              }),
+            }),
+            (0, b.jsx)(m, {
+              className: `w-max min-w-40 max-w-64 bg-surface-01 p-1 text-sm`,
+              align: `start`,
+              children: J,
+            }),
+          ],
+        }),
+      });
+    }
+    return (0, b.jsx)(`div`, {
+      className: u(`flex items-center`, x),
+      children: (0, b.jsxs)(`ul`, {
+        className: `group/groups flex items-center`,
+        "aria-label": `Groups and users with access`,
+        children: [
+          V.map((e, t) =>
+            (0, b.jsx)(
+              `li`,
+              {
+                style: { zIndex: i - t },
+                className: u(
+                  `relative flex-shrink-0 transition-all ease-out`,
+                  t > 0 && (D ? `-ml-1` : `-ml-2 group-hover/groups:-ml-1 group-focus-within/groups:-ml-1`),
+                ),
+                children: (0, b.jsx)(f, {
+                  content: e.name,
+                  usePortal: !0,
+                  children:
+                    e.type === `group`
+                      ? (0, b.jsx)(`button`, {
+                          type: `button`,
+                          onClick: (t) => G(e.id, t),
+                          className: `focus:ring-ring cursor-pointer rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2`,
+                          "aria-label": `View ${e.name} details`,
+                          "data-tracking-id": `${S}-group-access-${e.id}`,
+                          children: (0, b.jsx)(_, {
+                            groupName: e.name,
+                            size: w,
+                            className: `rounded-lg border-2 border-surface-glass ring-1 ring-border-light transition-shadow hover:shadow-md group-hover/groups:shadow-sm`,
+                          }),
+                        })
+                      : (0, b.jsx)(`button`, {
+                          type: `button`,
+                          onClick: (t) => K(e.id, t),
+                          className: `focus:ring-ring cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2`,
+                          "aria-label": `View ${e.name} details`,
+                          "data-tracking-id": `${S}-user-access-${e.id}`,
+                          children: (0, b.jsxs)(p, {
+                            size: 24,
+                            className: `size-6 rounded-full border-2 border-surface-glass ring-1 ring-border-light transition-shadow hover:shadow-md group-hover/groups:shadow-sm`,
+                            children: [
+                              (0, b.jsx)(p.Image, { src: e.avatarUrl, alt: e.name }),
+                              (0, b.jsx)(p.Initials, { name: e.name, size: 24 }),
+                            ],
+                          }),
+                        }),
+                }),
+              },
+              `${e.type}-${e.id}`,
+            ),
+          ),
+          W &&
+            (0, b.jsx)(`li`, {
+              className: u(
+                `relative flex-shrink-0 transition-all ease-out`,
+                D ? `-ml-1` : `-ml-2 group-hover/groups:-ml-1 group-focus-within/groups:-ml-1`,
+              ),
+              children: (0, b.jsxs)(g, {
+                open: D,
+                onOpenChange: O,
+                children: [
+                  (0, b.jsx)(h, {
+                    asChild: !0,
+                    children: (0, b.jsxs)(`button`, {
+                      type: `button`,
+                      onClick: (e) => e.stopPropagation(),
+                      className: u(
+                        `flex size-6 items-center justify-center rounded-lg border-2 border-surface-glass bg-surface-secondary text-xs font-medium text-content-secondary ring-1 ring-border-light outline-none hover:bg-surface-secondary-hover focus-visible:ring-1 focus-visible:ring-content-primary`,
+                      ),
+                      "aria-label": `Show ${U} more groups and users with access`,
+                      "data-tracking-id": `${S}-access-overflow`,
+                      children: [`+`, U],
+                    }),
+                  }),
+                  (0, b.jsx)(m, {
+                    className: `w-max min-w-40 max-w-64 bg-surface-01 p-1 text-sm`,
+                    align: `start`,
+                    children: Y,
+                  }),
+                ],
+              }),
+            }),
+        ],
+      }),
+    });
+  };
+export { x as t };

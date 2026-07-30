@@ -1,0 +1,159 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import { Cp as n, Op as r, Xf as i, v_ as a, vp as o, wp as s } from "./vendor-DAwbZtf0.js";
+import { tr as c } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { t as l } from "./button-6YP03Qf2.js";
+import { t as u } from "./cn-DppMFCU8.js";
+import { t as d } from "./haptic-tWxzGXjs.js";
+import { t as f } from "./dialog-BtjFqa-w.js";
+import { t as p } from "./text-fFCFeCas.js";
+import { t as m } from "./collapsible-CijQ-f1P.js";
+var h = e(t(), 1),
+  g = a();
+function _(e) {
+  let t = e.filter((e) => e.status === `success`).length,
+    n = e.filter((e) => e.status === `error`).length,
+    r = e.length,
+    i = t + n;
+  return { succeeded: t, failed: n, total: r, done: i, allDone: i === r && r > 0 };
+}
+var v = ({
+    title: e,
+    items: t,
+    summary: a,
+    detailsOpen: o,
+    onDetailsOpenChange: c,
+    onClose: _,
+    closeTrackingId: v,
+  }) => {
+    let b = (0, h.useRef)(!1);
+    return (
+      (0, h.useEffect)(() => {
+        (a.allDone && !b.current && d(a.failed > 0 ? `error` : `confirm`), (b.current = a.allDone));
+      }, [a.allDone, a.failed]),
+      (0, g.jsxs)(g.Fragment, {
+        children: [
+          (0, g.jsxs)(f.Header, { children: [(0, g.jsx)(f.Title, { children: e }), (0, g.jsx)(f.Description, {})] }),
+          (0, g.jsxs)(`div`, {
+            className: `flex items-center gap-2`,
+            children: [
+              !a.allDone && (0, g.jsx)(i, { className: `size-4 animate-spin text-content-secondary` }),
+              a.allDone && a.failed === 0 && (0, g.jsx)(n, { className: `size-4 text-content-success` }),
+              a.allDone && a.failed > 0 && (0, g.jsx)(s, { className: `size-4 text-content-destructive` }),
+              (0, g.jsx)(p, {
+                className: `text-sm`,
+                children: a.allDone
+                  ? `Completed: ${a.succeeded} succeeded${a.failed > 0 ? `, ${a.failed} failed` : ``}`
+                  : `Processing: ${a.done} of ${a.total} completed`,
+              }),
+            ],
+          }),
+          (0, g.jsx)(`div`, {
+            className: `my-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-secondary`,
+            children: (0, g.jsx)(`div`, {
+              className: u(
+                `h-full rounded-full transition-all duration-300`,
+                a.failed > 0 ? `bg-surface-destructive` : `bg-surface-success`,
+              ),
+              style: { width: a.total > 0 ? `${(a.done / a.total) * 100}%` : `0%` },
+            }),
+          }),
+          (0, g.jsx)(m, {
+            open: o,
+            onOpenChange: c,
+            className: `mt-2`,
+            children: (0, g.jsxs)(`div`, {
+              className: `overflow-hidden rounded-md border border-border-light`,
+              children: [
+                (0, g.jsxs)(m.Trigger, {
+                  className: u(
+                    `flex w-full items-center gap-1 px-3 py-2 text-sm text-content-secondary hover:text-content-primary`,
+                    o && `border-b border-border-light`,
+                  ),
+                  children: [
+                    (0, g.jsx)(r, { className: u(`h-4 w-4 transition-transform`, o && `rotate-180`) }),
+                    (0, g.jsx)(`span`, { children: o ? `Hide details` : `Show details` }),
+                  ],
+                }),
+                (0, g.jsx)(m.Content, {
+                  children: (0, g.jsx)(`div`, {
+                    className: `max-h-60 overflow-y-auto`,
+                    children: t.map((e) =>
+                      (0, g.jsxs)(
+                        `div`,
+                        {
+                          className: `flex items-start gap-2 border-b border-border-light px-3 py-2 last:border-b-0`,
+                          children: [
+                            (0, g.jsx)(`div`, {
+                              className: `mt-0.5 shrink-0`,
+                              children: (0, g.jsx)(y, { status: e.status }),
+                            }),
+                            (0, g.jsxs)(`div`, {
+                              className: `min-w-0 flex-1`,
+                              children: [
+                                (0, g.jsx)(p, { className: `truncate text-sm`, children: e.label }),
+                                e.secondary &&
+                                  (0, g.jsx)(p, {
+                                    className: `mt-0.5 truncate text-xs text-content-tertiary`,
+                                    children: e.secondary,
+                                  }),
+                                e.error &&
+                                  (0, g.jsx)(p, {
+                                    className: `mt-0.5 text-xs text-content-destructive`,
+                                    children: e.error,
+                                  }),
+                              ],
+                            }),
+                          ],
+                        },
+                        e.id,
+                      ),
+                    ),
+                  }),
+                }),
+              ],
+            }),
+          }),
+          (0, g.jsx)(f.Footer, {
+            children: (0, g.jsx)(l, {
+              type: `button`,
+              variant: `outline`,
+              disabled: !a.allDone,
+              onClick: _,
+              "data-tracking-id": v,
+              children: a.allDone ? `Close` : `Processing...`,
+            }),
+          }),
+        ],
+      })
+    );
+  },
+  y = ({ status: e }) => {
+    switch (e) {
+      case `pending`:
+        return (0, g.jsx)(o, { className: `h-4 w-4 text-content-tertiary`, "aria-label": `Pending` });
+      case `running`:
+        return (0, g.jsx)(i, { className: `h-4 w-4 animate-spin text-content-secondary`, "aria-label": `In progress` });
+      case `success`:
+        return (0, g.jsx)(n, { className: `h-4 w-4 text-content-success`, "aria-label": `Succeeded` });
+      case `error`:
+        return (0, g.jsx)(s, { className: `h-4 w-4 text-content-destructive`, "aria-label": `Failed` });
+    }
+  },
+  b = 5;
+async function x(e, t, n, r = {}) {
+  let i = Math.max(1, r.concurrency ?? b);
+  for (let r = 0; r < e.length; r += i) {
+    let a = e.slice(r, r + i);
+    await Promise.allSettled(
+      a.map((e, i) => {
+        let a = r + i;
+        return t(e, a).then(
+          () => n(a),
+          (e) => n(a, c(e)),
+        );
+      }),
+    );
+  }
+}
+export { v as n, _ as r, x as t };

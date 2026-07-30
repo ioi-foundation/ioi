@@ -983,7 +983,7 @@ test("JavaScript dynamic computed effect members fail discovery explicitly", () 
   }
 });
 
-test("current source-owned outbound wrappers and development crossings stay discovered", () => {
+test("current ported-seed outbound wrappers and development crossings stay discovered", () => {
   const reviewByIdentity = new Map(
     createInitialReview(repoRoot, discoveredEntries).entries.map((entry) => (
       [entry.identity, entry]
@@ -991,11 +991,12 @@ test("current source-owned outbound wrappers and development crossings stay disc
   );
   const productSurface = discoveredEntries.find((entry) => (
     entry.kind === "js_outbound"
-    && entry.source_file === "apps/hypervisor/src/data/productSurface.ts"
+    && entry.source_file === "apps/hypervisor/scripts/serve-product-ui.mjs"
+    && entry.path === "DAEMON + path"
   ));
   assert.ok(productSurface);
   assert.match(productSurface.method, /^DYNAMIC\(/u);
-  assert.equal(productSurface.path, "path");
+  assert.equal(productSurface.path, "DAEMON + path");
   assert.equal(
     reviewByIdentity.get(productSurface.identity).classification,
     "consequential",

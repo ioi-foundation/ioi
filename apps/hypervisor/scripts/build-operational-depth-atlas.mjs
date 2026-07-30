@@ -218,7 +218,7 @@ function rebuildFromRaw() {
 
   const atlas = {
     schema_version: "ioi.hypervisor.operational-depth-atlas.v1",
-    generated_from: "operational-depth exploration workflow (13 per-surface agents, live reference SPA + IOI embedded + daemon cross-check)",
+    generated_from: "operational-depth exploration workflow (ported product seed + IOI embedded route + daemon cross-check)",
     base_commit: "19d732ff2 (#67)",
     doctrine: "daemon_wired and shell-pixel certification prove the surface renders reference-faithfully over honest daemon truth — they DO NOT imply operational completeness. Operational depth is a separate axis: a surface is operational only when its PRIMARY reference workflow (intent → durable result) is reachable through real daemon authority, not merely when its landing shell is certified. This atlas audits that axis; a splash or empty-onboarding state is never the workflow.",
     outcome_taxonomy: {

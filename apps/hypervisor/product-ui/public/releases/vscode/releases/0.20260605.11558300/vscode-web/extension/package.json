@@ -1,0 +1,544 @@
+{
+  "activationEvents": [
+    "onUri",
+    "onStartupFinished",
+    "onResolveRemoteAuthority:ssh-remote",
+    "onResolveRemoteAuthority:dev-container",
+    "onResolveRemoteAuthority:environment"
+  ],
+  "browser": "./out/web/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "categories": [
+    "Other"
+  ],
+  "contributes": {
+    "authentication": [
+      {
+        "id": "ioi-flex",
+        "label": "IOI"
+      }
+    ],
+    "commands": [
+      {
+        "category": "IOI",
+        "command": "ioi-flex.exportLogs",
+        "title": "Export all logs"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.showExtensionLogs",
+        "title": "Show extension logs"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.signIn",
+        "title": "Sign In"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.rebuildContainer",
+        "icon": "$(refresh)",
+        "title": "Rebuild Container"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.uninstall",
+        "title": "Uninstall Extension"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.environments.stopCurrentEnvironment",
+        "title": "Stop Current Environment"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.environments.deleteCurrentEnvironment",
+        "title": "Delete Current Environment"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.reopenInContainer",
+        "title": "Reopen In Container"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.services.startService",
+        "icon": "$(play)",
+        "title": "Start"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.services.stopService",
+        "icon": "$(primitive-square)",
+        "title": "Stop"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.services.showLogs",
+        "icon": "$(output)",
+        "title": "Show logs"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.tasks.startTask",
+        "icon": "$(play)",
+        "title": "Start"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.tasks.stopTask",
+        "icon": "$(primitive-square)",
+        "title": "Stop"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.tasks.showLogs",
+        "icon": "$(output)",
+        "title": "Show logs"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.applyAutomationsFileChanges",
+        "icon": "$(refresh)",
+        "title": "Apply Automations Configuration changes"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.openDevcontainerConfiguration",
+        "icon": "$(gear)",
+        "title": "Open Dev Container Configuration"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.openAutomationsFile",
+        "icon": "$(gear)",
+        "title": "Open Automations Configuration"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.addTaskAutomation",
+        "icon": "$(add)",
+        "title": "New Task"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.addServiceAutomation",
+        "icon": "$(add)",
+        "title": "New Service"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.focusEnvironmentView",
+        "title": "Focus Environment View"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.ports.openInBrowser",
+        "icon": "$(globe)",
+        "title": "Open in Browser"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.ports.copyUrl",
+        "icon": "$(clippy)",
+        "title": "Copy Url"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.ports.openNew",
+        "icon": "$(add)",
+        "title": "Open New Public Port"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.ports.close",
+        "icon": "$(close)",
+        "title": "Close"
+      },
+      {
+        "category": "IOI",
+        "command": "ioi-flex.focusConversationPrompt",
+        "enablement": "ioi-flex.embedded == true",
+        "title": "Focus Conversation Prompt"
+      }
+    ],
+    "configuration": [
+      {
+        "properties": {
+          "ioi-flex.host": {
+            "default": null,
+            "description": "IOI Service URL.",
+            "scope": "application",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "IOI"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "ioi-flex.focusConversationPrompt",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "when": "ioi-flex.embedded == true"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "ioi-flex.rebuildContainer",
+          "when": "ioi-flex.authenticated == true && (ioi-flex.inEnvironment == true || ioi-flex.inRecovery == true)"
+        },
+        {
+          "command": "ioi-flex.environments.stopCurrentEnvironment",
+          "when": "ioi-flex.authenticated == true && (ioi-flex.inEnvironment == true || ioi-flex.inRecovery == true)"
+        },
+        {
+          "command": "ioi-flex.environments.deleteCurrentEnvironment",
+          "when": "ioi-flex.authenticated == true && (ioi-flex.inEnvironment == true || ioi-flex.inRecovery == true)"
+        },
+        {
+          "command": "ioi-flex.reopenInContainer",
+          "when": "ioi-flex.authenticated == true && ioi-flex.inRecovery == true"
+        },
+        {
+          "command": "ioi-flex.services.startService",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.services.stopService",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.services.showLogs",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.tasks.startTask",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.tasks.stopTask",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.tasks.showLogs",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.applyAutomationsFileChanges",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.openDevcontainerConfiguration",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.openAutomationsFile",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.addTaskAutomation",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.addServiceAutomation",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.focusEnvironmentView",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.ports.openInBrowser",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.ports.copyUrl",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.ports.openNew",
+          "when": "false"
+        },
+        {
+          "command": "ioi-flex.ports.close",
+          "when": "false"
+        }
+      ],
+      "statusBar/remoteIndicator": [
+        {
+          "command": "ioi-flex.rebuildContainer",
+          "group": "remote_00_ioi_navigation@02",
+          "when": "ioi-flex.authenticated == true && (ioi-flex.inEnvironment == true || ioi-flex.inRecovery == true)"
+        },
+        {
+          "command": "ioi-flex.focusEnvironmentView",
+          "group": "remote_00_ioi_navigation@03",
+          "when": "ioi-flex.authenticated == true && (ioi-flex.inEnvironment == true || ioi-flex.inRecovery == true)"
+        },
+        {
+          "command": "ioi-flex.openDevcontainerConfiguration",
+          "group": "remote_00_ioi_navigation@04",
+          "when": "ioi-flex.authenticated == true && (ioi-flex.inEnvironment == true || ioi-flex.inRecovery == true)"
+        },
+        {
+          "command": "ioi-flex.openAutomationsFile",
+          "group": "remote_00_ioi_navigation@05",
+          "when": "ioi-flex.authenticated == true && (ioi-flex.inEnvironment == true || ioi-flex.inRecovery == true)"
+        },
+        {
+          "command": "ioi-flex.applyAutomationsFileChanges",
+          "group": "remote_00_ioi_navigation@06",
+          "when": "ioi-flex.authenticated == true && (ioi-flex.inEnvironment == true || ioi-flex.inRecovery == true)"
+        },
+        {
+          "command": "ioi-flex.reopenInContainer",
+          "group": "remote_00_ioi_navigation@9",
+          "when": "ioi-flex.authenticated == true && ioi-flex.inRecovery == true"
+        },
+        {
+          "command": "ioi-flex.environments.stopCurrentEnvironment",
+          "group": "remote_00_ioi_navigation@10",
+          "when": "ioi-flex.authenticated == true && (ioi-flex.inEnvironment == true || ioi-flex.inRecovery == true)"
+        },
+        {
+          "command": "ioi-flex.environments.deleteCurrentEnvironment",
+          "group": "remote_00_ioi_navigation@11",
+          "when": "ioi-flex.authenticated == true && (ioi-flex.inEnvironment == true || ioi-flex.inRecovery == true)"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "ioi-flex.services.startService",
+          "group": "inline@1",
+          "when": "viewItem =~ /^ioi-flex-environment\\.service.+(failed|stopped)/"
+        },
+        {
+          "command": "ioi-flex.services.stopService",
+          "group": "inline@1",
+          "when": "viewItem =~ /^ioi-flex-environment\\.service.+running/"
+        },
+        {
+          "command": "ioi-flex.services.showLogs",
+          "group": "inline@2",
+          "when": "viewItem =~ /^ioi-flex-environment\\.service(\\.|$)/"
+        },
+        {
+          "command": "ioi-flex.tasks.startTask",
+          "group": "inline@1",
+          "when": "viewItem =~ /^ioi-flex-environment\\.task.manualTrigger.+(failed|stopped)/"
+        },
+        {
+          "command": "ioi-flex.tasks.stopTask",
+          "group": "inline@1",
+          "when": "viewItem =~ /^ioi-flex-environment\\.task\\.manualTrigger.+running/"
+        },
+        {
+          "command": "ioi-flex.tasks.showLogs",
+          "group": "inline@2",
+          "when": "viewItem =~ /^ioi-flex-environment\\.task(\\.|$)/"
+        },
+        {
+          "command": "ioi-flex.openDevcontainerConfiguration",
+          "group": "inline@1",
+          "when": "viewItem =~ /^ioi-flex-environment\\.devcontainer/"
+        },
+        {
+          "command": "ioi-flex.rebuildContainer",
+          "group": "inline@2",
+          "when": "viewItem =~ /^ioi-flex-environment\\.devcontainer/"
+        },
+        {
+          "command": "ioi-flex.openAutomationsFile",
+          "group": "inline@1",
+          "when": "viewItem =~ /^ioi-flex-environment\\.automations/"
+        },
+        {
+          "command": "ioi-flex.applyAutomationsFileChanges",
+          "group": "inline@2",
+          "when": "viewItem =~ /^ioi-flex-environment\\.automations/"
+        },
+        {
+          "command": "ioi-flex.addTaskAutomation",
+          "group": "inline@1",
+          "when": "viewItem =~ /^ioi-flex-environment\\.tasks/"
+        },
+        {
+          "command": "ioi-flex.addServiceAutomation",
+          "group": "inline@1",
+          "when": "viewItem =~ /^ioi-flex-environment\\.services/"
+        },
+        {
+          "command": "ioi-flex.ports.copyUrl",
+          "group": "inline@1",
+          "when": "viewItem =~ /^ioi-flex-environment\\.port$/"
+        },
+        {
+          "command": "ioi-flex.ports.openInBrowser",
+          "group": "inline@2",
+          "when": "viewItem =~ /^ioi-flex-environment\\.port$/"
+        },
+        {
+          "command": "ioi-flex.ports.openNew",
+          "group": "inline@1",
+          "when": "viewItem =~ /^ioi-flex-environment\\.ports$/"
+        },
+        {
+          "command": "ioi-flex.ports.close",
+          "group": "destruction@1",
+          "when": "viewItem =~ /^ioi-flex-environment\\.port$/"
+        }
+      ],
+      "view/title": []
+    },
+    "resourceLabelFormatters": [
+      {
+        "authority": "environment+*",
+        "formatting": {
+          "label": "${path}",
+          "separator": "/",
+          "tildify": true,
+          "workspaceSuffix": "IOI"
+        },
+        "scheme": "vscode-remote"
+      }
+    ],
+    "views": {
+      "ioi-flex-view": [
+        {
+          "icon": "$(squirrel)",
+          "id": "ioi-flex-env",
+          "name": "Environment",
+          "when": "ioi-flex.authenticated == true && ioi-flex.remoteResolved"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "icon": "resources/explorer.svg",
+          "id": "ioi-flex-view",
+          "title": "IOI"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "contents": "To connect to an IOI environment, click here:\n[Connect to Environment ...](command:ioi-flex.connectCurrentWindowToEnvironment)",
+        "group": "2_open@2",
+        "view": "explorer",
+        "when": "isWeb && !remoteName"
+      }
+    ]
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.11.0",
+    "@connectrpc/connect": "2.1.1",
+    "@connectrpc/connect-node": "2.1.1",
+    "@connectrpc/connect-web": "2.1.1",
+    "@segment/analytics-node": "^2.2.0",
+    "@vscode/proxy-agent": "^0.35.0",
+    "@zip.js/zip.js": "^2.7.60",
+    "braces": "^3.0.3",
+    "configcat-js": "9.5.1",
+    "configcat-node": "11.3.1",
+    "ioi-next-api": "file:./_link_deps/ioi-next-api",
+    "ioi-shared": "file:./_link_deps/ioi-shared",
+    "jsonc-parser": "^3.2.0",
+    "proper-lockfile": "^4.1.2",
+    "semver": "^7.6.2",
+    "set-cookie-parser": "^2.6.0",
+    "ssh-config": "^4.4.3",
+    "undici": "7.2.0",
+    "ws": "^8.18.3",
+    "yaml": "^2.7.0"
+  },
+  "description": "Required to connect to IOI environments",
+  "devDependencies": {
+    "@babel/parser": "^7.24.7",
+    "@bufbuild/buf": "1.50.1",
+    "@bufbuild/protoc-gen-es": "^2.11.0",
+    "@stylistic/eslint-plugin": "^2.9.0",
+    "@stylistic/eslint-plugin-js": "^2.9.0",
+    "@stylistic/eslint-plugin-ts": "^2.9.0",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "18.x",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/semver": "^7.5.8",
+    "@types/set-cookie-parser": "^2.4.7",
+    "@types/vscode": "1.89.0",
+    "@types/webpack": "^5.28.5",
+    "@types/ws": "^8.18.1",
+    "@typescript/native-preview": "7.0.0-dev.20260515.1",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^2.18.0",
+    "copy-webpack-plugin": "^11.0.0",
+    "eslint": "^9.13.0",
+    "eslint-plugin-header": "^3.1.1",
+    "eslint-plugin-jsdoc": "^50.4.3",
+    "localtunnel": "^2.0.2",
+    "minimist": "^1.2.8",
+    "mocha": "^10.0.0",
+    "process": "^0.11.10",
+    "serve": "14.2.4",
+    "ts-loader": "^9.5.7",
+    "typescript": "^6.0.0",
+    "typescript-eslint": "^8.11.0",
+    "umd-compat-loader": "git+https://github.com/jeanp413/umd-compat-loader#master",
+    "webpack": "^5.98.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "displayName": "ioi.com",
+  "enabledApiProposals": [
+    "resolvers",
+    "contribViewsWelcome"
+  ],
+  "engines": {
+    "vscode": "^1.89.0"
+  },
+  "extensionKind": [
+    "ui"
+  ],
+  "icon": "resources/ioi.png",
+  "keywords": [
+    "remote development",
+    "remote"
+  ],
+  "name": "ioi-flex",
+  "overrides": {
+    "css-select": "5.2.0"
+  },
+  "publisher": "ioi",
+  "scripts": {
+    "bundle": "yarn bundle:node && yarn bundle:web",
+    "bundle:node": "webpack --mode production",
+    "bundle:web": "webpack --config webpack.web.config.js --mode production",
+    "compile": "tsgo -b tsconfig.compile.json",
+    "compile-proxy": "webpack --mode development",
+    "compile-web": "webpack --config webpack.web.config.js",
+    "leeway:test": "yarn lint && yarn compile && yarn test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "package": "yarn bundle && vsce package --yarn",
+    "packageOnly": "vsce package --yarn",
+    "proto-gen": "cd ./src/proto && buf lint && buf generate && ./patchProtoDef.sh",
+    "serve": "serve --cors -l 5000",
+    "test": "vscode-test",
+    "tunnel": "lt -p 5000",
+    "update-dts": "dts dev",
+    "watch": "tsgo -b -w tsconfig.compile.json",
+    "watch-proxy": "webpack watch --mode development",
+    "watch-web": "webpack --config webpack.web.config.js --watch"
+  },
+  "version": "0.20260605.11558300",
+  "s3AssetBaseUrl": "https://releases.ioi.io/vscode/releases/0.20260605.11558300"
+}

@@ -1,0 +1,1 @@
+{"environmentClass":{"id":"019ed02a-ffd8-7dd9-a299-6d9e2b8af49e", "displayName":"Small", "description":"2 vCPU / 8 GiB / 50 GiB disk • m6i.large", "configuration":[{"key":"instanceType", "value":"m6i.large"}, {"key":"diskSizeGB", "value":"50"}, {"key":"spot", "value":"false"}, {"key":"vcpus", "value":"2"}], "runnerId":"019ed02a-fe51-766f-8663-1c478f189fde", "enabled":true}}

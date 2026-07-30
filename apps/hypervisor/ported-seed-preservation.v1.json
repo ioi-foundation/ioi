@@ -1,0 +1,50 @@
+{
+  "schema_version": "ioi.hypervisor.ported_seed_preservation.v1",
+  "invariant_id": "HARVEST_PORT_AS_SEED",
+  "status": "active_invariant",
+  "authority": "This record protects executable implementation inputs. It grants no product membership, route authority, implementation status, or release claim.",
+  "seed_roots": [
+    "apps/hypervisor/product-ui/owned/public",
+    "apps/hypervisor/scripts/serve-product-ui.mjs",
+    "apps/hypervisor/scripts/ioi-api-adapter.mjs",
+    "apps/hypervisor/surfaces",
+    "apps/hypervisor/harvest-app-parity-matrix.json"
+  ],
+  "forbidden_parallel_replacements": [
+    "apps/hypervisor/src/data/productSurface.ts",
+    "apps/hypervisor/src/shell/AppShell.tsx"
+  ],
+  "protected_seed_classes": [
+    "daemon_wired",
+    "substrate_bound"
+  ],
+  "protected_routes": [
+    { "slug": "designer", "route": "/__ioi/studio/designer", "class": "daemon_wired" },
+    { "slug": "machinery", "route": "/__ioi/studio/machinery", "class": "daemon_wired" },
+    { "slug": "monitors", "route": "/__ioi/automations/monitors", "class": "daemon_wired" },
+    { "slug": "lineage", "route": "/__ioi/lineage", "class": "substrate_bound" },
+    { "slug": "sources", "route": "/__ioi/data/sources", "class": "daemon_wired" },
+    { "slug": "pipeline", "route": "/__ioi/pipeline", "class": "daemon_wired" },
+    { "slug": "schema", "route": "/__ioi/ontology/manager", "class": "daemon_wired" },
+    { "slug": "explorer", "route": "/__ioi/ontology/explorer", "class": "daemon_wired" },
+    { "slug": "evalsuites", "route": "/__ioi/evaluations/evalsuites", "class": "daemon_wired" },
+    { "slug": "models", "route": "/__ioi/foundry/models", "class": "daemon_wired" },
+    { "slug": "listings", "route": "/__ioi/marketplace/listings", "class": "daemon_wired" },
+    { "slug": "vertex", "route": "/__ioi/vertex", "class": "substrate_bound" },
+    { "slug": "jobs", "route": "/__ioi/missions", "class": "substrate_bound" },
+    { "slug": "incidents", "route": "/__ioi/missions/incidents", "class": "daemon_wired" },
+    { "slug": "approvals", "route": "/__ioi/governance/approvals", "class": "daemon_wired" },
+    { "slug": "changes", "route": "/__ioi/improvement/changes", "class": "daemon_wired" }
+  ],
+  "per_app_cutover_requirements": [
+    "canonical_owner_and_route_binding",
+    "exact_ported_seed_or_owned_extraction",
+    "daemon_contract_and_final_invoker_binding",
+    "visual_interaction_deep_link_and_accessibility_parity",
+    "positive_denial_fault_recovery_and_receipt_evidence",
+    "negative_no_fallback_and_typed_retirement_proof"
+  ],
+  "whole_estate_retirement_allowed": false,
+  "whole_estate_retirement_unlock": "Every protected route has an individually retained successor proof, the current census has zero unresolved live seeds, and the shared boundary has negative no-fallback proof.",
+  "stop_rule": "Fail before merge when a protected seed root or route disappears, a protected route renders a retirement/refusal shell, the census and this record diverge, or a forbidden parallel replacement appears."
+}

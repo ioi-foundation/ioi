@@ -1,0 +1,468 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { It as t, Lt as n, S as r, Wt as i, vn as a, wi as o } from "./SegmentProvider-CXCNBY9U.js";
+import { n as s } from "./@mux-DLaEVubF.js";
+import { Bm as c, Sh as l, Yp as u, cg as d, ch as f, gg as p, v_ as m, xg as h, zm as g } from "./vendor-DAwbZtf0.js";
+import {
+  Dt as _,
+  Fi as v,
+  Hi as y,
+  Ht as b,
+  Li as x,
+  Nn as S,
+  Ui as C,
+  tr as w,
+  un as T,
+  vn as E,
+  wt as D,
+  yn as O,
+} from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { n as k, t as A } from "./toast-axaLeIzZ.js";
+import { t as j } from "./button-6YP03Qf2.js";
+import { t as M } from "./dialog-BtjFqa-w.js";
+import { t as N } from "./use-membership-CcV5kGny.js";
+import { a as P, i as F, r as I } from "./headings-CM9JBOhQ.js";
+import { t as L } from "./input-C42Z_4fO.js";
+import { t as R } from "./text-fFCFeCas.js";
+import { t as z } from "./url-validation-Ph7WWpDb.js";
+import { t as B } from "./IconInfo-Cl6kMnoJ.js";
+import { t as V } from "./form-control-BfDRQ8Xb.js";
+import { t as H } from "./empty-state-D7Bh3L9e.js";
+var U = e(s(), 1),
+  W = m(),
+  G = ({ label: e, tags: t, placeHolder: n, validateInputFn: r, onAddValue: i, onRemoveTag: a }) => {
+    let [o, s] = (0, U.useState)(``),
+      [c, l] = (0, U.useState)(``),
+      [u, d] = (0, U.useState)(!1),
+      f = (0, U.useId)(),
+      p = (0, U.useCallback)(
+        async (e) => {
+          if ((e.preventDefault(), l(``), d(!0), r && !r(o))) {
+            (l(`Invalid value`), d(!1));
+            return;
+          }
+          if (i)
+            try {
+              (await i(o), s(``));
+            } catch (e) {
+              l(w(e));
+            }
+          d(!1);
+        },
+        [o, i, r],
+      ),
+      m = (0, U.useCallback)(
+        async (e) => {
+          if ((l(``), a))
+            for (let t of e)
+              try {
+                await a(String(t));
+              } catch {}
+        },
+        [a],
+      );
+    return (0, W.jsx)(`div`, {
+      className: `flex flex-col gap-2`,
+      children: (0, W.jsxs)(`form`, {
+        className: `flex flex-col gap-2`,
+        onSubmit: p,
+        children: [
+          (0, W.jsxs)(V, {
+            label: e,
+            disabled: !1,
+            error: c,
+            id: f,
+            children: [
+              t.length > 0 &&
+                (0, W.jsx)(`div`, { className: `mb-1`, children: (0, W.jsx)(K, { items: t, onRemove: m }) }),
+              (0, W.jsx)(L, {
+                placeholder: n,
+                value: o,
+                id: f,
+                onChange: (e) => {
+                  (l(``), s(e.target.value.toLocaleLowerCase()));
+                },
+              }),
+            ],
+          }),
+          (0, W.jsx)(j, {
+            type: `submit`,
+            variant: `secondary`,
+            className: `w-fit`,
+            disabled: !o,
+            loading: u,
+            "data-tracking-id": `add-tags-input`,
+            children: `Add`,
+          }),
+        ],
+      }),
+    });
+  };
+G.displayName = `TagsInput`;
+var K = ({ items: e, onRemove: t }) => {
+    let n = (0, U.useRef)(null),
+      r = u({ items: e.map((e) => ({ id: e, name: e })), children: (e) => (0, W.jsx)(f, { children: e.name }, e.id) }),
+      { gridProps: i } = c({ "aria-label": `Tags`, onRemove: t }, r, n);
+    return (0, W.jsx)(`div`, {
+      ...i,
+      ref: n,
+      className: `flex flex-row flex-wrap gap-2`,
+      children: [...r.collection].map((e) => (0, W.jsx)(q, { item: e, state: r }, e.key)),
+    });
+  },
+  q = ({ item: e, state: t }) => {
+    let n = (0, U.useRef)(null),
+      r = (0, U.useRef)(null),
+      { rowProps: a, gridCellProps: o, removeButtonProps: s, allowsRemoving: c } = g({ item: e }, t, n),
+      { buttonProps: u } = l(s, r);
+    return (0, W.jsxs)(`div`, {
+      ref: n,
+      ...a,
+      className: `data-[focus-visible]:ring-ring flex w-fit flex-row items-center gap-1 rounded-md border border-border-base bg-surface-positive px-1 py-0.5 text-sm text-content-primary outline-none data-[focus-visible]:ring-2`,
+      children: [
+        (0, W.jsx)(`span`, { ...o, className: `px-2`, children: e.rendered }),
+        c &&
+          (0, W.jsx)(`button`, {
+            ref: r,
+            ...u,
+            className: `focus-visible:ring-ring inline-flex items-center justify-center rounded border-none p-0.5 hover:bg-surface-tertiary focus:outline-none focus-visible:ring-2`,
+            "data-tracking-id": `remove-${String(e.key)}-tags-input`,
+            children: (0, W.jsx)(i, { size: `sm` }),
+          }),
+      ],
+    });
+  },
+  J = () => {
+    n(`Invite Members`);
+    let e = h(),
+      { data: i, isLoading: a } = E(),
+      { membership: o, isPending: s } = N(),
+      [c, l] = (0, U.useState)([]),
+      u = p(() => c.length > 0),
+      f = (0, U.useCallback)(() => {
+        u.state === `blocked` && u.proceed();
+      }, [u]),
+      m = (0, U.useCallback)(() => {
+        u.state === `blocked` && u.reset();
+      }, [u]),
+      g = i?.tier === x.FREE_ONA || i?.tier === x.FREE;
+    return (!i && a) || (!o && s)
+      ? null
+      : o?.userRole === v.ADMIN
+        ? g
+          ? (0, W.jsx)(H, {
+              title: `Invite team members`,
+              description: `Upgrade to Core for up to 100 team members, unlimited parallel environments, and more.`,
+              children: (0, W.jsx)(j, {
+                variant: `primary`,
+                onClick: () => e(`/settings/billing?${r}=true`),
+                "data-tracking-id": `upgrade-invite-members-page`,
+                children: `Upgrade`,
+              }),
+            })
+          : (0, W.jsxs)(`div`, {
+              className: `flex flex-col gap-6 pt-6`,
+              children: [
+                (0, W.jsx)(Z, { emails: c, setEmails: l }),
+                (0, W.jsxs)(R, {
+                  className: `text-xs text-content-primary`,
+                  children: [
+                    `If you would like to invite people by email domain, you can set that up in`,
+                    ` `,
+                    (0, W.jsx)(d, {
+                      className: `font-bold underline`,
+                      to: `/settings/manage-organization`,
+                      children: `Manage Organization`,
+                    }),
+                    `.`,
+                  ],
+                }),
+                (0, W.jsx)(ee, {
+                  open: u.state === `blocked`,
+                  onOpenChange: m,
+                  onConfirmLeave: f,
+                  emailCount: c.length,
+                }),
+              ],
+            })
+        : (0, W.jsx)(t, {
+            description: `You do not have sufficient permissions to invite others to this organization. Contact your organization's admin to grant those permissions.`,
+          });
+  },
+  Y = (e) => e.providerType === C.CUSTOM,
+  X = (e) => e.providerType === C.BUILTIN,
+  Z = ({ emails: e, setEmails: t }) => {
+    let { data: n } = T(),
+      r = n?.filter(X) || [],
+      i = (n ? n.find(Y) : void 0)?.state === y.SSO_CONFIGURATION_STATE_ACTIVE,
+      a = r.some((e) => e.state === y.SSO_CONFIGURATION_STATE_ACTIVE);
+    return (0, W.jsxs)(`div`, {
+      className: `space-y-6`,
+      children: [
+        i &&
+          (0, W.jsxs)(`div`, {
+            className: `flex max-w-[600px] items-center gap-2 rounded-md border border-border-light bg-surface-muted/75 p-3`,
+            children: [
+              (0, W.jsx)(B, { className: `shrink-0`, size: `sm` }),
+              (0, W.jsxs)(`div`, {
+                children: [
+                  (0, W.jsx)(R, { className: `text-base font-bold`, children: `Your organization has SSO enabled` }),
+                  (0, W.jsx)(R, {
+                    className: `text-base`,
+                    children: `Log in user authentication is managed through your identity provider.`,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        (0, W.jsx)(Q, {}),
+        a && (0, W.jsxs)(W.Fragment, { children: [(0, W.jsx)(te, { emails: e, setEmails: t }), (0, W.jsx)(ne, {})] }),
+      ],
+    });
+  },
+  Q = () => {
+    let { data: e } = O(),
+      t = b(),
+      n = (0, U.useMemo)(() => o(e?.inviteId || ``), [e?.inviteId]);
+    return (0, W.jsxs)(`div`, {
+      className: `space-y-3`,
+      children: [
+        (0, W.jsxs)(`div`, {
+          children: [
+            (0, W.jsx)(F, { children: `Invite link` }),
+            (0, W.jsx)(P, { children: `Share this link with others you'd like to join your organization.` }),
+          ],
+        }),
+        (0, W.jsx)(`div`, {
+          className: `max-w-[600px]`,
+          children: (0, W.jsx)(L, {
+            copyable: !0,
+            value: n,
+            disabled: !0,
+            "data-tracking-id": `invite-link-invite-members-by-link`,
+          }),
+        }),
+        (0, W.jsx)(`div`, {
+          className: `inline-flex items-start justify-start gap-3`,
+          children: (0, W.jsx)(j, {
+            variant: `secondary`,
+            onClick: () => {
+              t.mutate(void 0, {
+                onSuccess: () => {
+                  A({ title: `Invite link reset` });
+                },
+                onError: (e) => {
+                  A({ title: `Failed to reset invite link`, description: w(e) });
+                },
+              });
+            },
+            "data-tracking-id": `reset-invite-link-invite-members-by-link`,
+            children: `Reset invite link`,
+          }),
+        }),
+      ],
+    });
+  },
+  $ = /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  ee = ({ open: e, onOpenChange: t, onConfirmLeave: n, emailCount: r }) =>
+    (0, W.jsx)(M, {
+      open: e,
+      onOpenChange: t,
+      children: (0, W.jsxs)(M.Content, {
+        "data-track-location": _.InviteMembersUnsentInvitesDialog,
+        className: `w-96`,
+        children: [
+          (0, W.jsxs)(M.Header, {
+            className: `mb-0`,
+            children: [
+              (0, W.jsx)(M.Title, { children: `Unsent invites` }),
+              (0, W.jsx)(M.Description, {
+                children: `You have ${r} unsent invite${r === 1 ? `` : `s`}. Click "Stay" to go back and send them, or discard to leave without sending.`,
+              }),
+            ],
+          }),
+          (0, W.jsxs)(M.Footer, {
+            className: `justify-end`,
+            children: [
+              (0, W.jsx)(M.Close, {
+                asChild: !0,
+                children: (0, W.jsx)(j, {
+                  variant: `outline`,
+                  "data-tracking-id": `stay-unsent-invites`,
+                  children: `Stay`,
+                }),
+              }),
+              (0, W.jsx)(j, {
+                variant: `destructive`,
+                onClick: n,
+                "data-tracking-id": `discard-unsent-invites`,
+                children: `Discard invites`,
+              }),
+            ],
+          }),
+        ],
+      }),
+    }),
+  te = ({ emails: e, setEmails: t }) => {
+    let n = D(),
+      { data: r } = O(),
+      { data: s } = E(),
+      [c, l] = (0, U.useState)(``),
+      [u, d] = (0, U.useState)(``),
+      f = o(r?.inviteId || ``),
+      p = s?.name || ``,
+      m = (0, U.useCallback)(() => {
+        e.length === 0 ||
+          !r ||
+          (e.forEach((e) => {
+            n(`organization_email_invited`, { email: e, invite_link: f, organization_name: p });
+          }),
+          t([]),
+          A({ title: `Invitation${e.length > 1 ? `s` : ``} sent successfully.` }));
+      }, [e, r, f, p, n, t]),
+      h = (0, U.useCallback)((t) => (e.includes(t) ? !1 : $.test(t)), [e]),
+      g = (0, U.useCallback)(
+        (n) => {
+          (n.preventDefault(), d(``));
+          let r = c.trim().toLowerCase();
+          if (r) {
+            if (!h(r)) {
+              d(e.includes(r) ? `Email already added` : `Invalid email address`);
+              return;
+            }
+            (t((e) => [...e, r]), l(``));
+          }
+        },
+        [c, h, e, t],
+      ),
+      _ = (0, U.useCallback)(
+        (e) => {
+          t((t) => t.filter((t) => t !== e));
+        },
+        [t],
+      );
+    return (0, W.jsxs)(`div`, {
+      className: `space-y-3`,
+      children: [
+        (0, W.jsxs)(`div`, {
+          children: [
+            (0, W.jsx)(F, { children: `Invite by email` }),
+            (0, W.jsx)(P, { children: `Add email addresses, then send invitations` }),
+          ],
+        }),
+        (0, W.jsxs)(`form`, {
+          onSubmit: g,
+          className: `flex max-w-[600px] gap-2`,
+          children: [
+            (0, W.jsxs)(`div`, {
+              className: `flex-1`,
+              children: [
+                (0, W.jsx)(L, {
+                  placeholder: `email@example.com`,
+                  value: c,
+                  onChange: (e) => {
+                    (d(``), l(e.target.value.toLowerCase()));
+                  },
+                  className: u ? `border-border-error` : ``,
+                }),
+                u && (0, W.jsx)(R, { className: `mt-1 text-xs text-content-destructive`, children: u }),
+              ],
+            }),
+            (0, W.jsx)(j, {
+              type: `submit`,
+              variant: `secondary`,
+              disabled: !c.trim(),
+              LeadingIcon: a,
+              "data-tracking-id": `add-email-invite-members`,
+              children: `Add`,
+            }),
+          ],
+        }),
+        e.length > 0 &&
+          (0, W.jsxs)(`div`, {
+            className: `max-w-[600px] rounded-lg border border-border-light bg-surface-secondary p-4`,
+            children: [
+              (0, W.jsx)(`div`, {
+                className: `mb-3 flex items-center justify-between`,
+                children: (0, W.jsx)(R, {
+                  className: `text-sm font-medium text-content-secondary`,
+                  children: `Pending invite${e.length === 1 ? `` : `s`} (${e.length})`,
+                }),
+              }),
+              (0, W.jsx)(`div`, {
+                className: `mb-4 flex flex-wrap gap-2`,
+                children: e.map((e) =>
+                  (0, W.jsxs)(
+                    `div`,
+                    {
+                      className: `flex items-center gap-1 rounded-md border border-border-base bg-surface-primary px-2 py-1 text-sm`,
+                      children: [
+                        (0, W.jsx)(`span`, { children: e }),
+                        (0, W.jsx)(j, {
+                          onClick: () => _(e),
+                          type: `button`,
+                          variant: `ghost`,
+                          size: `xs`,
+                          className: `h-5 w-5 p-0 hover:bg-surface-tertiary`,
+                          LeadingIcon: i,
+                          "aria-label": `Remove ${e}`,
+                          "data-tracking-id": `remove-email-tag`,
+                        }),
+                      ],
+                    },
+                    e,
+                  ),
+                ),
+              }),
+              (0, W.jsx)(j, {
+                variant: `primary`,
+                onClick: m,
+                "data-tracking-id": `send-invite-invite-members-by-email-address`,
+                children: `Send ${e.length} invite${e.length === 1 ? `` : `s`}`,
+              }),
+            ],
+          }),
+      ],
+    });
+  },
+  ne = () => {
+    let { toast: e } = k(),
+      { data: t } = E(),
+      n = (0, U.useMemo)(() => t?.inviteDomains?.domains || [], [t]),
+      r = S(),
+      i = (0, U.useCallback)(
+        async (n) => {
+          if (t)
+            try {
+              (await r.mutateAsync({ inviteDomains: n }), e({ title: `Updated allowed email domains` }));
+            } catch (t) {
+              throw (e({ title: `Failed to update organization's allowed email domains`, description: w(t) }), t);
+            }
+        },
+        [t, r, e],
+      ),
+      a = (0, U.useCallback)(
+        async (e) => {
+          await i([...n, e]);
+        },
+        [i, n],
+      ),
+      o = (0, U.useCallback)(
+        async (e) => {
+          await i(n.filter((t) => t !== e));
+        },
+        [i, n],
+      );
+    return (0, W.jsxs)(`div`, {
+      className: `flex flex-col gap-3`,
+      children: [
+        (0, W.jsxs)(`div`, {
+          children: [
+            (0, W.jsx)(I, { children: `Allowed email domains` }),
+            (0, W.jsx)(P, { children: `Enter an email domain of an existing member of this organization.` }),
+          ],
+        }),
+        (0, W.jsx)(G, { tags: n, validateInputFn: z, onAddValue: a, onRemoveTag: o, placeHolder: `example.com` }),
+      ],
+    });
+  };
+export { J as InviteMembersPage };

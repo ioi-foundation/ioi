@@ -1,0 +1,83 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { Ft as t, Mt as n, Nt as r, Pt as i } from "./SegmentProvider-CXCNBY9U.js";
+import { n as a } from "./@mux-DLaEVubF.js";
+import { cg as o, v_ as s } from "./vendor-DAwbZtf0.js";
+import { t as c } from "./cn-DppMFCU8.js";
+import { n as l } from "./headings-CM9JBOhQ.js";
+import { t as u } from "./text-fFCFeCas.js";
+var d = e(a(), 1),
+  f = s(),
+  p = c(
+    r,
+    `group relative flex flex-col gap-1 p-4`,
+    `has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-border-brand`,
+  ),
+  m = (0, d.createContext)(null),
+  h = ({ children: e, className: t, "aria-label": r }) =>
+    (0, f.jsx)(`ul`, { className: c(n, t), "aria-label": r, children: e }),
+  g = (0, d.forwardRef)(({ children: e, className: t, to: n, href: r, "data-tracking-id": i, ...a }, o) =>
+    (0, f.jsx)(`li`, {
+      ref: o,
+      ...a,
+      children: (0, f.jsx)(m.Provider, {
+        value: { to: n, href: r, trackingId: i },
+        children: (0, f.jsx)(`div`, { className: c(p, t), children: e }),
+      }),
+    }),
+  );
+g.displayName = `EnvironmentDetailsSection.List.Item`;
+var _ = ({ children: e }) => (0, f.jsx)(`div`, { className: `flex items-center gap-4`, children: e }),
+  v = ({ children: e }) => (0, f.jsx)(`div`, { className: `-mr-2 flex shrink-0 items-center`, children: e }),
+  y = c(`after:absolute after:inset-0`, `focus-visible:outline-none`),
+  b = ({ children: e }) => {
+    let n = (0, d.useContext)(m);
+    if (n === null)
+      throw Error(
+        `EnvironmentDetailsSection.List.ItemTitle must be rendered inside an EnvironmentDetailsSection.List.Item`,
+      );
+    let { to: r, href: i, trackingId: a } = n,
+      s = e;
+    return (
+      r
+        ? (s = (0, f.jsx)(o, { to: r, draggable: !1, className: y, "data-tracking-id": a, children: e }))
+        : i &&
+          (s = (0, f.jsx)(`a`, {
+            href: i,
+            target: `_blank`,
+            rel: `noopener noreferrer`,
+            className: y,
+            "data-tracking-id": a,
+            children: e,
+          })),
+      (0, f.jsx)(u, { className: c(t, `min-w-0 flex-1 truncate`), children: s })
+    );
+  },
+  x = ({ children: e, className: t }) =>
+    (0, f.jsx)(`div`, {
+      className: c(`flex shrink-0 items-center gap-2 [&_button]:relative [&_button]:z-10`, t),
+      children: e,
+    }),
+  S = ({ children: e, title: t }) => (0, f.jsx)(u, { className: c(i, `line-clamp-2 text-sm`), title: t, children: e }),
+  C = ({ children: e, subtitle: t, action: n, "data-testid": r }) =>
+    (0, f.jsxs)(`div`, {
+      className: `flex items-center justify-between pb-2`,
+      translate: `no`,
+      "data-testid": r,
+      children: [
+        (0, f.jsxs)(`div`, {
+          className: `flex items-baseline gap-2`,
+          children: [
+            (0, f.jsx)(l, { className: `select-none text-lg font-medium text-content-strong`, children: e }),
+            t,
+          ],
+        }),
+        n,
+      ],
+    }),
+  w = Object.assign(h, { Item: g, Top: _, ItemPrefix: v, ItemTitle: b, ItemActions: x, Description: S }),
+  T = Object.assign(
+    ({ children: e, className: t, ...n }) =>
+      (0, f.jsx)(`div`, { className: c(`duration-700 animate-in fade-in`, t), ...n, children: e }),
+    { Header: C, List: w },
+  );
+export { T as t };

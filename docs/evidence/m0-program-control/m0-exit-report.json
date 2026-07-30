@@ -9,12 +9,12 @@
     "repository_baseline_present": true,
     "snapshot_head_binding": "verified"
   },
-  "build_fingerprint": "2e1ef54c574d14d94d211da755029d162f9143e9031274418a4798235aa3a6c9",
+  "build_fingerprint": "bf58e957aacab3af7f5ac0450fafad3e0baa48ceca02135bb8cf2c1a6a720a70",
   "census_counts": {
-    "consequential": 872,
-    "partial_consequential": 854,
+    "consequential": 1006,
+    "partial_consequential": 988,
     "terminal_consequential": 0,
-    "total": 1281,
+    "total": 1584,
     "unavailable_consequential": 18
   },
   "claim_scope": "M0 program control and claim lock only",

@@ -1,0 +1,17 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import { Ig as n, v_ as r } from "./vendor-DAwbZtf0.js";
+import { t as i } from "./cn-DppMFCU8.js";
+var a = e(t(), 1),
+  o = r(),
+  s = (0, a.forwardRef)(({ id: e, className: t, muted: r, children: a, asChild: s, ...c }, l) =>
+    (0, o.jsx)(s ? n : `p`, {
+      ref: l,
+      id: e,
+      className: i(r ? `text-content-tertiary` : `text-content-primary`, t),
+      ...c,
+      children: a,
+    }),
+  );
+s.displayName = `Text`;
+export { s as t };

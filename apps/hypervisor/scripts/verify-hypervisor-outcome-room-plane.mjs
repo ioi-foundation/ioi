@@ -820,7 +820,7 @@ async function run() {
       const TRANSITION_DECL_EXCLUDES = ["admission_receipt_ref", "admission_and_replay_refs", "status_history"];
       const TRANSITION_NOTE = "an admitted shared-state transition on a hosted room — receipted, optimistically concurrent, and honest about being admission (not verification or acceptance)";
       const ATTACH_NOTE = "an admitted membership transition — the room's member list and the GoalRun's reciprocal outcome_room_ref stamp land in one atomic finalization";
-      // Mirror of build_room_receipt_at (the server-side receipt constructor) — used to build a
+      // Test-side equivalent of build_room_receipt_at (the server-side receipt constructor) — used to build a
       // TRUTHFUL receipt for the lying-receipt adversarial lanes (#72 r16 finding 2).
       const roomReceipt = (tail, schema, type, subject, op, boundFacts, boundaryRefs, outputHash, excludes, note, now) => ({
         schema_version: schema, receipt_id: `receipt://${tail}`, receipt_ref: `receipt://${tail}`, receipt_type: type,

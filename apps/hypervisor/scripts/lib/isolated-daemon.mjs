@@ -196,13 +196,13 @@ export async function startIsolatedPlane({
   let serveUrl = null;
   if (serve) {
     const servePort = await freePort();
-    const mirrorPort = await freePort(); // the serve spawns its own mock mirror — keep it off :9301
+    const seedBackendPort = await freePort(); // isolate the seed server's fixture backend from :9301
     serveUrl = `http://127.0.0.1:${servePort}`;
     const serveLogFd = openSync(logPath, "a");
     const child = trackChild(spawn(process.execPath, [join(APP, "scripts", "serve-product-ui.mjs")], {
       env: {
         ...baseEnv,
-        PORT: String(servePort), PRODUCT_UI_PORT: String(mirrorPort),
+        PORT: String(servePort), PRODUCT_UI_PORT: String(seedBackendPort),
         IOI_HYPERVISOR_DAEMON_URL: daemonUrl, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${daemonPort}`,
         IOI_HYPERVISOR_DATA_DIR: dataDir,
         IOI_PRODUCT_UI_PUBLIC:
