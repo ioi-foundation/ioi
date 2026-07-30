@@ -86,6 +86,20 @@ const SYSTEM_AMENDMENT_GOVERNANCE_APPROVAL_REASON: &str =
 const NAMED_CONTINUITY_APPROVAL_REASON: &str =
     "System named continuity transition fixture approval";
 const LIVE_ROUTE_APPROVAL_REASON: &str = "Hypervisor live-route authority fixture approval";
+const APPLICATION_GOVERNANCE_APPROVAL_REASON: &str = "Application governed-effect fixture approval";
+const UNKNOWN_GOVERNED_SCOPE_ERROR: &str =
+    "record_approval target_scope is not one of the fixture's recognized governed scopes";
+const APPLICATION_GOVERNANCE_SCOPE_PREFIXES: [&str; 9] = [
+    "room_participation.",
+    "resource_offer.",
+    "capability_offer.",
+    "work_eligibility.",
+    "work_frontier.",
+    "work_claim.",
+    "attempt.",
+    "finding.",
+    "verifier_challenge.",
+];
 const PROTECTED_TRANSITION_OPS: [&str; 14] = [
     "pause",
     "resume",
@@ -127,6 +141,12 @@ fn named_continuity_scope(target_scope: &str) -> bool {
 
 fn live_route_scope(target_scope: &str) -> bool {
     target_scope.starts_with("scope:hypervisor.live-route.")
+}
+
+fn application_governance_scope(target_scope: &str) -> bool {
+    APPLICATION_GOVERNANCE_SCOPE_PREFIXES
+        .iter()
+        .any(|prefix| target_scope.starts_with(prefix) && target_scope.len() > prefix.len())
 }
 
 #[derive(Debug, Deserialize)]
@@ -680,11 +700,8 @@ async fn submit_record_approval(
         scope if protected_transition_scope(scope) => PROTECTED_TRANSITION_APPROVAL_REASON,
         scope if named_continuity_scope(scope) => NAMED_CONTINUITY_APPROVAL_REASON,
         scope if live_route_scope(scope) => LIVE_ROUTE_APPROVAL_REASON,
-        _ => {
-            return Err(anyhow!(
-                "record_approval target_scope is not one of the fixture's governed System scopes"
-            ))
-        }
+        scope if application_governance_scope(scope) => APPLICATION_GOVERNANCE_APPROVAL_REASON,
+        _ => return Err(anyhow!(UNKNOWN_GOVERNED_SCOPE_ERROR)),
     };
     let grant = command
         .approval_grant
@@ -706,7 +723,7 @@ async fn submit_record_approval(
     }
     if grant.max_usages != Some(1) {
         return Err(anyhow!(
-            "stateful System-genesis fixture grants must have max_usages=1"
+            "stateful governed-effect fixture grants must have max_usages=1"
         ));
     }
 

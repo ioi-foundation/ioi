@@ -1,0 +1,26 @@
+{
+  "schema_version": "ioi.foundations.attempt.v1",
+  "attempt_id": "attempt://demo/1",
+  "outcome_room_ref": "outcome-room://demo",
+  "room_admission": {
+    "schema_version": "ioi.foundations.room-admitted-object-base.v1",
+    "room_system_id": "system://room/demo",
+    "outcome_room_ref": "outcome-room://demo",
+    "admission_status": "admitted"
+  },
+  "work_subject_ref": "goal://demo-run",
+  "goal_run_ref": "goal://demo-run",
+  "frontier_item_ref": "frontier://demo/1",
+  "work_claim_ref": "work-claim://demo/1",
+  "participant_ref": "participant-lease://demo/worker",
+  "outcome_class": "inconclusive",
+  "work_result_ref": "work-result://demo/1",
+  "outcome_delta_refs": [
+    "outcome-delta://demo/1"
+  ],
+  "artifact_evidence_and_receipt_refs": [
+    "receipt://attempt/demo/1"
+  ],
+  "status": "admitted",
+  "unexpected_field": "must be refused"
+}

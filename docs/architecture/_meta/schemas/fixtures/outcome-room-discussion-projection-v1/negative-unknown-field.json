@@ -1,0 +1,26 @@
+{
+  "schema_version": "ioi.foundations.outcome-room-discussion-projection.v1",
+  "projection_id": "projection://room/demo/discussion/1",
+  "outcome_room_ref": "outcome-room://demo",
+  "source_room_revision": 1,
+  "source_room_state_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "source_admission_receipt_refs": [
+    "receipt://room/demo/1"
+  ],
+  "visibility_policy_ref": "policy://room/visibility/v1",
+  "information_flow_label_refs": [
+    "label://room/demo/public"
+  ],
+  "permitted_subject_refs": [
+    "participant-lease://demo/worker"
+  ],
+  "message_refs": [
+    "message://room/demo/1"
+  ],
+  "redaction_summary_refs": [],
+  "replay_cursor": "room-demo:1",
+  "generated_at": "2026-07-30T12:05:00Z",
+  "authoritative": false,
+  "client_writable": false,
+  "unexpected_field": "must be refused"
+}

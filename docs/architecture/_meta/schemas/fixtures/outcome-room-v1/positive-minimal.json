@@ -1,0 +1,33 @@
+{
+  "schema_version": "ioi.foundations.outcome-room.v1",
+  "outcome_room_id": "outcome-room://demo",
+  "system_id": "system://room/demo",
+  "genesis_ref": "genesis://room/demo",
+  "package_id": "package://ioi/outcome-room",
+  "manifest_ref": "package://ioi/outcome-room/release/1",
+  "constitution_ref": "constitution://room/demo/v1",
+  "owner_or_sponsor_ref": "system://room/demo",
+  "objective_ref": "goal://demo",
+  "objective": "Produce one bounded evidence-backed outcome.",
+  "room_mode": "private_goal",
+  "coordination_topology": "hosted_admission",
+  "coordination_policy_ref": "policy://room/admission/v1",
+  "host_domain_ref": "domain://host/demo",
+  "participant_lease_refs": [],
+  "member_goal_run_refs": [
+    "goal://demo-run"
+  ],
+  "frontier_item_refs": [],
+  "attempt_refs": [],
+  "finding_refs": [],
+  "verifier_challenge_refs": [],
+  "discussion_projection_refs": [],
+  "admission_and_replay_refs": [
+    "receipt://room/demo/1"
+  ],
+  "latest_sequence": 1,
+  "latest_transition_commitment_ref": "commitment://room/demo/1",
+  "room_state_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "room_receipt_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "status": "active"
+}

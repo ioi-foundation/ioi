@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/work-frontier-item/v1",
+  "title": "WorkFrontierItem",
+  "x-ioi-schema-version": "ioi.foundations.work-frontier-item.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "frontier_item_id",
+    "room_admission",
+    "item_kind",
+    "objective",
+    "dependency_refs",
+    "required_capability_refs",
+    "claimability",
+    "duplication_policy",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.work-frontier-item.v1"
+    },
+    "frontier_item_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "room_admission": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "room_system_id",
+        "outcome_room_ref",
+        "admission_status"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.foundations.room-admitted-object-base.v1"
+        },
+        "room_system_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        },
+        "outcome_room_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        },
+        "admission_status": {
+          "enum": [
+            "proposed",
+            "evaluating",
+            "admitted",
+            "rejected",
+            "superseded",
+            "revoked"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "item_kind": {
+      "enum": [
+        "question",
+        "problem",
+        "hypothesis",
+        "task",
+        "review_need",
+        "verification_need",
+        "resource_need",
+        "synthesis_need"
+      ]
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "dependency_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "required_capability_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "claimability": {
+      "enum": [
+        "open",
+        "invited_only",
+        "assigned",
+        "paused",
+        "closed"
+      ]
+    },
+    "duplication_policy": {
+      "enum": [
+        "exclusive",
+        "allowed",
+        "encouraged",
+        "independent_replication_required"
+      ]
+    },
+    "status": {
+      "enum": [
+        "open",
+        "claimed",
+        "blocked",
+        "replicating",
+        "verifying",
+        "accepted",
+        "rejected",
+        "superseded",
+        "closed"
+      ]
+    }
+  }
+}

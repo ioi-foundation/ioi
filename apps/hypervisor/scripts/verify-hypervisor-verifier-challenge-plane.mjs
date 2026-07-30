@@ -39,7 +39,7 @@ async function governed(call, resolver, principal, path, body) {
   const challenge = await call("POST", path, body);
   const approval = challenge.body.error?.approval;
   if (!approval?.policy_hash || !approval?.request_hash) return { challenge, response: challenge, grant: null };
-  const grant = resolver.mint(principal, approval.policy_hash, approval.request_hash);
+  const grant = await resolver.mintRecorded(principal, approval.policy_hash, approval.request_hash, challenge.body.error?.required_scope);
   const response = await call("POST", path, { ...body, wallet_approval_grant: grant });
   return { challenge, response, grant };
 }
@@ -166,7 +166,7 @@ async function run() {
       ]), `${unsupported.status}/${ghost.status}/${malformed.status}/${malformedAffected.status}/${relocated.status}/${crossRoom.status}`);
     const missing = await call("POST", "/v1/goal-orchestration/verifier-challenges", input);
     if (!missing.body.error?.approval) throw new Error(`VerifierChallenge did not reach authority: ${JSON.stringify(missing)}`);
-    const grant = resolver.mint(lease.participant_ref, missing.body.error.approval.policy_hash, missing.body.error.approval.request_hash);
+    const grant = await resolver.mintRecorded(lease.participant_ref, missing.body.error.approval.policy_hash, missing.body.error.approval.request_hash, missing.body.error.required_scope);
     const beforeSwap = [names(dataDir, "verifier-challenges"), names(dataDir, "verifier-challenge-receipts")];
     const swapped = await call("POST", "/v1/goal-orchestration/verifier-challenges", {
       ...input, challenge_kind: "exploit", challenge_evidence_refs: ["evidence://swapped"], wallet_approval_grant: grant,

@@ -40,7 +40,7 @@ lifecycle semantics stay with the subject owner named in each row.
 | [`memory-and-promotion.md`](./objects/memory-and-promotion.md) | AgentWikiEnvelope, Portable Agent Memory, ContextMutationEnvelope, PromotionDecisionEnvelope, +1 more | [`components/daemon-runtime/portable-memory-vault.md`](../components/daemon-runtime/portable-memory-vault.md) |
 | [`bounded-improvement.md`](./objects/bounded-improvement.md) | Bounded Improvement Campaign Envelopes | [`foundations/bounded-recursive-improvement.md`](../foundations/bounded-recursive-improvement.md) |
 | [`goal-pursuit.md`](./objects/goal-pursuit.md) | GoalRunProfileEnvelope, OrchestrationConstraintEnvelope, OrchestrationPolicyEnvelope, OrchestrationPlanEnvelope, +1 more | [`domains/ioi-ai/control-plane.md`](../domains/ioi-ai/control-plane.md) |
-| [`collaborative-pursuit.md`](./objects/collaborative-pursuit.md) | OutcomeRoomDiscoveryEnvelope and RoomParticipationRequestEnvelope, OutcomeRoomEnvelope, RoomParticipantLeaseEnvelope, ParticipantStateBundleEnvelope, +6 more | [`domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md) |
+| [`collaborative-pursuit.md`](./objects/collaborative-pursuit.md) | OutcomeRoomDiscoveryEnvelope and RoomParticipationRequestEnvelope, OutcomeRoomEnvelope, OutcomeRoomDiscussionProjectionEnvelope, RoomParticipantLeaseEnvelope, ParticipantStateBundleEnvelope, +7 more | [`domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md) |
 | [`work-results-and-lifecycle.md`](./objects/work-results-and-lifecycle.md) | WorkResultEnvelope and OutcomeDeltaEnvelope, WorkLifecycleRecordEnvelope, WorkLifecycleArchiveSegmentEnvelope and WorkLifecycleSnapshotEnvelope | [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md) |
 | [`goal-run-execution.md`](./objects/goal-run-execution.md) | GoalRunEnvelope, GoalGroundingLoopEnvelope, RoleTopologyEnvelope, InformationFlowLabel and DeclassificationApproval, +11 more | [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) |
 
@@ -210,6 +210,7 @@ OrchestrationConstraintEnvelope
 OrchestrationPlanEnvelope
 OrchestrationPolicyEnvelope
 OutcomeRoomEnvelope
+OutcomeRoomDiscussionProjectionEnvelope
 OutcomeRoomDiscoveryEnvelope
 RoomParticipationRequestEnvelope
 RoomParticipantLeaseEnvelope

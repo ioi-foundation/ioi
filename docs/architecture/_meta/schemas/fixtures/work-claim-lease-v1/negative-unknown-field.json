@@ -1,0 +1,23 @@
+{
+  "schema_version": "ioi.foundations.work-claim-lease.v1",
+  "work_claim_id": "work-claim://demo/1",
+  "outcome_room_ref": "outcome-room://demo",
+  "room_admission": {
+    "schema_version": "ioi.foundations.room-admitted-object-base.v1",
+    "room_system_id": "system://room/demo",
+    "outcome_room_ref": "outcome-room://demo",
+    "admission_status": "admitted"
+  },
+  "frontier_item_ref": "frontier://demo/1",
+  "claimant_ref": "participant-lease://demo/worker",
+  "claimant_participant_lease_ref": "participant-lease://demo/worker",
+  "collaboration_terms_ref": "terms://demo/v1",
+  "collaboration_terms_root": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+  "terms_acceptance_ref": "receipt://terms/demo/1",
+  "bounded_scope_ref": "task://demo/1",
+  "issued_at": "2026-07-30T12:03:00Z",
+  "expires_at": "2026-07-30T13:03:00Z",
+  "renewal_count": 0,
+  "status": "active",
+  "unexpected_field": "must be refused"
+}

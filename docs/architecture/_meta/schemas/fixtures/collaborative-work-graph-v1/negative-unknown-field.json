@@ -1,0 +1,28 @@
+{
+  "schema_version": "ioi.foundations.collaborative-work-graph.v1",
+  "projection_id": "projection://room/demo/graph/1",
+  "outcome_room_ref": "outcome-room://demo",
+  "source_room_revision": 1,
+  "source_room_state_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "member_goal_run_refs": [
+    "goal://demo-run"
+  ],
+  "participant_refs": [],
+  "frontier_item_refs": [],
+  "work_claim_refs": [],
+  "attempt_refs": [],
+  "finding_refs": [],
+  "verifier_challenge_refs": [],
+  "work_result_refs": [],
+  "outcome_delta_refs": [],
+  "source_admission_receipt_refs": [
+    "receipt://room/demo/1"
+  ],
+  "information_flow_label_refs": [
+    "label://room/demo/public"
+  ],
+  "generated_at": "2026-07-30T12:01:00Z",
+  "authoritative": false,
+  "client_writable": false,
+  "unexpected_field": "must be refused"
+}

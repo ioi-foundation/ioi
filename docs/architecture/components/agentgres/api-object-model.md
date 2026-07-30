@@ -1475,6 +1475,7 @@ Minimum persisted room graph:
   "scorecard_guardrail_verifier_resource_budget_and_settlement_refs": [],
   "network_goal_budget_ref": "goal-budget://research-123 | order://... | null",
   "participant_lease_refs": [],
+  "member_goal_run_refs": [],
   "frontier_item_refs": [],
   "attempt_refs": [],
   "finding_refs": [],
@@ -1526,11 +1527,22 @@ OutcomeRoom
        -> supporting and contradicting evidence / supersession / dispute
   -> VerifierChallenge
        -> rule versions / adjudication / affected attempts / re-verification
+  -> CollaborativeWorkGraph projection
+       -> exact room revision/root and reciprocal GoalRun membership
+       -> participant/frontier/claim/attempt/finding/challenge/result/delta refs
+  -> OutcomeRoomDiscussionProjection
+       -> policy-filtered message refs / redaction summaries / replay cursor
+       -> exact information-flow labels and source admission receipts
 ```
 
 Room messages, boards, inboxes, digests, feeds, taskforce lists, leaderboards,
 and replay timelines are projection definitions over those objects. They are
-not canonical state classes. Participant inputs remain tainted until the
+not canonical state classes. Their durable room-specific form is the
+`OutcomeRoomDiscussionProjectionEnvelope` owned by
+[`collaborative-pursuit.md`](../../foundations/objects/collaborative-pursuit.md):
+it binds one exact room revision/root, source receipts, visibility policy, and
+information-flow labels, and is neither authoritative nor client-writable.
+Participant inputs remain tainted until the
 declared room admission path accepts an object or delta. Every mutable relation
 implements `RoomAdmittedObjectBase`: exact participant lease or room-system
 issuer, expected room revision and predecessor transition commitment, payload/

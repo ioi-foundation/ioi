@@ -170,6 +170,16 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1", "sha256:6af61ba9d156c2e04c5641dbf78324ccc719d9da10d6269c87e358802d49feff"),
     ("schema://ioi/foundations/goal-run/v1", "sha256:c708022d62e77212f1b3c1c04744bbc1e2709a51e639856dc8ef6c8839e314a2"),
     ("schema://ioi/foundations/goal-run-profile-resolution-receipt/v1", "sha256:1c9ee6410e40d87b7bcb732c9396c163f4c86420df03de31b64d726dbd646edf"),
+    ("schema://ioi/foundations/attempt/v1", "sha256:de9ad01527339b3216e397326b325e5ce563123196cbd9eda2e4e82dac0c299d"),
+    ("schema://ioi/foundations/collaborative-work-graph/v1", "sha256:604265e07a5b0b6d66ab3cae63a7f34f8d591a6cf8ff4ad22503a755555af9c8"),
+    ("schema://ioi/foundations/finding/v1", "sha256:0d644924fb01fb7fac8502de13c098d1a8e69c71a99abce70153b5a830b86e78"),
+    ("schema://ioi/foundations/outcome-room-discussion-projection/v1", "sha256:64df78ae1db98e2db2076fee8eaacc7b315a574dcf7d7c1a1dfcfe954506452b"),
+    ("schema://ioi/foundations/outcome-room/v1", "sha256:251a700cc0c55e9c2b9cd49cec8984eee7bc3a0ed4ff49126272b21d134a08a0"),
+    ("schema://ioi/foundations/participant-state-bundle/v1", "sha256:8e621f4847b9a83cc28252ccd2d1459d065017b40e829efb8beb43a5d25c84c3"),
+    ("schema://ioi/foundations/room-admitted-object-base/v1", "sha256:9ad701824e0123f143344801ec0db6d4fe6e09f833b697ad635375da509f67e3"),
+    ("schema://ioi/foundations/verifier-challenge/v1", "sha256:a5f3efba0396d3dff2fb64e8c00449fb785f46e00068a6de4ce17524e64647fa"),
+    ("schema://ioi/foundations/work-claim-lease/v1", "sha256:0fb966c4940672eb5d4ec87c0d92bc34d4db6369756356b1b0ba1d1ff3d35653"),
+    ("schema://ioi/foundations/work-frontier-item/v1", "sha256:5bc0d8189b368b4b8f71d0f1fc1bc1f3f847682d1fcd70dbeaada5920905b8c1"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -60357,6 +60367,2489 @@ pub enum GoalRunProfileResolutionReceiptV1AssuranceStage {
     Attested,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AttemptV1 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<AttemptV1SchemaVersion>,
+    pub attempt_id: String,
+    pub outcome_room_ref: Option<String>,
+    pub room_admission: Option<AttemptV1RoomAdmission>,
+    pub work_subject_ref: String,
+    pub goal_run_ref: Option<String>,
+    pub frontier_item_ref: Option<String>,
+    pub work_claim_ref: Option<String>,
+    pub participant_ref: String,
+    pub outcome_class: AttemptV1OutcomeClass,
+    pub work_result_ref: Option<String>,
+    pub outcome_delta_refs: Vec<String>,
+    pub artifact_evidence_and_receipt_refs: Vec<String>,
+    pub status: AttemptV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AttemptV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/attempt/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/attempt/v1","title":"Attempt","x-ioi-schema-version":"ioi.foundations.attempt.v1","type":"object","additionalProperties":false,"required":["attempt_id","outcome_room_ref","room_admission","work_subject_ref","goal_run_ref","frontier_item_ref","work_claim_ref","participant_ref","outcome_class","work_result_ref","outcome_delta_refs","artifact_evidence_and_receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.foundations.attempt.v1"},"attempt_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"room_admission":{"anyOf":[{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true},{"type":"null"}]},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"goal_run_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"frontier_item_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"work_claim_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"participant_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"work_result_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"artifact_evidence_and_receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"status":{"enum":["draft","running","submitted","admitted","challenged","accepted","rejected","superseded"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: match object.remove(r#"schema_version"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<AttemptV1SchemaVersion>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            attempt_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"attempt_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attempt_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_admission: serde_json::from_value::<Option<AttemptV1RoomAdmission>>(
+                object
+                    .remove(r#"room_admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            goal_run_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"goal_run_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"goal_run_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frontier_item_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"frontier_item_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frontier_item_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_claim_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"work_claim_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_claim_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_class: serde_json::from_value::<AttemptV1OutcomeClass>(
+                object
+                    .remove(r#"outcome_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"work_result_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_result_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_delta_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"outcome_delta_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_delta_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_evidence_and_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"artifact_evidence_and_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"artifact_evidence_and_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AttemptV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AttemptV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.attempt.v1"#)]
+    IoiFoundationsAttemptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AttemptV1RoomAdmission {
+    pub schema_version: AttemptV1RoomAdmissionSchemaVersion,
+    pub room_system_id: String,
+    pub outcome_room_ref: String,
+    pub admission_status: AttemptV1RoomAdmissionAdmissionStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for AttemptV1RoomAdmission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/attempt/v1"#,
+            r#"{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AttemptV1RoomAdmissionSchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"room_system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_status: serde_json::from_value::<AttemptV1RoomAdmissionAdmissionStatus>(
+                object
+                    .remove(r#"admission_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AttemptV1RoomAdmissionSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.room-admitted-object-base.v1"#)]
+    IoiFoundationsRoomAdmittedObjectBaseV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AttemptV1RoomAdmissionAdmissionStatus {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"evaluating"#)]
+    Evaluating,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AttemptV1OutcomeClass {
+    #[serde(rename = r#"positive"#)]
+    Positive,
+    #[serde(rename = r#"negative"#)]
+    Negative,
+    #[serde(rename = r#"inconclusive"#)]
+    Inconclusive,
+    #[serde(rename = r#"invalid"#)]
+    Invalid,
+    #[serde(rename = r#"exploit_found"#)]
+    ExploitFound,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AttemptV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"running"#)]
+    Running,
+    #[serde(rename = r#"submitted"#)]
+    Submitted,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"challenged"#)]
+    Challenged,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollaborativeWorkGraphV1 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<CollaborativeWorkGraphV1SchemaVersion>,
+    pub projection_id: String,
+    pub outcome_room_ref: String,
+    pub source_room_revision: ArchitectureContractInteger,
+    pub source_room_state_root: String,
+    pub member_goal_run_refs: Vec<String>,
+    pub participant_refs: Vec<String>,
+    pub frontier_item_refs: Vec<String>,
+    pub work_claim_refs: Vec<String>,
+    pub attempt_refs: Vec<String>,
+    pub finding_refs: Vec<String>,
+    pub verifier_challenge_refs: Vec<String>,
+    pub work_result_refs: Vec<String>,
+    pub outcome_delta_refs: Vec<String>,
+    pub source_admission_receipt_refs: Vec<String>,
+    pub information_flow_label_refs: Vec<String>,
+    pub generated_at: String,
+    pub authoritative: CollaborativeWorkGraphV1Authoritative,
+    pub client_writable: CollaborativeWorkGraphV1ClientWritable,
+}
+
+impl<'de> serde::Deserialize<'de> for CollaborativeWorkGraphV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/collaborative-work-graph/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/collaborative-work-graph/v1","title":"CollaborativeWorkGraph","x-ioi-schema-version":"ioi.foundations.collaborative-work-graph.v1","type":"object","additionalProperties":false,"required":["projection_id","outcome_room_ref","source_room_revision","source_room_state_root","member_goal_run_refs","participant_refs","frontier_item_refs","work_claim_refs","attempt_refs","finding_refs","verifier_challenge_refs","work_result_refs","outcome_delta_refs","source_admission_receipt_refs","information_flow_label_refs","generated_at","authoritative","client_writable"],"properties":{"schema_version":{"const":"ioi.foundations.collaborative-work-graph.v1"},"projection_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"source_room_revision":{"type":"integer","minimum":0,"maximum":9007199254740991},"source_room_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"member_goal_run_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"participant_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"frontier_item_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"work_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"attempt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"finding_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"verifier_challenge_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"work_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"source_admission_receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"generated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"authoritative":{"const":false},"client_writable":{"const":false}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: match object.remove(r#"schema_version"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<CollaborativeWorkGraphV1SchemaVersion>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            projection_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"projection_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"projection_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_room_revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"source_room_revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_room_revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_room_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_room_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_room_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            member_goal_run_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"member_goal_run_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_goal_run_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"participant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frontier_item_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"frontier_item_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frontier_item_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_claim_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"work_claim_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_claim_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attempt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"attempt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attempt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            finding_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"finding_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"finding_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_challenge_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"verifier_challenge_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_challenge_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"work_result_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_result_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_delta_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"outcome_delta_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_delta_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_admission_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_admission_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_admission_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            information_flow_label_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"information_flow_label_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"information_flow_label_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            generated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"generated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"generated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authoritative: serde_json::from_value::<CollaborativeWorkGraphV1Authoritative>(
+                object
+                    .remove(r#"authoritative"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authoritative"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            client_writable: serde_json::from_value::<CollaborativeWorkGraphV1ClientWritable>(
+                object
+                    .remove(r#"client_writable"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"client_writable"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollaborativeWorkGraphV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.collaborative-work-graph.v1"#)]
+    IoiFoundationsCollaborativeWorkGraphV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollaborativeWorkGraphV1Authoritative {
+    False,
+}
+
+impl serde::Serialize for CollaborativeWorkGraphV1Authoritative {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CollaborativeWorkGraphV1Authoritative {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollaborativeWorkGraphV1ClientWritable {
+    False,
+}
+
+impl serde::Serialize for CollaborativeWorkGraphV1ClientWritable {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CollaborativeWorkGraphV1ClientWritable {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FindingV1 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<FindingV1SchemaVersion>,
+    pub finding_id: String,
+    pub outcome_room_ref: Option<String>,
+    pub room_admission: Option<FindingV1RoomAdmission>,
+    pub attempt_ref: String,
+    pub work_result_ref: String,
+    pub participant_ref: String,
+    pub proposed_by_ref: String,
+    pub proposition: String,
+    pub finding_kind: FindingV1FindingKind,
+    pub transaction_time: String,
+    pub supporting_evidence_refs: Vec<String>,
+    pub contradicting_evidence_refs: Vec<String>,
+    pub proof_refs: Vec<String>,
+    pub supersedes_ref: Option<String>,
+    pub status: FindingV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for FindingV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/finding/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/finding/v1","title":"Finding","x-ioi-schema-version":"ioi.foundations.finding.v1","type":"object","additionalProperties":false,"required":["finding_id","outcome_room_ref","room_admission","attempt_ref","work_result_ref","participant_ref","proposed_by_ref","proposition","finding_kind","transaction_time","supporting_evidence_refs","contradicting_evidence_refs","proof_refs","supersedes_ref","status"],"properties":{"schema_version":{"const":"ioi.foundations.finding.v1"},"finding_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"room_admission":{"anyOf":[{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true},{"type":"null"}]},"attempt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"proposed_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"proposition":{"type":"string","minLength":1,"maxLength":8000},"finding_kind":{"enum":["hypothesis","observation","claim","negative_result","integrity_incident","mapping_claim","causal_claim","counterexample","synthesis"]},"transaction_time":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"supporting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"contradicting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"proof_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"supersedes_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["branch_local","proposed","admitted","contradicted","superseded","disputed","rejected","archived"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: match object.remove(r#"schema_version"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<FindingV1SchemaVersion>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            finding_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"finding_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"finding_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_admission: serde_json::from_value::<Option<FindingV1RoomAdmission>>(
+                object
+                    .remove(r#"room_admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attempt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"attempt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attempt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_result_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_result_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposed_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposition: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            finding_kind: serde_json::from_value::<FindingV1FindingKind>(
+                object
+                    .remove(r#"finding_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"finding_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transaction_time: serde_json::from_value::<String>(
+                object
+                    .remove(r#"transaction_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transaction_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supporting_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"supporting_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"supporting_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contradicting_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"contradicting_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"contradicting_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proof_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"proof_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proof_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supersedes_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"supersedes_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supersedes_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<FindingV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FindingV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.finding.v1"#)]
+    IoiFoundationsFindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FindingV1RoomAdmission {
+    pub schema_version: FindingV1RoomAdmissionSchemaVersion,
+    pub room_system_id: String,
+    pub outcome_room_ref: String,
+    pub admission_status: FindingV1RoomAdmissionAdmissionStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for FindingV1RoomAdmission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/finding/v1"#,
+            r#"{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<FindingV1RoomAdmissionSchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"room_system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_status: serde_json::from_value::<FindingV1RoomAdmissionAdmissionStatus>(
+                object
+                    .remove(r#"admission_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FindingV1RoomAdmissionSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.room-admitted-object-base.v1"#)]
+    IoiFoundationsRoomAdmittedObjectBaseV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FindingV1RoomAdmissionAdmissionStatus {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"evaluating"#)]
+    Evaluating,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FindingV1FindingKind {
+    #[serde(rename = r#"hypothesis"#)]
+    Hypothesis,
+    #[serde(rename = r#"observation"#)]
+    Observation,
+    #[serde(rename = r#"claim"#)]
+    Claim,
+    #[serde(rename = r#"negative_result"#)]
+    NegativeResult,
+    #[serde(rename = r#"integrity_incident"#)]
+    IntegrityIncident,
+    #[serde(rename = r#"mapping_claim"#)]
+    MappingClaim,
+    #[serde(rename = r#"causal_claim"#)]
+    CausalClaim,
+    #[serde(rename = r#"counterexample"#)]
+    Counterexample,
+    #[serde(rename = r#"synthesis"#)]
+    Synthesis,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FindingV1Status {
+    #[serde(rename = r#"branch_local"#)]
+    BranchLocal,
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"contradicted"#)]
+    Contradicted,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"disputed"#)]
+    Disputed,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OutcomeRoomDiscussionProjectionV1 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<OutcomeRoomDiscussionProjectionV1SchemaVersion>,
+    pub projection_id: String,
+    pub outcome_room_ref: String,
+    pub source_room_revision: ArchitectureContractInteger,
+    pub source_room_state_root: String,
+    pub source_admission_receipt_refs: Vec<String>,
+    pub visibility_policy_ref: String,
+    pub information_flow_label_refs: Vec<String>,
+    pub permitted_subject_refs: Vec<String>,
+    pub message_refs: Vec<String>,
+    pub redaction_summary_refs: Vec<String>,
+    pub replay_cursor: String,
+    pub generated_at: String,
+    pub authoritative: OutcomeRoomDiscussionProjectionV1Authoritative,
+    pub client_writable: OutcomeRoomDiscussionProjectionV1ClientWritable,
+}
+
+impl<'de> serde::Deserialize<'de> for OutcomeRoomDiscussionProjectionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/outcome-room-discussion-projection/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/outcome-room-discussion-projection/v1","title":"OutcomeRoomDiscussionProjection","x-ioi-schema-version":"ioi.foundations.outcome-room-discussion-projection.v1","type":"object","additionalProperties":false,"required":["projection_id","outcome_room_ref","source_room_revision","source_room_state_root","source_admission_receipt_refs","visibility_policy_ref","information_flow_label_refs","permitted_subject_refs","message_refs","redaction_summary_refs","replay_cursor","generated_at","authoritative","client_writable"],"properties":{"schema_version":{"const":"ioi.foundations.outcome-room-discussion-projection.v1"},"projection_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"source_room_revision":{"type":"integer","minimum":0,"maximum":9007199254740991},"source_room_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"source_admission_receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"visibility_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"permitted_subject_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"message_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"redaction_summary_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"replay_cursor":{"type":"string","minLength":1,"maxLength":500},"generated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"authoritative":{"const":false},"client_writable":{"const":false}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: match object.remove(r#"schema_version"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<OutcomeRoomDiscussionProjectionV1SchemaVersion>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            projection_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"projection_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"projection_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_room_revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"source_room_revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_room_revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_room_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_room_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_room_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_admission_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_admission_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_admission_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            visibility_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"visibility_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"visibility_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            information_flow_label_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"information_flow_label_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"information_flow_label_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            permitted_subject_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"permitted_subject_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"permitted_subject_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            message_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"message_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"message_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            redaction_summary_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"redaction_summary_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"redaction_summary_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            replay_cursor: serde_json::from_value::<String>(
+                object
+                    .remove(r#"replay_cursor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"replay_cursor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            generated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"generated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"generated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authoritative:
+                serde_json::from_value::<OutcomeRoomDiscussionProjectionV1Authoritative>(
+                    object
+                        .remove(r#"authoritative"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"authoritative"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            client_writable: serde_json::from_value::<
+                OutcomeRoomDiscussionProjectionV1ClientWritable,
+            >(
+                object
+                    .remove(r#"client_writable"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"client_writable"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OutcomeRoomDiscussionProjectionV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.outcome-room-discussion-projection.v1"#)]
+    IoiFoundationsOutcomeRoomDiscussionProjectionV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutcomeRoomDiscussionProjectionV1Authoritative {
+    False,
+}
+
+impl serde::Serialize for OutcomeRoomDiscussionProjectionV1Authoritative {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for OutcomeRoomDiscussionProjectionV1Authoritative {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutcomeRoomDiscussionProjectionV1ClientWritable {
+    False,
+}
+
+impl serde::Serialize for OutcomeRoomDiscussionProjectionV1ClientWritable {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for OutcomeRoomDiscussionProjectionV1ClientWritable {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OutcomeRoomV1 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<OutcomeRoomV1SchemaVersion>,
+    pub outcome_room_id: String,
+    pub system_id: String,
+    pub genesis_ref: Option<String>,
+    pub package_id: String,
+    pub manifest_ref: String,
+    pub constitution_ref: String,
+    pub owner_or_sponsor_ref: String,
+    pub objective_ref: String,
+    pub objective: String,
+    pub room_mode: OutcomeRoomV1RoomMode,
+    pub coordination_topology: OutcomeRoomV1CoordinationTopology,
+    pub coordination_policy_ref: String,
+    pub host_domain_ref: Option<String>,
+    pub participant_lease_refs: Vec<String>,
+    pub member_goal_run_refs: Vec<String>,
+    pub frontier_item_refs: Vec<String>,
+    pub attempt_refs: Vec<String>,
+    pub finding_refs: Vec<String>,
+    pub verifier_challenge_refs: Vec<String>,
+    pub discussion_projection_refs: Vec<String>,
+    pub admission_and_replay_refs: Vec<String>,
+    pub latest_sequence: ArchitectureContractInteger,
+    pub latest_transition_commitment_ref: String,
+    pub room_state_root: String,
+    pub room_receipt_root: String,
+    pub status: OutcomeRoomV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for OutcomeRoomV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/outcome-room/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/outcome-room/v1","title":"OutcomeRoom","x-ioi-schema-version":"ioi.foundations.outcome-room.v1","type":"object","additionalProperties":false,"required":["outcome_room_id","system_id","genesis_ref","package_id","manifest_ref","constitution_ref","owner_or_sponsor_ref","objective_ref","objective","room_mode","coordination_topology","coordination_policy_ref","host_domain_ref","participant_lease_refs","member_goal_run_refs","frontier_item_refs","attempt_refs","finding_refs","verifier_challenge_refs","discussion_projection_refs","admission_and_replay_refs","latest_sequence","latest_transition_commitment_ref","room_state_root","room_receipt_root","status"],"properties":{"schema_version":{"const":"ioi.foundations.outcome-room.v1"},"outcome_room_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"genesis_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"package_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"manifest_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"constitution_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"owner_or_sponsor_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"objective_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"objective":{"type":"string","minLength":1,"maxLength":4000},"room_mode":{"enum":["private_goal","permissioned_team","cross_org","open_challenge"]},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"coordination_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"host_domain_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"participant_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"member_goal_run_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"frontier_item_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"attempt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"finding_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"verifier_challenge_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"discussion_projection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"admission_and_replay_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"latest_sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"latest_transition_commitment_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"room_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"room_receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"enum":["proposed","open","active","paused","blocked","verifying","accepted","disputed","settled","closed","revoked","archived"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: match object.remove(r#"schema_version"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<OutcomeRoomV1SchemaVersion>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            outcome_room_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"genesis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"genesis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            package_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"package_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"package_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"constitution_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_or_sponsor_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_or_sponsor_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_or_sponsor_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            objective_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"objective_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"objective_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            objective: serde_json::from_value::<String>(
+                object
+                    .remove(r#"objective"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"objective"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_mode: serde_json::from_value::<OutcomeRoomV1RoomMode>(
+                object
+                    .remove(r#"room_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coordination_topology: serde_json::from_value::<OutcomeRoomV1CoordinationTopology>(
+                object
+                    .remove(r#"coordination_topology"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coordination_topology"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coordination_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"coordination_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coordination_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            host_domain_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"host_domain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"host_domain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_lease_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"participant_lease_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_lease_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            member_goal_run_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"member_goal_run_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_goal_run_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frontier_item_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"frontier_item_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frontier_item_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attempt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"attempt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attempt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            finding_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"finding_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"finding_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_challenge_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"verifier_challenge_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_challenge_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            discussion_projection_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"discussion_projection_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"discussion_projection_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_and_replay_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"admission_and_replay_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"admission_and_replay_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"latest_sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latest_sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_transition_commitment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"latest_transition_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"latest_transition_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"room_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"room_receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OutcomeRoomV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OutcomeRoomV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.outcome-room.v1"#)]
+    IoiFoundationsOutcomeRoomV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OutcomeRoomV1RoomMode {
+    #[serde(rename = r#"private_goal"#)]
+    PrivateGoal,
+    #[serde(rename = r#"permissioned_team"#)]
+    PermissionedTeam,
+    #[serde(rename = r#"cross_org"#)]
+    CrossOrg,
+    #[serde(rename = r#"open_challenge"#)]
+    OpenChallenge,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OutcomeRoomV1CoordinationTopology {
+    #[serde(rename = r#"hosted_admission"#)]
+    HostedAdmission,
+    #[serde(rename = r#"federated_admission"#)]
+    FederatedAdmission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OutcomeRoomV1Status {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"open"#)]
+    Open,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"blocked"#)]
+    Blocked,
+    #[serde(rename = r#"verifying"#)]
+    Verifying,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"disputed"#)]
+    Disputed,
+    #[serde(rename = r#"settled"#)]
+    Settled,
+    #[serde(rename = r#"closed"#)]
+    Closed,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ParticipantStateBundleV1 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<ParticipantStateBundleV1SchemaVersion>,
+    pub participant_state_bundle_id: String,
+    pub outcome_room_ref: String,
+    pub room_admission: ParticipantStateBundleV1RoomAdmission,
+    pub participant_lease_ref: String,
+    pub participant_and_home_domain_refs: Vec<String>,
+    pub coordination_topology: ParticipantStateBundleV1CoordinationTopology,
+    pub bundle_reason: ParticipantStateBundleV1BundleReason,
+    pub source_admission_watermark_ref: String,
+    pub released_or_reassigned_claim_refs: Vec<String>,
+    pub preserved_contribution_attempt_finding_and_result_refs: Vec<String>,
+    pub excluded_context_classes: Vec<ParticipantStateBundleV1ExcludedContextClassesItem>,
+    pub bundle_artifact_ref: String,
+    pub bundle_root: String,
+    pub room_database_access_required: ParticipantStateBundleV1RoomDatabaseAccessRequired,
+    pub issued_at: String,
+    pub signature: String,
+    pub status: ParticipantStateBundleV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for ParticipantStateBundleV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/participant-state-bundle/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/participant-state-bundle/v1","title":"ParticipantStateBundle","x-ioi-schema-version":"ioi.foundations.participant-state-bundle.v1","type":"object","additionalProperties":false,"required":["participant_state_bundle_id","outcome_room_ref","room_admission","participant_lease_ref","participant_and_home_domain_refs","coordination_topology","bundle_reason","source_admission_watermark_ref","released_or_reassigned_claim_refs","preserved_contribution_attempt_finding_and_result_refs","excluded_context_classes","bundle_artifact_ref","bundle_root","room_database_access_required","issued_at","signature","status"],"properties":{"schema_version":{"const":"ioi.foundations.participant-state-bundle.v1"},"participant_state_bundle_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"room_admission":{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true},"participant_lease_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"participant_and_home_domain_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"bundle_reason":{"enum":["checkpoint","voluntary_retirement","lease_expiry","revocation","quarantine","room_close"]},"source_admission_watermark_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"released_or_reassigned_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"preserved_contribution_attempt_finding_and_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_room_database_state","revoked_restricted_view","non_opted_in_training_trace"]}},"bundle_artifact_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"bundle_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"room_database_access_required":{"const":false},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"signature":{"type":"string","minLength":1},"status":{"enum":["prepared","exported","acknowledged","superseded","revoked"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: match object.remove(r#"schema_version"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<ParticipantStateBundleV1SchemaVersion>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            participant_state_bundle_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participant_state_bundle_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"participant_state_bundle_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_admission: serde_json::from_value::<ParticipantStateBundleV1RoomAdmission>(
+                object
+                    .remove(r#"room_admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_lease_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participant_lease_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_lease_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_and_home_domain_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"participant_and_home_domain_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"participant_and_home_domain_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coordination_topology: serde_json::from_value::<
+                ParticipantStateBundleV1CoordinationTopology,
+            >(
+                object
+                    .remove(r#"coordination_topology"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coordination_topology"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bundle_reason: serde_json::from_value::<ParticipantStateBundleV1BundleReason>(
+                object
+                    .remove(r#"bundle_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_admission_watermark_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_admission_watermark_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_admission_watermark_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            released_or_reassigned_claim_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"released_or_reassigned_claim_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"released_or_reassigned_claim_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            preserved_contribution_attempt_finding_and_result_refs: serde_json::from_value::<
+                Vec<String>,
+            >(
+                object
+                    .remove(r#"preserved_contribution_attempt_finding_and_result_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"preserved_contribution_attempt_finding_and_result_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            excluded_context_classes: serde_json::from_value::<
+                Vec<ParticipantStateBundleV1ExcludedContextClassesItem>,
+            >(
+                object
+                    .remove(r#"excluded_context_classes"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"excluded_context_classes"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bundle_artifact_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bundle_artifact_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_artifact_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bundle_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bundle_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_database_access_required: serde_json::from_value::<
+                ParticipantStateBundleV1RoomDatabaseAccessRequired,
+            >(
+                object
+                    .remove(r#"room_database_access_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"room_database_access_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<ParticipantStateBundleV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.participant-state-bundle.v1"#)]
+    IoiFoundationsParticipantStateBundleV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ParticipantStateBundleV1RoomAdmission {
+    pub schema_version: ParticipantStateBundleV1RoomAdmissionSchemaVersion,
+    pub room_system_id: String,
+    pub outcome_room_ref: String,
+    pub admission_status: ParticipantStateBundleV1RoomAdmissionAdmissionStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for ParticipantStateBundleV1RoomAdmission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/participant-state-bundle/v1"#,
+            r#"{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                ParticipantStateBundleV1RoomAdmissionSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"room_system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_status: serde_json::from_value::<
+                ParticipantStateBundleV1RoomAdmissionAdmissionStatus,
+            >(
+                object
+                    .remove(r#"admission_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV1RoomAdmissionSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.room-admitted-object-base.v1"#)]
+    IoiFoundationsRoomAdmittedObjectBaseV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV1RoomAdmissionAdmissionStatus {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"evaluating"#)]
+    Evaluating,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV1CoordinationTopology {
+    #[serde(rename = r#"hosted_admission"#)]
+    HostedAdmission,
+    #[serde(rename = r#"federated_admission"#)]
+    FederatedAdmission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV1BundleReason {
+    #[serde(rename = r#"checkpoint"#)]
+    Checkpoint,
+    #[serde(rename = r#"voluntary_retirement"#)]
+    VoluntaryRetirement,
+    #[serde(rename = r#"lease_expiry"#)]
+    LeaseExpiry,
+    #[serde(rename = r#"revocation"#)]
+    Revocation,
+    #[serde(rename = r#"quarantine"#)]
+    Quarantine,
+    #[serde(rename = r#"room_close"#)]
+    RoomClose,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV1ExcludedContextClassesItem {
+    #[serde(rename = r#"raw_secret"#)]
+    RawSecret,
+    #[serde(rename = r#"protected_plaintext"#)]
+    ProtectedPlaintext,
+    #[serde(rename = r#"unauthorized_connector_payload"#)]
+    UnauthorizedConnectorPayload,
+    #[serde(rename = r#"unrelated_private_memory"#)]
+    UnrelatedPrivateMemory,
+    #[serde(rename = r#"private_room_database_state"#)]
+    PrivateRoomDatabaseState,
+    #[serde(rename = r#"revoked_restricted_view"#)]
+    RevokedRestrictedView,
+    #[serde(rename = r#"non_opted_in_training_trace"#)]
+    NonOptedInTrainingTrace,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParticipantStateBundleV1RoomDatabaseAccessRequired {
+    False,
+}
+
+impl serde::Serialize for ParticipantStateBundleV1RoomDatabaseAccessRequired {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ParticipantStateBundleV1RoomDatabaseAccessRequired {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ParticipantStateBundleV1Status {
+    #[serde(rename = r#"prepared"#)]
+    Prepared,
+    #[serde(rename = r#"exported"#)]
+    Exported,
+    #[serde(rename = r#"acknowledged"#)]
+    Acknowledged,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RoomAdmittedObjectBaseV1 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<RoomAdmittedObjectBaseV1SchemaVersion>,
+    pub room_system_id: String,
+    pub outcome_room_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub expected_room_revision: ArchitectureContractInteger,
+    pub expected_predecessor_commitment_ref: String,
+    pub payload_root: String,
+    pub admission_policy_ref: String,
+    pub admission_decision_ref: Option<String>,
+    pub admission_receipt_ref: Option<String>,
+    pub admitted_sequence: Option<ArchitectureContractInteger>,
+    pub resulting_room_revision: Option<ArchitectureContractInteger>,
+    pub resulting_transition_commitment_ref: Option<String>,
+    pub resulting_room_state_root: Option<String>,
+    pub resulting_receipt_root: Option<String>,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+    pub admission_status: RoomAdmittedObjectBaseV1AdmissionStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for RoomAdmittedObjectBaseV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/room-admitted-object-base/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/room-admitted-object-base/v1","title":"RoomAdmittedObjectBase","x-ioi-schema-version":"ioi.foundations.room-admitted-object-base.v1","type":"object","additionalProperties":false,"required":["room_system_id","outcome_room_ref","proposed_or_issued_by_ref","expected_room_revision","expected_predecessor_commitment_ref","payload_root","admission_policy_ref","admission_decision_ref","admission_receipt_ref","admitted_sequence","resulting_room_revision","resulting_transition_commitment_ref","resulting_room_state_root","resulting_receipt_root","created_at","updated_at","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"expected_room_revision":{"type":"integer","minimum":0,"maximum":9007199254740991},"expected_predecessor_commitment_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"admission_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_decision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"admission_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"admitted_sequence":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"resulting_room_revision":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"resulting_transition_commitment_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"resulting_room_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resulting_receipt_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: match object.remove(r#"schema_version"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<RoomAdmittedObjectBaseV1SchemaVersion>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            room_system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"room_system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_room_revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"expected_room_revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expected_room_revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_predecessor_commitment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expected_predecessor_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"expected_predecessor_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"admission_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"admission_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_sequence: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"admitted_sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_room_revision: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"resulting_room_revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_room_revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_transition_commitment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_transition_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resulting_transition_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_room_state_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_room_state_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resulting_room_state_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_receipt_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_status: serde_json::from_value::<RoomAdmittedObjectBaseV1AdmissionStatus>(
+                object
+                    .remove(r#"admission_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RoomAdmittedObjectBaseV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.room-admitted-object-base.v1"#)]
+    IoiFoundationsRoomAdmittedObjectBaseV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RoomAdmittedObjectBaseV1AdmissionStatus {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"evaluating"#)]
+    Evaluating,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerifierChallengeV1 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<VerifierChallengeV1SchemaVersion>,
+    pub verifier_challenge_id: String,
+    pub outcome_room_ref: Option<String>,
+    pub room_admission: Option<VerifierChallengeV1RoomAdmission>,
+    pub challenger_ref: String,
+    pub challenged_ref: String,
+    pub challenge_kind: VerifierChallengeV1ChallengeKind,
+    pub challenge_evidence_refs: Vec<String>,
+    pub adjudicator_policy_ref: String,
+    pub reverification_required: bool,
+    pub adjudication_ref: Option<String>,
+    pub status: VerifierChallengeV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for VerifierChallengeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/verifier-challenge/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/verifier-challenge/v1","title":"VerifierChallenge","x-ioi-schema-version":"ioi.foundations.verifier-challenge.v1","type":"object","additionalProperties":false,"required":["verifier_challenge_id","outcome_room_ref","room_admission","challenger_ref","challenged_ref","challenge_kind","challenge_evidence_refs","adjudicator_policy_ref","reverification_required","adjudication_ref","status"],"properties":{"schema_version":{"const":"ioi.foundations.verifier-challenge.v1"},"verifier_challenge_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"room_admission":{"anyOf":[{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true},{"type":"null"}]},"challenger_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"challenged_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"challenge_kind":{"enum":["metric","rule","verifier","evidence","eligibility","result","exploit","independence","collusion","mapping"]},"challenge_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"adjudicator_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"reverification_required":{"type":"boolean"},"adjudication_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["proposed","admitted","investigating","upheld","rejected","rule_changed","reverifying","resolved","withdrawn"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: match object.remove(r#"schema_version"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<VerifierChallengeV1SchemaVersion>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            verifier_challenge_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verifier_challenge_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_challenge_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_admission: serde_json::from_value::<Option<VerifierChallengeV1RoomAdmission>>(
+                object
+                    .remove(r#"room_admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenger_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"challenger_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenger_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenged_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"challenged_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenged_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_kind: serde_json::from_value::<VerifierChallengeV1ChallengeKind>(
+                object
+                    .remove(r#"challenge_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"challenge_evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adjudicator_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"adjudicator_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adjudicator_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reverification_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"reverification_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reverification_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adjudication_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"adjudication_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adjudication_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<VerifierChallengeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifierChallengeV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.verifier-challenge.v1"#)]
+    IoiFoundationsVerifierChallengeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerifierChallengeV1RoomAdmission {
+    pub schema_version: VerifierChallengeV1RoomAdmissionSchemaVersion,
+    pub room_system_id: String,
+    pub outcome_room_ref: String,
+    pub admission_status: VerifierChallengeV1RoomAdmissionAdmissionStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for VerifierChallengeV1RoomAdmission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/verifier-challenge/v1"#,
+            r#"{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<VerifierChallengeV1RoomAdmissionSchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            room_system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"room_system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_status: serde_json::from_value::<
+                VerifierChallengeV1RoomAdmissionAdmissionStatus,
+            >(
+                object
+                    .remove(r#"admission_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifierChallengeV1RoomAdmissionSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.room-admitted-object-base.v1"#)]
+    IoiFoundationsRoomAdmittedObjectBaseV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifierChallengeV1RoomAdmissionAdmissionStatus {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"evaluating"#)]
+    Evaluating,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifierChallengeV1ChallengeKind {
+    #[serde(rename = r#"metric"#)]
+    Metric,
+    #[serde(rename = r#"rule"#)]
+    Rule,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"evidence"#)]
+    Evidence,
+    #[serde(rename = r#"eligibility"#)]
+    Eligibility,
+    #[serde(rename = r#"result"#)]
+    Result,
+    #[serde(rename = r#"exploit"#)]
+    Exploit,
+    #[serde(rename = r#"independence"#)]
+    Independence,
+    #[serde(rename = r#"collusion"#)]
+    Collusion,
+    #[serde(rename = r#"mapping"#)]
+    Mapping,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifierChallengeV1Status {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"investigating"#)]
+    Investigating,
+    #[serde(rename = r#"upheld"#)]
+    Upheld,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"rule_changed"#)]
+    RuleChanged,
+    #[serde(rename = r#"reverifying"#)]
+    Reverifying,
+    #[serde(rename = r#"resolved"#)]
+    Resolved,
+    #[serde(rename = r#"withdrawn"#)]
+    Withdrawn,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorkClaimLeaseV1 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<WorkClaimLeaseV1SchemaVersion>,
+    pub work_claim_id: String,
+    pub outcome_room_ref: Option<String>,
+    pub room_admission: Option<WorkClaimLeaseV1RoomAdmission>,
+    pub frontier_item_ref: Option<String>,
+    pub claimant_ref: String,
+    pub claimant_participant_lease_ref: Option<String>,
+    pub collaboration_terms_ref: String,
+    pub collaboration_terms_root: String,
+    pub terms_acceptance_ref: String,
+    pub bounded_scope_ref: String,
+    pub issued_at: String,
+    pub expires_at: String,
+    pub renewal_count: ArchitectureContractInteger,
+    pub status: WorkClaimLeaseV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for WorkClaimLeaseV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/work-claim-lease/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-claim-lease/v1","title":"WorkClaimLease","x-ioi-schema-version":"ioi.foundations.work-claim-lease.v1","type":"object","additionalProperties":false,"required":["work_claim_id","outcome_room_ref","room_admission","frontier_item_ref","claimant_ref","claimant_participant_lease_ref","collaboration_terms_ref","collaboration_terms_root","terms_acceptance_ref","bounded_scope_ref","issued_at","expires_at","renewal_count","status"],"properties":{"schema_version":{"const":"ioi.foundations.work-claim-lease.v1"},"work_claim_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"room_admission":{"anyOf":[{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true},{"type":"null"}]},"frontier_item_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"claimant_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"claimant_participant_lease_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_acceptance_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"bounded_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"renewal_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"status":{"enum":["proposed","active","waiting","released","expired","reassigned","completed","quarantined","revoked"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: match object.remove(r#"schema_version"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<WorkClaimLeaseV1SchemaVersion>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            work_claim_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_claim_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_claim_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_admission: serde_json::from_value::<Option<WorkClaimLeaseV1RoomAdmission>>(
+                object
+                    .remove(r#"room_admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frontier_item_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"frontier_item_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frontier_item_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            claimant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"claimant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claimant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            claimant_participant_lease_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"claimant_participant_lease_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"claimant_participant_lease_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collaboration_terms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"collaboration_terms_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_acceptance_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"terms_acceptance_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_acceptance_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bounded_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bounded_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bounded_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            renewal_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"renewal_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"renewal_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<WorkClaimLeaseV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkClaimLeaseV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.work-claim-lease.v1"#)]
+    IoiFoundationsWorkClaimLeaseV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorkClaimLeaseV1RoomAdmission {
+    pub schema_version: WorkClaimLeaseV1RoomAdmissionSchemaVersion,
+    pub room_system_id: String,
+    pub outcome_room_ref: String,
+    pub admission_status: WorkClaimLeaseV1RoomAdmissionAdmissionStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for WorkClaimLeaseV1RoomAdmission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/work-claim-lease/v1"#,
+            r#"{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<WorkClaimLeaseV1RoomAdmissionSchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"room_system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_status:
+                serde_json::from_value::<WorkClaimLeaseV1RoomAdmissionAdmissionStatus>(
+                    object
+                        .remove(r#"admission_status"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"admission_status"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkClaimLeaseV1RoomAdmissionSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.room-admitted-object-base.v1"#)]
+    IoiFoundationsRoomAdmittedObjectBaseV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkClaimLeaseV1RoomAdmissionAdmissionStatus {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"evaluating"#)]
+    Evaluating,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkClaimLeaseV1Status {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"waiting"#)]
+    Waiting,
+    #[serde(rename = r#"released"#)]
+    Released,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"reassigned"#)]
+    Reassigned,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorkFrontierItemV1 {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_version: Option<WorkFrontierItemV1SchemaVersion>,
+    pub frontier_item_id: String,
+    pub room_admission: WorkFrontierItemV1RoomAdmission,
+    pub item_kind: WorkFrontierItemV1ItemKind,
+    pub objective: String,
+    pub dependency_refs: Vec<String>,
+    pub required_capability_refs: Vec<String>,
+    pub claimability: WorkFrontierItemV1Claimability,
+    pub duplication_policy: WorkFrontierItemV1DuplicationPolicy,
+    pub status: WorkFrontierItemV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for WorkFrontierItemV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/work-frontier-item/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-frontier-item/v1","title":"WorkFrontierItem","x-ioi-schema-version":"ioi.foundations.work-frontier-item.v1","type":"object","additionalProperties":false,"required":["frontier_item_id","room_admission","item_kind","objective","dependency_refs","required_capability_refs","claimability","duplication_policy","status"],"properties":{"schema_version":{"const":"ioi.foundations.work-frontier-item.v1"},"frontier_item_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"room_admission":{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true},"item_kind":{"enum":["question","problem","hypothesis","task","review_need","verification_need","resource_need","synthesis_need"]},"objective":{"type":"string","minLength":1,"maxLength":4000},"dependency_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"required_capability_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"claimability":{"enum":["open","invited_only","assigned","paused","closed"]},"duplication_policy":{"enum":["exclusive","allowed","encouraged","independent_replication_required"]},"status":{"enum":["open","claimed","blocked","replicating","verifying","accepted","rejected","superseded","closed"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: match object.remove(r#"schema_version"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<WorkFrontierItemV1SchemaVersion>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            frontier_item_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"frontier_item_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frontier_item_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_admission: serde_json::from_value::<WorkFrontierItemV1RoomAdmission>(
+                object
+                    .remove(r#"room_admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            item_kind: serde_json::from_value::<WorkFrontierItemV1ItemKind>(
+                object
+                    .remove(r#"item_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"item_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            objective: serde_json::from_value::<String>(
+                object
+                    .remove(r#"objective"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"objective"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dependency_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"dependency_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dependency_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_capability_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_capability_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_capability_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            claimability: serde_json::from_value::<WorkFrontierItemV1Claimability>(
+                object
+                    .remove(r#"claimability"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claimability"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            duplication_policy: serde_json::from_value::<WorkFrontierItemV1DuplicationPolicy>(
+                object
+                    .remove(r#"duplication_policy"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"duplication_policy"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<WorkFrontierItemV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkFrontierItemV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.work-frontier-item.v1"#)]
+    IoiFoundationsWorkFrontierItemV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorkFrontierItemV1RoomAdmission {
+    pub schema_version: WorkFrontierItemV1RoomAdmissionSchemaVersion,
+    pub room_system_id: String,
+    pub outcome_room_ref: String,
+    pub admission_status: WorkFrontierItemV1RoomAdmissionAdmissionStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for WorkFrontierItemV1RoomAdmission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/work-frontier-item/v1"#,
+            r#"{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<WorkFrontierItemV1RoomAdmissionSchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"room_system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_status: serde_json::from_value::<
+                WorkFrontierItemV1RoomAdmissionAdmissionStatus,
+            >(
+                object
+                    .remove(r#"admission_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkFrontierItemV1RoomAdmissionSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.room-admitted-object-base.v1"#)]
+    IoiFoundationsRoomAdmittedObjectBaseV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkFrontierItemV1RoomAdmissionAdmissionStatus {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"evaluating"#)]
+    Evaluating,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkFrontierItemV1ItemKind {
+    #[serde(rename = r#"question"#)]
+    Question,
+    #[serde(rename = r#"problem"#)]
+    Problem,
+    #[serde(rename = r#"hypothesis"#)]
+    Hypothesis,
+    #[serde(rename = r#"task"#)]
+    Task,
+    #[serde(rename = r#"review_need"#)]
+    ReviewNeed,
+    #[serde(rename = r#"verification_need"#)]
+    VerificationNeed,
+    #[serde(rename = r#"resource_need"#)]
+    ResourceNeed,
+    #[serde(rename = r#"synthesis_need"#)]
+    SynthesisNeed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkFrontierItemV1Claimability {
+    #[serde(rename = r#"open"#)]
+    Open,
+    #[serde(rename = r#"invited_only"#)]
+    InvitedOnly,
+    #[serde(rename = r#"assigned"#)]
+    Assigned,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"closed"#)]
+    Closed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkFrontierItemV1DuplicationPolicy {
+    #[serde(rename = r#"exclusive"#)]
+    Exclusive,
+    #[serde(rename = r#"allowed"#)]
+    Allowed,
+    #[serde(rename = r#"encouraged"#)]
+    Encouraged,
+    #[serde(rename = r#"independent_replication_required"#)]
+    IndependentReplicationRequired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkFrontierItemV1Status {
+    #[serde(rename = r#"open"#)]
+    Open,
+    #[serde(rename = r#"claimed"#)]
+    Claimed,
+    #[serde(rename = r#"blocked"#)]
+    Blocked,
+    #[serde(rename = r#"replicating"#)]
+    Replicating,
+    #[serde(rename = r#"verifying"#)]
+    Verifying,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"closed"#)]
+    Closed,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -64155,6 +66648,166 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1",
         path: "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/attempt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/attempt-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/attempt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/attempt-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/collaborative-work-graph/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/collaborative-work-graph/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/finding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/finding-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/finding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/finding-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/outcome-room/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-room-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/outcome-room/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-room-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/participant-state-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/participant-state-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/room-admitted-object-base/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/room-admitted-object-base/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verifier-challenge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verifier-challenge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/work-claim-lease/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/work-claim-lease/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/work-frontier-item/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/work-frontier-item/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/negative-unknown-field.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -70961,6 +73614,226 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/attempt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/attempt-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/attempt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/attempt-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/collaborative-work-graph/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/collaborative-work-graph/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/finding-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/finding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/finding-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/finding-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/finding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/finding-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/outcome-room-discussion-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/outcome-room-discussion-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/outcome-room/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-room-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/outcome-room/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-room-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/participant-state-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/participant-state-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/room-admitted-object-base/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/room-admitted-object-base/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/verifier-challenge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/verifier-challenge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/work-claim-lease/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/work-claim-lease/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/work-frontier-item/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/work-frontier-item/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -72482,6 +75355,16 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1","title":"AuthorityEffectAdmissionReceipt","x-ioi-schema-version":"ioi.components.daemon-runtime.authority-effect-admission-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","policy_enforcement_point_ref","authorization_subject","authority_grant_ref","authority_grant_hash","actual_effect_ref","actual_effect_hash","decision_profile_ref","policy_hash","proof_kind","decision","invoker_called","decided_at","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.authority-effect-admission-receipt.v1"},"receipt_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"policy_enforcement_point_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authorization_subject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"subject_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"validation_profile_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}},"authority_grant_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authority_grant_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authority_review_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"authority_review_receipt_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"approval_ceremony_context_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"approval_ceremony_context_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"temporal_verification_profile_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"temporal_verification_profile_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"temporal_validity_evaluation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"temporal_validity_evaluation_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"temporal_posture":{"enum":["online_fresh","bounded_offline","historical_only","insufficient"]},"revocation_evidence_status":{"enum":["verified","not_evaluated","unavailable","invalid","stale"]},"actual_effect_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"actual_effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"decision_profile_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"policy_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"proof_kind":{"enum":["exact_equality","batch_membership","standing_constraint"]},"decision":{"enum":["admitted","refused","unknown"]},"refusal_code":{"anyOf":[{"type":"string"},{"type":"null"}]},"invoker_called":{"type":"boolean"},"invoker_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"effect_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"decided_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$"},"body_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"receipt_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#),
     ("schema://ioi/foundations/goal-run/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/goal-run/v1","title":"GoalRun","x-ioi-schema-version":"ioi.goal-run.v1","type":"object","additionalProperties":false,"required":["schema_version","goal_run_id","goal_ref","owner_ref","goal_run_profile_revision_ref","goal_run_profile_content_hash","resolved_component_set_snapshot_ref","resolved_component_set_hash","active_skill_set_snapshot_ref","goal_run_profile_resolution_receipt_ref","origin_surface","normalized_goal","source_context_binding","receipt_obligations","admitted_state_root_ref","authority_scope_refs","continuation_state","status"],"properties":{"schema_version":{"const":"ioi.goal-run.v1"},"goal_run_id":{"type":"string","minLength":1},"goal_ref":{"type":"string","pattern":"^goal://[^\\s]+$"},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"goal_run_profile_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"goal_run_profile_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"admitted_override_set_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"admitted_override_set_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resolved_component_set_snapshot_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"resolved_component_set_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"active_skill_set_snapshot_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"active_skill_set_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"goal_run_profile_resolution_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"origin_surface":{"enum":["ioi_goal_chat","hypervisor_new_session","hypervisor_session","automation","marketplace_instance","api"]},"activation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"source_context_binding":{"type":"object","additionalProperties":false,"required":["target_session_ref","project_ref"],"properties":{"target_session_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"project_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]}}},"user_intent_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"normalized_goal":{"type":"string","minLength":1},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"room_participant_lease_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"frontier_item_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"work_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"constraint_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"role_topology_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"grounding_loop_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"active_loop_phase":{"anyOf":[{"type":"string"},{"type":"null"}]},"context_cell_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"runtime_assignment_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"orchestration_plan_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"selected_orchestration_plan_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"selected_orchestration_plan_content_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"orchestration_decision_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"topology_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"attempt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"work_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"finding_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"verifier_path_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"verifier_challenge_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"receipt_obligations":{"type":"array","items":{"type":"object"}},"admitted_state_root_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authority_scope_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":500}},"continuation_state":{"enum":["open","waiting_on_user","waiting_on_frontier","sleeping","delegated","verifying","course_correcting","complete","blocked","superseded"]},"status":{"enum":["draft","active","paused","complete","superseded","revoked"]}}}"#),
     ("schema://ioi/foundations/goal-run-profile-resolution-receipt/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/goal-run-profile-resolution-receipt/v1","title":"GoalRunProfileResolutionReceipt","x-ioi-schema-version":"ioi.foundations.goal-run-profile-resolution-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_type","goal_ref","goal_run_profile_revision_ref","goal_run_profile_content_hash","admitted_override_set_ref","admitted_override_set_hash","effective_constraint_envelope_ref","effective_constraint_envelope_hash","orchestration_policy_ref","orchestration_policy_version_or_hash","workflow_template_resolutions","resolved_skill_bindings","active_skill_set_snapshot_ref","active_skill_set_hash","resolved_harness_profile_revisions","resolved_runtime_tool_contracts","unresolved_late_binding_requirement_refs","resolved_component_set_snapshot_ref","resolved_component_set_hash","assurance_stage","receipt_root"],"properties":{"schema_version":{"const":"ioi.foundations.goal-run-profile-resolution-receipt.v1"},"receipt_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"receipt_type":{"const":"goal_run_profile_resolution"},"goal_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"goal_run_profile_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"goal_run_profile_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"admitted_override_set_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"admitted_override_set_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"effective_constraint_envelope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"effective_constraint_envelope_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"orchestration_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"orchestration_policy_version_or_hash":{"type":"string","minLength":1},"workflow_template_resolutions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}},"resolved_skill_bindings":{"type":"array","items":{"type":"object"}},"active_skill_set_snapshot_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"active_skill_set_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resolved_harness_profile_revisions":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}},"resolved_runtime_tool_contracts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}},"role_topology_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"worker_model_service_and_verifier_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"primitive_capability_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"initial_role_topology_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"initial_role_topology_content_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"initial_role_topology_decision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"unresolved_late_binding_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"effective_learning_boundary_profile_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"effective_learning_policy_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"compatibility_revocation_and_admission_decision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"resolved_component_set_snapshot_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"resolved_component_set_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"agentgres_operation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"assurance_stage":{"const":"attested"},"receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"signature":{"anyOf":[{"type":"string"},{"type":"null"}]}}}"#),
+    ("schema://ioi/foundations/attempt/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/attempt/v1","title":"Attempt","x-ioi-schema-version":"ioi.foundations.attempt.v1","type":"object","additionalProperties":false,"required":["attempt_id","outcome_room_ref","room_admission","work_subject_ref","goal_run_ref","frontier_item_ref","work_claim_ref","participant_ref","outcome_class","work_result_ref","outcome_delta_refs","artifact_evidence_and_receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.foundations.attempt.v1"},"attempt_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"room_admission":{"anyOf":[{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true},{"type":"null"}]},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"goal_run_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"frontier_item_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"work_claim_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"participant_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"work_result_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"artifact_evidence_and_receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"status":{"enum":["draft","running","submitted","admitted","challenged","accepted","rejected","superseded"]}}}"#),
+    ("schema://ioi/foundations/collaborative-work-graph/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/collaborative-work-graph/v1","title":"CollaborativeWorkGraph","x-ioi-schema-version":"ioi.foundations.collaborative-work-graph.v1","type":"object","additionalProperties":false,"required":["projection_id","outcome_room_ref","source_room_revision","source_room_state_root","member_goal_run_refs","participant_refs","frontier_item_refs","work_claim_refs","attempt_refs","finding_refs","verifier_challenge_refs","work_result_refs","outcome_delta_refs","source_admission_receipt_refs","information_flow_label_refs","generated_at","authoritative","client_writable"],"properties":{"schema_version":{"const":"ioi.foundations.collaborative-work-graph.v1"},"projection_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"source_room_revision":{"type":"integer","minimum":0,"maximum":9007199254740991},"source_room_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"member_goal_run_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"participant_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"frontier_item_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"work_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"attempt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"finding_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"verifier_challenge_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"work_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"source_admission_receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"generated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"authoritative":{"const":false},"client_writable":{"const":false}}}"#),
+    ("schema://ioi/foundations/finding/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/finding/v1","title":"Finding","x-ioi-schema-version":"ioi.foundations.finding.v1","type":"object","additionalProperties":false,"required":["finding_id","outcome_room_ref","room_admission","attempt_ref","work_result_ref","participant_ref","proposed_by_ref","proposition","finding_kind","transaction_time","supporting_evidence_refs","contradicting_evidence_refs","proof_refs","supersedes_ref","status"],"properties":{"schema_version":{"const":"ioi.foundations.finding.v1"},"finding_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"room_admission":{"anyOf":[{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true},{"type":"null"}]},"attempt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"proposed_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"proposition":{"type":"string","minLength":1,"maxLength":8000},"finding_kind":{"enum":["hypothesis","observation","claim","negative_result","integrity_incident","mapping_claim","causal_claim","counterexample","synthesis"]},"transaction_time":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"supporting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"contradicting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"proof_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"supersedes_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["branch_local","proposed","admitted","contradicted","superseded","disputed","rejected","archived"]}}}"#),
+    ("schema://ioi/foundations/outcome-room-discussion-projection/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/outcome-room-discussion-projection/v1","title":"OutcomeRoomDiscussionProjection","x-ioi-schema-version":"ioi.foundations.outcome-room-discussion-projection.v1","type":"object","additionalProperties":false,"required":["projection_id","outcome_room_ref","source_room_revision","source_room_state_root","source_admission_receipt_refs","visibility_policy_ref","information_flow_label_refs","permitted_subject_refs","message_refs","redaction_summary_refs","replay_cursor","generated_at","authoritative","client_writable"],"properties":{"schema_version":{"const":"ioi.foundations.outcome-room-discussion-projection.v1"},"projection_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"source_room_revision":{"type":"integer","minimum":0,"maximum":9007199254740991},"source_room_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"source_admission_receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"visibility_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"permitted_subject_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"message_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"redaction_summary_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"replay_cursor":{"type":"string","minLength":1,"maxLength":500},"generated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"authoritative":{"const":false},"client_writable":{"const":false}}}"#),
+    ("schema://ioi/foundations/outcome-room/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/outcome-room/v1","title":"OutcomeRoom","x-ioi-schema-version":"ioi.foundations.outcome-room.v1","type":"object","additionalProperties":false,"required":["outcome_room_id","system_id","genesis_ref","package_id","manifest_ref","constitution_ref","owner_or_sponsor_ref","objective_ref","objective","room_mode","coordination_topology","coordination_policy_ref","host_domain_ref","participant_lease_refs","member_goal_run_refs","frontier_item_refs","attempt_refs","finding_refs","verifier_challenge_refs","discussion_projection_refs","admission_and_replay_refs","latest_sequence","latest_transition_commitment_ref","room_state_root","room_receipt_root","status"],"properties":{"schema_version":{"const":"ioi.foundations.outcome-room.v1"},"outcome_room_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"genesis_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"package_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"manifest_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"constitution_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"owner_or_sponsor_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"objective_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"objective":{"type":"string","minLength":1,"maxLength":4000},"room_mode":{"enum":["private_goal","permissioned_team","cross_org","open_challenge"]},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"coordination_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"host_domain_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"participant_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"member_goal_run_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"frontier_item_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"attempt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"finding_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"verifier_challenge_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"discussion_projection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"admission_and_replay_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"latest_sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"latest_transition_commitment_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"room_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"room_receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"enum":["proposed","open","active","paused","blocked","verifying","accepted","disputed","settled","closed","revoked","archived"]}}}"#),
+    ("schema://ioi/foundations/participant-state-bundle/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/participant-state-bundle/v1","title":"ParticipantStateBundle","x-ioi-schema-version":"ioi.foundations.participant-state-bundle.v1","type":"object","additionalProperties":false,"required":["participant_state_bundle_id","outcome_room_ref","room_admission","participant_lease_ref","participant_and_home_domain_refs","coordination_topology","bundle_reason","source_admission_watermark_ref","released_or_reassigned_claim_refs","preserved_contribution_attempt_finding_and_result_refs","excluded_context_classes","bundle_artifact_ref","bundle_root","room_database_access_required","issued_at","signature","status"],"properties":{"schema_version":{"const":"ioi.foundations.participant-state-bundle.v1"},"participant_state_bundle_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"room_admission":{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true},"participant_lease_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"participant_and_home_domain_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"bundle_reason":{"enum":["checkpoint","voluntary_retirement","lease_expiry","revocation","quarantine","room_close"]},"source_admission_watermark_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"released_or_reassigned_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"preserved_contribution_attempt_finding_and_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_room_database_state","revoked_restricted_view","non_opted_in_training_trace"]}},"bundle_artifact_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"bundle_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"room_database_access_required":{"const":false},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"signature":{"type":"string","minLength":1},"status":{"enum":["prepared","exported","acknowledged","superseded","revoked"]}}}"#),
+    ("schema://ioi/foundations/room-admitted-object-base/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/room-admitted-object-base/v1","title":"RoomAdmittedObjectBase","x-ioi-schema-version":"ioi.foundations.room-admitted-object-base.v1","type":"object","additionalProperties":false,"required":["room_system_id","outcome_room_ref","proposed_or_issued_by_ref","expected_room_revision","expected_predecessor_commitment_ref","payload_root","admission_policy_ref","admission_decision_ref","admission_receipt_ref","admitted_sequence","resulting_room_revision","resulting_transition_commitment_ref","resulting_room_state_root","resulting_receipt_root","created_at","updated_at","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"expected_room_revision":{"type":"integer","minimum":0,"maximum":9007199254740991},"expected_predecessor_commitment_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"admission_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_decision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"admission_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"admitted_sequence":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"resulting_room_revision":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"resulting_transition_commitment_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"resulting_room_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resulting_receipt_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}}}"#),
+    ("schema://ioi/foundations/verifier-challenge/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/verifier-challenge/v1","title":"VerifierChallenge","x-ioi-schema-version":"ioi.foundations.verifier-challenge.v1","type":"object","additionalProperties":false,"required":["verifier_challenge_id","outcome_room_ref","room_admission","challenger_ref","challenged_ref","challenge_kind","challenge_evidence_refs","adjudicator_policy_ref","reverification_required","adjudication_ref","status"],"properties":{"schema_version":{"const":"ioi.foundations.verifier-challenge.v1"},"verifier_challenge_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"room_admission":{"anyOf":[{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true},{"type":"null"}]},"challenger_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"challenged_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"challenge_kind":{"enum":["metric","rule","verifier","evidence","eligibility","result","exploit","independence","collusion","mapping"]},"challenge_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"adjudicator_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"reverification_required":{"type":"boolean"},"adjudication_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["proposed","admitted","investigating","upheld","rejected","rule_changed","reverifying","resolved","withdrawn"]}}}"#),
+    ("schema://ioi/foundations/work-claim-lease/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-claim-lease/v1","title":"WorkClaimLease","x-ioi-schema-version":"ioi.foundations.work-claim-lease.v1","type":"object","additionalProperties":false,"required":["work_claim_id","outcome_room_ref","room_admission","frontier_item_ref","claimant_ref","claimant_participant_lease_ref","collaboration_terms_ref","collaboration_terms_root","terms_acceptance_ref","bounded_scope_ref","issued_at","expires_at","renewal_count","status"],"properties":{"schema_version":{"const":"ioi.foundations.work-claim-lease.v1"},"work_claim_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"room_admission":{"anyOf":[{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true},{"type":"null"}]},"frontier_item_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"claimant_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"claimant_participant_lease_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_acceptance_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"bounded_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"renewal_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"status":{"enum":["proposed","active","waiting","released","expired","reassigned","completed","quarantined","revoked"]}}}"#),
+    ("schema://ioi/foundations/work-frontier-item/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-frontier-item/v1","title":"WorkFrontierItem","x-ioi-schema-version":"ioi.foundations.work-frontier-item.v1","type":"object","additionalProperties":false,"required":["frontier_item_id","room_admission","item_kind","objective","dependency_refs","required_capability_refs","claimability","duplication_policy","status"],"properties":{"schema_version":{"const":"ioi.foundations.work-frontier-item.v1"},"frontier_item_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"room_admission":{"type":"object","required":["schema_version","room_system_id","outcome_room_ref","admission_status"],"properties":{"schema_version":{"const":"ioi.foundations.room-admitted-object-base.v1"},"room_system_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"admission_status":{"enum":["proposed","evaluating","admitted","rejected","superseded","revoked"]}},"additionalProperties":true},"item_kind":{"enum":["question","problem","hypothesis","task","review_need","verification_need","resource_need","synthesis_need"]},"objective":{"type":"string","minLength":1,"maxLength":4000},"dependency_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"required_capability_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"claimability":{"enum":["open","invited_only","assigned","paused","closed"]},"duplication_policy":{"enum":["exclusive","allowed","encouraged","independent_replication_required"]},"status":{"enum":["open","claimed","blocked","replicating","verifying","accepted","rejected","superseded","closed"]}}}"#),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -72612,6 +75495,16 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1", r#"[]"#),
     ("schema://ioi/foundations/goal-run/v1", r#"[]"#),
     ("schema://ioi/foundations/goal-run-profile-resolution-receipt/v1", r#"[]"#),
+    ("schema://ioi/foundations/attempt/v1", r#"[]"#),
+    ("schema://ioi/foundations/collaborative-work-graph/v1", r#"[]"#),
+    ("schema://ioi/foundations/finding/v1", r#"[]"#),
+    ("schema://ioi/foundations/outcome-room-discussion-projection/v1", r#"[]"#),
+    ("schema://ioi/foundations/outcome-room/v1", r#"[]"#),
+    ("schema://ioi/foundations/participant-state-bundle/v1", r#"[]"#),
+    ("schema://ioi/foundations/room-admitted-object-base/v1", r#"[]"#),
+    ("schema://ioi/foundations/verifier-challenge/v1", r#"[]"#),
+    ("schema://ioi/foundations/work-claim-lease/v1", r#"[]"#),
+    ("schema://ioi/foundations/work-frontier-item/v1", r#"[]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -75593,6 +78486,26 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/goal-run-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/goal-run-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/attempt-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/attempt-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/attempt-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/attempt-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/finding-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/finding-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/finding-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/finding-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-room-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-room-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-room-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/negative-unknown-field.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -76231,6 +79144,56 @@ mod tests {
         },
         "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1" => {
             serde_json::from_value::<GoalRunProfileResolutionReceiptV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/attempt/v1" => {
+            serde_json::from_value::<AttemptV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/collaborative-work-graph/v1" => {
+            serde_json::from_value::<CollaborativeWorkGraphV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/finding/v1" => {
+            serde_json::from_value::<FindingV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/outcome-room-discussion-projection/v1" => {
+            serde_json::from_value::<OutcomeRoomDiscussionProjectionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/outcome-room/v1" => {
+            serde_json::from_value::<OutcomeRoomV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/participant-state-bundle/v1" => {
+            serde_json::from_value::<ParticipantStateBundleV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/room-admitted-object-base/v1" => {
+            serde_json::from_value::<RoomAdmittedObjectBaseV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/verifier-challenge/v1" => {
+            serde_json::from_value::<VerifierChallengeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/work-claim-lease/v1" => {
+            serde_json::from_value::<WorkClaimLeaseV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/work-frontier-item/v1" => {
+            serde_json::from_value::<WorkFrontierItemV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -76875,6 +79838,56 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/attempt/v1" => {
+            let projection = serde_json::from_value::<AttemptV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/collaborative-work-graph/v1" => {
+            let projection = serde_json::from_value::<CollaborativeWorkGraphV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/finding/v1" => {
+            let projection = serde_json::from_value::<FindingV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/outcome-room-discussion-projection/v1" => {
+            let projection = serde_json::from_value::<OutcomeRoomDiscussionProjectionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/outcome-room/v1" => {
+            let projection = serde_json::from_value::<OutcomeRoomV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/participant-state-bundle/v1" => {
+            let projection = serde_json::from_value::<ParticipantStateBundleV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/room-admitted-object-base/v1" => {
+            let projection = serde_json::from_value::<RoomAdmittedObjectBaseV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/verifier-challenge/v1" => {
+            let projection = serde_json::from_value::<VerifierChallengeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/work-claim-lease/v1" => {
+            let projection = serde_json::from_value::<WorkClaimLeaseV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/work-frontier-item/v1" => {
+            let projection = serde_json::from_value::<WorkFrontierItemV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -77011,8 +80024,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            474,
-            "the registered golden corpus must remain the explicit 474-fixture bar",
+            494,
+            "the registered golden corpus must remain the explicit 494-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES

@@ -712,6 +712,27 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
         audience: capabilityAccountId,
       });
     },
+    async mintRecorded(principalRef, policyHash, requestHash, targetScope) {
+      if (typeof targetScope !== "string" || targetScope.length === 0) {
+        throw new Error("recorded approval requires the challenge's exact target scope");
+      }
+      const seed = seeds.get(principalRef);
+      if (!seed) throw new Error(`real wallet.network fixture has no approver for ${principalRef}`);
+      const grant = mintApprovalGrant({
+        seed,
+        policyHash,
+        requestHash,
+        audience: capabilityAccountId,
+      });
+      await recordApproval(
+        principalRef,
+        policyHash,
+        requestHash,
+        grant,
+        targetScope,
+      );
+      return grant;
+    },
     recordApproval,
     revokePrincipalAuthority,
     stop({ preserveResourceDir = false } = {}) {

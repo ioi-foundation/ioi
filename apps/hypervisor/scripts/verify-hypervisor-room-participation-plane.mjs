@@ -54,9 +54,15 @@ async function challengeAndGrant(plane, resolver, principal, path, body) {
   const challenge = await jsonCall(plane.daemonUrl, "POST", path, body);
   const approval = challenge.body.error?.approval;
   if (!approval?.policy_hash || !approval?.request_hash) return { challenge, grant: null };
+  const grant = await resolver.mintRecorded(
+    principal,
+    approval.policy_hash,
+    approval.request_hash,
+    challenge.body.error?.required_scope,
+  );
   return {
     challenge,
-    grant: resolver.mint(principal, approval.policy_hash, approval.request_hash),
+    grant,
   };
 }
 
@@ -122,7 +128,14 @@ async function run() {
   try {
     impostorPlane = await startIsolatedPlane({
       serve: false,
-      env: { ...env, IOI_WALLET_NETWORK_RPC_ADDR: rpcImpostor.url },
+      env: {
+        ...env,
+        IOI_WALLET_NETWORK_RPC_ADDR: rpcImpostor.url,
+        // A plaintext endpoint cannot complete the pinned TLS handshake. Keep
+        // this negative lane bounded so it proves refusal instead of waiting
+        // on the production wallet-resolution ceiling.
+        IOI_WALLET_NETWORK_RESOLUTION_TIMEOUT_MS: "2000",
+      },
     });
     const call = (method, path, body) => jsonCall(impostorPlane.daemonUrl, method, path, body);
     const room = (await call("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM)).body.outcome_room;
@@ -309,7 +322,15 @@ async function run() {
     );
     const finalRoom = finalRoomResponse.body.outcome_room;
     const finalClose = await jsonCall(faultPlane.daemonUrl, "POST", `/v1/goal-orchestration/outcome-rooms/${faultRoomTail}/transition`, { transition: "close", expected_revision: finalRoom.revision });
-    ok("TERMINAL REPLAY: one boot finalizes lease and releases room slot", finalLease?.status === "revoked" && !finalLease?.transition_intent && (finalRoom?.released_participant_lease_refs || []).includes(replayedLease.participant_lease_id) && finalClose.status === 200, `${finalLease?.status}/close=${finalClose.status}`);
+    const terminalReplayPassed = finalLease?.status === "revoked" && !finalLease?.transition_intent && (finalRoom?.released_participant_lease_refs || []).includes(replayedLease.participant_lease_id) && finalClose.status === 200;
+    const terminalReplayDiagnostics = terminalReplayPassed ? "" : readdirSync(faultDir)
+      .filter((name) => name.endsWith(".log"))
+      .sort()
+      .flatMap((name) => readFileSync(join(faultDir, name), "utf8").split("\n"))
+      .filter((line) => line.includes(leaseTail) || line.includes("participation governed completer"))
+      .slice(-20)
+      .join(" | ");
+    ok("TERMINAL REPLAY: one boot finalizes lease and releases room slot", terminalReplayPassed, `${finalLease?.status}/close=${finalClose.status}${terminalReplayDiagnostics ? ` logs=${terminalReplayDiagnostics}` : ""}`);
   } finally {
     if (faultPlane) await faultPlane.stop();
     rmSync(faultDir, { recursive: true, force: true });

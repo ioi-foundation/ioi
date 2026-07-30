@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.foundations.verifier-challenge.v1",
+  "verifier_challenge_id": "verifier-challenge://demo/1",
+  "outcome_room_ref": "outcome-room://demo",
+  "room_admission": {
+    "schema_version": "ioi.foundations.room-admitted-object-base.v1",
+    "room_system_id": "system://room/demo",
+    "outcome_room_ref": "outcome-room://demo",
+    "admission_status": "admitted"
+  },
+  "challenger_ref": "participant-lease://demo/verifier",
+  "challenged_ref": "finding://demo/1",
+  "challenge_kind": "evidence",
+  "challenge_evidence_refs": [
+    "evidence://demo/challenge/1"
+  ],
+  "adjudicator_policy_ref": "policy://room/challenge/v1",
+  "reverification_required": true,
+  "adjudication_ref": null,
+  "status": "admitted"
+}
