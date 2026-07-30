@@ -327,3 +327,18 @@ shows provider health and the recent receipt trail — both stating customer-bor
 plainly.
 
 Done-bar: `apps/hypervisor/scripts/verify-hypervisor-byo-provider-plane.mjs` (32 checks).
+
+## Attached-estate claim journey
+
+An Infrastructure claim is admitted for one selected adapter only after an
+authenticated, host-identity-verified attachment produces current capability
+evidence; read-only host, machine, storage, and network inventory; one
+authority-mediated mutation; desired-versus-observed reconciliation including
+out-of-band drift; scoped access; exact supported restore semantics; ambiguous-
+effect recovery; and detach without deleting external resources or retained IOI
+truth. Attachment begins read-only. Mutation is a separate graduation.
+
+IOI manages the admitted estate through its existing provider and environment
+owners. It does not thereby become the underlying VMM, acquire cluster
+membership, or claim unsupported migration/HA semantics. Simulated evidence may
+exercise projections but cannot close the live attached-estate claim.

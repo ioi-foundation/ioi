@@ -863,7 +863,11 @@ impl ApprovalGrant {
         Ok(out)
     }
 
-    /// Verifies structural binding and signature validity for this approval grant.
+    /// Verifies the closed structural shape and signer-key self-consistency of this evidence.
+    ///
+    /// This method does not verify the signature, resolve an authorized/current issuer, consult
+    /// revocation state, or consume usage. Live admission must perform all of those owner checks
+    /// separately before a final invoker can treat the grant as authority.
     pub fn verify(&self) -> Result<(), ActionHashError> {
         if self.schema_version != default_approval_grant_schema_version() {
             return Err(ActionHashError::Canonicalization(format!(

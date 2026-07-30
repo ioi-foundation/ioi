@@ -340,6 +340,7 @@ fn authorize_decision_for_resolution(
 /// sign exactly what the daemon derived.
 #[allow(clippy::too_many_arguments)]
 async fn authorize_decision(
+    data_dir: &str,
     body: &Value,
     gov: Gov,
     room_ref: &str,
@@ -351,6 +352,7 @@ async fn authorize_decision(
 ) -> Result<DecisionAuthority, (StatusCode, Json<Value>)> {
     governed::authorize_decision(
         ROOM_AUTHORITY,
+        data_dir,
         body,
         gov.into(),
         room_ref,
@@ -467,6 +469,7 @@ fn sealed_authority(receipt: &Value) -> DecisionAuthority {
 }
 
 async fn reauthorize_sealed_receipt(
+    data_dir: &str,
     receipt: &Value,
     gov: Gov,
     room_ref: &str,
@@ -478,6 +481,7 @@ async fn reauthorize_sealed_receipt(
 ) -> Result<(), String> {
     governed::reauthorize_sealed_receipt(
         ROOM_AUTHORITY,
+        data_dir,
         receipt,
         gov.into(),
         room_ref,
@@ -3006,6 +3010,7 @@ async fn complete_live_transition_intent(
     };
     let revision = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
     reauthorize_sealed_receipt(
+        data_dir,
         &receipt,
         gov,
         &room_ref,
@@ -3088,6 +3093,7 @@ async fn complete_live_admit_intent(
     let room_ref = s(prior, "outcome_room_ref", "");
     let host = replay_host_authority(data_dir, &room_ref)?;
     reauthorize_sealed_receipt(
+        data_dir,
         request_receipt,
         Gov::Host,
         &room_ref,
@@ -3524,6 +3530,7 @@ pub(crate) async fn handle_participation_request_transition(
     drop(_guard);
     let effect = transition_decision_effect(&transition, revision);
     let auth = match authorize_decision(
+        &st.data_dir,
         &body,
         gov,
         &room_ref,
@@ -3883,6 +3890,7 @@ pub(crate) async fn handle_participation_request_admit(
     drop(_guard);
     let effect = admit_decision_effect(&params, current_rev);
     let auth = match authorize_decision(
+        &st.data_dir,
         &body,
         Gov::Host,
         &room_ref,
@@ -4176,6 +4184,7 @@ pub(crate) async fn handle_participant_lease_transition(
     drop(_guard);
     let effect = transition_decision_effect(&transition, revision);
     let auth = match authorize_decision(
+        &st.data_dir,
         &body,
         gov,
         &room_ref,
@@ -4328,6 +4337,8 @@ pub(crate) async fn handle_participant_lease_transition(
 mod participation_tests {
     use super::*;
 
+    const TEST_ONLY_AUTHORITY_MINTER_SENTINEL: &str = "IOI_TEST_ONLY_AUTHORITY_MINTER_SENTINEL_v1";
+
     // Existing transaction tests use terse Option-style fixtures. Production callers use the
     // strict Result-returning point loaders above; these wrappers keep fixture setup readable
     // without collapsing errors anywhere on the daemon surface.
@@ -4385,6 +4396,10 @@ mod participation_tests {
     /// signer seed and exact daemon-derived hashes. This lets the unit test distinguish
     /// same-hashes/different-signer from the older, weaker different-hashes case.
     fn signed_grant(seed_byte: u8, policy_hash: &str, request_hash: &str) -> Value {
+        debug_assert_eq!(
+            TEST_ONLY_AUTHORITY_MINTER_SENTINEL,
+            "IOI_TEST_ONLY_AUTHORITY_MINTER_SENTINEL_v1"
+        );
         use ioi_api::crypto::{SerializableKey, SigningKeyPair};
         use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
         use ioi_types::app::action::ApprovalGrant;

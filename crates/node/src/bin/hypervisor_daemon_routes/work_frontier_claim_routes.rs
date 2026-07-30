@@ -2685,6 +2685,7 @@ pub(crate) async fn handle_frontier_create(
     let effect = frontier_create_effect(&declaration, room_revision);
     let authorized = match governed::authorize_decision(
         FRONTIER_AUTHORITY,
+        &state.data_dir,
         &body,
         Governance::Host,
         &room_ref,
@@ -2923,6 +2924,7 @@ pub(crate) async fn handle_frontier_transition(
     let effect = frontier_transition_effect(&op, revision);
     let authorized = match governed::authorize_decision(
         FRONTIER_AUTHORITY,
+        &state.data_dir,
         &body,
         Governance::Host,
         &room_ref,
@@ -3131,6 +3133,7 @@ pub(crate) async fn handle_claim_acquire(
     let effect = claim_acquire_effect(&declaration, participant_revision);
     let authorized = match governed::authorize_decision(
         CLAIM_AUTHORITY,
+        &state.data_dir,
         &body,
         Governance::Participant,
         &room_ref,
@@ -3646,6 +3649,7 @@ pub(crate) async fn prepare_participant_terminal_claim(
         claim_transition_effect(effect_op, claim_revision, &effect_body).map_err(classify)?;
     let authorized = governed::authorize_decision(
         CLAIM_AUTHORITY,
+        data_dir,
         &grant_body,
         governance,
         &room_ref,
@@ -3949,6 +3953,7 @@ pub(crate) async fn handle_claim_transition(
     };
     let authorized = match governed::authorize_decision(
         CLAIM_AUTHORITY,
+        &state.data_dir,
         &body,
         governance,
         &room_ref,
@@ -4292,6 +4297,7 @@ pub(crate) async fn complete_governed_frontier_claim_intents(data_dir: &str, max
         let receipt = intent.get("receipt").unwrap_or(&Value::Null);
         if let Err(message) = governed::reauthorize_sealed_receipt(
             contract,
+            data_dir,
             receipt,
             governance,
             room_ref,

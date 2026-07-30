@@ -13,6 +13,10 @@ use axum::Json;
 use ioi_services::agentic::runtime::kernel::approval::{
     verify_wallet_approval_grant_binding, ApprovalScopeContext, AuthorityScopeMatcher,
 };
+use ioi_services::wallet_network::{
+    ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectV2Params,
+    ExpectedPrincipalAuthorityBinding,
+};
 use ioi_types::app::{
     ApprovalAuthority, ApprovalGrant, PrincipalAuthorityBindingCoordinates,
     PrincipalAuthorityBindingProofV1, PrincipalAuthorityKind, PrincipalAuthorityResolutionReceipt,
@@ -23,6 +27,9 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::outcome_room_routes::record_output_hash;
+
+const AUTHORITY_ADMISSION_INTENT_FAMILY: &str = "authority-admission-intents";
+static AUTHORITY_ADMISSION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Governance {
@@ -49,6 +56,18 @@ pub(crate) const SCM_PUBLICATION_AUTHORITY: AuthorityContract = AuthorityContrac
     code_prefix: "scm_publication",
     host_label: "estate",
     participant_label: "delegate",
+};
+
+/// Source-neutral live-route authority contract used while legacy route families migrate onto
+/// the same wallet-owned resolution and consumption transaction as qualified owner paths.
+pub(crate) const LIVE_ROUTE_AUTHORITY: AuthorityContract = AuthorityContract {
+    scope_prefix: "scope:hypervisor.live-route",
+    policy_domain: "hypervisor.live-route.policy.v1",
+    request_domain: "hypervisor.live-route.request.v1",
+    resolution_domain: "hypervisor.live-route.resolution.v1",
+    code_prefix: "live_route",
+    host_label: "deployment",
+    participant_label: "holder",
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -186,6 +205,11 @@ pub(crate) struct DecisionEvidence {
 pub(crate) struct AuthorizedDecision {
     pub(crate) evidence: DecisionEvidence,
     pub(crate) resolved_at_ms: u64,
+}
+
+pub(crate) struct AdmittedDeploymentGrant {
+    pub(crate) authorized: AuthorizedDecision,
+    pub(crate) admission_intent_ref: String,
 }
 
 pub(crate) struct VerifiedAuthorityResolution {
@@ -386,6 +410,441 @@ fn local_now_ms() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis() as u64)
         .unwrap_or(0)
+}
+
+fn sha256_ref_bytes(value: &str, field: &str) -> Result<[u8; 32], String> {
+    let raw = value
+        .strip_prefix("sha256:")
+        .ok_or_else(|| format!("{field} is not a canonical sha256 ref"))?;
+    if raw.len() != 64 || raw != raw.to_ascii_lowercase() {
+        return Err(format!(
+            "{field} must contain exactly 32 lowercase hexadecimal bytes"
+        ));
+    }
+    let decoded = hex::decode(raw).map_err(|_| format!("{field} is not hexadecimal"))?;
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&decoded);
+    if out == [0u8; 32] {
+        return Err(format!("{field} must not be all zeroes"));
+    }
+    Ok(out)
+}
+
+fn authority_consumption_challenge(
+    contract: AuthorityContract,
+    status: StatusCode,
+    suffix: &str,
+    message: String,
+) -> (StatusCode, Json<Value>) {
+    (
+        status,
+        Json(json!({
+            "error": {
+                "code": contract.code(suffix),
+                "message": message,
+                "runtimeTruthSource": "daemon-runtime"
+            }
+        })),
+    )
+}
+
+/// Persist the exact daemon-derived effect intent before asking wallet.network to consume one
+/// use, then retain the immutable wallet receipt in that same durable slot. The wallet method is
+/// idempotent for the deterministic consumption id, so a crash after wallet commit but before the
+/// second daemon write recovers the original receipt and never decrements usage twice.
+async fn consume_authorized_decision(
+    data_dir: &str,
+    contract: AuthorityContract,
+    required_scope: &str,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+    authorized: &AuthorizedDecision,
+    recovery_reuses_consumed_receipt: bool,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    let (grant, _) = canonicalize_approval_grant(&authorized.evidence.wallet_approval_grant)
+        .map_err(|message| {
+            authority_consumption_challenge(
+                contract,
+                StatusCode::FORBIDDEN,
+                "authority_consumption_invalid",
+                message,
+            )
+        })?;
+    let request_hash = sha256_ref_bytes(&authorized.evidence.request_hash, "request_hash")
+        .map_err(|message| {
+            authority_consumption_challenge(
+                contract,
+                StatusCode::FORBIDDEN,
+                "authority_consumption_invalid",
+                message,
+            )
+        })?;
+    let grant_hash = grant.artifact_hash().map_err(|error| {
+        authority_consumption_challenge(
+            contract,
+            StatusCode::FORBIDDEN,
+            "authority_consumption_invalid",
+            format!("approval grant cannot be hashed: {error}"),
+        )
+    })?;
+    let expected_max_usages = grant.max_usages.unwrap_or(1);
+    if expected_max_usages == 0 {
+        return Err(authority_consumption_challenge(
+            contract,
+            StatusCode::FORBIDDEN,
+            "authority_consumption_invalid",
+            "approval grant max_usages must be positive".to_string(),
+        ));
+    }
+    let expected_principal_authority: ExpectedPrincipalAuthorityBinding =
+        serde_json::from_value(authorized.evidence.authority_binding.clone()).map_err(|error| {
+            authority_consumption_challenge(
+                contract,
+                StatusCode::BAD_GATEWAY,
+                "authority_consumption_invalid",
+                format!("resolved principal authority cannot authorize wallet use: {error}"),
+            )
+        })?;
+    let expected_target_label = required_scope.to_string();
+    let commitment = json!({
+        "domain": "ioi.hypervisor.governed-authority-consumption.v1",
+        "subject_ref": subject_ref,
+        "operation": op,
+        "revision": revision,
+        "required_scope": expected_target_label,
+        "policy_hash": authorized.evidence.policy_hash,
+        "request_hash": authorized.evidence.request_hash,
+        "effect_hash": authorized.evidence.effect_hash,
+        "grant_hash": format!("sha256:{}", hex::encode(grant_hash)),
+        "principal_authority": expected_principal_authority,
+    });
+    let encoded = serde_jcs::to_vec(&commitment).map_err(|error| {
+        authority_consumption_challenge(
+            contract,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "authority_consumption_intent_invalid",
+            format!("authority consumption intent cannot be canonicalized: {error}"),
+        )
+    })?;
+    let mut consumption_id = [0u8; 32];
+    consumption_id.copy_from_slice(&Sha256::digest(encoded));
+    let tail = format!("aai_{}", hex::encode(consumption_id));
+    let params = ConsumeApprovalGrantForEffectV2Params {
+        request_hash,
+        grant_hash,
+        consumption_id,
+        expected_principal_authority,
+        expected_target_label,
+        expected_max_usages,
+    };
+
+    let _guard = AUTHORITY_ADMISSION_LOCK.lock().await;
+    let existing =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, &tail)
+            .map_err(|message| {
+                authority_consumption_challenge(
+                    contract,
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "authority_consumption_intent_unreadable",
+                    message,
+                )
+            })?;
+    if existing
+        .as_ref()
+        .is_some_and(|record| record.get("commitment") != Some(&commitment))
+    {
+        return Err(authority_consumption_challenge(
+            contract,
+            StatusCode::CONFLICT,
+            "authority_consumption_intent_conflict",
+            "the deterministic authority-consumption slot contains a different commitment"
+                .to_string(),
+        ));
+    }
+    if existing
+        .as_ref()
+        .is_some_and(|record| record.get("status").and_then(Value::as_str) == Some("consumed"))
+    {
+        let reference = format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/{tail}");
+        if recovery_reuses_consumed_receipt {
+            revalidate_admission_reference(data_dir, &reference, &authorized.evidence.effect_hash)
+                .map_err(|message| {
+                    authority_consumption_challenge(
+                        contract,
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "authority_consumption_receipt_unavailable",
+                        message,
+                    )
+                })?;
+            return Ok(reference);
+        }
+        return Err(authority_consumption_challenge(
+            contract,
+            StatusCode::CONFLICT,
+            "authority_operation_already_admitted",
+            "this deterministic authority operation is already consumed; direct replay cannot invoke it again and recovery must reuse its retained receipt"
+                .to_string(),
+        ));
+    }
+    if existing.is_none() {
+        let prepared = json!({
+            "schema_version": "ioi.hypervisor.authority-admission-intent.v1",
+            "intent_id": tail,
+            "status": "prepared",
+            "commitment": commitment,
+            "consumption_id": hex::encode(consumption_id),
+            "wallet_consumption_receipt": Value::Null,
+            "final_invoker_status": "pending",
+        });
+        super::durable_fs::persist_record_durable(
+            data_dir,
+            AUTHORITY_ADMISSION_INTENT_FAMILY,
+            &tail,
+            &prepared,
+        )
+        .map_err(|error| {
+            authority_consumption_challenge(
+                contract,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "authority_consumption_intent_not_durable",
+                format!("authority intent was not durably prepared: {error:?}"),
+            )
+        })?;
+    }
+
+    super::wallet_network_capability_client::preflight_approval_grant_for_effect_v2(&params)
+        .await
+        .map_err(|error| map_consumption_error(contract, error))?;
+    let receipt = super::wallet_network_capability_client::consume_approval_grant_for_effect_v2(
+        params.clone(),
+    )
+    .await
+    .map_err(|error| map_consumption_error(contract, error))?;
+    retain_consumption_receipt(data_dir, contract, &tail, &commitment, &receipt)?;
+    Ok(format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/{tail}"))
+}
+
+/// Final-invoker fence: accept only the durable, consumed receipt for the exact authorized effect,
+/// then recover the immutable wallet-owned receipt by its deterministic consumption identity.
+/// A daemon-local projection is evidence, not the owner head.
+pub(crate) async fn revalidate_admission_receipt(
+    data_dir: &str,
+    admitted: &AdmittedDeploymentGrant,
+) -> Result<(), String> {
+    revalidate_authoritative_admission(
+        data_dir,
+        &admitted.admission_intent_ref,
+        &admitted.authorized,
+    )
+    .await
+}
+
+async fn revalidate_authoritative_admission(
+    data_dir: &str,
+    reference: &str,
+    authorized: &AuthorizedDecision,
+) -> Result<(), String> {
+    revalidate_admission_reference(data_dir, reference, &authorized.evidence.effect_hash)?;
+    let tail = reference
+        .strip_prefix(&format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/"))
+        .ok_or_else(|| {
+            "authority admission receipt reference is outside its owner family".to_string()
+        })?;
+    let record =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, tail)?
+            .ok_or_else(|| "authority admission receipt is absent".to_string())?;
+    let local_receipt: ApprovalGrantConsumptionReceipt = serde_json::from_value(
+        record
+            .get("wallet_consumption_receipt")
+            .cloned()
+            .unwrap_or(Value::Null),
+    )
+    .map_err(|error| format!("authority admission receipt is malformed: {error}"))?;
+    verify_consumption_receipt_hash(&local_receipt)?;
+
+    let (grant, _) = canonicalize_approval_grant(&authorized.evidence.wallet_approval_grant)?;
+    let request_hash = sha256_ref_bytes(&authorized.evidence.request_hash, "request_hash")?;
+    let grant_hash = grant
+        .artifact_hash()
+        .map_err(|error| format!("approval grant cannot be hashed: {error}"))?;
+    let consumption_id = decode_hex_32(
+        record
+            .get("consumption_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "consumption_id",
+    )?;
+    let expected_principal_authority: ExpectedPrincipalAuthorityBinding =
+        serde_json::from_value(authorized.evidence.authority_binding.clone()).map_err(|error| {
+            format!("authority binding cannot revalidate wallet consumption: {error}")
+        })?;
+    let expected_target_label = record
+        .pointer("/commitment/required_scope")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "authority admission receipt lacks its exact target head".to_string())?
+        .to_string();
+    let expected_max_usages = grant.max_usages.unwrap_or(1);
+    let params = ConsumeApprovalGrantForEffectV2Params {
+        request_hash,
+        grant_hash,
+        consumption_id,
+        expected_principal_authority,
+        expected_target_label,
+        expected_max_usages,
+    };
+    let owner_receipt =
+        super::wallet_network_capability_client::recover_approval_grant_consumption_for_effect_v2(
+            &params,
+        )
+        .await
+        .map_err(|error| {
+            format!("wallet-owned authority receipt could not be revalidated: {error:?}")
+        })?
+        .ok_or_else(|| "wallet-owned authority receipt is absent".to_string())?;
+    verify_consumption_receipt_hash(&owner_receipt)?;
+    if owner_receipt != local_receipt {
+        return Err(
+            "daemon admission projection differs from the wallet-owned immutable consumption receipt"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
+fn decode_hex_32(value: &str, field: &str) -> Result<[u8; 32], String> {
+    if value.len() != 64 || value != value.to_ascii_lowercase() {
+        return Err(format!(
+            "{field} must contain exactly 32 lowercase hexadecimal bytes"
+        ));
+    }
+    let decoded = hex::decode(value).map_err(|_| format!("{field} is not hexadecimal"))?;
+    let mut output = [0u8; 32];
+    output.copy_from_slice(&decoded);
+    if output == [0u8; 32] {
+        return Err(format!("{field} must not be all zeroes"));
+    }
+    Ok(output)
+}
+
+fn verify_consumption_receipt_hash(
+    receipt: &ApprovalGrantConsumptionReceipt,
+) -> Result<(), String> {
+    if receipt.schema_version != 1 || receipt.receipt_hash == [0u8; 32] {
+        return Err(
+            "authority consumption receipt has an unsupported version or empty hash".into(),
+        );
+    }
+    let mut material = serde_json::to_value(receipt)
+        .map_err(|error| format!("authority consumption receipt cannot be serialized: {error}"))?;
+    material["receipt_hash"] = json!(vec![0u8; 32]);
+    let encoded = serde_jcs::to_vec(&material).map_err(|error| {
+        format!("authority consumption receipt cannot be canonicalized: {error}")
+    })?;
+    let mut expected = [0u8; 32];
+    expected.copy_from_slice(&Sha256::digest(encoded));
+    if receipt.receipt_hash != expected {
+        return Err("authority consumption receipt hash does not match its content".into());
+    }
+    Ok(())
+}
+
+fn revalidate_admission_reference(
+    data_dir: &str,
+    reference: &str,
+    expected_effect_hash: &str,
+) -> Result<(), String> {
+    let tail = reference
+        .strip_prefix(&format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/"))
+        .ok_or_else(|| {
+            "authority admission receipt reference is outside its owner family".to_string()
+        })?;
+    let record =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, tail)?
+            .ok_or_else(|| "authority admission receipt is absent".to_string())?;
+    if record.get("status").and_then(Value::as_str) != Some("consumed")
+        || record
+            .get("wallet_consumption_receipt")
+            .is_none_or(Value::is_null)
+        || record
+            .pointer("/commitment/effect_hash")
+            .and_then(Value::as_str)
+            != Some(expected_effect_hash)
+    {
+        return Err(
+            "authority admission receipt is not a consumed receipt for the exact effect"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
+fn retain_consumption_receipt(
+    data_dir: &str,
+    contract: AuthorityContract,
+    tail: &str,
+    commitment: &Value,
+    receipt: &ApprovalGrantConsumptionReceipt,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let consumed = json!({
+        "schema_version": "ioi.hypervisor.authority-admission-intent.v1",
+        "intent_id": tail,
+        "status": "consumed",
+        "commitment": commitment,
+        "consumption_id": hex::encode(receipt.consumption_id),
+        "wallet_consumption_receipt": receipt,
+        "final_invoker_status": "admitted",
+    });
+    super::durable_fs::persist_record_durable(
+        data_dir,
+        AUTHORITY_ADMISSION_INTENT_FAMILY,
+        tail,
+        &consumed,
+    )
+    .map_err(|error| {
+        authority_consumption_challenge(
+            contract,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "authority_consumption_receipt_not_durable",
+            format!(
+                "wallet consumption committed but its daemon admission receipt is not durably projected; retry recovers the same consumption id: {error:?}"
+            ),
+        )
+    })
+}
+
+fn map_consumption_error(
+    contract: AuthorityContract,
+    error: super::wallet_network_capability_client::ResolveError,
+) -> (StatusCode, Json<Value>) {
+    use super::wallet_network_capability_client::ResolveError;
+    match error {
+        ResolveError::NotConfigured(message) => authority_consumption_challenge(
+            contract,
+            StatusCode::NOT_IMPLEMENTED,
+            "authority_consumption_not_configured",
+            message,
+        ),
+        ResolveError::Unavailable(message) => authority_consumption_challenge(
+            contract,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "authority_consumption_unavailable",
+            message,
+        ),
+        ResolveError::Refused(message) => authority_consumption_challenge(
+            contract,
+            StatusCode::FORBIDDEN,
+            "authority_consumption_refused",
+            message,
+        ),
+        ResolveError::Invalid(message) => authority_consumption_challenge(
+            contract,
+            StatusCode::BAD_GATEWAY,
+            "authority_consumption_invalid",
+            message,
+        ),
+    }
 }
 
 fn nonce_nanos() -> u128 {
@@ -671,6 +1130,140 @@ pub(crate) async fn resolve_required_authority(
         })
 }
 
+fn live_effect_hash(effect: &Value) -> Result<String, String> {
+    let material = json!({
+        "domain": "ioi.hypervisor.live-authority-effect.v1",
+        "effect": effect,
+    });
+    let encoded = serde_jcs::to_vec(&material)
+        .map_err(|error| format!("live effect cannot be canonicalized: {error}"))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(encoded))))
+}
+
+/// Resolve the deployment-owned principal independently of request evidence, verify the submitted
+/// grant against that current issuer and the daemon-derived exact commitments, durably prepare an
+/// admission intent, and atomically consume one wallet-owned usage. Callers pass the complete
+/// effect material and invoke nothing unless this function returns its admitted decision.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn authorize_deployment_grant(
+    data_dir: &str,
+    grant_value: &Value,
+    required_scope: &str,
+    policy_hash: &str,
+    request_hash: &str,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+    effect: &Value,
+) -> Result<AdmittedDeploymentGrant, (StatusCode, Json<Value>)> {
+    let required_authority = std::env::var("IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            authority_consumption_challenge(
+                LIVE_ROUTE_AUTHORITY,
+                StatusCode::NOT_IMPLEMENTED,
+                "authority_principal_not_configured",
+                "IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF is required; request-carried issuer fields never select deployment authority".to_string(),
+            )
+        })?;
+    let resolution = resolve_required_authority(
+        LIVE_ROUTE_AUTHORITY,
+        &required_authority,
+        required_scope,
+        None,
+    )
+    .await
+    .map_err(|(status, code, message)| {
+        (
+            status,
+            Json(json!({
+                "error": {
+                    "code": code,
+                    "message": message,
+                    "required_authority_ref": required_authority,
+                    "required_scope": required_scope,
+                    "runtimeTruthSource": "daemon-runtime"
+                }
+            })),
+        )
+    })?;
+    let (grant, canonical_grant) = canonicalize_approval_grant(grant_value).map_err(|message| {
+        authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::FORBIDDEN,
+            "authority_grant_invalid",
+            message,
+        )
+    })?;
+    let binding = verify_wallet_approval_grant_binding(
+        &canonical_grant,
+        Some(local_now_ms()),
+        Some(policy_hash),
+        Some(request_hash),
+    )
+    .map_err(|message| {
+        authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::FORBIDDEN,
+            "authority_grant_invalid",
+            message,
+        )
+    })?;
+    let authority = &resolution.resolution.approval_authority;
+    if grant.authority_id != authority.authority_id
+        || grant.approver_public_key != authority.public_key
+        || grant.approver_suite != authority.signature_suite
+    {
+        return Err(authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::FORBIDDEN,
+            "authority_issuer_mismatch",
+            "approval grant signer tuple does not match the independently resolved current deployment authority".to_string(),
+        ));
+    }
+    let effect_hash = live_effect_hash(effect).map_err(|message| {
+        authority_consumption_challenge(
+            LIVE_ROUTE_AUTHORITY,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "authority_effect_invalid",
+            message,
+        )
+    })?;
+    let authorized = AuthorizedDecision {
+        evidence: DecisionEvidence {
+            acting_authority_id: canonical_grant
+                .get("authority_id")
+                .cloned()
+                .unwrap_or(Value::Null),
+            grant_ref: binding.grant_ref,
+            policy_hash: policy_hash.to_string(),
+            request_hash: request_hash.to_string(),
+            effect_hash,
+            authorized_effect: effect.clone(),
+            wallet_approval_grant: canonical_grant,
+            authority_binding: resolution.authority_binding,
+        },
+        resolved_at_ms: resolution.resolution.resolved_at_ms,
+    };
+    let admission_intent_ref = consume_authorized_decision(
+        data_dir,
+        LIVE_ROUTE_AUTHORITY,
+        required_scope,
+        subject_ref,
+        op,
+        revision,
+        &authorized,
+        false,
+    )
+    .await?;
+    Ok(AdmittedDeploymentGrant {
+        authorized,
+        admission_intent_ref,
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn authorize_decision_for_resolution(
     contract: AuthorityContract,
@@ -793,6 +1386,7 @@ pub(crate) fn authorize_decision_for_resolution_with_context(
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn authorize_decision(
     contract: AuthorityContract,
+    data_dir: &str,
     body: &Value,
     governance: Governance,
     room_ref: &str,
@@ -802,7 +1396,7 @@ pub(crate) async fn authorize_decision(
     revision: u64,
     effect: &Value,
 ) -> Result<AuthorizedDecision, (StatusCode, Json<Value>)> {
-    authorize_decision_with_context(
+    let authorized = authorize_decision_with_context(
         contract,
         body,
         governance,
@@ -815,7 +1409,30 @@ pub(crate) async fn authorize_decision(
         revision,
         effect,
     )
-    .await
+    .await?;
+    let required_scope = contract.operation_scope(op);
+    let admission_intent_ref = consume_authorized_decision(
+        data_dir,
+        contract,
+        &required_scope,
+        subject_ref,
+        op,
+        revision,
+        &authorized,
+        false,
+    )
+    .await?;
+    revalidate_authoritative_admission(data_dir, &admission_intent_ref, &authorized)
+        .await
+        .map_err(|message| {
+            authority_consumption_challenge(
+                contract,
+                StatusCode::SERVICE_UNAVAILABLE,
+                "authority_consumption_receipt_unavailable",
+                message,
+            )
+        })?;
+    Ok(authorized)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -951,6 +1568,7 @@ pub(crate) fn append_evidence(receipt: &mut Value, authorized: &AuthorizedDecisi
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn reauthorize_sealed_receipt(
     contract: AuthorityContract,
+    data_dir: &str,
     receipt: &Value,
     governance: Governance,
     room_ref: &str,
@@ -962,6 +1580,7 @@ pub(crate) async fn reauthorize_sealed_receipt(
 ) -> Result<u64, String> {
     reauthorize_sealed_receipt_with_context(
         contract,
+        data_dir,
         receipt,
         governance,
         AuthorityPolicyContext::OutcomeRoom {
@@ -979,6 +1598,7 @@ pub(crate) async fn reauthorize_sealed_receipt(
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn reauthorize_sealed_receipt_with_context(
     contract: AuthorityContract,
+    data_dir: &str,
     receipt: &Value,
     governance: Governance,
     context: AuthorityPolicyContext<'_>,
@@ -1063,6 +1683,25 @@ pub(crate) async fn reauthorize_sealed_receipt_with_context(
     if live.evidence != normalized_sealed {
         return Err("the reverified grant and resolution do not reconstruct the exact sealed authority tuple".into());
     }
+    let admission_intent_ref = consume_authorized_decision(
+        data_dir,
+        contract,
+        &required_scope,
+        subject_ref,
+        op,
+        revision,
+        &live,
+        true,
+    )
+    .await
+    .map_err(|(_, Json(payload))| {
+        payload
+            .pointer("/error/message")
+            .and_then(Value::as_str)
+            .unwrap_or("the original authority consumption receipt could not be recovered")
+            .to_string()
+    })?;
+    revalidate_authoritative_admission(data_dir, &admission_intent_ref, &live).await?;
     Ok(live.resolved_at_ms)
 }
 

@@ -63,7 +63,7 @@ let qemuParity;
 if (qemuReadiness === "READY") qemuParity = "PASS";
 else if (/HOST_GATED/.test(qemuReadiness)) {
   qemuParity = "HOST_GATED";
-  if (REQUIRE_QEMU) declaredGaps.push({ gate: "qemu_parity", prerequisite: qemuReadiness, reason: "the QEMU monitor lane is real (provisioned qemu + microvm+qboot+AF_VSOCK); boot is host-gated on this host (root-grantable: kvm group / vhost-vsock ACL)" });
+  if (REQUIRE_QEMU) failures.push(`T2 QEMU parity FAIL (required but ${qemuReadiness})`);
 } else qemuParity = REQUIRE_QEMU ? "FAIL" : "HOST_GATED";
 if (qemuParity === "FAIL") failures.push("T2 QEMU parity FAIL (required, not host-gated)");
 

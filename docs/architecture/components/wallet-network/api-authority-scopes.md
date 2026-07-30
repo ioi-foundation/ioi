@@ -9,7 +9,7 @@ Supersedes: older wallet authority API wording when it conflicts with `scope:*` 
 Superseded by: none.
 Last alignment pass: 2026-07-19.
 Doctrine status: reference
-Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live; account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, and shard surfaces are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts with no registered schema, emitter, or verifier)
+Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live on named qualified owner paths; all affected shared-verifier and governed-authority registrations now route structural evidence through independent issuer resolution, deterministic atomic consumption, opaque admission revalidation, and retained route/final-invoker, concurrency, crash, denial, and replay proof; account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, and shard surfaces are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts with no registered schema, emitter, or verifier)
 Last implementation audit: 2026-07-19
 
 ## Purpose
@@ -716,6 +716,16 @@ The daemon records that final comparison in the target
 receipt does not prove effect admission. This receipt profile is planned and
 must land with its schema, projection, emitter, and verifier before the
 end-to-end claim is made.
+
+For every currently registered grant version, request-carried issuer and key
+fields remain evidence candidates rather than trust anchors. A live admitting
+owner independently resolves the authorized issuer from current owner state,
+binds the daemon-derived principal, holder, audience, exact effect and target,
+validity, revocation epoch, and current grant head, and atomically accounts
+for every applicable grant and lease use before invocation. Only the resulting
+content-bound admission or consumption receipt may reach a final invoker; a
+self-consistent signature or an unconsumed approval/lease conveys no live
+authority.
 
 Worker Training scope requests use the same envelope. Typical scopes include:
 

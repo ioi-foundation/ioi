@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1",
+  "title": "HypervisorVirtualMachineStatePayload",
+  "x-ioi-schema-version": "ioi.components.hypervisor.virtual-machine-state-payload.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "workload_ref", "owner_ref", "environment_ref", "target_content_hash", "desired_generation", "expected_head", "machine_architecture", "boot", "compute", "volume_attachment_specs", "network_attachment_specs", "device_attachment_specs", "policy_refs", "observed"],
+  "properties": {
+    "schema_version": { "const": "ioi.components.hypervisor.virtual-machine-state-payload.v1" },
+    "workload_ref": { "$ref": "#/$defs/ref" },
+    "owner_ref": { "$ref": "#/$defs/ref" },
+    "environment_ref": { "$ref": "#/$defs/ref" },
+    "target_content_hash": { "$ref": "#/$defs/hash" },
+    "desired_generation": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "expected_head": { "$ref": "#/$defs/hash" },
+    "machine_architecture": { "$ref": "#/$defs/name" },
+    "boot": { "type": "object", "additionalProperties": false, "required": ["mode", "image_ref"], "properties": { "mode": { "enum": ["kernel_initramfs", "firmware_disk", "imported_image", "template_clone"] }, "image_ref": { "$ref": "#/$defs/ref" }, "firmware_profile_ref": { "$ref": "#/$defs/ref" }, "kernel_ref": { "$ref": "#/$defs/ref" }, "initramfs_ref": { "$ref": "#/$defs/ref" } } },
+    "compute": { "type": "object", "additionalProperties": false, "required": ["vcpus", "memory_mib"], "properties": { "vcpus": { "type": "integer", "minimum": 1, "maximum": 65535 }, "memory_mib": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 } } },
+    "volume_attachment_specs": { "type": "array", "items": { "$ref": "#/$defs/ref" } },
+    "network_attachment_specs": { "type": "array", "items": { "$ref": "#/$defs/ref" } },
+    "device_attachment_specs": { "type": "array", "items": { "$ref": "#/$defs/ref" } },
+    "policy_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ref" } },
+    "observed": { "type": "object", "additionalProperties": false, "required": ["observed_generation", "desired_phase", "observed_phase", "backend_registration_ref", "backend_capability_declaration_ref", "backend_capability_declaration_hash", "backend_instance_evidence_ref", "boot_epoch", "receipt_refs", "cleanup_obligation_refs"], "properties": { "observed_generation": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "desired_phase": { "$ref": "#/$defs/name" }, "observed_phase": { "$ref": "#/$defs/name" }, "backend_registration_ref": { "$ref": "#/$defs/ref" }, "backend_capability_declaration_ref": { "$ref": "#/$defs/ref" }, "backend_capability_declaration_hash": { "$ref": "#/$defs/hash" }, "backend_instance_evidence_ref": { "$ref": "#/$defs/ref" }, "boot_epoch": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "receipt_refs": { "type": "array", "items": { "$ref": "#/$defs/ref" } }, "cleanup_obligation_refs": { "type": "array", "items": { "$ref": "#/$defs/ref" } } } }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{0,127}$" }
+  }
+}

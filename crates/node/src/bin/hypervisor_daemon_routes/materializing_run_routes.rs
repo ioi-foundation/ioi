@@ -681,7 +681,8 @@ pub(crate) async fn handle_mrun_acquire_lease(
                 "allowed_tools": d.get("allowed_tools").cloned().unwrap_or(json!([])),
                 "expires_at": d.get("expires_at").cloned().unwrap_or(Value::Null),
                 "ttl_seconds": ttl,
-                "note": "real gateway lease — authority-only (no credential resolved); execution is the next cut"
+                "authorization_semantics": "provenance_only",
+                "note": "gateway lease provenance — no credential resolved and no standing execution authority; every execution consumes its own exact owner grant"
             });
             record["updated_at"] = json!(iso_now());
             let receipt = run_receipt(&st.data_dir, &rref, "lease_obtained", "ok", &format!("gateway minted lease {lease_id} (ttl {ttl}s, {} properties) — no credential material", properties.len()));

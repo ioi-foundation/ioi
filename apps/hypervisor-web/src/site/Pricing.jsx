@@ -12,13 +12,13 @@ const TIERS = [
   { name: "Team", price: "$80", unit: "/ seat · month", blurb: "For teams standardizing autonomous work with shared authority.", featured: true, cta: "Start free trial", theme: "fill",
     feat: ["Everything in Core", "Shared projects & automations", "wallet.network authority scopes", "Org policies & approvals", "SSO / SCIM", "Priority support"] },
   { name: "Enterprise", price: "Custom", unit: "", blurb: "For organizations running fleets under governance and settlement.", cta: "Talk to sales", theme: "outline",
-    feat: ["Everything in Team", "Deploy in your VPC or cTEE", "HypervisorOS bare-metal / cluster nodes", "Audit trails & no-plaintext custody", "IOI L1 settlement", "Dedicated SLA & solutions"] },
+    feat: ["Everything in Team", "Selected attached-provider profiles", "Profile-scoped audit evidence", "Declared custody boundaries", "IOI L1 settlement", "Deployment and support review"] },
 ];
 
 const FAQ = [
   ["What am I billed for?", "Usage — runtime time and authorized actions. Pricing scales with the autonomous work you run, not seats alone."],
-  ["Can I bring my own models and infrastructure?", "Yes. Mount any model as a cognition backend and run on your own cloud, VPC, cTEE, or DePIN compute. No vendor lock on runtime truth."],
-  ["What happens to my data?", "Operational truth lives in Agentgres under your control; cTEE private workspaces keep protected data out of provider memory. Credentials are brokered, never handed to workers."],
+  ["Can I bring my own models and infrastructure?", "Selected model and infrastructure adapters are admitted by capability profile. Unsupported backends remain unavailable rather than silently falling back."],
+  ["What happens to my data?", "Each released profile states its custody boundary. Operational truth remains owner-controlled, and credentials are passed only through the applicable admitted broker path."],
   ["Do receipts cost extra?", "No. Every consequential action is receipted and replayable by default — accountability is part of the runtime, not an add-on."],
 ];
 
@@ -28,7 +28,7 @@ function HvPage() {
       <section style={{ ...prwrap, paddingTop: "4rem", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
         <PrEyebrow color="var(--color-link-green)">Pricing</PrEyebrow>
         <h1 style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: "3.5rem", lineHeight: 1.05, letterSpacing: "-0.02em", margin: "1.25rem 0 0", maxWidth: "18ch", color: "var(--color-onyx-black)" }}>Priced to scale with your autonomous work</h1>
-        <p style={{ fontFamily: "var(--font-sans)", fontSize: "1.1875rem", color: "var(--color-grey-800)", marginTop: "1.25rem", maxWidth: "46ch", lineHeight: 1.5 }}>Start in minutes on your own machine. Move to your VPC, cTEE, or settlement when you're ready to run fleets.</p>
+        <p style={{ fontFamily: "var(--font-sans)", fontSize: "1.1875rem", color: "var(--color-grey-800)", marginTop: "1.25rem", maxWidth: "46ch", lineHeight: 1.5 }}>Start with an admitted local profile. Add attached infrastructure only where its capability and custody evidence is current.</p>
       </section>
 
       <section style={{ ...prwrap, paddingTop: "3.5rem" }}>

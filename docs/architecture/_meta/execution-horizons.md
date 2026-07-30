@@ -789,7 +789,7 @@ evidence.** Target-state owner docs may be precise enough to prevent later
 implementation from painting out a required boundary. Every file still carries
 an honest implementation status, and no horizon label turns a planned object,
 route, receipt, privacy posture, commercial right, or network proof into a
-shipped claim.
+shipped claim. The selected software-change journey binds risk-selected WorkRun isolation only for work whose declared risk requires it; full Workstation breadth, attached-estate Infrastructure, and HypervisorOS remain independent claim tracks, never redefine or block the P1/P2 exact-effect release, and join a later release only when explicitly selected.
 
 ## Related Canon
 

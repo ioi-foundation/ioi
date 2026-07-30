@@ -392,6 +392,14 @@ marked as local.
 
 ## Related Canon
 
+### Explicit workload-bound containment
+
+Containment is an admitted, WorkRun-bound and current-evidence-qualified
+property with a terminal cleanup obligation. A runtime label, backend name,
+installed binary, VM identity, or successful boot is never containment proof.
+When the required boundary or its evidence cannot be established, execution
+fails closed without host fallback or weaker implicit substitution.
+
 - [`security-privacy-policy-invariants.md`](./security-privacy-policy-invariants.md) — security-domain application set.
 - [`canonical-enums.md`](./canonical-enums.md) — canonical enumerations (risk classes, venues, account kinds).
 - [`../_meta/current-canon-defaults.md`](../_meta/current-canon-defaults.md) — cross-owner defaults digest.

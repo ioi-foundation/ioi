@@ -39,7 +39,7 @@ function AppMockup() {
   // right-panel terminal stream
   const term = [
     { at: 0.06, c: "dim", s: "hypervisor session start --scope=fs.read,shell.exec,net.none" },
-    { at: 0.13, c: "dim", s: "spawning worker · isolated sandbox (cTEE)" },
+    { at: 0.13, c: "dim", s: "resolving selected isolation profile · preview" },
     { at: 0.20, c: "ok", s: "session 9f2c1 ready · scoped credentials issued" },
     { at: 0.29, c: "cmd", s: "worker run patch --cve CVE-2026-1042 --repo billing-api" },
     { at: 0.37, c: "log", s: "read  src/deps/lockfile.json" },

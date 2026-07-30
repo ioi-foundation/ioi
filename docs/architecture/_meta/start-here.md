@@ -72,8 +72,8 @@ Goal Space (ioi.ai)
               -> HarnessInvocations, Workers, tools, and services
 
 Hypervisor
-  one control plane across Type 1 bare-metal, Type 2 workstation, and
-  Type 3 governed-autonomy postures
+  one control plane across hosted, attached-estate, and node-root deployments,
+  with conventional compute and governed-autonomy capabilities selected independently
   -> Hypervisor Daemon admits and mediates effects
   -> Agentgres records admitted operational truth
   -> artifact/storage planes hold governed payloads
@@ -197,13 +197,12 @@ verifiers, sessions, or parties when expected value justifies the added cost.
 
 ### Hypervisor
 
-Hypervisor is one operating fabric with three complementary postures:
-
-- Type 1: HypervisorOS bare-metal, appliance, and cluster substrate;
-- Type 2: desktop/workstation hosting of local environments, models, tools,
-  VMs, containers, microVMs, and sandboxes;
-- Type 3: the autonomy plane for sessions, workers, goals, authority, receipts,
-  replay, outcomes, and governed improvement.
+Hypervisor is one operating fabric described on nonexclusive axes: where its
+controller is deployed, whether resources are hosted or attached, and which
+conventional-compute and autonomy capabilities are enabled. Type 1 and Type 2
+are external market mappings earned only by the exact node-root or hosted
+profile evidence. “Type 3” is qualified IOI shorthand for the autonomy plane,
+not a standardized successor VMM category.
 
 Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK, the
 core workspaces (Home, Systems, Projects, Applications, and Work), the

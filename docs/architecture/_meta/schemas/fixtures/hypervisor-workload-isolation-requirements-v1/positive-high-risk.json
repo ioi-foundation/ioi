@@ -1,0 +1,29 @@
+{
+  "schema_version": "ioi.components.hypervisor.workload-isolation-requirements.v1",
+  "requirements_ref": "isolation-requirements://workrun/high-risk-1",
+  "requirements_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "source_policy_refs_and_hashes": [
+    { "ref": "policy://substrate/high-risk", "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
+    { "ref": "policy://resource-isolation/high-risk", "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222" },
+    { "ref": "policy://connectivity/high-risk", "hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333" }
+  ],
+  "compiled_risk_classes": ["untrusted_code", "networked", "mutating"],
+  "hostile_to_boundary_requirement": "not_declared",
+  "instance_policy": "fresh_per_workrun",
+  "minimum_isolation": "vm_kernel",
+  "host_mount_policy": "none",
+  "daemon_socket_exposed": false,
+  "host_pid_namespace_exposed": false,
+  "raw_secret_material_in_guest": false,
+  "capability_broker_ref": "broker://capability/workrun",
+  "permitted_lease_classes": ["dependency_read", "proposal_write"],
+  "network_policy_ref": "policy://network/deny-default",
+  "dependency_broker_policy_ref": "policy://dependency/pinned-only",
+  "output_admission": { "quarantine_required": true, "policy_ref": "policy://output/quarantine", "maximum_bytes": 1073741824, "maximum_files": 100000, "archive_entry_policy_ref": "policy://archive/regular-relative-only", "evaluator_refs": ["evaluator://output/static/v1"] },
+  "teardown": { "destruction_policy_ref": "policy://cleanup/workrun", "deadline_ms": 60000, "verify_all_resources": true, "cleanup_obligation_on_uncertainty": true },
+  "required_backend_capabilities": ["kernel_initramfs_boot", "guest_agent", "private_network"],
+  "required_enforcement_coverage": ["preventable", "receipted"],
+  "required_evidence_and_receipt_policy_refs": ["policy://receipt/workrun-isolation"],
+  "compiler_ref": "compiler://workload-isolation/v1",
+  "compiler_version": "1.0.0"
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": "ioi.conformance.hypervisor-core.workrun-isolation-matrix.v1",
+  "claim_state": "target_only",
+  "required_classes": [
+    "risk_compilation_and_no_downgrade",
+    "freshness_and_identity",
+    "input_and_mount_closure",
+    "network_and_dependency_broker",
+    "credential_and_effect_brokering",
+    "output_quarantine_and_admission",
+    "restart_cancellation_and_ambiguous_effect",
+    "teardown_and_cleanup_obligation",
+    "negative_reachability"
+  ],
+  "live_claim_requires_all": true,
+  "simulated_evidence_closes_live_claim": false
+}

@@ -395,3 +395,13 @@ conformity.
   orchestration profile.
 - [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md):
   authority, decryption, key leases, and action power.
+
+## ComputeSession placement evidence
+
+A ComputeSession or RuntimeAssignment binds the exact environment, compiled
+isolation requirements, immutable isolation binding, backend capability
+declaration/hash, current enforcement-coverage declaration/hash, boundary
+instance, boot epoch, and terminal cleanup disposition. Machine or VM identity
+alone is inventory, not containment evidence. Missing, stale, incompatible, or
+drifted evidence makes the placement unavailable; it never selects a weaker
+backend or converts a label into proof.

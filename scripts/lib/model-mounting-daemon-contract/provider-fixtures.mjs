@@ -134,18 +134,25 @@ async function startFakeOpenAiCompatibleServer({ responsesStream = false } = {})
   };
 }
 
-async function startFakeOllamaServer({ chatStatus = 200, secret = null } = {}) {
+async function startFakeOllamaServer({
+  chatStatus = 200,
+  secret = null,
+  port = 0,
+  models = [
+    { name: "qwen3:8b", size: 4_900_000_000, digest: "sha256:fixture-qwen" },
+    { name: "nomic-embed-text:latest", size: 274_000_000, digest: "sha256:fixture-embed" },
+  ],
+} = {}) {
   const loaded = new Set();
+  const observed = [];
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    observed.push({ method: request.method, path: url.pathname });
     response.setHeader("content-type", "application/json");
     if (request.method === "GET" && url.pathname === "/api/tags") {
       response.end(
         JSON.stringify({
-          models: [
-            { name: "qwen3:8b", size: 4_900_000_000, digest: "sha256:fixture-qwen" },
-            { name: "nomic-embed-text:latest", size: 274_000_000, digest: "sha256:fixture-embed" },
-          ],
+          models,
         }),
       );
       return;
@@ -206,10 +213,11 @@ async function startFakeOllamaServer({ chatStatus = 200, secret = null } = {}) {
     response.statusCode = 404;
     response.end(JSON.stringify({ error: "not found" }));
   });
-  await listen(server);
+  await listen(server, port);
   const address = server.address();
   return {
     endpoint: `http://${address.address}:${address.port}`,
+    observed: () => observed.map((entry) => ({ ...entry })),
     close: () => new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
 }
@@ -735,10 +743,10 @@ async function startFakeOAuthServer({ accessToken, refreshToken, refreshedAccess
   };
 }
 
-async function listen(server) {
+async function listen(server, port = 0) {
   await new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(port, "127.0.0.1", () => {
       server.off("error", reject);
       resolve();
     });

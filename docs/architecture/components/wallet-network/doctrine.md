@@ -6,7 +6,7 @@ Supersedes: older generic capability-grant wording when it conflicts with `scope
 Superseded by: none.
 Last alignment pass: 2026-07-19.
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts)
+Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; all affected shared-verifier and governed-authority registrations now route structural evidence through independent issuer resolution, deterministic atomic consumption, opaque admission revalidation, and retained route/final-invoker, concurrency, crash, denial, and replay proof; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
   - `crates/types/src/app/wallet_network/principal_authority.rs`
@@ -678,6 +678,17 @@ Missing, malformed, stale, expired, revoked, ambiguous, hash-mismatched, or
 key-drifted bindings fail typed-unavailable. Resolution never falls back to a
 local login, Hypervisor session identity, organization role, request caller
 field, trust-on-first-use key, or copied grant field.
+
+A request-carried issuer identifier or signing key is evidence only. Before
+any owner-visible admission or effect, the admitting owner derives the
+principal and holder from authenticated owner state, independently resolves
+the currently authorized issuer and key, proves audience, scope, exact effect
+and target, validity, revocation epoch, and the current grant head, and
+atomically reserves or consumes every applicable grant and lease usage. The
+final invoker accepts only the resulting content-bound admission or
+consumption receipt and revalidates the same effect commitment and owner
+heads. A valid signature under an unresolved key, or an approval or lease
+whose applicable usage was not atomically accounted, grants no authority.
 
 Governed durable intents must retain the complete signed approval grant plus
 the binding ref, version, and hash used to authorize it. Restart recovery must

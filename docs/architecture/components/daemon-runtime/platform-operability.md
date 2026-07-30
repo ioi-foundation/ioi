@@ -825,3 +825,17 @@ contract only, not production operability or a reference implementation.
 - **PO-9:** a `TemporalValidityEvaluation` supplies typed evidence to an
   existing PEP; it never creates authority, current truth, writer state,
   fencing, or effect permission.
+
+## Workload-isolation operability
+
+The daemon observes the VMM host, boundary process, guest agent, per-job
+network/dependency broker, cache, credential broker, output quarantine, and
+teardown resources independently. Each may be `ready`, `degraded`, `blocked`,
+`failed`, `compromised`, `cleanup_pending`, or `unknown` with a recovery
+disposition and evidence refs.
+
+An uncertain external effect is never retried as a fresh operation. Compromise
+revokes broker leases, blocks output admission, quarantines the boundary, and
+opens cleanup/recovery obligations. Daemon restart reconciles owned processes,
+sockets, CIDs, networks, volumes, credentials, and leases before admitting new
+work; inability to reattach safely causes quarantine or verified teardown.

@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.components.hypervisor.backend-capability-declaration.v1",
+  "declaration_ref": "capability://backend/local-kvm/1",
+  "declaration_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "producer_ref": "runtime://daemon/node-1",
+  "producer_release_ref": "release://hypervisor/0.1.0",
+  "backend_registration_ref": "backend://local/microvm",
+  "adapter_release_ref": "release://adapter/microvm/0.1.0",
+  "scope_ref": "runtime-node://local/node-1",
+  "observed_backend_version": "1.0.0",
+  "evidence_mode": "live",
+  "discovery_method_ref": "evaluator://backend-preflight/v1",
+  "supported_machine_architectures": ["x86_64"],
+  "supported_operations": ["kernel_initramfs_boot", "guest_agent", "start", "stop"],
+  "unsupported_operations": [{ "operation": "disk_snapshot", "reason_code": "not_implemented" }],
+  "limitations": ["Selected kernel/initramfs microVM preview only."],
+  "evaluator_ref": "evaluator://backend-capability/v1",
+  "signature_or_attestation_ref": "evidence://signature/backend-capability-1",
+  "temporal_verification_evidence_ref": "evidence://temporal/backend-capability-1",
+  "currentness_evaluation_ref": "evaluation://currentness/backend-capability-1",
+  "provenance_evidence_refs": ["evidence://preflight/backend-capability-1"]
+}

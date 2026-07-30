@@ -2332,6 +2332,8 @@ pub(crate) async fn complete_governed_system_genesis_intents(data_dir: &str, max
 mod system_genesis_tests {
     use super::*;
 
+    const TEST_ONLY_AUTHORITY_MINTER_SENTINEL: &str = "IOI_TEST_ONLY_AUTHORITY_MINTER_SENTINEL_v1";
+
     fn fixture(relative: &str) -> Value {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         serde_json::from_slice(

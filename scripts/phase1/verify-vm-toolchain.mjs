@@ -6,7 +6,7 @@
 //
 // Usage: node scripts/phase1/verify-vm-toolchain.mjs [--dir <toolchain-dir>] [--json]
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -53,7 +53,7 @@ const qemuWrapper = join(DIR, "qemu/qemu-system-x86_64");
 const qemuPresent = existsSync(qemuWrapper) || has("qemu-system-x86_64");
 // vhost-vsock must be openable r+w (root:kvm 0660 — the user needs the kvm group or an ACL).
 let vhostOpenable = false;
-try { const fd = require("node:fs").openSync("/dev/vhost-vsock", "r+"); require("node:fs").closeSync(fd); vhostOpenable = true; } catch { vhostOpenable = false; }
+try { const fd = openSync("/dev/vhost-vsock", "r+"); closeSync(fd); vhostOpenable = true; } catch { vhostOpenable = false; }
 const caps = [
   cap("kvm", existsSync("/dev/kvm"), existsSync("/dev/kvm") ? "/dev/kvm present" : "/dev/kvm absent (no hardware virt)"),
   cap("vhost_vsock_openable", vhostOpenable, vhostOpenable ? "/dev/vhost-vsock openable" : "/dev/vhost-vsock NOT openable (QEMU host-gated; root: usermod -aG kvm $USER or setfacl -m u:$USER:rw /dev/vhost-vsock)"),

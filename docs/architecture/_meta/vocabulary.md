@@ -95,14 +95,14 @@ product pitch or routine onboarding flow.
   bare-metal conformance. It improves integrity/control/measurement; it does
   not make consumer GPUs confidential compute and does not replace cTEE
   no-plaintext-custody.
-- `HypervisorSubstrateMode`: the deployment/control posture by which the same
-  Hypervisor control plane governs substrate and autonomy. Values are
-  `type1_hypervisoros`, `type2_desktop_workstation`, and
-  `type3_autonomy_plane`. Type 1 governs bare-metal/appliance/cluster substrate;
-  Type 2 governs hosted local/workstation substrate on a normal OS; Type 3
-  virtualizes autonomous work across sessions, WorkRuns, workers, model routes,
-  tools, authority, receipts, replay, outcomes, and promotion. These are not
-  three products.
+- `HypervisorControllerDeployment`: where the controller runs:
+  `hosted_ordinary_os` or the conditional `node_root_appliance`.
+- `HypervisorResourceRelationship`: whose resource is controlled:
+  `local`, `customer_attached`, or `managed_provider`.
+- `HypervisorEnabledCapability`: one member of the coexistable enabled set:
+  `manual_operations`, `governed_workruns`, `standing_automations`, or
+  `bounded_systems`. These three axes replace the unpromoted combined
+  `HypervisorSubstrateMode`; none grants authority or implies backend support.
 - `HypervisorOSNode`: a runtime node running the HypervisorOS bare-metal
   profile. It may expose microVM, container, WASM, model-server, and tool-runner
   substrates, but all autonomous workloads remain subordinate to Hypervisor

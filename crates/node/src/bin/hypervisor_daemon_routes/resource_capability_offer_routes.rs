@@ -1787,7 +1787,8 @@ pub(crate) async fn complete_governed_offer_intents(data_dir: &str, max_intents:
         let receipt = intent.get("receipt").unwrap_or(&Value::Null);
         let effect = receipt.get("authorized_effect").unwrap_or(&Value::Null);
         if let Err(message) = governed::reauthorize_sealed_receipt(
-            contract, receipt, governance, room, &authority, subject, op, revision, effect,
+            contract, data_dir, receipt, governance, room, &authority, subject, op, revision,
+            effect,
         )
         .await
         {
@@ -1902,6 +1903,7 @@ async fn create_offer(
     let participant_authority = s(&participant, "participant_ref", "");
     let authorized = match governed::authorize_decision(
         contract,
+        &state.data_dir,
         &body,
         Governance::Participant,
         &room_ref,
@@ -2106,6 +2108,7 @@ async fn transition_offer_http(
     };
     let authorized = match governed::authorize_decision(
         contract,
+        &state.data_dir,
         &body,
         governance,
         &room_ref,
@@ -2531,6 +2534,7 @@ pub(crate) async fn handle_match_create(
     };
     let authorized = match governed::authorize_decision(
         MATCH_AUTHORITY,
+        &state.data_dir,
         &body,
         Governance::Host,
         &room_ref,
@@ -2929,6 +2933,7 @@ pub(crate) async fn reauthorize_eligibility_for_claim(
     let effect = match_effect(&facts);
     governed::reauthorize_sealed_receipt(
         MATCH_AUTHORITY,
+        data_dir,
         &receipt,
         Governance::Host,
         room_ref,

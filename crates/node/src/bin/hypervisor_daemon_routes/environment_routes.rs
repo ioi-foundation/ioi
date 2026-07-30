@@ -1219,31 +1219,50 @@ fn provision_microvm(
 ) -> Result<(), AppError> {
     use super::microvm;
     let app = |e: String| AppError(StatusCode::INTERNAL_SERVER_ERROR, e);
-    let (monitor_id, reason) = microvm::select_monitor(recipe);
+    let (monitor_kind, reason) = microvm::select_monitor(recipe)
+        .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e))?;
+    let monitor_id = monitor_kind.as_str();
     let run_dir = std::path::Path::new(&st.data_dir)
         .join("environments")
         .join(safe_id(env_id))
         .join("vm");
-    let mut spec = microvm::build_vm_spec(&st.home_dir, &monitor_id, run_dir, 2, 1024)
+    let mut spec = microvm::build_vm_spec(&st.home_dir, monitor_id, run_dir, 2, 1024)
         .map_err(|e| app(format!("vm spec: {e}")))?;
     // SUN_LEN-safe vsock socket path (the data dir can be arbitrarily deep; the socket cannot).
-    spec.sock_path = microvm::short_sock_path(env_id);
-    let monitor = microvm::make_monitor(&monitor_id);
-    let vm = monitor
+    spec.sock_path =
+        microvm::short_sock_path(env_id).map_err(|e| app(format!("vm socket: {e}")))?;
+    let monitor = microvm::make_monitor(monitor_kind);
+    let mut vm = monitor
         .start(&spec)
         .map_err(|e| app(format!("microvm start ({monitor_id}): {e}")))?;
-    let tar = microvm::tar_dir(std::path::Path::new(ws))
-        .map_err(|e| app(format!("tar workspace: {e}")))?;
-    monitor
-        .import_workspace(&vm, &tar)
-        .map_err(|e| app(format!("import workspace: {e}")))?;
-    let proto = monitor.proto_version(&vm).unwrap_or(0);
+    let tar = match microvm::tar_dir(std::path::Path::new(ws)) {
+        Ok(tar) => tar,
+        Err(error) => {
+            let _ = monitor.stop(&mut vm);
+            return Err(app(format!("tar workspace: {error}")));
+        }
+    };
+    if let Err(error) = monitor.import_workspace(&vm, &tar) {
+        let _ = monitor.stop(&mut vm);
+        return Err(app(format!("import workspace: {error}")));
+    }
+    let proto = match monitor.proto_version(&vm) {
+        Ok(version) if version > 0 => version,
+        Ok(_) => {
+            let _ = monitor.stop(&mut vm);
+            return Err(app("guest protocol version 0 is not ready".to_string()));
+        }
+        Err(error) => {
+            let _ = monitor.stop(&mut vm);
+            return Err(app(format!("guest protocol negotiation: {error}")));
+        }
+    };
     // Honest isolation labels — a real kernel boundary now backs execution.
     env["status"]["substrate"] = json!("microvm");
     env["status"]["provider"] = json!("microvm_provider_v1");
-    env["status"]["isolation_claim"] = json!("cross_tenant_capable");
+    env["status"]["isolation_claim"] = json!("selected_microvm_preview");
     env["status"]["minimum_isolation"] = json!("vm_kernel");
-    env["status"]["trust_posture"] = json!("untrusted_code_capable");
+    env["status"]["trust_posture"] = json!("selected_profile_only");
     env["status"]["vm"] = json!({ "monitor": monitor_id, "selection_reason": reason, "pid": vm.pid, "guest_agent_proto": proto });
     st.live_vms.lock().unwrap().insert(env_id.to_string(), vm);
     Ok(())
@@ -1256,12 +1275,14 @@ fn run_tasks_in_guest(
     env_id: &str,
     resolution: &Value,
 ) -> Result<Vec<Value>, AppError> {
-    use super::microvm::{CloudHypervisorMonitor, VmMonitor};
-    let monitor = CloudHypervisorMonitor;
+    use super::microvm;
     let vms = st.live_vms.lock().unwrap();
     let vm = vms
         .get(env_id)
         .ok_or_else(|| AppError(StatusCode::CONFLICT, "no live microVM for env".into()))?;
+    let monitor_kind =
+        microvm::MonitorKind::parse(vm.monitor).map_err(|e| AppError(StatusCode::CONFLICT, e))?;
+    let monitor = microvm::make_monitor(monitor_kind);
     let mut results = Vec::new();
     for key in ["resolved_prebuild_tasks", "resolved_tasks"] {
         if let Some(arr) = resolution.get(key).and_then(|v| v.as_array()) {
@@ -1302,12 +1323,14 @@ fn run_tasks_in_guest(
 /// Export the guest workspace tar back onto the host scoped workspace (so WorkRun git/commit runs
 /// host-side against the guest's results; the host *checkout* is never the workspace).
 fn export_guest_workspace(st: &DaemonState, env_id: &str, ws: &str) -> Result<(), AppError> {
-    use super::microvm::{self, CloudHypervisorMonitor, VmMonitor};
-    let monitor = CloudHypervisorMonitor;
+    use super::microvm;
     let vms = st.live_vms.lock().unwrap();
     let vm = vms
         .get(env_id)
         .ok_or_else(|| AppError(StatusCode::CONFLICT, "no live microVM for env".into()))?;
+    let monitor_kind =
+        microvm::MonitorKind::parse(vm.monitor).map_err(|e| AppError(StatusCode::CONFLICT, e))?;
+    let monitor = microvm::make_monitor(monitor_kind);
     // CONTAINMENT: the guest is the UNTRUSTED party — this environment is labelled
     // `trust_posture: untrusted_code_capable`. These bytes are guest-authored, carry no digest
     // the daemon admitted beforehand, and are extracted onto the HOST filesystem with no
@@ -1360,10 +1383,14 @@ fn teardown_microvm(st: &DaemonState, env_id: &str) -> Value {
     // AF_VSOCK while the default uses a UDS, so the graceful shutdown byte was written to the
     // wrong transport and never reached those guests. Resolve the monitor that actually booted
     // this VM from the environment record so graceful stop reaches the right guest.
-    let monitor_id = load_env(&st.data_dir, env_id)
-        .and_then(|env| env["status"]["vm"]["monitor"].as_str().map(str::to_string))
-        .unwrap_or_else(|| "cloud-hypervisor".to_string());
-    let monitor = super::microvm::make_monitor(&monitor_id);
+    let monitor = match super::microvm::MonitorKind::parse(vm.monitor) {
+        Ok(kind) => super::microvm::make_monitor(kind),
+        Err(_) => {
+            let _ = vm.child.kill();
+            let _ = vm.child.wait();
+            return close_deletion(&resource_ref, DeletionOutcome::Unknown).to_json();
+        }
+    };
     let pid = vm.pid;
     let call_succeeded = monitor.stop(&mut vm).is_ok();
     // Re-observe: proof of absence is the process no longer existing, not the call returning.
@@ -2236,9 +2263,10 @@ pub(crate) async fn handle_environment_action(
                 .and_then(|r| super::recipe_routes::load_recipe(&st.data_dir, r));
             let is_microvm = env_is_microvm(&env, recipe.as_ref());
 
-            // WS-6 — prebuild/warmup: restore the recipe-keyed cache into the workspace BEFORE the
-            // sandbox (so a microVM imports it too). A second env from the same recipe is faster.
-            if let Some(r) = recipe.as_ref() {
+            // A host cache is not admitted into an isolation-required guest until cache material
+            // has no-follow traversal, immutable provenance, and a matching trust-domain binding.
+            // Local trusted workspaces retain the scoped preview cache.
+            if let Some(r) = recipe.as_ref().filter(|_| !is_microvm) {
                 let (cache_hit, hit_paths) = restore_recipe_cache(&st.data_dir, r, &ws);
                 env["status"]["cache_hit"] = json!(cache_hit);
                 if cache_hit {
@@ -2267,7 +2295,11 @@ pub(crate) async fn handle_environment_action(
             let mut microvm_ok = false;
             if is_microvm {
                 let recipe_for_select = recipe.clone().unwrap_or_else(|| json!({}));
-                let (sel_id, _) = super::microvm::select_monitor(&recipe_for_select);
+                let selection = super::microvm::select_monitor(&recipe_for_select);
+                let sel_id = selection
+                    .as_ref()
+                    .map(|(kind, _)| kind.as_str())
+                    .unwrap_or("unsupported");
                 set_component(
                     &mut env,
                     "sandbox",
@@ -2282,7 +2314,10 @@ pub(crate) async fn handle_environment_action(
                     "info",
                     &format!("booting microVM via {sel_id}"),
                 );
-                match provision_microvm(&st, &mut env, &id, &ws, &recipe_for_select) {
+                match selection
+                    .map_err(|e| AppError(StatusCode::UNPROCESSABLE_ENTITY, e))
+                    .and_then(|_| provision_microvm(&st, &mut env, &id, &ws, &recipe_for_select))
+                {
                     Ok(()) => {
                         microvm_ok = true;
                         set_component(
@@ -2444,8 +2479,11 @@ pub(crate) async fn handle_environment_action(
                         && t["phase"].as_str() != Some("succeeded")
                 });
                 env["status"]["tasks"] = json!(task_results);
-                // WS-6 — persist the recipe cache from the (post-prebuild) workspace for reuse.
-                save_recipe_cache(&st.data_dir, &recipe, &ws);
+                // Do not admit guest-authored bytes into the host cache. The current preview
+                // cache remains local/trusted only until its provenance contract is implemented.
+                if !is_microvm {
+                    save_recipe_cache(&st.data_dir, &recipe, &ws);
+                }
                 // typed services (required services health-checked) + typed ports.
                 let services: Vec<Value> = recipe["services"]
                     .as_array()
@@ -2674,9 +2712,9 @@ pub(crate) async fn handle_environment_action(
     Ok(Json(json!({ "environment": env, "recovery": recovery })))
 }
 
-/// POST /v1/hypervisor/workruns — bind a code WorkRun to a Git branch (the patch branch)
-/// inside the environment's scoped workspace. Child edits land on this branch (scoped, no
-/// host mutation). `{ "environment_id": "...", "objective"?: "..." }`.
+/// POST /v1/hypervisor/workruns — bind a code WorkRun to its own Git worktree and patch branch.
+/// Concurrent WorkRuns never checkout or mutate one another's working directory.
+/// `{ "environment_id": "...", "objective"?: "..." }`.
 pub(crate) async fn handle_workrun_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
@@ -2687,6 +2725,14 @@ pub(crate) async fn handle_workrun_create(
         .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "environment_id required".into()))?;
     let env = load_env(&st.data_dir, env_id)
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
+    if env["status"]["substrate"].as_str() == Some("microvm")
+        || env["spec"]["environment_class_id"].as_str() == Some("microvm")
+    {
+        return Err(AppError(
+            StatusCode::NOT_IMPLEMENTED,
+            "isolated_workrun_pipeline_unavailable: WorkRun creation still mutates a host Git workspace and cannot satisfy guest-proposal, quarantined-output, and governed-SCM requirements".into(),
+        ));
+    }
     let ws = env["status"]["workspace_root"]
         .as_str()
         .ok_or_else(|| {
@@ -2703,10 +2749,34 @@ pub(crate) async fn handle_workrun_create(
         .unwrap_or(0);
     let wr_id = format!("workrun_{nanos:x}");
     let branch = format!("workrun/{wr_id}");
-    run_git(&ws, &["checkout", "-q", "-b", &branch]).map_err(|e| {
+    let workrun_root = std::path::Path::new(&st.data_dir)
+        .join("workrun-workspaces")
+        .join(safe_id(&wr_id));
+    if let Some(parent) = workrun_root.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| {
+            AppError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("workrun workspace parent: {e}"),
+            )
+        })?;
+    }
+    let workrun_root_string = workrun_root.to_string_lossy().to_string();
+    run_git(
+        &ws,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "-b",
+            &branch,
+            &workrun_root_string,
+            &base,
+        ],
+    )
+    .map_err(|e| {
         AppError(
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("git branch: {e}"),
+            format!("git worktree: {e}"),
         )
     })?;
     let now = iso_now();
@@ -2716,10 +2786,13 @@ pub(crate) async fn handle_workrun_create(
         "environment_id": env_id,
         "base_commit": base,
         "branch": branch,
+        "workspace_root": workrun_root_string,
         "patch_branch_ref": format!("agentgres://patch-branch/{branch}"),
         "objective": body.get("objective").cloned().unwrap_or(Value::Null),
         "status": "open",
-        "host_mutation": false,
+        "host_mutation": true,
+        "host_mutation_scope": "workrun_scoped_workspace",
+        "host_repo_mutation": false,
         "review_state": "draft",
         "created_at": now,
         "updated_at": now
@@ -2844,6 +2917,14 @@ fn capture_workspace(st: &DaemonState, env_id: &str, kind: &str) -> Result<Value
     let app = |e: String| AppError(StatusCode::INTERNAL_SERVER_ERROR, e);
     let env = load_env(&st.data_dir, env_id)
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
+    if env["status"]["substrate"].as_str() == Some("microvm")
+        || env["spec"]["environment_class_id"].as_str() == Some("microvm")
+    {
+        return Err(AppError(
+            StatusCode::NOT_IMPLEMENTED,
+            "machine_snapshot_unsupported: the current workspace archive does not quiesce or capture guest disk/memory state".into(),
+        ));
+    }
     let ws = env["status"]["workspace_root"].as_str().ok_or_else(|| {
         AppError(
             StatusCode::CONFLICT,
@@ -2871,13 +2952,18 @@ fn capture_workspace(st: &DaemonState, env_id: &str, kind: &str) -> Result<Value
         "kind": kind,
         "environment_ref": env_id,
         "state_root": state_root,
+        "material_ref": format!("local-cas://sha256/{}", state_root.trim_start_matches("sha256:")),
         "material_path": tar_path.to_string_lossy(),
         "bytes": tar.len(),
         "created_at": iso_now()
     });
     persist_record(&st.data_dir, &format!("{kind}s"), &id, &record)
         .map_err(|e| app(format!("persist {kind}: {e}")))?;
-    Ok(record)
+    let mut public_record = record;
+    public_record
+        .as_object_mut()
+        .map(|object| object.remove("material_path"));
+    Ok(public_record)
 }
 
 /// POST /v1/hypervisor/snapshots — forkable point-in-time snapshot. `{ "environment_id": "..." }`.
@@ -2947,27 +3033,84 @@ pub(crate) async fn handle_snapshot_restore(
         .to_string();
     let mut env = load_env(&st.data_dir, &env_id)
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
+    if env["status"]["substrate"].as_str() == Some("microvm")
+        || env["spec"]["environment_class_id"].as_str() == Some("microvm")
+    {
+        return Err(app(
+            StatusCode::NOT_IMPLEMENTED,
+            "machine_restore_unsupported: workspace material is not a quiesced guest disk or memory snapshot".to_string(),
+        ));
+    }
     let ws = env["status"]["workspace_root"]
         .as_str()
         .ok_or_else(|| AppError(StatusCode::CONFLICT, "environment has no workspace".into()))?
         .to_string();
-    // reproduce exactly: clear the workspace then extract the validated material.
-    let _ = std::fs::remove_dir_all(&ws);
-    super::microvm::untar_into(std::path::Path::new(&ws), &tar).map_err(|e| {
+    // Restore is prepare/apply, never delete-first. Extract and validate into a sibling staging
+    // directory, retain the trusted workspace as a rollback target, then swap by rename.
+    let ws_path = std::path::PathBuf::from(&ws);
+    let parent = ws_path.parent().ok_or_else(|| {
         app(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("restore extract: {e}"),
+            StatusCode::CONFLICT,
+            "workspace has no restore parent".to_string(),
         )
     })?;
+    let restore_token = safe_id(&id);
+    let staging = parent.join(format!(".ioi-restore-staging-{restore_token}"));
+    let rollback = parent.join(format!(".ioi-restore-rollback-{restore_token}"));
+    if staging.exists() || rollback.exists() {
+        return Err(app(
+            StatusCode::CONFLICT,
+            "restore recovery obligation already exists; reconcile it before retry".to_string(),
+        ));
+    }
+    super::microvm::untar_into(&staging, &tar).map_err(|e| {
+        let _ = std::fs::remove_dir_all(&staging);
+        app(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("restore staging extract: {e}"),
+        )
+    })?;
+    std::fs::rename(&ws_path, &rollback).map_err(|e| {
+        let _ = std::fs::remove_dir_all(&staging);
+        app(StatusCode::CONFLICT, format!("restore prepare rename: {e}"))
+    })?;
+    if let Err(error) = std::fs::rename(&staging, &ws_path) {
+        let rollback_result = std::fs::rename(&rollback, &ws_path);
+        return Err(app(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("restore apply rename: {error}; rollback={rollback_result:?}"),
+        ));
+    }
     // if a microVM is live, re-import the restored workspace.
     if st.live_vms.lock().unwrap().contains_key(&env_id) {
-        use super::microvm::{CloudHypervisorMonitor, VmMonitor};
+        use super::microvm;
         if let Some(vm) = st.live_vms.lock().unwrap().get(&env_id) {
-            if let Ok(t) = super::microvm::tar_dir(std::path::Path::new(&ws)) {
-                let _ = CloudHypervisorMonitor.import_workspace(vm, &t);
+            let monitor_kind = microvm::MonitorKind::parse(vm.monitor)
+                .map_err(|e| app(StatusCode::CONFLICT, e))?;
+            let monitor = microvm::make_monitor(monitor_kind);
+            let t = microvm::tar_dir(std::path::Path::new(&ws)).map_err(|e| {
+                app(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("restore re-import tar: {e}"),
+                )
+            })?;
+            if let Err(error) = monitor.import_workspace(vm, &t) {
+                let failed = parent.join(format!(".ioi-restore-failed-{restore_token}"));
+                let _ = std::fs::rename(&ws_path, &failed);
+                let rollback_result = std::fs::rename(&rollback, &ws_path);
+                return Err(app(
+                    StatusCode::CONFLICT,
+                    format!("restore re-import failed: {error}; host rollback={rollback_result:?}"),
+                ));
             }
         }
     }
+    std::fs::remove_dir_all(&rollback).map_err(|e| {
+        app(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("restore applied but rollback cleanup is unresolved: {e}"),
+        )
+    })?;
     observe(
         &mut env,
         "validating_restore",
@@ -3074,12 +3217,15 @@ pub(crate) async fn handle_workspace_exec(
     }
 
     let (stdout, stderr, exit_code) = if in_guest {
-        use super::microvm::{CloudHypervisorMonitor, VmMonitor};
+        use super::microvm;
         let vms = st.live_vms.lock().unwrap();
         let vm = vms
             .get(env_id)
             .ok_or_else(|| AppError(StatusCode::CONFLICT, "no live VM".into()))?;
-        let out = CloudHypervisorMonitor.exec(vm, command).map_err(|e| {
+        let monitor_kind = microvm::MonitorKind::parse(vm.monitor)
+            .map_err(|e| AppError(StatusCode::CONFLICT, e))?;
+        let monitor = microvm::make_monitor(monitor_kind);
+        let out = monitor.exec(vm, command).map_err(|e| {
             AppError(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("guest exec: {e}"),
@@ -3355,12 +3501,12 @@ pub(crate) async fn handle_workrun_execute(
         .to_string();
     let env = load_env(&st.data_dir, &env_id)
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
-    let ws = env["status"]["workspace_root"]
+    let ws = wr["workspace_root"]
         .as_str()
         .ok_or_else(|| {
             AppError(
                 StatusCode::CONFLICT,
-                "environment not started (no workspace)".into(),
+                "workrun has no isolated workspace".into(),
             )
         })?
         .to_string();
@@ -3381,13 +3527,20 @@ pub(crate) async fn handle_workrun_execute(
         ));
     }
 
-    // Ensure we are on the WorkRun's scoped patch branch — never the host repo, never main.
-    run_git(&ws, &["checkout", "-q", &branch]).map_err(|e| {
+    // The dedicated Git worktree is born on this branch. Refuse drift rather than checking out
+    // inside a potentially shared directory.
+    let observed_branch = run_git(&ws, &["branch", "--show-current"]).map_err(|e| {
         AppError(
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("git checkout {branch}: {e}"),
+            format!("git branch: {e}"),
         )
     })?;
+    if observed_branch != branch {
+        return Err(AppError(
+            StatusCode::CONFLICT,
+            format!("workrun branch drift: expected {branch}, observed {observed_branch}"),
+        ));
+    }
 
     // ---- the real model-driven turn ----
     let objective = wr["objective"]

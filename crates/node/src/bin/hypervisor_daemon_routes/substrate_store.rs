@@ -105,6 +105,7 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "scm-publication-proposals",
     "scm-publication-effects",
     "scm-publication-receipts",
+    "scm-publication-operations",
 ];
 
 struct HandleSlot {
@@ -475,6 +476,7 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         | "scm-publication-proposals"
         | "scm-publication-effects"
         | "scm-publication-receipts"
+        | "scm-publication-operations"
         | "hypervisor-environment-lifecycle-transitions"
         | "hypervisor-environment-lifecycle-receipts"
         | "hypervisoros-boot-profiles"
@@ -829,6 +831,7 @@ fn validate_required_identity(
         "scm-publication-proposals" => "scmpp_",
         "scm-publication-effects" => "scmpe_",
         "scm-publication-receipts" => "scmpr_",
+        "scm-publication-operations" => "scmop_",
         _ => unreachable!("required-admission domains are exhaustively matched"),
     };
     if !record_id.strip_prefix(required_prefix).is_some_and(|tail| {
@@ -1090,6 +1093,7 @@ fn validate_required_identity(
             | "scm-publication-proposals"
             | "scm-publication-effects"
             | "scm-publication-receipts"
+            | "scm-publication-operations"
     ) {
         // Source-control publication records are named by their whole-record
         // content root, so a committed effect, the binding it resolved
@@ -1107,6 +1111,7 @@ fn validate_required_identity(
             "scm-publication-proposals" => "proposal_ref",
             "scm-publication-effects" => "publication_effect_id",
             "scm-publication-receipts" => "receipt_ref",
+            "scm-publication-operations" => "operation_key",
             _ => unreachable!(),
         };
         if record.get(identity_field).and_then(Value::as_str).is_none() {

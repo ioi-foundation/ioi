@@ -46,8 +46,9 @@ The system settles locally unless its declared profile selects an external
 service such as IOI L1 for triggered public/economic/cross-domain commitments.
 ```
 
-Environments are the bridge between Hypervisor's Type 1, Type 2, and Type 3
-substrate modes. They are the VM-like governed unit that can contain:
+Environments are the governed bridge between controller deployment, resource
+relationship, and enabled autonomy capabilities. They are the VM-like governed
+unit that can contain:
 
 ```text
 VMs
@@ -67,10 +68,12 @@ budget limits
 receipts and restore points
 ```
 
-Type 1 substrate mode supplies bare-metal/appliance/cluster capacity. Type 2
-substrate mode supplies hosted local developer/operator environments. Type 3
-autonomy mode runs sessions, WorkRuns, workers, tools, models, authority, and
-receipts above those resources. Environments are where those layers meet.
+A hosted controller may manage local, customer-attached, or managed-provider
+resources. A future node-root appliance may manage the same relationships.
+Manual operations, governed WorkRuns, standing Automations, and bounded Systems
+are coexistable capabilities above those resources. Deployment location never
+implies a capability, and autonomy never substitutes for the admitted VMM or
+provider boundary. Environments are where those facets meet.
 
 The product shape:
 
@@ -1228,6 +1231,129 @@ HypervisorEnvironmentResourceIsolationProfile
   evidence_refs
   receipt_refs
 ```
+
+Resource quotas do not prove workload containment. WorkRun admission compiles a
+separate requirement and binds its realized boundary to current evidence.
+
+### Backend capability declarations
+
+The declaration below is evidence, never authority or proof of realization for
+one workload:
+
+```text
+HypervisorBackendCapabilityDeclaration
+  declaration_ref
+  backend_registration_ref
+  evidence_mode: live | simulated | declared
+  producer_ref
+  evaluator_ref
+  backend_release_or_digest
+  host_profile_ref
+  supported_guest_and_firmware_profiles
+  supported_operations
+  unsupported_operations
+  enforcement_property_refs
+  evidence_refs
+  observed_at
+  valid_until?
+  canonical_head
+  declaration_hash
+  signature
+```
+
+### Compiled workload-isolation requirements
+
+```text
+HypervisorWorkloadIsolationRequirements
+  requirements_ref
+  work_run_ref
+  owner_ref
+  trust_domain_ref
+  risk_policy_ref
+  risk_inputs_hash
+  minimum_boundary: process | container | vm_kernel | disposable_host
+  freshness: fresh_required | admitted_reuse | not_required
+  required_backend_capability_refs
+  required_image_and_supply_chain_refs
+  mount_policy_ref
+  credential_policy_ref
+  network_policy_ref
+  dependency_broker_policy_ref?
+  effect_gateway_policy_ref
+  output_admission_policy_ref
+  teardown_policy_ref
+  hostile_to_boundary: true | false
+  requirements_hash
+```
+
+### Immutable workload-isolation binding
+
+```text
+HypervisorWorkloadIsolationBinding
+  binding_ref
+  requirements_ref
+  requirements_hash
+  work_run_ref
+  runtime_assignment_ref
+  environment_ref
+  owner_ref
+  trust_domain_ref
+  backend_capability_declaration_ref
+  backend_capability_declaration_hash
+  enforcement_coverage_declaration_ref
+  enforcement_coverage_declaration_hash
+  runtime_node_ref
+  image_ref
+  image_hash
+  instance_identity
+  boot_epoch
+  network_identity_ref?
+  broker_binding_refs
+  allowed_final_invoker_refs
+  output_admission_ref?
+  cleanup_obligation_ref
+  valid_from
+  expires_at
+  binding_hash
+  signature
+```
+
+The requirements are a deterministic risk-to-boundary compilation. Callers may
+select a stronger supported profile but may not weaken the compiled minimum.
+The binding is immutable evidence of what was actually selected; it does not
+turn `declared` or `simulated` capability into `live` enforcement. Every
+required declaration must be current at readiness and immediately before a
+consequential invocation.
+
+For untrusted, dependency-installing, networked, credential-using, or mutating
+WorkRuns the default minimum is a fresh VM-kernel boundary. The boundary has no
+ambient host home, trusted checkout, daemon/container socket, long-lived
+credential, shared mutable cache, metadata endpoint, or peer-workload access.
+Egress is deny-by-default and dependency access, when selected, crosses a
+separately contained least-privilege broker. Work intended to attack the VMM,
+guest kernel, broker, or host boundary requires a disposable host rather than
+an ordinary shared node.
+
+Guest output is always untrusted. It crosses a bounded quarantine worker,
+safe-entry validation, content manifest and declared validation before atomic
+admission. Consequential SCM/provider/deployment effects execute only through
+the existing out-of-guest authority gateway and exact final invoker. Every
+terminal path proves removal of workload-owned processes, sockets, networks,
+storage, leases, caches, and ephemeral credentials or retains a durable
+`HypervisorResourceCleanupObligation`. Missing binding, stale capability,
+unknown enforcement, unsafe output, or uncertain cleanup fails closed; none
+permits host fallback.
+
+### Typed virtual-machine target and observation payloads
+
+The existing `VirtualMachineWorkload`, `HypervisorTargetState`, and
+`HypervisorObservedState` owners carry a closed typed payload binding canonical
+workload/owner/environment identity, immutable target hash, desired generation
+and expected head, architecture, boot/compute/attachment specifications,
+policy refs, backend registration and capability evidence/hash, independent
+desired and observed phases/generations, boot epoch, receipts, and cleanup
+obligations. Provider ids remain evidence. Desired and observed state never
+collapse into one mutable `status` field.
 
 `HypervisorEnvironmentConnectivityProfile` makes internal network access a
 typed posture instead of a tunnel workaround:

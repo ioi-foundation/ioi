@@ -224,31 +224,44 @@ none maintains separate lifecycle truth.
 ## Hypervisor Lineage And Operator Entry Contract
 
 Hypervisor must not merely borrow the word "hypervisor" metaphorically. It must
-be a real substrate-control product that also virtualizes autonomy. The Type 3
-autonomy layer is the differentiator, but it is strongest when it can govern the
-Type 1 and Type 2 substrate beneath autonomous work.
+perform recognizable compute-control jobs while governing autonomy above the
+selected VMM, host, or provider substrate. Hardware virtualization and
+autonomy virtualization answer different questions; neither is derived by
+combining Type 1 and Type 2 into a standardized "Type 3" category.
 
-Hypervisor supports three substrate modes as deployment and control postures of
-one product:
+Every released profile therefore declares three nonexclusive facets:
 
 ```text
-Type 1 substrate mode:
-  HypervisorOS / appliance / cluster control for machines, GPUs, storage,
-  networks, VMs, containers, microVMs, sandboxes, local models, robotics
-  runtimes, devices, and trusted execution.
+controller deployment:
+  hosted_ordinary_os | node_root_appliance
 
-Type 2 substrate mode:
-  Hypervisor Desktop / Workstation hosted on a normal OS for local VMs,
-  sandboxes, models, tools, agents, connectors, projects, environments, and
-  developer/operator workflows.
+resource relationship:
+  local | customer_attached | managed_provider
 
-Type 3 autonomy mode:
-  Autonomy virtualization across sessions, WorkRuns, workers, harnesses, model
-  routes, tools, authority, receipts, replay, outcomes, and promotion.
-
-Hypervisor virtualizes autonomy, but it also governs the substrate autonomy runs
-on.
+enabled capabilities:
+  manual_operations
+  governed_workruns
+  standing_automations
+  bounded_systems
 ```
+
+The facets describe posture; they grant no capability. Current backend
+declarations, desired/observed state, authority, receipts, and final-invoker
+proof remain mandatory. Manual operations may remain the complete selected
+experience: conventional machine users do not need to create a System,
+AutomationRun, or GoalRun.
+
+Four owner-qualified bundles project these facets through existing surfaces:
+
+| Bundle | Exact meaning |
+| --- | --- |
+| Hypervisor Workstation | one admitted hosted local-machine profile and its exact machine lifecycle/compatibility matrix |
+| Hypervisor Infrastructure | attach, discover, reconcile, and govern one admitted existing estate without claiming to be its underlying VMM |
+| Autonomous Systems | opt-in Work, Automations, authority, outcomes, evaluation, recovery, and bounded improvement over an admitted compute profile |
+| HypervisorOS | conditional node-root appliance profile; unavailable until installer, lifecycle, update/recovery, hardware, enforcement, and support proof close |
+
+These are conformance and claim bundles, not apps, planes, primitive families,
+or truth owners. They may coexist and close independently.
 
 The product should preserve the interaction grammar infrastructure operators and
 desktop virtualization users already expect:
@@ -302,10 +315,16 @@ tasks/events, checkpoints, and policy/audit views.
 The stable product truth is:
 
 ```text
-Type 1 and Type 2 are the trustable substrate.
-Type 3 is the autonomy virtualization layer above them.
-Hypervisor includes all three without becoming merely another VM manager.
+Conventional VMMs and provider substrates remain the compute boundary.
+Hypervisor governs machines, environments, and autonomous systems across
+admitted local, attached, managed, and later node-root profiles.
+Autonomy is an optional capability above the substrate, not a new VMM type.
 ```
+
+Public wording uses **autonomy virtualization plane** when it needs a category
+description. “Type 3” may appear only as explicitly qualified historical or
+internal shorthand, never as a standard, a peer hardware-hypervisor class, or
+a claim that autonomy replaces Type 1/2 mechanisms.
 
 ## Product Language Layers
 
@@ -509,6 +528,19 @@ share the same authority, session, daemon, receipt, replay, Agentgres, wallet,
 cTEE, provider, and ontology/domain-contract contracts.
 
 They do not own runtime truth.
+
+The Hypervisor App becomes the default first-party human/simple attach journey
+only when one exact release passes all six binding conditions owned by
+[`execution-horizons.md`](../../_meta/execution-horizons.md): canonical
+registrations, real daemon/Agentgres state, authority/receipt/final-invoker
+routing, complete negative and recovery states, operational/accessibility/
+product-truth proof, and no externally derived production fallback. Primary
+changes product routing, not ownership or exclusivity. CLI/headless remains a
+first-class automation, conformance, and recovery client; MCP remains a
+protocol gateway; editor and harness integrations remain compatibility
+adapters. Individual launcher implementations retire only through an exact
+disposition, migration/export evidence, and negative-reachability proof
+(ADR 0025).
 
 ### Protocol Gateways
 

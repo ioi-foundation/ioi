@@ -116,7 +116,9 @@ Bounded execution (substrate work mechanics)
 
 Operating substrate
   Hypervisor Core and Hypervisor Daemon
-  Type 1 HypervisorOS / Type 2 workstation / Type 3 autonomy plane
+  hosted or conditional node-root controller deployment
+  local / customer-attached / managed-provider resource relationships
+  optional manual operations / governed WorkRuns / Automations / Systems
   model router / connectors / runtimes / provider and environment plane
   immutable MCPGatewayRequirement -> admitted subject-scoped gateway profile
 
@@ -521,8 +523,9 @@ not this cross-system network proof.
 
 1. There is one governed operating fabric, not a daemon plus competing hidden
    runtimes in apps, harnesses, SDKs, editors, or provider adapters.
-2. Hypervisor Type 1, Type 2, and Type 3 are deployment/control postures of one
-   product, not three disconnected products.
+2. Hypervisor declares controller deployment, resource relationship, and
+   enabled autonomy capabilities as separate nonexclusive facets. It never
+   presents autonomy as a standardized hardware-hypervisor type.
 3. OutcomeRoom is above GoalRun. Neither is one global graph or ambient swarm.
 4. GoalRun is generic and loop-native; coding-specific files/diffs/tests live in
    the ImplementationResult profile, not the universal WorkResult contract.

@@ -509,6 +509,98 @@ pub(crate) async fn handle_run_execute(
         }
     }
 
+    // The lease obtained earlier is provenance for the sealed session, not an
+    // unmetered standing authorization. Each bounded source contact consumes a
+    // separately content-bound owner use before any credential is opened or network
+    // final invoker can run.
+    let authority_effect = json!({
+        "materializing_run_ref": run_ref,
+        "capability_lease_ref": run.pointer("/lease/lease_ref").cloned().unwrap_or(Value::Null),
+        "connector_session_ref": session.get("ref").cloned().unwrap_or(Value::Null),
+        "connector_ref": format!("connector://{connector_id}"),
+        "source_ref": source.get("ref").cloned().unwrap_or(Value::Null),
+        "source_endpoint": source_endpoint,
+        "projection_ref": projection.get("ref").cloned().unwrap_or(Value::Null),
+        "mapping_ref": mapping.get("ref").cloned().unwrap_or(Value::Null),
+        "limit": limit,
+        "operation": "read-register-batch",
+    });
+    let policy_hash = sha256_hex(
+        &serde_json::to_string(&json!({
+            "domain": "hypervisor.odk.materializing-run.execute.policy.v1",
+            "scope": "scope:hypervisor.live-route.materializing-run-execute",
+            "materializing_run_ref": run_ref,
+        }))
+        .unwrap_or_default(),
+    );
+    let request_hash = sha256_hex(
+        &serde_json::to_string(&json!({
+            "domain": "hypervisor.odk.materializing-run.execute.request.v1",
+            "effect": authority_effect,
+        }))
+        .unwrap_or_default(),
+    );
+    let grant = body
+        .get("wallet_approval_grant")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let admitted = super::governed_authority::authorize_deployment_grant(
+        &data_dir,
+        &grant,
+        "scope:hypervisor.live-route.materializing-run-execute",
+        &policy_hash,
+        &request_hash,
+        &run_ref,
+        "materializing-run-execute",
+        1,
+        &authority_effect,
+    )
+    .await;
+    let admitted = match admitted {
+        Ok(admitted) => admitted,
+        Err((_status, Json(challenge))) => {
+            let receipt = run_receipt(
+                &data_dir,
+                &run_ref,
+                "execution_refused",
+                "execution_authority_required",
+                "the bounded source contact lacked independently resolved and consumed authority",
+            );
+            push_history(
+                &mut run,
+                "execution_refused",
+                "authority required",
+                &receipt,
+            );
+            let _ = persist_record(
+                &data_dir,
+                crate::materializing_run_routes::RECORD_DIR,
+                &id,
+                &run,
+            );
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "ok": false,
+                    "error": { "code": "execution_authority_required", "message": "the source contact requires owner authority" },
+                    "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                    "authority_challenge": challenge,
+                })),
+            );
+        }
+    };
+    if let Err(reason) =
+        super::governed_authority::revalidate_admission_receipt(&data_dir, &admitted).await
+    {
+        return refuse(
+            &data_dir,
+            &run_ref,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "execution_authority_receipt_unavailable",
+            &reason,
+        );
+    }
+
     // Resolve the sealed credential IN-MEMORY for the read — used for the header, then dropped.
     let bearer: Option<String> = match find_by_key(
         &data_dir,

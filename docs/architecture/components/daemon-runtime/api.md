@@ -3521,3 +3521,18 @@ POST /v1/runtime/assignments/{assignment_id}/reject
 23. MCP protocol objects normalize to canonical IOI tool, context, input,
     invocation, and extension-surface owners. Protocol sessions and task
     handles never replace run, authority, state-root, or receipt identity.
+
+## Governed-compute target API (unimplemented)
+
+Future conventional-compute routes project existing RuntimeNode, provider,
+environment, workload, target/observed-state, change-plan, snapshot, and access-
+lease owners. Their source-neutral payloads bind a backend capability
+declaration and content hash, desired generation/head, typed machine boot/
+compute/attachment specifications, and explicit unsupported-operation reasons.
+No route is live merely because its schema or projection exists.
+
+WorkRun admission additionally accepts only compiled workload-isolation
+requirements and produces an immutable isolation binding to the exact runtime
+assignment, boundary instance, backend/coverage evidence, input closure,
+network/broker policy, final invoker, output quarantine, and cleanup
+obligation. A caller-selected weaker backend or policy is refused.

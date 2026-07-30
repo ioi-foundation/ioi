@@ -188,6 +188,11 @@ security-domain application.
    converge on the same policy enforcement point and the same final invoker.
    Admission evidence at that boundary is resolved by the admitting component,
    never asserted by the transport (`INV-37`).
+   Request-carried issuer identifiers and signing keys are evidence candidates
+   only: the admitting owner independently resolves the current authorized
+   issuer and atomically accounts for applicable grant and lease usage before
+   invocation. The final invoker revalidates the resulting content-bound
+   admission or consumption receipt and exact owner heads.
 4. For embodied effects,
    [`physical-action-safety.md`](./physical-action-safety.md) owns the
    final-invoker preflight and ordering discipline; this section owns the
@@ -569,6 +574,35 @@ event that this seam does not observe.
     candidate through ordinary eval, canary, rollback, promotion, and Governance
     gates. It proves only observed continuity under the declared envelope and
     grants no authority or universal model-equivalence claim.
+
+## Workload-Bound Isolation Invariants
+
+1. Risk policy compiles the minimum isolation requirement for each WorkRun. A
+   caller may select stronger current capability but cannot weaken the result.
+2. Untrusted, dependency-installing, networked, credential-using, or mutating
+   work requires a fresh VM-kernel or stronger admitted boundary by default.
+   Host execution, a shared worktree, or a shared-kernel container is not a
+   fallback when that boundary is absent.
+3. VM boot is evidence only. Admission binds the exact WorkRun, runtime
+   assignment, owner/trust domain, backend capability, enforcement coverage,
+   image, network, brokers, output policy, TTL, and cleanup obligation.
+4. The guest receives no ambient host home, trusted checkout, daemon/container
+   socket, metadata endpoint, long-lived credential, or cross-job mutable
+   cache. Network and dependency access are explicit, least-privilege, and
+   deny-by-default outside their admitted contract.
+5. Consequential effects execute through the existing out-of-guest authority
+   gateway and exact final invoker. A guest proposal or valid workload
+   signature does not grant effect authority.
+6. Guest output is untrusted. Bounded quarantine, safe entry validation,
+   content manifest, declared validation, and atomic admission precede any
+   trusted-workspace mutation. Restore follows prepare/apply/cancel and never
+   destroys the current trusted state before successor validation.
+7. Every terminal path verifies teardown or retains a durable cleanup and
+   reconciliation obligation. Unknown process, network, storage, credential,
+   or external-effect state cannot be labeled cleaned, stopped, or refunded.
+8. Work intended to attack a kernel, VMM, broker, or host boundary requires a
+   separately admitted disposable host; a VM on an ordinary shared host is
+   insufficient for that profile.
 
 ## Mainnet Invariants
 

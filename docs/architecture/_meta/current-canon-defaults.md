@@ -408,16 +408,15 @@ synchronized.
 
 ### Hypervisor substrate and product structure
 
-- Hypervisor includes Type 1, Type 2, and Type 3 substrate modes as deployment
-  and control postures of one product. Type 1 is HypervisorOS / appliance /
-  cluster control where the Hypervisor Daemon is node root. Type 2 is Hypervisor
-  Desktop / Workstation hosted on a normal OS for local VMs, sandboxes, models,
-  tools, agents, connectors, and environments. Type 3 is autonomy virtualization
-  across sessions, WorkRuns, workers, model routes, tools, authority, receipts,
-  replay, outcomes, and promotion. Type 3 is the differentiator; Type 1 and Type
-  2 are the trustable substrate beneath it. HypervisorOS improves control,
-  integrity, containment, measurement, reproducibility, and policy enforcement,
-  but it does not replace cTEE no-plaintext-custody;
+- Hypervisor profiles declare three nonexclusive facets: controller deployment
+  (`hosted_ordinary_os` or the conditional `node_root_appliance`), resource
+  relationship (`local`, `customer_attached`, or `managed_provider`), and an
+  enabled set of `manual_operations`, `governed_workruns`,
+  `standing_automations`, and `bounded_systems`. Conventional VMM/provider
+  mechanisms remain the trustable substrate. Autonomy virtualization is an
+  optional capability above them, not a standardized Type 3 VMM category.
+  HypervisorOS remains unavailable until its separate installer, lifecycle,
+  update/recovery, hardware, enforcement, and support proof closes;
 - Hypervisor must expose real substrate-control grammar, not only agent
   orchestration. Substrate, inventory, create/import, console, operations,
   governance, and ledger expectations resolve through Systems context, Work,

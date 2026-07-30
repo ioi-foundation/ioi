@@ -57,8 +57,9 @@ canonical Domain Ontologies plus optional accepted mappings are the semantic
 world plane; machine authority is the security protocol; and Agentgres is the
 operational truth substrate.
 
-The ontology-centered operating environment and the Type 1/2/3 Hypervisor are
-not competing product theses. They answer different questions:
+The ontology-centered operating environment and Hypervisor's deployment,
+resource-relationship, and autonomy-capability facets are not competing
+product theses. They answer different questions:
 
 ```text
 local ontology planes with optional federation
@@ -67,11 +68,11 @@ local ontology planes with optional federation
 collective-intelligence plane
   how intelligences discover, divide, attempt, verify, challenge, and course-correct work
 
-Hypervisor Type 3 plane
+Hypervisor autonomy plane
   how agency, context, tools, memory, authority, evidence, and effects are virtualized
 
-Hypervisor Type 1 / Type 2 modes
-  where custody, isolation, locality, substrate control, and operator experience live
+controller deployment and resource relationship
+  where the controller runs and whether resources are hosted, attached, or node-root
 ```
 
 Together they form one ontology-native autonomy fabric. The category is not a

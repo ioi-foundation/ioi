@@ -574,6 +574,34 @@ pub(crate) fn read_slot_strict(
     Ok(Some((f, bytes)))
 }
 
+/// Read one JSON record through the same pinned-family, no-follow boundary used by the durable
+/// writer. Absence is distinct from an unreadable or non-regular occupant; callers authorizing
+/// effects must refuse on every outcome except a proven regular JSON record or true ENOENT.
+pub(crate) fn read_record_durable(
+    data_dir: &str,
+    family: &str,
+    record_id: &str,
+) -> Result<Option<Value>, String> {
+    let dir = match open_family_dir_pinned(data_dir, family) {
+        Ok(dir) => dir,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(format!(
+                "record family '{family}' cannot be pinned for reading: {error}"
+            ))
+        }
+    };
+    let target = format!("{record_id}.json");
+    let Some((_file, bytes)) = read_slot_strict(&dir, &target)
+        .map_err(|error| format!("record slot '{target}' is not safely readable: {error}"))?
+    else {
+        return Ok(None);
+    };
+    serde_json::from_slice(&bytes)
+        .map(Some)
+        .map_err(|error| format!("record slot '{target}' is not valid JSON: {error}"))
+}
+
 /// Enumerate the entries of an ALREADY-PINNED directory through the fd ITSELF — NOT by
 /// re-walking the pathname (#72 round 21 finding 3): a directory-level exchange cannot redirect
 /// enumeration, because the names come from the same inode the caller pinned and reads through.

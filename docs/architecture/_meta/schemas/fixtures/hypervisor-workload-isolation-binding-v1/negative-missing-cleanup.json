@@ -1,0 +1,8 @@
+{
+  "schema_version": "ioi.components.hypervisor.workload-isolation-binding.v1",
+  "binding_ref": "isolation-binding://workrun/run-1",
+  "binding_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "requirements_ref": "isolation-requirements://workrun/high-risk-1",
+  "requirements_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "workrun_ref": "workrun://run-1"
+}

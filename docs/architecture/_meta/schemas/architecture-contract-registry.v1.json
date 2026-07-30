@@ -5034,6 +5034,86 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/backend-capability-declaration/v1",
+      "canonical_name": "HypervisorBackendCapabilityDeclaration",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#backend-capability-declarations",
+      "schema_version": "ioi.components.hypervisor.backend-capability-declaration.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "hypervisor-backend-capability-declaration.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "HypervisorBackendCapabilityDeclarationV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "HypervisorBackendCapabilityDeclarationV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/hypervisor-backend-capability-declaration-v1/positive-live.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/hypervisor-backend-capability-declaration-v1/negative-unknown-field.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/workload-isolation-requirements/v1",
+      "canonical_name": "HypervisorWorkloadIsolationRequirements",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#compiled-workload-isolation-requirements",
+      "schema_version": "ioi.components.hypervisor.workload-isolation-requirements.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "hypervisor-workload-isolation-requirements.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "HypervisorWorkloadIsolationRequirementsV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "HypervisorWorkloadIsolationRequirementsV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
+      "canonical_name": "HypervisorWorkloadIsolationBinding",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#immutable-workload-isolation-binding",
+      "schema_version": "ioi.components.hypervisor.workload-isolation-binding.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "hypervisor-workload-isolation-binding.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "HypervisorWorkloadIsolationBindingV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "HypervisorWorkloadIsolationBindingV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/hypervisor-workload-isolation-binding-v1/negative-missing-cleanup.json", "expected_failure": "schema" }]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1",
+      "canonical_name": "HypervisorVirtualMachineStatePayload",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#typed-virtual-machine-target-and-observation-payloads",
+      "schema_version": "ioi.components.hypervisor.virtual-machine-state-payload.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": { "successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed" },
+      "schema_ref": "hypervisor-virtual-machine-state-payload.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        { "kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "HypervisorVirtualMachineStatePayloadV1" },
+        { "kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "HypervisorVirtualMachineStatePayloadV1" }
+      ],
+      "positive_fixture_refs": ["fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json"],
+      "negative_fixture_refs": [{ "path": "fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json", "expected_failure": "schema" }]
     }
   ]
 }

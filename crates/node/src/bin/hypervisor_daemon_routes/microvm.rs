@@ -8,6 +8,7 @@
 //! guest kernel, initramfs+guest-agent) is pinned + sha256-verified at boot (G2 supply chain):
 //! a checksum mismatch fails closed. Provision it with scripts/phase1/provision-vm-toolchain.sh.
 use std::io::{Read, Write};
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -33,19 +34,41 @@ pub(crate) struct VmSpec {
 
 /// A short, SUN_LEN-safe vsock socket path that still carries the env id (so orphan-VM detection
 /// can match it). Falls back to a hash if the id would push the path over the limit.
-pub(crate) fn short_sock_path(env_id: &str) -> PathBuf {
-    let dir = std::env::var("IOI_VM_SOCK_DIR").unwrap_or_else(|_| "/tmp".to_string());
+pub(crate) fn short_sock_path(env_id: &str) -> Result<PathBuf, String> {
+    let dir = std::env::var("IOI_VM_SOCK_DIR")
+        .unwrap_or_else(|_| unsafe { format!("/tmp/ioi-vm-sockets-{}", libc::geteuid()) });
+    let root = PathBuf::from(&dir);
+    std::fs::create_dir_all(&root)
+        .map_err(|e| format!("create private VM socket directory {}: {e}", root.display()))?;
+    let metadata = std::fs::symlink_metadata(&root)
+        .map_err(|e| format!("inspect VM socket directory {}: {e}", root.display()))?;
+    if !metadata.file_type().is_dir() || metadata.file_type().is_symlink() {
+        return Err(format!(
+            "VM socket root is not a private directory: {}",
+            root.display()
+        ));
+    }
+    let euid = unsafe { libc::geteuid() };
+    if metadata.uid() != euid {
+        return Err(format!(
+            "VM socket root owner mismatch: {} is uid {}, daemon is uid {euid}",
+            root.display(),
+            metadata.uid()
+        ));
+    }
+    std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+        .map_err(|e| format!("restrict VM socket directory {}: {e}", root.display()))?;
     let safe: String = env_id
         .chars()
         .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
         .collect();
     let candidate = Path::new(&dir).join(format!("ioivm-{safe}.sock"));
     if candidate.to_string_lossy().len() <= 100 {
-        candidate
+        Ok(candidate)
     } else {
         let mut h = Sha256::new();
         h.update(env_id.as_bytes());
-        Path::new(&dir).join(format!("ioivm-{}.sock", &hex::encode(h.finalize())[..16]))
+        Ok(Path::new(&dir).join(format!("ioivm-{}.sock", &hex::encode(h.finalize())[..16])))
     }
 }
 
@@ -189,6 +212,14 @@ pub(crate) trait VmMonitor {
     }
 
     fn import_workspace(&self, vm: &VmHandle, tar: &[u8]) -> Result<(), String> {
+        let admitted_len = admit_guest_transfer_len(
+            tar.len() as u64,
+            std::env::var(UNBOUNDED_GUEST_TRANSFER_GATE).ok().as_deref(),
+        )
+        .map_err(|refusal| format!("{}: {}", refusal.reason, refusal.detail))?;
+        if admitted_len != tar.len() as u64 {
+            return Err("workspace import length was not admitted exactly".into());
+        }
         let mut s = self.connect(vm)?;
         s.write_all(b"I").map_err(|e| e.to_string())?;
         s.write_all(&(tar.len() as u64).to_le_bytes())
@@ -206,6 +237,9 @@ pub(crate) trait VmMonitor {
     fn exec(&self, vm: &VmHandle, cmd: &str) -> Result<ExecOut, String> {
         let mut s = self.connect(vm)?;
         let cb = cmd.as_bytes();
+        if cb.len() > 1024 * 1024 {
+            return Err("guest command exceeds the 1 MiB protocol limit".into());
+        }
         s.write_all(b"E").map_err(|e| e.to_string())?;
         s.write_all(&(cb.len() as u32).to_le_bytes())
             .map_err(|e| e.to_string())?;
@@ -216,7 +250,12 @@ pub(crate) trait VmMonitor {
         let mut ol = [0u8; 4];
         s.read_exact(&mut ol)
             .map_err(|e| format!("exec outlen: {e}"))?;
-        let outlen = u32::from_le_bytes(ol) as usize;
+        let outlen = admit_guest_transfer_len(
+            u32::from_le_bytes(ol) as u64,
+            std::env::var(UNBOUNDED_GUEST_TRANSFER_GATE).ok().as_deref(),
+        )
+        .map_err(|refusal| format!("{}: {}", refusal.reason, refusal.detail))?
+            as usize;
         let mut out = vec![0u8; outlen];
         s.read_exact(&mut out)
             .map_err(|e| format!("exec out: {e}"))?;
@@ -313,39 +352,66 @@ pub(crate) struct CloudHypervisorMonitor;
 pub(crate) struct FirecrackerMonitor;
 pub(crate) struct QemuMonitor;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MonitorKind {
+    CloudHypervisor,
+    Firecracker,
+    Qemu,
+}
+
+impl MonitorKind {
+    pub(crate) fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "cloud-hypervisor" => Ok(Self::CloudHypervisor),
+            "firecracker" => Ok(Self::Firecracker),
+            "qemu" => Ok(Self::Qemu),
+            other => Err(format!("unsupported microVM backend: {other}")),
+        }
+    }
+
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::CloudHypervisor => "cloud-hypervisor",
+            Self::Firecracker => "firecracker",
+            Self::Qemu => "qemu",
+        }
+    }
+}
+
 /// Select the monitor for a recipe (the §12 doctrine: by requirements, not boot speed). Returns
 /// (monitor_id, selection_reason). cloud-hypervisor is the default; an explicit `monitor` hint or
 /// a profile requirement chooses another lane.
-pub(crate) fn select_monitor(recipe: &Value) -> (String, String) {
+pub(crate) fn select_monitor(recipe: &Value) -> Result<(MonitorKind, String), String> {
     if let Some(m) = recipe.get("monitor").and_then(|v| v.as_str()) {
-        return (m.to_string(), format!("recipe requested monitor={m}"));
+        let kind = MonitorKind::parse(m)?;
+        return Ok((kind, format!("recipe requested monitor={m}")));
     }
     let profile = recipe
         .get("isolation_profile")
         .and_then(|v| v.as_str())
         .unwrap_or("");
     match profile {
-        "minimal_sealed" | "short_lived" => (
-            "firecracker".to_string(),
+        "minimal_sealed" | "short_lived" => Ok((
+            MonitorKind::Firecracker,
             format!("isolation_profile={profile} → Firecracker (minimal-device, sealed)"),
-        ),
-        "stock_cloud_image" | "full_device_model" | "qcow2_snapshot" => (
-            "qemu".to_string(),
-            format!("isolation_profile={profile} → QEMU (compat/full-device lane)"),
-        ),
-        _ => (
-            "cloud-hypervisor".to_string(),
+        )),
+        "stock_cloud_image" | "full_device_model" | "qcow2_snapshot" => Err(format!(
+            "isolation_profile={profile} requires disk/device/snapshot semantics that are not implemented"
+        )),
+        "" => Ok((
+            MonitorKind::CloudHypervisor,
             "default primary monitor (Rust-aligned, rich virtio)".to_string(),
-        ),
+        )),
+        other => Err(format!("unsupported isolation_profile: {other}")),
     }
 }
 
 /// Factory: build the selected monitor.
-pub(crate) fn make_monitor(id: &str) -> Box<dyn VmMonitor> {
-    match id {
-        "firecracker" => Box::new(FirecrackerMonitor),
-        "qemu" => Box::new(QemuMonitor),
-        _ => Box::new(CloudHypervisorMonitor),
+pub(crate) fn make_monitor(kind: MonitorKind) -> Box<dyn VmMonitor> {
+    match kind {
+        MonitorKind::Firecracker => Box::new(FirecrackerMonitor),
+        MonitorKind::Qemu => Box::new(QemuMonitor),
+        MonitorKind::CloudHypervisor => Box::new(CloudHypervisorMonitor),
     }
 }
 
@@ -715,12 +781,116 @@ pub(crate) fn tar_dir(dir: &Path) -> Result<Vec<u8>, String> {
     Ok(out.stdout)
 }
 
-/// Extract a tar (from export) into a host directory.
+fn parse_tar_octal(field: &[u8]) -> Result<u64, String> {
+    if field.first().is_some_and(|byte| byte & 0x80 != 0) {
+        return Err("base-256 tar numeric fields are not admitted".into());
+    }
+    let text = std::str::from_utf8(field)
+        .map_err(|_| "tar numeric field is not UTF-8/ASCII".to_string())?
+        .trim_matches(|c| c == '\0' || c == ' ');
+    if text.is_empty() {
+        return Ok(0);
+    }
+    u64::from_str_radix(text, 8).map_err(|_| "invalid tar octal field".into())
+}
+
+fn tar_path(header: &[u8]) -> Result<PathBuf, String> {
+    fn field(bytes: &[u8]) -> Result<&str, String> {
+        let end = bytes
+            .iter()
+            .position(|byte| *byte == 0)
+            .unwrap_or(bytes.len());
+        std::str::from_utf8(&bytes[..end]).map_err(|_| "tar path is not UTF-8".into())
+    }
+    let name = field(&header[0..100])?;
+    let prefix = field(&header[345..500])?;
+    let joined = if prefix.is_empty() {
+        name.to_string()
+    } else {
+        format!("{prefix}/{name}")
+    };
+    if joined.is_empty() {
+        return Err("tar member has no path".into());
+    }
+    let path = PathBuf::from(joined);
+    for component in path.components() {
+        match component {
+            std::path::Component::Normal(_) | std::path::Component::CurDir => {}
+            _ => {
+                return Err(format!(
+                    "tar member escapes extraction root: {}",
+                    path.display()
+                ))
+            }
+        }
+    }
+    Ok(path)
+}
+
+/// Validate an archive at the host trust boundary. Only regular files and directories with
+/// relative paths are admitted; links, devices, FIFOs, sparse/PAX/GNU extensions and traversal
+/// are refused. This intentionally accepts a smaller format than the system extractor.
+fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
+    if tar.len() % 512 != 0 {
+        return Err("tar length is not block-aligned".into());
+    }
+    admit_guest_transfer_len(
+        tar.len() as u64,
+        std::env::var(UNBOUNDED_GUEST_TRANSFER_GATE).ok().as_deref(),
+    )
+    .map_err(|refusal| format!("{}: {}", refusal.reason, refusal.detail))?;
+    let mut offset = 0usize;
+    let mut members = 0usize;
+    while offset < tar.len() {
+        let header = &tar[offset..offset + 512];
+        if header.iter().all(|byte| *byte == 0) {
+            if tar[offset..].iter().any(|byte| *byte != 0) {
+                return Err("tar contains non-zero data after its end marker".into());
+            }
+            return Ok(());
+        }
+        members += 1;
+        if members > 100_000 {
+            return Err("tar member count exceeds 100000".into());
+        }
+        let path = tar_path(header)?;
+        let kind = header[156];
+        if !matches!(kind, 0 | b'0' | b'5') {
+            return Err(format!(
+                "tar member type {kind:#x} is not admitted for {}",
+                path.display()
+            ));
+        }
+        let size = parse_tar_octal(&header[124..136])?;
+        if kind == b'5' && size != 0 {
+            return Err(format!("tar directory carries payload: {}", path.display()));
+        }
+        let padded = size
+            .checked_add(511)
+            .ok_or_else(|| "tar member size overflow".to_string())?
+            / 512
+            * 512;
+        let next = (offset as u64)
+            .checked_add(512)
+            .and_then(|value| value.checked_add(padded))
+            .ok_or_else(|| "tar archive size overflow".to_string())?;
+        if next > tar.len() as u64 {
+            return Err(format!("truncated tar member: {}", path.display()));
+        }
+        offset = next as usize;
+    }
+    Ok(())
+}
+
+/// Extract a validated tar into a host directory.
 pub(crate) fn untar_into(dir: &Path, tar: &[u8]) -> Result<(), String> {
+    validate_tar_for_host_extract(tar)?;
     std::fs::create_dir_all(dir).map_err(|e| format!("mkdir: {e}"))?;
     let mut child = Command::new("tar")
         .arg("-xf")
         .arg("-")
+        .arg("--no-same-owner")
+        .arg("--no-same-permissions")
         .arg("-C")
         .arg(dir)
         .stdin(Stdio::piped())
@@ -739,4 +909,54 @@ pub(crate) fn untar_into(dir: &Path, tar: &[u8]) -> Result<(), String> {
         return Err("tar -x failed".into());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn archive_with(name: &str, kind: u8, size: u64) -> Vec<u8> {
+        let mut archive = vec![0u8; 1024 + (((size + 511) / 512) * 512) as usize];
+        archive[..name.len()].copy_from_slice(name.as_bytes());
+        archive[156] = kind;
+        let encoded = format!("{size:011o}\0");
+        archive[124..136].copy_from_slice(encoded.as_bytes());
+        archive
+    }
+
+    #[test]
+    fn monitor_selection_is_closed_and_unsupported_profiles_fail_closed() {
+        assert_eq!(
+            select_monitor(&serde_json::json!({ "monitor": "qemu" }))
+                .expect("qemu is registered")
+                .0,
+            MonitorKind::Qemu
+        );
+        assert!(select_monitor(&serde_json::json!({ "monitor": "unknown" })).is_err());
+        assert!(select_monitor(&serde_json::json!({
+            "isolation_profile": "qcow2_snapshot"
+        }))
+        .is_err());
+    }
+
+    #[test]
+    fn host_extract_accepts_only_relative_regular_files_and_directories() {
+        assert!(validate_tar_for_host_extract(&archive_with("./safe.txt", b'0', 0)).is_ok());
+        assert!(validate_tar_for_host_extract(&archive_with("./dir/", b'5', 0)).is_ok());
+        assert!(validate_tar_for_host_extract(&archive_with("../escape", b'0', 0)).is_err());
+        assert!(validate_tar_for_host_extract(&archive_with("/absolute", b'0', 0)).is_err());
+        assert!(validate_tar_for_host_extract(&archive_with("./link", b'2', 0)).is_err());
+        assert!(validate_tar_for_host_extract(&archive_with("./device", b'3', 0)).is_err());
+    }
+
+    #[test]
+    fn host_extract_rejects_truncated_or_extended_archives() {
+        let mut truncated = archive_with("./payload", b'0', 513);
+        truncated.truncate(1024);
+        assert!(validate_tar_for_host_extract(&truncated).is_err());
+
+        let mut trailing = archive_with("./safe", b'0', 0);
+        *trailing.last_mut().expect("archive has end block") = 1;
+        assert!(validate_tar_for_host_extract(&trailing).is_err());
+    }
 }
