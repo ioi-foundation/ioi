@@ -3006,6 +3006,7 @@ pub(crate) async fn complete_activate_intents(data_dir: &str, max: usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    const TEST_ONLY_AUTHORITY_MINTER_SENTINEL: &str = "IOI_TEST_ONLY_AUTHORITY_MINTER_SENTINEL_v1";
     use ioi_types::app::{
         compile_system_genesis_proposal, compile_system_sequence_zero_plan,
         compute_system_component_set_hash, compute_system_genesis_admission_receipt_root,

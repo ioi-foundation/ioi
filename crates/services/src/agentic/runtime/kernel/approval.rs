@@ -3129,11 +3129,10 @@ pub type ApprovalWalletGrantBinding = AuthorityGrantBinding;
 /// Cryptographically verifies an approval grant's signature over its canonical
 /// `signing_bytes()` for the grant's suite (Ed25519 / ML-DSA-44, both via dcrypt).
 ///
-/// This is the wallet-authority enforcement that the grant's structural `verify()`
-/// does NOT perform. It is the single shared verifier reused by the runtime decision
-/// authority (below), the settlement resume path, and wallet-network validation so the
-/// SAME production-shaped grant is verified the same way at every authoring point —
-/// no structural-only lane at the runtime layer.
+/// This validates submitted signature evidence that the grant is internally
+/// self-consistent. It does not establish that the carried key is a currently
+/// authorized issuer and it does not consume any grant or lease usage. Live callers
+/// must follow it with an owner-side resolver and atomic consumption transaction.
 pub fn verify_approval_grant_signature(grant: &ApprovalGrant) -> Result<(), String> {
     use ioi_api::crypto::{SerializableKey, VerifyingKey};
     use ioi_crypto::sign::dilithium::{MldsaPublicKey, MldsaSignature};
@@ -3172,13 +3171,12 @@ pub fn verify_approval_grant_signature(grant: &ApprovalGrant) -> Result<(), Stri
 /// Verify an [`ApprovalGrant`] (as a JSON value) is structurally valid, correctly
 /// signed by its claimed authority (dcrypt Ed25519 / ML-DSA over the canonical
 /// `signing_bytes`), not expired, and bound to the given daemon-derived expected policy
-/// and request hashes. This is the reusable authority check shared by the approval
-/// decision routes AND other gated operations (e.g. workspace restore-apply): it verifies
-/// the grant exactly the same way, so no caller reimplements crypto. Every input EXCEPT
-/// the grant itself MUST be daemon-derived (never the POST body) — the grant is the only
-/// untrusted input, and the expected hashes + clock fail it closed. The current production
-/// grant provider is wallet.network, but the verifier is provider-neutral so local
-/// governance callers do not have to use wallet-shaped field names.
+/// and request hashes. This reusable check validates evidence exactly once so callers do
+/// not reimplement crypto. It grants no authority by itself: every live path must then
+/// independently resolve current owner authority and atomically consume applicable
+/// usage. Every input except the grant itself must be daemon-derived (never the POST
+/// body). The verifier remains provider-neutral so owner admission callers do not have
+/// to use wallet-shaped field names.
 pub fn verify_authority_grant_binding(
     authority_grant: &Value,
     now_ms: Option<u64>,

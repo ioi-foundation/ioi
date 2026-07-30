@@ -199,7 +199,7 @@ function DeployDiagram() {
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: ACC, border: `0.5px solid ${ACC}`, borderRadius: 5, padding: "3px 8px" }}>verified</span>
       </div>
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 11 }}>
-        {[["Scope", "fs.read · invoice.parse"], ["Runtime", "any · cloud / VPC / cTEE"], ["Benchmark", "94% · promoted"]].map(([k, v]) => (
+        {[["Scope", "fs.read · invoice.parse"], ["Runtime", "selected admitted profile"], ["Benchmark", "fixture result · not production"]].map(([k, v]) => (
           <div key={k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontFamily: "var(--font-sans)", fontSize: 12.5, color: "var(--color-grey-700)" }}>{k}</span>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: INK }}>{v}</span>
@@ -278,7 +278,7 @@ function WtStats() {
   const stats = [
     ["94%", "Eval accuracy before it ships"],
     ["0", "Labeling projects required"],
-    ["Any runtime", "Cloud · VPC · cTEE"],
+    ["Admitted runtime", "Capability- and evidence-scoped"],
   ];
   return (
     <section style={{ ...wtwrap, paddingTop: "6rem" }}>

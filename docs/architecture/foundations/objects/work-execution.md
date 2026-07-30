@@ -145,6 +145,11 @@ RuntimeAssignmentEnvelope:
     daemon_profile_ref: profile://...
     compute_session_ref: compute://... | null
     placement_policy_ref: policy://...
+    workload_isolation_requirements_ref:
+      workload-isolation-requirements://... | null
+    workload_isolation_requirements_hash: hash | null
+    workload_isolation_binding_ref: workload-isolation-binding://... | null
+    workload_isolation_binding_hash: hash | null
     required_locality_refs:
       - region://... | failure-domain://... | custody://... | policy://...
     prohibited_locality_refs:
@@ -387,11 +392,21 @@ TaskEnvelope:
   created_at: timestamp
 ```
 
-## RunEnvelope
+## WorkRunEnvelope
+
+`WorkRunEnvelope` is the shared owner of one execution attempt. Hypervisor,
+GoalRun, Automation, OutcomeRoom, queue, provider, and domain views may project
+it; none defines a second WorkRun object or lifecycle. The `run://...`,
+`run_id`, and `/v1/runs/{run_id}` spellings below are retained v1 wire
+identities and endpoints. New canonical prose and contracts use WorkRun and
+`work_run://...`; a boundary adapter may correlate the historical identifier
+without changing its bytes or semantics.
 
 ```yaml
-RunEnvelope:
-  run_id: run://...
+WorkRunEnvelope:
+  schema_version: ioi.work-run.v1
+  work_run_id: work_run://...
+  retained_run_id: run://... | null
   task_id: task://...
   institutional_learning_boundary_profile_ref: learning-boundary://... | null
   effective_learning_policy_hash: hash | null
@@ -406,6 +421,12 @@ RunEnvelope:
   room_admission: RoomAdmittedObjectBase | null
   attempt_ref: attempt://... | null
   runtime_id: runtime://...
+  runtime_assignment_ref: runtime-assignment://... | null
+  workload_isolation_requirements_ref:
+    workload-isolation-requirements://... | null
+  workload_isolation_requirements_hash: hash | null
+  workload_isolation_binding_ref: workload-isolation-binding://... | null
+  workload_isolation_binding_hash: hash | null
   worker_id: optional
   worker_instance_id: optional
   service_id: optional
@@ -429,6 +450,13 @@ RunEnvelope:
   task_state_ref: optional
   agentgres_projection_watermark: optional
 ```
+
+An admitted isolation-required WorkRun must bind both the compiled requirements
+and the immutable realized binding before execution. Those refs never grant
+authority and cannot replace runtime assignment, exact-effect admission,
+output admission, or cleanup evidence. A WorkRun that does not require a
+stronger boundary still records the explicit weaker requirement and nonclaim;
+absence is not permission to fall back.
 
 ## ResourceAllocationDecisionEnvelope
 

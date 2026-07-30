@@ -159,7 +159,7 @@ const FAMILIES = [
   ]],
   ["Gateways & substrate", "Carry it outward", [
     ["Hypervisor MCP", "Scoped external gateway", "Expose selected capabilities to external agents through revocable, auditable MCP profiles — never a master key.", "hv-mcp.html"],
-    ["HypervisorOS", "Bare-metal / cluster substrate", "Govern the machines, GPUs, networks, storage, containers, and microVMs autonomy runs on — enforced under one policy plane.", "hv-os.html"],
+    ["HypervisorOS", "Conditional node-root profile", "A future installable node-root profile, unavailable until its installer, update, recovery, and hardware evidence gates close.", "hv-os.html"],
     ["Embodied Runtime", "Physical autonomy profile", "Operate robot fleets, devices, sensors, and command queues under safety gates with attributed operator handoff.", "hv-embodied.html"],
   ]],
 ];
@@ -168,8 +168,8 @@ const FAMILIES = [
 const ENVS = [
   ["Local machines", "Your laptop or workstation, under a local daemon."],
   ["Cloud & VPC", "Hosted runtime or your own VPC — same substrate, your perimeter."],
-  ["cTEE private workspace", "Plaintext-free custody; protected data never enters provider memory."],
-  ["DePIN & provider nodes", "Akash compute, Filecoin storage, TEE-verified nodes — routed, receipted."],
+  ["Protected workspace", "Conditional profile; custody and enforcement claims remain limited to released evidence."],
+  ["Provider resources", "Attached resources are admitted only to each adapter's current declared capability."],
 ];
 
 // ---- Reference layout: orients rather than converts ----
@@ -297,7 +297,7 @@ function PgLineage() {
 function LifecycleOrbit() {
   const stages = [
     ["Build", "Compose workflows, train workers in Foundry, and wire tools, models, and connectors into governed pipelines."],
-    ["Run & scale", "Execute sessions across local machines, cloud, VPC, cTEE, and DePIN compute — one substrate, any provider."],
+    ["Run & scale", "Execute through explicitly admitted local or attached profiles; unsupported backends fail closed."],
     ["Govern", "Authority is explicit. Tool calls are requests, not grants. Scope every credential; gate every consequential action."],
     ["Observe & verify", "Logs become receipts. Inspect runs, replay deterministically, and carry proof of what happened."],
     ["Optimize", "Route work through Mixture of Workers. Improve via prompts, retrieval, policy, adapters, or fine-tuning."],

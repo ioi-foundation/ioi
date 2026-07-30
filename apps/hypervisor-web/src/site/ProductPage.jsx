@@ -18,7 +18,7 @@ const React = window.React;
     adk: { verb: "Install", lines: ["$ npm install -g @hypervisor/adk", "✓ adk 1.0 installed", "$ hv adk init worker", "✓ manifest · harness · evals scaffolded"] },
     odk: { verb: "Install", lines: ["$ npm install -g @hypervisor/odk", "✓ odk 1.0 installed", "$ hv odk compile ontology.yaml", "✓ surfaces · domain app generated"] },
     mcp: { verb: "Create a profile", lines: ["$ hv mcp profile create reviewer", "✓ profile reviewer · scoped", "$ hv mcp grant --tools=code.read", "✓ revocable lease issued"] },
-    os: { verb: "Provision a node", lines: ["$ curl -fsSL https://get.hypervisor.io/os | sh", "✓ measured boot · node attested", "$ hv node join", "✓ governed compute online"] },
+    os: { verb: "Review the roadmap", lines: ["$ hv profile inspect hypervisoros", "! conditional future profile", "· installer and measured-boot producer unavailable", "✓ current nonclaim recorded"] },
     embodied: { verb: "Install", lines: ["$ npm install @hypervisor/embodied", "✓ runtime installed", "$ hv embodied register fleet.yaml", "✓ devices governed · safety gates armed"] },
   };
 

@@ -82,8 +82,8 @@ function Footer() {
             <HvByIOI height={13} />
           </div>
           <div style={{ marginTop: "1.25rem", display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", color: "var(--color-grey-700)", border: "0.5px solid var(--color-grey-500)", borderRadius: 6, padding: "5px 9px" }}>SOC 2</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", color: "var(--color-grey-700)", border: "0.5px solid var(--color-grey-500)", borderRadius: 6, padding: "5px 9px" }}>GDPR</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", color: "var(--color-grey-700)", border: "0.5px solid var(--color-grey-500)", borderRadius: 6, padding: "5px 9px" }}>PREVIEW</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", color: "var(--color-grey-700)", border: "0.5px solid var(--color-grey-500)", borderRadius: 6, padding: "5px 9px" }}>CLAIMS SCOPED</span>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", color: "var(--color-grey-700)", border: "0.5px solid var(--color-grey-500)", borderRadius: 6, padding: "5px 9px" }}>Web4</span>
           </div>
           <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.9375rem", color: "var(--color-grey-800)", marginTop: "1.5rem", lineHeight: 1.5, maxWidth: "30ch" }}>

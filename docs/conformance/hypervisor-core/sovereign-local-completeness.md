@@ -495,3 +495,8 @@ Until those gates execute, the architecture defines the target claim and its
 refusal boundary only. It does not claim a shipped self-hosted product,
 standalone feature parity, multi-node availability, portable authority,
 managed hosting, migration, public settlement, or network assurance.
+
+When a selected sovereign-local software-change profile admits untrusted,
+dependency-installing, networked, or mutating work, its matrix must reference
+and pass the exact WorkRun-isolation profile. This does not make Workstation
+breadth, an attached estate, or HypervisorOS a universal prerequisite.

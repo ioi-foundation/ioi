@@ -94,3 +94,12 @@ Naming on public properties follows the canonical vocabulary owners
 - [`../foundations/security-privacy-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md)
   — final-invoker and authority invariants that public surfaces must never
   bypass.
+
+## Subject-specific compute claims
+
+Every published secure-sandbox, Workstation, attached-Infrastructure, or
+HypervisorOS/node-root statement binds one subject-specific claim id, one
+conformance profile, the exact selected release/profile/backend matrix, and
+fresh evidence. These claims are independently closable and withdrawable.
+Missing, expired, simulated-only, or drifted evidence removes or downscopes the
+copy; evidence for one subject never closes another.

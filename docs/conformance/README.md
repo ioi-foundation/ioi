@@ -147,3 +147,12 @@ They do not define:
   new proposal, gate, receipt, and observation path.
 - Letting product clients bypass Hypervisor Core/domain APIs for consequential
   work.
+
+## Claim-scoped Hypervisor compute conformance
+
+This tree covers both bounded autonomous work and independently closable,
+claim-scoped compute profiles. WorkRun isolation, Workstation, attached
+Infrastructure, and HypervisorOS node-root have separate matrices, evidence
+freshness, compatibility scope, negative reachability, and withdrawal rules.
+Passing one never implies another. Contract or UI presence is not operational
+conformance, and simulated evidence cannot close a live claim.

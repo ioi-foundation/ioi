@@ -1416,6 +1416,7 @@ fn persist_and_complete_locked(data_dir: &str, tail: &str, intent: &Value) -> Re
 }
 
 async fn authorize(
+    data_dir: &str,
     body: &Value,
     governance: Governance,
     room_ref: &str,
@@ -1426,7 +1427,7 @@ async fn authorize(
     effect: &Value,
 ) -> Result<AuthorizedDecision, (StatusCode, Json<Value>)> {
     governed::authorize_decision(
-        AUTHORITY, body, governance, room_ref, authority, subject, op, revision, effect,
+        AUTHORITY, data_dir, body, governance, room_ref, authority, subject, op, revision, effect,
     )
     .await
 }
@@ -1486,6 +1487,7 @@ pub(crate) async fn handle_create(
         "proposed",
     );
     let authorized = match authorize(
+        &state.data_dir,
         &body,
         Governance::Participant,
         &room_ref,
@@ -1704,6 +1706,7 @@ pub(crate) async fn handle_transition(
         to,
     );
     let authorized = match authorize(
+        &state.data_dir,
         &body,
         governance,
         &room_ref,
@@ -2357,7 +2360,8 @@ pub(crate) async fn complete_governed_verifier_challenge_intents(
             .and_then(Value::as_u64)
             .unwrap_or(0);
         if let Err(message) = governed::reauthorize_sealed_receipt(
-            AUTHORITY, receipt, governance, &room_ref, &required, &subject, &op, revision, &effect,
+            AUTHORITY, data_dir, receipt, governance, &room_ref, &required, &subject, &op,
+            revision, &effect,
         )
         .await
         {

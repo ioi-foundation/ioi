@@ -31,10 +31,9 @@ use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION, RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::approval::{
-    verify_wallet_approval_grant_binding, ApprovalDecisionAuthorityRequest,
-    ApprovalDecisionStateUpdateRequest, ApprovalRequestAuthorityRequest,
-    ApprovalRequestStateUpdateRequest, ApprovalRevokeStateUpdateRequest,
-    APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
+    ApprovalDecisionAuthorityRequest, ApprovalDecisionStateUpdateRequest,
+    ApprovalRequestAuthorityRequest, ApprovalRequestStateUpdateRequest,
+    ApprovalRevokeStateUpdateRequest, APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
     APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
     APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -3940,7 +3939,7 @@ fn commit_approval_record(
 /// structurally here [authority_id derived from the signer pubkey] and cryptographically
 /// at the settlement layer) then plan the decision (approve/reject) or revoke state
 /// update, folding the resolved approval onto the agent/run record. NO event admitted.
-fn apply_approval_decision(
+async fn apply_approval_decision(
     st: &DaemonState,
     thread_id: &str,
     approval_id: &str,
@@ -4026,8 +4025,49 @@ fn apply_approval_decision(
     let authority = RuntimeKernelService::new()
         .authorize_approval_decision(&authority_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    let authority = serde_json::to_value(&authority)
+    let mut authority = serde_json::to_value(&authority)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    let policy_hash = expected_policy_hash.as_deref().ok_or_else(|| {
+        AppError(
+            StatusCode::CONFLICT,
+            "approval lease has no owner-derived policy hash".to_string(),
+        )
+    })?;
+    let request_hash = expected_request_hash.as_deref().ok_or_else(|| {
+        AppError(
+            StatusCode::CONFLICT,
+            "approval lease has no owner-derived request hash".to_string(),
+        )
+    })?;
+    let deployment_grant = body
+        .get("wallet_approval_grant")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let admitted = super::governed_authority::authorize_deployment_grant(
+        &st.data_dir,
+        &deployment_grant,
+        "scope:hypervisor.live-route.approval-decision",
+        policy_hash,
+        request_hash,
+        &format!("approval:{thread_id}:{approval_id}"),
+        decision,
+        1,
+        &json!({
+            "thread_id": thread_id,
+            "approval_id": approval_id,
+            "decision": decision,
+            "target_kind": target_kind,
+            "run_id": requested_run_id,
+            "agent_id": agent_id,
+        }),
+    )
+    .await
+    .map_err(|(status, Json(challenge))| AppError(status, challenge.to_string()))?;
+    super::governed_authority::revalidate_admission_receipt(&st.data_dir, &admitted)
+        .await
+        .map_err(|reason| AppError(StatusCode::SERVICE_UNAVAILABLE, reason))?;
+    authority["admission_intent_ref"] = json!(admitted.admission_intent_ref);
 
     // --- phase 2: plan the decision (approve/reject) or revoke state update ---
     let common = json!({
@@ -4115,7 +4155,7 @@ pub(crate) async fn handle_approval_decision(
             return Ok(response);
         }
     }
-    apply_approval_decision(&st, &thread_id, &approval_id, &decision, &body)
+    apply_approval_decision(&st, &thread_id, &approval_id, &decision, &body).await
 }
 
 /// POST /v1/threads/:id/approvals/:approval_id/approve
@@ -4131,7 +4171,7 @@ pub(crate) async fn handle_approval_approve(
     {
         return Ok(response);
     }
-    apply_approval_decision(&st, &thread_id, &approval_id, "approve", &body)
+    apply_approval_decision(&st, &thread_id, &approval_id, "approve", &body).await
 }
 
 /// POST /v1/threads/:id/approvals/:approval_id/reject
@@ -4144,7 +4184,7 @@ pub(crate) async fn handle_approval_reject(
     {
         return Ok(response);
     }
-    apply_approval_decision(&st, &thread_id, &approval_id, "reject", &body)
+    apply_approval_decision(&st, &thread_id, &approval_id, "reject", &body).await
 }
 
 /// POST /v1/threads/:id/approvals/:approval_id/revoke
@@ -4153,7 +4193,7 @@ pub(crate) async fn handle_approval_revoke(
     AxumPath((thread_id, approval_id)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    apply_approval_decision(&st, &thread_id, &approval_id, "revoke", &body)
+    apply_approval_decision(&st, &thread_id, &approval_id, "revoke", &body).await
 }
 
 /// GET /v1/threads/:id/managed-sessions — project the thread's managed sessions
@@ -5119,7 +5159,6 @@ async fn run_snapshot_restore(
     // dcrypt signature + not-expired + bound to the daemon-derived policy/request hash for
     // THIS restore. A boolean body flag is NOT accepted. now_ms is the daemon wall clock
     // (never the body, fail-closed on a clock fault); the grant is the only untrusted input.
-    let now_ms = daemon_now_ms_fail_closed();
     let grant_value = body
         .get("wallet_approval_grant")
         .cloned()
@@ -5128,31 +5167,52 @@ async fn run_snapshot_restore(
         .as_object()
         .map(|object| !object.is_empty())
         .unwrap_or(false);
-    let grant_binding = if grant_present {
-        verify_wallet_approval_grant_binding(
+    let admitted = if grant_present {
+        super::governed_authority::authorize_deployment_grant(
+            &st.data_dir,
             &grant_value,
-            Some(now_ms),
-            Some(&expected_policy_hash),
-            Some(&expected_request_hash),
+            "scope:hypervisor.live-route.workspace-restore-apply",
+            &expected_policy_hash,
+            &expected_request_hash,
+            &format!("snapshot:{snapshot_id}"),
+            "workspace-restore-apply",
+            1,
+            &json!({
+                "thread_id": thread_id,
+                "snapshot_id": snapshot_id,
+                "workspace_root": workspace_root,
+                "operations": preview_value,
+            }),
         )
+        .await
     } else {
-        Err("restore-apply requires a wallet_approval_grant".to_string())
+        Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "error": { "message": "restore-apply requires a wallet_approval_grant" }
+            })),
+        ))
     };
-    let grant_binding = match grant_binding {
-        Ok(binding) => binding,
-        Err(reason) => {
+    let admitted = match admitted {
+        Ok(admitted) => admitted,
+        Err((_status, Json(challenge))) => {
             // Missing or invalid grant: FORBIDDEN, write nothing. Echo the binding the
             // operator must mint against so a client can obtain a valid grant and retry.
             return Err(AppError(
                 StatusCode::FORBIDDEN,
                 format!(
-                    "restore-apply approval grant rejected: {reason} \
+                    "restore-apply owner authority rejected: {challenge} \
                      (bind a wallet grant to policy_hash {expected_policy_hash}, \
                      request_hash {expected_request_hash})"
                 ),
             ));
         }
     };
+    super::governed_authority::revalidate_admission_receipt(&st.data_dir, &admitted)
+        .await
+        .map_err(|reason| AppError(StatusCode::SERVICE_UNAVAILABLE, reason))?;
+    let admitted_grant_ref = admitted.authorized.evidence.grant_ref.clone();
+    let admitted_grant_hash = sha256_json_ref(&grant_value);
 
     // The verified grant IS the approval. Run the apply policy with approval satisfied BY
     // the grant (never a raw body flag); the operator's override_conflicts still governs
@@ -5257,11 +5317,11 @@ async fn run_snapshot_restore(
                 "blocked_file_count": blocked_count,
                 "operations": operations_value,
                 // Audit which wallet-signed grant authorized this real-FS write.
-                "approval_grant_hash": grant_binding.hash,
-                "approval_grant_ref": grant_binding.grant_ref.clone(),
+                "approval_grant_hash": admitted_grant_hash,
+                "approval_grant_ref": admitted_grant_ref.clone(),
             },
             "receipt_refs": [format!("receipt_workspace_restore_{event_hash}")],
-            "policy_decision_refs": [grant_binding.grant_ref.clone()],
+            "policy_decision_refs": [admitted_grant_ref.clone()],
             "artifact_refs": [],
             "rollback_refs": [],
             "redaction_profile": "internal",
@@ -5271,10 +5331,7 @@ async fn run_snapshot_restore(
         if let Some(object) = response.as_object_mut() {
             object.insert("applied_file_count".to_string(), json!(applied_count));
             object.insert("blocked_file_count".to_string(), json!(blocked_count));
-            object.insert(
-                "approval_grant_ref".to_string(),
-                json!(grant_binding.grant_ref),
-            );
+            object.insert("approval_grant_ref".to_string(), json!(admitted_grant_ref));
             object.insert("event".to_string(), admitted);
         }
     }
@@ -8890,7 +8947,8 @@ fn session_execute_intent(body: &Value) -> Option<String> {
 /// the admitted capability-lease ref, or the 403 challenge body exposing the hashes
 /// so a wallet can mint a bound grant. Lane-independent (both Lane A and Lane B
 /// gate execution identically).
-pub(crate) fn execute_authority_gate(
+pub(crate) async fn execute_authority_gate(
+    data_dir: &str,
     body: &Value,
     session_id: &str,
     workspace_root: &str,
@@ -8902,26 +8960,32 @@ pub(crate) fn execute_authority_gate(
         .get("wallet_approval_grant")
         .cloned()
         .unwrap_or(Value::Null);
-    let now_ms = daemon_now_ms_fail_closed();
-    let result = if grant_value.is_null() {
-        Err("a wallet_approval_grant is required".to_string())
-    } else {
-        verify_wallet_approval_grant_binding(
-            &grant_value,
-            Some(now_ms),
-            Some(&policy_hash),
-            Some(&request_hash),
-        )
-        .map(|binding| binding.grant_ref)
-    };
-    result.map_err(|reason| {
+    let effect = json!({
+        "session_ref": session_id,
+        "workspace_root": workspace_root,
+        "intent": intent,
+        "scopes": EXECUTION_AUTHORITY_SCOPES,
+    });
+    let admitted = super::governed_authority::authorize_deployment_grant(
+        data_dir,
+        &grant_value,
+        "scope:hypervisor.live-route.session-execute",
+        &policy_hash,
+        &request_hash,
+        session_id,
+        "session-execute",
+        1,
+        &effect,
+    )
+    .await
+    .map_err(|(_status, Json(challenge))| {
         json!({
             "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
             "session_ref": session_id,
             "decision": "blocked",
             "reason": "execution_authority_required",
             "message": format!(
-                "Consequential execution requires a wallet capability grant ({reason}). \
+                "Consequential execution requires independently resolved and consumed wallet authority. \
                  Bind a wallet grant to policy_hash {policy_hash} + request_hash {request_hash}."
             ),
             "required_scopes": EXECUTION_AUTHORITY_SCOPES,
@@ -8930,8 +8994,24 @@ pub(crate) fn execute_authority_gate(
             "changed_file_groups": [],
             "terminal_events": [],
             "runtimeTruthSource": "daemon-runtime",
+            "authority_challenge": challenge,
         })
-    })
+    })?;
+    super::governed_authority::revalidate_admission_receipt(data_dir, &admitted)
+        .await
+        .map_err(|reason| {
+            json!({
+                "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+                "session_ref": session_id,
+                "decision": "blocked",
+                "reason": "execution_authority_receipt_unavailable",
+                "message": reason,
+                "changed_file_groups": [],
+                "terminal_events": [],
+                "runtimeTruthSource": "daemon-runtime",
+            })
+        })?;
+    Ok(admitted.admission_intent_ref)
 }
 
 // ---- SCM connector registry + wallet-authorized publish crossing -------------------------------
@@ -9009,6 +9089,10 @@ pub(crate) struct AuthorizedCapabilityLease {
     pub(crate) grant_ref: String,
     pub(crate) credential_source: Option<String>,
     pub(crate) credential_key_source: Option<String>,
+    /// The wallet-owned admission this lease was issued under. Callers that reach a real final
+    /// invoker MUST claim through this value rather than synthesizing a receipt reference from
+    /// the lease id, so the identity the invoker records is the one the owner can resolve.
+    pub(crate) admitted: super::governed_authority::AdmittedDeploymentGrant,
 }
 
 fn capability_lease_policy_hash(req: &CapabilityLeaseRequest) -> String {
@@ -9206,37 +9290,70 @@ pub(crate) async fn authorize_capability_lease(
         }
     }
 
-    // 2) Wallet authority gate — daemon-derived hashes, verified bound grant. 403 challenge otherwise.
-    let now_ms = daemon_now_ms_fail_closed();
-    let binding = if req.grant_value.is_null() {
-        Err("a wallet_approval_grant is required".to_string())
-    } else {
-        verify_wallet_approval_grant_binding(
-            &req.grant_value,
-            Some(now_ms),
-            Some(&policy_hash),
-            Some(&request_hash),
-        )
-    };
-    let binding = match binding {
-        Ok(b) => b,
-        Err(reason) => {
+    // 2) Owner authority gate — independently resolve the daemon-owned principal, verify the
+    // submitted grant only as evidence, durably prepare the exact effect, and atomically consume
+    // one wallet-owned use before a credential or final invoker can be reached.
+    let operation = req
+        .policy_domain
+        .trim_end_matches(".policy.v1")
+        .replace(['.', ':', '/'], "-");
+    let required_scope = format!("scope:hypervisor.live-route.{operation}");
+    let subject_ref = format!("capability-lease:{policy_hash}:{request_hash}");
+    let effect = json!({
+        "authority_provider_ref": req.authority_provider_ref,
+        "backing_provider": req.backing_provider,
+        "allowed_tools": req.allowed_tools,
+        "resource_refs": req.resource_refs,
+        "scopes": req.scopes,
+        "request_facets": req.request_facets,
+        "receipt_required": req.receipt_required,
+        "revocation_ref": req.revocation_ref,
+    });
+    let admitted = match super::governed_authority::authorize_deployment_grant(
+        &st.data_dir,
+        &req.grant_value,
+        &required_scope,
+        &policy_hash,
+        &request_hash,
+        &subject_ref,
+        &operation,
+        1,
+        &effect,
+    )
+    .await
+    {
+        Ok(admitted) => admitted,
+        Err((status, Json(challenge))) => {
             return Err((
-                StatusCode::FORBIDDEN,
+                status,
                 json!({
                     "ok": false, "decision": "blocked", "reason": req.authority_reason,
-                    "message": format!(
-                        "This crossing requires a wallet grant ({reason}) bound to policy_hash {policy_hash} + request_hash {request_hash}."
-                    ),
+                    "message": "This crossing requires independently resolved, atomically consumed owner authority.",
                     "required_scopes": req.scopes,
+                    "required_authority_scope": required_scope,
                     "allowed_tools": req.allowed_tools,
                     "resource_refs": req.resource_refs,
                     "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                    "authority_challenge": challenge,
                     "host_mutation": false,
                 }),
             ));
         }
     };
+    if let Err(reason) =
+        super::governed_authority::revalidate_admission_receipt(&st.data_dir, &admitted).await
+    {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({
+                "ok": false,
+                "decision": "blocked",
+                "reason": "authority_receipt_unavailable",
+                "message": reason,
+                "host_mutation": false,
+            }),
+        ));
+    }
 
     // 3) Issue + persist the lease (the 9-field shape). No secret in the descriptor.
     let expires_at = req
@@ -9249,10 +9366,10 @@ pub(crate) async fn authorize_capability_lease(
         "lease_{}",
         short_hash(&format!("{policy_hash}:{request_hash}"))
     );
-    let authority_provider_ref = if binding.provider_ref.trim().is_empty() {
+    let authority_provider_ref = if admitted.authorized.evidence.grant_ref.trim().is_empty() {
         req.authority_provider_ref.clone()
     } else {
-        binding.provider_ref.clone()
+        "wallet.network".to_string()
     };
     let descriptor = json!({
         "schema_version": "ioi.hypervisor.capability-lease.v1",
@@ -9266,7 +9383,10 @@ pub(crate) async fn authorize_capability_lease(
         "expires_at": expires_at,
         "receipt_required": req.receipt_required,
         "revocation_ref": req.revocation_ref,
-        "grant_ref": binding.grant_ref,
+        "grant_ref": admitted.authorized.evidence.grant_ref.clone(),
+        "admission_intent_ref": admitted.admission_intent_ref.clone(),
+        "state": "active",
+        "remaining_calls": 0,
         "credential_source": credential_source,
         "issued_at": iso_now(),
     });
@@ -9275,9 +9395,10 @@ pub(crate) async fn authorize_capability_lease(
     Ok(AuthorizedCapabilityLease {
         descriptor,
         token,
-        grant_ref: binding.grant_ref,
+        grant_ref: admitted.authorized.evidence.grant_ref.clone(),
         credential_source,
         credential_key_source,
+        admitted,
     })
 }
 
@@ -14411,11 +14532,18 @@ pub(crate) async fn handle_session_execute(
     // the full runtime and runs constrained file/shell/browser tools through
     // handle_step); this lightweight foothold is retained for offline/no-driver use.
     if lane == "native_local" {
-        let capability_lease_ref =
-            match execute_authority_gate(&body, &session_id, &workspace_root, &intent) {
-                Ok(lease) => lease,
-                Err(challenge) => return (StatusCode::FORBIDDEN, Json(challenge)),
-            };
+        let capability_lease_ref = match execute_authority_gate(
+            &st.data_dir,
+            &body,
+            &session_id,
+            &workspace_root,
+            &intent,
+        )
+        .await
+        {
+            Ok(lease) => lease,
+            Err(challenge) => return (StatusCode::FORBIDDEN, Json(challenge)),
+        };
         return run_native_local_lane(
             &st,
             &session_id,
@@ -14473,7 +14601,9 @@ pub(crate) async fn handle_session_execute(
     // Wallet authority gate (daemon-derived hashes; 403 challenge when unbound). Runs
     // AFTER the substrate check (offline contract) and BEFORE any spawn.
     let capability_lease_ref =
-        match execute_authority_gate(&body, &session_id, &workspace_root, &intent) {
+        match execute_authority_gate(&st.data_dir, &body, &session_id, &workspace_root, &intent)
+            .await
+        {
             Ok(lease) => lease,
             Err(challenge) => return (StatusCode::FORBIDDEN, Json(challenge)),
         };
@@ -15530,6 +15660,33 @@ pub(crate) mod runtime_host {
         let agent_id = format!("agent_{suffix}");
         let thread_id = format!("thread_{suffix}");
 
+        // A real (empty) session workspace path; Phase 5A never mutates it. Deriving the path is
+        // pure — the directory itself is not created until the request is admitted.
+        let workspace_path = std::path::Path::new(&st.data_dir)
+            .join("runtime-host-workspaces")
+            .join(&suffix)
+            .to_string_lossy()
+            .into_owned();
+
+        // A stepped request (5B) runs a consequential tool, so it is wallet-gated at the daemon
+        // boundary BEFORE ANY state mutation. Everything above this point is pure derivation: the
+        // agent record and the session workspace are written only after admission, so a refused
+        // call leaves behind no session, no agent record, and no workspace directory.
+        let step_requested = body.get("step").and_then(Value::as_bool).unwrap_or(false);
+        if step_requested {
+            if let Err(challenge) = super::execute_authority_gate(
+                &st.data_dir,
+                &body,
+                &session_ref,
+                &workspace_path,
+                &goal,
+            )
+            .await
+            {
+                return (StatusCode::FORBIDDEN, Json(challenge));
+            }
+        }
+
         // session → thread linkage so the bridge resolves the event log target.
         let agent_record = json!({
             "id": agent_id,
@@ -15540,13 +15697,7 @@ pub(crate) mod runtime_host {
             "created_at": now,
         });
         let _ = super::persist_record(&st.data_dir, "agents", &agent_id, &agent_record);
-
-        // A real (empty) session workspace path; Phase 5A never mutates it.
-        let workspace_path = std::path::Path::new(&st.data_dir)
-            .join("runtime-host-workspaces")
-            .join(&suffix);
         let _ = std::fs::create_dir_all(&workspace_path);
-        let workspace_path = workspace_path.to_string_lossy().into_owned();
 
         // Persistent transcript/memory runtime (the lifecycle ops append the seed +
         // posted messages to the session transcript via the SCS).
@@ -15567,18 +15718,6 @@ pub(crate) mod runtime_host {
             .map(|d| d.as_nanos() as u64)
             .unwrap_or(0);
         let mut ctx = synthetic_tx_context(&services, now_ns);
-
-        // A stepped request (5B) runs a consequential tool, so it is wallet-gated at the
-        // daemon boundary BEFORE any state mutation — a no-grant call is a 403 challenge
-        // that creates no session (so the grant-bound retry runs `start@v1` cleanly).
-        let step_requested = body.get("step").and_then(Value::as_bool).unwrap_or(false);
-        if step_requested {
-            if let Err(challenge) =
-                super::execute_authority_gate(&body, &session_ref, &workspace_path, &goal)
-            {
-                return (StatusCode::FORBIDDEN, Json(challenge));
-            }
-        }
 
         // Phase 5C: a `file_write` directive supplies a pre-resolved route frame so the step
         // deterministically dispatches a constrained `file__write` (no model tool selection,

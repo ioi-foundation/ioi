@@ -1,0 +1,28 @@
+{
+  "schema_version": "ioi.components.hypervisor.virtual-machine-state-payload.v1",
+  "workload_ref": "workload://virtual-machine/vm-1",
+  "owner_ref": "project://acme/local",
+  "environment_ref": "environment://env-1",
+  "target_content_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "desired_generation": 1,
+  "expected_head": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "machine_architecture": "x86_64",
+  "boot": { "mode": "kernel_initramfs", "image_ref": "image://coding/root-1", "kernel_ref": "kernel://linux/1", "initramfs_ref": "initramfs://ioi/1" },
+  "compute": { "vcpus": 2, "memory_mib": 1024 },
+  "volume_attachment_specs": [],
+  "network_attachment_specs": ["network-policy://workrun/private"],
+  "device_attachment_specs": [],
+  "policy_refs": ["policy://lifecycle/default"],
+  "observed": {
+    "observed_generation": 1,
+    "desired_phase": "running",
+    "observed_phase": "running",
+    "backend_registration_ref": "backend://local/microvm",
+    "backend_capability_declaration_ref": "capability://backend/local-kvm/1",
+    "backend_capability_declaration_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "backend_instance_evidence_ref": "evidence://backend-instance/vm-1",
+    "boot_epoch": 1,
+    "receipt_refs": ["receipt://environment/vm-1/start"],
+    "cleanup_obligation_refs": []
+  }
+}

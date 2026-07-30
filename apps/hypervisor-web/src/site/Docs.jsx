@@ -9,7 +9,7 @@ const NAV = [
   ["Runtime", [["Hypervisor Daemon", false], ["Agentgres", false], ["wallet.network", false], ["HarnessProfiles", false], ["HypervisorOS", false]]],
   ["Clients & SDK", [["Hypervisor App / Web", false], ["CLI & TUI", false], ["SDK reference", false], ["ADK", false], ["Adapter targets", false]]],
   ["Domains", [["aiagent.xyz marketplace", false], ["sas.xyz services", false], ["ioi.ai outcomes", false], ["Hypervisor Foundry", false]]],
-  ["Operate", [["Providers & environments", false], ["Private workspace & cTEE", false], ["Policy & approvals", false], ["Settlement on IOI L1", false]]],
+  ["Operate", [["Providers & environments", false], ["Isolation profiles", false], ["Policy & approvals", false], ["Settlement on IOI L1", false]]],
   ["Conformance", [["CIRC — intent resolution", false], ["CEC — completion evidence", false], ["Events, receipts & replay", false]]],
 ];
 
@@ -202,12 +202,12 @@ function Content() {
   ];
   const lifecycle = ["Intent", "Task decomposition", "Worker selection", "Capability & policy check", "Execution", "Verification", "ContributionReceipts", "Settlement"];
   const included = [
-    ["Governed sessions", "Run workers across local, cloud, VPC, cTEE, and DePIN compute under one authority model."],
+    ["Governed sessions", "Run workers through the exact local or attached profile whose capability evidence is current."],
     ["Receipts & replay", "Every consequential action emits legible, replayable evidence — accountability by default."],
     ["Bring your own models", "Mount any model as a cognition backend. Workers are installed as accountable actors."],
     ["Workflow Compositor", "Shape directed workflows, step contracts, review points, and reusable templates."],
     ["Foundry training", "Turn workflows, traces, and corrections into deployable specialist workers."],
-    ["No plaintext custody", "cTEE private workspaces keep protected data out of provider-rooted memory."],
+    ["Custody is explicit", "Every released profile states where plaintext, credentials, and runtime evidence can exist."],
   ];
   return (
     <article style={{ flex: 1, minWidth: 0, maxWidth: "46rem", padding: "2.5rem 3rem 6rem" }}>

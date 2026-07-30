@@ -39,7 +39,6 @@ use super::lifecycle_routes::{
     execute_authority_gate, load_session_record, resolve_adapter_driver, run_host_spawn_lane,
 };
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
-use ioi_services::agentic::runtime::kernel::approval::verify_wallet_approval_grant_binding;
 use sha2::{Digest, Sha256};
 use std::sync::Mutex;
 
@@ -1435,11 +1434,14 @@ pub(crate) async fn handle_goal_run_start(
     // A refusal here happened before any side effect: release the reservation so the draft is
     // exactly re-runnable; a failed release is itself a typed 5xx, never a silent wedge.
     let capability_lease_ref = match execute_authority_gate(
+        &st.data_dir,
         &body,
         &goal_ref,
         &target_workspace,
         &goal,
-    ) {
+    )
+    .await
+    {
         Ok(lease) => lease,
         Err(challenge) => {
             if let Err((rcode, rmsg)) =
@@ -1796,7 +1798,7 @@ pub(crate) async fn handle_goal_run_start(
 pub(crate) async fn handle_goal_run_reconcile(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-    Json(_body): Json<Value>,
+    Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // OPERATION RESERVATION (#72 round 3 finding 2): reconcile is one-shot — `active ->
     // reconciling` is reserved atomically with a fresh operation token BEFORE any await, so of
@@ -1966,6 +1968,82 @@ pub(crate) async fn handle_goal_run_reconcile(
             return kernel_err(error);
         }
     };
+
+    // Reconciliation is its own target-workspace effect. The authority used to start the
+    // implementer batch is evidence for that earlier operation only; it is never a standing
+    // lease for this later commit. Consume a separately bound use after the durable operation
+    // reservation and deterministic selection, but before staging or target-workspace writes.
+    let authority_effect = json!({
+        "goal_run_id": goal_run_id,
+        "goal_ref": goal_ref,
+        "operation_token": op_token,
+        "target_workspace_root": target_workspace,
+        "merge_strategy": merge_strategy,
+        "selected_candidate_refs": selected_refs,
+        "rejected_candidate_refs": rejected_refs,
+        "verifier_evidence_refs": verifier_evidence_refs,
+        "kernel_admission": admission,
+    });
+    let policy_hash = sha256_canonical(&json!({
+        "domain": "hypervisor.goal-run.reconcile.policy.v1",
+        "goal_run_id": goal_run_id,
+        "scope": "scope:hypervisor.live-route.goalrun-reconcile",
+    }));
+    let request_hash = sha256_canonical(&json!({
+        "domain": "hypervisor.goal-run.reconcile.request.v1",
+        "effect": authority_effect,
+    }));
+    let grant = body
+        .get("wallet_approval_grant")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let admitted = super::governed_authority::authorize_deployment_grant(
+        &st.data_dir,
+        &grant,
+        "scope:hypervisor.live-route.goalrun-reconcile",
+        &policy_hash,
+        &request_hash,
+        &format!("goal-run:{goal_run_id}"),
+        "reconcile",
+        1,
+        &authority_effect,
+    )
+    .await;
+    let admitted = match admitted {
+        Ok(admitted) => admitted,
+        Err((_status, Json(challenge))) => {
+            if let Err((rcode, rmsg)) =
+                release_lifecycle_reservation(&st.data_dir, &id, &op_token, "active")
+            {
+                return bad(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "goal_run_release_failed",
+                    &format!("reconciliation authority refused AND the reservation release did not commit ({rcode}: {rmsg}) — manual inspection required"),
+                );
+            }
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "ok": false,
+                    "reason": "reconciliation_authority_required",
+                    "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                    "authority_challenge": challenge,
+                    "runtimeTruthSource": "daemon-runtime",
+                })),
+            );
+        }
+    };
+    if let Err(reason) =
+        super::governed_authority::revalidate_admission_receipt(&st.data_dir, &admitted).await
+    {
+        return reconcile_abort(
+            &st.data_dir,
+            &id,
+            &op_token,
+            "reconciliation_authority_receipt_unavailable",
+            &reason,
+        );
+    }
 
     // DECLARE-BEFORE-DO OUTPUT COMMIT (#72 rounds 4 + 5). Order: VALIDATE + STAGE the selected
     // candidate outputs into a plane-owned staging area (no target-workspace effect), persist
@@ -2696,33 +2774,44 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
     }));
     let policy_hash = recovery_policy_hash(&id);
     let request_hash = recovery_request_hash(&id, &token, resolution, &failure_hash);
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
     let grant_value = body
         .get("wallet_approval_grant")
         .cloned()
         .unwrap_or(Value::Null);
-    let binding = if grant_value.is_null() {
-        Err("a wallet_approval_grant is required".to_string())
+    let admitted = if grant_value.is_null() {
+        Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({"error": {"message": "a wallet_approval_grant is required"}})),
+        ))
     } else {
-        verify_wallet_approval_grant_binding(
+        super::governed_authority::authorize_deployment_grant(
+            &st.data_dir,
             &grant_value,
-            Some(now_ms),
-            Some(&policy_hash),
-            Some(&request_hash),
+            "scope:hypervisor.live-route.goalrun-lifecycle-recovery",
+            &policy_hash,
+            &request_hash,
+            &format!("goal-run:{id}"),
+            "lifecycle-recovery",
+            1,
+            &json!({
+                "goal_run_id": id,
+                "operation_token": token,
+                "resolution": resolution,
+                "failure_hash": failure_hash,
+                "staging_validation": staging_validation,
+            }),
         )
+        .await
     };
-    let binding = match binding {
-        Ok(binding) => binding,
-        Err(reason) => {
+    let admitted = match admitted {
+        Ok(admitted) => admitted,
+        Err((_status, Json(challenge))) => {
             return (
                 StatusCode::FORBIDDEN,
                 Json(json!({
                     "ok": false,
                     "reason": "recovery_authority_required",
-                    "message": format!("Releasing a lifecycle reservation is a governed recovery decision ({reason}). Bind a wallet grant to policy_hash {policy_hash} + request_hash {request_hash}."),
+                    "message": format!("Releasing a lifecycle reservation requires independently resolved and consumed owner authority ({challenge}). Bind a wallet grant to policy_hash {policy_hash} + request_hash {request_hash}."),
                     "required_scopes": RECOVERY_AUTHORITY_SCOPES,
                     "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
                     "failure_hash": failure_hash,
@@ -2732,10 +2821,18 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
             );
         }
     };
-    let acting_authority_id = grant_value
-        .get("authority_id")
-        .cloned()
-        .unwrap_or(Value::Null);
+    if let Err(reason) =
+        super::governed_authority::revalidate_admission_receipt(&st.data_dir, &admitted).await
+    {
+        return bad(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "recovery_authority_receipt_unavailable",
+            &reason,
+        );
+    }
+    let acting_authority_id = admitted.authorized.evidence.acting_authority_id.clone();
+    let authority_grant_ref = admitted.authorized.evidence.grant_ref.clone();
+    let authority_grant_hash = sha256_canonical(&grant_value);
 
     // ONE CRITICAL SECTION (#72 round 5 finding 5) RUNNING A DURABLE INTENT TRANSACTION (#72
     // round 6 finding 4): under the GoalRun mutation lock — so no operation can interleave —
@@ -2856,9 +2953,10 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
         // The acting identity and its authority (#72 round 5 finding 4) — who decided, under
         // what verified grant, bound to which policy/request/failure hashes.
         "acting_authority_id": acting_authority_id,
-        "authority_grant_ref": binding.grant_ref,
-        "authority_provider_ref": binding.provider_ref,
-        "authority_grant_hash": binding.hash,
+        "authority_grant_ref": authority_grant_ref,
+        "authority_provider_ref": "wallet.network",
+        "authority_grant_hash": authority_grant_hash,
+        "admission_intent_ref": admitted.admission_intent_ref,
         "policy_hash": policy_hash,
         "request_hash": request_hash,
         "failure_hash": failure_hash,

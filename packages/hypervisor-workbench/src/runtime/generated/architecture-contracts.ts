@@ -4595,6 +4595,152 @@ export type ScmPublicationEffectV2 = {
   committed_at: string;
 };
 
+export type HypervisorBackendCapabilityDeclarationV1 = {
+  schema_version: "ioi.components.hypervisor.backend-capability-declaration.v1";
+  declaration_ref: string;
+  declaration_hash: string;
+  producer_ref: string;
+  producer_release_ref: string;
+  backend_registration_ref: string;
+  adapter_release_ref: string;
+  scope_ref: string;
+  observed_backend_version: string;
+  evidence_mode: "live" | "simulated" | "declared";
+  discovery_method_ref: string;
+  supported_machine_architectures: Array<string>;
+  supported_operations: Array<string>;
+  unsupported_operations: Array<{
+        operation: string;
+        reason_code: string;
+      }>;
+  limitations: Array<string>;
+  evaluator_ref: string;
+  signature_or_attestation_ref: string;
+  temporal_verification_evidence_ref: string;
+  currentness_evaluation_ref: string;
+  provenance_evidence_refs: Array<string>;
+};
+
+export type HypervisorWorkloadIsolationRequirementsV1 = {
+  schema_version: "ioi.components.hypervisor.workload-isolation-requirements.v1";
+  requirements_ref: string;
+  requirements_hash: string;
+  source_policy_refs_and_hashes: Array<{
+        ref: string;
+        hash: string;
+      }>;
+  compiled_risk_classes: Array<string>;
+  hostile_to_boundary_requirement: "not_declared" | "hostile_to_guest_kernel" | "hostile_to_vmm_host";
+  instance_policy: "fresh_per_workrun" | "fresh_per_session" | "admitted_reuse";
+  minimum_isolation: string;
+  host_mount_policy: "none" | "explicit_read_only" | "explicit_scoped_read_write";
+  daemon_socket_exposed: false;
+  host_pid_namespace_exposed: false;
+  raw_secret_material_in_guest: false;
+  capability_broker_ref: string;
+  permitted_lease_classes: Array<string>;
+  network_policy_ref: string;
+  dependency_broker_policy_ref: string;
+  output_admission: {
+      quarantine_required: true;
+      policy_ref: string;
+      maximum_bytes: number;
+      maximum_files: number;
+      archive_entry_policy_ref: string;
+      evaluator_refs: Array<string>;
+    };
+  teardown: {
+      destruction_policy_ref: string;
+      deadline_ms: number;
+      verify_all_resources: true;
+      cleanup_obligation_on_uncertainty: true;
+    };
+  required_backend_capabilities: Array<string>;
+  required_enforcement_coverage: Array<string>;
+  required_evidence_and_receipt_policy_refs: Array<string>;
+  compiler_ref: string;
+  compiler_version: string;
+};
+
+export type HypervisorWorkloadIsolationBindingV1 = {
+  schema_version: "ioi.components.hypervisor.workload-isolation-binding.v1";
+  binding_ref: string;
+  binding_hash: string;
+  requirements_ref: string;
+  requirements_hash: string;
+  workrun_ref: string;
+  runtime_assignment_ref: string;
+  environment_ref: string;
+  startup_plan_ref: string;
+  startup_plan_hash: string;
+  boundary_instance_ref: string;
+  compute_host_ref: string;
+  failure_domain_ref: string;
+  backend_capability_declaration_ref: string;
+  backend_capability_declaration_hash: string;
+  enforcement_coverage_refs_and_hashes: Array<{
+        ref: string;
+        hash: string;
+      }>;
+  immutable_component_refs_and_hashes: Array<{
+        ref: string;
+        hash: string;
+      }>;
+  exact_input_and_mount_closure_hash: string;
+  guest_network_identity_ref: string;
+  route_policy_ref: string;
+  dependency_broker_ref: string;
+  dependency_broker_policy_hash: string;
+  brokered_lease_refs: Array<string>;
+  pep_ref: string;
+  final_invoker_ref: string;
+  governed_action_classes: Array<string>;
+  output_quarantine_ref: string;
+  output_policy_ref: string;
+  cleanup_obligation_ref: string;
+  required_terminal_disposition: "destroyed_verified" | "quarantined_with_obligation";
+  readiness_evidence_refs: Array<string>;
+  currentness_evaluation_refs: Array<string>;
+};
+
+export type HypervisorVirtualMachineStatePayloadV1 = {
+  schema_version: "ioi.components.hypervisor.virtual-machine-state-payload.v1";
+  workload_ref: string;
+  owner_ref: string;
+  environment_ref: string;
+  target_content_hash: string;
+  desired_generation: number;
+  expected_head: string;
+  machine_architecture: string;
+  boot: {
+      mode: "kernel_initramfs" | "firmware_disk" | "imported_image" | "template_clone";
+      image_ref: string;
+      firmware_profile_ref?: string;
+      kernel_ref?: string;
+      initramfs_ref?: string;
+    };
+  compute: {
+      vcpus: number;
+      memory_mib: number;
+    };
+  volume_attachment_specs: Array<string>;
+  network_attachment_specs: Array<string>;
+  device_attachment_specs: Array<string>;
+  policy_refs: Array<string>;
+  observed: {
+      observed_generation: number;
+      desired_phase: string;
+      observed_phase: string;
+      backend_registration_ref: string;
+      backend_capability_declaration_ref: string;
+      backend_capability_declaration_hash: string;
+      backend_instance_evidence_ref: string;
+      boot_epoch: number;
+      receipt_refs: Array<string>;
+      cleanup_obligation_refs: Array<string>;
+    };
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -7752,6 +7898,70 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/backend-capability-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/positive-live.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/backend-capability-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/workload-isolation-requirements/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/workload-isolation-requirements/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/negative-missing-cleanup.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -13100,6 +13310,62 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/positive-live.json",
+    "contract_id": "schema://ioi/components/hypervisor/backend-capability-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/positive-live.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/components/hypervisor/backend-capability-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json",
+    "contract_id": "schema://ioi/components/hypervisor/workload-isolation-requirements/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json",
+    "contract_id": "schema://ioi/components/hypervisor/workload-isolation-requirements/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json",
+    "contract_id": "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/negative-missing-cleanup.json",
+    "contract_id": "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/negative-missing-cleanup.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json",
+    "contract_id": "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json",
+    "contract_id": "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -14042,6 +14308,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z0-9][a-z0-9._:/-]{0,127}$",
   "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$",
+  "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$",
   "^[a-z][a-z0-9+.-]*://\\S+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$",
@@ -14391,7 +14658,11 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1": "sha256:64fc7bceebf6e18119387f16940b0cf4e68c2b8a1a5d6caed6b1a76502607513",
   "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1": "sha256:7e303b8ded639767da86d7daf1941b05ea800a3f43ad22e5881a6986281cbecf",
   "schema://ioi/components/connectors-tools/scm-publication-effect/v1": "sha256:00f65134dab87fe98063d3cc720268553cd1cd96862df5dfe7ec00041de0abff",
-  "schema://ioi/components/connectors-tools/scm-publication-effect/v2": "sha256:04da1c21908882140b9e9c435566684301ad24a9160219eeb5f33cce43f84759"
+  "schema://ioi/components/connectors-tools/scm-publication-effect/v2": "sha256:04da1c21908882140b9e9c435566684301ad24a9160219eeb5f33cce43f84759",
+  "schema://ioi/components/hypervisor/backend-capability-declaration/v1": "sha256:ff20dc82932a0095e15e8ecd6ccb8f458e92ce81990ab0c7c3f25c5d7942cddf",
+  "schema://ioi/components/hypervisor/workload-isolation-requirements/v1": "sha256:718d9c35d0e969108feb391bb83e0a1b8029f24e0cb2272de15b3fb261a64fd1",
+  "schema://ioi/components/hypervisor/workload-isolation-binding/v1": "sha256:57099f54fe5e9de26028f4910be956ee4f3ce585a67698b68d0bcc1e31371899",
+  "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": "sha256:41941f22cda75b5df2df3a1dff3b7eed796426476bac65b68ceb6a99957c7ad8"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -51015,6 +51286,784 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/components/hypervisor/backend-capability-declaration/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/backend-capability-declaration/v1",
+    "title": "HypervisorBackendCapabilityDeclaration",
+    "x-ioi-schema-version": "ioi.components.hypervisor.backend-capability-declaration.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "declaration_ref",
+      "declaration_hash",
+      "producer_ref",
+      "producer_release_ref",
+      "backend_registration_ref",
+      "adapter_release_ref",
+      "scope_ref",
+      "observed_backend_version",
+      "evidence_mode",
+      "discovery_method_ref",
+      "supported_machine_architectures",
+      "supported_operations",
+      "unsupported_operations",
+      "limitations",
+      "evaluator_ref",
+      "signature_or_attestation_ref",
+      "temporal_verification_evidence_ref",
+      "currentness_evaluation_ref",
+      "provenance_evidence_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.hypervisor.backend-capability-declaration.v1"
+      },
+      "declaration_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "declaration_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "producer_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "producer_release_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "backend_registration_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "adapter_release_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "scope_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "observed_backend_version": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "evidence_mode": {
+        "enum": [
+          "live",
+          "simulated",
+          "declared"
+        ]
+      },
+      "discovery_method_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "supported_machine_architectures": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "supported_operations": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "unsupported_operations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "reason_code"
+          ],
+          "properties": {
+            "operation": {
+              "$ref": "#/$defs/name"
+            },
+            "reason_code": {
+              "$ref": "#/$defs/name"
+            }
+          }
+        }
+      },
+      "limitations": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "evaluator_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "signature_or_attestation_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "temporal_verification_evidence_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "currentness_evaluation_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "provenance_evidence_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/workload-isolation-requirements/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/workload-isolation-requirements/v1",
+    "title": "HypervisorWorkloadIsolationRequirements",
+    "x-ioi-schema-version": "ioi.components.hypervisor.workload-isolation-requirements.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "requirements_ref",
+      "requirements_hash",
+      "source_policy_refs_and_hashes",
+      "compiled_risk_classes",
+      "hostile_to_boundary_requirement",
+      "instance_policy",
+      "minimum_isolation",
+      "host_mount_policy",
+      "daemon_socket_exposed",
+      "host_pid_namespace_exposed",
+      "raw_secret_material_in_guest",
+      "capability_broker_ref",
+      "permitted_lease_classes",
+      "network_policy_ref",
+      "dependency_broker_policy_ref",
+      "output_admission",
+      "teardown",
+      "required_backend_capabilities",
+      "required_enforcement_coverage",
+      "required_evidence_and_receipt_policy_refs",
+      "compiler_ref",
+      "compiler_version"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.hypervisor.workload-isolation-requirements.v1"
+      },
+      "requirements_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "requirements_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "source_policy_refs_and_hashes": {
+        "type": "array",
+        "minItems": 3,
+        "items": {
+          "$ref": "#/$defs/refHash"
+        }
+      },
+      "compiled_risk_classes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "hostile_to_boundary_requirement": {
+        "enum": [
+          "not_declared",
+          "hostile_to_guest_kernel",
+          "hostile_to_vmm_host"
+        ]
+      },
+      "instance_policy": {
+        "enum": [
+          "fresh_per_workrun",
+          "fresh_per_session",
+          "admitted_reuse"
+        ]
+      },
+      "minimum_isolation": {
+        "$ref": "#/$defs/name"
+      },
+      "host_mount_policy": {
+        "enum": [
+          "none",
+          "explicit_read_only",
+          "explicit_scoped_read_write"
+        ]
+      },
+      "daemon_socket_exposed": {
+        "const": false
+      },
+      "host_pid_namespace_exposed": {
+        "const": false
+      },
+      "raw_secret_material_in_guest": {
+        "const": false
+      },
+      "capability_broker_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "permitted_lease_classes": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "network_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "dependency_broker_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "output_admission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "quarantine_required",
+          "policy_ref",
+          "maximum_bytes",
+          "maximum_files",
+          "archive_entry_policy_ref",
+          "evaluator_refs"
+        ],
+        "properties": {
+          "quarantine_required": {
+            "const": true
+          },
+          "policy_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "maximum_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "maximum_files": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "archive_entry_policy_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "evaluator_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          }
+        }
+      },
+      "teardown": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "destruction_policy_ref",
+          "deadline_ms",
+          "verify_all_resources",
+          "cleanup_obligation_on_uncertainty"
+        ],
+        "properties": {
+          "destruction_policy_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "deadline_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "verify_all_resources": {
+            "const": true
+          },
+          "cleanup_obligation_on_uncertainty": {
+            "const": true
+          }
+        }
+      },
+      "required_backend_capabilities": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "required_enforcement_coverage": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "required_evidence_and_receipt_policy_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "compiler_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "compiler_version": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+      },
+      "refHash": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "hash"
+        ],
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/workload-isolation-binding/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
+    "title": "HypervisorWorkloadIsolationBinding",
+    "x-ioi-schema-version": "ioi.components.hypervisor.workload-isolation-binding.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "binding_ref",
+      "binding_hash",
+      "requirements_ref",
+      "requirements_hash",
+      "workrun_ref",
+      "runtime_assignment_ref",
+      "environment_ref",
+      "startup_plan_ref",
+      "startup_plan_hash",
+      "boundary_instance_ref",
+      "compute_host_ref",
+      "failure_domain_ref",
+      "backend_capability_declaration_ref",
+      "backend_capability_declaration_hash",
+      "enforcement_coverage_refs_and_hashes",
+      "immutable_component_refs_and_hashes",
+      "exact_input_and_mount_closure_hash",
+      "guest_network_identity_ref",
+      "route_policy_ref",
+      "dependency_broker_ref",
+      "dependency_broker_policy_hash",
+      "brokered_lease_refs",
+      "pep_ref",
+      "final_invoker_ref",
+      "governed_action_classes",
+      "output_quarantine_ref",
+      "output_policy_ref",
+      "cleanup_obligation_ref",
+      "required_terminal_disposition",
+      "readiness_evidence_refs",
+      "currentness_evaluation_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.hypervisor.workload-isolation-binding.v1"
+      },
+      "binding_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "binding_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "requirements_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "requirements_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "workrun_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "runtime_assignment_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "environment_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "startup_plan_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "startup_plan_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "boundary_instance_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "compute_host_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "failure_domain_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "backend_capability_declaration_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "backend_capability_declaration_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "enforcement_coverage_refs_and_hashes": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/refHash"
+        }
+      },
+      "immutable_component_refs_and_hashes": {
+        "type": "array",
+        "minItems": 3,
+        "items": {
+          "$ref": "#/$defs/refHash"
+        }
+      },
+      "exact_input_and_mount_closure_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "guest_network_identity_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "route_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "dependency_broker_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "dependency_broker_policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "brokered_lease_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "pep_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "final_invoker_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "governed_action_classes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "output_quarantine_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "output_policy_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "cleanup_obligation_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "required_terminal_disposition": {
+        "enum": [
+          "destroyed_verified",
+          "quarantined_with_obligation"
+        ]
+      },
+      "readiness_evidence_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "currentness_evaluation_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+      },
+      "refHash": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "hash"
+        ],
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1",
+    "title": "HypervisorVirtualMachineStatePayload",
+    "x-ioi-schema-version": "ioi.components.hypervisor.virtual-machine-state-payload.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "workload_ref",
+      "owner_ref",
+      "environment_ref",
+      "target_content_hash",
+      "desired_generation",
+      "expected_head",
+      "machine_architecture",
+      "boot",
+      "compute",
+      "volume_attachment_specs",
+      "network_attachment_specs",
+      "device_attachment_specs",
+      "policy_refs",
+      "observed"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.hypervisor.virtual-machine-state-payload.v1"
+      },
+      "workload_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "environment_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "target_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "desired_generation": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "expected_head": {
+        "$ref": "#/$defs/hash"
+      },
+      "machine_architecture": {
+        "$ref": "#/$defs/name"
+      },
+      "boot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "image_ref"
+        ],
+        "properties": {
+          "mode": {
+            "enum": [
+              "kernel_initramfs",
+              "firmware_disk",
+              "imported_image",
+              "template_clone"
+            ]
+          },
+          "image_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "firmware_profile_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "kernel_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "initramfs_ref": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      },
+      "compute": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "vcpus",
+          "memory_mib"
+        ],
+        "properties": {
+          "vcpus": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "memory_mib": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "volume_attachment_specs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "network_attachment_specs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "device_attachment_specs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "policy_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "observed": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observed_generation",
+          "desired_phase",
+          "observed_phase",
+          "backend_registration_ref",
+          "backend_capability_declaration_ref",
+          "backend_capability_declaration_hash",
+          "backend_instance_evidence_ref",
+          "boot_epoch",
+          "receipt_refs",
+          "cleanup_obligation_refs"
+        ],
+        "properties": {
+          "observed_generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "desired_phase": {
+            "$ref": "#/$defs/name"
+          },
+          "observed_phase": {
+            "$ref": "#/$defs/name"
+          },
+          "backend_registration_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "backend_capability_declaration_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "backend_capability_declaration_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "backend_instance_evidence_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "boot_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "receipt_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "cleanup_obligation_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          }
+        }
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -58404,7 +59453,11 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
-  ]
+  ],
+  "schema://ioi/components/hypervisor/backend-capability-declaration/v1": [],
+  "schema://ioi/components/hypervisor/workload-isolation-requirements/v1": [],
+  "schema://ioi/components/hypervisor/workload-isolation-binding/v1": [],
+  "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -59763,4 +60816,28 @@ export function validateScmPublicationEffectV2(
   value: unknown,
 ): value is ScmPublicationEffectV2 {
   return validateArchitectureContract("schema://ioi/components/connectors-tools/scm-publication-effect/v2", value).ok;
+}
+
+export function validateHypervisorBackendCapabilityDeclarationV1(
+  value: unknown,
+): value is HypervisorBackendCapabilityDeclarationV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/backend-capability-declaration/v1", value).ok;
+}
+
+export function validateHypervisorWorkloadIsolationRequirementsV1(
+  value: unknown,
+): value is HypervisorWorkloadIsolationRequirementsV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/workload-isolation-requirements/v1", value).ok;
+}
+
+export function validateHypervisorWorkloadIsolationBindingV1(
+  value: unknown,
+): value is HypervisorWorkloadIsolationBindingV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/workload-isolation-binding/v1", value).ok;
+}
+
+export function validateHypervisorVirtualMachineStatePayloadV1(
+  value: unknown,
+): value is HypervisorVirtualMachineStatePayloadV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/virtual-machine-state-payload/v1", value).ok;
 }

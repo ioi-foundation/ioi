@@ -1906,6 +1906,7 @@ fn resolve_finding_dependencies(
 
 async fn authorize(
     contract: AuthorityContract,
+    data_dir: &str,
     body: &Value,
     governance: Governance,
     room_ref: &str,
@@ -1917,6 +1918,7 @@ async fn authorize(
 ) -> Result<AuthorizedDecision, (StatusCode, Json<Value>)> {
     governed::authorize_decision(
         contract,
+        data_dir,
         body,
         governance,
         room_ref,
@@ -1959,6 +1961,7 @@ pub(crate) async fn handle_attempt_create(
     );
     let authorized = match authorize(
         ATTEMPT_AUTHORITY,
+        &state.data_dir,
         &body,
         Governance::Participant,
         &room_ref,
@@ -2189,6 +2192,7 @@ pub(crate) async fn handle_attempt_transition(
     let mutation_effect = effect("attempt", &op, revision, &mutation_payload, to);
     let authorized = match authorize(
         ATTEMPT_AUTHORITY,
+        &state.data_dir,
         &body,
         governance,
         &room_ref,
@@ -2381,6 +2385,7 @@ pub(crate) async fn handle_finding_create(
     );
     let authorized = match authorize(
         FINDING_AUTHORITY,
+        &state.data_dir,
         &body,
         Governance::Participant,
         &room_ref,
@@ -2578,6 +2583,7 @@ pub(crate) async fn handle_finding_transition(
     );
     let authorized = match authorize(
         FINDING_AUTHORITY,
+        &state.data_dir,
         &body,
         Governance::Host,
         &room_ref,
@@ -3503,6 +3509,7 @@ pub(crate) async fn complete_governed_attempt_finding_intents(data_dir: &str, ma
         let effect = receipt.get("authorized_effect").unwrap_or(&Value::Null);
         if let Err(message) = governed::reauthorize_sealed_receipt(
             contract,
+            data_dir,
             receipt,
             governance,
             &room_ref,

@@ -69,11 +69,16 @@ const RUST_EXTERNAL_PURE_CALLS = new Set([
   // pure total function over its arguments -- it opens no file, spawns no process, writes
   // no record, and returns either Ok or a typed ContainmentRefusal. They are named `admit_*`
   // so `effectRelevantRustCall` treats them as effect-relevant and fails closed until they
-  // are classified; classifying them PURE is a claim about these three functions only, and
+  // are classified; classifying them PURE is a claim about these four functions only, and
   // it is why they may cross the crate boundary without an effect leaf being invented for
   // them. Contrast the `admit_*` entries in RUST_EXTERNAL_EFFECT_CALLS above, which persist.
+  //
+  // `admit_guest_transfer_len` compares a guest-declared length against a constant ceiling and
+  // an environment gate, returning the length or a ContainmentRefusal. It allocates nothing and
+  // touches no host resource; the caller performs any allocation with the returned bound.
   "admit_cache_path",
   "admit_cache_scope",
+  "admit_guest_transfer_len",
   "admit_isolated_execution",
   "write_validator_sets",
 ]);

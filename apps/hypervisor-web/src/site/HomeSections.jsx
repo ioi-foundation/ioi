@@ -38,12 +38,12 @@ function Hero() {
 
 /* ---------------- Proof bar (credibility strip under hero) ---------------- */
 function ProofBar() {
-  const badges = [["soc-2", "SOC 2 Type II"], ["gdpr", "GDPR compliant"], ["fortune-500", "Fortune 500 trusted"]];
-  const proofs = ["Runs in your VPC", "Deterministic replay"];
+  const badges = [["soc-2", "Authority scoped"], ["gdpr", "Receipts inspectable"], ["fortune-500", "Local preview"]];
+  const proofs = ["Selected local flows", "Evidence-scoped claims"];
   return (
     <div className="hv-proofbar" style={{ ...wrap, marginTop: "3.25rem" }}>
       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "1.25rem 2rem", padding: "1.25rem 0", borderTop: "0.5px solid var(--color-grey-500)", borderBottom: "0.5px solid var(--color-grey-500)" }}>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-grey-700)" }}>Proven in production</span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-grey-700)" }}>Current preview scope</span>
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "1.25rem 1.75rem", marginLeft: "auto" }}>
           {badges.map(([f, label]) => (
             <span key={f} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -309,16 +309,16 @@ function Features() {
 function Govern() {
   const WM = window.WorkersMotion;
   const govStats = [
-    { to: 1.2, decimals: 1, suffix: "M+", label: "sessions under scoped authority" },
-    { to: 100, decimals: 0, suffix: "%", label: "consequential actions receipted" },
-    { to: 6, decimals: 0, suffix: "", label: "controls between intent and effect" },
+    { to: 1, decimals: 0, suffix: "", label: "owner authority path" },
+    { to: 1, decimals: 0, suffix: "", label: "content-bound receipt chain" },
+    { to: 6, decimals: 0, suffix: "", label: "binding conditions before primary" },
   ];
   const govNum = { fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: "2.5rem", lineHeight: 1, letterSpacing: "-0.02em", color: "var(--color-link-green)", fontVariantNumeric: "tabular-nums" };
   const points = [
     ["Authority is explicit", "prim:* describes what the runtime may execute; scope:* what a wallet or tenant may authorize."],
     ["Credentials are never cognition", "wallet.network brokers secrets, approvals, and scoped authority — the worker never holds raw keys."],
     ["Logs become receipts", "Every run emits legible events, receipts, traces, stop reasons, and replayable evidence."],
-    ["No plaintext custody", "cTEE private workspaces keep protected data out of provider-rooted memory."],
+    ["Explicit custody limits", "Each released profile states where plaintext, credentials, and runtime evidence can exist."],
   ];
   return (
     <section id="lifecycle" className="hv-section" style={{ ...wrap, paddingTop: "8rem" }}>
@@ -332,7 +332,7 @@ function Govern() {
             Traditional security protects systems from malicious software. Hypervisor protects systems from authorized-but-unbounded autonomous software.
           </p>
           <div style={{ marginTop: "2rem" }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-grey-700)" }}>Production telemetry · trailing 30 days</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-grey-700)" }}>Release-bound control model</div>
             <div className="hv-gov-stats" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", marginTop: "1rem", borderTop: "0.5px solid var(--color-grey-500)" }}>
               {govStats.map((s, i) => (
                 <div key={s.label} style={{ padding: "1.25rem 1.25rem 0", paddingLeft: i ? "1.25rem" : 0, borderLeft: i ? "0.5px solid var(--color-grey-500)" : "none", display: "flex", flexDirection: "column", gap: "0.4rem" }}>

@@ -309,6 +309,17 @@ and are read-only: no machine schema may write them.
 
 ## Related Canon
 
+### Hypervisor category terms
+
+`autonomy plane` names the governed virtualization of work, agents, tools,
+authority, context, effects, receipts, outcomes, recovery, and improvement.
+`hosted`, `attached-estate`, and `node-root` name deployment/resource
+relationships. `Workstation`, `Infrastructure`, and `HypervisorOS` are
+owner-qualified product/claim bundles. Type 1 and Type 2 are external mappings;
+“IOI-defined Type 3” may be used only as explicitly qualified shorthand and
+never as a standardized peer VMM class or a claim that underlying isolation is
+replaced.
+
 - [`vocabulary.md`](../_meta/vocabulary.md) — the full name register.
 - [`canonical-enums.md`](./canonical-enums.md) — exact enumerated member sets.
 - [`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md) — the shared-object family index.

@@ -61,8 +61,8 @@ IOI
   routing, receipts, settlement, disputes, app chains
 ```
 
-HypervisorOS is Hypervisor's Type 1 substrate mode for autonomous systems and a
-natural foundation for broader VM/container/microVM/WASM estate management. A
+HypervisorOS is Hypervisor's conditional node-root deployment profile and a
+possible foundation for broader VM/container/microVM/WASM estate management. A
 traditional Type 1 hypervisor runs directly on hardware and supervises guest
 operating systems. HypervisorOS generalizes that posture to autonomous work: it
 gets beneath machine, VM, container, sandbox, model-runtime, tool, workspace,
@@ -104,16 +104,14 @@ system's explicitly selected service; IOI L1 is optional
 ## Core Doctrine
 
 ```text
-Type 1 substrate mode:
-  HypervisorOS / appliance / cluster profile where the daemon is node root
+controller deployment:
+  hosted on an existing OS | node-root HypervisorOS (future-gated)
 
-Type 2 substrate mode:
-  Hypervisor Desktop / Workstation hosted on an existing OS for local
-  VMs, sandboxes, models, tools, agents, connectors, and environments
+resource relationship:
+  hosted resources | attached external estate | mixed
 
-Type 3 autonomy mode:
-  autonomy virtualization across sessions, WorkRuns, workers, model routes,
-  tools, authority, receipts, replay, outcomes, and promotion
+capability selection:
+  conventional compute | governed autonomy | both
 
 Firmware Hypervisor:
   optional future profile using UEFI / TPM / pre-OS hooks
@@ -1059,8 +1057,8 @@ Rent the node. Keep the alpha.
 
 ## Final Canonical Line
 
-> **HypervisorOS is the bare-metal profile for Hypervisor: a measured,
-> daemon-rooted node image where agents, models, tools, private workspaces, and
-> external actions run beneath Hypervisor policy, cTEE no-plaintext-custody,
-> Agentgres receipts, wallet.network authority, local settlement by default,
-> and only explicitly selected external settlement services.**
+> **HypervisorOS is the future-gated node-root profile for Hypervisor. Its
+> schemas and attestation records do not constitute an installable appliance,
+> measured-boot producer, or Type-1 product. Those claims require one bound
+> release to pass installation, boot/update/rollback, resource, workload,
+> recovery, and support conformance.**

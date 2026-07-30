@@ -1,0 +1,5 @@
+{
+  "schema_version": "ioi.components.hypervisor.virtual-machine-state-payload.v1",
+  "workload_ref": "workload://virtual-machine/vm-1",
+  "status": "running"
+}

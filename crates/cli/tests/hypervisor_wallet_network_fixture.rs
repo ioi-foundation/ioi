@@ -85,6 +85,7 @@ const SYSTEM_AMENDMENT_GOVERNANCE_APPROVAL_REASON: &str =
     "System constitutional amendment governance fixture approval";
 const NAMED_CONTINUITY_APPROVAL_REASON: &str =
     "System named continuity transition fixture approval";
+const LIVE_ROUTE_APPROVAL_REASON: &str = "Hypervisor live-route authority fixture approval";
 const PROTECTED_TRANSITION_OPS: [&str; 14] = [
     "pause",
     "resume",
@@ -122,6 +123,10 @@ fn protected_transition_scope(target_scope: &str) -> bool {
 
 fn named_continuity_scope(target_scope: &str) -> bool {
     NAMED_CONTINUITY_SCOPES.contains(&target_scope)
+}
+
+fn live_route_scope(target_scope: &str) -> bool {
+    target_scope.starts_with("scope:hypervisor.live-route.")
 }
 
 #[derive(Debug, Deserialize)]
@@ -254,6 +259,7 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
             "attempt.*".to_string(),
             "finding.*".to_string(),
             "verifier_challenge.*".to_string(),
+            "scope:hypervisor.live-route.*".to_string(),
             SYSTEM_GENESIS_SCOPE.to_string(),
             SYSTEM_SEQUENCE_ZERO_SCOPE.to_string(),
             SYSTEM_INITIALIZE_SCOPE.to_string(),
@@ -673,6 +679,7 @@ async fn submit_record_approval(
         SYSTEM_AMENDMENT_APPROVAL_SCOPE => SYSTEM_AMENDMENT_GOVERNANCE_APPROVAL_REASON,
         scope if protected_transition_scope(scope) => PROTECTED_TRANSITION_APPROVAL_REASON,
         scope if named_continuity_scope(scope) => NAMED_CONTINUITY_APPROVAL_REASON,
+        scope if live_route_scope(scope) => LIVE_ROUTE_APPROVAL_REASON,
         _ => {
             return Err(anyhow!(
                 "record_approval target_scope is not one of the fixture's governed System scopes"

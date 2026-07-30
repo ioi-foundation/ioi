@@ -42,7 +42,7 @@ const TABS = [
     heading: "Every agent gets its own computer.",
     body: [
       "Each agent runs in its own short-lived environment: full toolchain, test suite, scoped credentials.",
-      "No shared state. No leaked secrets. No cascade when one fails. The environment is destroyed after use.",
+      "Selected isolation profiles fail closed when their required boundary is unavailable. Cleanup is verified or retained as an explicit obligation.",
     ],
   },
   {

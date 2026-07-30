@@ -62,10 +62,22 @@ Codex, Claude Code, Grok Build, OpenHands, Aider, shell/tmux agents, CI agents,
 and hosted coding agents are Agent Harness Adapters, not Hypervisor clients or
 runtime truth.
 
-HypervisorOS is the bare-metal node profile for this same daemon substrate. It
-does not create a peer runtime. It makes the Hypervisor Daemon the node root for
-serious local, provider, marketplace, enterprise, or DePIN nodes so autonomous
-workloads run under daemon policy, measurement, receipts, and capability exits.
+HypervisorOS is the conditional future node-root profile for this same daemon
+substrate. It does not create a peer runtime. It may make the Hypervisor Daemon
+the node root only after the selected release proves an installer, signed
+update/rollback/recall, storage and networking lifecycle, break-glass and
+recovery, current measured-boot/enforcement evidence, supported hardware, and
+support ownership. Until then it is unavailable and cannot contribute a
+bare-metal, node-root, or measured-boot product claim.
+
+For an isolation-required WorkRun, the daemon must resolve an immutable
+workload-isolation binding before launch. Missing or stale backend capability,
+enforcement coverage, WorkRun/runtime identity, image, network, broker,
+output-admission, effect-gateway, TTL, or cleanup evidence is a refusal. The
+daemon must never recover availability by executing the workload on the host,
+inside a shared checkout, or through another unadmitted backend. Guest output
+remains an untrusted proposal until quarantined and atomically admitted;
+consequential effects remain owned by the existing out-of-guest final invoker.
 
 The CLI/headless client, optional TUI presentation, SDK, and ADK are distinct:
 
@@ -379,6 +391,15 @@ with it: developers can first govern existing models and agents, then discover
 better workers, install marketplace workers, delegate authority through
 wallet.network, and graduate to Hypervisor App, Hypervisor Web, or Developer Workspace
 when they need the native control room.
+
+The Hypervisor App becomes the default first-party human/simple attach journey
+only after its exact release passes the six-point Hypervisor binding bar. That
+priority does not move execution, authority, truth, Work, or GoalRun ownership:
+the App remains a client, the daemon remains the policy-enforcement point and
+final-invoker owner, and direct attachment creates no GoalRun. CLI/headless,
+MCP, editor, and harness surfaces retain their automation, protocol,
+conformance, recovery, or compatibility roles; individual launchers retire
+only with an exact disposition and negative-reachability proof (ADR 0025).
 
 #### What the architecture owes the attach lane
 

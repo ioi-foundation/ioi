@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/backend-capability-declaration/v1",
+  "title": "HypervisorBackendCapabilityDeclaration",
+  "x-ioi-schema-version": "ioi.components.hypervisor.backend-capability-declaration.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "declaration_ref", "declaration_hash", "producer_ref", "producer_release_ref", "backend_registration_ref", "adapter_release_ref", "scope_ref", "observed_backend_version", "evidence_mode", "discovery_method_ref", "supported_machine_architectures", "supported_operations", "unsupported_operations", "limitations", "evaluator_ref", "signature_or_attestation_ref", "temporal_verification_evidence_ref", "currentness_evaluation_ref", "provenance_evidence_refs"],
+  "properties": {
+    "schema_version": { "const": "ioi.components.hypervisor.backend-capability-declaration.v1" },
+    "declaration_ref": { "$ref": "#/$defs/ref" },
+    "declaration_hash": { "$ref": "#/$defs/hash" },
+    "producer_ref": { "$ref": "#/$defs/ref" },
+    "producer_release_ref": { "$ref": "#/$defs/ref" },
+    "backend_registration_ref": { "$ref": "#/$defs/ref" },
+    "adapter_release_ref": { "$ref": "#/$defs/ref" },
+    "scope_ref": { "$ref": "#/$defs/ref" },
+    "observed_backend_version": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "evidence_mode": { "enum": ["live", "simulated", "declared"] },
+    "discovery_method_ref": { "$ref": "#/$defs/ref" },
+    "supported_machine_architectures": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+    "supported_operations": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+    "unsupported_operations": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["operation", "reason_code"], "properties": { "operation": { "$ref": "#/$defs/name" }, "reason_code": { "$ref": "#/$defs/name" } } } },
+    "limitations": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 512 } },
+    "evaluator_ref": { "$ref": "#/$defs/ref" },
+    "signature_or_attestation_ref": { "$ref": "#/$defs/ref" },
+    "temporal_verification_evidence_ref": { "$ref": "#/$defs/ref" },
+    "currentness_evaluation_ref": { "$ref": "#/$defs/ref" },
+    "provenance_evidence_refs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/ref" } }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{0,127}$" }
+  }
+}
