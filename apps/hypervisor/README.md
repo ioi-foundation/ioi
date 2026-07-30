@@ -12,7 +12,16 @@ provider/environment views, Foundry, Authority, Receipts, and Settings.
 
 ## Working on the UX
 
-The product UI is a source-owned React app (`src/surfaces/*` + `src/shell/*`) on the daemon's own contracts — run `npm run dev` (vite) or `npm run build && npm run serve:app`.
+The current product UI starts from the IOI-owned ported app estate under
+`product-ui/owned/public`, served by `scripts/serve-product-ui.mjs` with ported application
+modules under `surfaces/`. Run it with
+`npm run serve:product-ui --workspace=@ioi/hypervisor-app`.
+
+The migration direction is app by app: preserve each ported experience, bind it to its
+canonical owner and daemon contract, prove positive and negative behavior, then retire only
+that app's superseded reference or adapter path. A new source client may be created for a
+canonical journey that has no suitable seed, but it must not replace or silently fork the
+Hypervisor ported-app estate.
 **Any UX work must follow the design system: [docs/design-system.md](docs/design-system.md)**
 (see also [AGENTS.md](AGENTS.md)).
 

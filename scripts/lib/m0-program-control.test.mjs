@@ -983,42 +983,39 @@ test("JavaScript dynamic computed effect members fail discovery explicitly", () 
   }
 });
 
-test("current shorthand wrappers stay dynamic and generated POSTs stay discovered", () => {
+test("current ported-seed outbound wrappers and development crossings stay discovered", () => {
   const reviewByIdentity = new Map(
     createInitialReview(repoRoot, discoveredEntries).entries.map((entry) => (
       [entry.identity, entry]
     )),
   );
-  const shorthandLocations = new Set([
-    "apps/hypervisor/surfaces/ontology-manager/index.mjs:81",
-    "apps/hypervisor/surfaces/pipeline/index.mjs:111",
-    "apps/hypervisor/scripts/ioi-agent-runs.mjs:219",
-    "apps/hypervisor/scripts/ioi-agent-runs.mjs:320",
-    "apps/hypervisor/scripts/ioi-agent-runs.mjs:418",
-    "apps/hypervisor/scripts/serve-product-ui.mjs:8430",
-    "apps/hypervisor/scripts/serve-product-ui.mjs:9916",
-    "apps/hypervisor/scripts/ioi-api-adapter.mjs:68",
-  ]);
-  const shorthandEntries = discoveredEntries.filter((entry) => (
-    shorthandLocations.has(`${entry.source_file}:${entry.source_anchor.line}`)
+  const productSurface = discoveredEntries.find((entry) => (
+    entry.kind === "js_outbound"
+    && entry.source_file === "apps/hypervisor/scripts/serve-product-ui.mjs"
+    && entry.path === "DAEMON + path"
   ));
-  assert.equal(shorthandEntries.length, shorthandLocations.size);
-  assert.ok(shorthandEntries.every((entry) => entry.method === "DYNAMIC(method)"));
-  assert.ok(shorthandEntries.every((entry) => (
-    reviewByIdentity.get(entry.identity).classification === "consequential"
-  )));
+  assert.ok(productSurface);
+  assert.match(productSurface.method, /^DYNAMIC\(/u);
+  assert.equal(productSurface.path, "DAEMON + path");
+  assert.equal(
+    reviewByIdentity.get(productSurface.identity).classification,
+    "consequential",
+  );
 
-  const generatedPosts = new Set([
-    "/__ioi/automations/__IOI_TEMPLATE_EXPRESSION_0__/patch",
-    "/api/ioi.v1.AgentService/SendToAgentExecution",
-    "f.post",
+  const developmentCrossings = new Set([
+    "apps/hypervisor/src/dev/hypervisorDevHostBridge.ts:POST",
+    "apps/hypervisor/src/dev/hypervisorDevReplayClient.ts:GET",
   ]);
-  for (const target of generatedPosts) {
-    assert.ok(discoveredEntries.some((entry) => (
-      entry.kind === "js_outbound"
-      && entry.method === "POST"
-      && entry.path === target
-    )), `missing generated POST ${target}`);
+  const discoveredDevelopmentCrossings = new Set(
+    discoveredEntries
+      .filter((entry) => entry.kind === "js_outbound")
+      .map((entry) => `${entry.source_file}:${entry.method}`),
+  );
+  for (const crossing of developmentCrossings) {
+    assert.ok(
+      discoveredDevelopmentCrossings.has(crossing),
+      `missing development crossing ${crossing}`,
+    );
   }
 });
 

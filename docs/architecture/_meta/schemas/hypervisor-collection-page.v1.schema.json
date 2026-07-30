@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/collection-page/v1",
+  "title": "HypervisorCollectionPage",
+  "x-ioi-schema-version": "ioi.hypervisor.collection_page.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "query_ref", "items", "facets", "next_cursor", "snapshot_revision", "serialized_bytes", "total_policy_visible", "policy_filtered_before_counts_and_cache"],
+  "properties": {
+    "schema_version": { "const": "ioi.hypervisor.collection_page.v1" },
+    "query_ref": { "type": "string", "pattern": "^query://hypervisor/\\S+$" },
+    "items": { "type": "array", "items": {} },
+    "facets": { "type": "array", "items": { "type": "object" } },
+    "next_cursor": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "snapshot_revision": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "serialized_bytes": { "type": "integer", "minimum": 0, "maximum": 1048576 },
+    "total_policy_visible": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "policy_filtered_before_counts_and_cache": { "const": true }
+  }
+}

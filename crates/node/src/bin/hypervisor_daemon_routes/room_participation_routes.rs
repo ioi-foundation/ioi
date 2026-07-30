@@ -292,6 +292,7 @@ struct DecisionAuthority {
     authorized_effect: Value,
     wallet_approval_grant: Value,
     authority_binding: Value,
+    resolved_at_ms: u64,
 }
 
 type VerifiedAuthorityResolution = governed::VerifiedAuthorityResolution;
@@ -332,6 +333,7 @@ fn authorize_decision_for_resolution(
         authorized_effect: authorized.evidence.authorized_effect,
         wallet_approval_grant: authorized.evidence.wallet_approval_grant,
         authority_binding: authorized.evidence.authority_binding,
+        resolved_at_ms: authorized.resolved_at_ms,
     })
 }
 
@@ -372,6 +374,7 @@ async fn authorize_decision(
         authorized_effect: authorized.evidence.authorized_effect,
         wallet_approval_grant: authorized.evidence.wallet_approval_grant,
         authority_binding: authorized.evidence.authority_binding,
+        resolved_at_ms: authorized.resolved_at_ms,
     })
 }
 
@@ -422,6 +425,10 @@ fn build_decision_receipt(
             "principal_authority_binding".into(),
             auth.authority_binding.clone(),
         );
+        obj.insert(
+            "authority_resolved_at_ms".into(),
+            json!(auth.resolved_at_ms),
+        );
     }
     r
 }
@@ -465,6 +472,10 @@ fn sealed_authority(receipt: &Value) -> DecisionAuthority {
             .get("principal_authority_binding")
             .cloned()
             .unwrap_or(Value::Null),
+        resolved_at_ms: receipt
+            .get("authority_resolved_at_ms")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
     }
 }
 
@@ -4389,6 +4400,7 @@ mod participation_tests {
             authorized_effect: Value::Null,
             wallet_approval_grant: Value::Null,
             authority_binding: Value::Null,
+            resolved_at_ms: 0,
         }
     }
 

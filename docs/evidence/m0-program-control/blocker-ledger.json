@@ -306,7 +306,7 @@
     },
     {
       "blocker_id": "BLK-M0-FINAL-INVOKER-PROOF",
-      "reference_count": 697,
+      "reference_count": 702,
       "references": [
         "http:hypervisor-daemon:DELETE /scim/v2/Groups/:id",
         "http:hypervisor-daemon:DELETE /scim/v2/Users/:id",
@@ -537,6 +537,7 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/placement/preview",
         "http:hypervisor-daemon:GET /v1/hypervisor/placement/venue-policy",
         "http:hypervisor-daemon:GET /v1/hypervisor/placement/venues",
+        "http:hypervisor-daemon:GET /v1/hypervisor/preferences",
         "http:hypervisor-daemon:GET /v1/hypervisor/principals",
         "http:hypervisor-daemon:GET /v1/hypervisor/principals/:id/lease-grants",
         "http:hypervisor-daemon:GET /v1/hypervisor/projects",
@@ -673,6 +674,7 @@
         "http:hypervisor-daemon:POST /v1/goal-orchestration/findings",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/findings/:id/transition",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/reconcile",
+        "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/results",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/ioi-agent/launch",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/ioi-agent/launch-policies",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/ioi-agent/launch-policies/:id/clone",
@@ -729,6 +731,7 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/cloud-candidates/candidates/refresh",
         "http:hypervisor-daemon:POST /v1/hypervisor/cloud-candidates/intents",
         "http:hypervisor-daemon:POST /v1/hypervisor/code-editor-adapter-launch-plans",
+        "http:hypervisor-daemon:POST /v1/hypervisor/collections/query",
         "http:hypervisor-daemon:POST /v1/hypervisor/connectors",
         "http:hypervisor-daemon:POST /v1/hypervisor/connectors/:id/credential",
         "http:hypervisor-daemon:POST /v1/hypervisor/connectors/:id/invoke",
@@ -855,6 +858,7 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/principals/:id/lease-grants",
         "http:hypervisor-daemon:POST /v1/hypervisor/principals/:id/password",
         "http:hypervisor-daemon:POST /v1/hypervisor/private-workspace-mount-admissions",
+        "http:hypervisor-daemon:POST /v1/hypervisor/product-surface-projections",
         "http:hypervisor-daemon:POST /v1/hypervisor/projects",
         "http:hypervisor-daemon:POST /v1/hypervisor/provider-accounts",
         "http:hypervisor-daemon:POST /v1/hypervisor/provider-accounts/:id/credential",
@@ -990,6 +994,7 @@
         "http:hypervisor-daemon:PUT /v1/hypervisor/custom-domain",
         "http:hypervisor-daemon:PUT /v1/hypervisor/oidc-config",
         "http:hypervisor-daemon:PUT /v1/hypervisor/placement/venue-policy",
+        "http:hypervisor-daemon:PUT /v1/hypervisor/preferences/:id",
         "http:hypervisor-daemon:PUT /v1/threads/:id/memory/:memory_id",
         "http:hypervisor-daemon:PUT /v1/threads/:id/memory/policy",
         "http:ibc-http-gateway:POST /v1/ibc/submit",
@@ -1586,7 +1591,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "f6e5da1bb4916f9b1d5fbc164c12ce0c2bf50754d4352e68c71f545078d46667",
+  "build_fingerprint": "7d47e2837bebf0d625f53d3dfe9c0e2084ea8e9803320170ad34efed26a57f0c",
   "counts": {
     "by_state": {
       "open": 23,

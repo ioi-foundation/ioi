@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.hypervisor.application_surface_registration.v1",
+  "surface_ref": "surface://hypervisor/studio",
+  "surface_key": "studio",
+  "surface_class": "owner_application",
+  "display_name": "Studio",
+  "surface_availability": "available",
+  "canonical_route": "/studio",
+  "canonical_owner_doc_ref": "doc://architecture/hypervisor/studio",
+  "effect_boundary": "effectful",
+  "declared_object_contract_refs": [
+    "object-model://studio"
+  ],
+  "declared_action_contract_refs": [
+    "action://studio/compose"
+  ],
+  "context_route_resolver_refs": [],
+  "unexpected_field": true
+}

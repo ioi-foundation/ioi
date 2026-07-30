@@ -51,6 +51,8 @@
     "validate:model-mounting:closeout": "node scripts/validate-model-mounting-closeout.mjs",
     "validate:model-mounting:closeout:local": "node scripts/validate-model-mounting-closeout.mjs --allow-live-skips",
     "check:runtime-layout": "node scripts/check-runtime-layout.mjs",
+    "check:hypervisor-ported-seed": "node apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
+    "check:hypervisor-ported-seed:live": "node apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs --live",
     "check:hypervisor-code-editor-adapter-host-paths": "node scripts/check-hypervisor-code-editor-adapter-host-paths.mjs",
     "generate:runtime-action-contracts": "node scripts/generate-runtime-action-contracts.mjs --write",
     "generate:architecture-contracts": "node scripts/generate-architecture-contracts.mjs --write",

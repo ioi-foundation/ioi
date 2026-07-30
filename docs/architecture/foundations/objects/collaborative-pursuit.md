@@ -6,8 +6,8 @@ Supersedes: the same object definitions when they were carried inside the single
 Superseded by: none.
 Last alignment pass: 2026-07-25.
 Doctrine status: canonical
-Implementation status: partial (room, participation, frontier, and claim routes exist in the daemon; collaborative AIIP federation and cross-domain assurance remain planned)
-Last implementation audit: 2026-07-25
+Implementation status: partial (room, participation, frontier, claim, offer, Attempt/Finding, and challenge routes exist in the daemon; the 2026-07-30 fresh runtime re-audit remains red on terminal participation replay and eligibility retry idempotency, and no M4 aggregate proof is admitted; collaborative AIIP federation and cross-domain assurance remain planned)
+Last implementation audit: 2026-07-30
 
 ## Purpose
 
@@ -239,6 +239,8 @@ OutcomeRoomEnvelope:
   settlement_policy_ref: policy://... | null
   participant_lease_refs:
     - participant-lease://...
+  member_goal_run_refs:
+    - goal://...
   participation_request_refs:
     - participation-request://...
   resource_offer_refs:
@@ -265,6 +267,36 @@ OutcomeRoomEnvelope:
     proposed | open | active | paused | blocked | verifying |
     accepted | disputed | settled | closed | revoked | archived
 ```
+
+Room membership is a reciprocal, atomically admitted relation. The
+`OutcomeRoomEnvelope.member_goal_run_refs` set is authoritative for the room's
+aggregate membership; every listed GoalRun MUST carry the same room in its
+`outcome_room_ref`. A GoalRun-side backlink is authoritative for that GoalRun's
+single-room attachment but cannot add itself to the room. Attach and detach
+operations MUST compare the exact room and GoalRun heads and commit both sides
+with one admission receipt. A missing, foreign, or stale reciprocal edge makes
+the relation unavailable for graph projection and MUST NOT be repaired from UI
+state, a list response, or whichever side was read most recently.
+
+## CollaborativeWorkGraph and discussion projections
+
+`CollaborativeWorkGraph` is a content-bound projection of one admitted room
+revision. It is not a second mutable object plane. Its durable form binds the
+room revision and state root, the exact reciprocal GoalRun membership set, the
+participant/frontier/claim/attempt/finding/challenge/result/delta refs used to
+compile it, the source admission receipts, and the applicable information-flow
+labels. Clients cannot write it directly; stale or inconsistent source edges
+make the affected projection typed-unavailable rather than partially true.
+
+`OutcomeRoomDiscussionProjectionEnvelope` is the durable form for a room's
+messages, board, inbox, digest, feed, or replay discussion lens. It contains
+only refs and redaction summaries admitted by its visibility policy and label
+set, binds one exact room revision/state root and source receipt set, and
+declares both `authoritative: false` and `client_writable: false`. Message bytes
+and private participant context remain in their owning artifact/message planes;
+the projection grants no room membership, authority, acceptance, or truth.
+`discussion_projection_refs` MUST resolve to this envelope (or an explicit
+versioned successor), never to an unversioned client cache.
 
 ## RoomParticipantLeaseEnvelope
 
@@ -415,6 +447,8 @@ Participants may offer compute, runtime capacity, data access, verification,
 specialist work, tools, or other capabilities to a room. Offers are typed
 profiles over existing provider inventory, worker manifests, capability
 discovery, and resource-allocation objects; they are not a second marketplace.
+
+## RoomAdmittedObjectBase
 
 Every mutable child of a room uses one admission spine:
 

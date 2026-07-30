@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/mutation-receipt/v1",
+  "title": "HypervisorMutationReceipt",
+  "x-ioi-schema-version": "ioi.hypervisor.mutation_receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "operation_ref", "state_root_ref", "previous_revision", "revision", "recovery_required"],
+  "properties": {
+    "schema_version": { "const": "ioi.hypervisor.mutation_receipt.v1" },
+    "operation_ref": { "type": "string", "pattern": "^agentgres://operation/\\S+$" },
+    "state_root_ref": { "type": "string", "pattern": "^agentgres://state-root/\\S+$" },
+    "previous_revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "recovery_required": { "type": "boolean" }
+  }
+}

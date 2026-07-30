@@ -1,0 +1,31 @@
+{
+  "schema_version": "ioi.components.daemon-runtime.information-flow-decision-receipt.v1",
+  "receipt_id": "receipt://information-flow/1",
+  "receipt_profile_ref": "schema://ioi/receipt/information-flow-decision/v1",
+  "effect_ref": "effect://egress/1",
+  "information_flow_label_refs": [
+    "ifc-label://private"
+  ],
+  "information_flow_label_content_hashes": [
+    "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  ],
+  "runtime_tool_contract_revision_ref": "tool://search/revision/1",
+  "destination": "connector://destination/1",
+  "request_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "reviewed_representation_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "effective_label_refs": [
+    "ifc-label://private"
+  ],
+  "blocked_label_refs": [
+    "ifc-label://private"
+  ],
+  "declassification_approval_ref": null,
+  "declassification_receipt_ref": null,
+  "decision": "denied",
+  "reason": "label_set_not_permitted_for_destination",
+  "blocked_before_egress": true,
+  "enforcement_boundary_ref": "runtime://hypervisor-daemon/pre-effect-ifc",
+  "enforcement_owner": "hypervisor_daemon",
+  "decided_at": "2026-07-30T12:00:00Z",
+  "unexpected_field": true
+}

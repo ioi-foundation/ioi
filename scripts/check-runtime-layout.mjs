@@ -567,6 +567,10 @@ assert(
       .includes("apps/hypervisor/src/windows/shared/hostWindowDrag.ts") &&
     exists("apps/hypervisor/scripts/serve-product-ui.mjs") &&
     exists("apps/hypervisor/scripts/ioi-api-adapter.mjs") &&
+    exists("apps/hypervisor/product-ui/owned/public") &&
+    exists("apps/hypervisor/surfaces") &&
+    !exists("apps/hypervisor/src/data/productSurface.ts") &&
+    !exists("apps/hypervisor/src/shell/AppShell.tsx") &&
     hypervisorAppMainSource.includes(
       'import "@ioi/hypervisor-workbench/dist/style.css";',
     ) &&
@@ -582,8 +586,10 @@ assert(
     "apps/hypervisor/src/main.tsx",
     "apps/hypervisor/scripts/serve-product-ui.mjs",
     "apps/hypervisor/scripts/ioi-api-adapter.mjs",
+    "apps/hypervisor/product-ui/owned/public",
+    "apps/hypervisor/surfaces",
   ],
-  "Hypervisor shell and secondary canon docs must not reintroduce a hidden client header or host drag helper above the IOI-reference left rail.",
+  "Hypervisor must retain the IOI-owned ported app estate as its executable seed, reject an observation-based parallel shell, and must not reintroduce a hidden client header or host drag helper above that shell.",
 );
 assert(
   "hypervisor-dev-start-probe-no-dual-product-log-prefix",
@@ -1046,6 +1052,10 @@ assert(
       "node scripts/conformance/hypervisor-conformance.mjs receipts" &&
     packageJson.scripts["hypervisor-conformance:app"] ===
       "node scripts/conformance/hypervisor-conformance.mjs app" &&
+    packageJson.scripts["check:hypervisor-ported-seed"] ===
+      "node apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs" &&
+    exists("apps/hypervisor/ported-seed-preservation.v1.json") &&
+    exists("apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs") &&
     packageJson.scripts["hypervisor-conformance:compositor"] ===
       "node scripts/conformance/hypervisor-conformance.mjs compositor" &&
     packageJson.scripts["test:workflow-compositor-dogfood"] ===
@@ -1065,6 +1075,7 @@ assert(
     hypervisorConformanceSource.includes("check:architecture-docs") &&
     hypervisorConformanceSource.includes("check:conformance-docs") &&
     hypervisorConformanceSource.includes("check:runtime-layout") &&
+    hypervisorConformanceSource.includes("check:hypervisor-ported-seed:live") &&
     hypervisorConformanceSource.includes(
       "check:hypervisor-code-editor-adapter-host-paths",
     ) &&
@@ -1282,13 +1293,10 @@ assert(
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/core-taxonomy") &&
     daemonRuntimeApiDoc.includes("ioi.runtime.hypervisor_core_taxonomy.v2") &&
     normalizedDaemonRuntimeApiDoc.includes(
-      "Implementation status: the current core-taxonomy code path still emits the narrower v1 hard-coded taxonomy, and the product-surface projection endpoint is not implemented.",
-    ) &&
-    normalizedDaemonRuntimeApiDoc.includes(
-      "Until typed registrations, normalized owner records, and the request-scoped policy compiler exist, a v2 taxonomy request and a product-surface projection request must return typed unavailable/unsupported responses rather than relabeling v1 data or compiling launch state in a client.",
+      "It is not a request-scoped launch catalog and must never be used to bypass the policy-filtered product-surface projection.",
     ) &&
     hypervisorCoreTaxonomy.schema_version ===
-      "ioi.runtime.hypervisor_core_taxonomy.v1" &&
+      "ioi.runtime.hypervisor_core_taxonomy.v2" &&
     rustHypervisorDaemonSource.includes(
       '"/v1/hypervisor/core-taxonomy"',
     ) &&
@@ -1303,20 +1311,21 @@ assert(
     ) &&
     hypervisorCoreTaxonomy.core?.execution_owner === "hypervisor-daemon" &&
     hypervisorCoreTaxonomy.first_class_clients?.length === 3 &&
-    hypervisorCoreTaxonomy.application_surfaces?.length > 0 &&
+    hypervisorCoreTaxonomy.core_workspaces?.length === 6 &&
+    hypervisorCoreTaxonomy.application_registrations?.length === 15 &&
+    hypervisorCoreTaxonomy.normalized_record_contracts?.length === 6 &&
+    hypervisorCoreTaxonomy.context_route_resolver_contract === "HypervisorContextRouteResolver" &&
     hypervisorCoreTaxonomy.adapter_target_families?.length > 0 &&
-    hypervisorCoreTaxonomy.agent_harness_adapters?.length > 0 &&
-    hypervisorCoreTaxonomy.retired_surface_aliases?.some(
-      ({ alias, replacement }) =>
-        alias === "fleet" && replacement === "sessions/providers/environments",
-    ),
+    hypervisorCoreTaxonomy.retired_routes?.["/sessions"] === "/work/sessions" &&
+    hypervisorCoreTaxonomy.retired_routes?.["/missions"] === "/work" &&
+    hypervisorCoreTaxonomy.retired_routes?.["/__ioi/*"] === null,
   [
     "docs/architecture/components/daemon-runtime/api.md",
     "crates/node/src/bin/hypervisor-daemon.rs",
     "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
     "crates/node/src/bin/hypervisor_daemon_routes/hypervisor_core_taxonomy.json",
   ],
-  "Hypervisor Core taxonomy must distinguish the transitional daemon-visible v1 projection from the fail-closed v2 target while keeping clients, application surfaces, adapter targets, AgentHarnessAdapters, and retired Fleet posture distinct.",
+  "Hypervisor Core taxonomy must expose the v2 bootstrap taxonomy while keeping request-scoped launch authority in the product-surface compiler and preserving explicit typed retirement routes.",
 );
 assert(
   "contract-family-modules",
@@ -1550,18 +1559,28 @@ assert(
 );
 
 const evidenceDir = path.join(root, "docs/evidence/runtime-layout-refactor");
-fs.mkdirSync(evidenceDir, { recursive: true });
+const evidencePath = path.join(
+  evidenceDir,
+  "hypervisor-surface-reconciliation.v1.json",
+);
 const summary = {
   schemaVersion: "ioi.runtime-layout-refactor.check.v1",
-  generatedAt: new Date().toISOString(),
   status: failures.length ? "failed" : "passed",
   report,
   failures,
 };
-fs.writeFileSync(
-  path.join(evidenceDir, "guardrail-report.json"),
-  `${JSON.stringify(summary, null, 2)}\n`,
-);
+const renderedEvidence = `${JSON.stringify(summary, null, 2)}\n`;
+if (process.argv.includes("--write")) {
+  fs.mkdirSync(evidenceDir, { recursive: true });
+  fs.writeFileSync(evidencePath, renderedEvidence);
+} else if (
+  process.argv.includes("--check")
+  && (!fs.existsSync(evidencePath) || fs.readFileSync(evidencePath, "utf8") !== renderedEvidence)
+) {
+  failures.push(
+    `${path.relative(root, evidencePath)} is absent or stale; regenerate it with --write`,
+  );
+}
 
 if (failures.length) {
   console.error("Runtime layout check failed:");
@@ -1571,5 +1590,7 @@ if (failures.length) {
 
 console.log("Runtime layout check passed.");
 console.log(
-  `Evidence: ${path.relative(root, path.join(evidenceDir, "guardrail-report.json"))}`,
+  process.argv.includes("--write")
+    ? `Evidence: ${path.relative(root, evidencePath)}`
+    : `Evidence checked: ${path.relative(root, evidencePath)}`,
 );

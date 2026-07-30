@@ -460,12 +460,44 @@
       "total_reviewed_entry_count": 1576,
       "total_reviewed_entry_set_sha256": "956340ec7a8a575ffe7b4de06d03123d9431e2d93f1190f521a50891f049ba00",
       "total_reviewed_identity_set_sha256": "ba4c20136bbeaaf750c812d4867694f53f713c518184391939e39396fc149096"
+    },
+    {
+      "authorship_binding": "self_declared_unsigned",
+      "epoch_id": "owner-ratification-and-hypervisor-reconciliation-review-2026-07-30",
+      "latest_epoch_identity_set_sha256": "780a30a08f77917747a61f07e8125df0ed45dcb1e1eed154c9c3001e79971606",
+      "latest_epoch_reviewed_entry_count": 855,
+      "latest_epoch_reviewed_entry_set_sha256": "941a2ac90f3a829473c04b87e6a3fdf4a320fcf4fc9fd24bd1d0985ac0cce2e1",
+      "predecessor_entry_sha256": "70884d5b563d5edaba9afceafb63fb74a7072153a15e7dc8250fbe77c949b3b4",
+      "program_source_material_sha256": "b858376ec543c5f4acf541036980a887a1c814d3429b0d9c08310a7de9d343d4",
+      "review_lock_sha256": "6213282011950cbc6c3ea06c47a94de190e9220e985c47bca945c7f8a9c3ef96",
+      "reviewed_as_of": "2026-07-30",
+      "reviewer_id": "codex-m3-complete-goalrun-review",
+      "sequence": 25,
+      "total_reviewed_entry_count": 1281,
+      "total_reviewed_entry_set_sha256": "404f0741a6a6bbed4d87f7bfe8149d5172a43b7c19b5d46c408819ec68bddbcf",
+      "total_reviewed_identity_set_sha256": "637e07b8caaed438dd09a2105f9dd305a27b80c9571cfc042e4948971b4912ca"
+    },
+    {
+      "authorship_binding": "self_declared_unsigned",
+      "epoch_id": "m3-and-ported-seed-reconciliation-review-2026-07-30",
+      "latest_epoch_identity_set_sha256": "48bef7e3b1f1fa1786de6db42533e786a8be3087956938eda66bd33d261a8753",
+      "latest_epoch_reviewed_entry_count": 1067,
+      "latest_epoch_reviewed_entry_set_sha256": "72a05771b140dc02cb984472a68187a85e26ed7c58a9320e5a50765061da2a90",
+      "predecessor_entry_sha256": "ec22024a9c109c4815871b74b5e4b3d546d8d08c5cc04f46b2301276171032d8",
+      "program_source_material_sha256": "b39cba2ec352f37264cc5edd62643ceedf25b220c1f583748e568ce6373c8bea",
+      "review_lock_sha256": "ba01002a614224cdf00612f94d1d52dff34d328244d111da8e447c63361a3b8f",
+      "reviewed_as_of": "2026-07-30",
+      "reviewer_id": "reviewer://codex/ported-seed-m3-repair",
+      "sequence": 26,
+      "total_reviewed_entry_count": 1584,
+      "total_reviewed_entry_set_sha256": "ff784ac0bfef60367cea4b9fb1a48191d903e986cf1635702111eb95479209d7",
+      "total_reviewed_identity_set_sha256": "49957f0269b7b021e8f8d9ab554343faaddca93f2331a99e014226a86a43d61b"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "70884d5b563d5edaba9afceafb63fb74a7072153a15e7dc8250fbe77c949b3b4",
-    "epoch_id": "owner-ratification-authority-admission-repair-review-2026-07-30",
-    "sequence": 24
+    "entry_sha256": "ee3c35bafe804260f4b4c3d5c553ecd636ab673cff19fca693027d1ac3b5662b",
+    "epoch_id": "m3-and-ported-seed-reconciliation-review-2026-07-30",
+    "sequence": 26
   }
 }

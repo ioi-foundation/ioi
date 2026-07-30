@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/agentgres/artifact-ref/v1",
+  "title": "ArtifactRef",
+  "x-ioi-schema-version": "ioi.agentgres.artifact-ref.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_id",
+    "domain_id",
+    "producing_operation_ref",
+    "producing_actor",
+    "role",
+    "content",
+    "storage",
+    "policy",
+    "authority",
+    "lineage",
+    "lifecycle"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.agentgres.artifact-ref.v1"
+    },
+    "artifact_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "domain_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "producing_operation_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "producing_actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cid",
+        "sha256",
+        "manifest_root",
+        "bundle_root",
+        "media_type",
+        "size_bytes"
+      ],
+      "properties": {
+        "cid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "manifest_root": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bundle_root": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "storage": {
+      "type": "object"
+    },
+    "policy": {
+      "type": "object"
+    },
+    "authority": {
+      "type": "object"
+    },
+    "lineage": {
+      "type": "object"
+    },
+    "lifecycle": {
+      "type": "object"
+    }
+  }
+}

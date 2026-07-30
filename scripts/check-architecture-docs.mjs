@@ -1552,7 +1552,7 @@ for (const required of [
   "publisher_ref:",
   "org://... | user://... | ioi://publisher/... | null",
   "release_ref: package://.../release/... | null",
-  "system_binding_ref: package_binding://... | null",
+  "system_binding_ref: package-binding://... | null",
   "system_ref: system://... | null",
   "work_queue |",
   "work_queue://...",
@@ -1634,7 +1634,7 @@ for (const required of [
   "surface-descriptor://... ontology-bound surface descriptor identity",
   "surface-serving://...   serving route/runtime binding",
   "hypervisor-workspace://... stable Hypervisor core-workspace registration identity",
-  "route-alias://...       typed route-alias registration",
+  "context-route-resolver://... typed canonical-context resolver with one owner; never accepts retired path spellings",
   "ui-primitive://...      reusable source-neutral Hypervisor UX primitive identity",
   "install://...           worker, service, package, application-surface, or System-interface install/license binding",
 ]) {

@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.foundations.room-admitted-object-base.v1",
+  "room_system_id": "system://room/demo",
+  "outcome_room_ref": "outcome-room://demo",
+  "proposed_or_issued_by_ref": "system://room/demo",
+  "expected_room_revision": 0,
+  "expected_predecessor_commitment_ref": "commitment://room/demo/0",
+  "payload_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "admission_policy_ref": "policy://room/admission/v1",
+  "admission_decision_ref": "decision://room/demo/1",
+  "admission_receipt_ref": "receipt://room/demo/1",
+  "admitted_sequence": 1,
+  "resulting_room_revision": 1,
+  "resulting_transition_commitment_ref": "commitment://room/demo/1",
+  "resulting_room_state_root": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "resulting_receipt_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "created_at": "2026-07-30T12:00:00Z",
+  "updated_at": "2026-07-30T12:00:00Z",
+  "admission_status": "admitted",
+  "unexpected_field": "must be refused"
+}

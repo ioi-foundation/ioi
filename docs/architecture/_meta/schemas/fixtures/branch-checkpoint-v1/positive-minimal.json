@@ -1,0 +1,18 @@
+{
+  "schema_version": "ioi.agentgres.branch-checkpoint.v1",
+  "object_class": "BranchCheckpoint",
+  "branch_checkpoint_ref": "branch-checkpoint://c1",
+  "execution_branch_ref": "execution-branch://run-1/b1",
+  "trace_ref": "trace://run-1",
+  "workspace_snapshot_ref": "snapshot://run-1/b1",
+  "object_heads": {
+    "branch": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "memory_projection_heads": [],
+  "lease_heads": [],
+  "artifact_refs": [],
+  "receipt_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "created_for": "verifier",
+  "status": "active",
+  "staged_effect_count": 1
+}

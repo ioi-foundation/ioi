@@ -782,6 +782,8 @@ Core workspaces
   Projects
   Applications
   Work
+  Settings          (scoped user and organization projections; no independent
+                     identity, connector, provider, policy, or billing truth)
 
 Owner applications
   Studio            (system & agent composition; absorbs Agent Studio as its agent lens)
@@ -839,6 +841,8 @@ v2 target route ledger is:
 | Projects | `/projects` | existing Project context is preserved |
 | Applications | `/applications` | one catalog/compiler projection |
 | Work | `/work` | typed views only; Sessions is `/work/sessions` |
+| Settings | `/settings` | core workspace; panes project canonical owner records |
+| Sign in | `/sign-in` | authentication entry; not an application registration |
 | Studio | `/studio` | — |
 | Automations | `/automations` | shell placement and application identity resolve to the same registration |
 | Ontology | `/ontology` | — |
@@ -940,6 +944,14 @@ Organization settings
   cross-customer learning policy, custody/region, capability-exit posture
   workspace defaults and administrative enrollment
 ```
+
+Settings is a `core_workspace` registered at `/settings`; `/sign-in` is its
+authentication entry, not an application. Identity, membership, SSO/SCIM,
+secrets, tokens, connectors, providers, policies, retention, billing, usage,
+memory, skills, delivery, and learning-boundary records remain with their
+canonical owners. Settings persists only admitted preferences and owner-backed
+administrative mutations. Open menus, focus, scroll, unsubmitted drafts, and
+other transient UI state remain local to the client.
 
 Contextual surfaces expose the same primitives where they are actually used:
 
@@ -1200,10 +1212,10 @@ applicable, and Provenance inspects evidence.
 Application surfaces are major product modes inside one or more first-class
 clients.
 
-Implementation status — shell ownership program (2026-07-05): the product
-shell is owned by ADOPTION, not recreation, so no "current version vs
-recreated version" gap exists for discrepancies to hide in. The running
-bundle is vendored as an editable source tree
+Implementation status — ported-seed ownership program (reconfirmed
+2026-07-30): the product shell and its ported applications are owned by
+ADOPTION, not recreation, so no "current version vs recreated version" gap
+may be introduced. The running bundle is vendored as an editable source tree
 (`apps/hypervisor/product-ui/owned/public`, built by
 `apps/hypervisor/scripts/vendor-product-ui.mjs`: app chunks beautified, third-party
 `vendor-*.js` verbatim, hand edits preserved as recorded owned-edits) and the
@@ -1219,6 +1231,15 @@ as owned-edits plus a reviewed baseline re-freeze in the same change; the
 first fold (the augmentation script tag moving into the owned index.html) is
 in. Serve-time code transforms must stay formatting-tolerant — they apply to
 both the minified original and the beautified owned source.
+
+This adopted estate is the executable seed, not merely comparative evidence.
+Migration proceeds per application by admitting the owner contract, rebinding
+the ported implementation, proving parity and negative no-fallback behavior,
+then retiring only that application's superseded reference or adapter path.
+No whole-estate bundle or server deletion is valid while any live ported app
+lacks an individually proved successor. A separate first-party client is valid
+for a canonical journey with no applicable seed, but remains a protocol client
+and cannot silently replace the Hypervisor estate or own its truth.
 
 ### The Autonomous-Systems Owner Applications
 
@@ -1887,7 +1908,7 @@ favorite, and recommendation projections must be produced from one compiler:
 ```text
 core-workspace registrations
   + static owner, substrate, tool, and planned registrations
-  + typed route-alias registrations
+  + typed canonical-context route resolvers
   + daemon/Agentgres-admitted release, installation, System-interface,
     and serving records
   + authenticated organization and user preferences
@@ -3308,13 +3329,30 @@ operator opens Hypervisor App, Hypervisor Web, CLI, or headless client
 
 ## Minimal Implementation Objects
 
-> **Reference-wall notice.** The object listing below is hand-maintained
-> reference material, not additional doctrine. The source of truth for
-> shipped shapes is the daemon's route/object registry in code; this wall
-> is a design-surface commitment that may lead implementation. Do not
-> narrow it, but do not read presence here as shipped — see the file's
-> `Implementation status`. Generator TODO: emit this section from the
-> daemon schema registry instead of maintaining it by hand.
+Operational journeys use the shared presentation states `loading`, `empty`,
+`missing_prerequisite`, `degraded`, `blocked`, `approval_pending`, `denied`,
+`failed`, `recovery`, and `completed`. These states must not be collapsed into
+one generic empty or error screen. They are distinct from
+`surface_operational_state`, which describes current serving readiness.
+
+Collection producers apply authenticated principal, membership, policy, and
+typed-context filtering before facet/count calculation and caching. The default
+page size is 25, the maximum is 50, the maximum serialized page is 1 MiB, and
+cursors are opaque and bound to the exact filtered query and snapshot.
+
+Notifications and elapsed-time displays are projections of their owner event,
+WorkRun, AutomationRun, Session, lease, approval, or operation records; they do
+not introduce notification-event or timer truth planes. A persisted
+`HypervisorCanvasLayout` owns presentation geometry only and cannot mutate the
+semantics of an Ontology, workflow, System, dependency, Work, or embodied graph.
+
+> **Reference-wall notice.** The object listing below is architecture-owned
+> durable semantics. Registered JSON Schemas own the admitted wire shapes, and
+> daemon/app source implements them; neither code nor this hand-maintained wall
+> may silently redefine the other. Presence here is not a shipped or released
+> claim — see the file's `Implementation status` and the implementation-program
+> evidence gates. Generator TODO: project the registered shapes alongside this
+> semantic wall without transferring ownership to generated output.
 
 ```yaml
 HypervisorClient:
@@ -3346,7 +3384,7 @@ HypervisorClient:
 
 HypervisorCoreWorkspaceRegistration:
   workspace_id: hypervisor-workspace://...
-  workspace_kind: home | systems | projects | applications | work
+  workspace_kind: home | systems | projects | applications | work | settings
   workspace_key: string # URL-safe; equals workspace_kind in taxonomy v2
   display_name: string
   canonical_route: string
@@ -3355,6 +3393,15 @@ HypervisorCoreWorkspaceRegistration:
       automation_run | session | work_queue | work_item | work_run
   registration_is_projection_only: true
   writes_through_canonical_owners: true
+
+HypervisorContextRouteResolver:
+  resolver_ref: context-route-resolver://...
+  owner_ref: hypervisor-workspace://... | surface://...
+  canonical_route_pattern: string
+  required_context_kinds: [string]
+  preserve_query_hash_and_return_state: true
+  failure_mode: typed_refusal
+  accepts_retired_route_spellings: false
 
 HypervisorApplicationSurfaceRegistration:
   surface_id: surface://...
@@ -3375,7 +3422,7 @@ HypervisorApplicationSurfaceRegistration:
   summary: string
   primary_user_job: string
   canonical_route: string
-  route_alias_refs: [route-alias://...]
+  context_route_resolver_refs: [context-route-resolver://...]
   canonical_owner_doc_ref: doc://...
   primary_owner_application_ref: surface://... | null
   primary_object_family: string
@@ -3475,7 +3522,7 @@ HypervisorSurfaceInstallationBinding:
   receipt_refs: [receipt://...]
 
 HypervisorSystemInterfaceBinding:
-  system_binding_ref: package_binding://...
+  system_binding_ref: package-binding://...
   surface_ref: surface://...
   release_ref: package://.../release/...
   installation_ref: install://...
@@ -3498,7 +3545,7 @@ HypervisorSurfaceServingBinding:
   surface_ref: surface://...
   release_ref: package://.../release/...
   installation_ref: install://...
-  system_binding_ref: package_binding://... | null
+  system_binding_ref: package-binding://... | null
   resolved_route: string
   runtime_ref: runtime://... | null
   surface_operational_state:
@@ -3517,7 +3564,7 @@ HypervisorProductSurfaceProjection:
     - workspace_ref: hypervisor-workspace://...
       display_name: string
       canonical_route: string
-      route_alias_refs: [route-alias://...]
+      context_route_resolver_refs: [context-route-resolver://...]
       launchable: boolean
       disabled_reason_codes: [string]
       launch_binding:
@@ -3542,11 +3589,11 @@ HypervisorProductSurfaceProjection:
         dashboard | comparison | console | null
       selected_release_ref: package://.../release/... | null
       selected_installation_ref: install://... | null
-      selected_system_binding_ref: package_binding://... | null
+      selected_system_binding_ref: package-binding://... | null
       selected_serving_binding_ref: surface-serving://... | null
       eligible_release_refs: [package://.../release/...]
       eligible_installation_refs: [install://...]
-      eligible_system_binding_refs: [package_binding://...]
+      eligible_system_binding_refs: [package-binding://...]
       eligible_serving_binding_refs: [surface-serving://...]
       surface_class:
         owner_application | substrate_application | tool_surface |
@@ -3593,7 +3640,7 @@ HypervisorProductSurfaceProjection:
           system_interfaces | recommended | recent | favorites
       canonical_route: string
       resolved_launch_route: string | null
-      route_alias_refs: [route-alias://...]
+      context_route_resolver_refs: [context-route-resolver://...]
       launchable: boolean
       disabled_reason_codes:
         - planned | unavailable | not_admitted | rejected | revoked |
@@ -3607,7 +3654,7 @@ HypervisorProductSurfaceProjection:
           - kind: installation
             installation_ref: install://...
           - kind: system_interface
-            system_binding_ref: package_binding://...
+            system_binding_ref: package-binding://...
           - kind: serving_binding
             serving_binding_ref: surface-serving://...
       typed_context_refs:
@@ -3655,6 +3702,64 @@ HypervisorProductSurfaceProjection:
       absence and never a new canonical enum value
   generated_at: timestamp
   read_model_only: true
+
+HypervisorPreferenceRecord:
+  preference_ref: preference://hypervisor/...
+  principal_ref: user://... | wallet://...
+  org_ref: org://...
+  preference_kind:
+    theme | density | favorite | recent | default_organization |
+    default_project | surface_preference
+  value: object
+  revision: uint64
+  agentgres_operation_ref: agentgres://operation/...
+  state_root_ref: agentgres://state-root/...
+  updated_at: timestamp
+
+HypervisorCollectionQuery:
+  query_ref: query://hypervisor/...
+  principal_ref: user://... | wallet://...
+  org_ref: org://...
+  typed_context_refs: [string]
+  search: string | null
+  filters: [object]
+  sort: [object]
+  facets: [string]
+  cursor: opaque-string | null
+  page_size: uint16 # default 25; maximum 50
+  maximum_serialized_page_bytes: 1048576
+
+HypervisorCollectionPage:
+  query_ref: query://hypervisor/...
+  items: [object]
+  facets: [object]
+  next_cursor: opaque-string | null
+  snapshot_revision: string
+  serialized_bytes: uint32 # never greater than 1048576
+  policy_filtered_before_counts_and_cache: true
+
+HypervisorNotificationSubscription:
+  subscription_ref: notification-subscription://...
+  principal_ref: user://... | wallet://...
+  org_ref: org://...
+  owner_event_family_refs: [string]
+  delivery_channel_refs: [delivery-channel://...]
+  filter: object
+  revision: uint64
+  agentgres_operation_ref: agentgres://operation/...
+
+HypervisorCanvasLayout:
+  layout_ref: canvas-layout://...
+  owner_object_ref: string
+  owner_revision: string
+  principal_ref: user://... | wallet://...
+  org_ref: org://...
+  viewport: object
+  presentation_nodes: [object]
+  presentation_edges: [object]
+  semantic_graph_mutation_allowed: false
+  revision: uint64
+  agentgres_operation_ref: agentgres://operation/...
 
 HypervisorGoalRunActivationContract:
   activation_contract_ref: action://goal-run/activate/...

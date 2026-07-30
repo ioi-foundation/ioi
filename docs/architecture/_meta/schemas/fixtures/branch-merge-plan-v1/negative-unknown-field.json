@@ -1,0 +1,29 @@
+{
+  "schema_version": "ioi.agentgres.branch-merge-plan.v1",
+  "object_class": "BranchMergePlan",
+  "branch_merge_ref": "branch-merge://m1",
+  "target_branch_ref": "execution-branch://run-1/main",
+  "candidate_branch_refs": [
+    "execution-branch://run-1/b1"
+  ],
+  "diff_refs": [],
+  "memory_diff_refs": [],
+  "authority_diff_refs": [],
+  "receipt_diff_refs": [],
+  "verification_refs": [
+    "branch-checkpoint://c1"
+  ],
+  "admission_policy_ref": "policy://m3/exact-head-merge",
+  "expected_head_ref": "branch-checkpoint://c1",
+  "authority_revalidation": {
+    "revocation_epoch_checked": "epoch:current",
+    "revalidated_at": "2026-07-30T00:00:00Z",
+    "stale_or_revoked_effects": []
+  },
+  "decision": "admit",
+  "decision_receipt_ref": "receipt://agentgres/merge/1",
+  "status": "admitted",
+  "resulting_main_head": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "staged_effect_count": 1,
+  "unexpected_field": true
+}

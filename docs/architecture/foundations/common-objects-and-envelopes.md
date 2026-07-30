@@ -40,7 +40,7 @@ lifecycle semantics stay with the subject owner named in each row.
 | [`memory-and-promotion.md`](./objects/memory-and-promotion.md) | AgentWikiEnvelope, Portable Agent Memory, ContextMutationEnvelope, PromotionDecisionEnvelope, +1 more | [`components/daemon-runtime/portable-memory-vault.md`](../components/daemon-runtime/portable-memory-vault.md) |
 | [`bounded-improvement.md`](./objects/bounded-improvement.md) | Bounded Improvement Campaign Envelopes | [`foundations/bounded-recursive-improvement.md`](../foundations/bounded-recursive-improvement.md) |
 | [`goal-pursuit.md`](./objects/goal-pursuit.md) | GoalRunProfileEnvelope, OrchestrationConstraintEnvelope, OrchestrationPolicyEnvelope, OrchestrationPlanEnvelope, +1 more | [`domains/ioi-ai/control-plane.md`](../domains/ioi-ai/control-plane.md) |
-| [`collaborative-pursuit.md`](./objects/collaborative-pursuit.md) | OutcomeRoomDiscoveryEnvelope and RoomParticipationRequestEnvelope, OutcomeRoomEnvelope, RoomParticipantLeaseEnvelope, ParticipantStateBundleEnvelope, +6 more | [`domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md) |
+| [`collaborative-pursuit.md`](./objects/collaborative-pursuit.md) | OutcomeRoomDiscoveryEnvelope and RoomParticipationRequestEnvelope, OutcomeRoomEnvelope, OutcomeRoomDiscussionProjectionEnvelope, RoomParticipantLeaseEnvelope, ParticipantStateBundleEnvelope, +7 more | [`domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md) |
 | [`work-results-and-lifecycle.md`](./objects/work-results-and-lifecycle.md) | WorkResultEnvelope and OutcomeDeltaEnvelope, WorkLifecycleRecordEnvelope, WorkLifecycleArchiveSegmentEnvelope and WorkLifecycleSnapshotEnvelope | [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md) |
 | [`goal-run-execution.md`](./objects/goal-run-execution.md) | GoalRunEnvelope, GoalGroundingLoopEnvelope, RoleTopologyEnvelope, InformationFlowLabel and DeclassificationApproval, +11 more | [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) |
 
@@ -210,6 +210,7 @@ OrchestrationConstraintEnvelope
 OrchestrationPlanEnvelope
 OrchestrationPolicyEnvelope
 OutcomeRoomEnvelope
+OutcomeRoomDiscussionProjectionEnvelope
 OutcomeRoomDiscoveryEnvelope
 RoomParticipationRequestEnvelope
 RoomParticipantLeaseEnvelope
@@ -299,7 +300,7 @@ provenance://...        source, derivation, observation, attribution, or lineage
 prompt://...            policy-governed prompt/template artifact identity; never raw secret transport
 surface://...           registered product, application, operator, or generated surface identity
 hypervisor-workspace://... stable Hypervisor core-workspace registration identity; distinct from code or private workspaces
-route-alias://...       typed route-alias registration with one owner and a static target or fail-closed resolver
+context-route-resolver://... typed canonical-context resolver with one owner; never accepts retired path spellings
 ui-primitive://...      reusable source-neutral Hypervisor UX primitive identity; never a product registration by itself
 surface-descriptor://... ontology-bound surface descriptor identity; never launchability or product-membership authority by itself
 surface-serving://...   serving route/runtime binding for one admitted surface installation or System interface
@@ -435,7 +436,8 @@ package_artifact://...  deployable runtime package, converted model, image, or e
 registry_version://...  registered model, worker, package, or routeable artifact version identity
 promotion_record://...  auditable route binding, traffic split, alias change, or promotion decision identity
 promotion_bundle://...  immutable Foundry promotion bundle identity
-package_binding://...   runtime binding between a capability package and a target domain or route identity
+package-binding://...   runtime binding between a capability package and a target domain or route identity
+package_binding://...   read-only legacy alias for package-binding://...; forbidden for new writes
 projection://...        ontology-aware or Agentgres projection identity
 trace://...             replayable operation/effect trace identity
 replay://...            replay bundle, replay report, or replay-plan identity

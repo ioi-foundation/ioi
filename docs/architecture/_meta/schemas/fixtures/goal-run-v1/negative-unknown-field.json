@@ -1,0 +1,27 @@
+{
+  "schema_version": "ioi.goal-run.v1",
+  "goal_run_id": "research",
+  "goal_ref": "goal://research",
+  "owner_ref": "user://operator",
+  "goal_run_profile_revision_ref": "goal-run-profile://generic-adaptive/revision/1",
+  "goal_run_profile_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "resolved_component_set_snapshot_ref": "artifact://goal-run/research/components",
+  "resolved_component_set_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "active_skill_set_snapshot_ref": "active-skill-set://goal-run/research",
+  "active_skill_set_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "goal_run_profile_resolution_receipt_ref": "receipt://goal-run/research/profile-resolution",
+  "origin_surface": "api",
+  "normalized_goal": "Research bounded topic",
+  "source_context_binding": {
+    "target_session_ref": null,
+    "project_ref": null
+  },
+  "receipt_obligations": [],
+  "admitted_state_root_ref": "agentgres://state-root/goal-run/research",
+  "authority_scope_refs": [
+    "scope:goal:execute"
+  ],
+  "continuation_state": "open",
+  "status": "active",
+  "unexpected": "must fail"
+}

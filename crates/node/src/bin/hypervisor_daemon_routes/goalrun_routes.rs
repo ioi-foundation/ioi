@@ -29,7 +29,10 @@
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
-use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
+use ioi_services::agentic::runtime::kernel::{
+    runtime_goal_pursuit::{GoalPursuitCore, GoalPursuitError, WorkLifecycleCore},
+    RuntimeKernelService,
+};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -525,6 +528,7 @@ fn stage_one(
 }
 
 const GOAL_RUN_SCHEMA_VERSION: &str = "ioi.hypervisor.goal-run.v1";
+const CANONICAL_GOAL_RUN_SCHEMA_VERSION: &str = "ioi.goal-run.v1";
 const INVOCATION_SCHEMA_VERSION: &str = "ioi.hypervisor.goal-run-invocation.v1";
 const RECONCILIATION_SCHEMA_VERSION: &str = "ioi.hypervisor.goal-run-reconciliation.v1";
 
@@ -574,6 +578,14 @@ fn kernel_err(
             "ok": false,
             "error": { "code": error.code, "message": error.message, "details": error.details },
         })),
+    )
+}
+
+fn pursuit_err(error: GoalPursuitError) -> (StatusCode, Json<Value>) {
+    bad(
+        StatusCode::UNPROCESSABLE_ENTITY,
+        error.code(),
+        error.message(),
     )
 }
 
@@ -753,6 +765,65 @@ pub(crate) async fn handle_goal_runs_create(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let goal = text(&body, "goal").trim().to_string();
+    if goal.len() < 4 {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "goal_run_goal_required",
+            "A bounded normalized goal is required.",
+        );
+    }
+    let goal_run_id = format!("gr_{:x}", nanos());
+    let goal_ref = format!("goal://{goal_run_id}");
+    let kernel = RuntimeKernelService::new();
+
+    // New canonical callers supply the complete admission-path fact set.  The daemon inserts
+    // the server-created GoalRun identity and owns the decision.  Older software-first callers
+    // continue through the explicitly marked legacy first cut until their adapter supplies this
+    // object; they gain no direct-path claim from omission.
+    let mut path_decision: Option<Value> = None;
+    if let Some(mut path_request) = body.get("admission_path_request").cloned() {
+        let Some(path_object) = path_request.as_object_mut() else {
+            return bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "goal_run_admission_path_request_invalid",
+                "admission_path_request must be a closed object.",
+            );
+        };
+        path_object.insert("goal_run_ref".into(), json!(goal_ref));
+        let decision = match kernel.select_goal_run_admission_path(&path_request, &iso_now()) {
+            Ok(decision) => decision,
+            Err(error) => return kernel_err(error),
+        };
+        match text(&decision, "decision") {
+            "refused" => {
+                return (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(
+                        json!({"ok":false,"error":{"code":"goal_run_admission_refused","message":"The daemon refused both direct and System-bound admission.","details":decision}}),
+                    ),
+                );
+            }
+            "direct_non_system" => {
+                return create_direct_goal_run(
+                    &st,
+                    &body,
+                    &goal_run_id,
+                    &goal_ref,
+                    &goal,
+                    &decision,
+                );
+            }
+            "system_bound_required" => path_decision = Some(decision),
+            _ => {
+                return bad(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "goal_run_admission_decision_invalid",
+                    "The admission kernel returned an unknown decision.",
+                )
+            }
+        }
+    }
+
     let session_ref = text(&body, "session_ref").to_string();
     let Some(target_session) = load_session_record(&st, &session_ref) else {
         return bad(
@@ -790,10 +861,6 @@ pub(crate) async fn handle_goal_runs_create(
         .filter_map(|harness| profile_by_harness(&profiles, harness))
         .map(|p| fact_from_profile(p, &route_ref, &route_state))
         .collect();
-
-    let goal_run_id = format!("gr_{:x}", nanos());
-    let goal_ref = format!("goal://{goal_run_id}");
-    let kernel = RuntimeKernelService::new();
 
     let topology = match kernel.select_goal_run_role_topology(&json!({
         "goal_ref": goal_ref,
@@ -842,7 +909,7 @@ pub(crate) async fn handle_goal_runs_create(
     };
     let role_keys = ["implementer_a", "implementer_b"];
     let mut context_cells = vec![json!({
-        "context_cell_id": format!("context_cell://cc_{goal_run_id}_conductor"),
+        "context_cell_id": format!("context-cell://cc_{goal_run_id}_conductor"),
         "goal_ref": goal_ref,
         "role": "conductor",
         "harness_ref": text(&topology, "conductor_ref"),
@@ -854,7 +921,7 @@ pub(crate) async fn handle_goal_runs_create(
     let mut handoffs: Vec<Value> = Vec::new();
     for (index, profile_ref) in implementer_refs.iter().enumerate() {
         let role_key = role_keys.get(index).copied().unwrap_or("implementer_x");
-        let cell_ref = format!("context_cell://cc_{goal_run_id}_{role_key}");
+        let cell_ref = format!("context-cell://cc_{goal_run_id}_{role_key}");
         let lease_ref = format!("context_lease://cl_{goal_run_id}_{role_key}");
         let brief_ref = format!("task_brief://tb_{goal_run_id}_{role_key}");
         context_cells.push(json!({
@@ -904,7 +971,7 @@ pub(crate) async fn handle_goal_runs_create(
         handoffs.push(json!({
             "handoff_id": format!("handoff://ho_{goal_run_id}_{role_key}"),
             "goal_ref": goal_ref,
-            "from_context_cell_ref": format!("context_cell://cc_{goal_run_id}_conductor"),
+            "from_context_cell_ref": format!("context-cell://cc_{goal_run_id}_conductor"),
             "to_context_cell_ref": cell_ref,
             "handoff_kind": "task_brief",
             "payload_ref": brief_ref,
@@ -913,7 +980,7 @@ pub(crate) async fn handle_goal_runs_create(
         }));
     }
     context_cells.push(json!({
-        "context_cell_id": format!("context_cell://cc_{goal_run_id}_verifier"),
+        "context_cell_id": format!("context-cell://cc_{goal_run_id}_verifier"),
         "goal_ref": goal_ref,
         "role": "verifier",
         "harness_ref": text(&topology, "verifier_ref"),
@@ -936,9 +1003,9 @@ pub(crate) async fn handle_goal_runs_create(
         "role_topology": topology,
         "role_topology_ref": format!("role_topology://rt_{goal_run_id}"),
         "grounding_loop": {
-            "goal_loop_id": format!("goal_loop://gl_{goal_run_id}"),
+            "goal_loop_id": format!("goal-loop://gl_{goal_run_id}"),
             "goal_ref": goal_ref,
-            "conductor_context_cell_ref": format!("context_cell://cc_{goal_run_id}_conductor"),
+            "conductor_context_cell_ref": format!("context-cell://cc_{goal_run_id}_conductor"),
             "loop_iteration": 0,
             "phase": "receive_intent",
             "escalation_state": "none",
@@ -961,6 +1028,8 @@ pub(crate) async fn handle_goal_runs_create(
             "status": "active",
         },
         "admission": { "admission_id": text(&admission, "admission_id"), "receipt_refs": admission.get("receipt_refs").cloned().unwrap_or(json!([])) },
+        "admission_path_decision": path_decision,
+        "admission_path_status": if path_decision.is_some() { "system_bound" } else { "legacy_system_bound_first_cut" },
         // Optional launch-policy provenance (IOI Agent lane) — advanced/proof metadata only.
         "policy_ref": body.get("policy_ref").cloned().unwrap_or(Value::Null),
         "invocation_refs": [],
@@ -987,6 +1056,248 @@ pub(crate) async fn handle_goal_runs_create(
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "goal_run": record })),
+    )
+}
+
+fn create_direct_goal_run(
+    st: &DaemonState,
+    body: &Value,
+    goal_run_id: &str,
+    goal_ref: &str,
+    normalized_goal: &str,
+    decision: &Value,
+) -> (StatusCode, Json<Value>) {
+    let Some(mut resolution_request) = body.get("definition_resolution").cloned() else {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "goal_run_definition_resolution_required",
+            "Direct admission requires an exact definition-resolution request.",
+        );
+    };
+    let Some(resolution_object) = resolution_request.as_object_mut() else {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "goal_run_definition_resolution_invalid",
+            "definition_resolution must be an object.",
+        );
+    };
+    resolution_object.insert("goal_run_ref".into(), json!(goal_ref));
+    resolution_object.insert(
+        "goal_run_profile_revision_ref".into(),
+        decision
+            .get("goal_run_profile_revision_ref")
+            .cloned()
+            .unwrap_or(Value::Null),
+    );
+    resolution_object.insert(
+        "goal_run_profile_content_hash".into(),
+        decision
+            .get("goal_run_profile_content_hash")
+            .cloned()
+            .unwrap_or(Value::Null),
+    );
+    let resolution = match GoalPursuitCore.resolve_definitions(&resolution_request, &iso_now()) {
+        Ok(resolution) => resolution,
+        Err(error) => return pursuit_err(error),
+    };
+    if persist_record(
+        &st.data_dir,
+        "goal-run-component-snapshots",
+        goal_run_id,
+        resolution
+            .get("resolved_component_set")
+            .unwrap_or(&Value::Null),
+    )
+    .is_err()
+    {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_component_snapshot_persist_failed",
+            "The exact resolved component snapshot did not persist.",
+        );
+    }
+    if persist_record(
+        &st.data_dir,
+        "goal-run-profile-resolution-receipts",
+        goal_run_id,
+        resolution.get("resolution_receipt").unwrap_or(&Value::Null),
+    )
+    .is_err()
+    {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_resolution_receipt_persist_failed",
+            "The profile-resolution receipt did not persist.",
+        );
+    }
+    let selected_skills: Vec<Value> = resolution_request
+        .get("resolved_skill_bindings")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .map(|binding| {
+            json!({
+                "skill_entry_ref":binding.get("skill_entry_ref"),
+                "skill_entry_binding_revision_ref":binding.get("skill_entry_binding_revision_ref"),
+                "skill_entry_binding_hash":binding.get("skill_entry_binding_hash"),
+                "skill_revision_ref":binding.get("skill_manifest_revision_ref"),
+                "manifest_content_hash":binding.get("skill_manifest_content_hash"),
+                "inclusion_basis_refs":[]
+            })
+        })
+        .collect();
+    let active_skill_snapshot = json!({
+        "schema_version":"ioi.active-skill-set-snapshot.v1",
+        "active_skill_set_snapshot_id":resolution.get("active_skill_set_snapshot_ref"),
+        "work_subject_ref":goal_ref,
+        "selected_skills":selected_skills,
+        "excluded_candidates":[],
+        "compatibility_and_evaluation_result_refs":[],
+        "active_set_hash":resolution.get("active_skill_set_hash"),
+        "resolved_runtime_tool_contracts":resolution.pointer("/resolution_receipt/resolved_runtime_tool_contracts").cloned().unwrap_or_else(|| json!([])),
+        "context_lease_refs":[],
+        "resolution_receipt_ref":resolution.get("resolution_receipt_ref"),
+        "registry_lifecycle_ref":Value::Null,
+        "registry_status":"active"
+    });
+    if persist_record(
+        &st.data_dir,
+        "active-skill-set-snapshots",
+        goal_run_id,
+        &active_skill_snapshot,
+    )
+    .is_err()
+    {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_active_skill_snapshot_persist_failed",
+            "The exact active skill-set snapshot did not persist.",
+        );
+    }
+    let now = iso_now();
+    let mut lifecycle = WorkLifecycleCore::default();
+    let lifecycle_genesis = match lifecycle.append(&json!({
+            "object_kind":"goal_run",
+            "object_ref":goal_ref,
+            "from_phase":null,
+            "to_phase":"draft",
+            "expected_head":null,
+            "idempotency_key":format!("{goal_run_id}:create"),
+            "authority_class":"daemon",
+            "authority_ref":"authority://hypervisor-daemon",
+            "evidence_refs":[decision.get("decision_ref").cloned().unwrap_or(Value::Null)],
+            "receipt_refs":[decision.get("decision_receipt_ref").cloned().unwrap_or(Value::Null)]
+    }), nanos() as u64) {
+        Ok(record) => record,
+        Err(error) => return pursuit_err(error),
+    };
+    let lifecycle_id = format!("{goal_run_id}_lifecycle_1");
+    if persist_record(
+        &st.data_dir,
+        "work-lifecycle-records",
+        &lifecycle_id,
+        &lifecycle_genesis,
+    )
+    .is_err()
+    {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_lifecycle_persist_failed",
+            "The direct GoalRun lifecycle genesis did not persist.",
+        );
+    }
+    let lifecycle_active = match lifecycle.append(&json!({
+        "object_kind":"goal_run",
+        "object_ref":goal_ref,
+        "from_phase":"draft",
+        "to_phase":"active",
+        "expected_head":lifecycle.head(goal_ref),
+        "idempotency_key":format!("{goal_run_id}:activate"),
+        "authority_class":"goal_kernel",
+        "authority_ref":"authority://hypervisor-daemon/goal-kernel",
+        "evidence_refs":[
+            decision.get("decision_ref").cloned().unwrap_or(Value::Null),
+            resolution.get("resolved_component_set_snapshot_ref").cloned().unwrap_or(Value::Null)
+        ],
+        "receipt_refs":[
+            decision.get("decision_receipt_ref").cloned().unwrap_or(Value::Null),
+            resolution.get("resolution_receipt_ref").cloned().unwrap_or(Value::Null)
+        ]
+    }), nanos() as u64) {
+        Ok(record) => record,
+        Err(error) => return pursuit_err(error),
+    };
+    let lifecycle_active_id = format!("{goal_run_id}_lifecycle_2");
+    if persist_record(
+        &st.data_dir,
+        "work-lifecycle-records",
+        &lifecycle_active_id,
+        &lifecycle_active,
+    )
+    .is_err()
+    {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_lifecycle_persist_failed",
+            "The direct GoalRun activation record did not persist.",
+        );
+    }
+    let record = json!({
+        "schema_version": CANONICAL_GOAL_RUN_SCHEMA_VERSION,
+        "goal_run_id": goal_run_id,
+        "goal_ref": goal_ref,
+        "owner_ref": body.get("owner_ref").cloned().unwrap_or_else(|| json!("user://current")),
+        "origin_surface": body.get("origin_surface").cloned().unwrap_or_else(|| json!("api")),
+        "normalized_goal": normalized_goal,
+        "goal_run_profile_revision_ref": decision.get("goal_run_profile_revision_ref"),
+        "goal_run_profile_content_hash": decision.get("goal_run_profile_content_hash"),
+        "resolved_component_set_snapshot_ref": resolution.get("resolved_component_set_snapshot_ref"),
+        "resolved_component_set_hash": resolution.get("resolved_component_set_hash"),
+        "active_skill_set_snapshot_ref": resolution.get("active_skill_set_snapshot_ref"),
+        "active_skill_set_hash": resolution.get("active_skill_set_hash"),
+        "goal_run_profile_resolution_receipt_ref": resolution.get("resolution_receipt_ref"),
+        "admission_path_decision": decision,
+        "admission_path_status": "direct_non_system",
+        "result_profile": decision.get("result_profile"),
+        "activation_ref": Value::Null,
+        "source_context_binding": {"target_session_ref":Value::Null,"project_ref":Value::Null},
+        "outcome_room_ref": Value::Null,
+        "room_participant_lease_ref": Value::Null,
+        "frontier_item_refs": [],
+        "work_claim_refs": [],
+        "constraint_refs": body.get("constraint_refs").cloned().unwrap_or_else(|| json!([])),
+        "context_cell_refs": [],
+        "context_lease_refs": [],
+        "runtime_assignment_refs": [],
+        "attempt_refs": [],
+        "work_result_refs": [],
+        "finding_refs": [],
+        "receipt_refs": [decision.get("decision_receipt_ref").cloned().unwrap_or(Value::Null), resolution.get("resolution_receipt_ref").cloned().unwrap_or(Value::Null)],
+        "receipt_obligations": [
+            {"boundary_event":"admission","receipt_type":"GoalRunAdmissionPathDecision","receipt_profile_ref":"schema://ioi/foundations/goal-run-admission-path-decision/v1"},
+            {"boundary_event":"close_or_escalate","receipt_type":"WorkResultReceipt","receipt_profile_ref":"schema://ioi/foundations/work-result/v1"}
+        ],
+        "admitted_state_root_ref": format!("agentgres://state-root/goal-run/{goal_run_id}"),
+        "authority_scope_refs": body.get("authority_scope_refs").cloned().unwrap_or_else(|| json!([])),
+        "active_loop_phase": "receive_intent",
+        "continuation_state": "open",
+        "status": "active",
+        "lifecycle_head": lifecycle_active.get("resulting_head"),
+        "lifecycle_record_refs": [lifecycle_genesis.get("record_id"), lifecycle_active.get("record_id")],
+        "created_at": now,
+        "updated_at": now,
+        "runtimeTruthSource":"daemon-runtime"
+    });
+    if persist_record(&st.data_dir, GOAL_RUN_KIND, goal_run_id, &record).is_err() {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_persist_failed",
+            "The direct GoalRun record did not persist.",
+        );
+    }
+    (
+        StatusCode::CREATED,
+        Json(json!({"ok":true,"goal_run":record,"definition_resolution":resolution})),
     )
 }
 
@@ -1017,6 +1328,81 @@ pub(crate) async fn handle_goal_run_get(
             "Unknown GoalRun.",
         ),
     }
+}
+
+/// Admit and retain one generic WorkResult for a direct or System-bound GoalRun.
+pub(crate) async fn handle_goal_run_result_create(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(mut body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(goal_run) = load(&st, GOAL_RUN_KIND, &id) else {
+        return bad(
+            StatusCode::NOT_FOUND,
+            "goal_run_not_found",
+            "Unknown GoalRun.",
+        );
+    };
+    let Some(object) = body.as_object_mut() else {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "work_result_invalid",
+            "WorkResult request must be an object.",
+        );
+    };
+    object.insert(
+        "goal_run_ref".into(),
+        goal_run.get("goal_ref").cloned().unwrap_or(Value::Null),
+    );
+    object.entry("producer_component_resolution").or_insert_with(|| json!({
+        "resolved_component_set_snapshot_ref": goal_run.get("resolved_component_set_snapshot_ref").cloned().unwrap_or(Value::Null),
+        "resolved_component_set_hash": goal_run.get("resolved_component_set_hash").cloned().unwrap_or(Value::Null),
+        "component_resolution_receipt_ref": goal_run.get("goal_run_profile_resolution_receipt_ref").cloned().unwrap_or(Value::Null),
+        "resolver_kind": "harness_profile",
+        "resolver_revision_ref": goal_run.pointer("/admission_path_decision/goal_run_profile_revision_ref").cloned().unwrap_or(Value::Null),
+        "resolver_content_hash": goal_run.pointer("/admission_path_decision/goal_run_profile_content_hash").cloned().unwrap_or(Value::Null)
+    }));
+    let admitted = match GoalPursuitCore.admit_work_result(&body, &iso_now()) {
+        Ok(admitted) => admitted,
+        Err(error) => return pursuit_err(error),
+    };
+    let result = admitted.get("work_result").cloned().unwrap_or(Value::Null);
+    let result_ref = text(&result, "work_result_id").to_string();
+    let key = safe(&result_ref);
+    if persist_record(&st.data_dir, "work-results", &key, &result).is_err() {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "work_result_persist_failed",
+            "The admitted WorkResult did not persist.",
+        );
+    }
+    let updated = update_goal_run_guarded(
+        &st.data_dir,
+        &id,
+        |_| Ok(()),
+        |obj| {
+            let mut refs = obj
+                .get("work_result_refs")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            if !refs
+                .iter()
+                .any(|value| value.as_str() == Some(result_ref.as_str()))
+            {
+                refs.push(json!(result_ref));
+            }
+            obj.insert("work_result_refs".into(), Value::Array(refs));
+            obj.insert("updated_at".into(), json!(iso_now()));
+        },
+    );
+    if let Err((code, message)) = updated {
+        return bad(seam_status(&code), &code, &message);
+    }
+    (
+        StatusCode::CREATED,
+        Json(json!({"ok":true,"admission":admitted,"goal_run":updated.unwrap().into_record()})),
+    )
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,12 @@
+{
+  "schema_version": "ioi.workflow-template.v1",
+  "workflow_template_id": "workflow-template://research",
+  "revision_ref": "workflow-template://research/revision/1",
+  "content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "owner_ref": "project://research",
+  "display_name": "Research",
+  "graph_ref": "workflow://research/1",
+  "graph_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "registry_status": "released",
+  "unexpected": "must fail"
+}

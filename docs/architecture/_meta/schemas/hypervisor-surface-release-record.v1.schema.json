@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/surface-release-record/v1",
+  "title": "HypervisorSurfaceReleaseRecord",
+  "x-ioi-schema-version": "ioi.hypervisor.surface_release_record.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "release_ref",
+    "surface_ref",
+    "package_ref",
+    "surface_distribution",
+    "surface_admission_state",
+    "surface_package_disposition",
+    "surface_capability_depth",
+    "object_contract_refs",
+    "action_contract_refs",
+    "evidence_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.surface_release_record.v1"
+    },
+    "release_ref": {
+      "type": "string",
+      "pattern": "^package://\\S+/release/\\S+$"
+    },
+    "surface_ref": {
+      "type": "string",
+      "pattern": "^surface://\\S*$"
+    },
+    "package_ref": {
+      "type": "string",
+      "pattern": "^package://\\S*$"
+    },
+    "surface_distribution": {
+      "enum": [
+        "bundled",
+        "direct_package",
+        "organization_catalog",
+        "private_registry",
+        "marketplace"
+      ]
+    },
+    "surface_admission_state": {
+      "enum": [
+        "not_applicable",
+        "candidate",
+        "under_review",
+        "admitted",
+        "rejected",
+        "revoked"
+      ]
+    },
+    "surface_package_disposition": {
+      "enum": [
+        "not_applicable",
+        "active",
+        "deprecated",
+        "superseded",
+        "recalled"
+      ]
+    },
+    "surface_capability_depth": {
+      "enum": [
+        "browse",
+        "inspect",
+        "propose",
+        "act",
+        "workflow_complete"
+      ]
+    },
+    "object_contract_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "action_contract_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  }
+}

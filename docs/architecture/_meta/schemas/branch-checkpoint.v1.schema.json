@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/agentgres/branch-checkpoint/v1",
+  "title": "BranchCheckpoint",
+  "x-ioi-schema-version": "ioi.agentgres.branch-checkpoint.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "object_class",
+    "branch_checkpoint_ref",
+    "execution_branch_ref",
+    "trace_ref",
+    "workspace_snapshot_ref",
+    "object_heads",
+    "memory_projection_heads",
+    "lease_heads",
+    "artifact_refs",
+    "receipt_root",
+    "created_for",
+    "status",
+    "staged_effect_count"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.agentgres.branch-checkpoint.v1"
+    },
+    "object_class": {
+      "const": "BranchCheckpoint"
+    },
+    "branch_checkpoint_ref": {
+      "type": "string",
+      "pattern": "^branch-checkpoint://[^\\s]+$"
+    },
+    "execution_branch_ref": {
+      "type": "string",
+      "pattern": "^execution-branch://[^\\s]+$"
+    },
+    "trace_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "workspace_snapshot_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "object_heads": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "memory_projection_heads": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "lease_heads": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "artifact_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "receipt_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "created_for": {
+      "enum": [
+        "manual",
+        "before_risky_effect",
+        "retry",
+        "verifier",
+        "scheduled",
+        "restore"
+      ]
+    },
+    "status": {
+      "enum": [
+        "active",
+        "restored",
+        "superseded",
+        "revoked"
+      ]
+    },
+    "staged_effect_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    }
+  }
+}

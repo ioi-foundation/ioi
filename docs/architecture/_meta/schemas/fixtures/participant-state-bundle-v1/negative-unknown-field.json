@@ -1,0 +1,30 @@
+{
+  "schema_version": "ioi.foundations.participant-state-bundle.v1",
+  "participant_state_bundle_id": "participant-state://demo/1",
+  "outcome_room_ref": "outcome-room://demo",
+  "room_admission": {
+    "schema_version": "ioi.foundations.room-admitted-object-base.v1",
+    "room_system_id": "system://room/demo",
+    "outcome_room_ref": "outcome-room://demo",
+    "admission_status": "admitted"
+  },
+  "participant_lease_ref": "participant-lease://demo/worker",
+  "participant_and_home_domain_refs": [
+    "worker://demo"
+  ],
+  "coordination_topology": "hosted_admission",
+  "bundle_reason": "checkpoint",
+  "source_admission_watermark_ref": "receipt://room/demo/1",
+  "released_or_reassigned_claim_refs": [],
+  "preserved_contribution_attempt_finding_and_result_refs": [],
+  "excluded_context_classes": [
+    "raw_secret"
+  ],
+  "bundle_artifact_ref": "artifact://participant-state/demo/1",
+  "bundle_root": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+  "room_database_access_required": false,
+  "issued_at": "2026-07-30T12:02:00Z",
+  "signature": "sig-demo",
+  "status": "prepared",
+  "unexpected_field": "must be refused"
+}

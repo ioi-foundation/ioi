@@ -66,6 +66,7 @@ evidence of coverage.
 | [`hypervisor-core/sovereign-local-completeness.md`](./hypervisor-core/sovereign-local-completeness.md) | Hypervisor Core and deployment owners | Target claim-scoped standalone, self-hosted, managed attach/detach, portability, and honest-capability contract; no current end-to-end evaluator. |
 | [`hypervisor-core/sovereign-local-completeness-matrix.v1.json`](./hypervisor-core/sovereign-local-completeness-matrix.v1.json) | Hypervisor Core and deployment owners | Canonical machine-readable target scenarios; fixture evidence only, with no current local-completeness runner or isolation evaluator. |
 | [`hypervisor-core/goal-run-admission-and-activation.md`](./hypervisor-core/goal-run-admission-and-activation.md) | Daemon runtime and goal-pursuit owners | Target unified GoalRun admission contract (profile resolution, resolved admission evidence per INV-37, retained state root, typed receipt obligations) and the `GoalRunActivation` product-crossing contract; no current evaluator. |
+| [`hypervisor-core/outcome-room-admission.md`](./hypervisor-core/outcome-room-admission.md) | OutcomeRoom, Agentgres, daemon, and product-projection owners | Target runnable hosted room/System, reciprocal membership, child admission, graph/discussion projection, denial, replay, and non-overclaim contract. |
 
 ## Claim Coverage Index
 
@@ -87,6 +88,7 @@ paths are commitments to write that contract, not evidence it exists.
 | Attestation assurance | [`hypervisor-core/attestation-assurance.md`](./hypervisor-core/attestation-assurance.md) | `target_defined` |
 | Physical action safety | [`hypervisor-core/physical-action-safety.md`](./hypervisor-core/physical-action-safety.md) | `target_runnable` (declaration-level planner + registered receipt schema) |
 | GoalRun admission + `GoalRunActivation` product crossing | [`hypervisor-core/goal-run-admission-and-activation.md`](./hypervisor-core/goal-run-admission-and-activation.md) | `target_defined` |
+| OutcomeRoom hosted admission, reciprocal membership, and graph/discussion projections | [`hypervisor-core/outcome-room-admission.md`](./hypervisor-core/outcome-room-admission.md) | `target_runnable` (registered schemas/fixtures plus hosted owner-plane and isolated verifier substrate; no M4 aggregate evidence) |
 | Authority Gateway attach lane (`ActionRequestEnvelope`, gateway receipts, `AuthorityGatewayProfile`, graduation) | `hypervisor-core/authority-gateway-attach-lane.md` | `named_target` |
 | Two-sovereign-DAS AIIP proof (Horizon 3) | `hypervisor-core/aiip-two-sovereign-das.md` | `named_target` |
 | OutcomeRoom `federated_admission` | `hypervisor-core/outcome-room-federated-admission.md` | `named_target` |

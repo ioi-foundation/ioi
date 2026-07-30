@@ -17,6 +17,7 @@ use ioi_services::agentic::runtime::kernel::emergency_containment::{
     truthful_isolation_label, unsafe_path_gate, DeclaredIsolation, DeletionOutcome, ExecutionLocus,
     IsolatedSubstrate, UNVERIFIED_WORKSPACE_RESTORE_GATE,
 };
+use ioi_services::agentic::runtime::kernel::runtime_goal_pursuit::GoalPursuitCore;
 use ioi_types::app::agentic::InferenceOptions;
 use serde_json::{json, Value};
 
@@ -2712,6 +2713,56 @@ pub(crate) async fn handle_environment_action(
     Ok(Json(json!({ "environment": env, "recovery": recovery })))
 }
 
+fn admit_workrun_isolation_contract(
+    body: &Value,
+    env_id: &str,
+    wr_id: &str,
+    admitted_at: &str,
+) -> Result<Value, AppError> {
+    let workrun_ref = format!("workrun://{wr_id}");
+    let requirements = body.get("workload_isolation_requirements").ok_or_else(|| {
+        AppError(
+            StatusCode::BAD_REQUEST,
+            "workload_isolation_requirements_required: compiled requirements are required".into(),
+        )
+    })?;
+    if requirements
+        .get("minimum_isolation")
+        .and_then(Value::as_str)
+        != Some("process_scoped")
+    {
+        return Err(AppError(
+            StatusCode::CONFLICT,
+            "workload_isolation_floor_unavailable: the local WorkRun route admits process_scoped requirements only"
+                .into(),
+        ));
+    }
+    let binding_inputs = body.get("workload_isolation_binding_inputs").ok_or_else(|| {
+        AppError(
+            StatusCode::BAD_REQUEST,
+            "workload_isolation_binding_inputs_required: current runtime assignment and enforcement facts are required"
+                .into(),
+        )
+    })?;
+    let admission = GoalPursuitCore
+        .admit_workrun_isolation(requirements, binding_inputs, &workrun_ref, admitted_at)
+        .map_err(|error| {
+            AppError(
+                StatusCode::BAD_REQUEST,
+                format!("{}: {}", error.code(), error.message()),
+            )
+        })?;
+    let expected_environment_ref = format!("environment://{env_id}");
+    if admission["binding"]["environment_ref"].as_str() != Some(expected_environment_ref.as_str()) {
+        return Err(AppError(
+            StatusCode::CONFLICT,
+            "workload_isolation_environment_mismatch: binding inputs name a different environment"
+                .into(),
+        ));
+    }
+    Ok(admission)
+}
+
 /// POST /v1/hypervisor/workruns — bind a code WorkRun to its own Git worktree and patch branch.
 /// Concurrent WorkRuns never checkout or mutate one another's working directory.
 /// `{ "environment_id": "...", "objective"?: "..." }`.
@@ -2748,6 +2799,15 @@ pub(crate) async fn handle_workrun_create(
         .map(|d| d.as_nanos())
         .unwrap_or(0);
     let wr_id = format!("workrun_{nanos:x}");
+    // Admit the complete immutable isolation binding before creating a Git
+    // worktree or performing any other host effect. The local route can honor
+    // only its honest process-scoped floor; a stronger request fails closed
+    // and is never recorded as containment it did not provide.
+    let workrun_ref = format!("workrun://{wr_id}");
+    let isolation_admission = admit_workrun_isolation_contract(&body, env_id, &wr_id, &iso_now())?;
+    let runtime_assignment_ref = isolation_admission["binding"]["runtime_assignment_ref"].clone();
+    let isolation_binding_ref = isolation_admission["binding"]["binding_ref"].clone();
+    let isolation_binding_hash = isolation_admission["binding"]["binding_hash"].clone();
     let branch = format!("workrun/{wr_id}");
     let workrun_root = std::path::Path::new(&st.data_dir)
         .join("workrun-workspaces")
@@ -2783,6 +2843,7 @@ pub(crate) async fn handle_workrun_create(
     let record = json!({
         "schema_version": "ioi.hypervisor.workrun.v1",
         "id": wr_id,
+        "workrun_ref": workrun_ref,
         "environment_id": env_id,
         "base_commit": base,
         "branch": branch,
@@ -2794,6 +2855,11 @@ pub(crate) async fn handle_workrun_create(
         "host_mutation_scope": "workrun_scoped_workspace",
         "host_repo_mutation": false,
         "review_state": "draft",
+        "workload_isolation_admission": isolation_admission,
+        "runtime_assignment_ref": runtime_assignment_ref,
+        "isolation_binding_ref": isolation_binding_ref,
+        "isolation_binding_hash": isolation_binding_hash,
+        "isolation_state": "admitted",
         "created_at": now,
         "updated_at": now
     });
@@ -3512,6 +3578,32 @@ pub(crate) async fn handle_workrun_execute(
         .to_string();
     let branch = wr["branch"].as_str().unwrap_or("HEAD").to_string();
 
+    let workrun_ref = wr["workrun_ref"].as_str().ok_or_else(|| {
+        AppError(
+            StatusCode::CONFLICT,
+            "workload_isolation_workrun_ref_missing: legacy unbound WorkRun cannot execute".into(),
+        )
+    })?;
+    let isolation_admission = wr.get("workload_isolation_admission").ok_or_else(|| {
+        AppError(
+            StatusCode::CONFLICT,
+            "workload_isolation_binding_missing: legacy unbound WorkRun cannot execute".into(),
+        )
+    })?;
+    GoalPursuitCore
+        .preserve_workrun_isolation(
+            isolation_admission,
+            &isolation_admission["binding"],
+            workrun_ref,
+            "execute",
+        )
+        .map_err(|error| {
+            AppError(
+                StatusCode::CONFLICT,
+                format!("{}: {}", error.code(), error.message()),
+            )
+        })?;
+
     // CONTAINMENT: this turn executes host-side — host `git` processes and a host
     // `std::fs::write` against the scoped workspace. That cannot honour a declared vm_kernel
     // isolation floor, so an environment that declared one refuses here rather than executing
@@ -3770,6 +3862,76 @@ mod containment_tests {
             ExecutionLocus::Host,
         )
         .is_ok());
+    }
+
+    fn workrun_isolation_body(minimum_isolation: &str) -> Value {
+        let mut requirements: Value = serde_json::from_str(include_str!(
+            "../../../../../docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json"
+        ))
+        .unwrap();
+        requirements["minimum_isolation"] = json!(minimum_isolation);
+        let mut inputs: Value = serde_json::from_str(include_str!(
+            "../../../../../docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json"
+        ))
+        .unwrap();
+        let object = inputs.as_object_mut().unwrap();
+        for daemon_owned in [
+            "schema_version",
+            "binding_ref",
+            "binding_hash",
+            "requirements_ref",
+            "requirements_hash",
+            "workrun_ref",
+        ] {
+            object.remove(daemon_owned);
+        }
+        json!({
+            "workload_isolation_requirements": requirements,
+            "workload_isolation_binding_inputs": inputs
+        })
+    }
+
+    #[test]
+    fn workrun_isolation_is_admitted_before_the_local_effect_lane() {
+        let admission = match admit_workrun_isolation_contract(
+            &workrun_isolation_body("process_scoped"),
+            "env-1",
+            "run-1",
+            "2026-07-30T12:00:00Z",
+        ) {
+            Ok(admission) => admission,
+            Err(_) => panic!("valid process-scoped isolation contract must be admitted"),
+        };
+        assert_eq!(admission["workrun_ref"], "workrun://run-1");
+        assert_eq!(
+            admission["binding"]["environment_ref"],
+            "environment://env-1"
+        );
+        assert_eq!(
+            admission["binding"]["required_terminal_disposition"],
+            "destroyed_verified"
+        );
+    }
+
+    #[test]
+    fn workrun_isolation_refuses_missing_or_stronger_contracts_before_effects() {
+        assert_eq!(
+            admit_workrun_isolation_contract(&json!({}), "env-1", "run-1", "2026-07-30T12:00:00Z",)
+                .unwrap_err()
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            admit_workrun_isolation_contract(
+                &workrun_isolation_body("vm_kernel"),
+                "env-1",
+                "run-1",
+                "2026-07-30T12:00:00Z",
+            )
+            .unwrap_err()
+            .0,
+            StatusCode::CONFLICT
+        );
     }
 
     // ---- withdrawn labels ----

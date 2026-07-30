@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/goal-grounding-loop/v1",
+  "title": "GoalGroundingLoop",
+  "x-ioi-schema-version": "ioi.goal-grounding-loop.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "goal_loop_id",
+    "goal_ref",
+    "conductor_context_cell_ref",
+    "loop_iteration",
+    "phase",
+    "escalation_state",
+    "exit_condition",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.goal-grounding-loop.v1"
+    },
+    "goal_loop_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "goal_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "conductor_context_cell_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "loop_iteration": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "phase": {
+      "enum": [
+        "receive_intent",
+        "classify_goal",
+        "gather_grounding",
+        "inspect_state",
+        "derive_constraints",
+        "observe_frontier",
+        "form_hypotheses",
+        "select_or_adapt_topology",
+        "claim_allocate_or_delegate",
+        "lease_context",
+        "open_context_cells",
+        "execute_attempt",
+        "monitor_progress",
+        "publish_result",
+        "verify_compare_or_challenge",
+        "repair_or_escalate",
+        "reconcile",
+        "update_frontier_and_memory",
+        "continue_or_close"
+      ]
+    },
+    "outcome_room_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "frontier_and_claim_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "grounding_source_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "state_inspection_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "decision_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "context_cell_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "handoff_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "attempt_result_and_finding_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "verifier_path_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "productivity_budget_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "topology_participant_and_verifier_change_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "marginal_value_stop_policy_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "escalation_state": {
+      "enum": [
+        "none",
+        "ask_user",
+        "open_implementer_cell",
+        "open_reviewer_cell",
+        "require_independent_verifier",
+        "require_governance_control",
+        "stop_blocked"
+      ]
+    },
+    "exit_condition": {
+      "enum": [
+        "continue",
+        "delegated",
+        "waiting_on_frontier",
+        "verified_complete",
+        "accepted",
+        "risk_stop",
+        "budget_stop",
+        "deadline_stop",
+        "marginal_value_stop",
+        "blocked",
+        "superseded",
+        "user_input_required",
+        "governance_required"
+      ]
+    },
+    "status": {
+      "enum": [
+        "active",
+        "waiting",
+        "satisfied",
+        "blocked",
+        "superseded",
+        "revoked"
+      ]
+    }
+  }
+}

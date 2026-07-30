@@ -11,6 +11,8 @@
     "preview": "vite preview",
     "serve:product-ui": "node scripts/serve-product-ui.mjs",
     "serve:reference": "node scripts/serve-product-ui.mjs",
+    "check:ported-seed": "node scripts/verify-hypervisor-ported-seed-invariant.mjs",
+    "check:ported-seed:live": "node scripts/verify-hypervisor-ported-seed-invariant.mjs --live",
     "check:source-neutral": "node scripts/check-source-neutral.mjs"
   },
   "dependencies": {

@@ -42,7 +42,7 @@ async function governed(call, resolver, principal, path, body) {
   const challenge = await call("POST", path, body);
   const approval = challenge.body.error?.approval;
   if (!approval?.policy_hash || !approval?.request_hash) return { challenge, response: challenge, grant: null };
-  const grant = resolver.mint(principal, approval.policy_hash, approval.request_hash);
+  const grant = await resolver.mintRecorded(principal, approval.policy_hash, approval.request_hash, challenge.body.error?.required_scope);
   const response = await call("POST", path, { ...body, wallet_approval_grant: grant });
   return { challenge, response, grant };
 }
@@ -159,7 +159,7 @@ async function run() {
     const createInput = attemptBody(roomRef, frontier.frontier_item_id, claim.work_claim_id, lease.participant_lease_id, "goal://gr_attempt_finding");
     const challenge = await call("POST", "/v1/goal-orchestration/attempts", createInput);
     if (!challenge.body.error?.approval) throw new Error(`Attempt challenge failed before authority: ${JSON.stringify(challenge)}`);
-    const grant = resolver.mint(lease.participant_ref, challenge.body.error.approval.policy_hash, challenge.body.error.approval.request_hash);
+    const grant = await resolver.mintRecorded(lease.participant_ref, challenge.body.error.approval.policy_hash, challenge.body.error.approval.request_hash, challenge.body.error.required_scope);
     const swapped = await call("POST", "/v1/goal-orchestration/attempts", {
       ...createInput, resource_and_cost_refs: ["spend://escalated"], wallet_approval_grant: grant,
     });
@@ -264,7 +264,7 @@ async function run() {
     rmSync(join(dataDir, "findings", `${crossRoomFindingTail}.json`), { force: true });
     if (JSON.stringify(names(dataDir, "findings")) !== JSON.stringify(findingsBeforeBadLineage)) throw new Error("cross-room Finding fixture cleanup failed");
     const findingChallenge = await call("POST", "/v1/goal-orchestration/findings", findingInput);
-    const findingGrant = resolver.mint(lease.participant_ref, findingChallenge.body.error.approval.policy_hash, findingChallenge.body.error.approval.request_hash);
+    const findingGrant = await resolver.mintRecorded(lease.participant_ref, findingChallenge.body.error.approval.policy_hash, findingChallenge.body.error.approval.request_hash, findingChallenge.body.error.required_scope);
     const findingSwap = await call("POST", "/v1/goal-orchestration/findings", {
       ...findingInput, confidence_or_uncertainty: 0.01,
       proof_refs: ["receipt://scope-escalated-proof"], wallet_approval_grant: findingGrant,
@@ -290,7 +290,7 @@ async function run() {
     const revokedFindingChallenge = await call("POST", "/v1/goal-orchestration/findings", revokedFindingInput);
     const revokedFindingApproval = revokedFindingChallenge.body.error?.approval;
     if (!revokedFindingApproval?.policy_hash || !revokedFindingApproval?.request_hash) throw new Error(`fresh Finding did not challenge while participant was active: ${JSON.stringify(revokedFindingChallenge)}`);
-    const revokedFindingGrant = resolver.mint(lease.participant_ref, revokedFindingApproval.policy_hash, revokedFindingApproval.request_hash);
+    const revokedFindingGrant = await resolver.mintRecorded(lease.participant_ref, revokedFindingApproval.policy_hash, revokedFindingApproval.request_hash, revokedFindingChallenge.body.error.required_scope);
 
     const attemptBytes = readFileSync(join(dataDir, "attempts", `${attemptTail}.json`), "utf8");
     const findingBytes = readFileSync(join(dataDir, "findings", `${findingTail}.json`), "utf8");

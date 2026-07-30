@@ -1,0 +1,31 @@
+{
+  "schema_version": "ioi.foundations.goal-run-admission-path-decision.v1",
+  "decision_ref": "decision://goal-run/gr_collective/admission-path",
+  "goal_run_ref": "goal://gr_collective",
+  "requested_path": "direct_non_system",
+  "decision": "direct_non_system",
+  "admitting_owner": "hypervisor_daemon",
+  "goal_run_profile_revision_ref": "goal-run-profile://generic-adaptive/revision/1",
+  "goal_run_profile_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "effective_constraint_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "result_profile": "research",
+  "policy_refs": ["policy://goal-run/direct-path/v1"],
+  "authority_refs": ["grant://goal-run/gr_collective"],
+  "capability_requirement_refs": [],
+  "runtime_facts": {
+    "single_bounded_work_subject": true,
+    "requires_system_membership": false,
+    "requires_shared_frontier": true,
+    "requires_outcome_room": false,
+    "requires_collective_scheduling": false,
+    "capabilities_fit_single_execution": true,
+    "authority_fits_single_execution": true,
+    "risk_and_isolation_fit_single_execution": true,
+    "has_unresolved_system_dependency": false,
+    "policy_requires_system_path": false,
+    "system_path_available": true
+  },
+  "reason_codes": ["direct_path_eligible"],
+  "decision_receipt_ref": "receipt://goal-run/gr_collective/admission-path",
+  "decided_at": "2026-07-30T12:00:00Z"
+}

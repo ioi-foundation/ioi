@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.harness-profile.v1",
+  "profile_id": "harness-profile://research",
+  "revision_ref": "harness-profile://research/revision/3",
+  "content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "profile_family": "research_step",
+  "profile_version": "3",
+  "daemon_executed_or_mediated": true,
+  "step_resolution_contract_required": true,
+  "supported_normalized_boundary_contracts": [
+    "WorkResult",
+    "Receipt"
+  ],
+  "completed_invocation_terminal_minimum": [
+    "WorkResult",
+    "terminal Receipt"
+  ],
+  "authority_model": "wallet.network",
+  "state_substrate": "Agentgres",
+  "registry_status": "released",
+  "unexpected": "must fail"
+}

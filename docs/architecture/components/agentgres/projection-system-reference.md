@@ -219,6 +219,24 @@ That means:
 
 This is the conceptual shift that makes `CSPS` different from an `RDBMS` with extra features.
 
+### 7.1 OutcomeRoom graph and discussion projection binding
+
+For OutcomeRoom clients, projection-native does not mean caller-writable. A
+`CollaborativeWorkGraph` projection MUST bind one exact admitted room revision,
+room state root, reciprocal GoalRun membership set, source object refs, source
+admission receipts, and information-flow label set. A graph edge that cannot be
+resolved in both owning planes is unavailable, not zero and not best-effort.
+
+Messages, boards, inboxes, digests, feeds, and replay timelines use the
+`OutcomeRoomDiscussionProjectionEnvelope` shape owned by
+[`collaborative-pursuit.md`](../../foundations/objects/collaborative-pursuit.md).
+That envelope is a durable, versioned projection artifact: it contains
+policy-filtered message refs and redaction summaries, not copied private
+message bytes; it binds the source room revision/root, receipts, visibility
+policy, and labels; and it is explicitly non-authoritative and non-writable by
+clients. Canonical room and message transitions remain in their owning object
+planes.
+
 ## 8. Relationship to Agentic Systems
 
 Agentic applications intensify the need for this category because they often require:

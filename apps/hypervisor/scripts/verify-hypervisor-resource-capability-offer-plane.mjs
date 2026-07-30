@@ -52,7 +52,7 @@ async function governed(call, resolver, principal, path, body) {
   const challenge = await call("POST", path, body);
   const approval = challenge.body.error?.approval;
   if (!approval?.policy_hash || !approval?.request_hash) return { challenge, response: challenge, grant: null };
-  const grant = resolver.mint(principal, approval.policy_hash, approval.request_hash);
+  const grant = await resolver.mintRecorded(principal, approval.policy_hash, approval.request_hash, challenge.body.error?.required_scope);
   const response = await call("POST", path, { ...body, wallet_approval_grant: grant });
   return { challenge, response, grant };
 }
@@ -124,7 +124,7 @@ async function run() {
     const capabilityPath = "/v1/goal-orchestration/capability-offers";
     const capabilityInput = capabilityOfferBody(roomRef, lease.participant_lease_id);
     const capabilityChallenge = await call("POST", capabilityPath, capabilityInput);
-    const capabilityGrant = resolver.mint(lease.participant_ref, capabilityChallenge.body.error.approval.policy_hash, capabilityChallenge.body.error.approval.request_hash);
+    const capabilityGrant = await resolver.mintRecorded(lease.participant_ref, capabilityChallenge.body.error.approval.policy_hash, capabilityChallenge.body.error.approval.request_hash, capabilityChallenge.body.error.required_scope);
     const bodySwap = await call("POST", capabilityPath, { ...capabilityInput, eligible_frontier_classes: ["review_need"], wallet_approval_grant: capabilityGrant });
     ok("AUTHORITY: offer body swap at one revision refuses", bodySwap.status === 403 && bodySwap.body.error?.code === "capability_offer_participant_authority_required", `${bodySwap.status}/${bodySwap.body.error?.code}`);
     const capability = await call("POST", capabilityPath, { ...capabilityInput, wallet_approval_grant: capabilityGrant });
@@ -208,7 +208,7 @@ async function run() {
     const roomSlot = join(dataDir, "outcome-room-registry", `${roomTail}.json`);
     const roomBefore = readFileSync(roomSlot, "utf8");
     if (subject) mkdirSync(join(dataDir, "capability-offers", `${subject.replace("capability-offer://", "")}.json`), { recursive: true });
-    const unreadableGrant = resolver.mint(lease.participant_ref, unreadableChallenge.body.error.approval.policy_hash, unreadableChallenge.body.error.approval.request_hash);
+    const unreadableGrant = await resolver.mintRecorded(lease.participant_ref, unreadableChallenge.body.error.approval.policy_hash, unreadableChallenge.body.error.approval.request_hash, unreadableChallenge.body.error.required_scope);
     const unreadable = await call("POST", capabilityPath, { ...unreadableInput, wallet_approval_grant: unreadableGrant });
     ok("STORAGE: unreadable occupied offer slot is typed uncertainty with zero room mutation", unreadable.status === 500 && unreadable.body.error?.code === "offer_registry_unreadable" && readFileSync(roomSlot, "utf8") === roomBefore, `${unreadable.status}/${unreadable.body.error?.code}`);
     if (subject) rmSync(join(dataDir, "capability-offers", `${subject.replace("capability-offer://", "")}.json`), { recursive: true, force: true });
@@ -227,10 +227,11 @@ async function run() {
       eligible_frontier_classes: ["review_need"],
     });
     const restartChallenge = await call("POST", capabilityPath, restartInput);
-    const restartGrant = resolver.mint(
+    const restartGrant = await resolver.mintRecorded(
       lease.participant_ref,
       restartChallenge.body.error.approval.policy_hash,
       restartChallenge.body.error.approval.request_hash,
+      restartChallenge.body.error.required_scope,
     );
     const pendingRestart = await call("POST", capabilityPath, {
       ...restartInput,

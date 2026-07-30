@@ -42,6 +42,7 @@ pub mod runtime_diagnostics_repair_control;
 pub mod runtime_diagnostics_repair_policy;
 pub mod runtime_diagnostics_repair_projection;
 pub mod runtime_doctor_report;
+pub mod runtime_goal_pursuit;
 pub mod runtime_goal_run_admission;
 pub mod runtime_harness_profile_mutation_admission;
 pub mod runtime_harness_session_binding_admission;
@@ -742,6 +743,17 @@ impl RuntimeKernelService {
         now_iso: &str,
     ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
         runtime_goal_run_admission::RuntimeGoalRunAdmissionCore.admit_goal_run(request, now_iso)
+    }
+
+    /// Resolve the daemon-owned direct non-System versus System-bound GoalRun path from a
+    /// complete set of admitted policy/runtime facts. Missing facts fail before selection.
+    pub fn select_goal_run_admission_path(
+        &self,
+        request: &serde_json::Value,
+        now_iso: &str,
+    ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
+        runtime_goal_run_admission::RuntimeGoalRunAdmissionCore
+            .select_goal_run_admission_path(request, now_iso)
     }
 
     /// Pure RoleTopology selection for the parallel_implement_reconcile policy — excludes

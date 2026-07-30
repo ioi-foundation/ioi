@@ -185,7 +185,7 @@ use axum::{
     extract::{DefaultBodyLimit, Path as AxumPath, Query, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::{delete, get, patch, post},
+    routing::{any, delete, get, patch, post},
     Json, Router,
 };
 use serde_json::{json, Value};
@@ -561,6 +561,9 @@ async fn async_main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/healthz", get(|| async { "OK" }))
         .route("/readyz", get(|| async { "OK" }))
+        .route("/sessions", any(lifecycle_routes::handle_retired_hypervisor_route))
+        .route("/missions", any(lifecycle_routes::handle_retired_hypervisor_route))
+        .route("/__ioi/*path", any(lifecycle_routes::handle_retired_hypervisor_route))
         .route(
             "/v1/hypervisor/dev-replay/status",
             get(handle_dev_replay_status),
@@ -1006,6 +1009,22 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/core-taxonomy",
             get(lifecycle_routes::handle_core_taxonomy),
+        )
+        .route(
+            "/v1/hypervisor/product-surface-projections",
+            post(lifecycle_routes::handle_product_surface_projection),
+        )
+        .route(
+            "/v1/hypervisor/preferences",
+            get(lifecycle_routes::handle_preference_list),
+        )
+        .route(
+            "/v1/hypervisor/preferences/:id",
+            axum::routing::put(lifecycle_routes::handle_preference_put),
+        )
+        .route(
+            "/v1/hypervisor/collections/query",
+            post(lifecycle_routes::handle_collection_query),
         )
         .route(
             "/v1/hypervisor/model-route-mutation-admissions",
@@ -1748,6 +1767,10 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/goal-orchestration/goal-runs/:id",
             get(goalrun_routes::handle_goal_run_get),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-runs/:id/results",
+            post(goalrun_routes::handle_goal_run_result_create),
         )
         .route(
             "/v1/goal-orchestration/goal-runs/:id/start",

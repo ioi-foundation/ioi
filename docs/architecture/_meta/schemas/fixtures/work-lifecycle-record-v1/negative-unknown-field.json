@@ -1,0 +1,24 @@
+{
+  "schema_version": "ioi.work-lifecycle-record.v1",
+  "record_id": "work-lifecycle://goal_research_1/1",
+  "record_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "record_type": "phase_transition",
+  "object_kind": "goal_run",
+  "object_ref": "goal://research-1",
+  "expected_head": null,
+  "resulting_head": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "idempotency_key": "create",
+  "authority_class": "daemon",
+  "authority_ref": "authority://daemon",
+  "evidence_refs": [],
+  "receipt_refs": [
+    "receipt://goal-run/create"
+  ],
+  "phase_transition": {
+    "from_phase": null,
+    "to_phase": "draft"
+  },
+  "child_reference": null,
+  "occurred_at_ms": 1,
+  "unexpected_field": true
+}

@@ -1161,13 +1161,12 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   Registration makes a surface eligible for compilation; it does not install a
   package, admit authority, bind a System, or prove the registered workflow
   works.
-- `HypervisorRouteAliasRegistration`: one typed `route-alias://...` record
-  owned by exactly one core-workspace or application registration. It maps an
-  alias route pattern either to one static canonical target or to one
-  fail-closed typed resolver, declares required context preservation, and may
-  not collide with another identity's canonical route or alias. It is distinct
-  from `HypervisorSurfaceAlias`, which is vocabulary/product-family naming
-  guidance rather than an HTTP route contract.
+- `HypervisorContextRouteResolver`: one typed
+  `context-route-resolver://...` record owned by exactly one core-workspace or
+  application registration. It resolves a canonical route from admitted typed
+  context and preserves query, hash, embed, and return state. It never accepts
+  retired route spellings and is distinct from `HypervisorSurfaceAlias`, which
+  is vocabulary/product-family naming guidance rather than an HTTP contract.
 - `HypervisorProductSurfaceProjection`: one request-scoped policy-filtered
   projection compiled from core-workspace and application registrations,
   eligible normalized release/installation/System-interface/serving records,
@@ -1185,7 +1184,7 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   admitted surface release to an organization or Project; owns installation
   and deployment-level enablement state plus the non-System launch visibility,
   audience, allowed-object/action, and authority-preview boundary.
-- `HypervisorSystemInterfaceBinding`: one `package_binding://...` joining an
+- `HypervisorSystemInterfaceBinding`: one `package-binding://...` joining an
   installed surface release to one admitted `system://...`, with visibility,
   audience, allowed-object/action, authority-preview, decision, Agentgres, and
   receipt refs. It may only narrow the installation boundary, never widen it.

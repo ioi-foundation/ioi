@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/route-retirement-refusal/v1",
+  "title": "HypervisorRouteRetirementRefusal",
+  "x-ioi-schema-version": "ioi.hypervisor.route_retirement_refusal.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "code", "requested_route", "canonical_replacement_route", "read_performed", "mutation_performed", "final_invocation_performed"],
+  "properties": {
+    "schema_version": { "const": "ioi.hypervisor.route_retirement_refusal.v1" },
+    "code": { "const": "hypervisor.route_retired" },
+    "requested_route": { "type": "string", "pattern": "^(?:/sessions|/missions|/__ioi\\S*)$" },
+    "canonical_replacement_route": { "anyOf": [{ "enum": ["/work", "/work/sessions"] }, { "type": "null" }] },
+    "read_performed": { "const": false },
+    "mutation_performed": { "const": false },
+    "final_invocation_performed": { "const": false }
+  }
+}

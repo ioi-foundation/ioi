@@ -86,11 +86,11 @@ const remoteProviders = remoteOk ? "PASS" : "FAIL";
 if (!remoteOk) failures.push("T6 remote providers FAIL");
 for (const g of t6?.declared_gaps || []) declaredGaps.push({ gate: "remote_providers", ...g });
 
-// ---- T7 reference-functional UX (the served :4173 reference made daemon-backed) ----
-// The product UX is the served live reference (apps/hypervisor/scripts/serve-live-reference.mjs)
-// made functional by ioi-api-adapter.mjs; the native React duplicate was removed. The done-bar
-// is the (local-only) reference harness: every reference RPC daemon-owned (zero mock
-// fallthrough), real daemon effects, and a Playwright route-crawl with zero console errors.
+// ---- T7 reference-functional UX (the ported product seed made daemon-backed) ----
+// The product UX is the IOI-owned ported application estate served by
+// apps/hypervisor/scripts/serve-product-ui.mjs. The done-bar works backward from
+// that seed app by app: every exercised RPC is daemon-owned (zero mock
+// fallthrough), effects are real, and the route crawl has zero console errors.
 let uxStrategyStatus = "REFERENCE_UX_NOT_REQUESTED";
 let interactiveTerminal = "REQUEST_RESPONSE_ONLY";
 let t7 = null;

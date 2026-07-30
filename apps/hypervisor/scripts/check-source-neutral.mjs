@@ -2,8 +2,8 @@
 // Source-neutrality / IOI-ownership audit (regression gate).
 //
 // The Hypervisor app must stay IOI-owned: no borrowed upstream brand and no
-// "borrowed reference / mirror" framing in the source we author. This blocks
-// regressions while cuts 3-6 retire the seeded product-ui bundle.
+// "borrowed reference / mirror" framing in durable product source. This blocks
+// regressions while preserving explicitly bounded comparison/provenance tools.
 //
 //   BRAND (hard line, everywhere in the app incl. the seed bundle):
 //     - zero `gitpod` (any case)
@@ -13,9 +13,9 @@
 //     - zero word-boundary "borrowed"
 //     - zero word-boundary "mirror"
 //
-// The seed bundle (apps/hypervisor/product-ui/**) is exempt from the borrowed-language
-// check only — it is a temporary shell; cuts 4-6 extract it to source-owned React and
-// delete it. Brand stays a hard line even there.
+// Replaceable comparison/provenance harnesses are exempt from the framing-word
+// check only. The ported product seed is not temporary and is never exempt from
+// the brand line.
 //
 // Run: npm run check:source-neutral --workspace=@ioi/hypervisor-app
 import { execSync } from "node:child_process";
@@ -29,10 +29,27 @@ const AUTHORED = [
   "apps/hypervisor/*.md",
   "apps/hypervisor/package.json",
 ];
+const COMPARATIVE_PROVENANCE = [
+  "apps/hypervisor/scripts/build-app-parity-matrix.mjs",
+  "apps/hypervisor/scripts/harness-reference-clean-sweep.mjs",
+  "apps/hypervisor/scripts/harness-reference-parity.mjs",
+  "apps/hypervisor/scripts/pipeline-reference-atlas.mjs",
+  "apps/hypervisor/scripts/reharvest-pipeline-builder.mjs",
+  "apps/hypervisor/scripts/verify-hypervisor-app-parity-pipeline.mjs",
+  "apps/hypervisor/scripts/verify-hypervisor-pipeline-interaction.mjs",
+  "apps/hypervisor/scripts/verify-hypervisor-reference-clean-sweep.mjs",
+  "apps/hypervisor/scripts/verify-hypervisor-reference-parity-reset.mjs",
+  "apps/hypervisor/scripts/verify-pipeline-reference-data-clean.mjs",
+  "apps/hypervisor/scripts/verify-pipeline-stub-detector.mjs",
+];
 
 // git grep over the working tree's tracked files; exit 1 == "no match" == pass.
-function grep(flags, pattern, pathspecs) {
-  const ps = [...pathspecs, `:(exclude)${SELF}`].map((p) => `'${p}'`).join(" ");
+function grep(flags, pattern, pathspecs, exclusions = []) {
+  const ps = [
+    ...pathspecs,
+    `:(exclude)${SELF}`,
+    ...exclusions.map((entry) => `:(exclude)${entry}`),
+  ].map((p) => `'${p}'`).join(" ");
   try {
     // --untracked: also scan new, not-yet-committed files (e.g. freshly extracted surfaces)
     // so the gate catches regressions before they are committed, not only tracked content.
@@ -46,14 +63,14 @@ function grep(flags, pattern, pathspecs) {
 const checks = [
   { name: "gitpod (brand, app-wide)", flags: "-i", pattern: "gitpod", paths: ["apps/hypervisor"] },
   { name: "ona (brand word, app-wide)", flags: "-iw", pattern: "ona", paths: ["apps/hypervisor"] },
-  { name: "'live reference' (authored)", flags: "-i", pattern: "live reference", paths: AUTHORED },
-  { name: "borrowed (authored word)", flags: "-iw", pattern: "borrowed", paths: AUTHORED },
-  { name: "mirror (authored word)", flags: "-iw", pattern: "mirror", paths: AUTHORED },
+  { name: "'live reference' (durable authored)", flags: "-i", pattern: "live reference", paths: AUTHORED, exclusions: COMPARATIVE_PROVENANCE },
+  { name: "borrowed (durable authored word)", flags: "-iw", pattern: "borrowed", paths: AUTHORED, exclusions: COMPARATIVE_PROVENANCE },
+  { name: "mirror (durable authored word)", flags: "-iw", pattern: "mirror", paths: AUTHORED, exclusions: COMPARATIVE_PROVENANCE },
 ];
 
 let failed = false;
 for (const c of checks) {
-  const lines = grep(c.flags, c.pattern, c.paths).split("\n").filter(Boolean);
+  const lines = grep(c.flags, c.pattern, c.paths, c.exclusions).split("\n").filter(Boolean);
   if (lines.length) {
     failed = true;
     console.error(`✗ ${c.name}: ${lines.length} hit(s)`);

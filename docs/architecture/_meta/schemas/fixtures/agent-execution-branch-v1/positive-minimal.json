@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.agentgres.agent-execution-branch.v1",
+  "object_class": "AgentExecutionBranch",
+  "execution_branch_ref": "execution-branch://run-1/b1",
+  "run_id": "run://1",
+  "parent_branch_ref": "execution-branch://run-1/main",
+  "git_ref": null,
+  "workspace_snapshot_ref": "snapshot://run-1/b1",
+  "worktree_ref": "worktree://run-1/b1",
+  "memory_projection_refs": [],
+  "harness_invocation_refs": [],
+  "model_route_refs": [],
+  "context_lease_refs": [],
+  "authority_refs": [],
+  "trace_ref": "trace://run-1",
+  "head_checkpoint_ref": null,
+  "staged_effect_refs": [],
+  "receipt_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "branch_purpose": "research_attempt",
+  "status": "open",
+  "branch_head": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+}

@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/harness-profile/v1",
+  "title": "HarnessProfile",
+  "x-ioi-schema-version": "ioi.harness-profile.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "revision_ref",
+    "content_hash",
+    "profile_family",
+    "profile_version",
+    "daemon_executed_or_mediated",
+    "step_resolution_contract_required",
+    "supported_normalized_boundary_contracts",
+    "completed_invocation_terminal_minimum",
+    "authority_model",
+    "state_substrate",
+    "registry_status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.harness-profile.v1"
+    },
+    "profile_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "revision_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "predecessor_revision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "profile_family": {
+      "enum": [
+        "default_ioi",
+        "coding_step",
+        "research_step",
+        "browser_step",
+        "review_step",
+        "operator_step",
+        "custom"
+      ]
+    },
+    "profile_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "daemon_executed_or_mediated": {
+      "const": true
+    },
+    "step_resolution_contract_required": {
+      "const": true
+    },
+    "supported_normalized_boundary_contracts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "completed_invocation_terminal_minimum": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "conditional_contracts_follow_task_brief": {
+      "type": "boolean"
+    },
+    "authority_model": {
+      "const": "wallet.network"
+    },
+    "state_substrate": {
+      "const": "Agentgres"
+    },
+    "persistent_workspace_intelligence": {
+      "type": "object"
+    },
+    "workflow_compositor_role": {
+      "type": "object"
+    },
+    "registry_lifecycle_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "registry_status": {
+      "enum": [
+        "draft",
+        "evaluable",
+        "released",
+        "deprecated",
+        "revoked"
+      ]
+    }
+  }
+}

@@ -11,13 +11,14 @@ workflow.
 Superseded by: none.
 Last alignment pass: 2026-07-12.
 Doctrine status: canonical
-Implementation status: partial (bounded GoalRun multi-harness orchestration and
-the hosted OutcomeRoom graph through participation, frontier/claim,
-offers/matching, Attempt/Finding, WorkResult/OutcomeDelta, and
-VerifierChallenge are built; collaboration-terms negotiation, federated and
-cross-domain admission, local-agent pairing, acceptance/verdict/settlement,
-and product-level attempt comparison remain planned)
-Last implementation audit: 2026-07-05
+Implementation status: partial (the M3 direct GoalRun/WorkResult seam and
+hosted room-family route implementations exist, but the 2026-07-30 fresh
+runtime re-audit remains red on terminal participation replay and eligibility
+retry idempotency and did not admit an M4 aggregate proof; collaboration-terms
+negotiation, federated and cross-domain admission, local-agent pairing,
+acceptance/verdict/settlement, product-level attempt comparison, and the
+visible ioi.ai Goal Space client remain planned)
+Last implementation audit: 2026-07-30
 
 ## Canonical Definition
 

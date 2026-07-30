@@ -116,7 +116,7 @@ async function governed(call, resolver, principal, path, body) {
   const challenge = await call("POST", path, body);
   const approval = challenge.body.error?.approval;
   if (!approval?.policy_hash || !approval?.request_hash) return { challenge, response: challenge, grant: null };
-  const grant = resolver.mint(principal, approval.policy_hash, approval.request_hash);
+  const grant = await resolver.mintRecorded(principal, approval.policy_hash, approval.request_hash, challenge.body.error?.required_scope);
   const response = await call("POST", path, { ...body, wallet_approval_grant: grant });
   return { challenge, response, grant };
 }
@@ -148,16 +148,18 @@ async function terminalParticipantWithClaim(call, resolver, lease, transition, c
   const body = { transition, expected_revision: lease.revision, work_claim_expected_revision: claimRevision };
   const first = await call("POST", path, body);
   const authority = transition === "retire" ? lease.participant_ref : "domain://acme-host";
-  const participationGrant = resolver.mint(
+  const participationGrant = await resolver.mintRecorded(
     authority,
     first.body.error.approval.policy_hash,
     first.body.error.approval.request_hash,
+    first.body.error.required_scope,
   );
   const second = await call("POST", path, { ...body, wallet_approval_grant: participationGrant });
-  const workGrant = resolver.mint(
+  const workGrant = await resolver.mintRecorded(
     authority,
     second.body.error.approval.policy_hash,
     second.body.error.approval.request_hash,
+    second.body.error.required_scope,
   );
   return call("POST", path, {
     ...body, wallet_approval_grant: participationGrant, work_claim_wallet_approval_grant: workGrant,
@@ -200,10 +202,11 @@ async function runAggregateReservationInterleavingLanes(resolver) {
       expected_revision: leaseA.revision,
     };
     const acquireAChallenge = await call("POST", "/v1/goal-orchestration/work-claim-leases", acquireAInput);
-    const acquireAGrant = resolver.mint(
+    const acquireAGrant = await resolver.mintRecorded(
       leaseA.participant_ref,
       acquireAChallenge.body.error.approval.policy_hash,
       acquireAChallenge.body.error.approval.request_hash,
+      acquireAChallenge.body.error.required_scope,
     );
     await plane.stop();
     plane = await startIsolatedPlane({
@@ -312,8 +315,8 @@ async function runAggregateReservationInterleavingLanes(resolver) {
     const claimBPath = `/v1/goal-orchestration/work-claim-leases/${claimB.work_claim_id.replace("work-claim://", "")}/transition`;
     const releaseAChallenge = await call("POST", claimAPath, releaseAInput);
     const releaseBChallenge = await call("POST", claimBPath, releaseBInput);
-    const releaseAGrant = resolver.mint(leaseA.participant_ref, releaseAChallenge.body.error.approval.policy_hash, releaseAChallenge.body.error.approval.request_hash);
-    const releaseBGrant = resolver.mint(leaseB.participant_ref, releaseBChallenge.body.error.approval.policy_hash, releaseBChallenge.body.error.approval.request_hash);
+    const releaseAGrant = await resolver.mintRecorded(leaseA.participant_ref, releaseAChallenge.body.error.approval.policy_hash, releaseAChallenge.body.error.approval.request_hash, releaseAChallenge.body.error.required_scope);
+    const releaseBGrant = await resolver.mintRecorded(leaseB.participant_ref, releaseBChallenge.body.error.approval.policy_hash, releaseBChallenge.body.error.approval.request_hash, releaseBChallenge.body.error.required_scope);
     await plane.stop();
     plane = await startIsolatedPlane({
       serve: false,
@@ -386,7 +389,7 @@ async function runDurabilityFaultLanes() {
     const claimPath = `/v1/goal-orchestration/work-claim-leases/${claim.work_claim_id.replace("work-claim://", "")}/transition`;
     const releaseBody = { transition: "release", reason: "fault-boundary release", expected_revision: claim.revision };
     const releaseChallenge = await baseCall("POST", claimPath, releaseBody);
-    const releaseGrant = resolver.mint(lease.participant_ref, releaseChallenge.body.error.approval.policy_hash, releaseChallenge.body.error.approval.request_hash);
+    const releaseGrant = await resolver.mintRecorded(lease.participant_ref, releaseChallenge.body.error.approval.policy_hash, releaseChallenge.body.error.approval.request_hash, releaseChallenge.body.error.required_scope);
     await basePlane.stop();
     basePlane = null;
 
@@ -535,7 +538,7 @@ async function run({ includeFaults = true } = {}) {
     const foreign = mintApprovalGrant({ seed: "08".repeat(32), policyHash: createChallenge.body.error.approval.policy_hash, requestHash: createChallenge.body.error.approval.request_hash });
     const foreignResponse = await call("POST", createPath, { ...createInput, wallet_approval_grant: foreign });
     ok("AUTHORITY: same-hash foreign frontier signer refuses with zero mutation", foreignResponse.status === 403 && foreignResponse.body.error?.code === "work_frontier_host_authority_required", `${foreignResponse.status}/${foreignResponse.body.error?.code}`);
-    const hostCreateGrant = resolver.mint("domain://acme-host", createChallenge.body.error.approval.policy_hash, createChallenge.body.error.approval.request_hash);
+    const hostCreateGrant = await resolver.mintRecorded("domain://acme-host", createChallenge.body.error.approval.policy_hash, createChallenge.body.error.approval.request_hash, createChallenge.body.error.required_scope);
     const created = await call("POST", createPath, { ...createInput, wallet_approval_grant: hostCreateGrant });
     let mainFrontier = created.body.frontier_item;
     const mainTail = mainFrontier.frontier_item_id.replace("frontier://", "");
@@ -552,7 +555,7 @@ async function run({ includeFaults = true } = {}) {
     const frontierIntentsBefore = names(dataDir, "work-frontier-claim-intents").length;
     const frontierReceiptsBefore = names(dataDir, "work-frontier-claim-receipts").length;
     if (unreadableFrontierRef) mkdirSync(unreadableFrontierSlot, { recursive: true });
-    const unreadableFrontierGrant = resolver.mint("domain://acme-host", unreadableFrontierChallenge.body.error.approval.policy_hash, unreadableFrontierChallenge.body.error.approval.request_hash);
+    const unreadableFrontierGrant = await resolver.mintRecorded("domain://acme-host", unreadableFrontierChallenge.body.error.approval.policy_hash, unreadableFrontierChallenge.body.error.approval.request_hash, unreadableFrontierChallenge.body.error.required_scope);
     const unreadableFrontier = await call("POST", createPath, { ...unreadableFrontierInput, wallet_approval_grant: unreadableFrontierGrant });
     if (unreadableFrontierRef) rmSync(unreadableFrontierSlot, { recursive: true, force: true });
     ok("STORAGE: occupied unreadable frontier slot returns typed uncertainty with zero mutation", unreadableFrontier.status === 500 && unreadableFrontier.body.error?.code === "work_frontier_claim_registry_unreadable" && readFileSync(roomSlot, "utf8") === roomBeforeUnreadableFrontier && names(dataDir, "work-frontier-claim-intents").length === frontierIntentsBefore && names(dataDir, "work-frontier-claim-receipts").length === frontierReceiptsBefore, `${unreadableFrontier.status}/${unreadableFrontier.body.error?.code}`);
@@ -628,7 +631,7 @@ async function run({ includeFaults = true } = {}) {
       mkdirSync(join(dataDir, "work-claim-leases"), { recursive: true });
       writeFileSync(malformedClaimSlot, "{not-json\n");
     }
-    const malformedClaimGrant = resolver.mint(leases[0].participant_ref, malformedClaimChallenge.body.error.approval.policy_hash, malformedClaimChallenge.body.error.approval.request_hash);
+    const malformedClaimGrant = await resolver.mintRecorded(leases[0].participant_ref, malformedClaimChallenge.body.error.approval.policy_hash, malformedClaimChallenge.body.error.approval.request_hash, malformedClaimChallenge.body.error.required_scope);
     const malformedClaim = await call("POST", acquirePath, { ...firstClaimInput, wallet_approval_grant: malformedClaimGrant });
     if (malformedClaimRef) rmSync(malformedClaimSlot, { force: true });
     ok("STORAGE: malformed occupied claim slot returns typed uncertainty with zero cross-plane mutation", malformedClaim.status === 500 && malformedClaim.body.error?.code === "work_frontier_claim_registry_unreadable" && readFileSync(frontierSlot, "utf8") === frontierBeforeMalformedClaim && readFileSync(participantSlot, "utf8") === participantBeforeMalformedClaim && names(dataDir, "work-frontier-claim-intents").length === claimIntentsBefore && names(dataDir, "work-frontier-claim-receipts").length === claimReceiptsBefore, `${malformedClaim.status}/${malformedClaim.body.error?.code}`);
@@ -643,7 +646,7 @@ async function run({ includeFaults = true } = {}) {
     const firstTransitionPath = `/v1/goal-orchestration/work-claim-leases/${firstClaimTail}/transition`;
     const heartbeatBody = { transition: "heartbeat", heartbeat_ref: "heartbeat://one", expected_revision: 1 };
     const heartbeatChallenge = await call("POST", firstTransitionPath, heartbeatBody);
-    const heartbeatGrant = resolver.mint(leases[0].participant_ref, heartbeatChallenge.body.error.approval.policy_hash, heartbeatChallenge.body.error.approval.request_hash);
+    const heartbeatGrant = await resolver.mintRecorded(leases[0].participant_ref, heartbeatChallenge.body.error.approval.policy_hash, heartbeatChallenge.body.error.approval.request_hash, heartbeatChallenge.body.error.required_scope);
     const heartbeatSwap = await call("POST", firstTransitionPath, { ...heartbeatBody, heartbeat_ref: "heartbeat://swapped", wallet_approval_grant: heartbeatGrant });
     const claimAfterHeartbeatSwap = (await call("GET", `/v1/goal-orchestration/work-claim-leases/${firstClaimTail}`)).body.work_claim;
     ok("AUTHORITY EFFECT: heartbeat body swap refuses at the same revision", heartbeatSwap.status === 403 && heartbeatSwap.body.error?.code === "work_claim_participant_authority_required" && claimAfterHeartbeatSwap.revision === 1, `${heartbeatSwap.status}/${heartbeatSwap.body.error?.code}/${claimAfterHeartbeatSwap.revision}`);
@@ -652,7 +655,7 @@ async function run({ includeFaults = true } = {}) {
 
     const renewBody = { transition: "renew", ttl_seconds: 30, expected_revision: 2 };
     const renewChallenge = await call("POST", firstTransitionPath, renewBody);
-    const renewGrant = resolver.mint(leases[0].participant_ref, renewChallenge.body.error.approval.policy_hash, renewChallenge.body.error.approval.request_hash);
+    const renewGrant = await resolver.mintRecorded(leases[0].participant_ref, renewChallenge.body.error.approval.policy_hash, renewChallenge.body.error.approval.request_hash, renewChallenge.body.error.required_scope);
     const renewSwap = await call("POST", firstTransitionPath, { ...renewBody, ttl_seconds: 86_400, wallet_approval_grant: renewGrant });
     const claimAfterRenewSwap = (await call("GET", `/v1/goal-orchestration/work-claim-leases/${firstClaimTail}`)).body.work_claim;
     ok("AUTHORITY EFFECT: renewal TTL body swap refuses at the same revision", renewSwap.status === 403 && renewSwap.body.error?.code === "work_claim_participant_authority_required" && claimAfterRenewSwap.revision === 2, `${renewSwap.status}/${renewSwap.body.error?.code}/${claimAfterRenewSwap.revision}`);
@@ -661,7 +664,7 @@ async function run({ includeFaults = true } = {}) {
     ok("CLAIM: heartbeat and bounded renewal advance lineage", heartbeat.status === 200 && renew.status === 200 && firstClaim.renewal_count === 1 && firstClaim.revision === 3, `${heartbeat.status}/${renew.status}/${firstClaim.revision}`);
     const releaseBody = { transition: "release", reason: "switch to a clean reclaim", expected_revision: 3 };
     const releaseChallenge = await call("POST", firstTransitionPath, releaseBody);
-    const releaseGrant = resolver.mint(leases[0].participant_ref, releaseChallenge.body.error.approval.policy_hash, releaseChallenge.body.error.approval.request_hash);
+    const releaseGrant = await resolver.mintRecorded(leases[0].participant_ref, releaseChallenge.body.error.approval.policy_hash, releaseChallenge.body.error.approval.request_hash, releaseChallenge.body.error.required_scope);
     const reasonSwap = await call("POST", firstTransitionPath, { ...releaseBody, reason: "swapped release reason", wallet_approval_grant: releaseGrant });
     const claimAfterReasonSwap = (await call("GET", `/v1/goal-orchestration/work-claim-leases/${firstClaimTail}`)).body.work_claim;
     ok("AUTHORITY EFFECT: terminal reason body swap refuses at the same revision", reasonSwap.status === 403 && reasonSwap.body.error?.code === "work_claim_participant_authority_required" && claimAfterReasonSwap.revision === 3, `${reasonSwap.status}/${reasonSwap.body.error?.code}/${claimAfterReasonSwap.revision}`);
@@ -728,8 +731,10 @@ async function run({ includeFaults = true } = {}) {
     const exclusiveInputs = exclusiveLeases.map((lease) => ({ ...claimBody(roomRef, exclusive.frontier_item_id, lease.participant_lease_id), expected_revision: lease.revision }));
     const exclusiveChallenges = [];
     for (let index = 0; index < 2; index += 1) exclusiveChallenges.push(await call("POST", acquirePath, exclusiveInputs[index]));
+    const exclusiveGrants = [];
+    for (let index = 0; index < 2; index += 1) exclusiveGrants.push(await resolver.mintRecorded(exclusiveLeases[index].participant_ref, exclusiveChallenges[index].body.error.approval.policy_hash, exclusiveChallenges[index].body.error.approval.request_hash, exclusiveChallenges[index].body.error.required_scope));
     const exclusiveResponses = await Promise.all(exclusiveInputs.map((input, index) => call("POST", acquirePath, {
-      ...input, wallet_approval_grant: resolver.mint(exclusiveLeases[index].participant_ref, exclusiveChallenges[index].body.error.approval.policy_hash, exclusiveChallenges[index].body.error.approval.request_hash),
+      ...input, wallet_approval_grant: exclusiveGrants[index],
     })));
     const exclusiveWinners = exclusiveResponses.filter((response) => response.status === 201);
     ok("CONCURRENCY: exclusive storm admits exactly one claimant", exclusiveWinners.length === 1 && exclusiveResponses.filter((response) => response.status === 409).length === 1, exclusiveResponses.map((response) => response.status).join(","));
@@ -768,8 +773,10 @@ async function run({ includeFaults = true } = {}) {
     const replicationInputs = replicationLeases.map((lease) => ({ ...claimBody(roomRef, replicated.frontier_item_id, lease.participant_lease_id, { duplicate_work_policy: "allowed" }), expected_revision: lease.revision }));
     const replicationChallenges = [];
     for (const input of replicationInputs) replicationChallenges.push(await call("POST", acquirePath, input));
+    const replicationGrants = [];
+    for (let index = 0; index < replicationInputs.length; index += 1) replicationGrants.push(await resolver.mintRecorded(replicationLeases[index].participant_ref, replicationChallenges[index].body.error.approval.policy_hash, replicationChallenges[index].body.error.approval.request_hash, replicationChallenges[index].body.error.required_scope));
     const replicationResponses = await Promise.all(replicationInputs.map((input, index) => call("POST", acquirePath, {
-      ...input, wallet_approval_grant: resolver.mint(replicationLeases[index].participant_ref, replicationChallenges[index].body.error.approval.policy_hash, replicationChallenges[index].body.error.approval.request_hash),
+      ...input, wallet_approval_grant: replicationGrants[index],
     })));
     const replicationWinners = replicationResponses.filter((response) => response.status === 201).map((response) => response.body.work_claim);
     ok("CONCURRENCY: bounded replication admits exactly max_concurrency", replicationWinners.length === 2 && replicationResponses.filter((response) => response.status === 409).length === 1, replicationResponses.map((response) => response.status).join(","));

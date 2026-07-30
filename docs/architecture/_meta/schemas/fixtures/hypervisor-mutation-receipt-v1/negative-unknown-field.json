@@ -1,0 +1,1 @@
+{"schema_version":"ioi.hypervisor.mutation_receipt.v1","operation_ref":"agentgres://operation/x","state_root_ref":"agentgres://state-root/x","previous_revision":0,"revision":1,"recovery_required":false,"unexpected":true}

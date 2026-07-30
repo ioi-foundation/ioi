@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/collection-query/v1",
+  "title": "HypervisorCollectionQuery",
+  "x-ioi-schema-version": "ioi.hypervisor.collection_query.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["org_ref", "collection", "filters", "sort", "facets", "page_size"],
+  "properties": {
+    "user_ref": { "type": "string", "pattern": "^(?:user|wallet)://\\S+$" },
+    "org_ref": { "type": "string", "pattern": "^org://\\S+$" },
+    "collection": { "enum": ["work_runs", "sessions", "projects", "systems", "automations", "notifications"] },
+    "typed_context_refs": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "search": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+    "filters": { "type": "array", "items": { "type": "object" } },
+    "sort": { "type": "array", "items": { "type": "object" } },
+    "facets": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "cursor": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "page_size": { "type": "integer", "minimum": 1, "maximum": 50 }
+  }
+}

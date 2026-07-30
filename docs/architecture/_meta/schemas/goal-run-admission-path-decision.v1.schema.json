@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/goal-run-admission-path-decision/v1",
+  "title": "GoalRunAdmissionPathDecision",
+  "x-ioi-schema-version": "ioi.foundations.goal-run-admission-path-decision.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "decision_ref",
+    "goal_run_ref",
+    "requested_path",
+    "decision",
+    "admitting_owner",
+    "goal_run_profile_revision_ref",
+    "goal_run_profile_content_hash",
+    "effective_constraint_hash",
+    "result_profile",
+    "policy_refs",
+    "authority_refs",
+    "capability_requirement_refs",
+    "runtime_facts",
+    "reason_codes",
+    "decision_receipt_ref",
+    "decided_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.foundations.goal-run-admission-path-decision.v1" },
+    "decision_ref": { "$ref": "#/$defs/ref" },
+    "goal_run_ref": { "type": "string", "pattern": "^goal://[^\\s]{1,500}$" },
+    "requested_path": { "enum": ["auto", "direct_non_system", "system_bound"] },
+    "decision": { "enum": ["direct_non_system", "system_bound_required", "refused"] },
+    "admitting_owner": { "const": "hypervisor_daemon" },
+    "goal_run_profile_revision_ref": { "type": "string", "pattern": "^goal-run-profile://[^\\s]+/revision/[^\\s]+$" },
+    "goal_run_profile_content_hash": { "$ref": "#/$defs/hash" },
+    "effective_constraint_hash": { "$ref": "#/$defs/hash" },
+    "result_profile": {
+      "enum": [
+        "software_implementation",
+        "research",
+        "ontology_mutation",
+        "incident_resolution",
+        "service_delivery",
+        "physical_mission",
+        "review",
+        "evaluation",
+        "custom"
+      ]
+    },
+    "policy_refs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/ref" } },
+    "authority_refs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/ref" } },
+    "capability_requirement_refs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/ref" } },
+    "runtime_facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "single_bounded_work_subject",
+        "requires_system_membership",
+        "requires_shared_frontier",
+        "requires_outcome_room",
+        "requires_collective_scheduling",
+        "capabilities_fit_single_execution",
+        "authority_fits_single_execution",
+        "risk_and_isolation_fit_single_execution",
+        "has_unresolved_system_dependency",
+        "policy_requires_system_path",
+        "system_path_available"
+      ],
+      "properties": {
+        "single_bounded_work_subject": { "type": "boolean" },
+        "requires_system_membership": { "type": "boolean" },
+        "requires_shared_frontier": { "type": "boolean" },
+        "requires_outcome_room": { "type": "boolean" },
+        "requires_collective_scheduling": { "type": "boolean" },
+        "capabilities_fit_single_execution": { "type": "boolean" },
+        "authority_fits_single_execution": { "type": "boolean" },
+        "risk_and_isolation_fit_single_execution": { "type": "boolean" },
+        "has_unresolved_system_dependency": { "type": "boolean" },
+        "policy_requires_system_path": { "type": "boolean" },
+        "system_path_available": { "type": "boolean" }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "direct_path_eligible",
+          "multiple_work_subjects",
+          "system_membership_required",
+          "shared_frontier_required",
+          "outcome_room_required",
+          "collective_scheduling_required",
+          "capability_requirements_exceed_single_execution",
+          "authority_requirements_exceed_single_execution",
+          "risk_or_isolation_exceeds_single_execution",
+          "unresolved_system_dependency",
+          "policy_requires_system_path",
+          "requested_system_path",
+          "system_path_prerequisites_unavailable"
+        ]
+      }
+    },
+    "decision_receipt_ref": { "type": "string", "pattern": "^receipt://[^\\s]{1,500}$" },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "decision": { "const": "direct_non_system" } }, "required": ["decision"] },
+      "then": {
+        "properties": {
+          "requested_path": { "enum": ["auto", "direct_non_system"] },
+          "reason_codes": { "type": "array", "contains": { "const": "direct_path_eligible" } },
+          "runtime_facts": {
+            "type": "object",
+            "properties": {
+              "single_bounded_work_subject": { "const": true },
+              "requires_system_membership": { "const": false },
+              "requires_shared_frontier": { "const": false },
+              "requires_outcome_room": { "const": false },
+              "requires_collective_scheduling": { "const": false },
+              "capabilities_fit_single_execution": { "const": true },
+              "authority_fits_single_execution": { "const": true },
+              "risk_and_isolation_fit_single_execution": { "const": true },
+              "has_unresolved_system_dependency": { "const": false },
+              "policy_requires_system_path": { "const": false }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "decision": { "const": "system_bound_required" } }, "required": ["decision"] },
+      "then": {
+        "properties": {
+          "reason_codes": { "type": "array", "minItems": 1 },
+          "runtime_facts": { "type": "object", "properties": { "system_path_available": { "const": true } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "decision": { "const": "refused" } }, "required": ["decision"] },
+      "then": {
+        "properties": {
+          "reason_codes": { "type": "array", "contains": { "const": "system_path_prerequisites_unavailable" } },
+          "runtime_facts": { "type": "object", "properties": { "system_path_available": { "const": false } } }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

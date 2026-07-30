@@ -1,0 +1,24 @@
+{
+  "schema_version": "ioi.components.daemon-runtime.authority-effect-admission-receipt.v1",
+  "receipt_id": "receipt://authority-effect/1",
+  "policy_enforcement_point_ref": "runtime://hypervisor-daemon/pre-effect",
+  "authorization_subject": {
+    "kind": "exact_effect",
+    "subject_ref": "effect://egress/1",
+    "subject_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "validation_profile_ref": "schema://ioi/effect/v1"
+  },
+  "authority_grant_ref": "grant://egress",
+  "authority_grant_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "actual_effect_ref": "effect://egress/1",
+  "actual_effect_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "decision_profile_ref": "policy://effect-admission",
+  "policy_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "proof_kind": "exact_equality",
+  "decision": "admitted",
+  "invoker_called": true,
+  "decided_at": "2026-07-30T12:00:00Z",
+  "body_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "receipt_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "unexpected": "must fail"
+}

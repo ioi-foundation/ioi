@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/outcome-delta/v1",
+  "title": "OutcomeDelta",
+  "x-ioi-schema-version": "ioi.outcome-delta.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "outcome_delta_id",
+    "work_subject_ref",
+    "outcome_room_ref",
+    "room_admission",
+    "proposed_by_ref",
+    "target_ref",
+    "delta_kind",
+    "payload_ref",
+    "precondition_and_invariant_refs",
+    "expected_effect_ref",
+    "verifier_and_acceptance_refs",
+    "information_flow_label_refs",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.outcome-delta.v1"
+    },
+    "outcome_delta_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "work_subject_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "outcome_room_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "room_admission": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proposed_by_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "target_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "delta_kind": {
+      "enum": [
+        "create",
+        "update",
+        "supersede",
+        "reject",
+        "merge",
+        "promote",
+        "rollback",
+        "course_correct",
+        "close"
+      ]
+    },
+    "payload_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "precondition_and_invariant_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "expected_effect_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "verifier_and_acceptance_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "information_flow_label_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "evaluating",
+        "admitted",
+        "rejected",
+        "superseded",
+        "rolled_back"
+      ]
+    }
+  }
+}

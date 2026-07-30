@@ -30,6 +30,11 @@ export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
     args: Object.freeze(["--test", "scripts/test-pre-next-leg-gates.mjs"]),
   }),
   Object.freeze({
+    id: "hypervisor-ported-seed-invariant",
+    command: "npm",
+    args: Object.freeze(["run", "check:hypervisor-ported-seed"]),
+  }),
+  Object.freeze({
     id: "m0-program-control",
     command: "npm",
     args: Object.freeze(["run", "check:m0-program-control"]),

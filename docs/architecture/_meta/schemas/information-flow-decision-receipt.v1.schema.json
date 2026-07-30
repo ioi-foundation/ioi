@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/information-flow-decision-receipt/v1",
+  "title": "InformationFlowDecisionReceipt",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.information-flow-decision-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "receipt_profile_ref",
+    "effect_ref",
+    "information_flow_label_refs",
+    "information_flow_label_content_hashes",
+    "runtime_tool_contract_revision_ref",
+    "destination",
+    "request_hash",
+    "reviewed_representation_hash",
+    "effective_label_refs",
+    "blocked_label_refs",
+    "declassification_approval_ref",
+    "declassification_receipt_ref",
+    "decision",
+    "reason",
+    "blocked_before_egress",
+    "enforcement_boundary_ref",
+    "enforcement_owner",
+    "decided_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.components.daemon-runtime.information-flow-decision-receipt.v1"
+    },
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]+$"
+    },
+    "receipt_profile_ref": {
+      "const": "schema://ioi/receipt/information-flow-decision/v1"
+    },
+    "effect_ref": {
+      "type": "string",
+      "pattern": "^effect://[^\\s]+$"
+    },
+    "information_flow_label_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^ifc-label://[^\\s]+$"
+      }
+    },
+    "information_flow_label_content_hashes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    },
+    "runtime_tool_contract_revision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "destination": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "request_hash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reviewed_representation_hash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effective_label_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^ifc-label://[^\\s]+$"
+      }
+    },
+    "blocked_label_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^ifc-label://[^\\s]+$"
+      }
+    },
+    "declassification_approval_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "declassification_receipt_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "decision": {
+      "enum": [
+        "allowed",
+        "denied"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "blocked_before_egress": {
+      "type": "boolean"
+    },
+    "enforcement_boundary_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "enforcement_owner": {
+      "const": "hypervisor_daemon"
+    },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/system-interface-binding/v1",
+  "title": "HypervisorSystemInterfaceBinding",
+  "x-ioi-schema-version": "ioi.hypervisor.system_interface_binding.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "system_binding_ref",
+    "surface_ref",
+    "release_ref",
+    "installation_ref",
+    "system_ref",
+    "surface_enablement_state",
+    "visibility",
+    "allowed_object_contract_refs",
+    "allowed_action_refs",
+    "binding_admission_ref",
+    "state_root_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.system_interface_binding.v1"
+    },
+    "system_binding_ref": {
+      "type": "string",
+      "pattern": "^package-binding://\\S*$"
+    },
+    "surface_ref": {
+      "type": "string",
+      "pattern": "^surface://\\S*$"
+    },
+    "release_ref": {
+      "type": "string",
+      "pattern": "^package://\\S+/release/\\S+$"
+    },
+    "installation_ref": {
+      "type": "string",
+      "pattern": "^install://\\S*$"
+    },
+    "system_ref": {
+      "type": "string",
+      "pattern": "^system://\\S*$"
+    },
+    "surface_enablement_state": {
+      "enum": [
+        "not_applicable",
+        "enabled",
+        "disabled"
+      ]
+    },
+    "visibility": {
+      "enum": [
+        "private",
+        "organization",
+        "permissioned",
+        "public"
+      ]
+    },
+    "allowed_object_contract_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "allowed_action_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "binding_admission_ref": {
+      "type": "string",
+      "pattern": "^decision://\\S*$"
+    },
+    "state_root_ref": {
+      "type": "string",
+      "pattern": "^agentgres://state-root/\\S*$"
+    }
+  }
+}

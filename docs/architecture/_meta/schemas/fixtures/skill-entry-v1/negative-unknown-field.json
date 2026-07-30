@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.skill-entry.v1",
+  "skill_entry_id": "skill-entry://literature",
+  "binding_revision_ref": "skill-entry://literature/revision/1",
+  "binding_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "skill_revision_ref": "skill://literature/revision/2",
+  "skill_manifest_content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "owner_scope_ref": "project://research",
+  "compatibility_decision_ref": "decision://skill/literature",
+  "admitted_by_ref": "user://operator",
+  "admission_receipt_ref": "receipt://skill/literature",
+  "registry_status": "active",
+  "unexpected": "must fail"
+}

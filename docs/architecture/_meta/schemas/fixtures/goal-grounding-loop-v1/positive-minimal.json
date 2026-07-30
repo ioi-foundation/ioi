@@ -1,0 +1,11 @@
+{
+  "schema_version": "ioi.goal-grounding-loop.v1",
+  "goal_loop_id": "goal-loop://research",
+  "goal_ref": "goal://research",
+  "conductor_context_cell_ref": "context-cell://research/conductor",
+  "loop_iteration": 0,
+  "phase": "receive_intent",
+  "escalation_state": "none",
+  "exit_condition": "continue",
+  "status": "active"
+}

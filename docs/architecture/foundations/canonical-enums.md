@@ -418,8 +418,11 @@ browse | inspect | propose | act | workflow_complete
 
 This is the current surface-depth ladder. `act` requires at least one real,
 admitted, receipted mutation. `workflow_complete` requires a real governed
-intent-to-durable-result path. Maturity belongs to the registration itself: an
-owner application's maturity cannot be inflated by its strongest child tool.
+intent-to-durable-result path. Per ADR 0028, the selected immutable
+`HypervisorSurfaceReleaseRecord` owns the exact executable depth; a stable
+registration declares only its definition-level object/action ceiling. An
+owner application's claim cannot be inflated by a child tool or an unselected
+release.
 
 ### Operational state (`surface_operational_state`)
 

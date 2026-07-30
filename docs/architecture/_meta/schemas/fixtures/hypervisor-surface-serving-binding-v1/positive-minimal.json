@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.hypervisor.surface_serving_binding.v1",
+  "serving_binding_ref": "surface-serving://hypervisor/studio/default",
+  "surface_ref": "surface://hypervisor/studio",
+  "release_ref": "package://hypervisor/studio/release/1",
+  "installation_ref": "install://hypervisor/studio/default",
+  "system_binding_ref": null,
+  "resolved_route": "/studio",
+  "runtime_ref": "runtime://hypervisor/app",
+  "surface_operational_state": "serving",
+  "health_observation_refs": [
+    "observation://hypervisor/studio/health"
+  ]
+}
