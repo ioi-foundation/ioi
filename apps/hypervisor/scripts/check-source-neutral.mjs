@@ -8,7 +8,7 @@
 //   BRAND (hard line, everywhere in the app incl. the seed bundle):
 //     - zero `gitpod` (any case)
 //     - zero word-boundary `ona` (any case)  [the upstream brand, not "additional"]
-//   BORROWED LANGUAGE (in the authored lane: scripts/src/docs/*.md/package.json):
+//   BORROWED LANGUAGE (in the shipping source/docs/package lane):
 //     - zero "live reference"
 //     - zero word-boundary "borrowed"
 //     - zero word-boundary "mirror"
@@ -22,8 +22,9 @@ import { execSync } from "node:child_process";
 
 const ROOT = execSync("git rev-parse --show-toplevel").toString().trim();
 const SELF = "apps/hypervisor/scripts/check-source-neutral.mjs";
+// Comparative/provenance harnesses under scripts and .artifacts are allowed to
+// describe replaceable sources. They are not shipping product copy or identity.
 const AUTHORED = [
-  "apps/hypervisor/scripts",
   "apps/hypervisor/src",
   "apps/hypervisor/docs",
   "apps/hypervisor/*.md",
@@ -46,9 +47,9 @@ function grep(flags, pattern, pathspecs) {
 const checks = [
   { name: "gitpod (brand, app-wide)", flags: "-i", pattern: "gitpod", paths: ["apps/hypervisor"] },
   { name: "ona (brand word, app-wide)", flags: "-iw", pattern: "ona", paths: ["apps/hypervisor"] },
-  { name: "'live reference' (authored)", flags: "-i", pattern: "live reference", paths: AUTHORED },
-  { name: "borrowed (authored word)", flags: "-iw", pattern: "borrowed", paths: AUTHORED },
-  { name: "mirror (authored word)", flags: "-iw", pattern: "mirror", paths: AUTHORED },
+  { name: "'live reference' (shipping)", flags: "-i", pattern: "live reference", paths: AUTHORED },
+  { name: "borrowed (shipping word)", flags: "-iw", pattern: "borrowed", paths: AUTHORED },
+  { name: "mirror (shipping word)", flags: "-iw", pattern: "mirror", paths: AUTHORED },
 ];
 
 let failed = false;

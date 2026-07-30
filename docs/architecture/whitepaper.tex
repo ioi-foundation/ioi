@@ -12453,10 +12453,10 @@ independent and remain on their canonical owner records.
 A \texttt{HypervisorApplicationSurfaceRegistration} owns one stable
 \texttt{surface://} identity, deployment-catalog-unique URL key, definition
 metadata, declared contract ceilings, and placements. A
-\texttt{HypervisorRouteAliasRegistration} has exactly one workspace or
-application owner and resolves either to one static canonical route or through
-one typed fail-closed resolver while preserving query, hash, return state,
-Open Application identity, and typed context. An immutable
+\texttt{HypervisorContextRouteResolver} has exactly one workspace or
+application owner and resolves only admitted typed context to a canonical route
+while preserving query, hash, return state, Open Application identity, and
+typed context; it never accepts retired path spellings. An immutable
 \texttt{HypervisorSurfaceReleaseRecord} owns distribution, admission,
 disposition, capability depth, the versioned surface descriptor, and the exact
 object, action, and operator contracts. An organization or Project

@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.hypervisor.system_interface_binding.v1",
+  "system_binding_ref": "package-binding://system/example/studio",
+  "surface_ref": "surface://hypervisor/studio",
+  "release_ref": "package://hypervisor/studio/release/1",
+  "installation_ref": "install://hypervisor/studio/default",
+  "system_ref": "system://example",
+  "surface_enablement_state": "enabled",
+  "visibility": "organization",
+  "allowed_object_contract_refs": [
+    "object-model://studio"
+  ],
+  "allowed_action_refs": [
+    "action://studio/compose"
+  ],
+  "binding_admission_ref": "decision://studio/example",
+  "state_root_ref": "agentgres://state-root/studio/example",
+  "unexpected_field": true
+}

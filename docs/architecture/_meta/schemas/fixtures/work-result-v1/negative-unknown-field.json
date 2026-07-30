@@ -1,0 +1,58 @@
+{
+  "schema_version": "ioi.foundations.work-result.v1",
+  "work_result_id": "work-result://research-1",
+  "work_subject_ref": "goal://research-1",
+  "goal_run_ref": "goal://research-1",
+  "outcome_room_ref": null,
+  "room_admission": null,
+  "produced_by_ref": "worker://research-1",
+  "submitted_by_ref": "worker://research-1",
+  "operator_and_affiliation_refs": [],
+  "work_claim_ref": null,
+  "attempt_ref": null,
+  "invocation_or_run_ref": null,
+  "result_profile": "research",
+  "result_profile_ref": null,
+  "result_payload_ref": "artifact://research/report-1",
+  "producer_component_resolution": {
+    "resolved_component_set_snapshot_ref": "artifact://goal-run/research-1/components",
+    "resolved_component_set_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "component_resolution_receipt_ref": "receipt://goal-run/research-1/profile-resolution",
+    "resolver_kind": "harness_profile",
+    "resolver_revision_ref": "harness-profile://research/revision/3",
+    "resolver_content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "declared_method_and_lineage_refs": [],
+  "information_flow_label_refs": [],
+  "outcome_class": "inconclusive",
+  "status": "challenged",
+  "outcome_delta_refs": [],
+  "finding_refs": [],
+  "claim_refs": [],
+  "uncertainty": [
+    "evidence conflict"
+  ],
+  "supporting_evidence_refs": [
+    "evidence://paper/1"
+  ],
+  "contradicting_evidence_refs": [
+    "evidence://paper/2"
+  ],
+  "artifact_receipt_and_trace_refs": [],
+  "resource_and_cost_refs": [],
+  "authority_and_policy_refs": [],
+  "blocker_and_decision_request_refs": [],
+  "verifier_refs": [],
+  "license_disclosure_retention_and_export_refs": [],
+  "reproduction_state": "unreviewed",
+  "reproduction_refs": [],
+  "acceptance_ref": null,
+  "challenge_refs": [
+    "evidence://challenge/1"
+  ],
+  "supersedes_work_result_ref": null,
+  "superseded_by_ref": null,
+  "summary_ref": "artifact://research/summary-1",
+  "next_action": "verify",
+  "unexpected_field": true
+}

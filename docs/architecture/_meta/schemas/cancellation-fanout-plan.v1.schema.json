@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/cancellation-fanout-plan/v1",
+  "title": "CancellationFanoutPlan",
+  "x-ioi-schema-version": "ioi.cancellation-fanout-plan.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "object_ref",
+    "source_head",
+    "requested_by_ref",
+    "reason",
+    "compensation_policy_ref",
+    "effect_reconciliation_policy_ref",
+    "targets",
+    "requires_completion_receipt"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.cancellation-fanout-plan.v1"
+    },
+    "object_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "source_head": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "requested_by_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "compensation_policy_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effect_reconciliation_policy_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "relation_kind",
+          "target_ref",
+          "actions",
+          "timeout_at_ms"
+        ],
+        "properties": {
+          "relation_kind": {
+            "enum": [
+              "context_cell",
+              "context_lease",
+              "runtime_assignment",
+              "harness_invocation",
+              "external_handle",
+              "child_goal_run",
+              "work_run",
+              "automation_run",
+              "work_result",
+              "receipt"
+            ]
+          },
+          "target_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "request_cancel",
+                "drain",
+                "fence",
+                "revoke_lease",
+                "close_context",
+                "wait_until_timeout",
+                "rollback",
+                "compensate",
+                "reconcile_ambiguous_effect",
+                "reconcile_irreversible_effect",
+                "preserve_receipt_lineage"
+              ]
+            }
+          },
+          "timeout_at_ms": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "requires_completion_receipt": {
+      "const": true
+    }
+  }
+}

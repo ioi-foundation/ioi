@@ -1,0 +1,31 @@
+{
+  "schema_version": "ioi.agentgres.artifact-ref.v1",
+  "artifact_id": "artifact://research/report",
+  "domain_id": "agentgres://domain/research",
+  "producing_operation_ref": "agentgres://operation/1",
+  "producing_actor": "runtime://hypervisor-daemon",
+  "role": "evidence",
+  "content": {
+    "cid": null,
+    "sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "manifest_root": null,
+    "bundle_root": null,
+    "media_type": "application/json",
+    "size_bytes": 100
+  },
+  "storage": {
+    "storage_backend": "local_disk"
+  },
+  "policy": {
+    "policy_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "authority": {
+    "authority_context_ref": "grant://research"
+  },
+  "lineage": {
+    "state_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "lifecycle": {
+    "status": "active"
+  }
+}

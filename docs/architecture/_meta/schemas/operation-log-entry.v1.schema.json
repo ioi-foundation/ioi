@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/agentgres/operation-log-entry/v1",
+  "title": "OperationLogEntry",
+  "x-ioi-schema-version": "ioi.agentgres.operation-log-entry.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "operation_id",
+    "domain_id",
+    "actor_id",
+    "operation_type",
+    "object_class",
+    "object_id",
+    "expected_head",
+    "expected_heads",
+    "base_state_root",
+    "policy_hash",
+    "authority_grant_refs",
+    "payload",
+    "payload_refs",
+    "resulting_head",
+    "state_root",
+    "receipt_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.agentgres.operation-log-entry.v1"
+    },
+    "operation_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "domain_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "actor_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "operation_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object_class": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "expected_head": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "expected_heads": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "base_state_root": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "patch_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policy_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "authority_grant_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "payload": {
+      "type": "object"
+    },
+    "payload_refs": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "resulting_head": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "state_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    }
+  }
+}

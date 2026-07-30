@@ -94,6 +94,7 @@ scripts/internal/
 !.internal/plans/
 .internal/plans/*
 !.internal/plans/*parity*.md
+internal-docs/audits
 
 # Local daemon/runtime state. This may contain receipts, grants, projected
 # provider state, and local model artifacts from GUI validation.

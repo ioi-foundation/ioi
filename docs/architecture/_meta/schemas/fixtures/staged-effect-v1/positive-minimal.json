@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.agentgres.staged-effect.v1",
+  "object_class": "StagedEffect",
+  "staged_effect_ref": "staged-effect://e1",
+  "execution_branch_ref": "execution-branch://run-1/b1",
+  "trace_ref": "trace://run-1",
+  "effect_kind": "custom",
+  "intent_ref": "artifact://intent/1",
+  "policy_decision_ref": null,
+  "authority_decision_ref": null,
+  "information_flow_decision_ref": "receipt://ifc/1",
+  "outcome_ref": null,
+  "affected_ref_patterns": [],
+  "pre_state_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "post_state_root": null,
+  "receipt_refs": [],
+  "settlement_status": "proposed",
+  "effect_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "branch_head": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "applied": false
+}

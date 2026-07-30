@@ -1,0 +1,11 @@
+{
+  "schema_version": "ioi.cancellation-fanout-plan.v1",
+  "object_ref": "goal://research",
+  "source_head": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "requested_by_ref": "actor://operator",
+  "reason": "operator stop",
+  "compensation_policy_ref": null,
+  "effect_reconciliation_policy_ref": "policy://reconcile",
+  "targets": [],
+  "requires_completion_receipt": true
+}

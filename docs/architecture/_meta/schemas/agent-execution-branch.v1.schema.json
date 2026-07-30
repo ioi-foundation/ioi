@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/agentgres/agent-execution-branch/v1",
+  "title": "AgentExecutionBranch",
+  "x-ioi-schema-version": "ioi.agentgres.agent-execution-branch.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "object_class",
+    "execution_branch_ref",
+    "run_id",
+    "parent_branch_ref",
+    "git_ref",
+    "workspace_snapshot_ref",
+    "worktree_ref",
+    "memory_projection_refs",
+    "harness_invocation_refs",
+    "model_route_refs",
+    "context_lease_refs",
+    "authority_refs",
+    "trace_ref",
+    "head_checkpoint_ref",
+    "staged_effect_refs",
+    "receipt_root",
+    "branch_purpose",
+    "status",
+    "branch_head"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.agentgres.agent-execution-branch.v1"
+    },
+    "object_class": {
+      "const": "AgentExecutionBranch"
+    },
+    "execution_branch_ref": {
+      "type": "string",
+      "pattern": "^execution-branch://[^\\s]+$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^run://[^\\s]+$"
+    },
+    "parent_branch_ref": {
+      "type": "string",
+      "pattern": "^execution-branch://[^\\s]+$"
+    },
+    "git_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "workspace_snapshot_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "worktree_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "memory_projection_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "harness_invocation_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "model_route_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "context_lease_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "authority_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "trace_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "head_checkpoint_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "staged_effect_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "receipt_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "branch_purpose": {
+      "enum": [
+        "main",
+        "candidate",
+        "research_attempt",
+        "ontology_attempt",
+        "incident_attempt",
+        "service_attempt",
+        "physical_mission_attempt",
+        "repair",
+        "verifier",
+        "reproduction",
+        "replay",
+        "self_correction",
+        "comparison"
+      ]
+    },
+    "status": {
+      "enum": [
+        "open",
+        "staged",
+        "admitted",
+        "discarded",
+        "superseded",
+        "archived",
+        "revoked"
+      ]
+    },
+    "branch_head": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

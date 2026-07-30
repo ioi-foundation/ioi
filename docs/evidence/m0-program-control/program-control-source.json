@@ -253,76 +253,6 @@
       "source_sha256": "4b2faeed0acd7ea84b48f8987b9125906995746ad6daf6dd71dbd48c512bfbd5"
     },
     {
-      "note": "Harvested/generated compatibility bundle; active owned adapter and outbound crossings are censused instead of treating bundle code as authority.",
-      "source_file": "apps/hypervisor/product-ui/owned/public/static/assets/main-DLKYFe1Y.js",
-      "source_sha256": "b52ab542870b4b3e0d48572ecf96ba43142a278ff5287396c48fa64cb6cd35a2"
-    },
-    {
-      "note": "Dynamic inbound compatibility dispatch and augmentation loading are file-locked while every statically visible outbound crossing is enumerated.",
-      "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-      "source_sha256": "83e8b3f9e03e3fec1122effeab04ca0712bf34b30eaf22e7e7737df19b0a6ad7"
-    },
-    {
-      "note": "The spawned reference server has dynamic fixture, missing-chunk, and static-file fallbacks; its single ANY compatibility boundary is censused and the whole dispatch is file-locked.",
-      "source_file": "apps/hypervisor/product-ui/server.cjs",
-      "source_sha256": "61090d7e9c1f90d0dc9f509b6297fb4859a4eee25d8b012378a8e540befbbfd3"
-    },
-    {
-      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
-      "source_file": "apps/hypervisor/scripts/augmentation/00-core.js",
-      "source_sha256": "75ecae5f50913a7b555a6d0c6d173854b664665300a6ed185b64dba72c14f47d"
-    },
-    {
-      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
-      "source_file": "apps/hypervisor/scripts/augmentation/10-run-timeline.js",
-      "source_sha256": "f879c0b2a2cd9d9673f8d8436880e9b59449bfe430c03469ef23ab92debcb227"
-    },
-    {
-      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
-      "source_file": "apps/hypervisor/scripts/augmentation/20-connections.js",
-      "source_sha256": "306c75cd474b2498d31f902df9051364d2b51eccc0a9633a01f5d8fb4b58f3ab"
-    },
-    {
-      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
-      "source_file": "apps/hypervisor/scripts/augmentation/30-shell.js",
-      "source_sha256": "e1cb9e7c05ac5091388c0161132ebe5ef4b38448c4aa5ec5cc5c9cbb186ce1eb"
-    },
-    {
-      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
-      "source_file": "apps/hypervisor/scripts/augmentation/35-app-catalog.js",
-      "source_sha256": "4d4bc784108d77d2f082a6aaabee3cbdd044fa6bc48ed849cccd7bd0022c1cc1"
-    },
-    {
-      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
-      "source_file": "apps/hypervisor/scripts/augmentation/40-home-explorer.js",
-      "source_sha256": "75e8c64f8adb340c5af6069631204f54b84e50eb77f42c4fedbf8714825bfc56"
-    },
-    {
-      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
-      "source_file": "apps/hypervisor/scripts/augmentation/50-new-session.js",
-      "source_sha256": "35b8cb3928856022ae9cdd49bb89ec85363bfbb7f1bcc85b3bbac8b232bbff78"
-    },
-    {
-      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
-      "source_file": "apps/hypervisor/scripts/augmentation/60-shell-wiring.js",
-      "source_sha256": "cc7fe6069b37de2e393d6d589a9839eb0681f75ba4535296bd26302126d32c1d"
-    },
-    {
-      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
-      "source_file": "apps/hypervisor/scripts/augmentation/70-cockpit-panel.js",
-      "source_sha256": "c0abbcbb68ba123f0aae984b6a3a8daa2c46ce4671f758acc9790493238921d8"
-    },
-    {
-      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
-      "source_file": "apps/hypervisor/scripts/augmentation/80-automations.js",
-      "source_sha256": "6cde3b79c63fb7dd31dab1e157cfac5fc1ea3e39ab7652083478ddc493d11e17"
-    },
-    {
-      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
-      "source_file": "apps/hypervisor/scripts/augmentation/90-mount.js",
-      "source_sha256": "b3d140aeb4c6044965ad92d7b455bd534276f5e47c574f0052a661e7e8b803f6"
-    },
-    {
       "note": "Twelve CRUD handlers are generated by the family_handlers macro; each literal daemon route and generated symbol is enumerated and the macro source is file-locked.",
       "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs",
       "source_sha256": "3b22fef34fe2a6eb9d1a178071aa4150506e1455b9d3f4b10b730ecb211bdaa4"
@@ -342,17 +272,17 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "67cf593642a1834a4c393955d15873d76bdc23fd4b6efcbd75e5c950d0cda92b"
+      "source_sha256": "900c1a570aabb81d583a3ced596b2bbb213c2f79e3bbfcde42a5646e3a11789e"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "4eb07950057bc4f77ef7451cbc6a5f5ca6a68d4c5cfe8c8748a42da1d6bb911a"
+      "source_sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "aa899174874164cf066f3264cb480f5a8ae663e3cee542ac67a0c6be2b5c6cb7"
+      "source_sha256": "e054ec0a7976400cc2578802f7f4340d45f8943baeda3bf1f9eab4023a285134"
     },
     {
       "role": "landed owner canon",
@@ -467,7 +397,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/api.md",
-      "source_sha256": "70671160e6b92a6213c003178639d0de1fbbc661890dcf13479148ddc1e2a6b8"
+      "source_sha256": "a761ead62c929a90ff3ce4ff0958869301afe081bec91c0aa9d9ec67661b7d52"
     },
     {
       "role": "landed owner canon",
@@ -507,7 +437,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
-      "source_sha256": "ad6a0ebb6e033c05d609f091b5fa688db10bc4b9a6259e1aba7176add08c08bd"
+      "source_sha256": "9ac1878598a4b9636bcc601106b08f8d7a524d6a685b9ea12007df4eef870f77"
     },
     {
       "role": "landed owner canon",
@@ -554,12 +484,12 @@
           {
             "note": "enumerated conditional session-preview registry",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-            "source_sha256": "806414fa099a6f81edbb471503b1c549e4031689b99779a5527e84cc1cc7afc1"
+            "source_sha256": "67f09de8cd3c3321be1b52f18c737b4ff9f0c668691dd762643a2064203a9b2e"
           },
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "e770328154a9171950eebc095fd5fef7b42571836c7e59d73e032191dfb950d6"
+            "source_sha256": "eddefb6f451dec5d4c7bd7fe30ab1739a76fe224297ddf1a1efaa9b498b13853"
           },
           {
             "note": "enumerated IBC HTTP registry",
@@ -729,12 +659,12 @@
           {
             "note": "enumerated conditional session-preview registry",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-            "source_sha256": "806414fa099a6f81edbb471503b1c549e4031689b99779a5527e84cc1cc7afc1"
+            "source_sha256": "67f09de8cd3c3321be1b52f18c737b4ff9f0c668691dd762643a2064203a9b2e"
           },
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "e770328154a9171950eebc095fd5fef7b42571836c7e59d73e032191dfb950d6"
+            "source_sha256": "eddefb6f451dec5d4c7bd7fe30ab1739a76fe224297ddf1a1efaa9b498b13853"
           },
           {
             "note": "enumerated signer POST /sign surface",
@@ -837,49 +767,14 @@
             "source_sha256": "386c0f95ff520bf72a4acfe0429139ad7a375c5efc0954617c1b91ffdff6ece3"
           },
           {
-            "note": "dynamically concatenated product UI read crossing",
-            "source_file": "apps/hypervisor/scripts/augmentation/10-run-timeline.js",
-            "source_sha256": "f879c0b2a2cd9d9673f8d8436880e9b59449bfe430c03469ef23ab92debcb227"
+            "note": "source-owned GoalRun and GoalRun-event read projections",
+            "source_file": "apps/hypervisor/src/data/goalRuns.ts",
+            "source_sha256": "1761f5118e6bde0b01afd0625b6c3fda58623fddee2a3dba3697fc4f75934c6b"
           },
           {
-            "note": "dynamically concatenated product UI read crossing",
-            "source_file": "apps/hypervisor/scripts/augmentation/35-app-catalog.js",
-            "source_sha256": "4d4bc784108d77d2f082a6aaabee3cbdd044fa6bc48ed849cccd7bd0022c1cc1"
-          },
-          {
-            "note": "dynamically concatenated product UI read crossing",
-            "source_file": "apps/hypervisor/scripts/augmentation/40-home-explorer.js",
-            "source_sha256": "75e8c64f8adb340c5af6069631204f54b84e50eb77f42c4fedbf8714825bfc56"
-          },
-          {
-            "note": "dynamically concatenated product UI read, plan, and mutation crossings",
-            "source_file": "apps/hypervisor/scripts/augmentation/50-new-session.js",
-            "source_sha256": "35b8cb3928856022ae9cdd49bb89ec85363bfbb7f1bcc85b3bbac8b232bbff78"
-          },
-          {
-            "note": "dynamically concatenated product UI read and mutation crossings",
-            "source_file": "apps/hypervisor/scripts/augmentation/70-cockpit-panel.js",
-            "source_sha256": "c0abbcbb68ba123f0aae984b6a3a8daa2c46ce4671f758acc9790493238921d8"
-          },
-          {
-            "note": "standing product UI daemon crossings",
-            "source_file": "apps/hypervisor/scripts/ioi-agent-runs.mjs",
-            "source_sha256": "e81a326388d6751c589fb981cd8a72d0104417cf3bcff8dca613d948f2cbc27a"
-          },
-          {
-            "note": "standing product UI daemon crossings and local preference file",
-            "source_file": "apps/hypervisor/scripts/ioi-api-adapter.mjs",
-            "source_sha256": "915d1a1402876864c262b3ee2a75ce87f6b6b965b58f622ada2ab1d8029dae3e"
-          },
-          {
-            "note": "standing product UI server, proxy, and daemon crossings",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_sha256": "83e8b3f9e03e3fec1122effeab04ca0712bf34b30eaf22e7e7737df19b0a6ad7"
-          },
-          {
-            "note": "M1.7 system-genesis surfaces: readouts and verbatim daemon proxies",
-            "source_file": "apps/hypervisor/scripts/system-genesis-surfaces.mjs",
-            "source_sha256": "f235bc2bc192207b52a97bf3fb0488a70cfb0d6590a7c6f03f00057073fce6a4"
+            "note": "source-owned product-surface projection reads and durable preference mutation",
+            "source_file": "apps/hypervisor/src/data/productSurface.ts",
+            "source_sha256": "c24c55112e37827e102c4238caac67acd5a9542c3bf43a6e94f675255201f869"
           },
           {
             "note": "Vite development replay mutation crossing",
@@ -912,31 +807,6 @@
             "source_sha256": "ead6b17fe4410a3b944c84986bea780258e5cd6f74bef29b0694ca14b4b13874"
           },
           {
-            "note": "standing product UI read and mutation crossings",
-            "source_file": "apps/hypervisor/surfaces/approvals/index.mjs",
-            "source_sha256": "1add34976e38faae3980917a6abc07f58efa64f8712c800a4b30520730be288c"
-          },
-          {
-            "note": "standing product UI read crossing",
-            "source_file": "apps/hypervisor/surfaces/ontology-context.mjs",
-            "source_sha256": "e4a498ec9eea24456cc0a33671cc5968304752f11aec487018f9a60a73545f75"
-          },
-          {
-            "note": "standing product UI read crossings",
-            "source_file": "apps/hypervisor/surfaces/ontology-manager/index.mjs",
-            "source_sha256": "65b9b7f0d03bfd6b5c192001de284abb2d0b8efa10a495b5656b55d2282cedf2"
-          },
-          {
-            "note": "standing product UI read crossings",
-            "source_file": "apps/hypervisor/surfaces/pipeline/index.mjs",
-            "source_sha256": "c27af691fb069819e873e1d71b4c7ae9ad6c9b080bd320b5fd748894cdd108c7"
-          },
-          {
-            "note": "standing product UI read and mutation crossings",
-            "source_file": "apps/hypervisor/surfaces/sources/index.mjs",
-            "source_sha256": "da5bed6b35780fee1e38121361bc804d9d47cb39941b1d34b04e0be7abd9b471"
-          },
-          {
             "note": "active demo application browser compatibility state",
             "source_file": "apps/sas-xyz/v2/app.jsx",
             "source_sha256": "60d729fdf2dbd86dcafc3dfe85ffe0164950c22c9954a13c77baa6f58ac0644b"
@@ -957,16 +827,6 @@
         "coverage_id": "active_javascript_server_source",
         "sources": [
           {
-            "note": "spawned reference UI compatibility server; dynamic mock and static fallback are file-locked",
-            "source_file": "apps/hypervisor/product-ui/server.cjs",
-            "source_sha256": "61090d7e9c1f90d0dc9f509b6297fb4859a4eee25d8b012378a8e540befbbfd3"
-          },
-          {
-            "note": "standing product UI HTTP and WebSocket compatibility facade",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_sha256": "83e8b3f9e03e3fec1122effeab04ca0712bf34b30eaf22e7e7737df19b0a6ad7"
-          },
-          {
             "note": "explicit development replay HTTP server",
             "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
             "source_sha256": "a7345f864c203348b5ac76a1956605e32cc0089e5098c8ebaec0a871c54c2a68"
@@ -975,77 +835,6 @@
       },
       {
         "actions": [
-          {
-            "calls": [
-              "mkdirSync",
-              "writeFileSync"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/ioi-api-adapter.mjs#saveStore",
-            "operation": "ANY /api/ioi.v1.UserService/SetPreference",
-            "source_anchor_sha256": "7540fd8b5e5027e68e45dcf4d6fd68c514557a1395d015e2eb3d5fba7cb7dc3f",
-            "source_file": "apps/hypervisor/scripts/ioi-api-adapter.mjs",
-            "source_line": 119
-          },
-          {
-            "calls": [
-              "process.exit"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6434",
-            "operation": "PROCESS_EXIT product-ui reference bundle unavailable",
-            "source_anchor_sha256": "a8af153a84ba4a6207e3e12fa7077c936de3fc7437e4ba7cc4d75adc81e50af1",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6434
-          },
-          {
-            "calls": [
-              "spawn"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6438",
-            "operation": "PROCESS_START product-ui reference server",
-            "source_anchor_sha256": "3380959af50f55458ffdb755825018a172139e4e573b26bded3443286ac1b487",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6438
-          },
-          {
-            "calls": [
-              "process.exit"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6442",
-            "operation": "SIGINT terminate product-ui reference server",
-            "source_anchor_sha256": "8cdb80ae560267131afe96c3f19cd3acba3c9025baf6a083d993a6ecbb55e460",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6442
-          },
-          {
-            "calls": [
-              "productUi.kill"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6443",
-            "operation": "SIGTERM terminate product-ui reference server",
-            "source_anchor_sha256": "63b045764bb8f4bc906fcca2b9131ba90ede7038cda8e47efe3d435591137ae7",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6443
-          },
-          {
-            "calls": [
-              "productUi.kill"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6444",
-            "operation": "PROCESS_EXIT propagate product-ui reference server exit",
-            "source_anchor_sha256": "6492b771f899d22278280ec85cedab220766d22d4bc24a42b7911ad6116ed089",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6444
-          },
-          {
-            "calls": [
-              "process.exit"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#waitForMirror",
-            "operation": "PROCESS_EXIT product-ui reference server startup timeout",
-            "source_anchor_sha256": "30981dada9e79554c683313c47c6d2a71914e00e9a80e7a006c6692b92816a05",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 10098
-          },
           {
             "calls": [
               "process.exit"
@@ -1657,19 +1446,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "446c0205f798e4b794218fb0807d5090aeec30ea1b99d068d6bc6f9f9b47539d",
-    "review_epoch_id": "owner-ratification-authority-admission-repair-review-2026-07-30",
-    "review_lock_sha256": "3195c818d0ec4c983d76c99703a95581c28515de91d3df13ac49d976cc2439be",
+    "program_source_material_sha256": "b858376ec543c5f4acf541036980a887a1c814d3429b0d9c08310a7de9d343d4",
+    "review_epoch_id": "owner-ratification-and-hypervisor-reconciliation-review-2026-07-30",
+    "review_lock_sha256": "6213282011950cbc6c3ea06c47a94de190e9220e985c47bca945c7f8a9c3ef96",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
     "reviewed_as_of": "2026-07-30",
-    "reviewed_entry_set_sha256": "8f4cd3a4a06f7472271da3cb705978da1c83c33940e1172db25d741038d2f00d",
-    "reviewed_identity_set_sha256": "d583d38a8dc59dbd5201be374735179ab2b7f013031f9c115ab3c81d66e2e715",
-    "reviewer_label": "claude-opus-5-owner-ratification-authority-admission-repair",
+    "reviewed_entry_set_sha256": "941a2ac90f3a829473c04b87e6a3fdf4a320fcf4fc9fd24bd1d0985ac0cce2e1",
+    "reviewed_identity_set_sha256": "780a30a08f77917747a61f07e8125df0ed45dcb1e1eed154c9c3001e79971606",
+    "reviewer_label": "codex-m3-complete-goalrun-review",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "70884d5b563d5edaba9afceafb63fb74a7072153a15e7dc8250fbe77c949b3b4",
-    "snapshot_head_sequence": 24,
-    "snapshot_predecessor_entry_sha256": "cfb4112d93f3f3626bf823400ffb1a8845ecf703feca36cc5821a508a3d54102",
+    "snapshot_head_entry_sha256": "ec22024a9c109c4815871b74b5e4b3d546d8d08c5cc04f46b2301276171032d8",
+    "snapshot_head_sequence": 25,
+    "snapshot_predecessor_entry_sha256": "70884d5b563d5edaba9afceafb63fb74a7072153a15e7dc8250fbe77c949b3b4",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

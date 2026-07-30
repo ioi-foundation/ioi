@@ -299,7 +299,7 @@ provenance://...        source, derivation, observation, attribution, or lineage
 prompt://...            policy-governed prompt/template artifact identity; never raw secret transport
 surface://...           registered product, application, operator, or generated surface identity
 hypervisor-workspace://... stable Hypervisor core-workspace registration identity; distinct from code or private workspaces
-route-alias://...       typed route-alias registration with one owner and a static target or fail-closed resolver
+context-route-resolver://... typed canonical-context resolver with one owner; never accepts retired path spellings
 ui-primitive://...      reusable source-neutral Hypervisor UX primitive identity; never a product registration by itself
 surface-descriptor://... ontology-bound surface descriptor identity; never launchability or product-membership authority by itself
 surface-serving://...   serving route/runtime binding for one admitted surface installation or System interface
@@ -435,7 +435,8 @@ package_artifact://...  deployable runtime package, converted model, image, or e
 registry_version://...  registered model, worker, package, or routeable artifact version identity
 promotion_record://...  auditable route binding, traffic split, alias change, or promotion decision identity
 promotion_bundle://...  immutable Foundry promotion bundle identity
-package_binding://...   runtime binding between a capability package and a target domain or route identity
+package-binding://...   runtime binding between a capability package and a target domain or route identity
+package_binding://...   read-only legacy alias for package-binding://...; forbidden for new writes
 projection://...        ontology-aware or Agentgres projection identity
 trace://...             replayable operation/effect trace identity
 replay://...            replay bundle, replay report, or replay-plan identity

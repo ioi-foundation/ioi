@@ -1,1 +1,0 @@
-import{cg as e,v_ as t}from"./vendor-DAwbZtf0.js";import{t as n}from"./cn-DppMFCU8.js";var r=t(),i=({to:t=`/settings/manage-organization`,children:i=`Enterprise tier`,className:a})=>(0,r.jsx)(e,{to:t,className:n(`font-medium text-content-brand hover:underline`,a),children:i});export{i as t};

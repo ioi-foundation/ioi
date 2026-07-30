@@ -41,3 +41,5 @@ through gate identifiers.
 - [ADR 0024: Compose The Flagship Institution From Two Activation Modes On One Spine](./0024-two-mode-flagship-composition.md) (refines ADRs 0021 and 0022)
 - [ADR 0026: Separate Deployment, Resource Relationship, And Autonomy Capabilities](./0026-separate-deployment-resource-relationship-and-autonomy-capabilities.md) (refines ADRs 0013, 0016, and 0021)
 - [ADR 0027: Require Workload-Bound Isolation For Autonomous Execution](./0027-require-workload-bound-isolation-for-autonomous-execution.md) (refines ADRs 0010, 0013, and 0020)
+- [ADR 0028: Reconcile Hypervisor Product-Surface Contracts And Cutover](./0028-reconcile-hypervisor-product-surface-contracts-and-cutover.md) (refines ADRs 0013, 0016, 0021, 0022, and 0024)
+- [ADR 0029: Admit Direct GoalRun Paths Explicitly And Use Research For Non-Software Proof](./0029-goalrun-direct-path-admission-and-research-proof-profile.md) (refines ADRs 0017, 0020, and 0022)

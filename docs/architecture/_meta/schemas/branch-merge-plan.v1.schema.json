@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/agentgres/branch-merge-plan/v1",
+  "title": "BranchMergePlan",
+  "x-ioi-schema-version": "ioi.agentgres.branch-merge-plan.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "object_class",
+    "branch_merge_ref",
+    "target_branch_ref",
+    "candidate_branch_refs",
+    "diff_refs",
+    "memory_diff_refs",
+    "authority_diff_refs",
+    "receipt_diff_refs",
+    "verification_refs",
+    "admission_policy_ref",
+    "expected_head_ref",
+    "authority_revalidation",
+    "decision",
+    "decision_receipt_ref",
+    "status",
+    "resulting_main_head",
+    "staged_effect_count"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.agentgres.branch-merge-plan.v1"
+    },
+    "object_class": {
+      "const": "BranchMergePlan"
+    },
+    "branch_merge_ref": {
+      "type": "string",
+      "pattern": "^branch-merge://[^\\s]+$"
+    },
+    "target_branch_ref": {
+      "type": "string",
+      "pattern": "^execution-branch://[^\\s]+$"
+    },
+    "candidate_branch_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^execution-branch://[^\\s]+$"
+      }
+    },
+    "diff_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "memory_diff_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "authority_diff_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "receipt_diff_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "verification_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:test|gate|receipt|branch-checkpoint)://[^\\s]+$"
+      }
+    },
+    "admission_policy_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "expected_head_ref": {
+      "type": "string",
+      "pattern": "^branch-checkpoint://[^\\s]+$"
+    },
+    "authority_revalidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revocation_epoch_checked",
+        "revalidated_at",
+        "stale_or_revoked_effects"
+      ],
+      "properties": {
+        "revocation_epoch_checked": {
+          "type": "string"
+        },
+        "revalidated_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        "stale_or_revoked_effects": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+          }
+        }
+      }
+    },
+    "decision": {
+      "enum": [
+        "pending",
+        "admit",
+        "discard",
+        "needs_review",
+        "conflict",
+        "superseded"
+      ]
+    },
+    "decision_receipt_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "ready",
+        "admitted",
+        "discarded",
+        "blocked",
+        "revoked"
+      ]
+    },
+    "resulting_main_head": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "staged_effect_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    }
+  }
+}

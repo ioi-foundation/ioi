@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/agentgres/projection-definition/v1",
+  "title": "ProjectionDefinition",
+  "x-ioi-schema-version": "ioi.agentgres.projection-definition.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "projection_id",
+    "source_objects",
+    "output_relation",
+    "refresh_mode",
+    "freshness_slo_ms",
+    "checkpoint_interval_ops"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.agentgres.projection-definition.v1"
+    },
+    "projection_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,127}$"
+    },
+    "source_objects": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "output_relation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "refresh_mode": {
+      "enum": [
+        "nearline_incremental",
+        "streaming",
+        "batch",
+        "on_demand"
+      ]
+    },
+    "freshness_slo_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "checkpoint_interval_ops": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    }
+  }
+}

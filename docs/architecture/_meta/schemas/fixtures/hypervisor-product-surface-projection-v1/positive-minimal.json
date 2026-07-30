@@ -1,0 +1,33 @@
+{
+  "schema_version": "ioi.hypervisor.product_surface_projection.v1",
+  "projection_id": "projection://hypervisor/product-surface/example",
+  "request_context_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "principal_ref": "user://example",
+  "org_ref": "org://example",
+  "workspace_entries": [
+    {
+      "identity_ref": "hypervisor-workspace://settings",
+      "display_name": "Settings",
+      "canonical_route": "/settings",
+      "resolved_launch_route": "/settings",
+      "launchable": true,
+      "disabled_reason_codes": []
+    }
+  ],
+  "application_entries": [
+    {
+      "identity_ref": "surface://hypervisor/studio",
+      "display_name": "Studio",
+      "canonical_route": "/studio",
+      "resolved_launch_route": "/studio",
+      "launchable": true,
+      "disabled_reason_codes": [],
+      "surface_capability_depth": "act",
+      "surface_operational_state": "serving"
+    }
+  ],
+  "policy_decision_refs": [
+    "decision://hypervisor/product-surface/example"
+  ],
+  "read_model_only": true
+}

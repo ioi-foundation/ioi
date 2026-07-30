@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.outcome-delta.v1",
+  "outcome_delta_id": "outcome-delta://research/1",
+  "work_subject_ref": "goal://research",
+  "outcome_room_ref": null,
+  "room_admission": null,
+  "proposed_by_ref": "work-result://research/1",
+  "target_ref": "state://research",
+  "delta_kind": "update",
+  "payload_ref": "state-delta://research/1",
+  "precondition_and_invariant_refs": [],
+  "expected_effect_ref": null,
+  "verifier_and_acceptance_refs": [],
+  "information_flow_label_refs": [
+    "ifc-label://internal"
+  ],
+  "status": "proposed",
+  "unexpected": "must fail"
+}

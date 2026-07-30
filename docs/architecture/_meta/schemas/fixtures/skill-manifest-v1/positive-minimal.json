@@ -1,0 +1,10 @@
+{
+  "schema_version": "ioi.skill-manifest.v1",
+  "skill_id": "skill://literature",
+  "revision_ref": "skill://literature/revision/2",
+  "content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "owner_ref": "project://research",
+  "display_name": "Literature",
+  "instruction_entrypoint_ref": "artifact://skills/literature",
+  "registry_status": "released"
+}

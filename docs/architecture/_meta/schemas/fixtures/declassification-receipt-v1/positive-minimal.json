@@ -1,0 +1,15 @@
+{
+  "schema_version": "ioi.components.daemon-runtime.declassification-receipt.v1",
+  "receipt_id": "receipt://declassification/1",
+  "approval_ref": "declassification-approval://review/1",
+  "information_flow_label_refs": [
+    "ifc-label://private"
+  ],
+  "effect_ref": "effect://egress/1",
+  "effect_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "destination": "research.example",
+  "authority_grant_ref": "grant://declassify",
+  "status_at_use": "valid",
+  "resulting_data_class": "internal",
+  "decided_at": "2026-07-30T12:00:00Z"
+}

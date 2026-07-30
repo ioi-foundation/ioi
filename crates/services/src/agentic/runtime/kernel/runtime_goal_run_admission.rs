@@ -19,6 +19,8 @@ use serde_json::{json, Value};
 use std::collections::HashSet;
 
 pub const GOAL_RUN_ADMISSION_SCHEMA_VERSION: &str = "ioi.runtime.goal_run_admission.v1";
+pub const GOAL_RUN_ADMISSION_PATH_DECISION_SCHEMA_VERSION: &str =
+    "ioi.foundations.goal-run-admission-path-decision.v1";
 
 /// The first orchestration policy: parallel implementation + verifier reconciliation.
 pub const GOAL_RUN_POLICY_PARALLEL_IMPLEMENT_RECONCILE: &str = "parallel_implement_reconcile";
@@ -62,6 +64,184 @@ type AdmitResult<T> = Result<T, RuntimeGoalRunAdmissionError>;
 pub struct RuntimeGoalRunAdmissionCore;
 
 impl RuntimeGoalRunAdmissionCore {
+    /// Resolve the canon-owned direct non-System versus System-bound admission path.
+    ///
+    /// Every predicate is required. Missing facts are uncertainty and fail before a decision;
+    /// false direct-path predicates produce a typed System-bound decision or refusal. A client
+    /// request is only an input and never overrides the daemon-owned decision.
+    pub fn select_goal_run_admission_path(
+        &self,
+        request: &Value,
+        now_iso: &str,
+    ) -> AdmitResult<Value> {
+        const REQUESTED_PATHS: &[&str] = &["auto", "direct_non_system", "system_bound"];
+        const RESULT_PROFILES: &[&str] = &[
+            "software_implementation",
+            "research",
+            "ontology_mutation",
+            "incident_resolution",
+            "service_delivery",
+            "physical_mission",
+            "review",
+            "evaluation",
+            "custom",
+        ];
+
+        let goal_ref = prefixed_string(request, "goal_run_ref", "goal://")?;
+        let requested_path = enum_value(request, "requested_path", REQUESTED_PATHS)?;
+        let profile_revision_ref = prefixed_string(
+            request,
+            "goal_run_profile_revision_ref",
+            "goal-run-profile://",
+        )?;
+        if !profile_revision_ref.contains("/revision/") {
+            return Err(RuntimeGoalRunAdmissionError::new(
+                400,
+                "goal_run_profile_revision_required",
+                "GoalRun admission requires an exact GoalRunProfile revision ref.",
+                json!({ "goal_run_profile_revision_ref": profile_revision_ref }),
+            ));
+        }
+        let profile_hash = sha256_text(request, "goal_run_profile_content_hash")?;
+        let constraint_hash = sha256_text(request, "effective_constraint_hash")?;
+        let result_profile = enum_value(request, "result_profile", RESULT_PROFILES)?;
+        let policy_refs = uri_refs(request, "policy_refs", false)?;
+        let authority_refs = uri_refs(request, "authority_refs", false)?;
+        let capability_requirement_refs = uri_refs(request, "capability_requirement_refs", true)?;
+
+        let facts = request.get("runtime_facts").ok_or_else(|| {
+            RuntimeGoalRunAdmissionError::new(
+                400,
+                "goal_run_runtime_facts_required",
+                "GoalRun admission-path selection requires a complete runtime-fact set.",
+                json!({ "field": "runtime_facts" }),
+            )
+        })?;
+        const FACT_KEYS: &[&str] = &[
+            "single_bounded_work_subject",
+            "requires_system_membership",
+            "requires_shared_frontier",
+            "requires_outcome_room",
+            "requires_collective_scheduling",
+            "capabilities_fit_single_execution",
+            "authority_fits_single_execution",
+            "risk_and_isolation_fit_single_execution",
+            "has_unresolved_system_dependency",
+            "policy_requires_system_path",
+            "system_path_available",
+        ];
+        let fact_object = facts.as_object().ok_or_else(|| {
+            RuntimeGoalRunAdmissionError::new(
+                400,
+                "goal_run_runtime_facts_invalid",
+                "GoalRun admission-path runtime_facts must be a closed object.",
+                json!({ "field": "runtime_facts" }),
+            )
+        })?;
+        if let Some(unknown) = fact_object
+            .keys()
+            .find(|key| !FACT_KEYS.contains(&key.as_str()))
+        {
+            return Err(RuntimeGoalRunAdmissionError::new(
+                400,
+                "goal_run_runtime_fact_unknown",
+                "Unknown GoalRun admission-path runtime facts fail closed.",
+                json!({ "field": unknown }),
+            ));
+        }
+
+        let single = required_bool(facts, "single_bounded_work_subject")?;
+        let requires_system = required_bool(facts, "requires_system_membership")?;
+        let requires_frontier = required_bool(facts, "requires_shared_frontier")?;
+        let requires_room = required_bool(facts, "requires_outcome_room")?;
+        let requires_collective = required_bool(facts, "requires_collective_scheduling")?;
+        let capabilities_fit = required_bool(facts, "capabilities_fit_single_execution")?;
+        let authority_fits = required_bool(facts, "authority_fits_single_execution")?;
+        let risk_fits = required_bool(facts, "risk_and_isolation_fit_single_execution")?;
+        let unresolved_system = required_bool(facts, "has_unresolved_system_dependency")?;
+        let policy_requires_system = required_bool(facts, "policy_requires_system_path")?;
+        let system_path_available = required_bool(facts, "system_path_available")?;
+
+        let mut reasons = Vec::new();
+        if !single {
+            reasons.push("multiple_work_subjects");
+        }
+        if requires_system {
+            reasons.push("system_membership_required");
+        }
+        if requires_frontier {
+            reasons.push("shared_frontier_required");
+        }
+        if requires_room {
+            reasons.push("outcome_room_required");
+        }
+        if requires_collective {
+            reasons.push("collective_scheduling_required");
+        }
+        if !capabilities_fit {
+            reasons.push("capability_requirements_exceed_single_execution");
+        }
+        if !authority_fits {
+            reasons.push("authority_requirements_exceed_single_execution");
+        }
+        if !risk_fits {
+            reasons.push("risk_or_isolation_exceeds_single_execution");
+        }
+        if unresolved_system {
+            reasons.push("unresolved_system_dependency");
+        }
+        if policy_requires_system {
+            reasons.push("policy_requires_system_path");
+        }
+        if requested_path == "system_bound" {
+            reasons.push("requested_system_path");
+        }
+
+        let direct_eligible = requested_path != "system_bound" && reasons.is_empty();
+        let decision = if direct_eligible {
+            reasons.push("direct_path_eligible");
+            "direct_non_system"
+        } else if system_path_available {
+            "system_bound_required"
+        } else {
+            reasons.push("system_path_prerequisites_unavailable");
+            "refused"
+        };
+        let safe_goal = safe_id(&goal_ref);
+
+        Ok(json!({
+            "schema_version": GOAL_RUN_ADMISSION_PATH_DECISION_SCHEMA_VERSION,
+            "decision_ref": format!("decision://goal-run/{safe_goal}/admission-path"),
+            "goal_run_ref": goal_ref,
+            "requested_path": requested_path,
+            "decision": decision,
+            "admitting_owner": "hypervisor_daemon",
+            "goal_run_profile_revision_ref": profile_revision_ref,
+            "goal_run_profile_content_hash": profile_hash,
+            "effective_constraint_hash": constraint_hash,
+            "result_profile": result_profile,
+            "policy_refs": policy_refs,
+            "authority_refs": authority_refs,
+            "capability_requirement_refs": capability_requirement_refs,
+            "runtime_facts": {
+                "single_bounded_work_subject": single,
+                "requires_system_membership": requires_system,
+                "requires_shared_frontier": requires_frontier,
+                "requires_outcome_room": requires_room,
+                "requires_collective_scheduling": requires_collective,
+                "capabilities_fit_single_execution": capabilities_fit,
+                "authority_fits_single_execution": authority_fits,
+                "risk_and_isolation_fit_single_execution": risk_fits,
+                "has_unresolved_system_dependency": unresolved_system,
+                "policy_requires_system_path": policy_requires_system,
+                "system_path_available": system_path_available
+            },
+            "reason_codes": reasons,
+            "decision_receipt_ref": format!("receipt://goal-run/{safe_goal}/admission-path"),
+            "decided_at": now_iso,
+        }))
+    }
+
     /// goal_run_admit — validate + canonicalize a GoalRun creation request.
     pub fn admit_goal_run(&self, request: &Value, now_iso: &str) -> AdmitResult<Value> {
         let goal_ref = prefixed_string(request, "goal_ref", "goal://")?;
@@ -710,6 +890,56 @@ fn prefixed_refs(
     Ok(refs)
 }
 
+fn uri_refs(request: &Value, field: &str, allow_empty: bool) -> AdmitResult<Vec<String>> {
+    let refs = string_refs(request.get(field));
+    if !allow_empty && refs.is_empty() {
+        return Err(RuntimeGoalRunAdmissionError::new(
+            400,
+            "goal_run_required_refs_missing",
+            &format!("GoalRun admission requires non-empty {field}."),
+            json!({ "field": field }),
+        ));
+    }
+    if let Some(invalid) = refs.iter().find(|reference| !reference.contains("://")) {
+        return Err(RuntimeGoalRunAdmissionError::new(
+            400,
+            "goal_run_ref_prefix_invalid",
+            &format!("{field} must contain typed refs."),
+            json!({ "field": field, "ref": invalid }),
+        ));
+    }
+    Ok(refs)
+}
+
+fn required_bool(request: &Value, field: &str) -> AdmitResult<bool> {
+    request.get(field).and_then(Value::as_bool).ok_or_else(|| {
+        RuntimeGoalRunAdmissionError::new(
+            400,
+            "goal_run_runtime_fact_required",
+            &format!("GoalRun admission-path selection requires boolean runtime fact {field}."),
+            json!({ "field": field }),
+        )
+    })
+}
+
+fn sha256_text(request: &Value, field: &str) -> AdmitResult<String> {
+    let value = required_text(request, field, 1)?;
+    let valid = value.len() == 71
+        && value.starts_with("sha256:")
+        && value[7..]
+            .chars()
+            .all(|character| character.is_ascii_hexdigit() && !character.is_ascii_uppercase());
+    if !valid {
+        return Err(RuntimeGoalRunAdmissionError::new(
+            400,
+            "goal_run_hash_invalid",
+            &format!("GoalRun admission requires {field} as a lowercase sha256 digest."),
+            json!({ "field": field }),
+        ));
+    }
+    Ok(value)
+}
+
 fn string_refs(value: Option<&Value>) -> Vec<String> {
     let mut seen = HashSet::new();
     value
@@ -778,6 +1008,91 @@ mod tests {
             "provider_trust": "local",
             "model_route_state": "available",
         })
+    }
+
+    fn admission_path_request() -> Value {
+        json!({
+            "goal_run_ref": "goal://gr_research",
+            "requested_path": "auto",
+            "goal_run_profile_revision_ref": "goal-run-profile://generic-adaptive/revision/1",
+            "goal_run_profile_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "effective_constraint_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "result_profile": "research",
+            "policy_refs": ["policy://goal-run/direct-path/v1"],
+            "authority_refs": ["grant://goal-run/gr_research"],
+            "capability_requirement_refs": ["capability://research/read-only"],
+            "runtime_facts": {
+                "single_bounded_work_subject": true,
+                "requires_system_membership": false,
+                "requires_shared_frontier": false,
+                "requires_outcome_room": false,
+                "requires_collective_scheduling": false,
+                "capabilities_fit_single_execution": true,
+                "authority_fits_single_execution": true,
+                "risk_and_isolation_fit_single_execution": true,
+                "has_unresolved_system_dependency": false,
+                "policy_requires_system_path": false,
+                "system_path_available": false
+            }
+        })
+    }
+
+    #[test]
+    fn direct_admission_path_requires_every_resolved_predicate() {
+        let core = RuntimeGoalRunAdmissionCore;
+        let direct = core
+            .select_goal_run_admission_path(&admission_path_request(), "2026-07-30T12:00:00Z")
+            .unwrap();
+        assert_eq!(direct["decision"], json!("direct_non_system"));
+        assert_eq!(direct["admitting_owner"], json!("hypervisor_daemon"));
+        assert_eq!(direct["result_profile"], json!("research"));
+
+        let mut unknown = admission_path_request();
+        unknown["runtime_facts"]
+            .as_object_mut()
+            .unwrap()
+            .remove("authority_fits_single_execution");
+        assert_eq!(
+            core.select_goal_run_admission_path(&unknown, "2026-07-30T12:00:00Z")
+                .unwrap_err()
+                .code,
+            "goal_run_runtime_fact_required"
+        );
+
+        let mut extra = admission_path_request();
+        extra["runtime_facts"]["client_claims_direct"] = json!(true);
+        assert_eq!(
+            core.select_goal_run_admission_path(&extra, "2026-07-30T12:00:00Z")
+                .unwrap_err()
+                .code,
+            "goal_run_runtime_fact_unknown"
+        );
+    }
+
+    #[test]
+    fn collective_or_system_work_never_silently_downgrades_to_direct() {
+        let core = RuntimeGoalRunAdmissionCore;
+        let mut collective = admission_path_request();
+        collective["runtime_facts"]["requires_shared_frontier"] = json!(true);
+        collective["runtime_facts"]["system_path_available"] = json!(true);
+        let system = core
+            .select_goal_run_admission_path(&collective, "2026-07-30T12:00:00Z")
+            .unwrap();
+        assert_eq!(system["decision"], json!("system_bound_required"));
+        assert!(system["reason_codes"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("shared_frontier_required")));
+
+        collective["runtime_facts"]["system_path_available"] = json!(false);
+        let refused = core
+            .select_goal_run_admission_path(&collective, "2026-07-30T12:00:00Z")
+            .unwrap();
+        assert_eq!(refused["decision"], json!("refused"));
+        assert!(refused["reason_codes"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("system_path_prerequisites_unavailable")));
     }
 
     /// Behavioral guard for the product/substrate boundary: GoalRun admission must

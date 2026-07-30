@@ -1,13 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
-// The canonical Hypervisor product UI is the tracked product-ui bundle + IOI /api adapter,
-// served by `npm run serve:product-ui --workspace=@ioi/hypervisor-app`
-// (apps/hypervisor/scripts/serve-product-ui.mjs + ioi-api-adapter.mjs → http://localhost:4173).
-// This Vite entry only hosts the workbench dev preview + runtime services; it is NOT a second
-// product UI — evolve the served app in place, never build a parallel runtime.
 import "@ioi/hypervisor-workbench/dist/style.css";
 import "@ioi/workspace-substrate/style.css";
 import "./styles/global.css";
@@ -18,8 +13,14 @@ import {
 } from "./services/hypervisorAppearance";
 import { markHypervisorMetric } from "./services/workspacePerf";
 
-import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
-import { bootstrapHypervisorDevReplayClient } from "./dev/hypervisorDevReplayClient";
+import { AppShell } from "./shell/AppShell";
+import { HomeSurface } from "./surfaces/HomeSurface";
+import { ApplicationsSurface } from "./surfaces/ApplicationsSurface";
+import { OperationalSurface } from "./surfaces/OperationalSurface";
+import { WorkSurface } from "./surfaces/WorkSurface";
+import { SessionsSurface } from "./surfaces/SessionsSurface";
+import { SettingsSurface } from "./surfaces/SettingsSurface";
+import { RouteRefusalSurface } from "./surfaces/RouteRefusalSurface";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
@@ -34,31 +35,32 @@ function AppMetricsBeacon() {
   return null;
 }
 
-function ServedElsewhereNotice() {
-  return (
-    <div style={{ font: "14px/1.6 system-ui, sans-serif", padding: "2rem" }}>
-      <h1 style={{ fontSize: "1.25rem", margin: "0 0 .5rem" }}>Hypervisor</h1>
-      <p style={{ margin: 0 }}>
-        The product UI is served by the IOI /api adapter. Run{" "}
-        <code>npm run serve:product-ui --workspace=@ioi/hypervisor-app</code> and open{" "}
-        <code>http://localhost:4173</code>.
-      </p>
-    </div>
-  );
-}
-
 function renderHypervisorApp() {
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <BrowserRouter>
         <AppMetricsBeacon />
         <Routes>
-          <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
-          <Route path="*" element={<ServedElsewhereNotice />} />
+          <Route path="/sessions" element={<RouteRefusalSurface />} />
+          <Route path="/missions" element={<RouteRefusalSurface />} />
+          <Route path="/__ioi/*" element={<RouteRefusalSurface />} />
+          <Route path="*" element={<AppShell><Routes>
+            <Route path="/" element={<Navigate to="/home" replace />} />
+            <Route path="/home" element={<HomeSurface />} />
+            <Route path="/applications" element={<ApplicationsSurface />} />
+            <Route path="/work" element={<WorkSurface />} />
+            <Route path="/work/new-session" element={<SessionsSurface create />} />
+            <Route path="/work/sessions" element={<SessionsSurface />} />
+            <Route path="/work/sessions/:id" element={<SessionsSurface />} />
+            <Route path="/settings" element={<SettingsSurface />} />
+            <Route path="/systems/:systemId/interfaces/:bindingId" element={<OperationalSurface />} />
+            <Route path="/:surface" element={<OperationalSurface />} />
+            <Route path="*" element={<div className="hv-page"><h1>Not found</h1><p>No canonical product-surface registration owns this route.</p></div>} />
+          </Routes></AppShell>} />
         </Routes>
       </BrowserRouter>
     </React.StrictMode>,
   );
 }
 
-void bootstrapHypervisorDevReplayClient().finally(renderHypervisorApp);
+renderHypervisorApp();

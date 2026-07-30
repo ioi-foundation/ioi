@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/application-surface-registration/v1",
+  "title": "HypervisorApplicationSurfaceRegistration",
+  "x-ioi-schema-version": "ioi.hypervisor.application_surface_registration.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "surface_ref",
+    "surface_key",
+    "surface_class",
+    "display_name",
+    "surface_availability",
+    "canonical_route",
+    "canonical_owner_doc_ref",
+    "effect_boundary",
+    "declared_object_contract_refs",
+    "declared_action_contract_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.application_surface_registration.v1"
+    },
+    "surface_ref": {
+      "type": "string",
+      "pattern": "^surface://\\S*$"
+    },
+    "surface_key": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "surface_class": {
+      "enum": [
+        "owner_application",
+        "substrate_application",
+        "tool_surface",
+        "extension_application"
+      ]
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "surface_availability": {
+      "enum": [
+        "planned",
+        "preview",
+        "limited",
+        "available",
+        "deprecated",
+        "unavailable"
+      ]
+    },
+    "canonical_route": {
+      "type": "string",
+      "pattern": "^/\\S*$"
+    },
+    "canonical_owner_doc_ref": {
+      "type": "string",
+      "pattern": "^doc://\\S*$"
+    },
+    "effect_boundary": {
+      "enum": [
+        "inspect_only",
+        "propose_only",
+        "effectful"
+      ]
+    },
+    "declared_object_contract_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "declared_action_contract_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "context_route_resolver_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^context-route-resolver://\\S*$"
+      },
+      "uniqueItems": true
+    }
+  }
+}

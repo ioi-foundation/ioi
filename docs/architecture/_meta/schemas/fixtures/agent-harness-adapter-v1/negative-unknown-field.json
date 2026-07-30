@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.agent-harness-adapter.v1",
+  "adapter_id": "agent-harness-adapter://local",
+  "revision_ref": "agent-harness-adapter://local/revision/1",
+  "content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "owner_ref": "system://ioi",
+  "adapter_family": "local_agent",
+  "transport_kind": "local_process",
+  "compatible_harness_profile_revision_refs": [
+    "harness-profile://research/revision/3"
+  ],
+  "registry_status": "released",
+  "unexpected": "must fail"
+}

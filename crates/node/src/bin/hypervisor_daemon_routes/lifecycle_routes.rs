@@ -5822,6 +5822,546 @@ pub(crate) async fn handle_core_taxonomy() -> Result<Json<Value>, AppError> {
     Ok(Json(taxonomy))
 }
 
+fn hypervisor_request_identity(
+    st: &DaemonState,
+    headers: &HeaderMap,
+    body: &Value,
+) -> Result<(String, String), (StatusCode, Json<Value>)> {
+    let principal = resolve_principal(&st.data_dir, headers);
+    let principal_ref = principal
+        .as_ref()
+        .and_then(|record| {
+            record
+                .get("principal_id")
+                .and_then(Value::as_str)
+                .map(|id| format!("user://{id}"))
+        })
+        .unwrap_or_else(|| "user://local-operator".to_string());
+    if let Some(asserted) = body.get("user_ref").and_then(Value::as_str) {
+        if asserted != principal_ref {
+            return Err((
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "ok": false,
+                    "code": "hypervisor.principal_mismatch"
+                })),
+            ));
+        }
+    }
+    let org_ref = body
+        .get("org_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("org://local")
+        .to_string();
+    if !org_ref.starts_with("org://") {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.invalid_organization_ref"
+            })),
+        ));
+    }
+    let admitted_org = org_ref == "org://local"
+        || principal
+            .as_ref()
+            .and_then(|record| record.get("org_refs").and_then(Value::as_array))
+            .map(|orgs| {
+                orgs.iter()
+                    .any(|value| value.as_str() == Some(org_ref.as_str()))
+            })
+            .unwrap_or(false);
+    if !admitted_org {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "hypervisor.organization_membership_required",
+                "org_ref": org_ref
+            })),
+        ));
+    }
+    Ok((principal_ref, org_ref))
+}
+
+/// POST /v1/hypervisor/product-surface-projections — compile the single
+/// principal-, organization-, policy-, preference-, and context-bound product projection.
+pub(crate) async fn handle_product_surface_projection(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let (principal_ref, org_ref) = match hypervisor_request_identity(&st, &headers, &body) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let taxonomy: Value = match serde_json::from_str(include_str!("hypervisor_core_taxonomy.json"))
+    {
+        Ok(value) => value,
+        Err(error) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "hypervisor.taxonomy_unavailable", "detail": error.to_string() }),
+                ),
+            )
+        }
+    };
+    let surface_records: Value = match serde_json::from_str(include_str!(
+        "hypervisor_surface_records.json"
+    )) {
+        Ok(value) => value,
+        Err(error) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "ok": false, "code": "hypervisor.surface_records_unavailable", "detail": error.to_string() }),
+                ),
+            )
+        }
+    };
+    let allowed: Option<std::collections::HashSet<&str>> = body
+        .get("allowed_surface_refs")
+        .and_then(Value::as_array)
+        .map(|values| values.iter().filter_map(Value::as_str).collect());
+    let workspaces: Vec<Value> = taxonomy["core_workspaces"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|row| {
+            json!({
+                "identity_ref": row["workspace_ref"],
+                "display_name": row["display_name"],
+                "canonical_route": row["canonical_route"],
+                "resolved_launch_route": row["canonical_route"],
+                "launchable": true,
+                "disabled_reason_codes": []
+            })
+        })
+        .collect();
+    let releases = surface_records["releases"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let installations = surface_records["installations"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let serving_bindings = surface_records["serving_bindings"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let applications: Vec<Value> = surface_records["registrations"].as_array().cloned().unwrap_or_default()
+        .into_iter().filter(|row| allowed.as_ref().map(|set| row["surface_ref"].as_str().map(|value| set.contains(value)).unwrap_or(false)).unwrap_or(true))
+        .map(|row| {
+            let surface_ref = row["surface_ref"].as_str().unwrap_or_default();
+            let release = releases.iter().find(|candidate|
+                candidate["surface_ref"].as_str() == Some(surface_ref)
+                    && candidate["surface_admission_state"].as_str() == Some("admitted")
+                    && candidate["surface_package_disposition"].as_str() == Some("active"));
+            let installation = release.and_then(|selected_release| installations.iter().find(|candidate|
+                candidate["surface_ref"].as_str() == Some(surface_ref)
+                    && candidate["release_ref"] == selected_release["release_ref"]
+                    && candidate["org_ref"].as_str() == Some(org_ref.as_str())
+                    && candidate["surface_installation_state"].as_str() == Some("installed")
+                    && candidate["surface_enablement_state"].as_str() == Some("enabled")));
+            let serving = installation.and_then(|selected_installation| serving_bindings.iter().find(|candidate|
+                candidate["surface_ref"].as_str() == Some(surface_ref)
+                    && candidate["release_ref"] == selected_installation["release_ref"]
+                    && candidate["installation_ref"] == selected_installation["installation_ref"]
+                    && candidate["surface_operational_state"].as_str() == Some("serving")));
+            let launchable = release.is_some() && installation.is_some() && serving.is_some();
+            json!({
+                "identity_ref": row["surface_ref"],
+                "display_name": row["display_name"],
+                "canonical_route": row["canonical_route"],
+                "resolved_launch_route": serving.map(|record| record["resolved_route"].clone()).unwrap_or(Value::Null),
+                "launchable": launchable,
+                "disabled_reason_codes": if launchable { json!([]) } else { json!(["no_eligible_release_installation_or_serving_binding"]) },
+                "surface_capability_depth": release.map(|record| record["surface_capability_depth"].clone()).unwrap_or(Value::Null),
+                "surface_operational_state": serving.map(|record| record["surface_operational_state"].clone()).unwrap_or(Value::Null)
+            })
+        }).collect();
+    let context_material = serde_json::to_string(&json!({
+        "principal_ref": principal_ref,
+        "org_ref": org_ref,
+        "context": body.get("context").cloned().unwrap_or_else(|| json!({})),
+        "requested_group_kinds": body.get("requested_group_kinds").cloned().unwrap_or_else(|| json!([])),
+        "preference_projection_refs": body.get("preference_projection_refs").cloned().unwrap_or_else(|| json!([])),
+        "allowed_surface_refs": body.get("allowed_surface_refs").cloned().unwrap_or(Value::Null),
+    })).unwrap_or_default();
+    let hash = sha256_hex_str(&context_material);
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.hypervisor.product_surface_projection.v1",
+            "projection_id": format!("projection://hypervisor/product-surface/{}", &hash[..16]),
+            "request_context_hash": format!("sha256:{hash}"),
+            "principal_ref": principal_ref,
+            "org_ref": org_ref,
+            "workspace_entries": workspaces,
+            "application_entries": applications,
+            "policy_decision_refs": [format!("decision://hypervisor/product-surface/{}", &hash[..16])],
+            "read_model_only": true
+        })),
+    )
+}
+
+/// GET /v1/hypervisor/preferences — principal- and organization-scoped durable preferences.
+pub(crate) async fn handle_preference_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Query(params): Query<HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    let body =
+        json!({ "org_ref": params.get("org_ref").map(String::as_str).unwrap_or("org://local") });
+    let (principal_ref, org_ref) = match hypervisor_request_identity(&st, &headers, &body) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let preferences: Vec<Value> = read_record_dir(&st.data_dir, "hypervisor-preferences")
+        .into_iter()
+        .filter(|record| {
+            record["principal_ref"].as_str() == Some(principal_ref.as_str())
+                && record["org_ref"].as_str() == Some(org_ref.as_str())
+        })
+        .collect();
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "principal_ref": principal_ref, "org_ref": org_ref, "preferences": preferences }),
+        ),
+    )
+}
+
+/// PUT /v1/hypervisor/preferences/:id — optimistic read-modify-write preference closure.
+pub(crate) async fn handle_preference_put(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let (principal_ref, org_ref) = match hypervisor_request_identity(&st, &headers, &body) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    if id.is_empty()
+        || !id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "hypervisor.invalid_preference_id" })),
+        );
+    }
+    let existing = read_record_dir(&st.data_dir, "hypervisor-preferences")
+        .into_iter()
+        .find(|record| record["preference_id"].as_str() == Some(id.as_str()));
+    let current_revision = existing
+        .as_ref()
+        .and_then(|record| record["revision"].as_u64())
+        .unwrap_or(0);
+    let expected_revision = body
+        .get("expected_revision")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    if expected_revision != current_revision {
+        return (
+            StatusCode::CONFLICT,
+            Json(
+                json!({ "ok": false, "code": "hypervisor.preference_revision_conflict", "current_revision": current_revision }),
+            ),
+        );
+    }
+    let next_revision = current_revision + 1;
+    let material = serde_json::to_string(&json!({ "id": id, "principal_ref": principal_ref, "org_ref": org_ref, "revision": next_revision, "kind": body["preference_kind"], "value": body["value"] })).unwrap_or_default();
+    let root = sha256_hex_str(&material);
+    let record = json!({
+        "schema_version": "ioi.hypervisor.preference_record.v1",
+        "preference_id": id,
+        "preference_ref": format!("preference://hypervisor/{id}"),
+        "principal_ref": principal_ref,
+        "org_ref": org_ref,
+        "preference_kind": body.get("preference_kind").and_then(Value::as_str).unwrap_or("surface_preference"),
+        "value": body.get("value").cloned().unwrap_or(Value::Null),
+        "revision": next_revision,
+        "agentgres_operation_ref": format!("agentgres://operation/hypervisor-preference/{}", &root[..16]),
+        "state_root_ref": format!("agentgres://state-root/hypervisor-preference/{root}"),
+        "updated_at": iso_now()
+    });
+    match persist_record(&st.data_dir, "hypervisor-preferences", &id, &record) {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": true, "preference": record, "receipt": { "schema_version": "ioi.hypervisor.mutation_receipt.v1", "operation_ref": record["agentgres_operation_ref"], "state_root_ref": record["state_root_ref"], "previous_revision": current_revision, "revision": next_revision, "recovery_required": false } }),
+            ),
+        ),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "hypervisor.preference_persistence_failed", "detail": error.to_string() }),
+            ),
+        ),
+    }
+}
+
+/// POST /v1/hypervisor/collections/query — bounded, policy-before-counts collection query.
+pub(crate) async fn handle_collection_query(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let (principal_ref, org_ref) = match hypervisor_request_identity(&st, &headers, &body) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let page_size = body.get("page_size").and_then(Value::as_u64).unwrap_or(25);
+    if page_size == 0 || page_size > 50 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "code": "hypervisor.page_size_out_of_bounds", "maximum": 50 }),
+            ),
+        );
+    }
+    let family = match body.get("collection").and_then(Value::as_str).unwrap_or("") {
+        "work_runs" => "runs",
+        "sessions" => "threads",
+        "projects" => "projects",
+        "systems" => "systems",
+        "automations" => "automations",
+        "notifications" => "notifications",
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "ok": false, "code": "hypervisor.unknown_collection" })),
+            )
+        }
+    };
+    let query_material = serde_json::to_string(&json!({ "principal_ref": principal_ref, "org_ref": org_ref, "collection": body["collection"], "search": body["search"], "filters": body["filters"], "sort": body["sort"], "facets": body["facets"] })).unwrap_or_default();
+    let query_hash = sha256_hex_str(&query_material);
+    let cursor_prefix = format!("cursor:{}:", &query_hash[..16]);
+    let offset = match body.get("cursor").and_then(Value::as_str) {
+        None => 0usize,
+        Some(cursor) if cursor.starts_with(&cursor_prefix) => cursor[cursor_prefix.len()..]
+            .parse::<usize>()
+            .unwrap_or(usize::MAX),
+        Some(_) => usize::MAX,
+    };
+    if offset == usize::MAX {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "hypervisor.cursor_context_mismatch" })),
+        );
+    }
+    let search = body
+        .get("search")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_lowercase();
+    let filters = body
+        .get("filters")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let sorts = body
+        .get("sort")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let facet_fields = body
+        .get("facets")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let field_value = |record: &Value, field: &str| -> Value {
+        field
+            .split('.')
+            .try_fold(record, |value, segment| value.get(segment))
+            .cloned()
+            .unwrap_or(Value::Null)
+    };
+    for filter in &filters {
+        let field = filter.get("field").and_then(Value::as_str).unwrap_or("");
+        let operator = filter.get("operator").and_then(Value::as_str).unwrap_or("");
+        if field.is_empty()
+            || !field
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'.')
+            || !matches!(operator, "eq" | "neq" | "in" | "contains")
+            || filter.get("value").is_none()
+        {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "ok": false, "code": "hypervisor.invalid_collection_filter" })),
+            );
+        }
+    }
+    for sort in &sorts {
+        let field = sort.get("field").and_then(Value::as_str).unwrap_or("");
+        let direction = sort.get("direction").and_then(Value::as_str).unwrap_or("");
+        if field.is_empty()
+            || !field
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'.')
+            || !matches!(direction, "asc" | "desc")
+        {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "ok": false, "code": "hypervisor.invalid_collection_sort" })),
+            );
+        }
+    }
+    let facet_names: Option<Vec<&str>> = facet_fields.iter().map(Value::as_str).collect();
+    let Some(facet_names) = facet_names else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "hypervisor.invalid_collection_facet" })),
+        );
+    };
+    if facet_names.iter().any(|field| {
+        field.is_empty()
+            || !field
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'.')
+    }) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "hypervisor.invalid_collection_facet" })),
+        );
+    }
+    let mut records: Vec<Value> = read_record_dir(&st.data_dir, family)
+        .into_iter()
+        // Policy visibility is applied before search, filters, counts, facets, and pagination.
+        .filter(|record| {
+            record
+                .get("org_ref")
+                .and_then(Value::as_str)
+                .map(|value| value == org_ref)
+                .unwrap_or(org_ref == "org://local")
+        })
+        .filter(|record| {
+            record
+                .get("principal_ref")
+                .and_then(Value::as_str)
+                .map(|value| value == principal_ref)
+                .unwrap_or(true)
+        })
+        .filter(|record| search.is_empty() || record.to_string().to_lowercase().contains(&search))
+        .filter(|record| {
+            filters.iter().all(|filter| {
+                let actual = field_value(record, filter["field"].as_str().unwrap_or_default());
+                let expected = &filter["value"];
+                match filter["operator"].as_str().unwrap_or_default() {
+                    "eq" => actual == *expected,
+                    "neq" => actual != *expected,
+                    "in" => expected
+                        .as_array()
+                        .map(|values| values.contains(&actual))
+                        .unwrap_or(false),
+                    "contains" => actual
+                        .as_str()
+                        .zip(expected.as_str())
+                        .map(|(left, right)| left.to_lowercase().contains(&right.to_lowercase()))
+                        .unwrap_or(false),
+                    _ => false,
+                }
+            })
+        })
+        .collect();
+    records.sort_by(|left, right| {
+        for sort in &sorts {
+            let field = sort["field"].as_str().unwrap_or_default();
+            let ordering = field_value(left, field)
+                .to_string()
+                .cmp(&field_value(right, field).to_string());
+            if !ordering.is_eq() {
+                return if sort["direction"].as_str() == Some("desc") {
+                    ordering.reverse()
+                } else {
+                    ordering
+                };
+            }
+        }
+        left.to_string().cmp(&right.to_string())
+    });
+    let total = records.len();
+    let facets: Vec<Value> = facet_names.into_iter().map(|field| {
+        let mut counts = std::collections::BTreeMap::<String, usize>::new();
+        for record in &records { *counts.entry(field_value(record, field).to_string()).or_default() += 1; }
+        json!({ "field": field, "values": counts.into_iter().map(|(value, count)| json!({ "value": value, "count": count })).collect::<Vec<_>>() })
+    }).collect();
+    let mut items = Vec::new();
+    for record in records.into_iter().skip(offset).take(page_size as usize) {
+        let mut candidate = items.clone();
+        candidate.push(record.clone());
+        if serde_json::to_vec(&candidate)
+            .map(|bytes| bytes.len())
+            .unwrap_or(usize::MAX)
+            > 1_048_576
+        {
+            break;
+        }
+        items.push(record);
+    }
+    let next_offset = offset.saturating_add(items.len());
+    let next_cursor = if next_offset < total {
+        Value::String(format!("{cursor_prefix}{next_offset}"))
+    } else {
+        Value::Null
+    };
+    let serialized_bytes = serde_json::to_vec(
+        &json!({ "items": &items, "facets": &facets, "next_cursor": &next_cursor }),
+    )
+    .map(|bytes| bytes.len())
+    .unwrap_or(usize::MAX);
+    if serialized_bytes > 1_048_576 {
+        return (
+            StatusCode::PAYLOAD_TOO_LARGE,
+            Json(
+                json!({ "ok": false, "code": "hypervisor.collection_page_payload_out_of_bounds", "maximum_serialized_page_bytes": 1_048_576 }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "schema_version": "ioi.hypervisor.collection_page.v1", "query_ref": format!("query://hypervisor/{}", &query_hash[..16]), "items": items, "facets": facets, "next_cursor": next_cursor, "snapshot_revision": format!("sha256:{query_hash}"), "serialized_bytes": serialized_bytes, "total_policy_visible": total, "policy_filtered_before_counts_and_cache": true }),
+        ),
+    )
+}
+
+pub(crate) async fn handle_retired_hypervisor_route(uri: axum::http::Uri) -> Response {
+    let requested = uri.path().to_string();
+    let replacement = if requested == "/sessions" {
+        Some("/work/sessions")
+    } else if requested == "/missions" {
+        Some("/work")
+    } else {
+        None
+    };
+    let mut response = (
+        StatusCode::GONE,
+        Json(json!({
+            "schema_version": "ioi.hypervisor.route_retirement_refusal.v1",
+            "code": "hypervisor.route_retired",
+            "requested_route": requested,
+            "canonical_replacement_route": replacement,
+            "read_performed": false,
+            "mutation_performed": false,
+            "final_invocation_performed": false
+        })),
+    )
+        .into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static("no-store"),
+    );
+    response
+}
+
 /// POST /v1/hypervisor/model-route-mutation-admissions — admit a model-route mutation. The
 /// kernel planner (pure) asserts the request bound the required wallet authority + credential
 /// posture + model-weight custody + privacy + Agentgres/receipt/state-root refs, then returns

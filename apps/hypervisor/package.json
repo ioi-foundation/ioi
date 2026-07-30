@@ -9,9 +9,9 @@
     "prebuild": "npm run build --workspace=@ioi/workspace-substrate --if-present && npm run build --workspace=@ioi/hypervisor-workbench --if-present && npm run build --workspace=@ioi/wallet-sdk --if-present",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "serve:product-ui": "node scripts/serve-product-ui.mjs",
-    "serve:reference": "node scripts/serve-product-ui.mjs",
-    "check:source-neutral": "node scripts/check-source-neutral.mjs"
+    "serve:app": "vite preview --host 127.0.0.1 --port 4173",
+    "check:source-neutral": "node scripts/check-source-neutral.mjs",
+    "test:contract": "node scripts/test-product-surface-contract.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/agentgres/staged-effect/v1",
+  "title": "StagedEffect",
+  "x-ioi-schema-version": "ioi.agentgres.staged-effect.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "object_class",
+    "staged_effect_ref",
+    "execution_branch_ref",
+    "trace_ref",
+    "effect_kind",
+    "intent_ref",
+    "policy_decision_ref",
+    "authority_decision_ref",
+    "information_flow_decision_ref",
+    "outcome_ref",
+    "affected_ref_patterns",
+    "pre_state_root",
+    "post_state_root",
+    "receipt_refs",
+    "settlement_status",
+    "effect_hash",
+    "branch_head",
+    "applied"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.agentgres.staged-effect.v1"
+    },
+    "object_class": {
+      "const": "StagedEffect"
+    },
+    "staged_effect_ref": {
+      "type": "string",
+      "pattern": "^staged-effect://[^\\s]+$"
+    },
+    "execution_branch_ref": {
+      "type": "string",
+      "pattern": "^execution-branch://[^\\s]+$"
+    },
+    "trace_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "effect_kind": {
+      "enum": [
+        "model_call",
+        "tool_call",
+        "file_mutation",
+        "connector_action",
+        "memory_mutation",
+        "policy_mutation",
+        "spend",
+        "provisioning",
+        "package_change",
+        "custom"
+      ]
+    },
+    "intent_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "policy_decision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "authority_decision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "information_flow_decision_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "outcome_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "affected_ref_patterns": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "pre_state_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "post_state_root": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "settlement_status": {
+      "enum": [
+        "proposed",
+        "authorized",
+        "materialized",
+        "denied",
+        "reverted",
+        "admitted",
+        "discarded"
+      ]
+    },
+    "effect_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "branch_head": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "applied": {
+      "type": "boolean"
+    }
+  }
+}

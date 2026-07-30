@@ -1,0 +1,31 @@
+{
+  "schema_version": "ioi.foundations.goal-run-profile-resolution-receipt.v1",
+  "receipt_id": "receipt://goal-run/research/profile-resolution",
+  "receipt_type": "goal_run_profile_resolution",
+  "goal_ref": "goal://research",
+  "goal_run_profile_revision_ref": "goal-run-profile://generic-adaptive/revision/1",
+  "goal_run_profile_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "admitted_override_set_ref": null,
+  "admitted_override_set_hash": null,
+  "effective_constraint_envelope_ref": "constraint://goal-run/research",
+  "effective_constraint_envelope_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "orchestration_policy_ref": "orchestration-policy://bounded",
+  "orchestration_policy_version_or_hash": "1",
+  "workflow_template_resolutions": [],
+  "resolved_skill_bindings": [],
+  "active_skill_set_snapshot_ref": "active-skill-set://goal-run/research",
+  "active_skill_set_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "resolved_harness_profile_revisions": [
+    {
+      "revision_ref": "harness-profile://research/revision/3",
+      "content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ],
+  "resolved_runtime_tool_contracts": [],
+  "unresolved_late_binding_requirement_refs": [],
+  "resolved_component_set_snapshot_ref": "artifact://goal-run/research/components",
+  "resolved_component_set_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "assurance_stage": "attested",
+  "receipt_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "unexpected": "must fail"
+}

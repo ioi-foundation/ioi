@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1",
+  "title": "AuthorityEffectAdmissionReceipt",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.authority-effect-admission-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "policy_enforcement_point_ref",
+    "authorization_subject",
+    "authority_grant_ref",
+    "authority_grant_hash",
+    "actual_effect_ref",
+    "actual_effect_hash",
+    "decision_profile_ref",
+    "policy_hash",
+    "proof_kind",
+    "decision",
+    "invoker_called",
+    "decided_at",
+    "body_hash",
+    "receipt_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.components.daemon-runtime.authority-effect-admission-receipt.v1"
+    },
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "policy_enforcement_point_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "authorization_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "subject_ref",
+        "subject_hash",
+        "validation_profile_ref"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "exact_effect",
+            "batch_manifest",
+            "standing_envelope"
+          ]
+        },
+        "subject_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "subject_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "validation_profile_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      }
+    },
+    "authority_grant_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "authority_grant_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "authority_review_receipt_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "authority_review_receipt_hash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "approval_ceremony_context_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "approval_ceremony_context_hash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "temporal_verification_profile_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "temporal_verification_profile_hash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "temporal_validity_evaluation_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "temporal_validity_evaluation_hash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "temporal_posture": {
+      "enum": [
+        "online_fresh",
+        "bounded_offline",
+        "historical_only",
+        "insufficient"
+      ]
+    },
+    "revocation_evidence_status": {
+      "enum": [
+        "verified",
+        "not_evaluated",
+        "unavailable",
+        "invalid",
+        "stale"
+      ]
+    },
+    "actual_effect_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "actual_effect_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "decision_profile_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "policy_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "proof_kind": {
+      "enum": [
+        "exact_equality",
+        "batch_membership",
+        "standing_constraint"
+      ]
+    },
+    "decision": {
+      "enum": [
+        "admitted",
+        "refused",
+        "unknown"
+      ]
+    },
+    "refusal_code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "invoker_called": {
+      "type": "boolean"
+    },
+    "invoker_receipt_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effect_receipt_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "decided_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$"
+    },
+    "body_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "receipt_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

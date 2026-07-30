@@ -1,0 +1,20 @@
+{
+  "schema_version": "ioi.hypervisor.surface_release_record.v1",
+  "release_ref": "package://hypervisor/studio/release/1",
+  "surface_ref": "surface://hypervisor/studio",
+  "package_ref": "package://hypervisor/studio",
+  "surface_distribution": "bundled",
+  "surface_admission_state": "admitted",
+  "surface_package_disposition": "active",
+  "surface_capability_depth": "act",
+  "object_contract_refs": [
+    "object-model://studio"
+  ],
+  "action_contract_refs": [
+    "action://studio/compose"
+  ],
+  "evidence_refs": [
+    "artifact://hypervisor/studio/release-1-proof"
+  ],
+  "unexpected_field": true
+}

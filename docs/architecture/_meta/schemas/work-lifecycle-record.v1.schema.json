@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/work-lifecycle-record/v1",
+  "title": "WorkLifecycleRecord",
+  "x-ioi-schema-version": "ioi.work-lifecycle-record.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "record_hash",
+    "record_type",
+    "object_kind",
+    "object_ref",
+    "expected_head",
+    "resulting_head",
+    "idempotency_key",
+    "authority_class",
+    "authority_ref",
+    "evidence_refs",
+    "receipt_refs",
+    "phase_transition",
+    "child_reference",
+    "occurred_at_ms"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.work-lifecycle-record.v1"
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^work-lifecycle://[^\\s]+$"
+    },
+    "record_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "record_type": {
+      "enum": [
+        "phase_transition",
+        "child_reference"
+      ]
+    },
+    "object_kind": {
+      "enum": [
+        "goal_run",
+        "goal_grounding_loop",
+        "work_run",
+        "automation_run",
+        "harness_invocation",
+        "context_cell",
+        "external_handle"
+      ]
+    },
+    "object_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "expected_head": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "resulting_head": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "authority_class": {
+      "enum": [
+        "owner",
+        "goal_kernel",
+        "conductor",
+        "verifier",
+        "daemon",
+        "operator",
+        "reviewer",
+        "automation_controller",
+        "harness_adapter",
+        "external_protocol_adapter",
+        "reconciler",
+        "governance"
+      ]
+    },
+    "authority_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      }
+    },
+    "phase_transition": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "child_reference": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "occurred_at_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  }
+}

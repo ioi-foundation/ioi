@@ -1,0 +1,11 @@
+{
+  "schema_version": "ioi.active-skill-set-snapshot.v1",
+  "active_skill_set_snapshot_id": "active-skill-set://goal-run/research",
+  "work_subject_ref": "goal://research",
+  "selected_skills": [],
+  "excluded_candidates": [],
+  "active_set_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "resolved_runtime_tool_contracts": [],
+  "resolution_receipt_ref": "receipt://goal-run/research/profile-resolution",
+  "registry_status": "active"
+}

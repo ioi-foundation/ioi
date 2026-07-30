@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/preference-record/v1",
+  "title": "HypervisorPreferenceRecord",
+  "x-ioi-schema-version": "ioi.hypervisor.preference_record.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "preference_id", "preference_ref", "principal_ref", "org_ref", "preference_kind", "value", "revision", "agentgres_operation_ref", "state_root_ref", "updated_at"],
+  "properties": {
+    "schema_version": { "const": "ioi.hypervisor.preference_record.v1" },
+    "preference_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+    "preference_ref": { "type": "string", "pattern": "^preference://hypervisor/\\S+$" },
+    "principal_ref": { "type": "string", "pattern": "^(?:user|wallet)://\\S+$" },
+    "org_ref": { "type": "string", "pattern": "^org://\\S+$" },
+    "preference_kind": { "enum": ["theme", "density", "favorite", "recent", "default_organization", "default_project", "surface_preference"] },
+    "value": {},
+    "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "agentgres_operation_ref": { "type": "string", "pattern": "^agentgres://operation/\\S+$" },
+    "state_root_ref": { "type": "string", "pattern": "^agentgres://state-root/\\S+$" },
+    "updated_at": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" }
+  }
+}

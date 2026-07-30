@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1",
+  "title": "AgentHarnessAdapter",
+  "x-ioi-schema-version": "ioi.agent-harness-adapter.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "adapter_id",
+    "revision_ref",
+    "content_hash",
+    "owner_ref",
+    "adapter_family",
+    "transport_kind",
+    "compatible_harness_profile_revision_refs",
+    "registry_status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.agent-harness-adapter.v1"
+    },
+    "adapter_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "revision_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "predecessor_revision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "adapter_family": {
+      "enum": [
+        "codex_cli",
+        "claude_code",
+        "openhands",
+        "hermes",
+        "deepseek_tui",
+        "local_agent",
+        "remote_agent_api",
+        "custom"
+      ]
+    },
+    "transport_kind": {
+      "enum": [
+        "local_process",
+        "daemon_plugin",
+        "remote_api",
+        "aiip",
+        "mcp",
+        "custom"
+      ]
+    },
+    "compatible_harness_profile_revision_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "supported_task_brief_schema_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "supported_event_and_result_schema_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "supported_runtime_and_model_route_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "rendering_and_normalization_contract_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "required_runtime_tool_contract_revision_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "capability_and_context_requirement_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "provenance_evaluation_and_conformance_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "registry_lifecycle_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "registry_status": {
+      "enum": [
+        "draft",
+        "evaluable",
+        "released",
+        "deprecated",
+        "revoked"
+      ]
+    }
+  }
+}

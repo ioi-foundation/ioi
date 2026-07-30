@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/product-surface-projection/v1",
+  "title": "HypervisorProductSurfaceProjection",
+  "x-ioi-schema-version": "ioi.hypervisor.product_surface_projection.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "projection_id",
+    "request_context_hash",
+    "principal_ref",
+    "org_ref",
+    "workspace_entries",
+    "application_entries",
+    "policy_decision_refs",
+    "read_model_only"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.product_surface_projection.v1"
+    },
+    "projection_id": {
+      "type": "string",
+      "pattern": "^projection://hypervisor/product-surface/\\S*$"
+    },
+    "request_context_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "principal_ref": {
+      "type": "string",
+      "pattern": "^(?:user|wallet)://\\S*$"
+    },
+    "org_ref": {
+      "type": "string",
+      "pattern": "^org://\\S*$"
+    },
+    "workspace_entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entry"
+      },
+      "uniqueItems": true
+    },
+    "application_entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entry"
+      },
+      "uniqueItems": true
+    },
+    "policy_decision_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^decision://\\S*$"
+      },
+      "uniqueItems": true
+    },
+    "read_model_only": {
+      "const": true
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity_ref",
+        "display_name",
+        "canonical_route",
+        "resolved_launch_route",
+        "launchable",
+        "disabled_reason_codes"
+      ],
+      "properties": {
+        "identity_ref": {
+          "type": "string",
+          "pattern": "^(?:surface|hypervisor-workspace)://\\S*$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_route": {
+          "type": "string",
+          "pattern": "^/\\S*$"
+        },
+        "resolved_launch_route": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^/\\S*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "launchable": {
+          "type": "boolean"
+        },
+        "disabled_reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "surface_capability_depth": {
+          "anyOf": [
+            {
+              "enum": [
+                "browse",
+                "inspect",
+                "propose",
+                "act",
+                "workflow_complete"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "surface_operational_state": {
+          "anyOf": [
+            {
+              "enum": [
+                "inactive",
+                "starting",
+                "ready",
+                "serving",
+                "degraded",
+                "blocked",
+                "stopped",
+                "unavailable"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

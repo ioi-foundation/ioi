@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/declassification-receipt/v1",
+  "title": "DeclassificationReceipt",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.declassification-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "approval_ref",
+    "information_flow_label_refs",
+    "effect_ref",
+    "effect_hash",
+    "destination",
+    "authority_grant_ref",
+    "status_at_use",
+    "resulting_data_class",
+    "decided_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.components.daemon-runtime.declassification-receipt.v1"
+    },
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "approval_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "information_flow_label_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "runtime_tool_contract_revision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effect_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "effect_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "request_hash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reviewed_representation_hash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "destination": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resulting_data_class": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted",
+        "regulated",
+        "safety_critical"
+      ]
+    },
+    "authority_grant_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "status_at_use": {
+      "enum": [
+        "valid",
+        "expired",
+        "revoked",
+        "scope_mismatch",
+        "invalid"
+      ]
+    },
+    "decided_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": "ioi.agentgres.projection-definition.v1",
+  "projection_id": "quality_rankings",
+  "source_objects": [
+    "WorkResult"
+  ],
+  "output_relation": "quality_rankings",
+  "refresh_mode": "nearline_incremental",
+  "freshness_slo_ms": 500,
+  "checkpoint_interval_ops": 10000,
+  "unexpected": "must fail"
+}

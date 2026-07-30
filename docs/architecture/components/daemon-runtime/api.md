@@ -1015,7 +1015,8 @@ The target response is an `ioi.runtime.hypervisor_core_taxonomy.v2` object:
     { "workspace_ref": "hypervisor-workspace://systems", "workspace_key": "systems", "display_name": "Systems", "canonical_route": "/systems" },
     { "workspace_ref": "hypervisor-workspace://projects", "workspace_key": "projects", "display_name": "Projects", "canonical_route": "/projects" },
     { "workspace_ref": "hypervisor-workspace://applications", "workspace_key": "applications", "display_name": "Applications", "canonical_route": "/applications" },
-    { "workspace_ref": "hypervisor-workspace://work", "workspace_key": "work", "display_name": "Work", "canonical_route": "/work" }
+    { "workspace_ref": "hypervisor-workspace://work", "workspace_key": "work", "display_name": "Work", "canonical_route": "/work" },
+    { "workspace_ref": "hypervisor-workspace://settings", "workspace_key": "settings", "display_name": "Settings", "canonical_route": "/settings" }
   ],
   "owner_applications": [
     { "surface_ref": "surface://hypervisor/studio", "surface_key": "studio", "surface_class": "owner_application", "canonical_route": "/studio" },
@@ -1141,7 +1142,8 @@ hand-maintained card catalog.
       "hypervisor-workspace://systems",
       "hypervisor-workspace://projects",
       "hypervisor-workspace://applications",
-      "hypervisor-workspace://work"
+      "hypervisor-workspace://work",
+      "hypervisor-workspace://settings"
     ],
     "application_registration_refs": [
       "surface://hypervisor/studio",
@@ -1152,7 +1154,7 @@ hand-maintained card catalog.
         "workspace_ref": "hypervisor-workspace://work",
         "display_name": "Work",
         "canonical_route": "/work",
-        "route_alias_refs": [],
+        "context_route_resolver_refs": [],
         "launchable": true,
         "disabled_reason_codes": [],
         "launch_binding": {
@@ -1212,7 +1214,7 @@ hand-maintained card catalog.
         "group_kinds": ["first_party_applications"],
         "canonical_route": "/studio",
         "resolved_launch_route": "/studio",
-        "route_alias_refs": [],
+        "context_route_resolver_refs": [],
         "launchable": true,
         "disabled_reason_codes": [],
         "launch_binding": {
@@ -1260,7 +1262,7 @@ hand-maintained card catalog.
         "group_kinds": ["recommended"],
         "canonical_route": "/embodied-systems",
         "resolved_launch_route": null,
-        "route_alias_refs": [],
+        "context_route_resolver_refs": [],
         "launchable": false,
         "disabled_reason_codes": ["planned"],
         "launch_binding": null,
@@ -1285,14 +1287,54 @@ selected System-interface gate is disabled. A null release-, installation-, or
 serving-owned projected axis means no eligible source record was selected; it
 is not another canonical enum state.
 
-Implementation status: the current core-taxonomy code path still emits the
-narrower v1 hard-coded taxonomy, and the product-surface projection endpoint is
-not implemented. Until typed registrations, normalized owner records, and the
-request-scoped policy compiler exist, a v2 taxonomy request and a
-product-surface projection request must return typed unavailable/unsupported
-responses rather than relabeling v1 data or compiling launch state in a client.
-The v1 shape is transitional implementation evidence, not target product
-doctrine.
+```http
+GET|POST|PUT|PATCH|DELETE /__ioi/{retired-path}
+GET|POST|PUT|PATCH|DELETE /sessions
+GET|POST|PUT|PATCH|DELETE /missions
+```
+
+Every retired Hypervisor route returns HTTP `410` and
+`Cache-Control: no-store` with an
+`ioi.hypervisor.route_retirement_refusal.v1` body:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.route_retirement_refusal.v1",
+  "code": "hypervisor.route_retired",
+  "requested_route": "/sessions",
+  "canonical_replacement_route": "/work/sessions",
+  "read_performed": false,
+  "mutation_performed": false,
+  "final_invocation_performed": false
+}
+```
+
+The optional replacement is guidance, never a redirect or compatibility
+handler. The refusal occurs before read, preference lookup, dispatch,
+mutation, or final invocation.
+
+```http
+GET /v1/hypervisor/preferences?org_ref=org%3A%2F%2F...
+PUT /v1/hypervisor/preferences/{preference_ref}
+POST /v1/hypervisor/collections/query
+```
+
+Preference requests derive the principal from the admitted request boundary,
+require membership in the selected `org_ref`, and use an exact expected
+revision for updates. A stale revision returns a typed conflict without
+rewriting owner state. Collection queries default to 25 items, reject page
+sizes above 50, cap serialized pages at 1 MiB, bind opaque cursors to the exact
+principal/organization/policy/context/query snapshot, and filter policy before
+counts, facets, or cache insertion.
+
+Implementation status (2026-07-30): the Rust daemon emits the v2 core taxonomy,
+loads the registered normalized surface record families, and compiles the
+request-scoped `HypervisorProductSurfaceProjection`. It also implements durable
+optimistic preference updates, bounded collection queries, and the typed 410
+retirement refusal. The source-owned client consumes that projection and does
+not infer launchability or capability depth. This implementation status is not
+release closure: per-surface operational-journey depth and product claims remain
+subject to their implementation-program gates and retained evidence.
 
 ```http
 POST /v1/hypervisor/session-launch-recipe-admissions

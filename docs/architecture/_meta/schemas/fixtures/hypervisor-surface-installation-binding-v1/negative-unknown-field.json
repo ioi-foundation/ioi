@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.hypervisor.surface_installation_binding.v1",
+  "installation_ref": "install://hypervisor/studio/default",
+  "surface_ref": "surface://hypervisor/studio",
+  "release_ref": "package://hypervisor/studio/release/1",
+  "org_ref": "org://example",
+  "project_ref": null,
+  "surface_installation_state": "installed",
+  "surface_enablement_state": "enabled",
+  "visibility": "organization",
+  "allowed_object_contract_refs": [
+    "object-model://studio"
+  ],
+  "allowed_action_refs": [
+    "action://studio/compose"
+  ],
+  "revision": 1,
+  "unexpected_field": true
+}

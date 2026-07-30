@@ -1,0 +1,24 @@
+{
+  "schema_version": "ioi.agentgres.operation-log-entry.v1",
+  "operation_id": "agentgres://operation/1",
+  "domain_id": "agentgres://domain/research",
+  "actor_id": "runtime://hypervisor-daemon",
+  "operation_type": "RunCreated",
+  "object_class": "Run",
+  "object_id": "run://research",
+  "expected_head": null,
+  "expected_heads": {},
+  "base_state_root": null,
+  "policy_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "authority_grant_refs": [
+    "grant://research"
+  ],
+  "payload": {},
+  "payload_refs": [],
+  "resulting_head": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "state_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "receipt_refs": [
+    "receipt://operation/1"
+  ],
+  "unexpected": "must fail"
+}

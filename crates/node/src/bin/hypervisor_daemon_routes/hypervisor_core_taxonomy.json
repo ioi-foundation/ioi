@@ -1,119 +1,276 @@
 {
-  "schema_version": "ioi.runtime.hypervisor_core_taxonomy.v1",
+  "schema_version": "ioi.runtime.hypervisor_core_taxonomy.v2",
   "taxonomy_ref": "hypervisor-core-taxonomy:canonical",
   "core": {
     "id": "hypervisor-core",
     "execution_owner": "hypervisor-daemon",
-    "runtimeTruthSource": "daemon-runtime",
-    "doctrine": "Hypervisor Core is the shared substrate; clients and surfaces operate it, but the Hypervisor Daemon owns execution semantics."
+    "runtimeTruthSource": "daemon-runtime"
   },
   "first_class_clients": [
     {
-      "id": "hypervisor-app",
-      "kind": "app",
-      "description": "Native desktop client over Hypervisor Core."
+      "kind": "app"
     },
     {
-      "id": "hypervisor-web",
-      "kind": "web",
-      "description": "Browser/team/remote client over Hypervisor Core."
+      "kind": "web"
     },
     {
-      "id": "hypervisor-cli-headless",
-      "kind": "cli_headless",
-      "description": "Terminal, scripting, CI, node-ops, and headless operator client over Hypervisor Core."
+      "kind": "cli_headless"
     }
   ],
   "optional_presentations": [
     {
-      "id": "hypervisor-tui",
       "kind": "tui_presentation",
-      "parent_client": "hypervisor-cli-headless",
-      "description": "Optional terminal presentation over CLI/headless contracts; not a separate runtime lane."
+      "parent_client": "hypervisor-cli-headless"
     }
   ],
-  "application_surfaces": [
-    { "id": "home", "surface_ref": "hypervisor-surface:home", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "sessions", "surface_ref": "hypervisor-surface:sessions", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "projects", "surface_ref": "hypervisor-surface:projects", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "workbench", "surface_ref": "hypervisor-surface:workbench", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "automations", "surface_ref": "hypervisor-surface:automations", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "agents", "surface_ref": "hypervisor-surface:agents", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "models", "surface_ref": "hypervisor-surface:models", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "privacy_ctee", "surface_ref": "hypervisor-surface:privacy_ctee", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "authority", "surface_ref": "hypervisor-surface:authority", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "receipts", "surface_ref": "hypervisor-surface:receipts", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "insights", "surface_ref": "hypervisor-surface:insights", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "foundry", "surface_ref": "hypervisor-surface:foundry", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "providers", "surface_ref": "hypervisor-surface:providers", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "environments", "surface_ref": "hypervisor-surface:environments", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." },
-    { "id": "settings", "surface_ref": "hypervisor-surface:settings", "truth_owner": "hypervisor-daemon", "boundary": "Application surfaces are governed projections and controls over Hypervisor Core, not runtime owners." }
-  ],
-  "retired_surface_aliases": [
+  "core_workspaces": [
     {
-      "alias": "fleet",
-      "replacement": "sessions/providers/environments",
-      "reason": "Fleet posture is folded into Hypervisor session, provider, and environment management instead of a separate app surface."
+      "workspace_ref": "hypervisor-workspace://home",
+      "workspace_key": "home",
+      "display_name": "Home",
+      "canonical_route": "/home"
+    },
+    {
+      "workspace_ref": "hypervisor-workspace://systems",
+      "workspace_key": "systems",
+      "display_name": "Systems",
+      "canonical_route": "/systems"
+    },
+    {
+      "workspace_ref": "hypervisor-workspace://projects",
+      "workspace_key": "projects",
+      "display_name": "Projects",
+      "canonical_route": "/projects"
+    },
+    {
+      "workspace_ref": "hypervisor-workspace://applications",
+      "workspace_key": "applications",
+      "display_name": "Applications",
+      "canonical_route": "/applications"
+    },
+    {
+      "workspace_ref": "hypervisor-workspace://work",
+      "workspace_key": "work",
+      "display_name": "Work",
+      "canonical_route": "/work"
+    },
+    {
+      "workspace_ref": "hypervisor-workspace://settings",
+      "workspace_key": "settings",
+      "display_name": "Settings",
+      "canonical_route": "/settings"
     }
   ],
+  "application_registrations": [
+    {
+      "surface_ref": "surface://hypervisor/studio",
+      "surface_key": "studio",
+      "display_name": "Studio",
+      "surface_class": "owner_application",
+      "surface_availability": "available",
+      "canonical_route": "/studio",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/studio",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/automations",
+      "surface_key": "automations",
+      "display_name": "Automations",
+      "surface_class": "owner_application",
+      "surface_availability": "available",
+      "canonical_route": "/automations",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/automations",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/ontology",
+      "surface_key": "ontology",
+      "display_name": "Ontology",
+      "surface_class": "owner_application",
+      "surface_availability": "available",
+      "canonical_route": "/ontology",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/ontology",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/data",
+      "surface_key": "data",
+      "display_name": "Data",
+      "surface_class": "owner_application",
+      "surface_availability": "available",
+      "canonical_route": "/data",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/data",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/governance",
+      "surface_key": "governance",
+      "display_name": "Governance",
+      "surface_class": "owner_application",
+      "surface_availability": "available",
+      "canonical_route": "/governance",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/governance",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/provenance",
+      "surface_key": "provenance",
+      "display_name": "Provenance",
+      "surface_class": "owner_application",
+      "surface_availability": "available",
+      "canonical_route": "/provenance",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/provenance",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/evaluations",
+      "surface_key": "evaluations",
+      "display_name": "Evaluations",
+      "surface_class": "owner_application",
+      "surface_availability": "available",
+      "canonical_route": "/evaluations",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/evaluations",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/improvement",
+      "surface_key": "improvement",
+      "display_name": "Improvement",
+      "surface_class": "owner_application",
+      "surface_availability": "available",
+      "canonical_route": "/improvement",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/improvement",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/foundry",
+      "surface_key": "foundry",
+      "display_name": "Foundry",
+      "surface_class": "owner_application",
+      "surface_availability": "available",
+      "canonical_route": "/foundry",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/foundry",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/packages",
+      "surface_key": "packages",
+      "display_name": "Packages",
+      "surface_class": "owner_application",
+      "surface_availability": "available",
+      "canonical_route": "/packages",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/packages",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/developer-workspace",
+      "surface_key": "developer-workspace",
+      "display_name": "Developer Workspace",
+      "surface_class": "owner_application",
+      "surface_availability": "available",
+      "canonical_route": "/developer-workspace",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/developer-workspace",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/developer-console",
+      "surface_key": "developer-console",
+      "display_name": "Developer Console",
+      "surface_class": "owner_application",
+      "surface_availability": "available",
+      "canonical_route": "/developer-console",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/developer-console",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/environments",
+      "surface_key": "environments",
+      "display_name": "Environments",
+      "surface_class": "substrate_application",
+      "surface_availability": "available",
+      "canonical_route": "/environments",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/environments",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/operations",
+      "surface_key": "operations",
+      "display_name": "Operations",
+      "surface_class": "substrate_application",
+      "surface_availability": "available",
+      "canonical_route": "/operations",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/operations",
+      "effect_boundary": "effectful"
+    },
+    {
+      "surface_ref": "surface://hypervisor/embodied-systems",
+      "surface_key": "embodied-systems",
+      "display_name": "Embodied Systems",
+      "surface_class": "owner_application",
+      "surface_availability": "planned",
+      "canonical_route": "/embodied-systems",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/embodied-systems",
+      "effect_boundary": "propose_only"
+    }
+  ],
+  "dynamic_registration_classes": [
+    "tool_surface",
+    "extension_application"
+  ],
+  "normalized_record_contracts": [
+    "HypervisorApplicationSurfaceRegistration",
+    "HypervisorSurfaceReleaseRecord",
+    "HypervisorSurfaceInstallationBinding",
+    "HypervisorSystemInterfaceBinding",
+    "HypervisorSurfaceServingBinding",
+    "HypervisorProductSurfaceProjection"
+  ],
+  "context_route_resolver_contract": "HypervisorContextRouteResolver",
+  "retired_routes": {
+    "/sessions": "/work/sessions",
+    "/missions": "/work",
+    "/__ioi/*": null
+  },
   "adapter_target_families": [
     {
-      "id": "code_editor",
-      "examples": ["embedded-workbench", "vscode", "cursor", "windsurf", "jetbrains", "browser-ide"],
-      "allowed_surface_refs": ["hypervisor-surface:workbench"],
-      "runtimeTruthSource": "daemon-runtime"
+      "id": "code_editor"
     },
     {
-      "id": "terminal",
-      "examples": ["shell", "tmux", "remote-shell"],
-      "allowed_surface_refs": ["hypervisor-surface:sessions", "hypervisor-surface:environments"],
-      "runtimeTruthSource": "daemon-runtime"
+      "id": "terminal"
     },
     {
-      "id": "browser",
-      "examples": ["browser-automation", "browser-sandbox"],
-      "allowed_surface_refs": ["hypervisor-surface:sessions", "hypervisor-surface:automations"],
-      "runtimeTruthSource": "daemon-runtime"
+      "id": "provider"
     },
     {
-      "id": "vm_or_container",
-      "examples": ["local-container", "cloud-vm", "microvm"],
-      "allowed_surface_refs": ["hypervisor-surface:sessions", "hypervisor-surface:providers"],
-      "runtimeTruthSource": "daemon-runtime"
-    },
-    {
-      "id": "provider",
-      "examples": ["aws", "gcp", "azure", "akash", "filecoin", "runpod", "local-machine"],
-      "allowed_surface_refs": ["hypervisor-surface:providers", "hypervisor-surface:environments"],
-      "runtimeTruthSource": "daemon-runtime"
-    },
-    {
-      "id": "hypervisoros_node",
-      "examples": ["persistent-node", "bare-metal-node"],
-      "allowed_surface_refs": ["hypervisor-surface:sessions", "hypervisor-surface:environments"],
-      "runtimeTruthSource": "daemon-runtime"
+      "id": "hypervisoros_node"
     }
   ],
-  "agent_harness_adapters": [
-    { "id": "codex_style", "adapter_ref": "agent-harness-adapter:codex_style", "authority": "proposal_source_only", "runtimeTruthSource": "daemon-runtime", "boundary": "External harnesses may propose work through daemon gates; they are not Hypervisor clients and do not own runtime truth." },
-    { "id": "claude_style", "adapter_ref": "agent-harness-adapter:claude_style", "authority": "proposal_source_only", "runtimeTruthSource": "daemon-runtime", "boundary": "External harnesses may propose work through daemon gates; they are not Hypervisor clients and do not own runtime truth." },
-    { "id": "deepseek_style", "adapter_ref": "agent-harness-adapter:deepseek_style", "authority": "proposal_source_only", "runtimeTruthSource": "daemon-runtime", "boundary": "External harnesses may propose work through daemon gates; they are not Hypervisor clients and do not own runtime truth." },
-    { "id": "aider_style", "adapter_ref": "agent-harness-adapter:aider_style", "authority": "proposal_source_only", "runtimeTruthSource": "daemon-runtime", "boundary": "External harnesses may propose work through daemon gates; they are not Hypervisor clients and do not own runtime truth." },
-    { "id": "openhands_style", "adapter_ref": "agent-harness-adapter:openhands_style", "authority": "proposal_source_only", "runtimeTruthSource": "daemon-runtime", "boundary": "External harnesses may propose work through daemon gates; they are not Hypervisor clients and do not own runtime truth." },
-    { "id": "generic_cli", "adapter_ref": "agent-harness-adapter:generic_cli", "authority": "proposal_source_only", "runtimeTruthSource": "daemon-runtime", "boundary": "External harnesses may propose work through daemon gates; they are not Hypervisor clients and do not own runtime truth." }
-  ],
   "truth_boundaries": [
-    { "owner": "wallet.network", "owns": ["authority", "secrets", "approvals", "leases", "declassification", "spend", "revocation"] },
-    { "owner": "Agentgres", "owns": ["admitted operational truth", "state roots", "artifact refs", "archive refs", "receipt linkage", "restore validity"] },
-    { "owner": "storage backends", "owns": ["payload bytes"] },
-    { "owner": "route engines", "owns": ["candidate proposals", "venue metadata", "route evidence"] },
-    { "owner": "IOI L1", "owns": ["triggered public/economic/cross-domain commitments"] }
+    {
+      "owner": "wallet.network",
+      "owns": [
+        "authority",
+        "secrets",
+        "approvals",
+        "leases",
+        "revocation"
+      ]
+    },
+    {
+      "owner": "Agentgres",
+      "owns": [
+        "admitted operational truth",
+        "state roots",
+        "receipts",
+        "preferences"
+      ]
+    },
+    {
+      "owner": "storage backends",
+      "owns": [
+        "payload bytes"
+      ]
+    }
   ],
-  "anti_patterns": [
-    "Treating Hypervisor App, Hypervisor Web, CLI/headless, Workbench, Foundry, or editor hosts as runtime truth.",
-    "Treating external coding harnesses as Hypervisor clients instead of AgentHarnessAdapters.",
-    "Reintroducing Fleet as a separate product surface instead of session/provider/environment management.",
-    "Putting terminal, VM, provider, or HypervisorOS node launch posture back into the Workbench code-editor adapter surface.",
-    "Letting storage backends, route engines, Wallet UI, or L1 bypass daemon admission and Agentgres truth."
-  ]
+  "read_model_only": true
 }
