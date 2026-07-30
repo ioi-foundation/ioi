@@ -444,12 +444,28 @@
       "total_reviewed_entry_count": 1576,
       "total_reviewed_entry_set_sha256": "bf30690c5defc76d426a6db3fe7f3a2715888e7ecb5735df22321204ec7567c1",
       "total_reviewed_identity_set_sha256": "ba4c20136bbeaaf750c812d4867694f53f713c518184391939e39396fc149096"
+    },
+    {
+      "authorship_binding": "self_declared_unsigned",
+      "epoch_id": "owner-ratification-authority-admission-repair-review-2026-07-30",
+      "latest_epoch_identity_set_sha256": "d583d38a8dc59dbd5201be374735179ab2b7f013031f9c115ab3c81d66e2e715",
+      "latest_epoch_reviewed_entry_count": 1331,
+      "latest_epoch_reviewed_entry_set_sha256": "8f4cd3a4a06f7472271da3cb705978da1c83c33940e1172db25d741038d2f00d",
+      "predecessor_entry_sha256": "cfb4112d93f3f3626bf823400ffb1a8845ecf703feca36cc5821a508a3d54102",
+      "program_source_material_sha256": "446c0205f798e4b794218fb0807d5090aeec30ea1b99d068d6bc6f9f9b47539d",
+      "review_lock_sha256": "3195c818d0ec4c983d76c99703a95581c28515de91d3df13ac49d976cc2439be",
+      "reviewed_as_of": "2026-07-30",
+      "reviewer_id": "claude-opus-5-owner-ratification-authority-admission-repair",
+      "sequence": 24,
+      "total_reviewed_entry_count": 1576,
+      "total_reviewed_entry_set_sha256": "956340ec7a8a575ffe7b4de06d03123d9431e2d93f1190f521a50891f049ba00",
+      "total_reviewed_identity_set_sha256": "ba4c20136bbeaaf750c812d4867694f53f713c518184391939e39396fc149096"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "cfb4112d93f3f3626bf823400ffb1a8845ecf703feca36cc5821a508a3d54102",
-    "epoch_id": "route-final-invoker-census-successor-after-publication-rebuild-review-2026-07-29",
-    "sequence": 23
+    "entry_sha256": "70884d5b563d5edaba9afceafb63fb74a7072153a15e7dc8250fbe77c949b3b4",
+    "epoch_id": "owner-ratification-authority-admission-repair-review-2026-07-30",
+    "sequence": 24
   }
 }

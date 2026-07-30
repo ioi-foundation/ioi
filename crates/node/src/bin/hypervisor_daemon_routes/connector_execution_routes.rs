@@ -475,39 +475,7 @@ pub(crate) async fn handle_run_execute(
     );
 
     let connector_id = s(&session, "connector_id", "");
-    // RE-CHECK the credential↔endpoint binding at execution (never cached): the session's connector
-    // must STILL be the origin authority for the declared endpoint. Endpoints are immutable, but a
-    // connector's base_url can change (its /policy route) — so this is re-proven at the crossing,
-    // BEFORE the sealed credential is ever resolved. A stale binding sends the bearer nowhere.
     let source_endpoint = s(&source, "endpoint", "");
-    match find_by_key(&data_dir, "connectors", "connector_id", &connector_id) {
-        Some(c)
-            if crate::connector_session_routes::connector_covers_endpoint(
-                &s(&c, "base_url", ""),
-                &source_endpoint,
-            ) => {}
-        _ => {
-            let receipt = run_receipt(&data_dir, &run_ref, "execution_refused", "execution_connector_source_mismatch", "the session's connector is no longer the origin authority for the declared source endpoint — refused before any credential resolution or source contact");
-            push_history(
-                &mut run,
-                "execution_refused",
-                "connector↔source binding stale",
-                &receipt,
-            );
-            let _ = persist_record(
-                &data_dir,
-                crate::materializing_run_routes::RECORD_DIR,
-                &id,
-                &run,
-            );
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(
-                    json!({ "ok": false, "error": { "code": "execution_connector_source_mismatch", "message": "the session's connector is not the origin authority for the declared source endpoint" } }),
-                ),
-            );
-        }
-    }
 
     // The lease obtained earlier is provenance for the sealed session, not an
     // unmetered standing authorization. Each bounded source contact consumes a
@@ -599,6 +567,43 @@ pub(crate) async fn handle_run_execute(
             "execution_authority_receipt_unavailable",
             &reason,
         );
+    }
+
+    // RE-CHECK the credential↔endpoint binding at execution (never cached): the session's connector
+    // must STILL be the origin authority for the declared endpoint. Endpoints are immutable, but a
+    // connector's base_url can change (its /policy route) — so this is re-proven at the crossing,
+    // BEFORE the sealed credential is ever resolved. A stale binding sends the bearer nowhere.
+    //
+    // This sits AFTER admission on purpose. The refusal it records is a durable run-history write,
+    // and an unadmitted caller must not be able to append run history by presenting a stale
+    // binding. Authority still precedes every durable mutation; the credential is still untouched.
+    match find_by_key(&data_dir, "connectors", "connector_id", &connector_id) {
+        Some(c)
+            if crate::connector_session_routes::connector_covers_endpoint(
+                &s(&c, "base_url", ""),
+                &source_endpoint,
+            ) => {}
+        _ => {
+            let receipt = run_receipt(&data_dir, &run_ref, "execution_refused", "execution_connector_source_mismatch", "the session's connector is no longer the origin authority for the declared source endpoint — refused before any credential resolution or source contact");
+            push_history(
+                &mut run,
+                "execution_refused",
+                "connector↔source binding stale",
+                &receipt,
+            );
+            let _ = persist_record(
+                &data_dir,
+                crate::materializing_run_routes::RECORD_DIR,
+                &id,
+                &run,
+            );
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    json!({ "ok": false, "error": { "code": "execution_connector_source_mismatch", "message": "the session's connector is not the origin authority for the declared source endpoint" } }),
+                ),
+            );
+        }
     }
 
     // Resolve the sealed credential IN-MEMORY for the read — used for the header, then dropped.

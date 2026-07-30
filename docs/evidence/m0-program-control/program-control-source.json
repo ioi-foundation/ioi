@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-29",
+  "as_of_date": "2026-07-30",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -337,17 +337,17 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/execution-horizons.md",
-      "source_sha256": "360c68f0d83abed94ba4e6ab484e04fe178d3e179c3de1b84a17963fb45dce2e"
+      "source_sha256": "f3a87fb9251a343111a8369f196029248a3f792d1ae3cbfd1c89f3679b21d1c9"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "a67c49d333ed0235751a72b5a0096f3583c23e10f837047f78f0270e35e75fdf"
+      "source_sha256": "67cf593642a1834a4c393955d15873d76bdc23fd4b6efcbd75e5c950d0cda92b"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "8a8e48f7685046e0f66ccff127559c53182e92d18bb2d45df49ec930120ba60d"
+      "source_sha256": "4eb07950057bc4f77ef7451cbc6a5f5ca6a68d4c5cfe8c8748a42da1d6bb911a"
     },
     {
       "role": "landed owner canon",
@@ -357,7 +357,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/term-boundaries.md",
-      "source_sha256": "a3c50aec9542a53d30710a0c30cda282cd87f3833ab5c08ef49ba1610918a062"
+      "source_sha256": "d31917694bc4a64f4d761166230caea0de75f0220ca7ad71f37c58e9c22ca537"
     },
     {
       "role": "landed owner canon",
@@ -437,7 +437,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/objects/work-execution.md",
-      "source_sha256": "3e4618b6186fc3bd44b5d85bf32d36b0be324bdf781dc210269ef76d3cd71be0"
+      "source_sha256": "a95e976006d66a2a2dd3fb7eb37fa876408d2c5455fdb5503d4bdc9872712864"
     },
     {
       "role": "landed owner canon",
@@ -452,7 +452,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/invariants.md",
-      "source_sha256": "a333e4b653ea3402f6217fe2cfb314f842de8de6a6586eb542178431f377c8f5"
+      "source_sha256": "754c322a2dbc2287d02220ca2309c4b6d213cad92814ef7c92cb9b833e94148a"
     },
     {
       "role": "landed owner canon",
@@ -462,12 +462,12 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/doctrine.md",
-      "source_sha256": "a8e6e9267bee83698d46dca147a7c558ba8ccf165fb9c3957c19255d4c7d6c55"
+      "source_sha256": "27a34c7bcf9035fc13607150cfce10b10a3320eaeba0de6fbbf17b8cb46101b1"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/api.md",
-      "source_sha256": "bf5b08d78f6ea5b2f3ac0204dafe250d21e3fc4a6c6399d79d6c62fb3c28728b"
+      "source_sha256": "70671160e6b92a6213c003178639d0de1fbbc661890dcf13479148ddc1e2a6b8"
     },
     {
       "role": "landed owner canon",
@@ -477,7 +477,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/platform-operability.md",
-      "source_sha256": "e70943af1d34c7b6c06be156d57f17b21a1ef888cae79c9566b8c644413335a9"
+      "source_sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5"
     },
     {
       "role": "landed owner canon",
@@ -487,12 +487,12 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/doctrine.md",
-      "source_sha256": "23b77987b05e62ef07cf525207b4f31e5cc585cad69726ca68cc8599b86b75ce"
+      "source_sha256": "8b5c6c5ea1eaee29d4fb5488d5b3ae4f136c35a8a2a3647504aa1d39391dd580"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/api-authority-scopes.md",
-      "source_sha256": "0a1867424f86e23b59c4f97428ac91967723ab7892a6475df4e23072b1aa9818"
+      "source_sha256": "5a77e3506857e4f670a03da32b83af10634a79ed1b64f74ab5006bf6970503ca"
     },
     {
       "role": "landed owner canon",
@@ -507,7 +507,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
-      "source_sha256": "11636564cbc780be257490b18d29fd274bb4436f69e73f6e6bb537fb57271e14"
+      "source_sha256": "ad6a0ebb6e033c05d609f091b5fa688db10bc4b9a6259e1aba7176add08c08bd"
     },
     {
       "role": "landed owner canon",
@@ -517,7 +517,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/providers-and-environments.md",
-      "source_sha256": "500e807fec7a172a548dc1f750d76d6e6def872015a168ff77913449a7146ca2"
+      "source_sha256": "cf2f1f6fb8cca834864f50ed3e69b7a6e4376f358bd74dafceacfd2eabbbdad5"
     },
     {
       "role": "landed owner canon",
@@ -537,7 +537,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/conformance/hypervisor-core/sovereign-local-completeness.md",
-      "source_sha256": "91074b64317590f3910243c6685c29db2f18a26e90eb339009f21fbb5ccc13f8"
+      "source_sha256": "8e86bb2b53f7a4aa91e7ecab38a253d5211ac4f95b1b9d854f61d751f7927af0"
     },
     {
       "role": "landed owner canon",
@@ -554,7 +554,7 @@
           {
             "note": "enumerated conditional session-preview registry",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-            "source_sha256": "a093cbc66159bd4a288f82fb682c754f149d1bc38fa1901ee6f8a67a275238c3"
+            "source_sha256": "806414fa099a6f81edbb471503b1c549e4031689b99779a5527e84cc1cc7afc1"
           },
           {
             "note": "enumerated Hypervisor daemon registry",
@@ -729,7 +729,7 @@
           {
             "note": "enumerated conditional session-preview registry",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-            "source_sha256": "a093cbc66159bd4a288f82fb682c754f149d1bc38fa1901ee6f8a67a275238c3"
+            "source_sha256": "806414fa099a6f81edbb471503b1c549e4031689b99779a5527e84cc1cc7afc1"
           },
           {
             "note": "enumerated Hypervisor daemon registry",
@@ -1657,19 +1657,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "ae0833e0f21cb2d513cb6f57d4dffd1878a6c2932b947cd8e16f31a2177f2706",
-    "review_epoch_id": "route-final-invoker-census-successor-after-publication-rebuild-review-2026-07-29",
-    "review_lock_sha256": "8d901a2e9f504069e1e78209ec2321e156d90a3d4f85fe0a8cb7c9b48cc7d2d9",
+    "program_source_material_sha256": "446c0205f798e4b794218fb0807d5090aeec30ea1b99d068d6bc6f9f9b47539d",
+    "review_epoch_id": "owner-ratification-authority-admission-repair-review-2026-07-30",
+    "review_lock_sha256": "3195c818d0ec4c983d76c99703a95581c28515de91d3df13ac49d976cc2439be",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
-    "reviewed_as_of": "2026-07-29",
-    "reviewed_entry_set_sha256": "d8a0b8f851823181e833f0723199365fff21f4ab3c39e69e4f3df91c0b0da6c2",
+    "reviewed_as_of": "2026-07-30",
+    "reviewed_entry_set_sha256": "8f4cd3a4a06f7472271da3cb705978da1c83c33940e1172db25d741038d2f00d",
     "reviewed_identity_set_sha256": "d583d38a8dc59dbd5201be374735179ab2b7f013031f9c115ab3c81d66e2e715",
-    "reviewer_label": "claude-opus-5-publication-rebuild-census-successor",
+    "reviewer_label": "claude-opus-5-owner-ratification-authority-admission-repair",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "cfb4112d93f3f3626bf823400ffb1a8845ecf703feca36cc5821a508a3d54102",
-    "snapshot_head_sequence": 23,
-    "snapshot_predecessor_entry_sha256": "eccf31846441b14907be6af1a5d92add98a72d94cc9a37ce4481f7df5819730f",
+    "snapshot_head_entry_sha256": "70884d5b563d5edaba9afceafb63fb74a7072153a15e7dc8250fbe77c949b3b4",
+    "snapshot_head_sequence": 24,
+    "snapshot_predecessor_entry_sha256": "cfb4112d93f3f3626bf823400ffb1a8845ecf703feca36cc5821a508a3d54102",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

@@ -164,12 +164,86 @@ function reachesAuthorityDataflow(handler) {
 
 const postAdmissionSink = /\b(?:persist|write|store|dispatch|execute|invoke|send|spawn|finalize|transition|apply|restore|publish|open|acquire|handle|commit|plan)_[A-Za-z0-9_]*\s*\(/u;
 
+// Deliberately NARROWER than postAdmissionSink. The positive proof may accept a broad range of
+// downstream calls, but the dominance check below REJECTS a route, so it names only verbs that
+// durably change owner state or leave the process. Read/plan/parse-shaped helpers stay out so a
+// legitimate handler is never failed for calling `plan_*` or `handle_*` while parsing its body.
+// `restore_` and `commit_` are deliberately absent: `restore_files_from_snapshot` and friends are
+// readers that build the material a later authorized apply consumes, so naming those verbs here
+// would fail correctly-ordered handlers. The durable restore/commit writes they feed are caught by
+// the `persist_`/`write_`/`spawn_` calls that actually perform them.
+const durableMutation = /\b(?:persist|write|store|spawn|dispatch|send|publish|advance|remove|delete|finalize)_[A-Za-z0-9_]*\s*\(/gu;
+
+function earliestMatch(body, pattern) {
+  const scan = new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`);
+  const match = scan.exec(body);
+  return match ? match.index : -1;
+}
+
+function earliestAuthorityMarker(body) {
+  let earliest = -1;
+  for (const marker of authorityDataflowMarkers) {
+    const index = body.indexOf(marker);
+    if (index >= 0 && (earliest < 0 || index < earliest)) earliest = index;
+  }
+  return earliest;
+}
+
+// Every rejection the dominance check produces, so a failing route reports WHERE it mutates too
+// early rather than only that its order proof was not found.
+const dominanceViolations = [];
+
+// The single rule the previous fence was missing, isolated so it can be exercised against
+// synthetic bodies below. `authorityIndex >= 0 && mutationIndex < authorityIndex` is exactly the
+// shape that used to pass: such a body still contains an authority-then-sink pair further down.
+function dominanceCheck(body) {
+  const authorityIndex = earliestAuthorityMarker(body);
+  const mutationIndex = earliestMatch(body, durableMutation);
+  return {
+    authorityIndex,
+    mutationIndex,
+    violated: authorityIndex >= 0 && mutationIndex >= 0 && mutationIndex < authorityIndex,
+  };
+}
+
+// A fence that cannot fail is not a fence. These run on every invocation against synthetic bodies
+// so the rejection is proven here rather than assumed, including the exact false-positive shape
+// the independent review found: mutate first, then admit, then mutate again.
+function selfTestDominanceRule() {
+  const admitted = "let a = authorize_deployment_grant(x).await?; persist_record_durable(a);";
+  const preAuthority =
+    "persist_record(&dir, \"agents\", &id, &rec); let a = authorize_deployment_grant(x).await?; persist_record_durable(a);";
+  const readsThenAdmits =
+    "let files = restore_files_from_snapshot(&st, &rec); let a = authorize_deployment_grant(x).await?; persist_record_durable(a);";
+  const noAuthority = "persist_record(&dir, \"agents\", &id, &rec);";
+  const cases = [
+    ["an admitting body with no earlier write is accepted", admitted, false],
+    ["mutate-then-admit-then-mutate is REJECTED", preAuthority, true],
+    ["a pure reader before admission is accepted", readsThenAdmits, false],
+    ["a body with no authority marker is not judged here", noAuthority, false],
+  ];
+  const broken = cases.filter(([, body, expected]) => dominanceCheck(body).violated !== expected);
+  if (broken.length) {
+    for (const [label] of broken) process.stderr.write(`FAIL: dominance self-test: ${label}\n`);
+    process.stderr.write("the authority-dominance rule does not enforce its own contract\n");
+    process.exit(1);
+  }
+}
+selfTestDominanceRule();
+
 // This is a per-registration order proof, not a file-level marker check. It starts at the
 // exact handler compiled into the router, follows its local helper calls, and accepts only a
 // function body in which the authority result dominates a later receipt revalidation or a
 // mutation/finalizer call that consumes the admitted `auth`/lease value. Transitive failover is
 // accepted only through the two separately classified child operation handlers; its evaluator is
 // explicitly zero-effect. The runtime suites exercise the corresponding denial and crash paths.
+//
+// Finding an authority-then-sink pair is NOT sufficient on its own: a handler that durably mutates
+// BEFORE it admits still contains such a pair further down. Two dominance rules therefore gate
+// every positive branch below.
+//   1. In the body that performs admission, no durable mutation may precede the authority call.
+//   2. A caller may not borrow a callee's proof across its own earlier mutation, which would let
+//      an admitting helper launder a pre-authority write in the handler that calls it.
 function provesAdmissionBeforeTerminalLeaf(handler, routeKey) {
   const root = handlerSource(handler);
   if (!root.source) return false;
@@ -180,6 +254,14 @@ function provesAdmissionBeforeTerminalLeaf(handler, routeKey) {
     visited.add(visitKey);
     const body = locatedBody(located);
     if (!body) return false;
+
+    const { authorityIndex, mutationIndex, violated } = dominanceCheck(body);
+    if (violated) {
+      dominanceViolations.push(
+        `${routeKey} -> ${located.module}:${located.name} durably mutates at byte ${mutationIndex} before it admits authority at byte ${authorityIndex}`,
+      );
+      return false;
+    }
 
     const deployment = body.indexOf("authorize_deployment_grant(");
     if (deployment >= 0) {
@@ -238,7 +320,18 @@ function provesAdmissionBeforeTerminalLeaf(handler, routeKey) {
       const local = locatedBody({ name: call[1], source: located.source, module: located.module })
         ? { name: call[1], source: located.source, module: located.module }
         : crossFileTraversal.has(call[1]) ? uniqueFunctionSource(call[1]) : null;
-      if (local && visit(local)) return true;
+      if (!local) continue;
+      // Rule 2: a callee reached only AFTER this body already mutated cannot supply the order
+      // proof for this body — its admission happens too late to dominate that write.
+      if (mutationIndex >= 0 && call.index > mutationIndex) {
+        if (earliestAuthorityMarker(locatedBody(local) ?? "") >= 0) {
+          dominanceViolations.push(
+            `${routeKey} -> ${located.module}:${located.name} durably mutates at byte ${mutationIndex} before delegating admission to ${local.module}:${local.name}`,
+          );
+        }
+        continue;
+      }
+      if (visit(local)) return true;
     }
     return false;
   };
@@ -322,6 +415,10 @@ pass(
   affectedKeys.size + controlKeys.size + nonMutatingKeys.size + classifiedOutsideOverlay.length === mutating.length,
   "mutating registration classifications are not exhaustive",
 );
+
+for (const violation of dominanceViolations) {
+  pass(false, `authority does not dominate a durable mutation: ${violation}`);
+}
 
 for (const marker of [
   "resolve_required_authority(",

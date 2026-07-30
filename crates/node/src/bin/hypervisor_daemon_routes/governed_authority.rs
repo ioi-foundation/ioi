@@ -212,6 +212,76 @@ pub(crate) struct AdmittedDeploymentGrant {
     pub(crate) admission_intent_ref: String,
 }
 
+/// Durable final-invocation disposition carried on the admission-intent record.
+///
+/// `admitted` is what a successful consumption leaves behind: authority is spent and no invoker
+/// has claimed it. `claimed` is written durably BEFORE the final invoker is entered, so a daemon
+/// that dies mid-dispatch leaves proof that an external effect MAY already have happened.
+/// `invoked` and `refused` are terminal. `reconciliation_required` is the honest Unknown: a claim
+/// belonging to a previous process was found, so the operation is never automatically re-invoked
+/// and its spent usage is never automatically refunded.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FinalInvocationDisposition {
+    Admitted,
+    Claimed,
+    Invoked,
+    Refused,
+    ReconciliationRequired,
+}
+
+impl FinalInvocationDisposition {
+    fn parse(value: Option<&str>) -> Option<Self> {
+        Some(match value? {
+            "admitted" => Self::Admitted,
+            "claimed" => Self::Claimed,
+            "invoked" => Self::Invoked,
+            "refused" => Self::Refused,
+            "reconciliation_required" => Self::ReconciliationRequired,
+            _ => return None,
+        })
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Admitted => "admitted",
+            Self::Claimed => "claimed",
+            Self::Invoked => "invoked",
+            Self::Refused => "refused",
+            Self::ReconciliationRequired => "reconciliation_required",
+        }
+    }
+}
+
+/// A single-use right to enter one final invoker for one admitted effect. Holding this value is
+/// the only proof that the durable `claimed` transition was written before dispatch.
+pub(crate) struct FinalInvocationClaim {
+    reference: String,
+    claim_id: String,
+    effect_hash: String,
+    invoker_label: String,
+}
+
+impl FinalInvocationClaim {
+    pub(crate) fn claim_id(&self) -> &str {
+        &self.claim_id
+    }
+
+    pub(crate) fn reference(&self) -> &str {
+        &self.reference
+    }
+
+    pub(crate) fn effect_hash(&self) -> &str {
+        &self.effect_hash
+    }
+}
+
+/// Identifies this daemon process. A `claimed` record carrying THIS id belongs to a request that
+/// is still in flight here; one carrying any other id belongs to a process that died mid-dispatch.
+fn process_incarnation_id() -> &'static str {
+    static INCARNATION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    INCARNATION.get_or_init(|| format!("inc_{:032x}", nonce_nanos()))
+}
+
 pub(crate) struct VerifiedAuthorityResolution {
     pub(crate) resolution: PrincipalAuthorityResolutionV1,
     pub(crate) authority_binding: Value,
@@ -711,6 +781,240 @@ async fn revalidate_authoritative_admission(
         );
     }
     Ok(())
+}
+
+/// What a claim attempt is allowed to do, given the durable disposition it found.
+#[derive(Debug, PartialEq, Eq)]
+enum ClaimTransition {
+    /// No invoker has held this effect: the claim may be written and the invoker entered.
+    Grant,
+    /// Terminal, in-flight, or already-reconciling: no invoker may run.
+    Refuse(String),
+    /// A claim from a process that is gone. Persist the Unknown, then refuse.
+    ReconcileOrphanedClaim,
+}
+
+/// The claim decision, isolated from durability and wallet I/O so the crash-window semantics are
+/// directly provable. The one subtle case is `Claimed`: a claim stamped with THIS process's
+/// incarnation belongs to a request still running here and must not disturb it, while a claim
+/// stamped with any other incarnation belongs to a process that died mid-dispatch and makes the
+/// external effect indeterminate.
+fn evaluate_claim_transition(
+    disposition: FinalInvocationDisposition,
+    record: &Value,
+    incarnation_id: &str,
+) -> ClaimTransition {
+    match disposition {
+        FinalInvocationDisposition::Admitted => ClaimTransition::Grant,
+        FinalInvocationDisposition::Claimed => {
+            let owner = record
+                .pointer("/final_invoker_claim/incarnation_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if owner == incarnation_id {
+                ClaimTransition::Refuse(
+                    "this admitted effect is already claimed by an in-flight final invocation"
+                        .to_string(),
+                )
+            } else {
+                ClaimTransition::ReconcileOrphanedClaim
+            }
+        }
+        FinalInvocationDisposition::Invoked => ClaimTransition::Refuse(
+            "this admitted effect already reached its final invoker exactly once".to_string(),
+        ),
+        FinalInvocationDisposition::Refused => ClaimTransition::Refuse(
+            "this admitted effect was already refused before invocation".to_string(),
+        ),
+        FinalInvocationDisposition::ReconciliationRequired => ClaimTransition::Refuse(
+            "this admitted effect is awaiting reconciliation and cannot be re-invoked".to_string(),
+        ),
+    }
+}
+
+/// Claim the one final invocation this admitted effect is entitled to.
+///
+/// Order is the whole point: the wallet-owned receipt is revalidated, the `claimed` transition is
+/// persisted durably, and only then may the caller enter its final invoker. A crash between the
+/// claim and the completion therefore always leaves durable evidence that the external effect is
+/// of unknown disposition. Re-entry after such a crash fails closed into `reconciliation_required`
+/// rather than re-invoking, because a second `advance`, `spawn`, or outbound send is not
+/// recoverable by retrying it.
+pub(crate) async fn claim_final_invocation(
+    data_dir: &str,
+    admitted: &AdmittedDeploymentGrant,
+    invoker_label: &str,
+) -> Result<FinalInvocationClaim, String> {
+    if invoker_label.trim().is_empty() {
+        return Err("a final invocation claim names its invoker".to_string());
+    }
+    revalidate_authoritative_admission(
+        data_dir,
+        &admitted.admission_intent_ref,
+        &admitted.authorized,
+    )
+    .await?;
+
+    let _guard = AUTHORITY_ADMISSION_LOCK.lock().await;
+    let tail = admission_intent_tail(&admitted.admission_intent_ref)?;
+    let mut record =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, tail)?
+            .ok_or_else(|| "authority admission receipt is absent".to_string())?;
+    let disposition = FinalInvocationDisposition::parse(
+        record.get("final_invoker_status").and_then(Value::as_str),
+    )
+    .ok_or_else(|| {
+        "authority admission receipt carries no final-invoker disposition".to_string()
+    })?;
+
+    match evaluate_claim_transition(disposition, &record, process_incarnation_id()) {
+        ClaimTransition::Grant => {}
+        ClaimTransition::Refuse(reason) => return Err(reason),
+        ClaimTransition::ReconcileOrphanedClaim => {
+            // The claiming process did not survive its dispatch window. Make the Unknown durable.
+            record["final_invoker_status"] =
+                json!(FinalInvocationDisposition::ReconciliationRequired.label());
+            record["final_invoker_reconciliation"] = json!({
+                "reason": "claim_owner_process_did_not_complete",
+                "orphaned_claim": record.get("final_invoker_claim").cloned().unwrap_or(Value::Null),
+                "observed_at_ms": local_now_ms(),
+                "usage_disposition": "spent_not_refunded",
+            });
+            super::durable_fs::persist_record_durable(
+                data_dir,
+                AUTHORITY_ADMISSION_INTENT_FAMILY,
+                tail,
+                &record,
+            )
+            .map_err(|error| format!("reconciliation state was not durably recorded: {error:?}"))?;
+            return Err(
+                "a previous process claimed this final invocation and did not complete it; the effect is of unknown disposition and requires reconciliation"
+                    .to_string(),
+            );
+        }
+    }
+
+    let claim_id = format!("fic_{:032x}", nonce_nanos());
+    record["final_invoker_status"] = json!(FinalInvocationDisposition::Claimed.label());
+    record["final_invoker_claim"] = json!({
+        "claim_id": claim_id,
+        "invoker_label": invoker_label,
+        "incarnation_id": process_incarnation_id(),
+        "effect_hash": admitted.authorized.evidence.effect_hash,
+        "claimed_at_ms": local_now_ms(),
+    });
+    super::durable_fs::persist_record_durable(
+        data_dir,
+        AUTHORITY_ADMISSION_INTENT_FAMILY,
+        tail,
+        &record,
+    )
+    .map_err(|error| {
+        format!("final-invocation claim was not durable, so no invoker may run: {error:?}")
+    })?;
+    // Live fault verifiers SIGKILL exactly here: claimed on disk, invoker not yet entered.
+    super::durable_fs::test_crash_pause_if_selected(
+        "IOI_TEST_CRASH_AT",
+        "final_invocation_claimed",
+        "IOI_TEST_CRASH_MARKER_PATH",
+        &claim_id,
+    )
+    .map_err(|error| format!("test crash coordination failed: {error}"))?;
+
+    Ok(FinalInvocationClaim {
+        reference: admitted.admission_intent_ref.clone(),
+        claim_id,
+        effect_hash: admitted.authorized.evidence.effect_hash.clone(),
+        invoker_label: invoker_label.to_string(),
+    })
+}
+
+/// Record that the claimed final invoker ran to a known disposition.
+pub(crate) async fn complete_final_invocation(
+    data_dir: &str,
+    claim: &FinalInvocationClaim,
+    outcome: &str,
+) -> Result<(), String> {
+    settle_final_invocation(
+        data_dir,
+        claim,
+        FinalInvocationDisposition::Invoked,
+        outcome,
+    )
+    .await
+}
+
+/// Record that the claimed invoker refused BEFORE producing any external effect. Usage stays
+/// spent: the authority was consumed to reach the decision point.
+pub(crate) async fn refuse_final_invocation(
+    data_dir: &str,
+    claim: &FinalInvocationClaim,
+    reason: &str,
+) -> Result<(), String> {
+    settle_final_invocation(data_dir, claim, FinalInvocationDisposition::Refused, reason).await
+}
+
+async fn settle_final_invocation(
+    data_dir: &str,
+    claim: &FinalInvocationClaim,
+    disposition: FinalInvocationDisposition,
+    detail: &str,
+) -> Result<(), String> {
+    let _guard = AUTHORITY_ADMISSION_LOCK.lock().await;
+    let tail = admission_intent_tail(&claim.reference)?;
+    let mut record =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, tail)?
+            .ok_or_else(|| "authority admission receipt is absent".to_string())?;
+    if record.get("final_invoker_status").and_then(Value::as_str)
+        != Some(FinalInvocationDisposition::Claimed.label())
+    {
+        return Err("a final invocation can only settle from its own durable claim".to_string());
+    }
+    if record
+        .pointer("/final_invoker_claim/claim_id")
+        .and_then(Value::as_str)
+        != Some(claim.claim_id.as_str())
+    {
+        return Err("this claim does not own the recorded final invocation".to_string());
+    }
+    record["final_invoker_status"] = json!(disposition.label());
+    record["final_invoker_settlement"] = json!({
+        "claim_id": claim.claim_id,
+        "invoker_label": claim.invoker_label,
+        "effect_hash": claim.effect_hash,
+        "outcome": detail,
+        "settled_at_ms": local_now_ms(),
+    });
+    super::durable_fs::persist_record_durable(
+        data_dir,
+        AUTHORITY_ADMISSION_INTENT_FAMILY,
+        tail,
+        &record,
+    )
+    .map_err(|error| format!("final-invocation settlement was not durable: {error:?}"))
+}
+
+/// Read-only disposition lookup used by recovery and background completion loops.
+pub(crate) fn final_invocation_disposition(
+    data_dir: &str,
+    reference: &str,
+) -> Result<FinalInvocationDisposition, String> {
+    let tail = admission_intent_tail(reference)?;
+    let record =
+        super::durable_fs::read_record_durable(data_dir, AUTHORITY_ADMISSION_INTENT_FAMILY, tail)?
+            .ok_or_else(|| "authority admission receipt is absent".to_string())?;
+    FinalInvocationDisposition::parse(record.get("final_invoker_status").and_then(Value::as_str))
+        .ok_or_else(|| {
+            "authority admission receipt carries no final-invoker disposition".to_string()
+        })
+}
+
+fn admission_intent_tail(reference: &str) -> Result<&str, String> {
+    reference
+        .strip_prefix(&format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/"))
+        .ok_or_else(|| {
+            "authority admission receipt reference is outside its owner family".to_string()
+        })
 }
 
 fn decode_hex_32(value: &str, field: &str) -> Result<[u8; 32], String> {
@@ -1815,6 +2119,122 @@ mod scm_publication_scope_tests {
         assert_eq!(
             lifecycle.operation_scope("initialize"),
             "scope:autonomous_system.lifecycle.initialize"
+        );
+    }
+}
+
+#[cfg(test)]
+mod final_invocation_claim_tests {
+    use super::*;
+
+    fn claimed_by(incarnation: &str) -> Value {
+        json!({
+            "final_invoker_status": "claimed",
+            "final_invoker_claim": {
+                "claim_id": "fic_0001",
+                "invoker_label": "scm.publication.advance-target-ref",
+                "incarnation_id": incarnation,
+            },
+        })
+    }
+
+    #[test]
+    fn an_unclaimed_admission_grants_exactly_one_claim() {
+        assert_eq!(
+            evaluate_claim_transition(
+                FinalInvocationDisposition::Admitted,
+                &json!({ "final_invoker_status": "admitted" }),
+                "inc_current",
+            ),
+            ClaimTransition::Grant
+        );
+    }
+
+    #[test]
+    fn a_second_claim_in_this_process_never_reaches_a_second_invocation() {
+        let transition = evaluate_claim_transition(
+            FinalInvocationDisposition::Claimed,
+            &claimed_by("inc_current"),
+            "inc_current",
+        );
+        assert!(
+            matches!(transition, ClaimTransition::Refuse(_)),
+            "an in-flight claim is refused, not reconciled: {transition:?}"
+        );
+        assert_ne!(
+            transition,
+            ClaimTransition::ReconcileOrphanedClaim,
+            "a live sibling request must not have its operation flipped to reconciliation"
+        );
+    }
+
+    #[test]
+    fn a_claim_from_a_dead_process_becomes_reconciliation_and_is_never_reinvoked() {
+        assert_eq!(
+            evaluate_claim_transition(
+                FinalInvocationDisposition::Claimed,
+                &claimed_by("inc_previous_boot"),
+                "inc_current",
+            ),
+            ClaimTransition::ReconcileOrphanedClaim,
+            "a crash inside the dispatch window is Unknown, not retryable"
+        );
+    }
+
+    #[test]
+    fn every_terminal_and_reconciling_disposition_refuses_a_new_invocation() {
+        for disposition in [
+            FinalInvocationDisposition::Invoked,
+            FinalInvocationDisposition::Refused,
+            FinalInvocationDisposition::ReconciliationRequired,
+        ] {
+            let transition = evaluate_claim_transition(
+                disposition,
+                &json!({ "final_invoker_status": disposition.label() }),
+                "inc_current",
+            );
+            assert!(
+                matches!(transition, ClaimTransition::Refuse(_)),
+                "{disposition:?} must refuse a further final invocation, got {transition:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn dispositions_round_trip_through_their_durable_labels() {
+        for disposition in [
+            FinalInvocationDisposition::Admitted,
+            FinalInvocationDisposition::Claimed,
+            FinalInvocationDisposition::Invoked,
+            FinalInvocationDisposition::Refused,
+            FinalInvocationDisposition::ReconciliationRequired,
+        ] {
+            assert_eq!(
+                FinalInvocationDisposition::parse(Some(disposition.label())),
+                Some(disposition)
+            );
+        }
+        assert_eq!(FinalInvocationDisposition::parse(Some("invented")), None);
+        assert_eq!(
+            FinalInvocationDisposition::parse(None),
+            None,
+            "a record with no disposition is never treated as claimable"
+        );
+    }
+
+    #[test]
+    fn a_consumed_admission_starts_admitted_so_it_is_claimable_exactly_once() {
+        // This is the shape retain_consumption_receipt writes; the claim state machine depends on
+        // it starting at `admitted` rather than at `pending`, which nothing advanced.
+        let consumed = json!({
+            "status": "consumed",
+            "final_invoker_status": "admitted",
+        });
+        assert_eq!(
+            FinalInvocationDisposition::parse(
+                consumed.get("final_invoker_status").and_then(Value::as_str)
+            ),
+            Some(FinalInvocationDisposition::Admitted)
         );
     }
 }

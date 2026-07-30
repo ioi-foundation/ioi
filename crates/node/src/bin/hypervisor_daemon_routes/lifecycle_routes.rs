@@ -9089,6 +9089,10 @@ pub(crate) struct AuthorizedCapabilityLease {
     pub(crate) grant_ref: String,
     pub(crate) credential_source: Option<String>,
     pub(crate) credential_key_source: Option<String>,
+    /// The wallet-owned admission this lease was issued under. Callers that reach a real final
+    /// invoker MUST claim through this value rather than synthesizing a receipt reference from
+    /// the lease id, so the identity the invoker records is the one the owner can resolve.
+    pub(crate) admitted: super::governed_authority::AdmittedDeploymentGrant,
 }
 
 fn capability_lease_policy_hash(req: &CapabilityLeaseRequest) -> String {
@@ -9379,8 +9383,8 @@ pub(crate) async fn authorize_capability_lease(
         "expires_at": expires_at,
         "receipt_required": req.receipt_required,
         "revocation_ref": req.revocation_ref,
-        "grant_ref": admitted.authorized.evidence.grant_ref,
-        "admission_intent_ref": admitted.admission_intent_ref,
+        "grant_ref": admitted.authorized.evidence.grant_ref.clone(),
+        "admission_intent_ref": admitted.admission_intent_ref.clone(),
         "state": "active",
         "remaining_calls": 0,
         "credential_source": credential_source,
@@ -9391,9 +9395,10 @@ pub(crate) async fn authorize_capability_lease(
     Ok(AuthorizedCapabilityLease {
         descriptor,
         token,
-        grant_ref: admitted.authorized.evidence.grant_ref,
+        grant_ref: admitted.authorized.evidence.grant_ref.clone(),
         credential_source,
         credential_key_source,
+        admitted,
     })
 }
 
@@ -15655,6 +15660,33 @@ pub(crate) mod runtime_host {
         let agent_id = format!("agent_{suffix}");
         let thread_id = format!("thread_{suffix}");
 
+        // A real (empty) session workspace path; Phase 5A never mutates it. Deriving the path is
+        // pure — the directory itself is not created until the request is admitted.
+        let workspace_path = std::path::Path::new(&st.data_dir)
+            .join("runtime-host-workspaces")
+            .join(&suffix)
+            .to_string_lossy()
+            .into_owned();
+
+        // A stepped request (5B) runs a consequential tool, so it is wallet-gated at the daemon
+        // boundary BEFORE ANY state mutation. Everything above this point is pure derivation: the
+        // agent record and the session workspace are written only after admission, so a refused
+        // call leaves behind no session, no agent record, and no workspace directory.
+        let step_requested = body.get("step").and_then(Value::as_bool).unwrap_or(false);
+        if step_requested {
+            if let Err(challenge) = super::execute_authority_gate(
+                &st.data_dir,
+                &body,
+                &session_ref,
+                &workspace_path,
+                &goal,
+            )
+            .await
+            {
+                return (StatusCode::FORBIDDEN, Json(challenge));
+            }
+        }
+
         // session → thread linkage so the bridge resolves the event log target.
         let agent_record = json!({
             "id": agent_id,
@@ -15665,13 +15697,7 @@ pub(crate) mod runtime_host {
             "created_at": now,
         });
         let _ = super::persist_record(&st.data_dir, "agents", &agent_id, &agent_record);
-
-        // A real (empty) session workspace path; Phase 5A never mutates it.
-        let workspace_path = std::path::Path::new(&st.data_dir)
-            .join("runtime-host-workspaces")
-            .join(&suffix);
         let _ = std::fs::create_dir_all(&workspace_path);
-        let workspace_path = workspace_path.to_string_lossy().into_owned();
 
         // Persistent transcript/memory runtime (the lifecycle ops append the seed +
         // posted messages to the session transcript via the SCS).
@@ -15692,24 +15718,6 @@ pub(crate) mod runtime_host {
             .map(|d| d.as_nanos() as u64)
             .unwrap_or(0);
         let mut ctx = synthetic_tx_context(&services, now_ns);
-
-        // A stepped request (5B) runs a consequential tool, so it is wallet-gated at the
-        // daemon boundary BEFORE any state mutation — a no-grant call is a 403 challenge
-        // that creates no session (so the grant-bound retry runs `start@v1` cleanly).
-        let step_requested = body.get("step").and_then(Value::as_bool).unwrap_or(false);
-        if step_requested {
-            if let Err(challenge) = super::execute_authority_gate(
-                &st.data_dir,
-                &body,
-                &session_ref,
-                &workspace_path,
-                &goal,
-            )
-            .await
-            {
-                return (StatusCode::FORBIDDEN, Json(challenge));
-            }
-        }
 
         // Phase 5C: a `file_write` directive supplies a pre-resolved route frame so the step
         // deterministically dispatches a constrained `file__write` (no model tool selection,

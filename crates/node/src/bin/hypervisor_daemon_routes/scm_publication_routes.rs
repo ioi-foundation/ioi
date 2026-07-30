@@ -714,8 +714,12 @@ pub(crate) struct PublicationAuthority {
     pub(crate) scope_refs: Vec<String>,
     /// Issued lease.
     pub(crate) capability_lease_ref: String,
-    /// Admission receipt of the crossing.
+    /// Admission receipt of the crossing. This is the wallet-owned admission identity, so the
+    /// authority owner can resolve the exact consumption this effect was admitted under.
     pub(crate) admission_receipt_ref: String,
+    /// The effect hash the authority owner actually consumed. Binding it into the Prepared
+    /// commitment is what makes the published effect provably the admitted one.
+    pub(crate) admission_effect_hash: String,
 }
 
 /// What one executed publication reports back.
@@ -945,6 +949,32 @@ fn terminal_operation_report(
     }))
 }
 
+/// A `prepared` operation with no terminal sibling means a dispatch window was entered and never
+/// closed — the daemon died between persisting the Prepared record and recording the outcome.
+/// The remote may or may not carry the effect, so re-entry must NOT dispatch again. The operation
+/// is reported as requiring reconciliation until an operator or a reconciler resolves the remote
+/// truth. Returning `Ok(None)` means there is no unresolved dispatch window.
+fn unresolved_prepared_operation(
+    data_dir: &str,
+    operation_key: &str,
+) -> Result<Option<Value>, VErr> {
+    let family = read_publication_family(data_dir, SCM_PUBLICATION_OPERATION_FAMILY)?;
+    let matching = family
+        .iter()
+        .filter(|record| record.get("operation_key").and_then(Value::as_str) == Some(operation_key))
+        .collect::<Vec<_>>();
+    if matching
+        .iter()
+        .any(|record| record.get("state").and_then(Value::as_str) == Some("terminal"))
+    {
+        return Ok(None);
+    }
+    Ok(matching
+        .into_iter()
+        .find(|record| record.get("state").and_then(Value::as_str) == Some("prepared"))
+        .cloned())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn execute_scm_publication_v2<P: ScmRemotePort>(
     data_dir: &str,
@@ -993,6 +1023,9 @@ fn execute_scm_publication_v2<P: ScmRemotePort>(
         "operation_key_domain": "excludes_observed_remote_state",
         "identity": identity,
     });
+    // The published effect artifact keeps exactly the registered v2 authority shape; the
+    // consumed effect hash is bound into the Prepared commitment below instead, where it
+    // constrains what may be dispatched without widening a canonical schema.
     let authority_value = json!({
         "authority_grant_refs": authority.grant_refs,
         "authority_scope_refs": authority.scope_refs,
@@ -1003,6 +1036,7 @@ fn execute_scm_publication_v2<P: ScmRemotePort>(
         "domain": "ioi.scm-publication-prepared-jcs-sha256.v2",
         "operation": operation,
         "authority": authority_value,
+        "admission_effect_hash": authority.admission_effect_hash,
         "cas_fingerprint": cas_fingerprint,
     }))?;
     let preparation = json!({
@@ -1018,6 +1052,7 @@ fn execute_scm_publication_v2<P: ScmRemotePort>(
         "state": "prepared",
         "operation": operation,
         "authority": authority_value,
+        "admission_effect_hash": authority.admission_effect_hash,
         "preparation": preparation,
         "frozen_cas_fingerprint": cas_fingerprint,
         "prepared_at": now,
@@ -1854,6 +1889,28 @@ pub(crate) async fn handle_scm_publish(
         Ok(None) => {}
         Err(error) => return fail(error),
     }
+    // A Prepared record with no terminal sibling is an unclosed dispatch window from a previous
+    // process. The remote effect is of unknown disposition, so this operation is never dispatched
+    // a second time.
+    match unresolved_prepared_operation(&state.data_dir, &operation_key) {
+        Ok(Some(prepared)) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({
+                    "ok": false,
+                    "overall_outcome": "reconciliation_required",
+                    "converged": false,
+                    "recovery_disposition": "prepared_dispatch_window_unresolved",
+                    "reason": "a previous attempt persisted this operation's Prepared record and did not record an outcome; the remote effect is of unknown disposition and must be reconciled before another dispatch",
+                    "operation_key": operation_key,
+                    "prepared_record_ref": prepared.pointer("/preparation/prepared_record_ref").cloned().unwrap_or(Value::Null),
+                    "authority_usage_disposition": "spent_not_refunded",
+                })),
+            );
+        }
+        Ok(None) => {}
+        Err(error) => return fail(error),
+    }
     let requires_credential = remote_url.starts_with("https://");
     let scopes = vec![
         SCM_PUBLICATION_ADVANCE_TARGET_REF_SCOPE.to_owned(),
@@ -1874,11 +1931,19 @@ pub(crate) async fn handle_scm_publish(
         scopes: scopes.clone(),
         policy_domain: "hypervisor.scm.publication.policy.v1".to_owned(),
         request_domain: "hypervisor.scm.publication.request.v1".to_owned(),
+        // Exact-effect binding: authority is consumed for THIS publication operation — this
+        // proposal, onto this target ref, producing this frozen intended revision — not for
+        // "some scm.publish against this binding". The operation key deliberately excludes
+        // observed remote state, which the frozen CAS precondition covers separately.
         request_facets: json!({
             "environment_id": environment_id,
             "destination_binding_ref": submission.destination_binding_ref,
             "proposal_ref": submission.proposal_ref,
             "target_ref_name": submission.target_ref_name,
+            "operation_key": operation_key,
+            "base_revision_id": identity["base_revision_id"],
+            "intended_revision_id": identity["intended_revision_id"],
+            "review_request_requested": submission.review_request_requested,
         }),
         credential_connector_id: Some(connector_id.clone()),
         credential_store: "scm-credentials".to_owned(),
@@ -1902,13 +1967,39 @@ pub(crate) async fn handle_scm_publish(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_owned();
+    // The admission receipt the invoker records is the wallet-owned identity the authority owner
+    // can resolve — never a reference synthesized from the lease id.
     let authority = PublicationAuthority {
         grant_refs: vec![format!("grant://{}", lease.grant_ref)],
         scope_refs: scopes,
         capability_lease_ref: format!("lease://{lease_id}"),
-        admission_receipt_ref: format!("receipt://scm-publication/admission/{lease_id}"),
+        admission_receipt_ref: format!("receipt://{}", lease.admitted.admission_intent_ref),
+        admission_effect_hash: lease.admitted.authorized.evidence.effect_hash.clone(),
     };
-    match execute_scm_publication_v2(
+    // Claim the one final invocation before any remote effect. The claim is durable, so a crash
+    // inside the dispatch window is recoverable as Unknown rather than replayable.
+    let claim = match super::governed_authority::claim_final_invocation(
+        &state.data_dir,
+        &lease.admitted,
+        "scm.publication.advance-target-ref",
+    )
+    .await
+    {
+        Ok(claim) => claim,
+        Err(reason) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({
+                    "ok": false,
+                    "overall_outcome": "reconciliation_required",
+                    "converged": false,
+                    "reason": reason,
+                    "authority_usage_disposition": "spent_not_refunded",
+                })),
+            );
+        }
+    };
+    let executed = execute_scm_publication_v2(
         &state.data_dir,
         &GitProcessScmPort,
         &workspace_root,
@@ -1919,7 +2010,34 @@ pub(crate) async fn handle_scm_publish(
         &super::iso_now(),
         identity,
         operation_key,
-    ) {
+    );
+    let settlement = match &executed {
+        Ok(report) => {
+            super::governed_authority::complete_final_invocation(
+                &state.data_dir,
+                &claim,
+                &report.overall_outcome,
+            )
+            .await
+        }
+        Err(error) => {
+            super::governed_authority::refuse_final_invocation(&state.data_dir, &claim, &error.0)
+                .await
+        }
+    };
+    if let Err(reason) = settlement {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "ok": false,
+                "overall_outcome": "reconciliation_required",
+                "converged": false,
+                "reason": format!("the final invocation ran but its disposition was not durably settled: {reason}"),
+                "authority_usage_disposition": "spent_not_refunded",
+            })),
+        );
+    }
+    match executed {
         Ok(report) => {
             // `ok` follows the DERIVED overall outcome. A refused publication
             // and a failed review request are honest outcomes, not successes.
@@ -2105,7 +2223,8 @@ mod tests {
                 SCM_PUBLICATION_OPEN_REVIEW_REQUEST_SCOPE.to_owned(),
             ],
             capability_lease_ref: "lease://acme/scm-publication/0001".to_owned(),
-            admission_receipt_ref: "receipt://acme/scm-publication/admission/0001".to_owned(),
+            admission_receipt_ref: "receipt://authority-admission-intents/aai_0001".to_owned(),
+            admission_effect_hash: "sha256:0001".to_owned(),
         }
     }
 
@@ -2206,6 +2325,200 @@ mod tests {
         assert!(replay.converged);
         assert_eq!(replay.effect, report.effect);
         assert_eq!(*port.crossings.borrow(), 1, "replay never dispatches");
+    }
+
+    #[test]
+    fn an_unclosed_prepared_dispatch_window_is_reconciliation_not_a_second_dispatch() {
+        let plane = seeded_plane();
+        let port = ScriptedPort {
+            observed: ObservedHeads {
+                target: ObservedTargetRef::Present(revision(0x11)),
+                base_head: revision(0x11),
+            },
+            advance: TargetRefAdvanceOutcome::Advanced {
+                resulting_revision_id: revision(0x33),
+            },
+            review: ReviewRequestOpenOutcome::Opened {
+                review_request_url: "https://remote.example/reviews/1".to_owned(),
+            },
+            crossings: RefCell::new(0),
+        };
+        let source =
+            load_publication_source(&plane.data_dir, SEEDED_BINDING_REF, SEEDED_PROPOSAL_REF)
+                .expect("publication source");
+        let submission = submission();
+        let identity = v2_operation_identity(
+            &source,
+            &submission,
+            "Ship the rebuilt publication route",
+            &revision(0x33),
+        )
+        .expect("identity");
+        let key = v2_operation_key(&identity).expect("key");
+
+        // No operation state at all: nothing is unresolved, the caller may dispatch.
+        assert!(unresolved_prepared_operation(&plane.data_dir, &key)
+            .expect("prepared lookup")
+            .is_none());
+
+        // Simulate a crash inside the dispatch window: Prepared is on disk, no terminal follows.
+        let operation_tag = operation_tail(&key);
+        persist_publication_record(
+            &plane.data_dir,
+            SCM_PUBLICATION_OPERATION_FAMILY,
+            &json!({
+                "schema_version": "ioi.scm-publication-operation-state.v2",
+                "operation_key": key,
+                "state": "prepared",
+                "operation": {
+                    "operation_ref": format!("scm-publication-operation://ioi/hypervisor/{operation_tag}"),
+                    "operation_key": key,
+                    "operation_key_domain": "excludes_observed_remote_state",
+                    "identity": identity,
+                },
+                "authority": {
+                    "authority_grant_refs": authority().grant_refs,
+                    "authority_scope_refs": authority().scope_refs,
+                    "capability_lease_ref": authority().capability_lease_ref,
+                    "admission_receipt_ref": authority().admission_receipt_ref,
+                },
+                "admission_effect_hash": authority().admission_effect_hash,
+                "preparation": {
+                    "prepared_record_ref": format!("scm-publication-prepared://ioi/hypervisor/{operation_tag}"),
+                    "prepared_record_hash": "sha256:unclosed",
+                    "prepared_persisted_at": "2026-07-30T00:00:00Z",
+                    "persistence_order": "prepared_persisted_before_remote_effect",
+                    "prepared_persistence_evidence_ref": format!("receipt://ioi/hypervisor/scm/prepared/{operation_tag}"),
+                },
+                "frozen_cas_fingerprint": "sha256:unclosed",
+                "prepared_at": "2026-07-30T00:00:00Z",
+            }),
+        )
+        .expect("prepared record persists");
+
+        let unresolved = unresolved_prepared_operation(&plane.data_dir, &key)
+            .expect("prepared lookup")
+            .expect("the unclosed dispatch window is visible to re-entry");
+        assert_eq!(unresolved["state"], json!("prepared"));
+        assert_eq!(
+            *port.crossings.borrow(),
+            0,
+            "discovering an unclosed window performs no remote crossing"
+        );
+
+        // Once a terminal outcome exists for the same operation, the window is closed and
+        // replay resolves through the terminal report instead of reporting reconciliation.
+        let report = execute_scm_publication_v2(
+            &plane.data_dir,
+            &port,
+            &plane.workspace,
+            &source,
+            &submission,
+            &authority(),
+            "Ship the rebuilt publication route",
+            "2026-07-30T00:00:01Z",
+            v2_operation_identity(
+                &source,
+                &submission,
+                "Ship the rebuilt publication route",
+                &revision(0x33),
+            )
+            .expect("identity"),
+            key.clone(),
+        )
+        .expect("v2 publication");
+        assert_eq!(report.overall_outcome, "published_with_review_request");
+        assert!(unresolved_prepared_operation(&plane.data_dir, &key)
+            .expect("prepared lookup")
+            .is_none());
+    }
+
+    #[test]
+    fn the_prepared_commitment_binds_the_consumed_admission_effect_hash() {
+        let plane = seeded_plane();
+        let port = ScriptedPort {
+            observed: ObservedHeads {
+                target: ObservedTargetRef::Present(revision(0x11)),
+                base_head: revision(0x11),
+            },
+            advance: TargetRefAdvanceOutcome::Advanced {
+                resulting_revision_id: revision(0x33),
+            },
+            review: ReviewRequestOpenOutcome::Opened {
+                review_request_url: "https://remote.example/reviews/1".to_owned(),
+            },
+            crossings: RefCell::new(0),
+        };
+        let source =
+            load_publication_source(&plane.data_dir, SEEDED_BINDING_REF, SEEDED_PROPOSAL_REF)
+                .expect("publication source");
+        let submission = submission();
+        let title = "Ship the rebuilt publication route";
+        let make_identity = || {
+            v2_operation_identity(&source, &submission, title, &revision(0x33)).expect("identity")
+        };
+        let key = v2_operation_key(&make_identity()).expect("key");
+
+        let mut divergent = authority();
+        divergent.admission_effect_hash = "sha256:a-different-consumed-effect".to_owned();
+        let baseline = execute_scm_publication_v2(
+            &plane.data_dir,
+            &port,
+            &plane.workspace,
+            &source,
+            &submission,
+            &authority(),
+            title,
+            "2026-07-30T00:00:00Z",
+            make_identity(),
+            key.clone(),
+        )
+        .expect("v2 publication");
+
+        let other_plane = seeded_plane();
+        let other_port = ScriptedPort {
+            observed: ObservedHeads {
+                target: ObservedTargetRef::Present(revision(0x11)),
+                base_head: revision(0x11),
+            },
+            advance: TargetRefAdvanceOutcome::Advanced {
+                resulting_revision_id: revision(0x33),
+            },
+            review: ReviewRequestOpenOutcome::Opened {
+                review_request_url: "https://remote.example/reviews/1".to_owned(),
+            },
+            crossings: RefCell::new(0),
+        };
+        let other_source = load_publication_source(
+            &other_plane.data_dir,
+            SEEDED_BINDING_REF,
+            SEEDED_PROPOSAL_REF,
+        )
+        .expect("publication source");
+        let shifted = execute_scm_publication_v2(
+            &other_plane.data_dir,
+            &other_port,
+            &other_plane.workspace,
+            &other_source,
+            &submission,
+            &divergent,
+            title,
+            "2026-07-30T00:00:00Z",
+            make_identity(),
+            key,
+        )
+        .expect("v2 publication");
+
+        let baseline_prepared = baseline.effect["preparation"]["prepared_record_hash"]
+            .as_str()
+            .expect("prepared hash");
+        let shifted_prepared = shifted.effect["preparation"]["prepared_record_hash"]
+            .as_str()
+            .expect("prepared hash");
+        assert_ne!(
+            baseline_prepared, shifted_prepared,
+            "a different consumed admission effect must produce a different Prepared commitment"
+        );
     }
 
     fn validate_contract(effect: &Value) {
