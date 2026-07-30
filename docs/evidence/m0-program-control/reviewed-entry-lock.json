@@ -12453,7 +12453,7 @@
       "effect_class": "read_projection",
       "final_invoker": null,
       "handler": "room_participation_routes::handle_participant_leases_list",
-      "handler_anchor_sha256": "4539bf96508bc5c5b287183afc8b2918440f7cce51c9e1a8b16804f2e2f95c61",
+      "handler_anchor_sha256": "af75e67a0d0ed04a3eaa1f06eb6bf8be4afcd9c2f54c8d4d79ac4b774f36f40a",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
       "handler_source_symbol": "handle_participant_leases_list",
@@ -12522,7 +12522,7 @@
       "effect_class": "read_projection",
       "final_invoker": null,
       "handler": "room_participation_routes::handle_participant_lease_get",
-      "handler_anchor_sha256": "7e7249f0a8cfd1d1df3d7f1d0dd39a2c0c4cd46e155cf7a6d7f61df431912888",
+      "handler_anchor_sha256": "841123f7e7eb572b43c071094a68c513b803013bae0bfeb3c5cdd14fdda87392",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
       "handler_source_symbol": "handle_participant_lease_get",
@@ -12591,7 +12591,7 @@
       "effect_class": "read_projection",
       "final_invoker": null,
       "handler": "room_participation_routes::handle_participation_requests_list",
-      "handler_anchor_sha256": "3e9f41e9758760a023bde02038116f65432f8ab1da7fe83339b83a5040553aa0",
+      "handler_anchor_sha256": "9b250b1dcef9c65f64947bc0c564d0208175ddf30277fcd10e8ae2bdda26fec3",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
       "handler_source_symbol": "handle_participation_requests_list",
@@ -12660,7 +12660,7 @@
       "effect_class": "read_projection",
       "final_invoker": null,
       "handler": "room_participation_routes::handle_participation_request_get",
-      "handler_anchor_sha256": "bab93bbc18ea9b16a131ef7c92a64f2bcb7b4cb54d3bd0a1fa67625cbffe5054",
+      "handler_anchor_sha256": "36080f4319c95278ad58a048f24e54be2c1ea06d78c61eaa8f60a389b7f77408",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
       "handler_source_symbol": "handle_participation_request_get",
@@ -44601,7 +44601,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "attempt_finding_routes::handle_attempt_create",
-      "handler_anchor_sha256": "a3240e95f507efd8485fb88070c36d25e6399a92ea259f4e0fd1548bb7ecc8bd",
+      "handler_anchor_sha256": "cbe415b60ced86b9d579b044c04f645a1926a46d3db36ca38678754672cfa5a0",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs",
       "handler_source_symbol": "handle_attempt_create",
@@ -44732,7 +44732,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "attempt_finding_routes::handle_attempt_transition",
-      "handler_anchor_sha256": "b6350068ce364743934781df4f9786fa20cfbb2e09c41c8805e23f218a2c7727",
+      "handler_anchor_sha256": "b03d0705755ebd3682f81bb9101064f64505f7959794910fe3810778cc2a6d5b",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs",
       "handler_source_symbol": "handle_attempt_transition",
@@ -44862,7 +44862,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "resource_capability_offer_routes::handle_capability_create",
-      "handler_anchor_sha256": "f4b2230141aa68f54a16f0826d0d00efe6aa0054ab1ee2f126d89cbd7224cca9",
+      "handler_anchor_sha256": "5d2f441f4ec053f615d364d2cea6a026754329fa77f8ded94dbb24ae453f5fae",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs",
       "handler_source_symbol": "handle_capability_create",
@@ -44990,7 +44990,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "resource_capability_offer_routes::handle_capability_transition",
-      "handler_anchor_sha256": "d273a896acd739fe9850409a2787e48ba57ec28826ad6c7746752fe87fee1644",
+      "handler_anchor_sha256": "2a079925543b4b120c22d216b8e2971f5208031fc7c5f1b38aca15e553577ef2",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs",
       "handler_source_symbol": "handle_capability_transition",
@@ -45118,7 +45118,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "attempt_finding_routes::handle_finding_create",
-      "handler_anchor_sha256": "7ede374226041b738292490e37e1b7557292a7efc698f9316e31555f028ff169",
+      "handler_anchor_sha256": "62b3f8bba2a422a13bcfa8fcada279ccc31ec1b358d3e11d44ee61935204289d",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs",
       "handler_source_symbol": "handle_finding_create",
@@ -45249,7 +45249,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "attempt_finding_routes::handle_finding_transition",
-      "handler_anchor_sha256": "e7d2a91bd830d818a2d36948d59d06afa74d392f6a1ca6b9b18fb3bd6cf8f0ea",
+      "handler_anchor_sha256": "87b7f537d58875294435312a65ec4e2f314322e5088d17e21b03ad9b8c1b4e6e",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs",
       "handler_source_symbol": "handle_finding_transition",
@@ -46737,7 +46737,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "resource_capability_offer_routes::handle_resource_create",
-      "handler_anchor_sha256": "b7212b8895748ed16b9af663ecda33b05862796c93cebb31b645a79262b51972",
+      "handler_anchor_sha256": "abc027edf1982062292627fdd0b25c329f03295533877ede55ddde3e374c2383",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs",
       "handler_source_symbol": "handle_resource_create",
@@ -46865,7 +46865,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "resource_capability_offer_routes::handle_resource_transition",
-      "handler_anchor_sha256": "ed14a1a25320828b27ed581dca4bcdfa1ed6d6ad6b2b542b69ffed453ca7cd69",
+      "handler_anchor_sha256": "d4a18858ccdc0138d00864d0d8932190cfdb9b6fedae89804fbe6f4958d23abb",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs",
       "handler_source_symbol": "handle_resource_transition",
@@ -46990,12 +46990,12 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "0f90429e70ed97e8b87324aae34bb99483f10ab001c09cb54830398157035796",
+        "source_anchor_sha256": "64db012743ea4c6e0f36fb9e3629ee486ae3fd2e7781743f2d7f11427e48e632",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
         "symbol": "directory.sync_all"
       },
       "handler": "room_participation_routes::handle_participant_lease_transition",
-      "handler_anchor_sha256": "bb3b75f7400e14d443a9c3413046897537b5e7fe1a75d17bf8b3d639eb59b364",
+      "handler_anchor_sha256": "bc9d805166715af8abb3238b9408abfad2905ad9f79d67743f120deb19b97a9c",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
       "handler_source_symbol": "handle_participant_lease_transition",
@@ -47113,12 +47113,12 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "0f90429e70ed97e8b87324aae34bb99483f10ab001c09cb54830398157035796",
+        "source_anchor_sha256": "64db012743ea4c6e0f36fb9e3629ee486ae3fd2e7781743f2d7f11427e48e632",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
         "symbol": "persist_receipt"
       },
       "handler": "room_participation_routes::handle_participation_request_create",
-      "handler_anchor_sha256": "c278fe0e7b5f9a89a9554f30cdd1961ff3bf8860db8a3f5ae7f172ad69a80e34",
+      "handler_anchor_sha256": "79570d5a91ffe2326e6e8474a79c024c5e80c05b6612b9933d2e1ffee61728c4",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
       "handler_source_symbol": "handle_participation_request_create",
@@ -47219,12 +47219,12 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "0f90429e70ed97e8b87324aae34bb99483f10ab001c09cb54830398157035796",
+        "source_anchor_sha256": "64db012743ea4c6e0f36fb9e3629ee486ae3fd2e7781743f2d7f11427e48e632",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
         "symbol": "persist_receipt"
       },
       "handler": "room_participation_routes::handle_participation_request_admit",
-      "handler_anchor_sha256": "035354be9e81bda563bd392130631cb97f078ff1d684f36a4d67b3b8d7c2f3c9",
+      "handler_anchor_sha256": "2ef1295f50e63e479319475e6ac6a3ad9e9d370249b135b6e553703ca93f4c6e",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
       "handler_source_symbol": "handle_participation_request_admit",
@@ -47344,12 +47344,12 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "0f90429e70ed97e8b87324aae34bb99483f10ab001c09cb54830398157035796",
+        "source_anchor_sha256": "64db012743ea4c6e0f36fb9e3629ee486ae3fd2e7781743f2d7f11427e48e632",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
         "symbol": "persist_receipt_no_clobber"
       },
       "handler": "room_participation_routes::handle_participation_request_transition",
-      "handler_anchor_sha256": "73b82ec03050c5f186fb4c8cc16db6097b9d49b63353ef1dfd2c3d59cf05f418",
+      "handler_anchor_sha256": "d26a7de2496d232522f1a14f70988e476909d4c8b8902e2c289932c48851eb32",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
       "handler_source_symbol": "handle_participation_request_transition",
@@ -47480,7 +47480,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "verifier_challenge_routes::handle_create",
-      "handler_anchor_sha256": "24774b6ee08186702f13cfef119baf2cf4630e07bd3061a9ab2bd9eb9ee481d1",
+      "handler_anchor_sha256": "ca91a30d305efc660aa927897b80d4465e3ccf30a4180337bb65575233a9df35",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs",
       "handler_source_symbol": "handle_create",
@@ -47613,7 +47613,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "verifier_challenge_routes::handle_transition",
-      "handler_anchor_sha256": "0da42291366fb7e28df6ed1f1f122cff9b2282c98e34648c6dc05a63ea210139",
+      "handler_anchor_sha256": "6ba01917bf20f8a049f0f70c32ce3562e485f7f92e9aac5b9c015f58f524b16c",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs",
       "handler_source_symbol": "handle_transition",
@@ -47745,7 +47745,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "work_frontier_claim_routes::handle_claim_acquire",
-      "handler_anchor_sha256": "b74adfdb6e2bd6ca76c673de4d27f15cbf96cf0f9fe78f06e8b390b2dc27d954",
+      "handler_anchor_sha256": "2ab9d139a46fd7d66f0e832f8e0f5745fd2d26a99c2c01aebf8d6b3396ec0bc9",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
       "handler_source_symbol": "handle_claim_acquire",
@@ -47880,7 +47880,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "work_frontier_claim_routes::handle_claim_transition",
-      "handler_anchor_sha256": "4049c8caeb0758fd37a03e9e07faab4e2d922573a6c085a3e4fd2f80ba0d2d0f",
+      "handler_anchor_sha256": "ce07e64370b6a8fd56b3f66e115df579d421029249c000116a356cb3f0644df8",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
       "handler_source_symbol": "handle_claim_transition",
@@ -48009,7 +48009,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "resource_capability_offer_routes::handle_match_create",
-      "handler_anchor_sha256": "c9194b1697b6e9bb6e439770e29ad3877d73702375141cb9ec4da54b47599952",
+      "handler_anchor_sha256": "4acb0527239a262f86a4a2a6331fe3ebdb9b87ff92ae6e8954b99e8875c563e2",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs",
       "handler_source_symbol": "handle_match_create",
@@ -48140,7 +48140,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "work_frontier_claim_routes::handle_frontier_create",
-      "handler_anchor_sha256": "be8f526bafd2e20c6033a5a77a84aaf3ab5610247245daa5833463c2c9d338a6",
+      "handler_anchor_sha256": "174a0d48c38329ca39d2fe28e42b68fe3450e6eb8257566c53457aae2fdabad3",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
       "handler_source_symbol": "handle_frontier_create",
@@ -48271,7 +48271,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "work_frontier_claim_routes::handle_frontier_transition",
-      "handler_anchor_sha256": "629c08bd78dd28667b0dab0fe982fac1236d4f9217f25ae4a07faca03f89692f",
+      "handler_anchor_sha256": "16ec08cc93fa313bd7e6b732d23914ae4c6694ffed55a605a7eb1a245474f0f8",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
       "handler_source_symbol": "handle_frontier_transition",
@@ -138188,26 +138188,25 @@
     "review_epochs": [
       {
         "epoch_id": "m0-initial-review-2026-07-18",
+        "identity_set_sha256": "22349cd81d5187a546341c417dbe330fd3591feca27cee30dfb890c830b2b417",
+        "provenance": "Original source-aware M0 review epoch; entries remain here only when their complete discovery and review commitments match the immutable branch-point baseline.",
         "reviewed_as_of": "2026-07-18",
         "reviewed_entry_count": 517,
-        "identity_set_sha256": "22349cd81d5187a546341c417dbe330fd3591feca27cee30dfb890c830b2b417",
-        "reviewed_entry_set_sha256": "824b6be8f51e38df3ec37fe9908182665978676b4de8fdc6ef3842a6f5608d60",
-        "provenance": "Original source-aware M0 review epoch; entries remain here only when their complete discovery and review commitments match the immutable branch-point baseline."
+        "reviewed_entry_set_sha256": "824b6be8f51e38df3ec37fe9908182665978676b4de8fdc6ef3842a6f5608d60"
       },
       {
         "epoch_id": "m3-and-ported-seed-reconciliation-review-2026-07-30",
+        "identity_set_sha256": "48bef7e3b1f1fa1786de6db42533e786a8be3087956938eda66bd33d261a8753",
+        "provenance": "Explicit reconciliation of the M3 daemon review with the previously reviewed ported Hypervisor application crossings restored from master; every current identity retains its source-aware reviewed entry and current anchor.",
         "reviewed_as_of": "2026-07-30",
         "reviewed_entry_count": 1067,
-        "identity_set_sha256": "48bef7e3b1f1fa1786de6db42533e786a8be3087956938eda66bd33d261a8753",
-        "reviewed_entry_set_sha256": "408c506017e9164ec9dfd677ba1ec4ac06bd7b974a26bfc3790ad93a63364197",
-        "provenance": "Explicit reconciliation of the M3 daemon review with the previously reviewed ported Hypervisor application crossings restored from master; every current identity retains its source-aware reviewed entry and current anchor."
+        "reviewed_entry_set_sha256": "72a05771b140dc02cb984472a68187a85e26ed7c58a9320e5a50765061da2a90"
       }
     ],
     "review_groups": [
       {
+        "finding": "The muxlog write is a verified local leaf; peer authority, revocation, policy, IFC, and synchronous durability remain partial.",
         "group_id": "surface:agentgres-replica",
-        "surface": "agentgres-replica",
-        "reviewed_entry_count": 1,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138216,26 +138215,26 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "The muxlog write is a verified local leaf; peer authority, revocation, policy, IFC, and synchronous durability remain partial."
+        "reviewed_entry_count": 1,
+        "surface": "agentgres-replica"
       },
       {
+        "finding": "All ten literal service arms are consequential; effect-shaped leaves remain candidate boundaries without generic pre-effect order proof.",
         "group_id": "surface:blockchain-service:desktop_agent",
-        "surface": "blockchain-service:desktop_agent",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 10,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "All ten literal service arms are consequential; effect-shaped leaves remain candidate boundaries without generic pre-effect order proof."
+        "surface": "blockchain-service:desktop_agent"
       },
       {
+        "finding": "Manifest-defined method dispatch is intrinsically dynamic and the selected runtime contract remains explicitly unmounted.",
         "group_id": "surface:blockchain-service:dynamic-wasm",
-        "surface": "blockchain-service:dynamic-wasm",
-        "reviewed_entry_count": 1,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138244,12 +138243,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Manifest-defined method dispatch is intrinsically dynamic and the selected runtime contract remains explicitly unmounted."
+        "reviewed_entry_count": 1,
+        "surface": "blockchain-service:dynamic-wasm"
       },
       {
+        "finding": "The declared evolution method is unavailable and is not treated as an active mutation.",
         "group_id": "surface:blockchain-service:evolution",
-        "surface": "blockchain-service:evolution",
-        "reviewed_entry_count": 1,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138258,40 +138257,40 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "The declared evolution method is unavailable and is not treated as an active mutation."
+        "reviewed_entry_count": 1,
+        "surface": "blockchain-service:evolution"
       },
       {
+        "finding": "All seven literal governance methods mutate transaction state; local checks do not establish generic authority or recovery closure.",
         "group_id": "surface:blockchain-service:governance",
-        "surface": "blockchain-service:governance",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 7,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "All seven literal governance methods mutate transaction state; local checks do not establish generic authority or recovery closure."
+        "surface": "blockchain-service:governance"
       },
       {
+        "finding": "All thirty-nine literal registry methods write transaction state; state.insert candidates are not promoted to terminal owner proof.",
         "group_id": "surface:blockchain-service:guardian_registry",
-        "surface": "blockchain-service:guardian_registry",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 39,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "All thirty-nine literal registry methods write transaction state; state.insert candidates are not promoted to terminal owner proof."
+        "surface": "blockchain-service:guardian_registry"
       },
       {
+        "finding": "All four literal IBC service methods are consequential and retain method-specific final-invoker-order blockers.",
         "group_id": "surface:blockchain-service:ibc",
-        "surface": "blockchain-service:ibc",
-        "reviewed_entry_count": 4,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138300,12 +138299,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "All four literal IBC service methods are consequential and retain method-specific final-invoker-order blockers."
+        "reviewed_entry_count": 4,
+        "surface": "blockchain-service:ibc"
       },
       {
+        "finding": "The mounted compatibility boundary returns Unsupported for every method and claims no effect.",
         "group_id": "surface:blockchain-service:ibc_channel_manager",
-        "surface": "blockchain-service:ibc_channel_manager",
-        "reviewed_entry_count": 1,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138314,12 +138313,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "The mounted compatibility boundary returns Unsupported for every method and claims no effect."
+        "reviewed_entry_count": 1,
+        "surface": "blockchain-service:ibc_channel_manager"
       },
       {
+        "finding": "Both identity methods mutate transaction state and remain partial without final-order, receipt, and recovery proof.",
         "group_id": "surface:blockchain-service:identity_hub",
-        "surface": "blockchain-service:identity_hub",
-        "reviewed_entry_count": 2,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138328,12 +138327,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Both identity methods mutate transaction state and remain partial without final-order, receipt, and recovery proof."
+        "reviewed_entry_count": 2,
+        "surface": "blockchain-service:identity_hub"
       },
       {
+        "finding": "Policy registration and budget debit both mutate state; the delegated debit leaf remains an explicitly blocked service boundary.",
         "group_id": "surface:blockchain-service:leakage_controller",
-        "surface": "blockchain-service:leakage_controller",
-        "reviewed_entry_count": 2,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138342,12 +138341,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Policy registration and budget debit both mutate state; the delegated debit leaf remains an explicitly blocked service boundary."
+        "reviewed_entry_count": 2,
+        "surface": "blockchain-service:leakage_controller"
       },
       {
+        "finding": "All five market methods mutate transaction state; commercial semantics and generic production gates are not inferred.",
         "group_id": "surface:blockchain-service:market",
-        "surface": "blockchain-service:market",
-        "reviewed_entry_count": 5,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138356,12 +138355,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "All five market methods mutate transaction state; commercial semantics and generic production gates are not inferred."
+        "reviewed_entry_count": 5,
+        "surface": "blockchain-service:market"
       },
       {
+        "finding": "All six optimizer methods mutate state or install artifacts; their observed leaves remain candidate boundaries.",
         "group_id": "surface:blockchain-service:optimizer",
-        "surface": "blockchain-service:optimizer",
-        "reviewed_entry_count": 6,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138370,12 +138369,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "All six optimizer methods mutate state or install artifacts; their observed leaves remain candidate boundaries."
+        "reviewed_entry_count": 6,
+        "surface": "blockchain-service:optimizer"
       },
       {
+        "finding": "The misbehavior report mutates transaction state and remains partial without generic gate and recovery proof.",
         "group_id": "surface:blockchain-service:penalties",
-        "surface": "blockchain-service:penalties",
-        "reviewed_entry_count": 1,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138384,12 +138383,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "The misbehavior report mutates transaction state and remains partial without generic gate and recovery proof."
+        "reviewed_entry_count": 1,
+        "surface": "blockchain-service:penalties"
       },
       {
+        "finding": "Registration and heartbeat both mutate transaction state and retain effect-proof blockers.",
         "group_id": "surface:blockchain-service:provider_registry",
-        "surface": "blockchain-service:provider_registry",
-        "reviewed_entry_count": 2,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138398,12 +138397,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Registration and heartbeat both mutate transaction state and retain effect-proof blockers."
+        "reviewed_entry_count": 2,
+        "surface": "blockchain-service:provider_registry"
       },
       {
+        "finding": "State and PKCE precede the verified local token-record leaf; product authority, hardened evidence, and recovery remain partial.",
         "group_id": "surface:google-oauth-callback",
-        "surface": "google-oauth-callback",
-        "reviewed_entry_count": 1,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138412,26 +138411,26 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "State and PKCE precede the verified local token-record leaf; product authority, hardened evidence, and recovery remain partial."
+        "reviewed_entry_count": 1,
+        "surface": "google-oauth-callback"
       },
       {
+        "finding": "Seven signing, sealing, egress, observation, and fault RPCs are consequential; recovery-share loading is read-only and no RPC is terminal.",
         "group_id": "surface:guardian-control",
-        "surface": "guardian-control",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 8,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "Seven signing, sealing, egress, observation, and fault RPCs are consequential; recovery-share loading is read-only and no RPC is terminal."
+        "surface": "guardian-control"
       },
       {
+        "finding": "Encrypted dynamic dispatch is internal-only; transport confidentiality is not authority, policy, revocation, fencing, or IFC proof.",
         "group_id": "surface:guardian-encrypted-container",
-        "surface": "guardian-encrypted-container",
-        "reviewed_entry_count": 1,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138440,26 +138439,26 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Encrypted dynamic dispatch is internal-only; transport confidentiality is not authority, policy, revocation, fencing, or IFC proof."
+        "reviewed_entry_count": 1,
+        "surface": "guardian-encrypted-container"
       },
       {
+        "finding": "Literal host commands are compatibility or unavailable contracts; no client command is accepted as runtime authority or successful effect evidence.",
         "group_id": "surface:hypervisor-app",
-        "surface": "hypervisor-app",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 151,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "Literal host commands are compatibility or unavailable contracts; no client command is accepted as runtime authority or successful effect evidence."
+        "surface": "hypervisor-app"
       },
       {
+        "finding": "The development mutation crossing is a verified network boundary only; the remaining crossing is read-only and both are non-authoritative.",
         "group_id": "surface:hypervisor-app-dev-outbound",
-        "surface": "hypervisor-app-dev-outbound",
-        "reviewed_entry_count": 2,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138468,54 +138467,54 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "The development mutation crossing is a verified network boundary only; the remaining crossing is read-only and both are non-authoritative."
+        "reviewed_entry_count": 2,
+        "surface": "hypervisor-app-dev-outbound"
       },
       {
+        "finding": "All fourteen browser writes are consequential local compatibility state and never owner truth.",
         "group_id": "surface:hypervisor-app-local-storage",
-        "surface": "hypervisor-app-local-storage",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 14,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "All fourteen browser writes are consequential local compatibility state and never owner truth."
+        "surface": "hypervisor-app-local-storage"
       },
       {
+        "finding": "All current Axum routes are source-anchored. The Hypervisor reconciliation admits projection, bounded-query, durable-preference, and typed-retirement-refusal routes; refusal paths have zero effect and all other new effect-shaped paths remain conservative, partial, blocker-bound, and non-terminal.",
         "group_id": "surface:hypervisor-daemon",
-        "surface": "hypervisor-daemon",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 843,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "All current Axum routes are source-anchored. The Hypervisor reconciliation admits projection, bounded-query, durable-preference, and typed-retirement-refusal routes; refusal paths have zero effect and all other new effect-shaped paths remain conservative, partial, blocker-bound, and non-terminal."
+        "surface": "hypervisor-daemon"
       },
       {
+        "finding": "Development dispatch is compatibility except the explicit evidence write, configured model POST, and two active process-termination leaves; none is product authority.",
         "group_id": "surface:hypervisor-dev-replay",
-        "surface": "hypervisor-dev-replay",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 65,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "Development dispatch is compatibility except the explicit evidence write, configured model POST, and two active process-termination leaves; none is product authority."
+        "surface": "hypervisor-dev-replay"
       },
       {
+        "finding": "The lease-authenticated wildcard can forward arbitrary downstream bytes; the dynamic downstream effect remains explicitly blocked.",
         "group_id": "surface:hypervisor-editor-proxy",
-        "surface": "hypervisor-editor-proxy",
-        "reviewed_entry_count": 1,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138524,12 +138523,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "The lease-authenticated wildcard can forward arbitrary downstream bytes; the dynamic downstream effect remains explicitly blocked."
+        "reviewed_entry_count": 1,
+        "surface": "hypervisor-editor-proxy"
       },
       {
+        "finding": "The preference-file write is a verified local facade boundary and not daemon or owner truth.",
         "group_id": "surface:hypervisor-product-ui-local-state",
-        "surface": "hypervisor-product-ui-local-state",
-        "reviewed_entry_count": 1,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138538,40 +138537,40 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "The preference-file write is a verified local facade boundary and not daemon or owner truth."
+        "reviewed_entry_count": 1,
+        "surface": "hypervisor-product-ui-local-state"
       },
       {
+        "finding": "All 297 active network crossings are AST-enumerated; unresolved methods are explicit consequential DYNAMIC entries, generated-template POSTs are included, and network leaves do not claim downstream success.",
         "group_id": "surface:hypervisor-product-ui-outbound",
-        "surface": "hypervisor-product-ui-outbound",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 297,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "All 297 active network crossings are AST-enumerated; unresolved methods are explicit consequential DYNAMIC entries, generated-template POSTs are included, and network leaves do not claim downstream success."
+        "surface": "hypervisor-product-ui-outbound"
       },
       {
+        "finding": "All six spawned-process, signal, and active process-termination crossings are verified local boundaries without durable owner receipts.",
         "group_id": "surface:hypervisor-product-ui-process",
-        "surface": "hypervisor-product-ui-process",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 6,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "All six spawned-process, signal, and active process-termination crossings are verified local boundaries without durable owner receipts."
+        "surface": "hypervisor-product-ui-process"
       },
       {
+        "finding": "The spawned fixture and static fallback server is one file-locked ANY compatibility boundary with no durable or external owner effect.",
         "group_id": "surface:hypervisor-product-ui-reference-server",
-        "surface": "hypervisor-product-ui-reference-server",
-        "reviewed_entry_count": 1,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138580,12 +138579,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "The spawned fixture and static fallback server is one file-locked ANY compatibility boundary with no durable or external owner effect."
+        "reviewed_entry_count": 1,
+        "surface": "hypervisor-product-ui-reference-server"
       },
       {
+        "finding": "The deterministic signer child process is development-flagged and explicitly non-authoritative despite its verified process boundary.",
         "group_id": "surface:hypervisor-product-ui-test-signer",
-        "surface": "hypervisor-product-ui-test-signer",
-        "reviewed_entry_count": 1,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138594,12 +138593,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "The deterministic signer child process is development-flagged and explicitly non-authoritative despite its verified process boundary."
+        "reviewed_entry_count": 1,
+        "surface": "hypervisor-product-ui-test-signer"
       },
       {
+        "finding": "Submit reaches the verified host submission boundary; query, root, and metrics are reads and transport limits are not authority.",
         "group_id": "surface:ibc-http-gateway",
-        "surface": "ibc-http-gateway",
-        "reviewed_entry_count": 4,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138608,26 +138607,26 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Submit reaches the verified host submission boundary; query, root, and metrics are reads and transport limits are not authority."
+        "reviewed_entry_count": 4,
+        "surface": "ibc-http-gateway"
       },
       {
+        "finding": "All eighteen RPC declarations are explicitly unmounted compatibility contracts and cannot be consumed as live capability.",
         "group_id": "surface:model-mount-grpc",
-        "surface": "model-mount-grpc",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 18,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "All eighteen RPC declarations are explicitly unmounted compatibility contracts and cannot be consumed as live capability."
+        "surface": "model-mount-grpc"
       },
       {
+        "finding": "Both active demo browser-storage writes are function-bound local compatibility state with no owner-truth claim.",
         "group_id": "surface:other-js-app-local-storage",
-        "surface": "other-js-app-local-storage",
-        "reviewed_entry_count": 2,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138636,12 +138635,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Both active demo browser-storage writes are function-bound local compatibility state with no owner-truth claim."
+        "reviewed_entry_count": 2,
+        "surface": "other-js-app-local-storage"
       },
       {
+        "finding": "Both active non-Hypervisor application crossings are read projections.",
         "group_id": "surface:other-js-app-outbound",
-        "surface": "other-js-app-outbound",
-        "reviewed_entry_count": 2,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138650,12 +138649,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Both active non-Hypervisor application crossings are read projections."
+        "reviewed_entry_count": 2,
+        "surface": "other-js-app-outbound"
       },
       {
+        "finding": "Provision reaches the verified controller boundary, but authority, receipts, idempotency, and recovery are not terminal.",
         "group_id": "surface:provider-http",
-        "surface": "provider-http",
-        "reviewed_entry_count": 1,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138664,26 +138663,26 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Provision reaches the verified controller boundary, but authority, receipts, idempotency, and recovery are not terminal."
+        "reviewed_entry_count": 1,
+        "surface": "provider-http"
       },
       {
+        "finding": "SubmitTransaction, DraftTransaction, and SetRuntimeSecret are consequential with verified local leaves; eight RPCs are reads and none closes production gates.",
         "group_id": "surface:public-api",
-        "surface": "public-api",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 11,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "SubmitTransaction, DraftTransaction, and SetRuntimeSecret are consequential with verified local leaves; eight RPCs are reads and none closes production gates."
+        "surface": "public-api"
       },
       {
+        "finding": "Both conditional preview routes are read-only projections behind the authorized preview listener.",
         "group_id": "surface:session-preview-http",
-        "surface": "session-preview-http",
-        "reviewed_entry_count": 2,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138692,26 +138691,26 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Both conditional preview routes are read-only projections behind the authorized preview listener."
+        "reviewed_entry_count": 2,
+        "surface": "session-preview-http"
       },
       {
+        "finding": "POST /sign reaches the verified WAL-backed signing leaf; upstream effect authority and complete recovery remain unproven.",
         "group_id": "surface:signer-http",
-        "surface": "signer-http",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 1,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "POST /sign reaches the verified WAL-backed signing leaf; upstream effect authority and complete recovery remain unproven."
+        "surface": "signer-http"
       },
       {
+        "finding": "Metrics, health, and readiness are read-only observations.",
         "group_id": "surface:telemetry-http",
-        "surface": "telemetry-http",
-        "reviewed_entry_count": 3,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138720,26 +138719,26 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Metrics, health, and readiness are read-only observations."
+        "reviewed_entry_count": 3,
+        "surface": "telemetry-http"
       },
       {
+        "finding": "All forty-three methods are consequential because reads, mail calls, and exact grant-hash-keyed consumption persist receipts, audit, replay, lease, or authority-use state; exact handler effects are recorded without claiming a production PEP.",
         "group_id": "surface:wallet.network",
-        "surface": "wallet.network",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 44,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "All forty-three methods are consequential because reads, mail calls, and exact grant-hash-keyed consumption persist receipts, audit, replay, lease, or authority-use state; exact handler effects are recorded without claiming a production PEP."
+        "surface": "wallet.network"
       },
       {
+        "finding": "Two chain RPCs are reads and three controls are internal-only; internal handlers are not exposed as public authority.",
         "group_id": "surface:workload-ipc-chain_control",
-        "surface": "workload-ipc-chain_control",
-        "reviewed_entry_count": 5,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138748,12 +138747,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Two chain RPCs are reads and three controls are internal-only; internal handlers are not exposed as public authority."
+        "reviewed_entry_count": 5,
+        "surface": "workload-ipc-chain_control"
       },
       {
+        "finding": "QueryContract is read-only while deploy and call are internal-only consequential controls.",
         "group_id": "surface:workload-ipc-contract_control",
-        "surface": "workload-ipc-contract_control",
-        "reviewed_entry_count": 3,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138762,40 +138761,40 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "QueryContract is read-only while deploy and call are internal-only consequential controls."
+        "reviewed_entry_count": 3,
+        "surface": "workload-ipc-contract_control"
       },
       {
+        "finding": "Both staking RPCs are read-only projections.",
         "group_id": "surface:workload-ipc-staking_control",
-        "surface": "workload-ipc-staking_control",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 2,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "Both staking RPCs are read-only projections."
+        "surface": "workload-ipc-staking_control"
       },
       {
+        "finding": "Three state RPCs are reads and CheckTransactions is plan-only with no commit effect.",
         "group_id": "surface:workload-ipc-state_query",
-        "surface": "workload-ipc-state_query",
+        "review_dimensions": [
+          "classification_and_effect_class",
+          "owner_and_source_anchor",
+          "handler_and_final_invoker_claim",
+          "pre_effect_gates_without_ui_inference",
+          "durable_evidence_idempotency_and_recovery",
+          "selected_profile_applicability_and_typed_blocker"
+        ],
         "reviewed_entry_count": 4,
-        "review_dimensions": [
-          "classification_and_effect_class",
-          "owner_and_source_anchor",
-          "handler_and_final_invoker_claim",
-          "pre_effect_gates_without_ui_inference",
-          "durable_evidence_idempotency_and_recovery",
-          "selected_profile_applicability_and_typed_blocker"
-        ],
-        "finding": "Three state RPCs are reads and CheckTransactions is plan-only with no commit effect."
+        "surface": "workload-ipc-state_query"
       },
       {
+        "finding": "Expected-hash lookup is a read, proposal tally is compatibility, and three debug controls are internal-only.",
         "group_id": "surface:workload-ipc-system_control",
-        "surface": "workload-ipc-system_control",
-        "reviewed_entry_count": 5,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138804,12 +138803,12 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "Expected-hash lookup is a read, proposal tally is compatibility, and three debug controls are internal-only."
+        "reviewed_entry_count": 5,
+        "surface": "workload-ipc-system_control"
       },
       {
+        "finding": "HealthCheck is read-only; model load and job execution are internal-only consequential controls.",
         "group_id": "surface:workload-ipc-workload_control",
-        "surface": "workload-ipc-workload_control",
-        "reviewed_entry_count": 3,
         "review_dimensions": [
           "classification_and_effect_class",
           "owner_and_source_anchor",
@@ -138818,7 +138817,8 @@
           "durable_evidence_idempotency_and_recovery",
           "selected_profile_applicability_and_typed_blocker"
         ],
-        "finding": "HealthCheck is read-only; model load and job execution are internal-only consequential controls."
+        "reviewed_entry_count": 3,
+        "surface": "workload-ipc-workload_control"
       }
     ],
     "reviewed_as_of": "2026-07-30",

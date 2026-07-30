@@ -9,23 +9,23 @@
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
     "snapshot_head_sequence": 26,
-    "snapshot_head_entry_sha256": "ec5773b69ca55d828a25296c9aa23b4b67859f9d917bcaa00b48450465210cfd",
+    "snapshot_head_entry_sha256": "ee3c35bafe804260f4b4c3d5c553ecd636ab673cff19fca693027d1ac3b5662b",
     "snapshot_predecessor_entry_sha256": "ec22024a9c109c4815871b74b5e4b3d546d8d08c5cc04f46b2301276171032d8",
     "reviewer_label": "reviewer://codex/ported-seed-m3-repair",
     "reviewer_label_status": "self_declared_unsigned",
-    "review_lock_sha256": "771b0f74a44ab4a191bcbc6b10489b7e60ca3a57edf5cb1c14d9e2a07f4272a3",
+    "review_lock_sha256": "ba01002a614224cdf00612f94d1d52dff34d328244d111da8e447c63361a3b8f",
     "review_epoch_id": "m3-and-ported-seed-reconciliation-review-2026-07-30",
     "reviewed_as_of": "2026-07-30",
     "reviewed_identity_set_sha256": "48bef7e3b1f1fa1786de6db42533e786a8be3087956938eda66bd33d261a8753",
-    "reviewed_entry_set_sha256": "408c506017e9164ec9dfd677ba1ec4ac06bd7b974a26bfc3790ad93a63364197",
-    "program_source_material_sha256": "813b34bc8e7bee6ac8bde7ebb6296e9010d7d3abf093fac0cf8c9bea35f20a91",
+    "reviewed_entry_set_sha256": "72a05771b140dc02cb984472a68187a85e26ed7c58a9320e5a50765061da2a90",
+    "program_source_material_sha256": "b39cba2ec352f37264cc5edd62643ceedf25b220c1f583748e568ce6373c8bea",
     "assurance_posture": {
-      "chain_integrity_within_snapshot": "verified",
-      "snapshot_head_binding": "verified",
-      "repository_baseline_present": true,
-      "authorship_binding": "self_declared_label_unsigned",
       "accepted_head_currentness": "not_established",
-      "coherent_snapshot_rollback_resistance": "not_established"
+      "authorship_binding": "self_declared_label_unsigned",
+      "chain_integrity_within_snapshot": "verified",
+      "coherent_snapshot_rollback_resistance": "not_established",
+      "repository_baseline_present": true,
+      "snapshot_head_binding": "verified"
     }
   },
   "canon_basis": [
@@ -46,7 +46,7 @@
     },
     {
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "e054ec0a7976400cc2578802f7f4340d45f8943baeda3bf1f9eab4023a285134",
+      "source_sha256": "15c499665330464addcecd255348b5482b3d35dbe88962a51fed638ec948f33e",
       "role": "landed owner canon"
     },
     {
@@ -71,7 +71,7 @@
     },
     {
       "source_file": "docs/architecture/foundations/objects/collaborative-pursuit.md",
-      "source_sha256": "35c4f3b13bdcd7defabd8878493357920dd8443a4772e32fd47754f46927a11a",
+      "source_sha256": "7ca2e2b3b73f50c6e89db9bb98bcfc794a4fabda782dd1bb42a5723beb844893",
       "role": "landed owner canon"
     },
     {
@@ -196,7 +196,7 @@
     },
     {
       "source_file": "docs/architecture/components/agentgres/api-object-model.md",
-      "source_sha256": "d9c0027e36a382df2fd326cc54f983e1593235ab0efb2ef987a8e4f59bee10c9",
+      "source_sha256": "a79905a481217eef9f8eefd9a4b9d7cb026b7a62183096072824f83422575fd7",
       "role": "landed owner canon"
     },
     {
@@ -216,7 +216,7 @@
     },
     {
       "source_file": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
-      "source_sha256": "4b36e978235c09cfe035fa263e7a78305041935b426274850ddc2e43884312f0",
+      "source_sha256": "be0450425fd3b243e27ef3d8253b3ef38e2efa3486646be7727a6218afe7726a",
       "role": "landed owner canon"
     },
     {

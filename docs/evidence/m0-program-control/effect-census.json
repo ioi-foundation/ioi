@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-30",
-  "build_fingerprint": "bf58e957aacab3af7f5ac0450fafad3e0baa48ceca02135bb8cf2c1a6a720a70",
+  "build_fingerprint": "7d47e2837bebf0d625f53d3dfe9c0e2084ea8e9803320170ad34efed26a57f0c",
   "counts": {
     "by_classification": {
       "compatibility": 95,
@@ -16931,8 +16931,8 @@
       "classification": "read_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 4031,
-        "sha256": "4539bf96508bc5c5b287183afc8b2918440f7cce51c9e1a8b16804f2e2f95c61"
+        "line": 4042,
+        "sha256": "af75e67a0d0ed04a3eaa1f06eb6bf8be4afcd9c2f54c8d4d79ac4b774f36f40a"
       },
       "discovery_source_anchor": {
         "line": 2325,
@@ -16947,10 +16947,10 @@
       "final_invoker": null,
       "handler": "room_participation_routes::handle_participant_leases_list",
       "handler_anchor": {
-        "line": 4031,
-        "sha256": "4539bf96508bc5c5b287183afc8b2918440f7cce51c9e1a8b16804f2e2f95c61"
+        "line": 4042,
+        "sha256": "af75e67a0d0ed04a3eaa1f06eb6bf8be4afcd9c2f54c8d4d79ac4b774f36f40a"
       },
-      "handler_anchor_sha256": "4539bf96508bc5c5b287183afc8b2918440f7cce51c9e1a8b16804f2e2f95c61",
+      "handler_anchor_sha256": "af75e67a0d0ed04a3eaa1f06eb6bf8be4afcd9c2f54c8d4d79ac4b774f36f40a",
       "handler_effect_calls": [],
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
@@ -16995,26 +16995,26 @@
         }
       },
       "reachable_handler_functions": [
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participant_leases_list:4031",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family:700",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participant_leases_list:4042",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family:711",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#open_family_dir_pinned:152",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#is_single_component:120",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#open_dir_pinned:143",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#enumerate_pinned:613",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#cstr:110",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#drain_dir_stream:642",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family_entries:719",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family_entries:730",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#read_slot_strict:544",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#component_cstr:128",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_registry_record:772",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_registry_record:783",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pref_ok:59",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_intent:2500",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_request_tail:628",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_intent:2511",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_request_tail:639",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#is_canonical_receipt_tail:462",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#record_output_hash:412",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_lease_tail:631",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_lease_tail:642",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#is_rfc3339:479",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_params:1228",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_params:1239",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#reject_sensitive_keys:214",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#verr:210",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#vocab_required:363",
@@ -17025,16 +17025,16 @@
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#home_domain_ref_ok:144",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pscalar:95",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#plist:108",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_lease:1271",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_lease:1282",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#admit_decision_effect:275",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#validate_sealed_effect:2012",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#decision_effect_hash:1251",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#apply_transition:1332",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#apply_transition:1343",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#s:205",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_decision_receipt:383",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_decision_receipt:386",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#build_room_receipt_at:1127",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#sealed_authority:433",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_transition_intent:2384",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#sealed_authority:440",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_transition_intent:2395",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#transition_decision_effect:268",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#decision_authority_posture:226",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#decision_authority_posture:2042",
@@ -17042,7 +17042,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/wallet_network_capability_client.rs#load_config:214",
         "crates/node/src/bin/hypervisor_daemon_routes/wallet_network_capability_client.rs#required_env:142",
         "crates/node/src/bin/hypervisor_daemon_routes/wallet_network_capability_client.rs#load_pinned_root:154",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3259"
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3270"
       ],
       "registration_anchor_sha256": "298aa69643eca70fd0b07a9c68ff6b50ccddd9fc0fe176a7ea571bd5936a1887",
       "review_origin": "explicit_m0_review",
@@ -17067,8 +17067,8 @@
       "classification": "read_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 4068,
-        "sha256": "7e7249f0a8cfd1d1df3d7f1d0dd39a2c0c4cd46e155cf7a6d7f61df431912888"
+        "line": 4079,
+        "sha256": "841123f7e7eb572b43c071094a68c513b803013bae0bfeb3c5cdd14fdda87392"
       },
       "discovery_source_anchor": {
         "line": 2329,
@@ -17083,10 +17083,10 @@
       "final_invoker": null,
       "handler": "room_participation_routes::handle_participant_lease_get",
       "handler_anchor": {
-        "line": 4068,
-        "sha256": "7e7249f0a8cfd1d1df3d7f1d0dd39a2c0c4cd46e155cf7a6d7f61df431912888"
+        "line": 4079,
+        "sha256": "841123f7e7eb572b43c071094a68c513b803013bae0bfeb3c5cdd14fdda87392"
       },
-      "handler_anchor_sha256": "7e7249f0a8cfd1d1df3d7f1d0dd39a2c0c4cd46e155cf7a6d7f61df431912888",
+      "handler_anchor_sha256": "841123f7e7eb572b43c071094a68c513b803013bae0bfeb3c5cdd14fdda87392",
       "handler_effect_calls": [],
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
@@ -17131,8 +17131,8 @@
         }
       },
       "reachable_handler_functions": [
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participant_lease_get:4068",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3259",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participant_lease_get:4079",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3270",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#verr:210"
       ],
       "registration_anchor_sha256": "03b8a61ac0ed94fd75039bcc39fbfcd1a2d9e6c2efd2c78f7799e5ccb2e7001e",
@@ -17158,8 +17158,8 @@
       "classification": "read_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 3398,
-        "sha256": "3e9f41e9758760a023bde02038116f65432f8ab1da7fe83339b83a5040553aa0"
+        "line": 3409,
+        "sha256": "9b250b1dcef9c65f64947bc0c564d0208175ddf30277fcd10e8ae2bdda26fec3"
       },
       "discovery_source_anchor": {
         "line": 2308,
@@ -17174,10 +17174,10 @@
       "final_invoker": null,
       "handler": "room_participation_routes::handle_participation_requests_list",
       "handler_anchor": {
-        "line": 3398,
-        "sha256": "3e9f41e9758760a023bde02038116f65432f8ab1da7fe83339b83a5040553aa0"
+        "line": 3409,
+        "sha256": "9b250b1dcef9c65f64947bc0c564d0208175ddf30277fcd10e8ae2bdda26fec3"
       },
-      "handler_anchor_sha256": "3e9f41e9758760a023bde02038116f65432f8ab1da7fe83339b83a5040553aa0",
+      "handler_anchor_sha256": "9b250b1dcef9c65f64947bc0c564d0208175ddf30277fcd10e8ae2bdda26fec3",
       "handler_effect_calls": [],
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
@@ -17222,26 +17222,26 @@
         }
       },
       "reachable_handler_functions": [
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participation_requests_list:3398",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family:700",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participation_requests_list:3409",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family:711",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#open_family_dir_pinned:152",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#is_single_component:120",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#open_dir_pinned:143",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#enumerate_pinned:613",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#cstr:110",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#drain_dir_stream:642",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family_entries:719",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family_entries:730",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#read_slot_strict:544",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#component_cstr:128",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_registry_record:772",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_registry_record:783",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pref_ok:59",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_intent:2500",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_request_tail:628",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_intent:2511",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_request_tail:639",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#is_canonical_receipt_tail:462",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#record_output_hash:412",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_lease_tail:631",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_lease_tail:642",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#is_rfc3339:479",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_params:1228",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_params:1239",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#reject_sensitive_keys:214",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#verr:210",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#vocab_required:363",
@@ -17252,16 +17252,16 @@
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#home_domain_ref_ok:144",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pscalar:95",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#plist:108",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_lease:1271",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_lease:1282",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#admit_decision_effect:275",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#validate_sealed_effect:2012",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#decision_effect_hash:1251",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#apply_transition:1332",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#apply_transition:1343",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#s:205",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_decision_receipt:383",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_decision_receipt:386",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#build_room_receipt_at:1127",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#sealed_authority:433",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_transition_intent:2384",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#sealed_authority:440",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_transition_intent:2395",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#transition_decision_effect:268",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#decision_authority_posture:226",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#decision_authority_posture:2042",
@@ -17269,7 +17269,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/wallet_network_capability_client.rs#load_config:214",
         "crates/node/src/bin/hypervisor_daemon_routes/wallet_network_capability_client.rs#required_env:142",
         "crates/node/src/bin/hypervisor_daemon_routes/wallet_network_capability_client.rs#load_pinned_root:154",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3259"
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3270"
       ],
       "registration_anchor_sha256": "4fa08cd614d4fa886fc1b691c7f9148831ca220d2d22620faaf3811008b98acc",
       "review_origin": "explicit_m0_review",
@@ -17294,8 +17294,8 @@
       "classification": "read_only",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 3435,
-        "sha256": "bab93bbc18ea9b16a131ef7c92a64f2bcb7b4cb54d3bd0a1fa67625cbffe5054"
+        "line": 3446,
+        "sha256": "36080f4319c95278ad58a048f24e54be2c1ea06d78c61eaa8f60a389b7f77408"
       },
       "discovery_source_anchor": {
         "line": 2313,
@@ -17310,10 +17310,10 @@
       "final_invoker": null,
       "handler": "room_participation_routes::handle_participation_request_get",
       "handler_anchor": {
-        "line": 3435,
-        "sha256": "bab93bbc18ea9b16a131ef7c92a64f2bcb7b4cb54d3bd0a1fa67625cbffe5054"
+        "line": 3446,
+        "sha256": "36080f4319c95278ad58a048f24e54be2c1ea06d78c61eaa8f60a389b7f77408"
       },
-      "handler_anchor_sha256": "bab93bbc18ea9b16a131ef7c92a64f2bcb7b4cb54d3bd0a1fa67625cbffe5054",
+      "handler_anchor_sha256": "36080f4319c95278ad58a048f24e54be2c1ea06d78c61eaa8f60a389b7f77408",
       "handler_effect_calls": [],
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
@@ -17358,8 +17358,8 @@
         }
       },
       "reachable_handler_functions": [
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participation_request_get:3435",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3259",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participation_request_get:3446",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3270",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#verr:210"
       ],
       "registration_anchor_sha256": "a14e8cb80513e4d0b994d1a6093fff28aa70ed87aa33bbc0efc6df35d034fd8d",
@@ -64686,7 +64686,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 1934,
-        "sha256": "a3240e95f507efd8485fb88070c36d25e6399a92ea259f4e0fd1548bb7ecc8bd"
+        "sha256": "cbe415b60ced86b9d579b044c04f645a1926a46d3db36ca38678754672cfa5a0"
       },
       "discovery_source_anchor": {
         "line": 2418,
@@ -64736,9 +64736,9 @@
       "handler": "attempt_finding_routes::handle_attempt_create",
       "handler_anchor": {
         "line": 1934,
-        "sha256": "a3240e95f507efd8485fb88070c36d25e6399a92ea259f4e0fd1548bb7ecc8bd"
+        "sha256": "cbe415b60ced86b9d579b044c04f645a1926a46d3db36ca38678754672cfa5a0"
       },
-      "handler_anchor_sha256": "a3240e95f507efd8485fb88070c36d25e6399a92ea259f4e0fd1548bb7ecc8bd",
+      "handler_anchor_sha256": "cbe415b60ced86b9d579b044c04f645a1926a46d3db36ca38678754672cfa5a0",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -64875,7 +64875,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#load_claim_strict:689",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#load_claim:680",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#participant_strict:728",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#goal_run_strict:761",
         "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs#load_goal_run_strict:599",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#enumerate_pinned:613",
@@ -65054,7 +65054,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 2090,
-        "sha256": "b6350068ce364743934781df4f9786fa20cfbb2e09c41c8805e23f218a2c7727"
+        "sha256": "b03d0705755ebd3682f81bb9101064f64505f7959794910fe3810778cc2a6d5b"
       },
       "discovery_source_anchor": {
         "line": 2431,
@@ -65105,9 +65105,9 @@
       "handler": "attempt_finding_routes::handle_attempt_transition",
       "handler_anchor": {
         "line": 2090,
-        "sha256": "b6350068ce364743934781df4f9786fa20cfbb2e09c41c8805e23f218a2c7727"
+        "sha256": "b03d0705755ebd3682f81bb9101064f64505f7959794910fe3810778cc2a6d5b"
       },
-      "handler_anchor_sha256": "b6350068ce364743934781df4f9786fa20cfbb2e09c41c8805e23f218a2c7727",
+      "handler_anchor_sha256": "b03d0705755ebd3682f81bb9101064f64505f7959794910fe3810778cc2a6d5b",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -65267,7 +65267,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#load_claim_strict:689",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#load_claim:680",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#participant_strict:728",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#goal_run_strict:761",
         "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs#load_goal_run_strict:599",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#work_result_strict:772",
@@ -65437,7 +65437,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 2028,
-        "sha256": "f4b2230141aa68f54a16f0826d0d00efe6aa0054ab1ee2f126d89cbd7224cca9"
+        "sha256": "5d2f441f4ec053f615d364d2cea6a026754329fa77f8ded94dbb24ae453f5fae"
       },
       "discovery_source_anchor": {
         "line": 2388,
@@ -65487,9 +65487,9 @@
       "handler": "resource_capability_offer_routes::handle_capability_create",
       "handler_anchor": {
         "line": 2028,
-        "sha256": "f4b2230141aa68f54a16f0826d0d00efe6aa0054ab1ee2f126d89cbd7224cca9"
+        "sha256": "5d2f441f4ec053f615d364d2cea6a026754329fa77f8ded94dbb24ae453f5fae"
       },
-      "handler_anchor_sha256": "f4b2230141aa68f54a16f0826d0d00efe6aa0054ab1ee2f126d89cbd7224cca9",
+      "handler_anchor_sha256": "5d2f441f4ec053f615d364d2cea6a026754329fa77f8ded94dbb24ae453f5fae",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -65614,7 +65614,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#component_cstr:128",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#cstr:110",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#participant_strict:783",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#resolve_resource_backing:950",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#union_fields:402",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#array_strings:390",
@@ -65794,7 +65794,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 2228,
-        "sha256": "d273a896acd739fe9850409a2787e48ba57ec28826ad6c7746752fe87fee1644"
+        "sha256": "2a079925543b4b120c22d216b8e2971f5208031fc7c5f1b38aca15e553577ef2"
       },
       "discovery_source_anchor": {
         "line": 2401,
@@ -65844,9 +65844,9 @@
       "handler": "resource_capability_offer_routes::handle_capability_transition",
       "handler_anchor": {
         "line": 2228,
-        "sha256": "d273a896acd739fe9850409a2787e48ba57ec28826ad6c7746752fe87fee1644"
+        "sha256": "2a079925543b4b120c22d216b8e2971f5208031fc7c5f1b38aca15e553577ef2"
       },
-      "handler_anchor_sha256": "d273a896acd739fe9850409a2787e48ba57ec28826ad6c7746752fe87fee1644",
+      "handler_anchor_sha256": "2a079925543b4b120c22d216b8e2971f5208031fc7c5f1b38aca15e553577ef2",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -65965,7 +65965,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#transition_contract:2035",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#s:205",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#participant_strict:783",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#resolve_room_host:1287",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#load_room:1233",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#load_room_file:554",
@@ -66140,7 +66140,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 2343,
-        "sha256": "7ede374226041b738292490e37e1b7557292a7efc698f9316e31555f028ff169"
+        "sha256": "62b3f8bba2a422a13bcfa8fcada279ccc31ec1b358d3e11d44ee61935204289d"
       },
       "discovery_source_anchor": {
         "line": 2435,
@@ -66190,9 +66190,9 @@
       "handler": "attempt_finding_routes::handle_finding_create",
       "handler_anchor": {
         "line": 2343,
-        "sha256": "7ede374226041b738292490e37e1b7557292a7efc698f9316e31555f028ff169"
+        "sha256": "62b3f8bba2a422a13bcfa8fcada279ccc31ec1b358d3e11d44ee61935204289d"
       },
-      "handler_anchor_sha256": "7ede374226041b738292490e37e1b7557292a7efc698f9316e31555f028ff169",
+      "handler_anchor_sha256": "62b3f8bba2a422a13bcfa8fcada279ccc31ec1b358d3e11d44ee61935204289d",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -66336,7 +66336,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#load_claim_strict:689",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#load_claim:680",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#participant_strict:728",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#goal_run_strict:761",
         "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs#load_goal_run_strict:599",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#enumerate_pinned:613",
@@ -66514,7 +66514,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 2520,
-        "sha256": "e7d2a91bd830d818a2d36948d59d06afa74d392f6a1ca6b9b18fb3bd6cf8f0ea"
+        "sha256": "87b7f537d58875294435312a65ec4e2f314322e5088d17e21b03ad9b8c1b4e6e"
       },
       "discovery_source_anchor": {
         "line": 2448,
@@ -66565,9 +66565,9 @@
       "handler": "attempt_finding_routes::handle_finding_transition",
       "handler_anchor": {
         "line": 2520,
-        "sha256": "e7d2a91bd830d818a2d36948d59d06afa74d392f6a1ca6b9b18fb3bd6cf8f0ea"
+        "sha256": "87b7f537d58875294435312a65ec4e2f314322e5088d17e21b03ad9b8c1b4e6e"
       },
-      "handler_anchor_sha256": "e7d2a91bd830d818a2d36948d59d06afa74d392f6a1ca6b9b18fb3bd6cf8f0ea",
+      "handler_anchor_sha256": "87b7f537d58875294435312a65ec4e2f314322e5088d17e21b03ad9b8c1b4e6e",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -66722,7 +66722,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#load_claim_strict:689",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#load_claim:680",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#participant_strict:728",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#goal_run_strict:761",
         "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs#load_goal_run_strict:599",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#work_result_strict:772",
@@ -69542,7 +69542,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 2022,
-        "sha256": "b7212b8895748ed16b9af663ecda33b05862796c93cebb31b645a79262b51972"
+        "sha256": "abc027edf1982062292627fdd0b25c329f03295533877ede55ddde3e374c2383"
       },
       "discovery_source_anchor": {
         "line": 2371,
@@ -69592,9 +69592,9 @@
       "handler": "resource_capability_offer_routes::handle_resource_create",
       "handler_anchor": {
         "line": 2022,
-        "sha256": "b7212b8895748ed16b9af663ecda33b05862796c93cebb31b645a79262b51972"
+        "sha256": "abc027edf1982062292627fdd0b25c329f03295533877ede55ddde3e374c2383"
       },
-      "handler_anchor_sha256": "b7212b8895748ed16b9af663ecda33b05862796c93cebb31b645a79262b51972",
+      "handler_anchor_sha256": "abc027edf1982062292627fdd0b25c329f03295533877ede55ddde3e374c2383",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -69719,7 +69719,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#component_cstr:128",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#cstr:110",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#participant_strict:783",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#resolve_resource_backing:950",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#union_fields:402",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#array_strings:390",
@@ -69899,7 +69899,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 2221,
-        "sha256": "ed14a1a25320828b27ed581dca4bcdfa1ed6d6ad6b2b542b69ffed453ca7cd69"
+        "sha256": "d4a18858ccdc0138d00864d0d8932190cfdb9b6fedae89804fbe6f4958d23abb"
       },
       "discovery_source_anchor": {
         "line": 2384,
@@ -69949,9 +69949,9 @@
       "handler": "resource_capability_offer_routes::handle_resource_transition",
       "handler_anchor": {
         "line": 2221,
-        "sha256": "ed14a1a25320828b27ed581dca4bcdfa1ed6d6ad6b2b542b69ffed453ca7cd69"
+        "sha256": "d4a18858ccdc0138d00864d0d8932190cfdb9b6fedae89804fbe6f4958d23abb"
       },
-      "handler_anchor_sha256": "ed14a1a25320828b27ed581dca4bcdfa1ed6d6ad6b2b542b69ffed453ca7cd69",
+      "handler_anchor_sha256": "d4a18858ccdc0138d00864d0d8932190cfdb9b6fedae89804fbe6f4958d23abb",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -70070,7 +70070,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#transition_contract:2035",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#s:205",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#participant_strict:783",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#resolve_room_host:1287",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#load_room:1233",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#load_room_file:554",
@@ -70244,8 +70244,8 @@
       "classification": "consequential",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 4089,
-        "sha256": "bb3b75f7400e14d443a9c3413046897537b5e7fe1a75d17bf8b3d639eb59b364"
+        "line": 4100,
+        "sha256": "bc9d805166715af8abb3238b9408abfad2905ad9f79d67743f120deb19b97a9c"
       },
       "discovery_source_anchor": {
         "line": 2333,
@@ -70290,16 +70290,16 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "0f90429e70ed97e8b87324aae34bb99483f10ab001c09cb54830398157035796",
+        "source_anchor_sha256": "64db012743ea4c6e0f36fb9e3629ee486ae3fd2e7781743f2d7f11427e48e632",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
         "symbol": "directory.sync_all"
       },
       "handler": "room_participation_routes::handle_participant_lease_transition",
       "handler_anchor": {
-        "line": 4089,
-        "sha256": "bb3b75f7400e14d443a9c3413046897537b5e7fe1a75d17bf8b3d639eb59b364"
+        "line": 4100,
+        "sha256": "bc9d805166715af8abb3238b9408abfad2905ad9f79d67743f120deb19b97a9c"
       },
-      "handler_anchor_sha256": "bb3b75f7400e14d443a9c3413046897537b5e7fe1a75d17bf8b3d639eb59b364",
+      "handler_anchor_sha256": "bc9d805166715af8abb3238b9408abfad2905ad9f79d67743f120deb19b97a9c",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -70402,11 +70402,11 @@
         }
       },
       "reachable_handler_functions": [
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participant_lease_transition:4089",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participant_lease_transition:4100",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#reject_sensitive_keys:214",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#verr:210",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#classify:3266",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3259",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#classify:3277",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3270",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#str_opt_bounded:244",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#lease_op_gov:238",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#s:205",
@@ -70468,7 +70468,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#is_canonical_room_tail:475",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#is_canonical_receipt_tail:462",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#transition_decision_effect:268",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#authorize_decision:342",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#authorize_decision:344",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#authorize_decision:1691",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#authorize_decision_with_context:1743",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#decision_policy_hash_for_context:1183",
@@ -70538,19 +70538,19 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#claim_transition_effect:3465",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#optional_ref:324",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#bounded_string:226",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#plan_record_transition:3614",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1102",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#plan_record_transition:3625",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1113",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#resolve_open_room:1322",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#pending_intent:1330",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#check_expected_revision:1937",
         "crates/node/src/bin/hypervisor-daemon.rs#iso_now:4075",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#nanos:621",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#apply_transition:1332",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_decision_receipt:383",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#nanos:632",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#apply_transition:1343",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_decision_receipt:386",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#build_room_receipt_at:1127",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#build_participant_terminal_claim_intent_locked:3680",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#participant_strict:2617",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#load_frontier:668",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#new_receipt_tail:459",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#deterministic_tail:440",
@@ -70561,7 +70561,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#frontier_claim_successor:1382",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#array_strings:1275",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#derive_frontier_status:1342",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#participant_current_claim_successor:950",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#participant_current_claim_successor:961",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#build_receipt:1515",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#append_evidence:1845",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#new_intent_tail:445",
@@ -70594,11 +70594,11 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#seal_claim:1228",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#claim_acquire_effect:3458",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#claim_transition_contract:3396",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#finalize_record_transition_with_work_claim:1950",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:638",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#finalize_record_transition_with_work_claim:1961",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:649",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#persist_embedded_intent_locked:3844",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#persist_record:481",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_receipt:648",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_receipt:659",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#persist_receipt_no_clobber:885",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#certify_target:761",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#test_swap_target:735",
@@ -70627,11 +70627,11 @@
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#persist_receipt_no_clobber:1213",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#persist_receipt:497",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#persist_successor:2192",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_participant_claim_successor_locked:1053",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_participant_claim_successor_locked:1064",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#consume_intent:693",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#transition_record_with_terminal_release:3714",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#finalize_record_transition:1874",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#ensure_lease_released:3770",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#transition_record_with_terminal_release:3725",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#finalize_record_transition:1885",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#ensure_lease_released:3781",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#bind_room_backlink:2378",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#bind_room_backlink_room_locked:2391"
       ],
@@ -70658,8 +70658,8 @@
       "classification": "consequential",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 3290,
-        "sha256": "c278fe0e7b5f9a89a9554f30cdd1961ff3bf8860db8a3f5ae7f172ad69a80e34"
+        "line": 3301,
+        "sha256": "79570d5a91ffe2326e6e8474a79c024c5e80c05b6612b9933d2e1ffee61728c4"
       },
       "discovery_source_anchor": {
         "line": 2308,
@@ -70693,16 +70693,16 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "0f90429e70ed97e8b87324aae34bb99483f10ab001c09cb54830398157035796",
+        "source_anchor_sha256": "64db012743ea4c6e0f36fb9e3629ee486ae3fd2e7781743f2d7f11427e48e632",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
         "symbol": "persist_receipt"
       },
       "handler": "room_participation_routes::handle_participation_request_create",
       "handler_anchor": {
-        "line": 3290,
-        "sha256": "c278fe0e7b5f9a89a9554f30cdd1961ff3bf8860db8a3f5ae7f172ad69a80e34"
+        "line": 3301,
+        "sha256": "79570d5a91ffe2326e6e8474a79c024c5e80c05b6612b9933d2e1ffee61728c4"
       },
-      "handler_anchor_sha256": "c278fe0e7b5f9a89a9554f30cdd1961ff3bf8860db8a3f5ae7f172ad69a80e34",
+      "handler_anchor_sha256": "79570d5a91ffe2326e6e8474a79c024c5e80c05b6612b9933d2e1ffee61728c4",
       "handler_effect_calls": [
         "persist_atomic",
         "super::durable_fs::persist_record_durable",
@@ -70773,8 +70773,8 @@
         }
       },
       "reachable_handler_functions": [
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participation_request_create:3290",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_request_create:1120",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participation_request_create:3301",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_request_create:1131",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#reject_sensitive_keys:214",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#verr:210",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#preq:78",
@@ -70784,8 +70784,8 @@
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#vocab_required:363",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#plist:108",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pscalar:95",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#classify:3266",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3259",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#classify:3277",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3270",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#s:205",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#resolve_room_strict:1304",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#read_room_slot_strict:530",
@@ -70798,42 +70798,42 @@
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#component_cstr:128",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#cstr:110",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#pending_intent:1330",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#live_request_exists:1385",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family:700",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#live_request_exists:1396",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family:711",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#enumerate_pinned:613",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#drain_dir_stream:642",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family_entries:719",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_registry_record:772",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_intent:2500",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_request_tail:628",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family_entries:730",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_registry_record:783",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_intent:2511",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_request_tail:639",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#record_output_hash:412",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_lease_tail:631",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_lease_tail:642",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#is_rfc3339:479",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_params:1228",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_params:1239",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#home_domain_ref_required:151",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#home_domain_ref_ok:144",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_lease:1271",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_lease:1282",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#admit_decision_effect:275",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#validate_sealed_effect:2012",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#decision_effect_hash:1251",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#apply_transition:1332",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_decision_receipt:383",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#apply_transition:1343",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_decision_receipt:386",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#build_room_receipt_at:1127",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#sealed_authority:433",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_transition_intent:2384",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#sealed_authority:440",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_transition_intent:2395",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#transition_decision_effect:268",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_intent_family:3210",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_intent_entries:3221",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_submit_intent:2286",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#seal_request:1198",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#live_lease_exists:1490",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#strict_room_lease_refs:1427",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_intent_family:3221",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_intent_entries:3232",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_submit_intent:2297",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#seal_request:1209",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#live_lease_exists:1501",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#strict_room_lease_refs:1438",
         "crates/node/src/bin/hypervisor-daemon.rs#iso_now:4075",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#nanos:621",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#finalize_submit:1751",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#preflight_submit_targets:1694",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#read_slot_strict:670",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:638",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#nanos:632",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#finalize_submit:1762",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#preflight_submit_targets:1705",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#read_slot_strict:681",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:649",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#persist_record_durable:796",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#is_normalization_safe:725",
         "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs#is_promoted:136",
@@ -70850,7 +70850,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs#dual_write:2221",
         "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs#soak_enabled:140",
         "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs#soak_domains:146",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#complete_submit:1797",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#complete_submit:1808",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#bind_room_backlink_room_locked:2391",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#bind_room_backlink_room_locked_impl:2480",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#refuse_external_mutation_if_reserved_except:2489",
@@ -70913,8 +70913,8 @@
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#open_tmpfile_at:669",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#link_tmpfile_at:690",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#same_inode:716",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#consume_submit_intent:1673",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_receipt:648"
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#consume_submit_intent:1684",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_receipt:659"
       ],
       "registration_anchor_sha256": "4fa08cd614d4fa886fc1b691c7f9148831ca220d2d22620faaf3811008b98acc",
       "review_origin": "explicit_m0_review",
@@ -70939,8 +70939,8 @@
       "classification": "consequential",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 3803,
-        "sha256": "035354be9e81bda563bd392130631cb97f078ff1d684f36a4d67b3b8d7c2f3c9"
+        "line": 3814,
+        "sha256": "2ef1295f50e63e479319475e6ac6a3ad9e9d370249b135b6e553703ca93f4c6e"
       },
       "discovery_source_anchor": {
         "line": 2321,
@@ -70978,16 +70978,16 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "0f90429e70ed97e8b87324aae34bb99483f10ab001c09cb54830398157035796",
+        "source_anchor_sha256": "64db012743ea4c6e0f36fb9e3629ee486ae3fd2e7781743f2d7f11427e48e632",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
         "symbol": "persist_receipt"
       },
       "handler": "room_participation_routes::handle_participation_request_admit",
       "handler_anchor": {
-        "line": 3803,
-        "sha256": "035354be9e81bda563bd392130631cb97f078ff1d684f36a4d67b3b8d7c2f3c9"
+        "line": 3814,
+        "sha256": "2ef1295f50e63e479319475e6ac6a3ad9e9d370249b135b6e553703ca93f4c6e"
       },
-      "handler_anchor_sha256": "035354be9e81bda563bd392130631cb97f078ff1d684f36a4d67b3b8d7c2f3c9",
+      "handler_anchor_sha256": "2ef1295f50e63e479319475e6ac6a3ad9e9d370249b135b6e553703ca93f4c6e",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -71081,8 +71081,8 @@
         }
       },
       "reachable_handler_functions": [
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participation_request_admit:3803",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_params:1228",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participation_request_admit:3814",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_params:1239",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#reject_sensitive_keys:214",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#verr:210",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#vocab_required:363",
@@ -71094,45 +71094,45 @@
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#home_domain_ref_ok:144",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pscalar:95",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#plist:108",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#classify:3266",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3259",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1102",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#classify:3277",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3270",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1113",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#s:205",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#check_expected_revision:1937",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#live_lease_exists:1490",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family:700",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#live_lease_exists:1501",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family:711",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#open_family_dir_pinned:152",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#is_single_component:120",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#open_dir_pinned:143",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#enumerate_pinned:613",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#cstr:110",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#drain_dir_stream:642",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family_entries:719",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#scan_family_entries:730",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#read_slot_strict:544",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#component_cstr:128",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_registry_record:772",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_intent:2500",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_request_tail:628",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_registry_record:783",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_admit_intent:2511",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_request_tail:639",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#is_canonical_receipt_tail:462",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#record_output_hash:412",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_lease_tail:631",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#is_canonical_lease_tail:642",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#is_rfc3339:479",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_lease:1271",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_lease:1282",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#admit_decision_effect:275",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#validate_sealed_effect:2012",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#decision_effect_hash:1251",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#apply_transition:1332",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_decision_receipt:383",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#apply_transition:1343",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_decision_receipt:386",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#build_room_receipt_at:1127",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#sealed_authority:433",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_transition_intent:2384",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#sealed_authority:440",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#validate_transition_intent:2395",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#transition_decision_effect:268",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#resolve_room_strict:1304",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#read_room_slot_strict:530",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#is_canonical_room_tail:475",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#strict_room_lease_refs:1427",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#strict_room_lease_refs:1438",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#pending_intent:1330",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#authorize_decision:342",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#authorize_decision:344",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#authorize_decision:1691",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#authorize_decision_with_context:1743",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#decision_policy_hash_for_context:1183",
@@ -71191,12 +71191,12 @@
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#decode_hex_32:1020",
         "crates/node/src/bin/hypervisor_daemon_routes/wallet_network_capability_client.rs#recover_approval_grant_consumption_for_effect_v2:751",
         "crates/node/src/bin/hypervisor-daemon.rs#iso_now:4075",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#nanos:621",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#finalize_admit:2091",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#preflight_admit_targets:2020",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#read_slot_strict:670",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:638",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#complete_admit:2131",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#nanos:632",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#finalize_admit:2102",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#preflight_admit_targets:2031",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#read_slot_strict:681",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:649",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#complete_admit:2142",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#bind_room_backlink_room_locked:2391",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#bind_room_backlink_room_locked_impl:2480",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#refuse_external_mutation_if_reserved_except:2489",
@@ -71259,7 +71259,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#open_tmpfile_at:669",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#link_tmpfile_at:690",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#same_inode:716",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_receipt:648"
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_receipt:659"
       ],
       "registration_anchor_sha256": "e59e1ca5b5d8870f838fe5e51f04e57b7e45622f45547196a51056d30240e7c2",
       "review_origin": "explicit_m0_review",
@@ -71284,8 +71284,8 @@
       "classification": "consequential",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 3456,
-        "sha256": "73b82ec03050c5f186fb4c8cc16db6097b9d49b63353ef1dfd2c3d59cf05f418"
+        "line": 3467,
+        "sha256": "d26a7de2496d232522f1a14f70988e476909d4c8b8902e2c289932c48851eb32"
       },
       "discovery_source_anchor": {
         "line": 2317,
@@ -71323,16 +71323,16 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "0f90429e70ed97e8b87324aae34bb99483f10ab001c09cb54830398157035796",
+        "source_anchor_sha256": "64db012743ea4c6e0f36fb9e3629ee486ae3fd2e7781743f2d7f11427e48e632",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
         "symbol": "persist_receipt_no_clobber"
       },
       "handler": "room_participation_routes::handle_participation_request_transition",
       "handler_anchor": {
-        "line": 3456,
-        "sha256": "73b82ec03050c5f186fb4c8cc16db6097b9d49b63353ef1dfd2c3d59cf05f418"
+        "line": 3467,
+        "sha256": "d26a7de2496d232522f1a14f70988e476909d4c8b8902e2c289932c48851eb32"
       },
-      "handler_anchor_sha256": "73b82ec03050c5f186fb4c8cc16db6097b9d49b63353ef1dfd2c3d59cf05f418",
+      "handler_anchor_sha256": "d26a7de2496d232522f1a14f70988e476909d4c8b8902e2c289932c48851eb32",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -71425,11 +71425,11 @@
         }
       },
       "reachable_handler_functions": [
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participation_request_transition:3456",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#handle_participation_request_transition:3467",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#reject_sensitive_keys:214",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#verr:210",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#classify:3266",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3259",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#classify:3277",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#http_err:3270",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#str_opt_bounded:244",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#request_op_gov:231",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#s:205",
@@ -71446,7 +71446,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#component_cstr:128",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#cstr:110",
         "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#transition_decision_effect:268",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#authorize_decision:342",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#authorize_decision:344",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#authorize_decision:1691",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#authorize_decision_with_context:1743",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#decision_policy_hash_for_context:1183",
@@ -71506,21 +71506,21 @@
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#verify_consumption_receipt_hash:1035",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#decode_hex_32:1020",
         "crates/node/src/bin/hypervisor_daemon_routes/wallet_network_capability_client.rs#recover_approval_grant_consumption_for_effect_v2:751",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#transition_record:3575",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#transition_record_with_terminal_release:3714",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#plan_record_transition:3614",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1102",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#transition_record:3586",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#transition_record_with_terminal_release:3725",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#plan_record_transition:3625",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1113",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#resolve_open_room:1322",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#pending_intent:1330",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#check_expected_revision:1937",
         "crates/node/src/bin/hypervisor-daemon.rs#iso_now:4075",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#nanos:621",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#apply_transition:1332",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_decision_receipt:383",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#nanos:632",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#apply_transition:1343",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#build_decision_receipt:386",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#build_room_receipt_at:1127",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#finalize_record_transition:1874",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:638",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_receipt:648",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#finalize_record_transition:1885",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:649",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_receipt:659",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#persist_receipt_no_clobber:885",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#certify_target:761",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#test_swap_target:735",
@@ -71528,7 +71528,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#open_tmpfile_at:669",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#link_tmpfile_at:690",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#same_inode:716",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#ensure_lease_released:3770",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#ensure_lease_released:3781",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#bind_room_backlink:2378",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#bind_room_backlink_room_locked:2391",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#bind_room_backlink_room_locked_impl:2480",
@@ -71613,7 +71613,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 1456,
-        "sha256": "24774b6ee08186702f13cfef119baf2cf4630e07bd3061a9ab2bd9eb9ee481d1"
+        "sha256": "ca91a30d305efc660aa927897b80d4465e3ccf30a4180337bb65575233a9df35"
       },
       "discovery_source_anchor": {
         "line": 2452,
@@ -71665,9 +71665,9 @@
       "handler": "verifier_challenge_routes::handle_create",
       "handler_anchor": {
         "line": 1456,
-        "sha256": "24774b6ee08186702f13cfef119baf2cf4630e07bd3061a9ab2bd9eb9ee481d1"
+        "sha256": "ca91a30d305efc660aa927897b80d4465e3ccf30a4180337bb65575233a9df35"
       },
-      "handler_anchor_sha256": "24774b6ee08186702f13cfef119baf2cf4630e07bd3061a9ab2bd9eb9ee481d1",
+      "handler_anchor_sha256": "ca91a30d305efc660aa927897b80d4465e3ccf30a4180337bb65575233a9df35",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -71798,7 +71798,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#component_cstr:128",
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#cstr:110",
         "crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs#participant_strict:661",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#load_attempt_strict:471",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#load_record:403",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#validate_record_identity:385",
@@ -71984,7 +71984,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 1624,
-        "sha256": "0da42291366fb7e28df6ed1f1f122cff9b2282c98e34648c6dc05a63ea210139"
+        "sha256": "6ba01917bf20f8a049f0f70c32ce3562e485f7f92e9aac5b9c015f58f524b16c"
       },
       "discovery_source_anchor": {
         "line": 2465,
@@ -72037,9 +72037,9 @@
       "handler": "verifier_challenge_routes::handle_transition",
       "handler_anchor": {
         "line": 1624,
-        "sha256": "0da42291366fb7e28df6ed1f1f122cff9b2282c98e34648c6dc05a63ea210139"
+        "sha256": "6ba01917bf20f8a049f0f70c32ce3562e485f7f92e9aac5b9c015f58f524b16c"
       },
-      "handler_anchor_sha256": "0da42291366fb7e28df6ed1f1f122cff9b2282c98e34648c6dc05a63ea210139",
+      "handler_anchor_sha256": "6ba01917bf20f8a049f0f70c32ce3562e485f7f92e9aac5b9c015f58f524b16c",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -72173,7 +72173,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#is_canonical_room_tail:475",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#is_canonical_receipt_tail:462",
         "crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs#participant_strict:661",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs#unsupported_target:707",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#load_attempt_strict:471",
         "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs#load_record:403",
@@ -72355,7 +72355,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 3049,
-        "sha256": "b74adfdb6e2bd6ca76c673de4d27f15cbf96cf0f9fe78f06e8b390b2dc27d954"
+        "sha256": "2ab9d139a46fd7d66f0e832f8e0f5745fd2d26a99c2c01aebf8d6b3396ec0bc9"
       },
       "discovery_source_anchor": {
         "line": 2354,
@@ -72407,9 +72407,9 @@
       "handler": "work_frontier_claim_routes::handle_claim_acquire",
       "handler_anchor": {
         "line": 3049,
-        "sha256": "b74adfdb6e2bd6ca76c673de4d27f15cbf96cf0f9fe78f06e8b390b2dc27d954"
+        "sha256": "2ab9d139a46fd7d66f0e832f8e0f5745fd2d26a99c2c01aebf8d6b3396ec0bc9"
       },
-      "handler_anchor_sha256": "b74adfdb6e2bd6ca76c673de4d27f15cbf96cf0f9fe78f06e8b390b2dc27d954",
+      "handler_anchor_sha256": "2ab9d139a46fd7d66f0e832f8e0f5745fd2d26a99c2c01aebf8d6b3396ec0bc9",
       "handler_effect_calls": [
         "governed::append_evidence",
         "tokio::task::spawn_blocking",
@@ -72541,7 +72541,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#frontier_claim_control_hash:1357",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#record_output_hash:412",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#participant_strict:2617",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#expected_revision:406",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#reauthorize_eligibility_for_claim:2880",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#validate_eligibility_for_claim_locked:2673",
@@ -72692,9 +72692,9 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#frontier_claim_successor:1382",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#derive_frontier_status:1342",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#append_history:1289",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#participant_current_claim_successor:950",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#participant_current_claim_successor:961",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#verr:210",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1102",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1113",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#build_receipt:1515",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#new_intent_tail:445",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#seal_intent:875",
@@ -72753,8 +72753,8 @@
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#same_inode:716",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#persist_receipt:497",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#persist_successor:2192",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_participant_claim_successor_locked:1053",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:638",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_participant_claim_successor_locked:1064",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:649",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#consume_intent:693"
       ],
       "registration_anchor_sha256": "2e8fcf7211e919fd729ccc0d994c560246509c07f4bd5a0c10b0166222943872",
@@ -72781,7 +72781,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 3877,
-        "sha256": "4049c8caeb0758fd37a03e9e07faab4e2d922573a6c085a3e4fd2f80ba0d2d0f"
+        "sha256": "ce07e64370b6a8fd56b3f66e115df579d421029249c000116a356cb3f0644df8"
       },
       "discovery_source_anchor": {
         "line": 2367,
@@ -72833,9 +72833,9 @@
       "handler": "work_frontier_claim_routes::handle_claim_transition",
       "handler_anchor": {
         "line": 3877,
-        "sha256": "4049c8caeb0758fd37a03e9e07faab4e2d922573a6c085a3e4fd2f80ba0d2d0f"
+        "sha256": "ce07e64370b6a8fd56b3f66e115df579d421029249c000116a356cb3f0644df8"
       },
-      "handler_anchor_sha256": "4049c8caeb0758fd37a03e9e07faab4e2d922573a6c085a3e4fd2f80ba0d2d0f",
+      "handler_anchor_sha256": "ce07e64370b6a8fd56b3f66e115df579d421029249c000116a356cb3f0644df8",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -72956,7 +72956,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#claim_transition_contract:3396",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#s:205",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#participant_strict:2617",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#resolve_room_host:1287",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#load_room:1233",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#load_room_file:554",
@@ -73069,9 +73069,9 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#frontier_claim_successor:1382",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#array_strings:1275",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#derive_frontier_status:1342",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#participant_current_claim_successor:950",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#participant_current_claim_successor:961",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#verr:210",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1102",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1113",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#build_receipt:1515",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#build_room_receipt_at:1127",
         "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs#append_evidence:1845",
@@ -73141,8 +73141,8 @@
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#same_inode:716",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#persist_receipt:497",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#persist_successor:2192",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_participant_claim_successor_locked:1053",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:638",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_participant_claim_successor_locked:1064",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:649",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#consume_intent:693"
       ],
       "registration_anchor_sha256": "1a38fb1a6bb1d0e240e0e96b877d38b7b02ed1c981e5bb614817c9be3830b88b",
@@ -73169,7 +73169,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 2379,
-        "sha256": "c9194b1697b6e9bb6e439770e29ad3877d73702375141cb9ec4da54b47599952"
+        "sha256": "4acb0527239a262f86a4a2a6331fe3ebdb9b87ff92ae6e8954b99e8875c563e2"
       },
       "discovery_source_anchor": {
         "line": 2405,
@@ -73219,9 +73219,9 @@
       "handler": "resource_capability_offer_routes::handle_match_create",
       "handler_anchor": {
         "line": 2379,
-        "sha256": "c9194b1697b6e9bb6e439770e29ad3877d73702375141cb9ec4da54b47599952"
+        "sha256": "4acb0527239a262f86a4a2a6331fe3ebdb9b87ff92ae6e8954b99e8875c563e2"
       },
-      "handler_anchor_sha256": "c9194b1697b6e9bb6e439770e29ad3877d73702375141cb9ec4da54b47599952",
+      "handler_anchor_sha256": "4acb0527239a262f86a4a2a6331fe3ebdb9b87ff92ae6e8954b99e8875c563e2",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -73349,7 +73349,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#ref_ok:265",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#expected_revision:338",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#participant_strict:783",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:937",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#resolve_participant_lease_strict:948",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#validate_claim_ref_selection:2277",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#ref_list:264",
         "crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs#union_fields:402",
@@ -73542,7 +73542,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 2659,
-        "sha256": "be8f526bafd2e20c6033a5a77a84aaf3ab5610247245daa5833463c2c9d338a6"
+        "sha256": "174a0d48c38329ca39d2fe28e42b68fe3450e6eb8257566c53457aae2fdabad3"
       },
       "discovery_source_anchor": {
         "line": 2337,
@@ -73594,9 +73594,9 @@
       "handler": "work_frontier_claim_routes::handle_frontier_create",
       "handler_anchor": {
         "line": 2659,
-        "sha256": "be8f526bafd2e20c6033a5a77a84aaf3ab5610247245daa5833463c2c9d338a6"
+        "sha256": "174a0d48c38329ca39d2fe28e42b68fe3450e6eb8257566c53457aae2fdabad3"
       },
-      "handler_anchor_sha256": "be8f526bafd2e20c6033a5a77a84aaf3ab5610247245daa5833463c2c9d338a6",
+      "handler_anchor_sha256": "174a0d48c38329ca39d2fe28e42b68fe3450e6eb8257566c53457aae2fdabad3",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -73853,9 +73853,9 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#seal_claim:1228",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#frontier_claim_successor:1382",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#derive_frontier_status:1342",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#participant_current_claim_successor:950",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#participant_current_claim_successor:961",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#verr:210",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1102",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1113",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#claim_acquire_effect:3458",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#claim_transition_contract:3396",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#transition_claim:1447",
@@ -73898,8 +73898,8 @@
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#same_inode:716",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#persist_receipt:497",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#persist_successor:2192",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_participant_claim_successor_locked:1053",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:638",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_participant_claim_successor_locked:1064",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:649",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#consume_intent:693"
       ],
       "registration_anchor_sha256": "afed986a2be89438930251e20991bdd5f421fcfd897e0ad275503caf0f1f5ab8",
@@ -73926,7 +73926,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 2859,
-        "sha256": "629c08bd78dd28667b0dab0fe982fac1236d4f9217f25ae4a07faca03f89692f"
+        "sha256": "16ec08cc93fa313bd7e6b732d23914ae4c6694ffed55a605a7eb1a245474f0f8"
       },
       "discovery_source_anchor": {
         "line": 2350,
@@ -73978,9 +73978,9 @@
       "handler": "work_frontier_claim_routes::handle_frontier_transition",
       "handler_anchor": {
         "line": 2859,
-        "sha256": "629c08bd78dd28667b0dab0fe982fac1236d4f9217f25ae4a07faca03f89692f"
+        "sha256": "16ec08cc93fa313bd7e6b732d23914ae4c6694ffed55a605a7eb1a245474f0f8"
       },
-      "handler_anchor_sha256": "629c08bd78dd28667b0dab0fe982fac1236d4f9217f25ae4a07faca03f89692f",
+      "handler_anchor_sha256": "16ec08cc93fa313bd7e6b732d23914ae4c6694ffed55a605a7eb1a245474f0f8",
       "handler_effect_calls": [
         "tokio::task::spawn_blocking",
         ".write",
@@ -74241,9 +74241,9 @@
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#frontier_claim_successor:1382",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#array_strings:1275",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#derive_frontier_status:1342",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#participant_current_claim_successor:950",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#participant_current_claim_successor:961",
         "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs#verr:210",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1102",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#pending_intent:1113",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#claim_acquire_effect:3458",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#claim_transition_contract:3396",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#transition_claim:1447",
@@ -74285,8 +74285,8 @@
         "crates/node/src/bin/hypervisor_daemon_routes/durable_fs.rs#same_inode:716",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#persist_receipt:497",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#persist_successor:2192",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_participant_claim_successor_locked:1053",
-        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:638",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_participant_claim_successor_locked:1064",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs#persist_atomic:649",
         "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs#consume_intent:693"
       ],
       "registration_anchor_sha256": "087d87bf2653f35699acb74698747fbd33c2e03f009c026c9e034a5438cf05bd",

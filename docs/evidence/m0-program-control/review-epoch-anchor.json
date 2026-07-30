@@ -482,21 +482,21 @@
       "epoch_id": "m3-and-ported-seed-reconciliation-review-2026-07-30",
       "latest_epoch_identity_set_sha256": "48bef7e3b1f1fa1786de6db42533e786a8be3087956938eda66bd33d261a8753",
       "latest_epoch_reviewed_entry_count": 1067,
-      "latest_epoch_reviewed_entry_set_sha256": "408c506017e9164ec9dfd677ba1ec4ac06bd7b974a26bfc3790ad93a63364197",
+      "latest_epoch_reviewed_entry_set_sha256": "72a05771b140dc02cb984472a68187a85e26ed7c58a9320e5a50765061da2a90",
       "predecessor_entry_sha256": "ec22024a9c109c4815871b74b5e4b3d546d8d08c5cc04f46b2301276171032d8",
-      "program_source_material_sha256": "813b34bc8e7bee6ac8bde7ebb6296e9010d7d3abf093fac0cf8c9bea35f20a91",
-      "review_lock_sha256": "771b0f74a44ab4a191bcbc6b10489b7e60ca3a57edf5cb1c14d9e2a07f4272a3",
+      "program_source_material_sha256": "b39cba2ec352f37264cc5edd62643ceedf25b220c1f583748e568ce6373c8bea",
+      "review_lock_sha256": "ba01002a614224cdf00612f94d1d52dff34d328244d111da8e447c63361a3b8f",
       "reviewed_as_of": "2026-07-30",
       "reviewer_id": "reviewer://codex/ported-seed-m3-repair",
       "sequence": 26,
       "total_reviewed_entry_count": 1584,
-      "total_reviewed_entry_set_sha256": "edae899bde384741f0b11a5222940607c274ca1cf25c45764c5b785a86827bcb",
+      "total_reviewed_entry_set_sha256": "ff784ac0bfef60367cea4b9fb1a48191d903e986cf1635702111eb95479209d7",
       "total_reviewed_identity_set_sha256": "49957f0269b7b021e8f8d9ab554343faaddca93f2331a99e014226a86a43d61b"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "ec5773b69ca55d828a25296c9aa23b4b67859f9d917bcaa00b48450465210cfd",
+    "entry_sha256": "ee3c35bafe804260f4b4c3d5c553ecd636ab673cff19fca693027d1ac3b5662b",
     "epoch_id": "m3-and-ported-seed-reconciliation-review-2026-07-30",
     "sequence": 26
   }
