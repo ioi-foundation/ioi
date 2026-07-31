@@ -30,7 +30,9 @@ Ignored:
 - `worktrees/`: nested disposable checkouts. At the 2026-07-31 classification
   cut this was 9,030 files and 3.3 GB;
 - `NOW.md` and `generated/program-state.v1.json`: current-orientation views
-  reproduced together by `tools/generate-now.mjs` from tracked authorities;
+  reproduced together by `tools/generate-now.mjs` from tracked authorities.
+  Their provenance is a deterministic input digest; branch names, checkout
+  commits, remote refs, ancestry, caches, and stamps are forbidden inputs;
 - `generated/.fast-lane-stamp`, `generated/.certify/`, `.cache/`,
   `__pycache__/`, and `node_modules/`: local caches, stamps, or dependencies.
 
@@ -45,6 +47,11 @@ checking the program as it actually ran. If yes, track it. Ignore only a nested
 checkout, local dependency/cache, or a current-state view that a named tracked
 tool reproduces entirely from tracked inputs. Never regenerate, restamp, or
 clean a retained literal as part of changing this classification.
+
+The classification gate is byte reproduction: from a clean worktree at the
+same tracked tree, run `node internal-docs/implementation/tools/generate-now.mjs
+--write` and compare both ignored outputs byte-for-byte. A difference reopens
+this classification; it is never dismissed as harmless projection drift.
 
 ## Read this to start a cut
 

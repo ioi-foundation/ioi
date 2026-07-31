@@ -12,7 +12,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { execFileSync } from "node:child_process";
 import {
   ESTATE_ROOT,
   finding,
@@ -36,18 +35,6 @@ const STATUS_ORDER = [
   "evidence_ready",
   "verified",
 ];
-
-function git(args, fallback = null) {
-  try {
-    return execFileSync("git", args, {
-      cwd: REPO_ROOT,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch {
-    return fallback;
-  }
-}
 
 export function loadWorkItems() {
   const out = [];
@@ -331,6 +318,18 @@ export function buildProjection() {
     }))
     .sort((a, b) => a.work_item_id.localeCompare(b.work_item_id));
 
+  const statusAuthorities = records.map((record) => ({
+    work_item_id: record.work_item_id,
+    ...statusAuthority(record),
+  }));
+  const orientationInputsSha256 = sha256Text(JSON.stringify({
+    sequence,
+    records,
+    status_authorities: statusAuthorities,
+    hold_ledger: holdLedger,
+    canon_impact: impact,
+  }));
+
   return {
     sequence,
     records,
@@ -354,15 +353,7 @@ export function buildProjection() {
       qualified_records: qualifiedRecords,
     },
     provenance: {
-      checkout_commit: git(["rev-parse", "HEAD"], "unknown"),
-      checkout_ref: git(["rev-parse", "--abbrev-ref", "HEAD"], "unknown"),
-      master_commit: git(["rev-parse", "origin/master"], "unknown"),
-      checkout_is_ancestor_of_master: git([
-        "merge-base",
-        "--is-ancestor",
-        "HEAD",
-        "origin/master",
-      ]) === "" ,
+      orientation_inputs_sha256: orientationInputsSha256,
       sequence_sha256: sha256Text(
         fs.readFileSync(
           path.join(ESTATE_ROOT, "program", "sequence.v1.json"),
@@ -613,13 +604,8 @@ function renderNow(p) {
   L.push("## Provenance");
   L.push("");
   L.push("```text");
-  L.push(`checkout        ${p.provenance.checkout_commit} (${p.provenance.checkout_ref})`);
-  L.push(`origin/master   ${p.provenance.master_commit}`);
-  L.push(
-    `checkout is an ancestor of master: ${
-      p.provenance.checkout_is_ancestor_of_master ? "yes" : "NO — this projection is bound to a checkout that has not landed"
-    }`,
-  );
+  L.push(`orientation inputs  ${p.provenance.orientation_inputs_sha256}`);
+  L.push(`sequence            ${p.provenance.sequence_sha256}`);
   L.push("```");
   L.push("");
   L.push(
@@ -674,7 +660,7 @@ function main() {
       "This projection changes no status and closes no work item, stage, or gate.",
       "A stage marked verified here reflects its aggregate record's declared status authority, not an independent proof.",
       `A record projected as ${QUALIFIED_STATUS} was proven against the canon revision it was proven against; its successor is owed and unwritten. The qualification withholds nothing that was proven and grants nothing that was not.`,
-      "Provenance that is not an ancestor of master means this projection is bound to work that has not landed.",
+      "The orientation-input digest binds tracked inputs; it does not assert review, merge, or release status.",
     ],
   };
 

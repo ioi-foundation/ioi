@@ -14,6 +14,13 @@ assert.equal(stageState(stage, records).state, "verified");
 assert.equal(stageState(stage, records, new Map([["mx-exit", ["hold://successor"]]])).state, "evidence_ready", "an open successor hold must prevent unqualified verified orientation");
 assert.match(stageState(stage, records, new Map([["mx-exit", ["hold://successor"]]])).reason, /verified_historical_with_open_successor/);
 const projection = buildProjection();
+assert.deepEqual(
+  Object.keys(projection.provenance).sort(),
+  ["orientation_inputs_sha256", "sequence_sha256"],
+  "ignored orientation outputs must not depend on ambient Git refs or caches",
+);
+assert.match(projection.provenance.orientation_inputs_sha256, /^[0-9a-f]{64}$/);
+assert.match(projection.provenance.sequence_sha256, /^[0-9a-f]{64}$/);
 const directLane = projection.differentialLanes.find(
   (lane) => lane.lane_id === "m3-direct-non-system",
 );
