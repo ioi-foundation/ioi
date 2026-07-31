@@ -113,29 +113,63 @@ async function run() {
   const invocations = started.j?.invocations || [];
   ok("run started; two harness invocations attempted", started.status === 200 && invocations.length === 2, `${invocations.length} invocations`);
   for (const inv of invocations) {
-    const ir = inv.implementation_result || {};
+    const candidate = inv.implementation_result_candidate || {};
+    const executionReceipt = inv.execution_receipt || {};
     const label = `${inv.role_key}(${inv.harness})`;
-    ok(`${label}: completed with adapter events persisted`, inv.status === "completed" && (inv.adapter_event_refs || []).length >= 4 && inv.adapter_event_refs.every((r) => String(r).startsWith("agentgres://harness-adapter-event/")), `${(inv.adapter_event_refs || []).length} events`);
-    ok(`${label}: ImplementationResultPayload complete (refs + receipt + transcript + state_root)`,
-      String(ir.implementation_result_id || "").startsWith("implementation_result://")
-      && String(ir.harness_profile_ref || "").startsWith("harness-profile:")
-      && String(ir.model_route_ref || "").startsWith("model-route:")
-      && String(ir.command_contract_ref || "").startsWith("command-contract://")
-      && String(ir.workspace_ref || "").startsWith("workspace://goal-run/")
-      && (ir.candidate_artifact_refs || []).every((r) => String(r).startsWith("artifact://goal-run/"))
-      && (ir.receipt_refs || []).length >= 1
-      && String(ir.transcript_run_ref || "").startsWith("hpo_")
-      && String(ir.state_root || "").startsWith("fnv:"),
-      ir.state_root);
+    ok(`${label}: successful execution waits on conductor with adapter events persisted`, inv.status === "waiting_on_conductor"
+      && inv.implementation_result === undefined
+      && inv.work_result_ref == null
+      && inv.profile_result_ref == null
+      && (inv.adapter_event_refs || []).length >= 4
+      && inv.adapter_event_refs.every((r) => String(r).startsWith("agentgres://harness-adapter-event/")), `${(inv.adapter_event_refs || []).length} events`);
+    ok(`${label}: non-canonical result candidate carries refs + receipt + transcript + state_root`,
+      String(candidate.candidate_ref || "").startsWith("implementation-result-candidate://")
+      && candidate.execution_succeeded === true
+      && String(candidate.harness_profile_ref || "").startsWith("harness-profile:")
+      && String(candidate.model_route_ref || "").startsWith("model-route:")
+      && String(candidate.command_contract_ref || "").startsWith("command-contract://")
+      && String(candidate.workspace_ref || "").startsWith("workspace://goal-run/")
+      && (candidate.candidate_artifact_refs || []).every((r) => String(r).startsWith("artifact://goal-run/"))
+      && (candidate.receipt_refs || []).length >= 1
+      && String(candidate.transcript_run_ref || "").startsWith("hpo_")
+      && String(candidate.state_root || "").startsWith("fnv:"),
+      candidate.state_root);
+    const exactRouteFacts = [
+      "model_route_ref",
+      "model_route_binding_id",
+      "model_route_binding_receipt_ref",
+      "model_id",
+      "model_route_base_url",
+      "model_route_execution_endpoint",
+    ];
+    ok(`${label}: actual model/endpoint binding is identical in invocation, result, and durable receipt`,
+      exactRouteFacts.every((field) => String(inv[field] || "").length > 0
+        && inv[field] === candidate[field]
+        && inv[field] === executionReceipt[field])
+      && String(inv.model_route_execution_endpoint).startsWith(String(inv.model_route_base_url))
+      && executionReceipt.id === candidate.receipt_refs?.[0]
+      && executionReceipt.kind === "hypervisor.goal-run.invoke",
+      `${inv.model_id || "missing-model"}@${inv.model_route_execution_endpoint || "missing-endpoint"}`);
+    const candidateSession = await jd("GET", `/v1/hypervisor/sessions/${encodeURIComponent(inv.session_ref)}`);
+    const retainedBinding = candidateSession.j?.session?.model_route_binding || {};
+    ok(`${label}: candidate Session durably retains the exact consumed route binding`,
+      candidateSession.status === 200
+      && retainedBinding.binding_id === inv.model_route_binding_id
+      && retainedBinding.route_ref === inv.model_route_ref
+      && retainedBinding.model_id === inv.model_id
+      && retainedBinding.base_url === inv.model_route_base_url
+      && retainedBinding.execution_endpoint === inv.model_route_execution_endpoint
+      && retainedBinding.receipt_ref === inv.model_route_binding_receipt_ref,
+      retainedBinding.binding_id);
   }
-  const anyChanged = invocations.some((inv) => ((inv.implementation_result || {}).changed_files || []).length >= 1);
+  const anyChanged = invocations.some((inv) => ((inv.implementation_result_candidate || {}).changed_files || []).length >= 1);
   ok("at least one implementer produced a real candidate mutation", anyChanged);
 
   // ── ISOLATION: candidate artifacts exist in candidate workspaces, NOT in the target yet.
   const targetRec = await jd("GET", `/v1/hypervisor/sessions/${encodeURIComponent(targetRef)}`);
   const targetWs = targetRec.j?.session?.workspace_root || "";
   const candidateFiles = invocations.flatMap((inv) =>
-    ((inv.implementation_result || {}).changed_files || []).map((f) => ({ ws: inv.candidate_workspace_root, f })));
+    ((inv.implementation_result_candidate || {}).changed_files || []).map((f) => ({ ws: inv.candidate_workspace_root, f })));
   ok("candidate artifacts are REAL in their isolated workspaces",
     candidateFiles.length >= 1 && candidateFiles.every(({ ws, f }) => ws && fs.existsSync(path.join(ws, f)) && fs.statSync(path.join(ws, f)).size > 0));
   ok("candidate artifacts are NOT in the target workspace before reconciliation",
@@ -156,13 +190,20 @@ async function run() {
     `${rr.merge_strategy} ${rr.reason_code}`);
   ok("reconciliation selected/rejected candidates explicitly",
     (rr.selected_candidate_refs || []).length >= 1
-    && (rr.selected_candidate_refs || []).concat(rr.rejected_candidate_refs || []).every((r) => String(r).startsWith("implementation_result://")));
+    && (rr.selected_candidate_refs || []).concat(rr.rejected_candidate_refs || []).every((r) => String(r).startsWith("implementation-result-candidate://")));
   ok("final workspace mutation is REAL in the target session workspace",
     (rr.final_changed_files || []).length >= 1
     && rr.final_changed_files.every((f) => fs.existsSync(path.join(targetWs, f)) && fs.statSync(path.join(targetWs, f)).size > 0)
     && (rr.copy_errors || []).length === 0,
     (rr.final_changed_files || []).join(","));
-  ok("GoalRun closed (complete / continue_or_close)", rec.j?.goal_run?.status === "complete" && rec.j?.goal_run?.active_loop_phase === "continue_or_close");
+  const postReconcileEvents = await jd("GET", `/v1/goal-orchestration/goal-runs/${grid}/events`);
+  ok("GoalRun closes without falsely completing result-less invocations", rec.j?.goal_run?.status === "complete"
+    && rec.j?.goal_run?.active_loop_phase === "continue_or_close"
+    && postReconcileEvents.status === 200
+    && (postReconcileEvents.j?.invocations || []).every((inv) => inv.status === "waiting_on_conductor"
+      && inv.implementation_result === undefined
+      && inv.work_result_ref == null
+      && inv.profile_result_ref == null));
   const doubleReconcile = await jd("POST", `/v1/goal-orchestration/goal-runs/${grid}/reconcile`, {});
   ok("reconcile is one-shot (second call rejected)", doubleReconcile.status === 409, doubleReconcile.j?.error?.code);
 
@@ -177,8 +218,9 @@ async function run() {
   const wb = await text("/__ioi/workbench");
   ok("Workbench projects the GoalRun (panel + proof link)", wb.includes('id="goal-runs"') && wb.includes(grid));
   const tl = await text(`/__ioi/run-timeline/goal-run/${grid}`);
-  ok("Run Timeline GoalRun page shows Goal/Roles/Invocations/Candidates/Reconciliation/Proof",
-    ["Goal</h2>", "Roles</h2>", "Invocations", "Candidate artifacts", "Reconciliation</h2>", "Proof</h2>"].every((m) => tl.includes(m)));
+  ok("Run Timeline GoalRun page labels result-less invocation output as non-canonical candidate",
+    ["Goal</h2>", "Roles</h2>", "Invocations", "Invocation outputs", "candidate", "candidates stay non-canonical until WorkResult convergence", "Reconciliation</h2>", "Proof</h2>"].every((m) => tl.includes(m))
+    && !tl.includes("admitted result"));
   const wl = await text("/__ioi/work-ledger");
   ok("Work Ledger UI carries the GoalRun kind facets", ['data-val="goal_run"', 'data-val="goal_run_invocation"', 'data-val="goal_run_reconciliation"'].every((m) => wl.includes(m)));
 
@@ -195,13 +237,15 @@ async function run() {
   const partial = await startWithGrant(grid2);
   const inv2 = partial.started.j?.invocations || [];
   const failed = inv2.filter((i) => i.status === "failed");
-  const completed = inv2.filter((i) => i.status === "completed");
+  const waiting = inv2.filter((i) => i.status === "waiting_on_conductor");
   ok("forced-unavailable harness yields an EXPLICIT failed invocation + blocker",
     partial.started.status === 200 && failed.length === 1
     && failed[0].blocker?.reason_code === "goal_run_invocation_profile_not_active"
     && partial.started.j?.partial_result === true,
     failed[0]?.blocker?.reason_code);
-  ok("surviving implementer still completed", completed.length === 1, completed[0]?.harness);
+  ok("surviving implementer remains an explicit waiting candidate", waiting.length === 1
+    && waiting[0]?.implementation_result === undefined
+    && String(waiting[0]?.implementation_result_candidate?.candidate_ref || "").startsWith("implementation-result-candidate://"), waiting[0]?.harness);
   const rec2 = await jd("POST", `/v1/goal-orchestration/goal-runs/${grid2}/reconcile`, {});
   ok("partial run reconciles the surviving verified candidate (explicit reason)",
     rec2.status === 200

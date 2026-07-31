@@ -1,0 +1,23 @@
+{
+  "$id": "invariant://ioi/foundations/work-claim-lease/room-claim/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
+  "rules": [
+    {
+      "rule_id": "work_claim.room.matches_admission",
+      "description": "A room-scoped claim and its CAS admission bind the same room; direct claims carry null on both sides.",
+      "expression": { "operator": "optional_field_equals", "optional_object_path": "$.room_admission", "field": "outcome_room_ref", "expected_path": "$.outcome_room_ref" }
+    },
+    {
+      "rule_id": "work_claim.participant_lease.matches_admission_issuer",
+      "description": "A room claim binds its separate participant-lease coordinate to the CAS issuer; a direct claim carries null room fields. The claimant actor may be a worker, agent, service, organization, domain, system, or the lease itself and remains subject to owner-plane actor-to-lease resolution.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          { "operator": "optional_field_equals", "optional_object_path": "$.room_admission", "field": "proposed_or_issued_by_ref", "expected_path": "$.claimant_participant_lease_ref" },
+          { "operator": "optional_field_equals", "optional_object_path": "$.room_admission", "field": "proposed_or_issued_by_ref", "expected_path": "$.room_admission.room_system_id" }
+        ]
+      }
+    }
+  ]
+}

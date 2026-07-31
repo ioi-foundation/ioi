@@ -6,8 +6,8 @@ Supersedes: older Agentgres-as-generic-store wording when runtime truth ownershi
 Superseded by: none.
 Last alignment pass: 2026-07-15.
 Doctrine status: reference
-Implementation status: partial (object catalog; families land with their planes. Agent Execution Branch remains planned over existing fork/replay/snapshot substrate. Receipt-checkpoint/proof schemas, invariants, fixtures, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. Hosted OutcomeRoom participation, frontier/claim, offer/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge planes are merged; room discovery, portable exit, federation, acceptance/verdict/settlement, NetworkGoalBudget, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
-Last implementation audit: 2026-07-05
+Implementation status: partial (object catalog; families land with their planes. Agent Execution Branch remains planned over existing fork/replay/snapshot substrate. Receipt-checkpoint/proof schemas, invariants, fixtures, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. The current hosted v2 OutcomeRoom slice admits one bounded-System-backed room, reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with payload/label custody and reconstructable projections. Current v2 participation, frontier/claim, offer/matching, Attempt/Finding, and VerifierChallenge lifecycles are not started; mounted v1 predecessor planes remain historical executable/source disposition and are fenced from v2 rooms. Room discovery, portable exit, federation, acceptance/verdict/settlement, NetworkGoalBudget, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
+Last implementation audit: 2026-07-30
 
 ## Purpose
 

@@ -1,0 +1,42 @@
+{
+  "$id": "invariant://ioi/foundations/attempt/frozen-room-coordinates/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/attempt/v2",
+  "rules": [
+    { "rule_id": "attempt.room.matches_admission", "description": "Attempt and admission bind the same room; both are null for direct work.", "expression": { "operator": "optional_field_equals", "optional_object_path": "$.room_admission", "field": "outcome_room_ref", "expected_path": "$.outcome_room_ref" } },
+    { "rule_id": "attempt.room.matches_bound_room", "description": "A hosted Attempt freezes its OutcomeRoom coordinate; a non-room Attempt has no bound coordinate object.", "expression": { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.outcome_room_ref", "$.bound_coordinates.outcome_room.record_ref"] } },
+    { "rule_id": "attempt.goal.matches_bound_goal", "description": "A hosted Attempt freezes its GoalRun coordinate.", "expression": { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.goal_run_ref", "$.bound_coordinates.goal_run.record_ref"] } },
+    { "rule_id": "attempt.frontier.matches_bound_frontier", "description": "A hosted Attempt freezes its frontier coordinate.", "expression": { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.frontier_item_ref", "$.bound_coordinates.frontier_item.record_ref"] } },
+    { "rule_id": "attempt.claim.matches_bound_claim", "description": "A hosted Attempt freezes its claim coordinate.", "expression": { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.work_claim_ref", "$.bound_coordinates.work_claim.record_ref"] } },
+    { "rule_id": "attempt.frontier_room.matches_room", "description": "The hosted bound frontier belongs to the declared room.", "expression": { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.outcome_room_ref", "$.bound_coordinates.frontier_item.outcome_room_ref"] } },
+    { "rule_id": "attempt.claim_room.matches_room", "description": "The hosted bound claim belongs to the declared room.", "expression": { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.outcome_room_ref", "$.bound_coordinates.work_claim.outcome_room_ref"] } },
+    { "rule_id": "attempt.participant_room.matches_room", "description": "The hosted bound participant lease belongs to the declared room.", "expression": { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.outcome_room_ref", "$.bound_coordinates.participant_lease.outcome_room_ref"] } },
+    { "rule_id": "attempt.goal_room.matches_room", "description": "The hosted bound GoalRun belongs to the declared room.", "expression": { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.outcome_room_ref", "$.bound_coordinates.goal_run.outcome_room_ref"] } },
+    { "rule_id": "attempt.claim_frontier.matches_frontier", "description": "The hosted bound claim names the exact frozen frontier item.", "expression": { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.frontier_item_ref", "$.bound_coordinates.work_claim.frontier_item_ref"] } },
+    {
+      "rule_id": "attempt.admission_issuer.matches_bound_lease_or_room_system",
+      "description": "Participant-authored admission binds the frozen participant lease; a system-authored transition binds the exact room system.",
+      "expression": { "operator": "any_of", "expressions": [
+        { "operator": "optional_fields_equal", "optional_object_path": "$.room_admission", "paths": ["$.room_admission.proposed_or_issued_by_ref", "$.bound_coordinates.participant_lease.record_ref"] },
+        { "operator": "optional_fields_equal", "optional_object_path": "$.room_admission", "paths": ["$.room_admission.proposed_or_issued_by_ref", "$.room_admission.room_system_id"] }
+      ] }
+    },
+    {
+      "rule_id": "attempt.participant.resolves_through_bound_lease",
+      "description": "The participant field retains the frozen lease, its principal, or the exact room system.",
+      "expression": { "operator": "any_of", "expressions": [
+        { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.participant_ref", "$.bound_coordinates.participant_lease.record_ref"] },
+        { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.participant_ref", "$.bound_coordinates.participant_lease.principal_ref"] },
+        { "operator": "optional_fields_equal", "optional_object_path": "$.room_admission", "paths": ["$.participant_ref", "$.room_admission.room_system_id"] }
+      ] }
+    },
+    {
+      "rule_id": "attempt.claimant.resolves_through_bound_lease",
+      "description": "The hosted frozen claim claimant is the participant lease or the principal resolved by that lease.",
+      "expression": { "operator": "any_of", "expressions": [
+        { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.bound_coordinates.work_claim.claimant_ref", "$.bound_coordinates.participant_lease.record_ref"] },
+        { "operator": "optional_fields_equal", "optional_object_path": "$.bound_coordinates", "paths": ["$.bound_coordinates.work_claim.claimant_ref", "$.bound_coordinates.participant_lease.principal_ref"] }
+      ] }
+    }
+  ]
+}

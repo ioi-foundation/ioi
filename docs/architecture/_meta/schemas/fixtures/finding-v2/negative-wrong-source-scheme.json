@@ -1,0 +1,31 @@
+{
+  "schema_version": "ioi.foundations.finding.v2",
+  "finding_id": "finding://direct/wrong-source",
+  "outcome_room_ref": null,
+  "room_admission": null,
+  "attempt_ref": "attempt://direct/one",
+  "work_result_ref": "work-result://direct/one",
+  "participant_ref": "participant-lease://direct/researcher",
+  "proposed_by_ref": "worker://direct/researcher",
+  "bound_coordinates": {
+    "attempt": { "record_ref": "attempt://direct/one", "outcome_room_ref": "outcome-room://coordinate-only", "participant_ref": "participant-lease://direct/researcher", "work_result_ref": "work-result://direct/one", "revision": 0, "record_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" },
+    "work_result": { "record_ref": "work-result://direct/one", "outcome_room_ref": "outcome-room://coordinate-only", "goal_run_ref": "goal://direct/run", "goal_ref": "goal://direct/root", "updated_at": null, "record_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" },
+    "participant_lease": { "record_ref": "participant-lease://direct/researcher", "outcome_room_ref": "outcome-room://coordinate-only", "principal_ref": "worker://direct/researcher", "revision": 0, "record_hash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" },
+    "supersedes_finding": null
+  },
+  "proposition": "A goal ref is not a canonical Finding observation-context ref.",
+  "finding_kind": "observation",
+  "confidence_or_uncertainty": null,
+  "valid_time": null,
+  "transaction_time": "2026-07-30T12:00:00Z",
+  "source_and_observation_context_refs": ["goal://wrong-source-scheme"],
+  "supporting_evidence_refs": [],
+  "proof_refs": [],
+  "contradicting_evidence_refs": [],
+  "applicability_and_counterexample_refs": [],
+  "provenance_ontology_and_mapping_refs": [],
+  "proposed_effect_refs": [],
+  "supersedes_ref": null,
+  "dispute_ref": null,
+  "status": "branch_local"
+}

@@ -1,4 +1,8 @@
-//! OutcomeRoom plane — build step 2 of the contract-first sequence: the HOSTED room aggregate
+//! OutcomeRoom route boundary plus predecessor-v1 storage/recovery helpers. Canonical list/get/
+//! overview project bounded-System v2 truth, canonical v1 reads/writes return typed retirement,
+//! unknown generations fail closed, and the unbound legacy mutation engine below remains only as
+//! historical regression source.
+//! The predecessor implementation was the build-step-2 HOSTED room aggregate
 //! above bounded GoalRuns (canonical owner: docs/architecture/domains/ioi-ai/
 //! collaborative-outcome-pattern.md jointly with docs/architecture/foundations/
 //! governed-autonomous-systems.md; envelope:
@@ -32,7 +36,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -40,6 +44,8 @@ use sha2::{Digest, Sha256};
 use super::{iso_now, read_record_dir, DaemonState};
 
 const ROOM_SCHEMA: &str = "ioi.hypervisor.outcome-room.v1";
+const FOUNDATIONS_V1_ROOM_SCHEMA: &str = "ioi.foundations.outcome-room.v1";
+const CURRENT_ROOM_SCHEMA: &str = "ioi.foundations.outcome-room.v2";
 const ADMISSION_RECEIPT_SCHEMA: &str = "ioi.hypervisor.outcome-room-admission-receipt.v1";
 const TRANSITION_RECEIPT_SCHEMA: &str = "ioi.hypervisor.outcome-room-transition-receipt.v1";
 // Receipt assurance notes — shared by the finalizers AND the replay validators (#72 round 16)
@@ -51,6 +57,12 @@ const OVERVIEW_SCHEMA: &str = "ioi.hypervisor.outcome-rooms-overview.v1";
 pub(crate) const ROOM_DIR: &str = "outcome-room-registry";
 const ROOM_RECEIPT_DIR: &str = "outcome-room-registry-receipts";
 const GOAL_RUN_DIR: &str = "goal-runs";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum OutcomeRoomGeneration {
+    PredecessorV1,
+    CurrentV2,
+}
 
 /// Canonical vocabularies (OutcomeRoomEnvelope, verbatim).
 const ROOM_MODES: &[&str] = &[
@@ -193,7 +205,7 @@ pub(crate) static ROOM_MUTATION_LOCK: Mutex<()> = Mutex::new(());
 
 const REF_MAX: usize = 300;
 const LIST_MAX: usize = 64;
-const OBJECTIVE_MAX: usize = 2000;
+const OBJECTIVE_MAX: usize = 4096;
 const HISTORY_MAX: usize = 100;
 
 fn nanos() -> u128 {
@@ -209,6 +221,30 @@ pub(crate) fn s(v: &Value, k: &str, d: &str) -> String {
 pub(crate) type VErr = (String, String);
 pub(crate) fn verr(code: &str, msg: impl Into<String>) -> VErr {
     (code.into(), msg.into())
+}
+
+pub(crate) fn outcome_room_generation(room: &Value) -> Result<OutcomeRoomGeneration, VErr> {
+    match room.get("schema_version").and_then(Value::as_str) {
+        Some(ROOM_SCHEMA) | Some(FOUNDATIONS_V1_ROOM_SCHEMA) => {
+            Ok(OutcomeRoomGeneration::PredecessorV1)
+        }
+        Some(CURRENT_ROOM_SCHEMA) => Ok(OutcomeRoomGeneration::CurrentV2),
+        Some(_) => Err(verr(
+            "outcome_room_generation_unreadable",
+            "the OutcomeRoom schema generation is unknown; no read or write dispatch is safe",
+        )),
+        None => Err(verr(
+            "outcome_room_generation_unreadable",
+            "the OutcomeRoom schema generation is absent; no read or write dispatch is safe",
+        )),
+    }
+}
+
+fn generation_unreadable_response((code, message): VErr) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(json!({"error":{"code":code,"message":message}})),
+    )
 }
 
 pub(crate) fn reject_sensitive_keys(v: &Value, path: &str) -> Result<(), VErr> {
@@ -1255,6 +1291,111 @@ fn list_rooms_exact(data_dir: &str) -> Result<Vec<Value>, String> {
         .collect())
 }
 
+/// Current canonical census. Unlike the predecessor projection helper above, a canonical route
+/// cannot turn an occupied, malformed, relocated, or no-follow-refused JSON slot into an
+/// apparently empty v2 registry. Unknown non-JSON transport residue remains outside the record
+/// census; every `.json` occupant is either one exact room identity or a typed availability
+/// failure.
+fn list_rooms_canonical_strict(data_dir: &str) -> Result<Vec<Value>, VErr> {
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, ROOM_DIR) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => {
+            return Err(verr(
+                "outcome_room_registry_unreadable",
+                format!("canonical room directory could not be pinned ({error})"),
+            ))
+        }
+    };
+    let names = super::durable_fs::enumerate_pinned(&directory).map_err(|error| {
+        verr(
+            "outcome_room_registry_unreadable",
+            format!("canonical room directory could not be enumerated ({error})"),
+        )
+    })?;
+    let mut rooms = Vec::new();
+    for name in names {
+        let Some(stem) = name.strip_suffix(".json") else {
+            continue;
+        };
+        if !is_canonical_room_tail(stem) {
+            return Err(verr(
+                "outcome_room_registry_unreadable",
+                format!("canonical room registry contains non-canonical JSON slot '{name}'"),
+            ));
+        }
+        let bytes = super::durable_fs::read_slot_strict(&directory, &name)
+            .map_err(|error| {
+                verr(
+                    "outcome_room_registry_unreadable",
+                    format!("canonical room slot '{name}' is unreadable ({error})"),
+                )
+            })?
+            .ok_or_else(|| {
+                verr(
+                    "outcome_room_registry_unreadable",
+                    format!("canonical room slot '{name}' vanished during census"),
+                )
+            })?
+            .1;
+        let room: Value = serde_json::from_slice(&bytes).map_err(|error| {
+            verr(
+                "outcome_room_registry_unreadable",
+                format!("canonical room slot '{name}' is not JSON ({error})"),
+            )
+        })?;
+        let expected = format!("outcome-room://{stem}");
+        if room.get("outcome_room_id").and_then(Value::as_str) != Some(expected.as_str()) {
+            return Err(verr(
+                "outcome_room_registry_unreadable",
+                format!(
+                    "canonical room slot '{name}' content identity does not match '{expected}'"
+                ),
+            ));
+        }
+        outcome_room_generation(&room)?;
+        rooms.push(room);
+    }
+    Ok(rooms)
+}
+
+/// Current-generation hosted-room census used by every canonical v2 read and mutation. A v1
+/// predecessor remains visible only to its typed retirement response; an unknown generation,
+/// malformed current record, or over-cap registry makes the v2 estate unavailable rather than
+/// allowing a partial or false-empty projection.
+pub(crate) fn list_current_rooms_canonical_strict(data_dir: &str) -> Result<Vec<Value>, VErr> {
+    let mut current = Vec::new();
+    for room in list_rooms_canonical_strict(data_dir)? {
+        match outcome_room_generation(&room)? {
+            OutcomeRoomGeneration::PredecessorV1 => {}
+            OutcomeRoomGeneration::CurrentV2 => {
+                current.push(room);
+            }
+        }
+    }
+    if current.len() > super::outcome_room_system_routes::M4_HOSTED_ROOM_MAX {
+        return Err(verr(
+            "outcome_room_projection_source_unavailable",
+            format!(
+                "hosted M4 room census is {}; the selected maximum is {}",
+                current.len(),
+                super::outcome_room_system_routes::M4_HOSTED_ROOM_MAX
+            ),
+        ));
+    }
+    for room in &current {
+        super::outcome_room_system_routes::validate_current_room_contract(room).map_err(
+            |(_, message)| {
+                verr(
+                    "outcome_room_registry_unreadable",
+                    format!("canonical v2 room fails its selected contract ({message})"),
+                )
+            },
+        )?;
+    }
+    Ok(current)
+}
+
 /// The room's LIVE participant leases (#74 review finding 2): admitted (`participant_lease_refs`)
 /// minus released (`released_participant_lease_refs`). A room refuses `close`/`archive` while
 /// this is non-empty, and the set only shrinks through the receipted `participant_lease_released`
@@ -1314,6 +1455,115 @@ pub(crate) fn resolve_room_strict(data_dir: &str, room_ref: &str) -> Result<Opti
             "room slot '{stem}' content identity does not match '{room_ref}'"
         )),
     }
+}
+
+/// Generation fence for retained predecessor participant/work-graph route families.
+///
+/// The current bounded-System room contract admits children only through its registered v2
+/// owner/CAS seam. Retained v1 participant, offer, frontier, claim, attempt, finding, and
+/// challenge handlers are historical executable source disposition; they must never attach
+/// their predecessor records to a current v2 room merely because both generations share the
+/// same storage registry.
+pub(crate) fn refuse_predecessor_child_profile_for_room(room: &Value) -> Result<(), VErr> {
+    match room.get("schema_version").and_then(Value::as_str) {
+        Some("ioi.hypervisor.outcome-room.v1" | "ioi.foundations.outcome-room.v1") => Ok(()),
+        Some("ioi.foundations.outcome-room.v2") => Err(verr(
+            "outcome_room_predecessor_child_profile_retired",
+            "the current bounded-System OutcomeRoom contract does not admit predecessor participant, offer, frontier, claim, attempt, finding, or challenge records; a current-generation child contract is required",
+        )),
+        _ => Err(verr(
+            "outcome_room_predecessor_child_generation_unreadable",
+            "the room schema generation is missing or unknown; predecessor child admission refuses",
+        )),
+    }
+}
+
+/// Resolve and generation-check one room ref for a retained predecessor child plane. This is
+/// deliberately separate from `resolve_room_strict`: the current v2 owner routes must continue
+/// resolving v2 rooms, while participant/work-graph predecessor handlers and completers fail
+/// closed before they can publish or consume an intent against that room.
+pub(crate) fn refuse_predecessor_child_profile_for_room_ref(
+    data_dir: &str,
+    room_ref: &str,
+) -> Result<(), VErr> {
+    let Some(room_tail) = room_ref.strip_prefix("outcome-room://") else {
+        return Ok(());
+    };
+    if !is_canonical_room_tail(room_tail) {
+        // This helper owns only the generation boundary. Each predecessor route's existing
+        // validator owns malformed-coordinate semantics and must retain its ordinary typed 4xx.
+        return Ok(());
+    }
+    let room = resolve_room_strict(data_dir, room_ref)
+        .map_err(|message| verr("outcome_room_registry_unreadable", message))?;
+    if let Some(room) = room.as_ref() {
+        refuse_predecessor_child_profile_for_room(room)?;
+    }
+    Ok(())
+}
+
+/// Global predecessor collections remain historical source disposition, but a row bound to a
+/// current v2 room is never visible through them. Storage uncertainty fails closed rather than
+/// silently classifying the row as historical.
+pub(crate) fn predecessor_child_record_is_historically_visible(
+    data_dir: &str,
+    record: &Value,
+) -> Result<bool, VErr> {
+    let mut room_refs = [
+        record.get("outcome_room_ref"),
+        record.get("room_ref"),
+        record.pointer("/bound_facts/outcome_room_ref"),
+    ]
+    .into_iter()
+    .flatten()
+    .filter_map(Value::as_str)
+    .filter(|value| !value.is_empty())
+    .collect::<Vec<_>>();
+    room_refs.sort_unstable();
+    room_refs.dedup();
+    if room_refs.is_empty() {
+        return Ok(true);
+    }
+    let mut has_current_v2_binding = false;
+    for room_ref in room_refs {
+        let canonical = room_ref
+            .strip_prefix("outcome-room://")
+            .is_some_and(is_canonical_room_tail);
+        if !canonical {
+            return Err(verr(
+                "outcome_room_predecessor_child_coordinate_unreadable",
+                "a predecessor record carries a noncanonical room coordinate; historical visibility refuses",
+            ));
+        }
+        let room = resolve_room_strict(data_dir, room_ref)
+            .map_err(|message| verr("outcome_room_registry_unreadable", message))?;
+        if let Some(room) = room.as_ref() {
+            match refuse_predecessor_child_profile_for_room(room) {
+                Ok(()) => {}
+                Err((code, _)) if code == "outcome_room_predecessor_child_profile_retired" => {
+                    has_current_v2_binding = true;
+                }
+                Err(error) => return Err(error),
+            }
+        }
+    }
+    Ok(!has_current_v2_binding)
+}
+
+/// Filter a global predecessor collection to historical rows without reducing storage failures
+/// to an empty projection. Callers use this for list/overview surfaces that have no room-bound
+/// owner route: current v2 rows stay invisible, while historical v1 records remain inspectable.
+pub(crate) fn retain_historical_predecessor_child_records(
+    data_dir: &str,
+    records: Vec<Value>,
+) -> Result<Vec<Value>, VErr> {
+    let mut visible = Vec::with_capacity(records.len());
+    for record in records {
+        if predecessor_child_record_is_historically_visible(data_dir, &record)? {
+            visible.push(record);
+        }
+    }
+    Ok(visible)
 }
 
 /// Resolve only a room that is presently OPEN and carries no durable mutation intent. The name
@@ -1946,7 +2196,7 @@ pub(crate) fn check_expected_revision(body: &Value, current: u64) -> Result<(), 
 }
 
 /// Validate a room creation body into its durable record (PURE — no I/O, no ids/times).
-fn validate_room_create(body: &Value) -> Result<Value, VErr> {
+pub(crate) fn validate_room_create(body: &Value) -> Result<Value, VErr> {
     reject_sensitive_keys(body, "")?;
     // Plane-owned scalars refuse typed.
     if body.get("status").map(|v| !v.is_null()).unwrap_or(false) {
@@ -2062,13 +2312,15 @@ fn validate_room_create(body: &Value) -> Result<Value, VErr> {
         "outcome_room_topology_invalid",
     )?;
     if topology == "federated_admission" {
-        return Err(verr("outcome_room_federated_unavailable", "`federated_admission` needs the AIIP leg (build steps 7-8: discovery, typed participation, portable exit, federated shared-state ordering) — hosted_admission is the step-2 contract"));
+        return Err(verr("outcome_room_federated_admission_unavailable", "`federated_admission` needs the AIIP leg (build steps 7-8: discovery, typed participation, portable exit, federated shared-state ordering) — hosted_admission is the step-2 contract"));
     }
-    // hosted_admission BINDS a host authority (#72 review finding 1): one named governed domain
-    // owns the room's shared-state admission — a hosted room without a host is ungoverned.
-    let host_domain = match scalar_ref(body, "host_domain_ref", &["domain"])? {
+    // hosted_admission BINDS a host authority (#72 review finding 1): one named governed System
+    // or domain owns the room's shared-state admission — a hosted room without a host is
+    // ungoverned. The selected M4 bounded-System profile requires its exact `system://` identity;
+    // predecessor hosted declarations may retain their canonical `domain://` authority.
+    let host_domain = match scalar_ref(body, "host_domain_ref", &["system", "domain"])? {
         Some(h) => h,
-        None => return Err(verr("outcome_room_host_domain_required", "`host_domain_ref` (domain://…) is required for hosted_admission — the host domain is the authority that admits every shared-state transition")),
+        None => return Err(verr("outcome_room_host_domain_required", "`host_domain_ref` (system://… or domain://…) is required for hosted_admission — the host authority admits every shared-state transition")),
     };
     let record = json!({
         "schema_version": ROOM_SCHEMA,
@@ -2093,8 +2345,8 @@ fn validate_room_create(body: &Value) -> Result<Value, VErr> {
         "multi_party_collaboration_ref": scalar_ref(body, "multi_party_collaboration_ref", &["collaboration"])?,
         "ontology_profile_refs": list_ref(body, "ontology_profile_refs", &["ontology", "semantic-profile", "ontology-mapping"])?,
         "scorecard_and_guardrail_refs": list_ref(body, "scorecard_and_guardrail_refs", &["benchmark", "rubric", "gate", "policy"])?,
-        "verifier_path_refs": list_ref(body, "verifier_path_refs", &["verifier_path"])?,
-        "resource_and_budget_refs": list_ref(body, "resource_and_budget_refs", &["resource_pool", "budget", "goal-budget", "order"])?,
+        "verifier_path_refs": list_ref(body, "verifier_path_refs", &["verifier-path"])?,
+        "resource_and_budget_refs": list_ref(body, "resource_and_budget_refs", &["resource-pool", "budget", "goal-budget", "order"])?,
         "settlement_policy_ref": scalar_ref(body, "settlement_policy_ref", &["policy"])?,
         "participant_lease_refs": [],
         "released_participant_lease_refs": [],
@@ -2126,83 +2378,294 @@ fn sorted_newest(data_dir: &str) -> Result<Vec<Value>, String> {
     Ok(items)
 }
 
+fn current_room_read_fence(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    super::outcome_room_system_routes::refuse_while_any_intent_pending(data_dir).map_err(
+        |(code, message)| {
+            super::outcome_room_system_routes::room_source_refusal(
+                data_dir,
+                headers,
+                (code, message),
+            )
+        },
+    )
+}
+
+fn current_room_principal(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    super::outcome_room_system_routes::request_principal(data_dir, headers).map_err(
+        |(code, message)| {
+            let status = if code.contains("authentication_required")
+                || code.contains("authenticated_principal_required")
+            {
+                StatusCode::UNAUTHORIZED
+            } else {
+                StatusCode::FORBIDDEN
+            };
+            (
+                status,
+                Json(json!({"error":{"code":code,"message":message}})),
+            )
+        },
+    )
+}
+
 // ================================ HANDLERS =======================================================
 
 pub(crate) async fn handle_outcome_rooms_list(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
+    // Resolve identity before the pending-intent fence or strict registry census. Anonymous
+    // callers must not distinguish empty, unreadable, pending, or populated room truth.
+    let principal_ref = match current_room_principal(&st.data_dir, &headers) {
+        Ok(principal_ref) => principal_ref,
+        Err(response) => return response,
+    };
+    let _guard = ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     // A scanner error is a TYPED 5xx, NEVER a false-empty 200 (#72 round 21 finding 3).
-    match sorted_newest(&st.data_dir) {
-        Ok(rooms) => (
-            StatusCode::OK,
-            Json(
-                json!({ "schema_version": ROOM_SCHEMA, "outcome_rooms": rooms, "runtimeTruthSource": "daemon-runtime" }),
-            ),
-        ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": { "code": "outcome_room_registry_unreadable", "message": e } })),
-        ),
+    match list_current_rooms_canonical_strict(&st.data_dir).map(|mut rooms| {
+        rooms.sort_by(|a, b| s(b, "created_at", "").cmp(&s(a, "created_at", "")));
+        rooms
+    }) {
+        Ok(mut rooms) => {
+            let mut filtered = Vec::with_capacity(rooms.len());
+            for room in rooms.drain(..) {
+                match super::outcome_room_system_routes::authorize_resolved_room_principal(
+                    &principal_ref,
+                    &room,
+                ) {
+                    Ok(()) => filtered.push(room),
+                    Err((code, _)) if code.contains("owner_mismatch") => {}
+                    Err(error) => {
+                        return super::outcome_room_system_routes::classify(error);
+                    }
+                }
+            }
+            if !filtered.is_empty() {
+                if let Err(response) = current_room_read_fence(&st.data_dir, &headers) {
+                    return response;
+                }
+            }
+            let response = json!({
+                "schema_version": "ioi.foundations.outcome-room.v2",
+                "outcome_rooms": filtered,
+                "runtimeTruthSource": "daemon-runtime"
+            });
+            if let Err(error) = super::outcome_room_system_routes::ensure_serialized_body_bound(
+                &response,
+                "outcome_room_projection_response_too_large",
+            ) {
+                return super::outcome_room_system_routes::classify(error);
+            }
+            (StatusCode::OK, Json(response))
+        }
+        Err(error) => {
+            super::outcome_room_system_routes::room_source_refusal(&st.data_dir, &headers, error)
+        }
     }
 }
 
 pub(crate) async fn handle_outcome_room_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    match load_room(&st.data_dir, &format!("outcome-room://{id}")) {
-        Some(r) => (StatusCode::OK, Json(json!({ "outcome_room": r }))),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(json!({ "error": { "code": "not_found", "outcome_room": id } })),
-        ),
+    let principal_ref = match current_room_principal(&st.data_dir, &headers) {
+        Ok(principal_ref) => principal_ref,
+        Err(response) => return response,
+    };
+    let _guard = ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Err(error) = list_current_rooms_canonical_strict(&st.data_dir) {
+        return super::outcome_room_system_routes::room_source_refusal(
+            &st.data_dir,
+            &headers,
+            error,
+        );
+    }
+    let room = match resolve_room_strict(&st.data_dir, &format!("outcome-room://{id}")) {
+        Ok(room) => room,
+        Err(message) => {
+            return super::outcome_room_system_routes::room_source_refusal(
+                &st.data_dir,
+                &headers,
+                ("outcome_room_registry_unreadable".into(), message),
+            )
+        }
+    };
+    match room {
+        Some(r) => {
+            // Owner adjudication precedes generation dispatch. A managed wrong principal must not
+            // learn whether an existing room is current or a retired predecessor.
+            if let Err(error) =
+                super::outcome_room_system_routes::authorize_generation_dispatch_if_managed(
+                    &st.data_dir,
+                    &headers,
+                    &principal_ref,
+                    &r,
+                )
+            {
+                return super::outcome_room_system_routes::classify(error);
+            }
+            match outcome_room_generation(&r) {
+                Ok(OutcomeRoomGeneration::CurrentV2) => {
+                    if let Err(error) =
+                        super::outcome_room_system_routes::authorize_resolved_room_principal(
+                            &principal_ref,
+                            &r,
+                        )
+                    {
+                        return super::outcome_room_system_routes::classify(error);
+                    }
+                    if let Err(response) = current_room_read_fence(&st.data_dir, &headers) {
+                        return response;
+                    }
+                    let response = json!({ "outcome_room": r });
+                    if let Err(error) =
+                        super::outcome_room_system_routes::ensure_serialized_body_bound(
+                            &response,
+                            "outcome_room_projection_response_too_large",
+                        )
+                    {
+                        return super::outcome_room_system_routes::classify(error);
+                    }
+                    return (StatusCode::OK, Json(response));
+                }
+                Ok(OutcomeRoomGeneration::PredecessorV1) => (
+                    StatusCode::GONE,
+                    Json(json!({
+                        "error": {
+                            "code": "outcome_room_v1_read_retired",
+                            "message": "the canonical OutcomeRoom route projects only bounded-System v2 rooms; predecessor v1 reads are retired"
+                        }
+                    })),
+                ),
+                Err(error) => generation_unreadable_response(error),
+            }
+        }
+        None => {
+            if let Some(response) = super::outcome_room_system_routes::managed_missing_room_refusal(
+                &st.data_dir,
+                &headers,
+            ) {
+                return response;
+            }
+            (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "error": { "code": "not_found", "outcome_room": id } })),
+            )
+        }
     }
 }
 
 pub(crate) async fn handle_outcome_rooms_overview(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
-    let rooms = match list_rooms_exact(&st.data_dir) {
+    let principal_ref = match current_room_principal(&st.data_dir, &headers) {
+        Ok(principal_ref) => principal_ref,
+        Err(response) => return response,
+    };
+    let _guard = ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut rooms = match list_current_rooms_canonical_strict(&st.data_dir) {
         Ok(r) => r,
         // A scanner error is a TYPED 5xx, NEVER a false-empty overview (#72 round 21 finding 3).
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(
-                    json!({ "error": { "code": "outcome_room_registry_unreadable", "message": e } }),
-                ),
+        Err(error) => {
+            return super::outcome_room_system_routes::room_source_refusal(
+                &st.data_dir,
+                &headers,
+                error,
             )
         }
     };
+    let mut filtered = Vec::with_capacity(rooms.len());
+    for room in rooms.drain(..) {
+        match super::outcome_room_system_routes::authorize_resolved_room_principal(
+            &principal_ref,
+            &room,
+        ) {
+            Ok(()) => filtered.push(room),
+            Err((code, _)) if code.contains("owner_mismatch") => {}
+            Err(error) => {
+                return super::outcome_room_system_routes::classify(error);
+            }
+        }
+    }
+    let rooms = filtered;
+    if !rooms.is_empty() {
+        if let Err(response) = current_room_read_fence(&st.data_dir, &headers) {
+            return response;
+        }
+    }
     let by_status = |status: &str| {
         rooms
             .iter()
             .filter(|r| s(r, "status", "") == status)
             .count()
     };
-    (
-        StatusCode::OK,
-        Json(json!({
-            "schema_version": OVERVIEW_SCHEMA,
-            "outcome_rooms": rooms.len(),
-            "by_status": ROOM_STATUSES.iter().filter(|st2| by_status(st2) > 0).map(|st2| json!({ "status": st2, "count": by_status(st2) })).collect::<Vec<_>>(),
-            "room_modes": ROOM_MODES,
-            "room_statuses": ROOM_STATUSES,
-            "coordination_topologies": TOPOLOGIES,
-            "lifecycle_transitions": TRANSITIONS.iter().map(|(t, from, to)| json!({ "transition": t, "from": from, "to": to })).collect::<Vec<_>>(),
-            "governance_gaps": [
-                "hosted_admission only — federated_admission needs the AIIP leg (build steps 7-8) and is refused typed at creation, never faked",
-                "participant leases, participation requests, frontier items, attempts, findings, challenges, contributions, and state bundles are build-step-3+ planes: their room lists stay plane-owned empties until those planes exist",
-                "membership is singular and reciprocal: attach-goal-run stamps GoalRun.outcome_room_ref atomically with the room-side member list, and a run already belonging to any room refuses typed — one GoalRun, at most one room",
-                "richer lifecycle statuses (active/blocked/verifying/accepted/disputed/settled/revoked) are named-gap transitions requiring later authority; a receipt is not proof of correctness — acceptance and settlement are assurance rungs above admission"
-            ],
-            "runtimeTruthSource": "daemon-runtime"
-        })),
-    )
+    let response = json!({
+        "schema_version": OVERVIEW_SCHEMA,
+        "room_contract_version": "v2",
+        "outcome_rooms": rooms.len(),
+        "by_status": ROOM_STATUSES.iter().filter(|st2| by_status(st2) > 0).map(|st2| json!({ "status": st2, "count": by_status(st2) })).collect::<Vec<_>>(),
+        "room_modes": ROOM_MODES,
+        "room_statuses": ROOM_STATUSES,
+        "coordination_topologies": TOPOLOGIES,
+        "lifecycle_transitions": TRANSITIONS.iter().map(|(t, from, to)| json!({ "transition": t, "from": from, "to": to })).collect::<Vec<_>>(),
+        "governance_gaps": [
+            "hosted_admission only — federated_admission needs the AIIP leg (build steps 7-8) and is refused typed at creation, never faked",
+            "participant leases, participation requests, frontier items, attempts, findings, challenges, contributions, and state bundles are build-step-3+ planes: their room lists stay plane-owned empties until those planes exist",
+            "membership is singular and reciprocal: attach-goal-run stamps GoalRun.outcome_room_ref atomically with the room-side member list, and a run already belonging to any room refuses typed — one GoalRun, at most one room",
+            "richer lifecycle statuses (active/blocked/verifying/accepted/disputed/settled/revoked) are named-gap transitions requiring later authority; a receipt is not proof of correctness — acceptance and settlement are assurance rungs above admission"
+        ],
+        "runtimeTruthSource": "daemon-runtime"
+    });
+    if let Err(error) = super::outcome_room_system_routes::ensure_serialized_body_bound(
+        &response,
+        "outcome_room_projection_response_too_large",
+    ) {
+        return super::outcome_room_system_routes::classify(error);
+    }
+    (StatusCode::OK, Json(response))
 }
 
 /// POST /v1/goal-orchestration/outcome-rooms — admit a HOSTED room (fail-closed, atomic, receipted).
 pub(crate) async fn handle_outcome_room_create(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    match outcome_room_generation(&body) {
+        Ok(OutcomeRoomGeneration::CurrentV2) => {
+            return super::outcome_room_system_routes::handle_create(State(st), headers, Json(body))
+                .await
+        }
+        Ok(OutcomeRoomGeneration::PredecessorV1) => {}
+        Err(error) => return generation_unreadable_response(error),
+    }
+    (
+        StatusCode::GONE,
+        Json(json!({
+            "error": {
+                "code": "outcome_room_v1_write_retired",
+                "message": "the canonical OutcomeRoom create route admits only bounded-System v2 rooms; predecessor v1 writes are retired"
+            }
+        })),
+    )
+}
+
+#[allow(dead_code)]
+async fn handle_legacy_outcome_room_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
@@ -2487,6 +2950,7 @@ fn bind_room_backlink_room_locked_impl(
     ignored_attempt_finding_intent_tail: Option<&str>,
     ignored_verifier_challenge_intent_tail: Option<&str>,
 ) -> Result<(Value, Value), VErr> {
+    refuse_predecessor_child_profile_for_room_ref(data_dir, room_ref)?;
     match (ignored_work_intent_tail, ignored_offer_intent_tail) {
         (Some(intent_tail), _) => {
             super::work_frontier_claim_routes::refuse_external_mutation_if_reserved_except(
@@ -2589,6 +3053,15 @@ fn bind_room_backlink_room_locked_impl(
             ))
         }
     };
+    match outcome_room_generation(&prior)? {
+        OutcomeRoomGeneration::CurrentV2 => {
+            return Err(verr(
+                "outcome_room_v2_backlink_contract_unavailable",
+                "M4 v2 rooms admit only reciprocal objective membership and the private WorkResult/OutcomeDelta owner seam; participant, frontier, claim, attempt, finding, verifier, and offer backlinks remain unavailable until their owning stage",
+            ))
+        }
+        OutcomeRoomGeneration::PredecessorV1 => {}
+    }
     if let Some((f, code)) = pending_intent(&prior) {
         return Err(verr(code, format!("a durable {f} is pending on this room — a restart (boot completer) converges it before any other mutation is admitted")));
     }
@@ -2689,11 +3162,102 @@ fn bind_room_backlink_room_locked_impl(
     Ok((updated, receipt))
 }
 
-/// POST /v1/goal-orchestration/outcome-rooms/:id/transition — admitted, receipted lifecycle transition.
+/// POST /v1/goal-orchestration/outcome-rooms/:id/transition — retired singular predecessor URI.
+///
+/// The current lifecycle-write owner is the plural `/lifecycle/transitions` route. The former
+/// singular URI never dispatches by record generation: current and predecessor records both
+/// receive the same non-leaking route-retirement refusal and no durable state is read or written.
+pub(crate) async fn handle_outcome_room_transition_route_retired() -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::GONE,
+        Json(json!({
+            "error": {
+                "code": "outcome_room_transition_route_retired",
+                "message": "the singular OutcomeRoom transition route is retired; use the canonical lifecycle transitions route"
+            }
+        })),
+    )
+}
+
+/// POST /v1/goal-orchestration/outcome-rooms/:id/lifecycle/transitions — canonical lifecycle
+/// transition route. M4 current rooms refuse typed because lifecycle mutation is outside the
+/// selected profile; predecessor v1 writes remain retired.
 pub(crate) async fn handle_outcome_room_transition(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+    body: Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    // Authenticate before generation dispatch. Otherwise this wrapper leaks whether a room is
+    // absent, malformed, predecessor-v1, or current-v2 before the owner boundary runs.
+    let principal_ref =
+        match super::outcome_room_system_routes::request_principal(&st.data_dir, &headers) {
+            Ok(principal_ref) => principal_ref,
+            Err(error) => return super::outcome_room_system_routes::classify(error),
+        };
+    let room_id = format!("outcome-room://{id}");
+    match resolve_room_strict(&st.data_dir, &room_id) {
+        Err(message) => super::outcome_room_system_routes::room_source_refusal(
+            &st.data_dir,
+            &headers,
+            ("outcome_room_registry_unreadable".into(), message),
+        ),
+        Ok(Some(room)) => {
+            if let Err(error) =
+                super::outcome_room_system_routes::authorize_generation_dispatch_if_managed(
+                    &st.data_dir,
+                    &headers,
+                    &principal_ref,
+                    &room,
+                )
+            {
+                return super::outcome_room_system_routes::classify(error);
+            }
+            match outcome_room_generation(&room) {
+                Ok(OutcomeRoomGeneration::CurrentV2) => {
+                    handle_legacy_outcome_room_transition(
+                        State(st),
+                        AxumPath(id),
+                        body,
+                        principal_ref,
+                    )
+                    .await
+                }
+                Ok(OutcomeRoomGeneration::PredecessorV1) => (
+                    StatusCode::GONE,
+                    Json(json!({
+                        "error": {
+                            "code": "outcome_room_v1_write_retired",
+                            "message": "predecessor v1 OutcomeRoom lifecycle writes are retired"
+                        }
+                    })),
+                ),
+                Err(error) => generation_unreadable_response(error),
+            }
+        }
+        Ok(None) => {
+            if let Some(response) = super::outcome_room_system_routes::managed_missing_room_refusal(
+                &st.data_dir,
+                &headers,
+            ) {
+                return response;
+            }
+            (
+                StatusCode::NOT_FOUND,
+                Json(
+                    json!({"error":{"code":"outcome_room_not_found","message":"OutcomeRoom does not exist"}}),
+                ),
+            )
+        }
+    }
+}
+
+#[allow(dead_code)]
+async fn handle_legacy_outcome_room_transition(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
+    principal_ref: String,
 ) -> (StatusCode, Json<Value>) {
     let err = |status: StatusCode, (code, msg): VErr| {
         (
@@ -2701,6 +3265,31 @@ pub(crate) async fn handle_outcome_room_transition(
             Json(json!({ "error": { "code": code, "message": msg } })),
         )
     };
+    let room_id = format!("outcome-room://{id}");
+    if let Some(room) = resolve_room(&st.data_dir, &room_id) {
+        if room.get("schema_version").and_then(Value::as_str)
+            == Some("ioi.foundations.outcome-room.v2")
+        {
+            if let Err(error) = super::outcome_room_system_routes::authorize_resolved_room_principal(
+                &principal_ref,
+                &room,
+            ) {
+                let status = if error.0.contains("authentication_required") {
+                    StatusCode::UNAUTHORIZED
+                } else {
+                    StatusCode::FORBIDDEN
+                };
+                return err(status, error);
+            }
+            return err(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                verr(
+                    "outcome_room_v2_lifecycle_transition_unavailable",
+                    "M4 admits room genesis, reciprocal membership, and owner-record projections; lifecycle transitions remain outside this cut",
+                ),
+            );
+        }
+    }
     if let Err(e) = reject_sensitive_keys(&body, "") {
         return err(StatusCode::BAD_REQUEST, e);
     }
@@ -2892,6 +3481,151 @@ pub(crate) async fn handle_outcome_room_transition(
 /// room refuses typed — singular room identity (#72 review finding 2).
 pub(crate) async fn handle_outcome_room_attach_goal_run(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+    body: Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    // This compatibility dispatcher must not inspect room generation/existence before the
+    // current owner boundary has authenticated the caller.
+    let principal_ref =
+        match super::outcome_room_system_routes::request_principal(&st.data_dir, &headers) {
+            Ok(principal_ref) => principal_ref,
+            Err(error) => return super::outcome_room_system_routes::classify(error),
+        };
+    let room_id = format!("outcome-room://{id}");
+    match resolve_room_strict(&st.data_dir, &room_id) {
+        Err(message) => super::outcome_room_system_routes::room_source_refusal(
+            &st.data_dir,
+            &headers,
+            ("outcome_room_registry_unreadable".into(), message),
+        ),
+        Ok(Some(room)) => {
+            if let Err(error) =
+                super::outcome_room_system_routes::authorize_generation_dispatch_if_managed(
+                    &st.data_dir,
+                    &headers,
+                    &principal_ref,
+                    &room,
+                )
+            {
+                return super::outcome_room_system_routes::classify(error);
+            }
+            match outcome_room_generation(&room) {
+                Ok(OutcomeRoomGeneration::CurrentV2) => {
+                    super::outcome_room_system_routes::handle_attach_goal_run(
+                        State(st),
+                        headers,
+                        AxumPath(id),
+                        body,
+                    )
+                    .await
+                }
+                Ok(OutcomeRoomGeneration::PredecessorV1) => (
+                    StatusCode::GONE,
+                    Json(json!({
+                        "error": {
+                            "code": "outcome_room_v1_write_retired",
+                            "message": "predecessor v1 OutcomeRoom membership writes are retired"
+                        }
+                    })),
+                ),
+                Err(error) => generation_unreadable_response(error),
+            }
+        }
+        Ok(None) => {
+            if let Some(response) = super::outcome_room_system_routes::managed_missing_room_refusal(
+                &st.data_dir,
+                &headers,
+            ) {
+                return response;
+            }
+            super::outcome_room_system_routes::handle_attach_goal_run(
+                State(st),
+                headers,
+                AxumPath(id),
+                body,
+            )
+            .await
+        }
+    }
+}
+
+/// POST /v1/goal-orchestration/outcome-rooms/:id/detach-goal-run — remove one exact reciprocal
+/// v2 membership under the room and GoalRun dual-head CAS. Predecessor v1 writes remain retired.
+pub(crate) async fn handle_outcome_room_detach_goal_run(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+    body: Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    // Match attach: authenticate before resolving enough durable state to select a generation.
+    let principal_ref =
+        match super::outcome_room_system_routes::request_principal(&st.data_dir, &headers) {
+            Ok(principal_ref) => principal_ref,
+            Err(error) => return super::outcome_room_system_routes::classify(error),
+        };
+    let room_id = format!("outcome-room://{id}");
+    match resolve_room_strict(&st.data_dir, &room_id) {
+        Err(message) => super::outcome_room_system_routes::room_source_refusal(
+            &st.data_dir,
+            &headers,
+            ("outcome_room_registry_unreadable".into(), message),
+        ),
+        Ok(Some(room)) => {
+            if let Err(error) =
+                super::outcome_room_system_routes::authorize_generation_dispatch_if_managed(
+                    &st.data_dir,
+                    &headers,
+                    &principal_ref,
+                    &room,
+                )
+            {
+                return super::outcome_room_system_routes::classify(error);
+            }
+            match outcome_room_generation(&room) {
+                Ok(OutcomeRoomGeneration::CurrentV2) => {
+                    super::outcome_room_system_routes::handle_detach_goal_run(
+                        State(st),
+                        headers,
+                        AxumPath(id),
+                        body,
+                    )
+                    .await
+                }
+                Ok(OutcomeRoomGeneration::PredecessorV1) => (
+                    StatusCode::GONE,
+                    Json(json!({
+                        "error": {
+                            "code": "outcome_room_v1_write_retired",
+                            "message": "predecessor v1 OutcomeRoom membership writes are retired"
+                        }
+                    })),
+                ),
+                Err(error) => generation_unreadable_response(error),
+            }
+        }
+        Ok(None) => {
+            if let Some(response) = super::outcome_room_system_routes::managed_missing_room_refusal(
+                &st.data_dir,
+                &headers,
+            ) {
+                return response;
+            }
+            super::outcome_room_system_routes::handle_detach_goal_run(
+                State(st),
+                headers,
+                AxumPath(id),
+                body,
+            )
+            .await
+        }
+    }
+}
+
+#[allow(dead_code)]
+async fn handle_legacy_outcome_room_attach_goal_run(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
@@ -2916,6 +3650,17 @@ pub(crate) async fn handle_outcome_room_attach_goal_run(
         .unwrap_or("")
         .to_string();
     let room_id = format!("outcome-room://{id}");
+    if resolve_room(&st.data_dir, &room_id).and_then(|room| room.get("schema_version").cloned())
+        == Some(json!("ioi.foundations.outcome-room.v2"))
+    {
+        return super::outcome_room_system_routes::handle_attach_goal_run(
+            State(st),
+            headers,
+            AxumPath(id),
+            Json(body),
+        )
+        .await;
+    }
     // ROOM-SCOPE critical section: resolution through finalization under the one room lock.
     let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     if let Err(error) = super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
@@ -3092,6 +3837,92 @@ mod outcome_room_tests {
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
+
+    #[test]
+    fn predecessor_child_profile_generation_fence_defers_noncanonical_coordinates() {
+        let directory = temp_dir("predecessor-noncanonical");
+        let data_dir = directory.to_str().unwrap();
+        for room_ref in [
+            "not-a-room-ref",
+            "outcome-room://../escape",
+            "outcome-room://or_UPPER",
+            "outcome-room://or_",
+        ] {
+            assert_eq!(
+                refuse_predecessor_child_profile_for_room_ref(data_dir, room_ref),
+                Ok(()),
+                "generation fence must defer malformed coordinate '{room_ref}' to the route validator",
+            );
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn predecessor_child_profile_historical_filter_checks_every_candidate_coordinate() {
+        let directory = temp_dir("predecessor-candidate-coordinates");
+        let data_dir = directory.to_str().unwrap();
+        let current_tail = "or_ab";
+        let current_ref = format!("outcome-room://{current_tail}");
+        std::fs::create_dir_all(directory.join(ROOM_DIR)).unwrap();
+        std::fs::write(
+            directory
+                .join(ROOM_DIR)
+                .join(format!("{current_tail}.json")),
+            serde_json::to_vec(&json!({
+                "schema_version": "ioi.foundations.outcome-room.v2",
+                "outcome_room_id": current_ref,
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let substituted = json!({
+            "outcome_room_ref": "outcome-room://or_aa",
+            "bound_facts": { "outcome_room_ref": current_ref },
+        });
+        assert_eq!(
+            predecessor_child_record_is_historically_visible(data_dir, &substituted),
+            Ok(false),
+            "an absent historical-looking coordinate must not mask a nested v2 binding",
+        );
+        let malformed = json!({
+            "outcome_room_ref": "outcome-room://../escape",
+            "bound_facts": { "outcome_room_ref": current_ref },
+        });
+        assert!(
+            predecessor_child_record_is_historically_visible(data_dir, &malformed).is_err(),
+            "a malformed competing coordinate must fail closed",
+        );
+        std::fs::write(
+            directory.join(ROOM_DIR).join("or_ff.json"),
+            serde_json::to_vec(&json!({
+                "schema_version": "ioi.foundations.outcome-room.v3",
+                "outcome_room_id": "outcome-room://or_ff",
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let current_then_unknown = json!({
+            "outcome_room_ref": current_ref,
+            "bound_facts": { "outcome_room_ref": "outcome-room://or_ff" },
+        });
+        assert!(
+            predecessor_child_record_is_historically_visible(data_dir, &current_then_unknown)
+                .is_err(),
+            "a v2 coordinate must not mask a later unknown generation as a false-empty row",
+        );
+        for room in [
+            json!({}),
+            json!({"schema_version": "ioi.foundations.outcome-room.v3"}),
+        ] {
+            let error = refuse_predecessor_child_profile_for_room(&room).unwrap_err();
+            assert_eq!(
+                error.0, "outcome_room_predecessor_child_generation_unreadable",
+                "missing or unknown room generations must never become predecessor-mutable",
+            );
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
     fn valid_room_body() -> Value {
         json!({
             "owner_or_sponsor_ref": "org://acme",
@@ -3109,6 +3940,67 @@ mod outcome_room_tests {
             "conflict_and_failover_policy_ref": "policy://host-failover",
             "host_domain_ref": "domain://acme-host"
         })
+    }
+
+    #[test]
+    fn generation_dispatch_distinguishes_current_predecessor_and_unreadable_records() {
+        assert_eq!(
+            outcome_room_generation(&json!({"schema_version": CURRENT_ROOM_SCHEMA})),
+            Ok(OutcomeRoomGeneration::CurrentV2)
+        );
+        for schema in [ROOM_SCHEMA, FOUNDATIONS_V1_ROOM_SCHEMA] {
+            assert_eq!(
+                outcome_room_generation(&json!({"schema_version": schema})),
+                Ok(OutcomeRoomGeneration::PredecessorV1)
+            );
+        }
+        for room in [
+            json!({}),
+            json!({"schema_version": "ioi.foundations.outcome-room.v3"}),
+        ] {
+            let error = outcome_room_generation(&room).unwrap_err();
+            assert_eq!(error.0, "outcome_room_generation_unreadable");
+        }
+    }
+
+    #[test]
+    fn canonical_census_refuses_unknown_generation_instead_of_hiding_it() {
+        for (tag, room) in [
+            (
+                "missing-generation",
+                json!({"outcome_room_id":"outcome-room://or_aa"}),
+            ),
+            (
+                "unknown-generation",
+                json!({
+                    "schema_version":"ioi.foundations.outcome-room.v3",
+                    "outcome_room_id":"outcome-room://or_aa"
+                }),
+            ),
+        ] {
+            let directory = temp_dir(tag);
+            std::fs::create_dir_all(directory.join(ROOM_DIR)).unwrap();
+            std::fs::write(
+                directory.join(ROOM_DIR).join("or_aa.json"),
+                serde_json::to_vec(&room).unwrap(),
+            )
+            .unwrap();
+            let error = list_rooms_canonical_strict(directory.to_str().unwrap()).unwrap_err();
+            assert_eq!(error.0, "outcome_room_generation_unreadable");
+            std::fs::remove_dir_all(directory).unwrap();
+        }
+    }
+
+    #[test]
+    fn hosted_room_validation_accepts_the_selected_system_authority_coordinate() {
+        let mut body = valid_room_body();
+        body["host_domain_ref"] = json!("system://sys_m4");
+        let room = validate_room_create(&body).expect("system-bound host is canonical");
+        assert_eq!(room["host_domain_ref"], json!("system://sys_m4"));
+
+        body["host_domain_ref"] = json!("service://not-a-host-authority");
+        let error = validate_room_create(&body).unwrap_err();
+        assert_eq!(error.0, "outcome_room_ref_scheme_invalid");
     }
 
     // CANONICAL fixtures built from the PRODUCTION construction paths (#72 round 15): the
@@ -3292,7 +4184,7 @@ mod outcome_room_tests {
             (
                 "coordination_topology",
                 json!("federated_admission"),
-                "outcome_room_federated_unavailable",
+                "outcome_room_federated_admission_unavailable",
             ),
             (
                 "coordination_topology",
@@ -3530,8 +4422,12 @@ mod outcome_room_tests {
         let dir = temp_dir("attach");
         let data_dir = dir.to_str().unwrap();
         let (_ai, prior_room, _arid, _arcpt) = canonical_admission("or_1");
-        let prior_run =
-            json!({ "goal_run_id": "gr_1", "normalized_goal": "x", "status": "active" });
+        let prior_run = json!({
+            "goal_run_id": "gr_1",
+            "goal_ref": "goal://gr_1",
+            "normalized_goal": "x",
+            "status": "active"
+        });
         persist_atomic(data_dir, ROOM_DIR, "or_1", &prior_room).unwrap();
         persist_atomic(data_dir, GOAL_RUN_DIR, "gr_1", &prior_run).unwrap();
         let (_intent, updated_room, rid, receipt) = canonical_attach(&prior_room, "gr_1");
@@ -4401,7 +5297,7 @@ mod outcome_room_tests {
             data_dir,
             GOAL_RUN_DIR,
             "gr_la",
-            &json!({ "goal_run_id": "gr_la", "status": "active" }),
+            &json!({ "goal_run_id": "gr_la", "goal_ref": "goal://gr_la", "status": "active" }),
         )
         .unwrap();
         let (aintent, _updated, _rid, _rcpt) = canonical_attach(&prior, "gr_la");
@@ -4537,7 +5433,7 @@ mod outcome_room_tests {
             data_dir,
             GOAL_RUN_DIR,
             "gr_fm",
-            &json!({ "goal_run_id": "gr_fm", "status": "active" }),
+            &json!({ "goal_run_id": "gr_fm", "goal_ref": "goal://gr_fm", "status": "active" }),
         )
         .unwrap();
         let (aintent, _updated, _rid, _rcpt) = canonical_attach(&prior, "gr_fm");
@@ -4708,7 +5604,18 @@ mod outcome_room_tests {
         with_intent["attach_intent"] = intent;
         persist_atomic(data_dir, ROOM_DIR, "or_7a", &with_intent).unwrap();
         // The run was bound to room B in the meantime.
-        persist_atomic(data_dir, GOAL_RUN_DIR, "gr_ab", &json!({ "goal_run_id": "gr_ab", "status": "active", "outcome_room_ref": "outcome-room://or_7c" })).unwrap();
+        persist_atomic(
+            data_dir,
+            GOAL_RUN_DIR,
+            "gr_ab",
+            &json!({
+                "goal_run_id": "gr_ab",
+                "goal_ref": "goal://gr_ab",
+                "status": "active",
+                "outcome_room_ref": "outcome-room://or_7c"
+            }),
+        )
+        .unwrap();
         complete_attach_intents(data_dir);
         let run = read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap();
         assert_eq!(
@@ -4775,7 +5682,12 @@ mod outcome_room_tests {
             data_dir,
             GOAL_RUN_DIR,
             "gr_race",
-            &json!({ "goal_run_id": "gr_race", "status": "active", "normalized_goal": "x" }),
+            &json!({
+                "goal_run_id": "gr_race",
+                "goal_ref": "goal://gr_race",
+                "status": "active",
+                "normalized_goal": "x"
+            }),
         )
         .unwrap();
         // 1. "reconcile reads first" — the stale snapshot exists (and is deliberately unused for

@@ -167,17 +167,263 @@
     if (location.hash) history.replaceState(null, "", "/ai");
     applyAiViews();
   }
+  // The native composer stays Session-first. Goal durability is a separate two-step act:
+  // draft/review the daemon-derived crossing, then explicitly confirm admission. The transient
+  // variables below hold only the currently displayed proposal; accepted truth is always fetched
+  // from the daemon by activation id and is never reconstructed from the DOM or local storage.
+  let gaProposal = null;
+  let gaProposalPrompt = "";
+  let gaIdempotencyKey = "";
+  let gaPendingAuthority = null;
+  let gaBusy = false;
+  let nativeSessionBusy = false;
+  function gaPrompt() {
+    const input = document.querySelector('[data-testid="prompt-input-textarea"]');
+    return input ? String(input.value || "").trim() : "";
+  }
+  function gaPanel() { return document.getElementById("ioi-goal-activation-panel"); }
+  function gaStatusHtml(label, value) {
+    return '<div class="flex items-start justify-between gap-3" style="padding:3px 0"><span class="text-xs text-content-tertiary">' + esc(label) + '</span><code class="text-xs text-content-primary" style="max-width:68%;overflow-wrap:anywhere;text-align:right">' + esc(value || "—") + "</code></div>";
+  }
+  function gaError(status, payload) {
+    const error = (payload && payload.error) || {};
+    const code = error.code || payload?.code || (status ? "HTTP " + status : "goal_activation_unavailable");
+    const message = error.message || payload?.message || "The daemon did not return an admitted activation state.";
+    const panel = gaPanel();
+    if (!panel) return;
+    if (code === "goal_run_activation_authority_required" && error.approval?.policy_hash && error.approval?.request_hash) {
+      gaPendingAuthority = {
+        required_scope: error.required_scope || "scope:goal.run.create",
+        policy_hash: error.approval.policy_hash,
+        request_hash: error.approval.request_hash,
+        authority_challenge: error.authority_challenge || null,
+      };
+      panel.style.display = "block";
+      panel.innerHTML = '<div class="rounded-xl border border-border-warning bg-surface-01 text-sm text-content-primary" style="padding:14px;text-align:left">' +
+        '<div class="font-medium text-content-warning">Wallet authority required</div>' +
+        '<div class="text-xs text-content-secondary" style="margin:4px 0 10px">The explicit review is complete, but it grants no execution authority. No GoalRun has been admitted. Sign the exact request in wallet.network, then return the one-use ApprovalGrant below.</div>' +
+        gaStatusHtml("Required scope", gaPendingAuthority.required_scope) +
+        gaStatusHtml("Policy hash", gaPendingAuthority.policy_hash) +
+        gaStatusHtml("Request hash", gaPendingAuthority.request_hash) +
+        '<label for="ioi-goal-activation-grant" class="text-xs text-content-tertiary" style="display:block;margin-top:10px">Signed ApprovalGrant JSON (held only for this submit; never persisted by the shell)</label>' +
+        '<textarea id="ioi-goal-activation-grant" spellcheck="false" class="w-full rounded-lg border border-border-base bg-surface-secondary text-content-primary" style="min-height:92px;margin-top:5px;padding:8px;font:11px/1.35 ui-monospace,monospace" placeholder="{ &quot;grant_id&quot;: … }"></textarea>' +
+        '<div id="ioi-goal-activation-grant-error" class="text-xs text-content-negative" style="display:none;margin-top:6px"></div>' +
+        '<div class="flex items-center justify-end gap-2" style="margin-top:10px"><button id="ioi-goal-activation-authority-cancel" type="button" class="select-none font-medium rounded-lg border border-border-base bg-surface-button-clear text-content-primary" style="height:32px;padding:0 12px">Keep as draft</button><button id="ioi-goal-activation-authority-submit" type="button" class="select-none font-medium rounded-lg border border-border-brand bg-surface-button-clear text-content-primary" style="height:32px;padding:0 12px">Submit signed grant</button></div>' +
+        "</div>";
+      panel.querySelector("#ioi-goal-activation-authority-cancel")?.addEventListener("click", () => {
+        gaPendingAuthority = null;
+        gaRenderProposal(gaProposal || {});
+      });
+      panel.querySelector("#ioi-goal-activation-authority-submit")?.addEventListener("click", () => {
+        const raw = String(panel.querySelector("#ioi-goal-activation-grant")?.value || "").trim();
+        const output = panel.querySelector("#ioi-goal-activation-grant-error");
+        let grant;
+        try { grant = JSON.parse(raw); } catch { grant = null; }
+        if (!grant || typeof grant !== "object" || Array.isArray(grant)) {
+          if (output) { output.style.display = "block"; output.textContent = "Paste one valid signed ApprovalGrant JSON object."; }
+          return;
+        }
+        // The opaque grant exists in this closure only for the exact retry. The daemon validates
+        // scope, policy/request hashes, audience, signature, expiry, usage, and current wallet
+        // truth; the shell cannot repair or widen it.
+        confirmGoalActivation(grant);
+      });
+      return;
+    }
+    panel.style.display = "block";
+    panel.innerHTML = '<div class="rounded-lg border border-border-error bg-surface-01 text-sm text-content-negative" style="padding:12px"><b>Goal activation refused</b><br><code>' + esc(code) + "</code><br><span class=\"text-content-secondary\">" + esc(message) + "</span></div>";
+  }
+  function gaRenderProposal(payload) {
+    const panel = gaPanel();
+    if (!panel) return;
+    const activation = payload.activation || {};
+    const source = activation.source_context || {};
+    const draft = payload.goal_draft || {};
+    const profileRef = activation.requested_goal_run_profile_revision_ref || "—";
+    const profileHash = activation.requested_goal_run_profile_content_hash || "—";
+    const principal = activation.requesting_principal_ref || "—";
+    const authority = activation.authority_decision_ref || "pending daemon resolution";
+    const nonGrants = activation.non_grants || {};
+    const effects = Object.entries(nonGrants).map(([key, value]) => key.replaceAll("_", " ") + ": " + value).join(" · ") || "no effect authority granted by review";
+    panel.style.display = "block";
+    panel.innerHTML = '<div class="rounded-xl border border-border-base bg-surface-01 text-sm text-content-primary" style="padding:14px;text-align:left">' +
+      '<div class="font-medium">Review durable Goal activation</div>' +
+      '<div class="text-xs text-content-secondary" style="margin:4px 0 10px">This is separate from Enter and New Session. Confirming asks the daemon to admit durable GoalRun truth; this page cannot admit it.</div>' +
+      gaStatusHtml("Intent", draft.normalized_intent || draft.goal_text || gaProposalPrompt) +
+      gaStatusHtml("Source", source.source_ref || draft.intent_ref || "—") +
+      gaStatusHtml("Source kind", source.source_kind || "ioi_goal_draft") +
+      gaStatusHtml("Principal", principal) +
+      gaStatusHtml("Profile", profileRef) +
+      gaStatusHtml("Profile hash", profileHash) +
+      gaStatusHtml("Authority", authority) +
+      gaStatusHtml("Effects", effects) +
+      gaStatusHtml("Review", activation.review_requirement || "explicit_user") +
+      gaStatusHtml("Activation hash", payload.activation_hash || "—") +
+      '<div class="flex items-center justify-end gap-2" style="margin-top:12px"><button id="ioi-goal-activation-cancel" type="button" class="select-none font-medium rounded-lg border border-border-base bg-surface-button-clear text-content-primary hover:bg-surface-button-clear-accent" style="height:32px;padding:0 12px">Dismiss review</button><button id="ioi-goal-activation-confirm" type="button" class="select-none font-medium rounded-lg border border-border-brand bg-surface-button-clear text-content-primary hover:bg-surface-button-clear-accent" style="height:32px;padding:0 12px">Confirm Goal activation</button></div>' +
+      "</div>";
+    panel.querySelector("#ioi-goal-activation-cancel")?.addEventListener("click", () => {
+      gaProposal = null; gaProposalPrompt = ""; gaIdempotencyKey = ""; gaPendingAuthority = null;
+      panel.style.display = "none"; panel.innerHTML = "";
+    });
+    panel.querySelector("#ioi-goal-activation-confirm")?.addEventListener("click", () => confirmGoalActivation());
+  }
+  function gaRenderAdmitted(payload) {
+    const panel = gaPanel();
+    if (!panel) return;
+    const activation = payload.activation || {};
+    const run = payload.goal_run || {};
+    const receipts = payload.receipts || {};
+    const goalId = String(run.goal_run_id || run.goal_ref || "").replace(/^goal:\/\//, "");
+    panel.style.display = "block";
+    panel.innerHTML = '<div class="rounded-xl border border-border-brand bg-surface-01 text-sm text-content-primary" style="padding:14px;text-align:left">' +
+      '<div class="font-medium">Goal admitted</div><div class="text-xs text-content-secondary" style="margin:4px 0 10px">Durable identity and proof below are daemon projections. The Session transcript remains display-only.</div>' +
+      gaStatusHtml("Activation", activation.activation_id || "—") +
+      gaStatusHtml("Status", activation.status || "—") +
+      gaStatusHtml("GoalRun", run.goal_ref || run.goal_run_id || "—") +
+      gaStatusHtml("Profile", run.goal_run_profile_revision_ref || activation.requested_goal_run_profile_revision_ref || "—") +
+      gaStatusHtml("Authority decision", activation.authority_decision_ref || "—") +
+      gaStatusHtml("Admitted root", run.admitted_state_root_ref || "—") +
+      gaStatusHtml("Lifecycle head", run.lifecycle_head || "—") +
+      gaStatusHtml("Review receipt", receipts.review?.receipt_ref || activation.review_decision_ref || "—") +
+      gaStatusHtml("Admission receipt", receipts.admission?.receipt_ref || "—") +
+      gaStatusHtml("Activation receipt", receipts.activation?.receipt_ref || activation.activation_receipt_ref || "—") +
+      '<div class="text-xs" style="margin-top:10px">' + (goalId ? '<a href="/__ioi/run-timeline/goal-run/' + encodeURIComponent(goalId) + '">Run Timeline →</a> · ' : "") + '<a href="/__ioi/work-ledger">Provenance →</a></div></div>';
+  }
+  function renderNativeSession(payload, prompt) {
+    const panel = gaPanel();
+    if (!panel) return;
+    panel.style.display = "block";
+    panel.innerHTML = '<div class="rounded-xl border border-border-base bg-surface-01 text-sm text-content-primary" style="padding:14px;text-align:left">' +
+      '<div class="font-medium">Session ready</div><div class="text-xs text-content-secondary" style="margin:4px 0 10px">The native composer created bounded Session truth only. The input is attached to that Session; no GoalRun or Goal Space was activated.</div>' +
+      gaStatusHtml("Session", payload.session_ref || "—") +
+      gaStatusHtml("Input", prompt) +
+      gaStatusHtml("Environment", payload.environment_ref || "—") +
+      gaStatusHtml("Provision receipt", payload.receipt_ref || "—") +
+      gaStatusHtml("Goal activation", payload.goal_run_activation_ref === null && payload.goal_run_ref === null ? "not performed" : "—") +
+      '<div class="text-xs" style="margin-top:10px"><a href="/__ioi/sessions">Sessions →</a></div></div>';
+  }
+  function renderNativeSessionError(status, payload) {
+    const error = (payload && payload.error) || {};
+    const panel = gaPanel();
+    if (!panel) return;
+    panel.style.display = "block";
+    panel.innerHTML = '<div class="rounded-lg border border-border-error bg-surface-01 text-sm text-content-negative" style="padding:12px"><b>Session creation refused</b><br><code>' + esc(error.code || (status ? "HTTP " + status : "session_unavailable")) + '</code><br><span class="text-content-secondary">' + esc(error.message || "The daemon did not admit a bounded Session.") + "</span></div>";
+  }
+  function syncNativeSessionButton() {
+    const button = document.querySelector('[data-testid="prompt-input-submit-button"]');
+    if (!button || location.pathname !== "/ai" || location.hash !== "#new-session") return;
+    const ready = gaPrompt().length > 0 && !nativeSessionBusy;
+    button.disabled = !ready;
+    button.setAttribute("aria-disabled", ready ? "false" : "true");
+    button.setAttribute("aria-busy", nativeSessionBusy ? "true" : "false");
+    button.setAttribute("data-ioi-session-rebound", "true");
+  }
+  async function submitNativeSession() {
+    if (nativeSessionBusy) return;
+    const prompt = gaPrompt();
+    if (!prompt) { renderNativeSessionError(422, { error: { code: "session_initial_input_required", message: "Describe the Session before submitting." } }); return; }
+    nativeSessionBusy = true;
+    syncNativeSessionButton();
+    try {
+      const response = await fetch("/v1/hypervisor/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ initial_input: prompt }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.session_ref || payload.initial_input_projection?.disposition !== "session_only_non_goal" || payload.goal_run_activation_ref !== null || payload.goal_run_ref !== null) { renderNativeSessionError(response.status, payload); return; }
+      renderNativeSession(payload, prompt);
+    } catch (error) {
+      renderNativeSessionError(0, { error: { code: "session_daemon_unavailable", message: String(error?.message || error) } });
+    } finally {
+      nativeSessionBusy = false;
+      syncNativeSessionButton();
+    }
+  }
+  function bindNativeSessionComposer() {
+    const input = document.querySelector('[data-testid="prompt-input-textarea"]');
+    const button = document.querySelector('[data-testid="prompt-input-submit-button"]');
+    if (!input || !button) return;
+    if (input.getAttribute("data-ioi-session-rebound") !== "true") {
+      input.setAttribute("data-ioi-session-rebound", "true");
+      input.addEventListener("input", () => setTimeout(syncNativeSessionButton, 0));
+      input.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+        event.preventDefault(); event.stopImmediatePropagation(); submitNativeSession();
+      });
+    }
+    if (button.getAttribute("data-ioi-session-handler") !== "true") {
+      button.setAttribute("data-ioi-session-handler", "true");
+      button.addEventListener("click", (event) => {
+        event.preventDefault(); event.stopImmediatePropagation(); submitNativeSession();
+      });
+    }
+    syncNativeSessionButton();
+  }
+  async function draftGoalActivation() {
+    if (gaBusy) return;
+    const prompt = gaPrompt();
+    if (prompt.length < 4) { gaError(400, { error: { code: "goal_activation_intent_required", message: "Describe the goal before opening its explicit activation review." } }); return; }
+    gaBusy = true;
+    const button = document.getElementById("ioi-goal-activation");
+    if (button) { button.disabled = true; button.textContent = "Preparing review…"; }
+    if (!gaIdempotencyKey || gaProposalPrompt !== prompt) {
+      gaIdempotencyKey = "goal-activation-" + (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : Date.now() + "-" + Math.random().toString(16).slice(2));
+    }
+    gaProposalPrompt = prompt;
+    try {
+      const response = await fetch("/v1/goal-orchestration/goal-run-activations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ schema_version: "ioi.goal-run-activation-draft-request.v1", goal_text: prompt, constraints: [], project_ref: null, result_profile: "research", idempotency_key: gaIdempotencyKey }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.activation || !payload.activation_hash) { gaError(response.status, payload); return; }
+      gaProposal = payload;
+      gaPendingAuthority = null;
+      gaRenderProposal(payload);
+    } catch (error) {
+      gaError(0, { error: { code: "goal_activation_daemon_unavailable", message: String(error?.message || error) } });
+    } finally {
+      gaBusy = false;
+      if (button) { button.disabled = false; button.textContent = "Activate Goal"; }
+    }
+  }
+  async function confirmGoalActivation(walletApprovalGrant = null) {
+    if (gaBusy || !gaProposal) return;
+    if (gaPrompt() !== gaProposalPrompt) {
+      gaProposal = null; gaIdempotencyKey = "";
+      gaError(409, { error: { code: "goal_activation_review_stale", message: "The prompt changed after review. Open a new activation review; the prior draft was not admitted." } });
+      return;
+    }
+    const activation = gaProposal.activation || {};
+    const id = String(activation.activation_id || "").replace(/^goal-run-activation:\/\//, "");
+    if (!id) { gaError(500, { error: { code: "goal_activation_identity_missing", message: "The daemon proposal did not include an activation identity." } }); return; }
+    gaBusy = true;
+    const button = document.getElementById("ioi-goal-activation-confirm");
+    if (button) { button.disabled = true; button.textContent = "Submitting…"; }
+    try {
+      const submitBody = { schema_version: "ioi.goal-run-activation-submit-request.v1", expected_activation_hash: gaProposal.activation_hash, review_decision: "approve" };
+      if (walletApprovalGrant) submitBody.wallet_approval_grant = walletApprovalGrant;
+      const response = await fetch("/v1/goal-orchestration/goal-run-activations/" + encodeURIComponent(id) + "/submit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(submitBody) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.activation?.status !== "admitted" || !payload.goal_run) { gaError(response.status, payload); return; }
+      gaProposal = payload;
+      gaPendingAuthority = null;
+      gaRenderAdmitted(payload);
+    } catch (error) {
+      gaError(0, { error: { code: "goal_activation_daemon_unavailable", message: String(error?.message || error) } });
+    } finally {
+      gaBusy = false;
+      if (button && button.isConnected) { button.disabled = false; button.textContent = "Confirm Goal activation"; }
+    }
+  }
   // Advanced-launch affordance on the New Session composer view — opens the owned governed modal
   // (registry-fed harness/model with disabled-reasons, venue picker, placement preview) so the
-  // full admitted lane stays one click away from the polished composer.
+  // full admitted lane stays one click away from the polished composer. Activate Goal is a
+  // separate, explicit durability act. The seed's otherwise disabled submit is rebound in place
+  // to the daemon Session contract; neither adjacent button can turn that act into a GoalRun.
   function mountAdvancedLaunch(contents) {
     if (document.getElementById("ioi-ns-advanced")) return;
     const wrap = document.createElement("div");
     wrap.id = "ioi-ns-advanced-wrap";
     wrap.className = "w-full";
-    wrap.style.cssText = "display:flex;justify-content:center;margin-top:10px";
-    wrap.innerHTML = '<button id="ioi-ns-advanced" type="button" class="text-xs text-content-tertiary hover:text-content-primary" style="background:transparent;border:0;cursor:pointer;padding:6px 10px">Advanced launch — harness · venue · placement preview</button>';
+    wrap.style.cssText = "display:flex;flex-direction:column;align-items:center;margin-top:10px";
+    wrap.innerHTML = '<div class="flex items-center justify-center gap-2"><button id="ioi-goal-activation" type="button" class="text-xs text-content-primary hover:text-content-primary rounded-lg border border-border-base" style="background:var(--surface-01);cursor:pointer;padding:6px 10px">Activate Goal</button><button id="ioi-ns-advanced" type="button" class="text-xs text-content-tertiary hover:text-content-primary" style="background:transparent;border:0;cursor:pointer;padding:6px 10px">Advanced launch — harness · venue · placement preview</button></div><div id="ioi-goal-activation-panel" class="w-full" role="status" aria-live="polite" style="display:none;max-width:720px;margin-top:10px"></div>';
     contents.appendChild(wrap);
+    wrap.querySelector("#ioi-goal-activation").addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); draftGoalActivation(); });
     wrap.querySelector("#ioi-ns-advanced").addEventListener("click", (e) => { e.preventDefault(); newSessionModal(); });
   }
   // View router for /ai: no hash → explorer Home (native composer hidden, state preserved);
@@ -197,6 +443,7 @@
       if (root) root.style.display = "none";
       native.style.display = "";
       mountAdvancedLaunch(contents);
+      bindNativeSessionComposer();
       return;
     }
     if (!root) {
@@ -217,4 +464,3 @@
     native.style.display = "none";
     hbFetch();
   }
-

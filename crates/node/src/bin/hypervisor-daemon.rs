@@ -116,6 +116,8 @@ mod operability_routes;
 mod orchestration_routes;
 #[path = "hypervisor_daemon_routes/outcome_room_routes.rs"]
 mod outcome_room_routes;
+#[path = "hypervisor_daemon_routes/outcome_room_system_routes.rs"]
+mod outcome_room_system_routes;
 #[path = "hypervisor_daemon_routes/placement_failover_routes.rs"]
 mod placement_failover_routes;
 #[path = "hypervisor_daemon_routes/policy_bound_data_view_routes.rs"]
@@ -495,6 +497,23 @@ async fn async_main() -> anyhow::Result<()> {
         ],
     )?;
     seed_default_state(&data_dir);
+    // A retained M4 child intent makes its owner registry part of recovery truth. Census that
+    // complete registry before the generic M3 compatibility fold so malformed, relocated, or
+    // ambiguous owner bytes receive the room-recovery refusal that fences the pending intent;
+    // migration must neither normalize nor take ownership of that failure first.
+    if let Err((code, message)) =
+        outcome_room_system_routes::preflight_pending_owner_registry_census(&data_dir)
+    {
+        anyhow::bail!("OutcomeRoom recovery blocks readiness ({code}: {message})");
+    }
+    let migrated_goal_run_results =
+        goalrun_routes::migrate_legacy_goal_run_work_results(&data_dir)?;
+    if migrated_goal_run_results > 0 {
+        tracing::info!(
+            migrated_goal_run_results,
+            "folded legacy GoalRun WorkResults into the canonical registry"
+        );
+    }
     // WS-3r — reconcile editor services on boot: a runtime persisted `ready` did not survive the
     // restart, so mark it degraded (restart required) rather than claim a phantom-ready editor.
     let _ = editor_host::reconcile_editor_services(&data_dir);
@@ -507,6 +526,11 @@ async fn async_main() -> anyhow::Result<()> {
     outcome_room_routes::complete_attach_intents(&data_dir);
     // #72 round 10 — converge interrupted room admissions and transitions the same way.
     outcome_room_routes::complete_room_intents(&data_dir);
+    // M4 — current-contract room recovery crosses the active bounded-System and required
+    // Agentgres admission boundaries before restoring any local room projection.
+    if let Err((code, message)) = outcome_room_system_routes::complete_pending(&data_dir) {
+        anyhow::bail!("OutcomeRoom recovery blocks readiness ({code}: {message})");
+    }
     // #74 — converge only local/ungoverned participation submissions and already-terminal
     // room-release tails before readiness. Governed replay performs network I/O and is launched
     // only after the listener is bound, so resolver outage cannot delay readiness.
@@ -1760,6 +1784,18 @@ async fn async_main() -> anyhow::Result<()> {
         // start → deterministic verify → admitted reconcile). Static sub-paths registered
         // implicitly distinct from :id (axum matches deeper literals first).
         .route(
+            "/v1/goal-orchestration/goal-run-activations",
+            post(goalrun_routes::handle_goal_run_activation_draft),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-run-activations/:id",
+            get(goalrun_routes::handle_goal_run_activation_get),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-run-activations/:id/submit",
+            post(goalrun_routes::handle_goal_run_activation_submit),
+        )
+        .route(
             "/v1/goal-orchestration/goal-runs",
             get(goalrun_routes::handle_goal_runs_list)
                 .post(goalrun_routes::handle_goal_runs_create),
@@ -1771,6 +1807,10 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/goal-orchestration/goal-runs/:id/results",
             post(goalrun_routes::handle_goal_run_result_create),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-runs/:id/outcome-deltas",
+            post(goalrun_routes::handle_goal_run_outcome_delta_create),
         )
         .route(
             "/v1/goal-orchestration/goal-runs/:id/start",
@@ -2272,7 +2312,7 @@ async fn async_main() -> anyhow::Result<()> {
             get(work_result_routes::handle_work_results_overview),
         )
         .route(
-            "/v1/hypervisor/work-results/:id",
+            "/v1/hypervisor/work-results/*id",
             get(work_result_routes::handle_work_result_get),
         )
         .route(
@@ -2281,7 +2321,7 @@ async fn async_main() -> anyhow::Result<()> {
                 .post(work_result_routes::handle_outcome_delta_create),
         )
         .route(
-            "/v1/hypervisor/outcome-deltas/:id",
+            "/v1/hypervisor/outcome-deltas/*id",
             get(work_result_routes::handle_outcome_delta_get),
         )
         .route(
@@ -2299,11 +2339,37 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/goal-orchestration/outcome-rooms/:id/transition",
+            axum::routing::post(
+                outcome_room_routes::handle_outcome_room_transition_route_retired,
+            ),
+        )
+        .route(
+            "/v1/goal-orchestration/outcome-rooms/:id/lifecycle/transitions",
             axum::routing::post(outcome_room_routes::handle_outcome_room_transition),
         )
         .route(
             "/v1/goal-orchestration/outcome-rooms/:id/attach-goal-run",
             axum::routing::post(outcome_room_routes::handle_outcome_room_attach_goal_run),
+        )
+        .route(
+            "/v1/goal-orchestration/outcome-rooms/:id/detach-goal-run",
+            axum::routing::post(outcome_room_routes::handle_outcome_room_detach_goal_run),
+        )
+        .route(
+            "/v1/goal-orchestration/outcome-rooms/:id/replay",
+            get(outcome_room_system_routes::handle_replay),
+        )
+        .route(
+            "/v1/goal-orchestration/outcome-rooms/:id/collaborative-work-graph",
+            get(outcome_room_system_routes::handle_collaborative_work_graph),
+        )
+        .route(
+            "/v1/goal-orchestration/outcome-rooms/:id/discussion-projection",
+            get(outcome_room_system_routes::handle_discussion_projection),
+        )
+        .route(
+            "/v1/goal-orchestration/outcome-rooms/:id/product-projection",
+            get(outcome_room_system_routes::handle_product_projection),
         )
         .route(
             "/v1/goal-orchestration/room-participation-requests",

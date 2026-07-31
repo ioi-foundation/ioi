@@ -1,0 +1,8 @@
+{
+  "$id": "invariant://ioi/foundations/outcome-delta/room-binding/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/outcome-delta/v2",
+  "rules": [
+    { "rule_id": "outcome_delta.room.matches_admission", "description": "A room-scoped delta and its CAS admission bind the same room. A WorkResult, Attempt, or Finding proposer resolves to its admitted participant lineage in the owner plane rather than equaling the room-admission lease bytes.", "expression": { "operator": "optional_field_equals", "optional_object_path": "$.room_admission", "field": "outcome_room_ref", "expected_path": "$.outcome_room_ref" } }
+  ]
+}

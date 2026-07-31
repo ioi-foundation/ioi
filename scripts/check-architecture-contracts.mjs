@@ -496,7 +496,9 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
         const candidate = valueAtPath(value, expression.path);
         valid = Array.isArray(candidate)
           ? candidate.length > 0
-          : typeof candidate === "string" && candidate.length > 0;
+          : typeof candidate === "string"
+            ? candidate.length > 0
+            : typeof candidate === "number" && Number.isFinite(candidate);
       } else if (
         expression.operator === "any_non_empty" &&
         Array.isArray(expression.paths)
@@ -505,7 +507,9 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
           const candidate = valueAtPath(value, pointer);
           return Array.isArray(candidate)
             ? candidate.length > 0
-            : typeof candidate === "string" && candidate.length > 0;
+            : typeof candidate === "string"
+              ? candidate.length > 0
+              : typeof candidate === "number" && Number.isFinite(candidate);
         });
       } else if (
         expression.operator === "non_empty_when_in" &&
@@ -524,7 +528,9 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
           !applies ||
           (Array.isArray(candidate)
             ? candidate.length > 0
-            : typeof candidate === "string" && candidate.length > 0);
+            : typeof candidate === "string"
+              ? candidate.length > 0
+              : typeof candidate === "number" && Number.isFinite(candidate));
       } else if (
         ["fields_equal", "fields_not_equal"].includes(expression.operator) &&
         Array.isArray(expression.paths) &&
@@ -567,6 +573,18 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
           (isObject(optional) &&
             expected !== undefined &&
             structuralJsonEqual(optional[expression.field], expected));
+      } else if (
+        expression.operator === "optional_fields_equal" &&
+        typeof expression.optional_object_path === "string" &&
+        Array.isArray(expression.paths) &&
+        expression.paths.length === 2
+      ) {
+        const optional = valueAtPath(value, expression.optional_object_path);
+        const left = valueAtPath(value, expression.paths[0]);
+        const right = valueAtPath(value, expression.paths[1]);
+        valid = optional === null ||
+          (isObject(optional) && left !== undefined && right !== undefined &&
+            structuralJsonEqual(left, right));
       } else if (
         expression.operator === "prefixed_field_equals" &&
         typeof expression.path === "string" &&

@@ -372,6 +372,84 @@ impl GoalPursuitCore {
             ));
         }
         let profile_hash = required_hash(request, "goal_run_profile_content_hash")?;
+        let execution_ceiling = match (
+            request.get("goal_run_execution_ceiling_revision_ref"),
+            request.get("goal_run_execution_ceiling_content_hash"),
+            request.get("declared_invocation_budget"),
+        ) {
+            (None, None, None) => None,
+            (Some(_), Some(_), Some(budget)) => {
+                let revision_ref = required_ref(
+                    request,
+                    "goal_run_execution_ceiling_revision_ref",
+                    "goal-run-execution-ceiling://",
+                )?;
+                if !revision_ref.contains("/revision/sha256:") {
+                    return Err(GoalPursuitError::new(
+                        "goal_run_execution_ceiling_revision_required",
+                        "an exact content-addressed execution-ceiling revision is required",
+                    ));
+                }
+                let content_hash =
+                    required_hash(request, "goal_run_execution_ceiling_content_hash")?;
+                if !revision_ref.ends_with(content_hash) {
+                    return Err(GoalPursuitError::new(
+                        "goal_run_execution_ceiling_binding_mismatch",
+                        "the execution-ceiling revision does not bind its content hash",
+                    ));
+                }
+                let budget_object = budget.as_object().ok_or_else(|| {
+                    GoalPursuitError::new(
+                        "goal_run_declared_invocation_budget_invalid",
+                        "declared_invocation_budget must be a closed object",
+                    )
+                })?;
+                if budget_object.len() != 2
+                    || budget_object.keys().any(|key| {
+                        !matches!(
+                            key.as_str(),
+                            "max_total_invocations" | "max_parallel_invocations"
+                        )
+                    })
+                {
+                    return Err(GoalPursuitError::new(
+                        "goal_run_declared_invocation_budget_invalid",
+                        "declared_invocation_budget must contain exactly the total and parallel invocation counts",
+                    ));
+                }
+                let total = budget
+                    .get("max_total_invocations")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(|| {
+                        GoalPursuitError::new(
+                            "goal_run_declared_invocation_budget_invalid",
+                            "max_total_invocations must be an explicit non-negative integer",
+                        )
+                    })?;
+                let parallel = budget
+                    .get("max_parallel_invocations")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(|| {
+                        GoalPursuitError::new(
+                            "goal_run_declared_invocation_budget_invalid",
+                            "max_parallel_invocations must be an explicit non-negative integer",
+                        )
+                    })?;
+                if parallel > total {
+                    return Err(GoalPursuitError::new(
+                        "goal_run_declared_parallelism_widens_total",
+                        "declared parallel invocations cannot exceed declared total invocations",
+                    ));
+                }
+                Some((revision_ref.to_string(), content_hash.to_string(), budget.clone()))
+            }
+            _ => {
+                return Err(GoalPursuitError::new(
+                    "goal_run_execution_ceiling_closure_incomplete",
+                    "execution-ceiling revision, content hash, and declared invocation budget are all required together; no default is inferred",
+                ))
+            }
+        };
         let workflow_refs = unique_refs(
             request,
             "workflow_template_revision_refs",
@@ -422,12 +500,16 @@ impl GoalPursuitCore {
                     "component_hashes is required",
                 )
             })?;
-        let required_components: Vec<_> = workflow_refs
+        let mut required_components: Vec<&str> = workflow_refs
             .iter()
-            .chain(skill_refs.iter())
-            .chain(harness_refs.iter())
-            .chain(tool_refs.iter())
+            .map(String::as_str)
+            .chain(skill_refs.iter().map(String::as_str))
             .collect();
+        required_components.extend(harness_refs.iter().map(String::as_str));
+        required_components.extend(tool_refs.iter().map(String::as_str));
+        if let Some((revision_ref, _, _)) = &execution_ceiling {
+            required_components.push(revision_ref.as_str());
+        }
         for reference in &required_components {
             let Some(component_hash) = component_hashes.get(*reference).and_then(Value::as_str)
             else {
@@ -479,7 +561,7 @@ impl GoalPursuitCore {
             required_ref(binding, "skill_manifest_revision_ref", "skill://")?;
             required_hash(binding, "skill_manifest_content_hash")?;
         }
-        let snapshot_body = json!({
+        let mut snapshot_body = json!({
             "goal_run_ref": goal_ref,
             "goal_run_profile_revision_ref": profile_ref,
             "goal_run_profile_content_hash": profile_hash,
@@ -490,6 +572,11 @@ impl GoalPursuitCore {
             "runtime_tool_contract_refs": tool_refs,
             "component_hashes": component_hashes,
         });
+        if let Some((revision_ref, content_hash, budget)) = &execution_ceiling {
+            snapshot_body["goal_run_execution_ceiling_revision_ref"] = json!(revision_ref);
+            snapshot_body["goal_run_execution_ceiling_content_hash"] = json!(content_hash);
+            snapshot_body["declared_invocation_budget"] = budget.clone();
+        }
         let snapshot_hash = hash(&snapshot_body);
         let active_skill_set_hash = hash(&json!({
             "work_subject_ref": goal_ref,
@@ -562,12 +649,17 @@ impl GoalPursuitCore {
             "agentgres_operation_refs": request.get("agentgres_operation_refs").cloned().unwrap_or_else(|| json!([])),
             "assurance_stage": "attested"
         });
+        if let Some((revision_ref, content_hash, budget)) = &execution_ceiling {
+            receipt["goal_run_execution_ceiling_revision_ref"] = json!(revision_ref);
+            receipt["goal_run_execution_ceiling_content_hash"] = json!(content_hash);
+            receipt["declared_invocation_budget"] = budget.clone();
+        }
         let receipt_root = hash(&receipt);
         receipt
             .as_object_mut()
             .expect("receipt object")
             .insert("receipt_root".into(), json!(receipt_root));
-        Ok(json!({
+        let mut resolution = json!({
             "schema_version": DEFINITION_RESOLUTION_SCHEMA_VERSION,
             "resolution_ref": format!("resolution://goal-run/{safe_goal}/definitions"),
             "goal_run_ref": goal_ref,
@@ -581,7 +673,13 @@ impl GoalPursuitCore {
             "definitions_execute": false,
             "definitions_grant_authority": false,
             "resolved_at": now,
-        }))
+        });
+        if let Some((revision_ref, content_hash, budget)) = &execution_ceiling {
+            resolution["goal_run_execution_ceiling_revision_ref"] = json!(revision_ref);
+            resolution["goal_run_execution_ceiling_content_hash"] = json!(content_hash);
+            resolution["declared_invocation_budget"] = budget.clone();
+        }
+        Ok(resolution)
     }
 
     /// Admit a generic WorkResult. Research is the selected non-software M3
@@ -757,7 +855,11 @@ impl GoalPursuitCore {
     /// Admit a proposed delta without granting acceptance or executing its
     /// expected effect. The delta inherits every influencing label from its
     /// proposer; a caller may add labels but cannot remove inherited lineage.
-    pub fn admit_outcome_delta(&self, request: &Value) -> PursuitResult<Value> {
+    pub fn admit_outcome_delta(
+        &self,
+        request: &Value,
+        inherited_information_flow_label_refs: &[String],
+    ) -> PursuitResult<Value> {
         let delta_ref = required_ref(request, "outcome_delta_id", "outcome-delta://")?;
         let work_subject_ref = required_text(request, "work_subject_ref")?;
         let proposed_by_ref = required_text(request, "proposed_by_ref")?;
@@ -781,12 +883,25 @@ impl GoalPursuitCore {
                 "delta_kind is not canonical",
             ));
         }
-        let inherited = unique_refs(
-            request,
-            "inherited_information_flow_label_refs",
-            "ifc-label://",
-            true,
-        )?;
+        let inherited = inherited_information_flow_label_refs
+            .iter()
+            .map(|label| {
+                let label = label.trim();
+                if !label.starts_with("ifc-label://") || label.chars().any(char::is_whitespace) {
+                    return Err(GoalPursuitError::new(
+                        "goal_pursuit_ref_invalid",
+                        "the inherited parent label set contains an invalid ifc-label:// reference",
+                    ));
+                }
+                Ok(label.to_string())
+            })
+            .collect::<PursuitResult<BTreeSet<_>>>()?;
+        if inherited.len() != inherited_information_flow_label_refs.len() {
+            return Err(GoalPursuitError::new(
+                "goal_pursuit_ref_duplicate",
+                "the inherited parent label set contains a duplicate reference",
+            ));
+        }
         let declared = unique_refs(request, "information_flow_label_refs", "ifc-label://", true)?;
         if inherited.iter().any(|label| !declared.contains(label)) {
             return Err(GoalPursuitError::new(
@@ -2007,17 +2122,22 @@ mod tests {
             "outcome_delta_id":"outcome-delta://research/1","work_subject_ref":"goal://research-1",
             "proposed_by_ref":"work-result://research-1","target_ref":"state://research",
             "delta_kind":"update","payload_ref":"state-delta://research/1",
-            "inherited_information_flow_label_refs":["ifc-label://internal"],
             "information_flow_label_refs":["ifc-label://internal","ifc-label://research"]
         });
-        let admitted = GoalPursuitCore.admit_outcome_delta(&request).unwrap();
+        let inherited = vec!["ifc-label://internal".to_string()];
+        let admitted = GoalPursuitCore
+            .admit_outcome_delta(&request, &inherited)
+            .unwrap();
         assert_eq!(admitted["effect_executed"], false);
         assert_eq!(admitted["acceptance_granted"], false);
+        assert!(admitted["outcome_delta"]
+            .get("inherited_information_flow_label_refs")
+            .is_none());
         let mut invalid = request;
         invalid["information_flow_label_refs"] = json!([]);
         assert_eq!(
             GoalPursuitCore
-                .admit_outcome_delta(&invalid)
+                .admit_outcome_delta(&invalid, &inherited)
                 .unwrap_err()
                 .code(),
             "outcome_delta_label_loss"

@@ -303,6 +303,7 @@ const SUPPORTED_OPERATORS = new Set([
   "numbers_lte",
   "object_fields_equal",
   "optional_field_equals",
+  "optional_fields_equal",
   "prefixed_field_equals",
   "scope_pattern_matches",
   "sha256_parts_equals",
@@ -363,6 +364,17 @@ function validateExpression(rootSchema, expression, at, errors) {
   }
 
   for (const pointer of expressionPointers(expression)) {
+    const guardedNestedExpectedPath =
+      expression.operator === "optional_field_equals" &&
+      pointer === expression.expected_path &&
+      typeof expression.optional_object_path === "string" &&
+      pointer.startsWith(`${expression.optional_object_path}.`) &&
+      schemaNodesAtPath(rootSchema, pointer).length > 0;
+    const guardedOptionalComparisonPath =
+      expression.operator === "optional_fields_equal" &&
+      pointer !== expression.optional_object_path &&
+      schemaNodesAtPath(rootSchema, pointer).length > 0;
+    if (guardedNestedExpectedPath || guardedOptionalComparisonPath) continue;
     if (!invariantPathResolvesPortably(rootSchema, pointer)) {
       errors.push(
         `${at}: invariant path does not resolve through every reachable schema alternative: ${pointer}`,
@@ -442,6 +454,10 @@ function validateExpression(rootSchema, expression, at, errors) {
       ) {
         errors.push(`${at}: optional object field does not resolve: ${expression.field}`);
       }
+      break;
+    case "optional_fields_equal":
+      requirePath("optional_object_path");
+      requirePaths("paths", 2);
       break;
     case "prefixed_field_equals":
       requirePath("path");

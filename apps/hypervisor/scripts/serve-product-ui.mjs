@@ -228,6 +228,174 @@ const PORT = Number(process.env.PORT || 4173);
 const PRODUCT_UI_PORT = Number(process.env.PRODUCT_UI_PORT || 9301);
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const OPERATIONS_PLANE_TIMEOUT_MS = 3_000;
+const DEFAULT_DAEMON_PROJECTION_TIMEOUT_MS = 10_000;
+// The M4 owner readouts resolve strict, Agentgres-backed projections. The selected proof profile
+// demonstrated that a 10-second debug-process deadline can expire while the same direct owner
+// reads remain healthy. Keep a hard two-minute bound: Goal Space shares it across its five serial
+// reads, while the two GoalRun timeline reads run concurrently under the same selected bound.
+const M4_OWNER_PROJECTION_TIMEOUT_MS = 120_000;
+const DAEMON_IDENTITY_HEADERS = [
+  "authorization",
+  "cookie",
+  "x-forwarded-host",
+  "x-forwarded-for",
+  "x-ioi-forwarded",
+];
+const LOOPBACK_REMOTE_ADDRESSES = new Set([
+  "127.0.0.1",
+  "::1",
+  "::ffff:127.0.0.1",
+]);
+// Construct every product-shell -> daemon request from the same bounded identity envelope.
+// Forwarding less can silently promote an exposed or authenticated request to the daemon's
+// loopback development principal; forwarding more would let arbitrary browser headers become
+// daemon authority inputs.
+function daemonRequestHeaders(req, { includeContentType = false } = {}) {
+  const headers = includeContentType
+    ? { "content-type": req.headers["content-type"] || "application/json" }
+    : {};
+  for (const name of DAEMON_IDENTITY_HEADERS) {
+    if (req.headers[name]) headers[name] = req.headers[name];
+  }
+  const remote = req.socket?.remoteAddress || "";
+  if (remote && !LOOPBACK_REMOTE_ADDRESSES.has(remote)) {
+    headers["x-ioi-forwarded"] ||= "product-shell";
+  }
+  return headers;
+}
+async function readDaemonJsonProjection(
+  path,
+  headers,
+  timeoutMs = DEFAULT_DAEMON_PROJECTION_TIMEOUT_MS,
+) {
+  try {
+    const { response, payload } = await readJsonWithDeadline(
+      fetch,
+      `${DAEMON}${path}`,
+      timeoutMs,
+      { headers },
+    );
+    return { ok: response.ok, status: response.status, body: payload };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 503,
+      body: {
+        error: {
+          code: error?.code === "plane_timeout" ? "plane_timeout" : "daemon_unavailable",
+        },
+      },
+    };
+  }
+}
+function daemonProjectionCode(response, fallback) {
+  return response?.body?.error?.code || response?.body?.reason || fallback;
+}
+// The retained serve-side run cache and its v1 transcript-derived conversation projections do not
+// carry principal ownership coordinates. They remain available to the explicit loopback operator,
+// but every browser-callable cache helper must adjudicate deployment posture before it parses a
+// caller-supplied identity or touches listRuns()/getRun(). This is deliberately stricter than merely
+// forwarding an authenticated cookie: authenticated managed callers still cannot select global
+// legacy cache truth until that family gains an owner contract and migration semantics.
+async function localRunCacheAdmission(req) {
+  const headers = daemonRequestHeaders(req);
+  const posture = await readDaemonJsonProjection(
+    "/v1/hypervisor/auth/policy",
+    headers,
+  );
+  if (!posture.ok) {
+    return {
+      ok: false,
+      status: posture.status >= 400 ? posture.status : 503,
+      code: daemonProjectionCode(posture, "agent_run_timeline_unavailable"),
+      headers,
+    };
+  }
+  if (posture.body?.deployment_auth_posture !== "local_development") {
+    return {
+      ok: false,
+      status: 403,
+      code: "agent_run_timeline_principal_scope_unavailable",
+      headers,
+    };
+  }
+  return { ok: true, status: 200, code: null, headers };
+}
+function refuseLocalRunCacheJson(res, admission) {
+  res.writeHead(admission.status, {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-cache",
+  });
+  res.end(JSON.stringify({
+    ok: false,
+    error: {
+      code: admission.code,
+      message: "Run transcript projection is unavailable; no run, environment, draft, transcript, or conversation truth is resolved or shown.",
+    },
+  }));
+}
+function internallyOwnedManagedRoute(req, pathname) {
+  const method = String(req?.method || "GET").toUpperCase();
+  const exactRunCacheRead = /^\/__ioi\/agent-runs\/[^/]+\/(?:timeline|conversation(?:\/history|\/live)?)$/.test(pathname);
+  const exactEnvironmentRunRead = /^\/__ioi\/env-latest-run\/[^/]+$/.test(pathname);
+  const exactRunPublish = /^\/__ioi\/run-publish\/[^/]+$/.test(pathname);
+  return pathname === "/__ioi/login" ||
+    pathname.startsWith("/__ioi/login/sso/") ||
+    pathname.startsWith("/__ioi/invite/") ||
+    pathname === "/__ioi/logout" ||
+    (method === "GET" && (
+      pathname === "/__ioi/goal-space" ||
+      pathname === "/__ioi/run-timeline" ||
+      pathname.startsWith("/__ioi/run-timeline/") ||
+      pathname === "/__ioi/run-replay" ||
+      pathname === "/__ioi/work-ledger" ||
+      exactRunCacheRead ||
+      exactEnvironmentRunRead
+    )) ||
+    (method === "POST" && exactRunPublish);
+}
+async function unreboundInternalSurfaceAdmission(req) {
+  const headers = daemonRequestHeaders(req);
+  const posture = await readDaemonJsonProjection(
+    "/v1/hypervisor/auth/policy",
+    headers,
+  );
+  if (!posture.ok) {
+    return {
+      ok: false,
+      status: posture.status >= 400 ? posture.status : 503,
+      code: daemonProjectionCode(posture, "internal_surface_authority_unavailable"),
+    };
+  }
+  if (posture.body?.deployment_auth_posture !== "local_development") {
+    return {
+      ok: false,
+      status: 403,
+      code: "unrebound_internal_surface_principal_scope_unavailable",
+    };
+  }
+  return { ok: true, status: 200, code: null };
+}
+function refuseUnreboundInternalSurface(req, res, admission) {
+  const message =
+    "This unrebound internal surface has no principal-scoped projection and is unavailable outside local development.";
+  if (String(req.headers.accept || "").includes("application/json")) {
+    res.writeHead(admission.status, {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-cache",
+    });
+    res.end(JSON.stringify({
+      ok: false,
+      error: { code: admission.code, message },
+    }));
+    return;
+  }
+  res.writeHead(admission.status, {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-cache",
+  });
+  res.end(`<!doctype html><meta charset="utf-8"><main data-error-code="${CX_ESC(admission.code)}"><h1>Surface unavailable</h1><p>${CX_ESC(message)}</p></main>`);
+}
 const unavailableOperationsPlane = (code, status = 0) => ({
   __ioi_plane_unavailable: true,
   __ioi_code: code || "plane_unavailable",
@@ -961,6 +1129,120 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
     ${strip("home-resume", "Resume", "recent sessions and still-running work", sessions, "No sessions yet — open the rail's New Session launcher to start governed work.", resumeBody)}
     ${strip("home-proof", "Newest proof", "the most recent Provenance entries, verbatim", ledger, "No admitted work yet — the proof stream is empty.", proofBody)}`;
   return automationsShell("Governed Work Readout", inner);
+}
+
+// M4 minimum product/operator projection. This is deliberately a read-only readout inside the
+// existing owned shell: it does not create a new application, mutate room truth, or substitute
+// client state for an unavailable owner projection. Every graph/discussion fact below comes from
+// the daemon's reconstructable Agentgres-backed projections at the exact room head.
+function renderM4GoalSpaceProjection({
+  requestedRoom,
+  roomResponse,
+  graphResponse,
+  discussionResponse,
+  replayResponse,
+  productResponse,
+}) {
+  const payload = (response, key) => response?.ok ? response.body?.[key] : null;
+  const room = payload(roomResponse, "outcome_room");
+  const graph = payload(graphResponse, "collaborative_work_graph");
+  const discussion = payload(discussionResponse, "discussion_projection");
+  const replay = replayResponse?.ok ? replayResponse.body : null;
+  // This selected, principal-filtered projection is the only route allowed to supply GoalRun,
+  // WorkResult, or OutcomeDelta product state. Fetching global owner registries and filtering in
+  // the shell would disclose bytes before the client filter ran.
+  const selected = productResponse?.ok ? productResponse.body : null;
+  const memberRuns = selected?.member_goal_runs || [];
+  const results = selected?.work_results || [];
+  const deltas = selected?.outcome_deltas || [];
+  const status = (response, owner) => response?.ok
+    ? `<span class="pill ok">owner projection available</span>`
+    : `<span class="pill warn">${CX_ESC(owner)} unavailable · HTTP ${CX_ESC(String(response?.status || 0))} · ${CX_ESC(response?.body?.error?.code || "daemon_unavailable")}</span>`;
+  const refs = (values, empty = "honest empty") => Array.isArray(values) && values.length
+    ? values.map((value) => `<code>${CX_ESC(String(value))}</code>`).join(" ")
+    : `<span class="sub" style="margin:0">${CX_ESC(empty)}</span>`;
+  const sourceReceiptRefs = (values, owner) => Array.isArray(values) && values.length
+    ? values.map((value) => `<code data-source-owner="${CX_ESC(owner)}">${CX_ESC(String(value))}</code>`).join(" ")
+    : `<span class="sub" style="margin:0">honest empty — no source receipt resolved</span>`;
+  const exactRefs = (left, right) => Array.isArray(left) && Array.isArray(right) &&
+    left.length === right.length && left.every((value, index) => value === right[index]);
+  const json = (value) => `<pre>${CX_ESC(JSON.stringify(value, null, 2))}</pre>`;
+
+  if (!requestedRoom) {
+    return automationsShell("Goal Space proof projection", `<div id="m4-goal-space" class="empty">A room identity is required. Open <code>/__ioi/goal-space?room=&lt;outcome-room tail&gt;</code>. No room is inferred from client state.</div>`);
+  }
+  if (!room) {
+    return automationsShell("Goal Space proof projection", `<div id="m4-goal-space"><h1>Goal Space proof projection</h1><p class="sub">Read-only M4 selected-profile projection over daemon-owned room truth.</p><div class="empty">OutcomeRoom <code>${CX_ESC(requestedRoom)}</code> is unavailable: HTTP ${CX_ESC(String(roomResponse?.status || 0))} · ${CX_ESC(roomResponse?.body?.error?.code || "daemon_unavailable")}. No fixture, inferred head, or cached client completion is shown.</div></div>`);
+  }
+
+  const roomSourceReceiptRefs = room.admission_and_replay_refs || [];
+  const replaySourceReceiptRefs = replay?.operations?.map((operation) => operation.receipt_ref) || [];
+  const projectionAgreement = graph && discussion && replay &&
+    selected?.outcome_room &&
+    graph.source_room_revision === room.latest_sequence &&
+    discussion.source_room_revision === room.latest_sequence &&
+    selected.outcome_room.latest_sequence === room.latest_sequence &&
+    graph.source_room_state_root === room.room_state_root &&
+    discussion.source_room_state_root === room.room_state_root &&
+    selected.outcome_room.room_state_root === room.room_state_root &&
+    replay.latest_sequence === room.latest_sequence &&
+    replay.room_state_root === room.room_state_root &&
+    replay.room_receipt_root === room.room_receipt_root &&
+    selected.outcome_room.room_receipt_root === room.room_receipt_root &&
+    exactRefs(graph.source_admission_receipt_refs, roomSourceReceiptRefs) &&
+    exactRefs(discussion.source_admission_receipt_refs, roomSourceReceiptRefs) &&
+    exactRefs(selected.source_admission_receipt_refs, roomSourceReceiptRefs) &&
+    exactRefs(replaySourceReceiptRefs, roomSourceReceiptRefs) &&
+    selected.payload_refs_exported === false &&
+    selected.payload_bytes_exported === false;
+  const roomFacts = `<dl class="grid" id="m4-room-state" data-room-ref="${CX_ESC(room.outcome_room_id)}" data-room-state-root="${CX_ESC(room.room_state_root)}" data-room-receipt-root="${CX_ESC(room.room_receipt_root)}">
+    <dt>OutcomeRoom</dt><dd><code>${CX_ESC(room.outcome_room_id)}</code></dd>
+    <dt>Bounded System</dt><dd><code>${CX_ESC(room.system_id)}</code></dd>
+    <dt>Package · genesis</dt><dd><code>${CX_ESC(room.package_id)}</code><br><code>${CX_ESC(room.genesis_ref)}</code></dd>
+    <dt>Constitution · profile</dt><dd><code>${CX_ESC(room.constitution_ref)}</code><br><code>${CX_ESC(room.active_profile_refs?.deployment_profile_ref)}</code></dd>
+    <dt>Head</dt><dd>revision <b>${CX_ESC(String(room.latest_sequence))}</b> · <code>${CX_ESC(room.room_state_root)}</code></dd>
+    <dt>Receipt root</dt><dd><code>${CX_ESC(room.room_receipt_root)}</code></dd>
+    <dt>Topology</dt><dd><span class="pill ok">${CX_ESC(room.coordination_topology)}</span></dd>
+    <dt>Member GoalRuns</dt><dd>${memberRuns.length ? memberRuns.map((run) => `<code data-member-goal-run-ref="${CX_ESC(run.goal_run_ref || "")}">${CX_ESC(run.goal_run_ref || "")}</code> <span class="pill muted">${CX_ESC(run.status || "unknown")}</span>`).join(" ") : `<span class="sub" style="margin:0">honest empty</span>`}</dd>
+  </dl>`;
+  const directRows = results.map((result) => `<tr data-work-result-ref="${CX_ESC(result.work_result_id)}" data-admission-receipt="${result.admission_receipt_ref ? "present" : "absent"}"><td><code>${CX_ESC(result.work_result_id)}</code></td><td><span class="pill ${result.outcome_class === "positive" ? "ok" : "warn"}">${CX_ESC(result.outcome_class || result.status || "unknown")}</span></td><td>${CX_ESC(typeof result.uncertainty === "string" ? result.uncertainty : JSON.stringify(result.uncertainty ?? null))}</td><td>${refs([result.admission_receipt_ref].filter(Boolean), "receipt unavailable")}</td></tr>`).join("");
+  const deltaRows = deltas.map((delta) => `<tr data-outcome-delta-ref="${CX_ESC(delta.outcome_delta_id)}" data-admission-receipt="${delta.admission_receipt_ref ? "present" : "absent"}"><td><code>${CX_ESC(delta.outcome_delta_id)}</code></td><td>${CX_ESC(delta.delta_kind || "")}</td><td><code>${CX_ESC(delta.proposed_by_ref || "")}</code></td><td><span class="pill muted">${CX_ESC(delta.status || "proposed")}</span></td><td>${refs([delta.admission_receipt_ref].filter(Boolean), "receipt unavailable")}</td></tr>`).join("");
+  const graphFacts = graph ? `<dl class="grid" id="m4-graph-state" data-source-room-revision="${CX_ESC(String(graph.source_room_revision))}" data-source-room-state-root="${CX_ESC(graph.source_room_state_root)}">
+    <dt>Exact source head</dt><dd>revision <b>${CX_ESC(String(graph.source_room_revision))}</b> · <code>${CX_ESC(graph.source_room_state_root)}</code></dd>
+    <dt>GoalRuns</dt><dd>${refs(graph.member_goal_run_refs)}</dd>
+    <dt>Participants</dt><dd>${refs(graph.participant_refs)}</dd>
+    <dt>Frontier</dt><dd>${refs(graph.frontier_item_refs)}</dd>
+    <dt>Claims</dt><dd>${refs(graph.work_claim_refs)}</dd>
+    <dt>Attempts · findings</dt><dd>${refs([...(graph.attempt_refs || []), ...(graph.finding_refs || [])])}</dd>
+    <dt>Challenges</dt><dd>${refs(graph.verifier_challenge_refs)}</dd>
+    <dt>Results · deltas</dt><dd>${refs([...(graph.work_result_refs || []), ...(graph.outcome_delta_refs || [])])}</dd>
+    <dt>Source receipts</dt><dd>${sourceReceiptRefs(graph.source_admission_receipt_refs, "graph")}</dd>
+    <dt>Flow labels</dt><dd>${refs(graph.information_flow_label_refs, "honest empty — no label was admitted")}</dd>
+    <dt>Projection posture</dt><dd><span class="pill ${graph.authoritative === false && graph.client_writable === false ? "ok" : "warn"}">derived · non-authoritative · read-only</span></dd>
+  </dl>` : `<div id="m4-graph-state" class="empty">Collaborative graph ${status(graphResponse, "CollaborativeWorkGraph")}. No client reconstruction is shown.</div>`;
+  const discussionFacts = discussion ? `<dl class="grid" id="m4-discussion-state" data-source-room-revision="${CX_ESC(String(discussion.source_room_revision))}" data-source-room-state-root="${CX_ESC(discussion.source_room_state_root)}">
+    <dt>Exact source head</dt><dd>revision <b>${CX_ESC(String(discussion.source_room_revision))}</b> · <code>${CX_ESC(discussion.source_room_state_root)}</code></dd>
+    <dt>Visibility policy</dt><dd><code>${CX_ESC(discussion.visibility_policy_ref)}</code></dd>
+    <dt>Permitted subjects</dt><dd>${refs(discussion.permitted_subject_refs)}</dd>
+    <dt>Messages</dt><dd>${refs(discussion.message_refs, "honest empty — M4 admits no discussion messages")}</dd>
+    <dt>Redaction summaries</dt><dd>${refs(discussion.redaction_summary_refs, "honest empty — no redaction summary was admitted")}</dd>
+    <dt>Flow labels</dt><dd>${refs(discussion.information_flow_label_refs, "honest empty — no label was admitted")}</dd>
+    <dt>Replay cursor</dt><dd><code>${CX_ESC(discussion.replay_cursor)}</code></dd>
+    <dt>Source receipts</dt><dd>${sourceReceiptRefs(discussion.source_admission_receipt_refs, "discussion")}</dd>
+    <dt>Projection posture</dt><dd><span class="pill ${discussion.authoritative === false && discussion.client_writable === false ? "ok" : "warn"}">derived · non-authoritative · read-only</span></dd>
+  </dl>` : `<div id="m4-discussion-state" class="empty">Discussion ${status(discussionResponse, "OutcomeRoomDiscussionProjection")}. No placeholder transcript is shown.</div>`;
+  const inner = `<div id="m4-goal-space" data-owner-projection-state="${projectionAgreement ? "exact" : "unavailable"}"><h1>Goal Space · hosted OutcomeRoom proof</h1>
+    <p class="sub">Minimum M4 product/operator projection inside the restored product shell. The daemon and Agentgres own every object, head, receipt, and refusal; this page has no write path.</p>
+    <div class="row">${status(roomResponse, "OutcomeRoom")} ${status(graphResponse, "CollaborativeWorkGraph")} ${status(discussionResponse, "OutcomeRoomDiscussionProjection")} ${status(productResponse, "selected product projection")} <span id="m4-projection-agreement" data-room-ref="${CX_ESC(room.outcome_room_id)}" data-room-state-root="${CX_ESC(room.room_state_root)}" data-room-receipt-root="${CX_ESC(room.room_receipt_root)}" class="pill ${projectionAgreement ? "ok" : "warn"}">${projectionAgreement ? "all projections match the room head" : "projection head mismatch or unavailable"}</span></div>
+    <h2>Bounded-System context</h2>${roomFacts}
+    <h2>Admitted member GoalRun result and replay</h2>${directRows ? `<table id="m4-direct-results"><thead><tr><th>WorkResult</th><th>Outcome</th><th>Uncertainty</th><th>Admission receipt</th></tr></thead><tbody>${directRows}</tbody></table>` : `<div id="m4-direct-results" class="empty">No member GoalRun WorkResult is available. Completion is not inferred.</div>`}
+    ${deltaRows ? `<table id="m4-direct-deltas"><thead><tr><th>OutcomeDelta</th><th>Kind</th><th>Proposer</th><th>Posture</th><th>Admission receipt</th></tr></thead><tbody>${deltaRows}</tbody></table>` : `<div id="m4-direct-deltas" class="empty">No member GoalRun OutcomeDelta is available. Completion is not inferred.</div>`}
+    <h2>Collaborative Work graph</h2>${graphFacts}
+    <h2>Discussion projection</h2>${discussionFacts}
+    <h2>Replay and export boundary</h2>${replay ? json({ latest_sequence: replay.latest_sequence, room_state_root: replay.room_state_root, room_receipt_root: replay.room_receipt_root, latest_transition_commitment_ref: replay.latest_transition_commitment_ref, payload_bytes_exported: replay.payload_bytes_exported, operation_count: replay.operations?.length || 0 }) : `<div class="empty">Replay ${status(replayResponse, "Agentgres replay")}. No cached replay is shown.</div>`}
+    <h2>Explicit nonclaims</h2><div id="m4-nonclaims" data-product-posture="read-only-derived" data-payload-exported="false" data-room-admission-route-exposed="false" class="empty">Hosted admission only. No external participant, federation, cross-sovereign admission, AIIP discovery, wallet authority, settlement, P0, release closure, or complete M6 application journey is claimed.</div>
+  </div>`;
+  return automationsShell("Goal Space proof projection", inner);
 }
 
 // ---- Feedback & Annotations (native primitive, first slice over the NEW daemon plane).
@@ -1959,6 +2241,8 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
 function renderGoalRunTimeline(g, invocations, verifications, events) {
   const enc = encodeURIComponent;
   const pill = (cls, label) => `<span class="pill ${cls}">${CX_ESC(label)}</span>`;
+  const resultPill = (cls, state, label) =>
+    `<span class="pill ${cls}" data-result-state="${CX_ESC(state)}">${CX_ESC(label)}</span>`;
   const stPill = (st) => pill(st === "complete" || st === "completed" ? "ok" : (st === "blocked" || st === "failed") ? "warn" : "muted", st || "—");
   const grid = (pairs) => `<dl class="grid">${pairs.map(([k, v]) => `<dt>${CX_ESC(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
   const code = (v) => v ? `<code>${CX_ESC(String(v))}</code>` : "—";
@@ -1971,19 +2255,34 @@ function renderGoalRunTimeline(g, invocations, verifications, events) {
     return v ? v.verdict : "—";
   };
   const invRows = invocations.map((inv) => {
-    const ir = inv.implementation_result || {};
+    const canonicalResult = inv.implementation_result || null;
+    const pendingCandidate = inv.implementation_result_candidate || null;
+    const retainedProvenance = inv.execution_provenance || null;
+    const executionFacts = pendingCandidate || retainedProvenance || {};
+    const resultState = canonicalResult
+      ? `<div>${resultPill("ok", "admitted-result", "admitted result")} ${code(canonicalResult.implementation_result_id)} → ${code(canonicalResult.work_result_ref)}</div>${retainedProvenance ? `<div style="margin-top:4px">${resultPill("muted", "retained-provenance", "retained provenance")} ${code(retainedProvenance.source_candidate_ref)} · ${code(retainedProvenance.output_commitment)}</div>` : ""}`
+      : pendingCandidate
+        ? `${resultPill("muted", "candidate", "candidate")} ${code(pendingCandidate.candidate_ref)}`
+        : pill("muted", "no result");
+    const changedFiles = executionFacts.changed_files || [];
     const evCount = events.filter((e) => e.harness_invocation_ref === inv.harness_invocation_id).length;
     return `<tr>
       <td><b>${CX_ESC(inv.role_key || "")}</b><div style="color:#878a93;font-size:11.5px">${CX_ESC(inv.harness || "")} · <code style="font-size:10.5px">${CX_ESC(inv.model_route_ref || "")}</code></div></td>
       <td>${stPill(inv.status)}</td>
       <td>${pill(verdictOf(inv) === "pass" ? "ok" : verdictOf(inv) === "fail" ? "warn" : "muted", "verify: " + verdictOf(inv))}</td>
       <td>${evCount} events</td>
-      <td>${(ir.changed_files || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td>
+      <td>${resultState}<div style="margin-top:4px">${(changedFiles || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</div></td>
       <td>${inv.memory_projection_ref ? `<a href="/__ioi/intelligence/projections/${enc(String(inv.memory_projection_ref).replace("memory-projection://", ""))}/explain" title="explain this projection (vault truth → harness prompt)"><code style="font-size:10px">${CX_ESC(String(inv.memory_projection_ref).slice(0, 40))}…</code></a>` : "—"}</td>
-      <td>${ir.transcript_run_ref ? `<a href="/__ioi/run-timeline/${enc(ir.transcript_run_ref)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}<div style="color:#5f626b;font-size:10.5px">${CX_ESC((ir.state_root || "").slice(0, 22))}</div></td>
+      <td>${executionFacts.transcript_run_ref ? `<a href="/__ioi/run-timeline/${enc(executionFacts.transcript_run_ref)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}<div style="color:#5f626b;font-size:10.5px">${CX_ESC((executionFacts.state_root || "").slice(0, 22))}</div></td>
     </tr>`;
   }).join("");
-  const artifacts = invocations.flatMap((inv) => ((inv.implementation_result || {}).candidate_artifact_refs || []).map((r) => `<li><code>${CX_ESC(r)}</code> <span class="pill muted">${CX_ESC(inv.role_key || "")}</span></li>`)).join("");
+  const artifacts = invocations.flatMap((inv) => {
+    const canonicalRefs = (inv.implementation_result || {}).artifact_refs || [];
+    const candidateRefs = (inv.implementation_result_candidate || inv.execution_provenance || {}).candidate_artifact_refs || [];
+    const refs = canonicalRefs.length ? canonicalRefs : candidateRefs;
+    const label = canonicalRefs.length ? "admitted" : "candidate";
+    return refs.map((r) => `<li><code>${CX_ESC(r)}</code> <span class="pill ${canonicalRefs.length ? "ok" : "muted"}">${CX_ESC(inv.role_key || "")} · ${label}</span></li>`);
+  }).join("");
   const rec = g.reconciliation_ref ? null : null;
   const recSection = g.reconciliation_ref
     ? grid([
@@ -2011,7 +2310,7 @@ function renderGoalRunTimeline(g, invocations, verifications, events) {
     <h2>Roles</h2>${roles}
     <h2>Task briefs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the durable contract (rendered prompts are adapter-private)</span></h2><ul>${briefs || "<li>—</li>"}</ul>
     <h2>Invocations (${invocations.length})</h2>${invocations.length ? `<table><thead><tr><th>Role</th><th>Status</th><th>Verifier</th><th>Events</th><th>Changed files</th><th>Memory projection</th><th>Proof</th></tr></thead><tbody>${invRows}</tbody></table>` : `<div class="empty">Not started.</div>`}
-    <h2>Candidate artifacts <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— isolated per implementer until reconciliation</span></h2><ul>${artifacts || "<li>—</li>"}</ul>
+    <h2>Invocation outputs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— candidates stay non-canonical until WorkResult convergence</span></h2><ul>${artifacts || "<li>—</li>"}</ul>
     <h2>Reconciliation</h2>${recSection}
     ${(g.blockers || []).length ? `<h2>Blockers (explicit partial)</h2><ul>${g.blockers.map((b) => `<li><span class="pill warn">${CX_ESC(b.reason_code || "")}</span> ${CX_ESC(b.message || "")}</li>`).join("")}</ul>` : ""}
     <h2>Proof</h2>${proof}`;
@@ -6897,6 +7196,10 @@ async function handleEstateRequest(req, res, body) {
       const host = (req.headers.host || "").split(":")[0];
       if (host && host !== "127.0.0.1" && host !== "localhost" && host !== "::1") req.headers["x-forwarded-host"] = req.headers.host;
     }
+    const remoteAddress = req.socket?.remoteAddress || "";
+    if (remoteAddress && !LOOPBACK_REMOTE_ADDRESSES.has(remoteAddress)) {
+      req.headers["x-ioi-forwarded"] ||= "product-shell";
+    }
     // ---- Native container contract (#65): ONE choke point renders the embedded mode for EVERY
     // estate surface — flat handlers and bound modules alike. Any /__ioi/* GET carrying embed=1
     // has its final whole-document HTML rewritten (structural global-rail removal + embed
@@ -6929,6 +7232,20 @@ async function handleEstateRequest(req, res, body) {
       } catch { res.writeHead(404); res.end("not found"); }
       return;
     }
+    // Unrebound internal surfaces still aggregate global daemon families and therefore have no
+    // principal-scoped managed-deployment contract. Keep them local-only until their app-by-app
+    // M6 rebind; only authentication flows and the explicitly owner-adjudicated proof/cache routes
+    // cross this fence. This is a boundary refusal, not an early surface migration.
+    if (
+      pathname.startsWith("/__ioi/") &&
+      !internallyOwnedManagedRoute(req, pathname)
+    ) {
+      const admission = await unreboundInternalSurfaceAdmission(req);
+      if (!admission.ok) {
+        refuseUnreboundInternalSurface(req, res, admission);
+        return;
+      }
+    }
     // Test-only fault route (mounted ONLY when the runtime-safety verifier spawns the serve with
     // this flag): proves the error boundary isolates a throwing surface to a 500 on that route.
     if (process.env.IOI_APP_RUNTIME_TEST_ROUTE === "1" && pathname === "/__ioi/__test/boom" && req.method === "GET") {
@@ -6938,8 +7255,34 @@ async function handleEstateRequest(req, res, body) {
     // run: live session runs (serve registry), durable operation/execution transcripts (daemon),
     // and IOI Agent coordination runs. Each row opens its owned timeline; nothing is synthesized.
     if ((pathname === "/__ioi/run-timeline" || pathname === "/__ioi/run-replay") && req.method === "GET" && !(new URLSearchParams((req.url || "").split("?")[1] || "").get("runId"))) {
-      const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [trRes, grRes] = await Promise.all([J("/v1/hypervisor/agent-run-transcripts"), J("/v1/goal-orchestration/goal-runs")]);
+      const replayHeaders = daemonRequestHeaders(req);
+      const [trRead, grRead, postureRead] = await Promise.all([
+        readDaemonJsonProjection("/v1/hypervisor/agent-run-transcripts", replayHeaders),
+        readDaemonJsonProjection("/v1/goal-orchestration/goal-runs", replayHeaders),
+        readDaemonJsonProjection("/v1/hypervisor/auth/policy", replayHeaders),
+      ]);
+      // Prefer the owner-filtered GoalRun refusal when more than one source refuses. Its typed
+      // response distinguishes authentication, exposure, and owner posture without disclosing
+      // whether any transcript or GoalRun exists.
+      const unavailable = !grRead.ok ? grRead : !trRead.ok ? trRead : !postureRead.ok ? postureRead : null;
+      if (unavailable) {
+        const status = unavailable.status >= 400 ? unavailable.status : 503;
+        const code = daemonProjectionCode(unavailable, "run_replay_projection_unavailable");
+        res.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(automationsShell("Run Replay unavailable", `<div id="run-replay-unavailable" class="empty" data-error-code="${CX_ESC(code)}">Run Replay unavailable: HTTP ${CX_ESC(String(status))} · <code>${CX_ESC(code)}</code>. No local run cache, transcript, GoalRun, receipt, or replay truth is shown.</div>`));
+        return;
+      }
+      // The legacy transcript family and serve-side run cache do not yet carry principal ownership
+      // coordinates. They are an explicit local-operator projection only; managed/exposed callers
+      // fail closed before a single cache row is enumerated.
+      if (postureRead.body?.deployment_auth_posture !== "local_development") {
+        const code = "run_replay_principal_scope_unavailable";
+        res.writeHead(403, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(automationsShell("Run Replay unavailable", `<div id="run-replay-unavailable" class="empty" data-error-code="${code}">Run Replay unavailable: HTTP 403 · <code>${code}</code>. The retained transcript family has no principal ownership coordinates, so no local run cache, transcript, GoalRun, receipt, or replay truth is shown on a managed deployment.</div>`));
+        return;
+      }
+      const trRes = trRead.body;
+      const grRes = grRead.body;
       const rows = [];
       listRuns().forEach((r) => rows.push({ kind: "session", title: r.title || r.prompt || "agent session", id: r.id, status: r.status || "", at: r.createdAt || "", root: "", href: `/__ioi/run-timeline/${encodeURIComponent(r.id)}` }));
       (trRes.runs || []).forEach((t) => rows.push({ kind: t.kind === "harness-profile-op" || t.kind === "model-route-op" ? "admin-op" : "execution", title: `${t.op || t.kind || "run"}${t.profile_ref ? " · " + t.profile_ref : ""}`, id: t.run_id || "", status: t.status || "", at: t.started_at || t.recorded_at || "", root: t.state_root || "", href: `/__ioi/run-timeline/${encodeURIComponent(t.run_id || "")}` }));
@@ -6973,16 +7316,66 @@ async function handleEstateRequest(req, res, body) {
       let envId = "";
       if (rest.startsWith("goal-run/")) {
         // GoalRun proof page — the orchestration ladder as sections (Goal, Roles, Invocations,
-        // Candidate Artifacts, Reconciliation, Proof), rendered from the daemon records.
+        // Candidate Artifacts, Reconciliation, Proof), rendered from the daemon records. Both
+        // reads carry the caller's bounded identity envelope: the product shell must never turn
+        // an exposed anonymous or wrong-owner request into loopback operator authority.
         const grid = decodeURIComponent(rest.slice("goal-run/".length).split("/")[0]);
+        const timelineHeaders = daemonRequestHeaders(req);
+        const goalPath = `/v1/goal-orchestration/goal-runs/${encodeURIComponent(grid)}`;
         const [gRes, eRes] = await Promise.all([
-          fetch(`${DAEMON}/v1/goal-orchestration/goal-runs/${encodeURIComponent(grid)}`).then((x) => x.json()).catch(() => ({})),
-          fetch(`${DAEMON}/v1/goal-orchestration/goal-runs/${encodeURIComponent(grid)}/events`).then((x) => x.json()).catch(() => ({})),
+          readDaemonJsonProjection(
+            goalPath,
+            timelineHeaders,
+            M4_OWNER_PROJECTION_TIMEOUT_MS,
+          ),
+          readDaemonJsonProjection(
+            `${goalPath}/events`,
+            timelineHeaders,
+            M4_OWNER_PROJECTION_TIMEOUT_MS,
+          ),
         ]);
-        res.writeHead(gRes.ok ? 200 : 404, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-        res.end(gRes.ok
-          ? renderGoalRunTimeline(gRes.goal_run, eRes.invocations || [], eRes.verifications || [], eRes.events || [])
-          : automationsShell("GoalRun", `<div class="empty">GoalRun not found.</div>`));
+        const unavailable = !gRes.ok ? gRes : !eRes.ok ? eRes : null;
+        if (unavailable) {
+          const status = unavailable.status >= 400 ? unavailable.status : 503;
+          const code = daemonProjectionCode(unavailable, "goal_run_timeline_unavailable");
+          res.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+          res.end(automationsShell("GoalRun unavailable", `<div id="goal-run-timeline-unavailable" class="empty" data-error-code="${CX_ESC(code)}">GoalRun timeline unavailable: HTTP ${CX_ESC(String(status))} · <code>${CX_ESC(code)}</code>. No owner GoalRun, invocation, result, receipt, or replay truth is shown.</div>`));
+          return;
+        }
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(renderGoalRunTimeline(
+          gRes.body.goal_run,
+          eRes.body.invocations || [],
+          eRes.body.verifications || [],
+          eRes.body.events || [],
+        ));
+        return;
+      }
+      // Generic transcript, environment, and draft aliases resolve through the serve-side run
+      // cache, whose retained v1 records have no principal ownership coordinates. Adjudicate the
+      // deployment posture before decoding or looking up any caller-supplied identity, and before
+      // embedding a resolved identity into the timeline bootstrap document.
+      const genericTimelineHeaders = daemonRequestHeaders(req);
+      const genericTimelinePosture = await readDaemonJsonProjection(
+        "/v1/hypervisor/auth/policy",
+        genericTimelineHeaders,
+      );
+      if (!genericTimelinePosture.ok) {
+        const status = genericTimelinePosture.status >= 400
+          ? genericTimelinePosture.status
+          : 503;
+        const code = daemonProjectionCode(
+          genericTimelinePosture,
+          "agent_run_timeline_unavailable",
+        );
+        res.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(automationsShell("Run Timeline unavailable", `<div id="run-timeline-unavailable" class="empty" data-error-code="${CX_ESC(code)}">Run Timeline unavailable: HTTP ${CX_ESC(String(status))} · <code>${CX_ESC(code)}</code>. No run, environment, draft, transcript, or timeline identity is resolved or shown.</div>`));
+        return;
+      }
+      if (genericTimelinePosture.body?.deployment_auth_posture !== "local_development") {
+        const code = "agent_run_timeline_principal_scope_unavailable";
+        res.writeHead(403, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(automationsShell("Run Timeline unavailable", `<div id="run-timeline-unavailable" class="empty" data-error-code="${code}">Run Timeline unavailable: HTTP 403 · <code>${code}</code>. The retained run cache has no principal ownership coordinates, so no run, environment, draft, transcript, or timeline identity is resolved or shown on a managed deployment.</div>`));
         return;
       }
       if (rest.startsWith("env/")) {
@@ -7552,9 +7945,14 @@ async function handleEstateRequest(req, res, body) {
     // served context (Session Execution Binding, env-files, terminals, environments, threads).
     if (pathname.startsWith("/v1/")) {
       try {
+        // Preserve only the identity and deployment-posture headers the daemon itself
+        // adjudicates. Dropping these turns an authenticated shell request into the local
+        // development principal and can both break managed deployments and defeat
+        // owner-filtered projections such as GoalRunActivation reads.
+        const daemonHeaders = daemonRequestHeaders(req, { includeContentType: true });
         const upstream = await fetch(DAEMON + req.url, {
           method: req.method,
-          headers: { "Content-Type": "application/json" },
+          headers: daemonHeaders,
           body: ["GET", "HEAD"].includes(req.method) ? undefined : body,
         });
         const text = await upstream.text();
@@ -7760,8 +8158,17 @@ async function handleEstateRequest(req, res, body) {
     // Governed "Publish PR" command — orchestrates the wallet-authorized SCM publish crossing for a
     // run (challenge → mint grant → real git push to the connector remote) and records the receipt.
     if (pathname.startsWith("/__ioi/run-publish/") && req.method === "POST") {
+      const cacheAdmission = await localRunCacheAdmission(req);
+      if (!cacheAdmission.ok) {
+        refuseLocalRunCacheJson(res, cacheAdmission);
+        return;
+      }
       const runId = decodeURIComponent(pathname.slice("/__ioi/run-publish/".length).split("/")[0]);
-      const result = await publishRunViaConnector(runId).catch((e) => ({ ok: false, reason: String(e?.message || e) }));
+      const result = await publishRunViaConnector(
+        runId,
+        undefined,
+        cacheAdmission.headers,
+      ).catch((e) => ({ ok: false, reason: String(e?.message || e) }));
       res.writeHead(result.ok ? 200 : 409, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
       res.end(JSON.stringify(result));
       return;
@@ -8275,13 +8682,94 @@ async function handleEstateRequest(req, res, body) {
       res.end(renderHome(homeOps, homeLedger, homeSessions, homeApprovals, homeFoRuns));
       return;
     }
+    // ---- M4 Goal Space proof projection — read-only, inside the existing shell. It consumes
+    // exact daemon projections and renders unavailable owner truth as unavailable; it never
+    // offers a room/graph/discussion mutation or becomes a second replay owner.
+    if (pathname === "/__ioi/goal-space" && req.method === "GET") {
+      const roomId = (new URL(req.url, "http://x").searchParams.get("room") || "").trim();
+      const tail = roomId.replace(/^outcome-room:\/\//, "");
+      const projectionHeaders = daemonRequestHeaders(req);
+      const projectionDeadlineAt = Date.now() + M4_OWNER_PROJECTION_TIMEOUT_MS;
+      const J = async (path) => {
+        if (!tail) return { ok: false, status: 422, body: { error: { code: "outcome_room_ref_required" } } };
+        try {
+          const remainingMs = Math.max(1, projectionDeadlineAt - Date.now());
+          const { response, payload } = await readJsonWithDeadline(
+            fetch,
+            `${DAEMON}${path}`,
+            remainingMs,
+            { headers: projectionHeaders },
+          );
+          return { ok: response.ok, status: response.status, body: payload };
+        } catch (error) {
+          return { ok: false, status: 503, body: { error: { code: error?.code === "plane_timeout" ? "plane_timeout" : "daemon_unavailable" } } };
+        }
+      };
+      const refuseUnavailable = (response, fallbackCode = "goal_space_owner_projection_unavailable") => {
+        const status = response?.status >= 400 ? response.status : 503;
+        const code = daemonProjectionCode(response, fallbackCode);
+        res.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(automationsShell("Goal Space unavailable", `<div id="m4-goal-space-unavailable" class="empty" data-error-code="${CX_ESC(code)}">Goal Space unavailable: HTTP ${CX_ESC(String(status))} · <code>${CX_ESC(code)}</code>. No OutcomeRoom, graph, discussion, GoalRun, WorkResult, OutcomeDelta, receipt, or replay owner truth is shown.</div>`));
+      };
+      const base = `/v1/goal-orchestration/outcome-rooms/${encodeURIComponent(tail)}`;
+      // Serialize strict owner reads. These routes share the room mutation/recovery boundary and
+      // running them concurrently can starve the cheap room read behind four full censuses,
+      // causing the shell to render an unavailable branch despite healthy exact owner truth.
+      const roomResponse = await J(base);
+      if (!roomResponse.ok) {
+        refuseUnavailable(roomResponse);
+        return;
+      }
+      if (!roomResponse.body?.outcome_room) {
+        refuseUnavailable({ status: 502, body: { error: { code: "outcome_room_projection_invalid" } } });
+        return;
+      }
+      const graphResponse = await J(`${base}/collaborative-work-graph`);
+      const discussionResponse = await J(`${base}/discussion-projection`);
+      const replayResponse = await J(`${base}/replay`);
+      const productResponse = await J(`${base}/product-projection`);
+      const unavailable = [graphResponse, discussionResponse, replayResponse, productResponse]
+        .find((response) => !response.ok);
+      if (unavailable) {
+        refuseUnavailable(unavailable);
+        return;
+      }
+      if (!graphResponse.body?.collaborative_work_graph ||
+          !discussionResponse.body?.discussion_projection ||
+          !Array.isArray(replayResponse.body?.operations) ||
+          !productResponse.body?.outcome_room) {
+        refuseUnavailable({ status: 502, body: { error: { code: "goal_space_owner_projection_invalid" } } });
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderM4GoalSpaceProjection({ requestedRoom: roomId, roomResponse, graphResponse, discussionResponse, replayResponse, productResponse }));
+      return;
+    }
     // ---- Work Ledger — the owned proof stream (estate surface #10).
     if (pathname === "/__ioi/work-ledger" && req.method === "GET") {
       const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
-      const r = await fetch(`${DAEMON}/v1/hypervisor/work-ledger${projectId ? "?project=" + encodeURIComponent(projectId) : ""}`).then((x) => x.json()).catch(() => ({}));
+      const ledgerHeaders = daemonRequestHeaders(req);
+      const [ledgerRead, postureRead] = await Promise.all([
+        readDaemonJsonProjection(`/v1/hypervisor/work-ledger${projectId ? "?project=" + encodeURIComponent(projectId) : ""}`, ledgerHeaders),
+        readDaemonJsonProjection("/v1/hypervisor/auth/policy", ledgerHeaders),
+      ]);
+      const unavailable = !ledgerRead.ok ? ledgerRead : !postureRead.ok ? postureRead : null;
+      if (unavailable) {
+        const status = unavailable.status >= 400 ? unavailable.status : 503;
+        const code = daemonProjectionCode(unavailable, "work_ledger_projection_unavailable");
+        res.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(automationsShell("Work Ledger unavailable", `<div id="work-ledger-unavailable" class="empty" data-error-code="${CX_ESC(code)}">Work Ledger unavailable: HTTP ${CX_ESC(String(status))} · <code>${CX_ESC(code)}</code>. No run, receipt, state-root, artifact, or authority truth is shown.</div>`));
+        return;
+      }
+      if (postureRead.body?.deployment_auth_posture !== "local_development") {
+        const code = "work_ledger_principal_scope_unavailable";
+        res.writeHead(403, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(automationsShell("Work Ledger unavailable", `<div id="work-ledger-unavailable" class="empty" data-error-code="${code}">Work Ledger unavailable: HTTP 403 · <code>${code}</code>. The retained proof-stream family has no principal ownership coordinates, so no run, receipt, state-root, artifact, or authority truth is shown on a managed deployment.</div>`));
+        return;
+      }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       const wlSel = new URL(req.url, "http://x").searchParams;
-      res.end(renderWorkLedger(r.entries || [], projectId, { receipt: wlSel.get("receipt") || "", objectSet: wlSel.get("objectSet") || "" }));
+      res.end(renderWorkLedger(ledgerRead.body.entries || [], projectId, { receipt: wlSel.get("receipt") || "", objectSet: wlSel.get("objectSet") || "" }));
       return;
     }
     // ---- Operations — execution health over the automation substrate (estate surface #9).
@@ -9676,7 +10164,12 @@ async function handleEstateRequest(req, res, body) {
     }
     // Resolve an environment to its latest agent-run id — lets any surface's launcher open the owned
     // Run Timeline for the env in view (Workbench/Sessions/Studio/Automations/IOI.ai all key by env).
-    if (pathname.startsWith("/__ioi/env-latest-run/")) {
+    if (pathname.startsWith("/__ioi/env-latest-run/") && req.method === "GET") {
+      const cacheAdmission = await localRunCacheAdmission(req);
+      if (!cacheAdmission.ok) {
+        refuseLocalRunCacheJson(res, cacheAdmission);
+        return;
+      }
       const envId = decodeURIComponent(pathname.slice("/__ioi/env-latest-run/".length).split("/")[0]);
       const mine = listRuns().filter((r) => r.envId === envId).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
       const latest = mine[mine.length - 1] || null;
@@ -9686,8 +10179,14 @@ async function handleEstateRequest(req, res, body) {
     }
     // Owned Run Timeline projection (Hypervisor's transcript primitive) — daemon-truth, 6-part
     // governed-work turns. The UI surface at /__ioi/run-timeline/:id polls this.
-    if (pathname.startsWith("/__ioi/agent-runs/") && pathname.endsWith("/timeline")) {
+    if (pathname.startsWith("/__ioi/agent-runs/") && pathname.endsWith("/timeline") && req.method === "GET") {
+      const cacheAdmission = await localRunCacheAdmission(req);
+      if (!cacheAdmission.ok) {
+        refuseLocalRunCacheJson(res, cacheAdmission);
+        return;
+      }
       const runId = pathname.split("/__ioi/agent-runs/")[1].split("/")[0];
+      const timelineHeaders = cacheAdmission.headers;
       const run = getRun(runId);
       if (!run) {
         // Transcript-plane fallback: adapter/goal-run ops post agent-run transcripts (hpo_*)
@@ -9695,7 +10194,7 @@ async function handleEstateRequest(req, res, body) {
         // proof links from Work Ledger / IOI Agent results open a real page (never a 404).
         // Real fields only — request/activity/artifacts come straight off the transcript.
         try {
-          const tRes = await fetch(`${DAEMON}/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`).then((x) => x.json()).catch(() => null);
+          const tRes = await fetch(`${DAEMON}/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`, { headers: timelineHeaders }).then((x) => x.json()).catch(() => null);
           const tr = tRes?.run || (tRes?.run_id ? tRes : null);
           if (tr && tr.run_id === runId) {
             const out = (tr.step_results || [])[0]?.output || {};
@@ -9752,7 +10251,12 @@ async function handleEstateRequest(req, res, body) {
       res.end(JSON.stringify(timeline));
       return;
     }
-    if (pathname.startsWith("/__ioi/agent-runs/") && pathname.includes("/conversation")) {
+    if (pathname.startsWith("/__ioi/agent-runs/") && pathname.includes("/conversation") && req.method === "GET") {
+      const cacheAdmission = await localRunCacheAdmission(req);
+      if (!cacheAdmission.ok) {
+        refuseLocalRunCacheJson(res, cacheAdmission);
+        return;
+      }
       const runId = pathname.split("/__ioi/agent-runs/")[1].split("/")[0];
       if (pathname.endsWith("/conversation/history")) {
         const run = getRun(runId);

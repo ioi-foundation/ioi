@@ -1,0 +1,33 @@
+{
+  "schema_version": "ioi.goal-run-activation.v1",
+  "activation_id": "goal-run-activation://demo/create-1",
+  "activation_mode": "create",
+  "source_context": {
+    "source_kind": "hypervisor_session",
+    "source_ref": "intent://demo/not-a-session",
+    "source_owner_ref": "user://demo"
+  },
+  "requested_goal_run_profile_revision_ref": "goal-run-profile://demo/revision/sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "requested_goal_run_profile_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "existing_goal_ref": null,
+  "normalized_intent_ref": "intent://demo/goal-1",
+  "carried_context_refs": [],
+  "requested_constraint_refs": [],
+  "requesting_principal_ref": "user://demo",
+  "authority_decision_ref": "grant://demo/goal-create",
+  "review_requirement": "none",
+  "review_decision_ref": null,
+  "idempotency_key": "demo-create-1",
+  "admission_decision_ref": null,
+  "admitted_goal_ref": null,
+  "activation_receipt_ref": null,
+  "refusal_reason_code": null,
+  "expires_at": null,
+  "status": "submitted",
+  "non_grants": {
+    "authority_widening": "none",
+    "context_declassification": "none",
+    "room_membership": "none",
+    "budget_creation": "none"
+  }
+}

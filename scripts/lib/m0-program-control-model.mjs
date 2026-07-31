@@ -538,38 +538,62 @@ const ACTIVE_JAVASCRIPT_SERVER_SOURCE_COVERAGE = Object.freeze({
 
 const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
   "js-system-effect:apps/hypervisor/scripts/ioi-api-adapter.mjs#saveStore": Object.freeze({
+    discovery_binding: Object.freeze({
+      handler_call_sequence: Object.freeze(["mkdirSync", "writeFileSync"]),
+      system_effect_categories: Object.freeze(["filesystem"]),
+    }),
     surface: "hypervisor-product-ui-local-state",
     operation: "ANY /api/ioi.v1.UserService/SetPreference",
     method: "ANY",
     path: "/api/ioi.v1.UserService/SetPreference",
     active_state: "standing_serve_product_ui_compatibility_surface",
   }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6434":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6733":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["process.exit"]),
+        system_effect_categories: Object.freeze(["process"]),
+        source_line_includes: Object.freeze(["process.exit(1)"]),
+      }),
       surface: "hypervisor-product-ui-process",
       operation: "PROCESS_EXIT product-ui reference bundle unavailable",
       method: "PROCESS_EXIT",
       path: "serve-product-ui process",
       active_state: "standing_serve_product_ui_startup_failure",
     }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6438":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6737":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["spawn"]),
+        system_effect_categories: Object.freeze(["process"]),
+        source_line_includes: Object.freeze(["spawn(", "REF_SERVER"]),
+      }),
       surface: "hypervisor-product-ui-process",
       operation: "PROCESS_START product-ui reference server",
       method: "PROCESS_START",
       path: "REF_SERVER",
       active_state: "standing_serve_product_ui_startup",
     }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6444":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6741":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["process.exit"]),
+        system_effect_categories: Object.freeze(["process"]),
+        source_line_includes: Object.freeze(["productUi.on", '"exit"', "process.exit"]),
+      }),
       surface: "hypervisor-product-ui-process",
       operation: "PROCESS_EXIT propagate product-ui reference server exit",
       method: "PROCESS_EXIT",
       path: "serve-product-ui process",
       active_state: "standing_serve_product_ui_child_exit_handler",
     }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6442":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6742":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["productUi.kill"]),
+        system_effect_categories: Object.freeze(["process"]),
+        source_line_includes: Object.freeze(['"SIGINT"']),
+      }),
       surface: "hypervisor-product-ui-process",
       operation: "SIGINT terminate product-ui reference server",
       method: "SIGINT",
@@ -578,6 +602,10 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
     }),
   "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#waitForMirror":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["process.exit"]),
+        system_effect_categories: Object.freeze(["process"]),
+      }),
       surface: "hypervisor-product-ui-process",
       operation: "PROCESS_EXIT product-ui reference server startup timeout",
       method: "PROCESS_EXIT",
@@ -586,6 +614,10 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
     }),
   "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#module_scope_line_3701":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["process.exit"]),
+        system_effect_categories: Object.freeze(["process"]),
+      }),
       surface: "hypervisor-dev-replay",
       operation: "PROCESS_EXIT development replay startup failure",
       method: "PROCESS_EXIT",
@@ -594,14 +626,23 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
     }),
   "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#shutdown":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["process.exit"]),
+        system_effect_categories: Object.freeze(["process"]),
+      }),
       surface: "hypervisor-dev-replay",
       operation: "PROCESS_EXIT development replay signal shutdown",
       method: "PROCESS_EXIT",
       path: "hypervisor dev replay process",
       active_state: "development_replay_signal_handler",
     }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6443":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6743":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["productUi.kill"]),
+        system_effect_categories: Object.freeze(["process"]),
+        source_line_includes: Object.freeze(['"SIGTERM"']),
+      }),
       surface: "hypervisor-product-ui-process",
       operation: "SIGTERM terminate product-ui reference server",
       method: "SIGTERM",
@@ -610,6 +651,10 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
     }),
   "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#writeEvidenceFile":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["mkdirSync", "writeFileSync"]),
+        system_effect_categories: Object.freeze(["filesystem"]),
+      }),
       surface: "hypervisor-dev-replay",
       operation: "explicitly configured development evidence file write",
       method: "EXPLICIT_WRITE",
@@ -617,6 +662,10 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
       active_state: "development_replay_with_explicit_evidence_path",
     }),
   "js-system-effect:scripts/lib/mint-approval-grant.mjs#mintApprovalGrant": Object.freeze({
+    discovery_binding: Object.freeze({
+      handler_call_sequence: Object.freeze(["spawnSync", "spawnSync"]),
+      system_effect_categories: Object.freeze(["process"]),
+    }),
     surface: "hypervisor-product-ui-test-signer",
     operation: "PROCESS_EXEC build and invoke deterministic test approval signer",
     method: "PROCESS_EXEC",
@@ -801,6 +850,113 @@ function assertExactCoverageSet(label, observed, expected) {
       + `unexpected=[${unexpected.join(", ")}] missing=[${missing.join(", ")}]`,
     );
   }
+}
+
+const JS_SYSTEM_EFFECT_DISCOVERY_OWNED_FIELDS = Object.freeze([
+  "identity",
+  "kind",
+  "source_file",
+  "source_symbol",
+  "handler",
+  "source_anchor",
+  "handler_source_file",
+  "handler_source_symbol",
+  "handler_anchor",
+  "handler_resolution",
+  "handler_calls",
+  "handler_call_sequence",
+  "system_effect_categories",
+]);
+
+// A reviewed system-effect label is allowed to explain an AST-discovered
+// effect, but it must not replace what the AST actually saw. Module-scope
+// identities contain a line number, so an unrelated effect can later occupy
+// the same key after surrounding source moves. Set equality alone cannot see
+// that collision. Bind the reviewed entry to the discovered callee sequence,
+// effect categories, and (where the call's argument is semantically material)
+// source-line markers before applying its human-reviewed labels.
+export function bindReviewedJsSystemEffectActions({
+  repoRoot,
+  discoveredEntries,
+  reviewedActions = JS_SYSTEM_EFFECT_ACTIONS,
+}) {
+  assertExactCoverageSet(
+    "active_javascript_system_effect_action",
+    discoveredEntries.map((entry) => entry.identity),
+    Object.keys(reviewedActions).sort(),
+  );
+
+  const sourceLines = new Map();
+  const linesFor = (relativePath) => {
+    if (!sourceLines.has(relativePath)) {
+      sourceLines.set(
+        relativePath,
+        fs.readFileSync(path.join(repoRoot, relativePath), "utf8").split(/\r?\n/u),
+      );
+    }
+    return sourceLines.get(relativePath);
+  };
+
+  return discoveredEntries.map((entry) => {
+    const reviewed = reviewedActions[entry.identity];
+    const binding = reviewed?.discovery_binding;
+    if (!binding) {
+      throw new Error(
+        `${entry.identity} has no discovery_binding; reviewed system-effect labels must bind AST semantics`,
+      );
+    }
+    for (const field of JS_SYSTEM_EFFECT_DISCOVERY_OWNED_FIELDS) {
+      if (Object.hasOwn(reviewed, field)) {
+        throw new Error(
+          `${entry.identity} reviewed system-effect labels attempt to override discovery-owned field ${field}`,
+        );
+      }
+    }
+
+    const comparisons = [
+      ["handler_call_sequence", entry.handler_call_sequence, binding.handler_call_sequence],
+      ["system_effect_categories", entry.system_effect_categories, binding.system_effect_categories],
+    ];
+    for (const [field, observed, expected] of comparisons) {
+      if (JSON.stringify(observed) !== JSON.stringify(expected)) {
+        throw new Error(
+          `${entry.identity} discovery semantic binding changed for ${field}: `
+          + `observed=${JSON.stringify(observed)} expected=${JSON.stringify(expected)}; `
+          + "review the actual effect before moving its line-keyed classification",
+        );
+      }
+    }
+
+    const requiredFragments = binding.source_line_includes ?? [];
+    if (requiredFragments.length > 0) {
+      const lineNumber = entry.source_anchor?.line;
+      const sourceLine = Number.isInteger(lineNumber)
+        ? (linesFor(entry.source_file)[lineNumber - 1] ?? "")
+        : "";
+      const missingFragments = requiredFragments.filter((fragment) => (
+        !sourceLine.includes(fragment)
+      ));
+      if (missingFragments.length > 0) {
+        throw new Error(
+          `${entry.identity} discovery semantic binding changed at source line ${lineNumber ?? "unknown"}: `
+          + `missing=[${missingFragments.join(", ")}]; review the actual effect before moving `
+          + "its line-keyed classification",
+        );
+      }
+    }
+
+    const {
+      discovery_binding: _binding,
+      operation: reviewedOperation,
+      ...reviewedLabels
+    } = reviewed;
+    return {
+      ...entry,
+      discovered_operation: entry.operation,
+      ...reviewedLabels,
+      operation: reviewedOperation,
+    };
+  });
 }
 
 function activeJavaScriptEffectSources(repoRoot) {
@@ -1390,15 +1546,10 @@ export function discoverRepositorySurface(repoRoot) {
     repoRoot,
     relativePaths: activeJavaScriptEffectSources(repoRoot),
   });
-  assertExactCoverageSet(
-    "active_javascript_system_effect_action",
-    discoveredJsSystemEffects.map((entry) => entry.identity),
-    Object.keys(JS_SYSTEM_EFFECT_ACTIONS).sort(),
-  );
-  const jsSystemEffects = discoveredJsSystemEffects.map((entry) => ({
-    ...entry,
-    ...JS_SYSTEM_EFFECT_ACTIONS[entry.identity],
-  }));
+  const jsSystemEffects = bindReviewedJsSystemEffectActions({
+    repoRoot,
+    discoveredEntries: discoveredJsSystemEffects,
+  });
 
   const productUiOutbound = discoverJsOutboundCalls({
     repoRoot,
@@ -2578,9 +2729,26 @@ const SELECTED_ROUTE_APPLICABILITY = new Map([
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/start", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/lifecycle-recovery", "required_journey"],
   ["http:hypervisor-daemon:GET /v1/goal-orchestration/goal-runs/:id", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/goal-orchestration/goal-run-activations/:id", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations/:id/submit", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/attach-goal-run", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/detach-goal-run", "adjacent_not_sufficient"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/lifecycle/transitions", "adjacent_not_sufficient"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/transition", "adjacent_not_sufficient"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/backups", "adjacent_not_sufficient"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/snapshots/:id/restore", "adjacent_not_sufficient"],
+  ["http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-preview", "adjacent_not_sufficient"],
+  ["http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-apply", "adjacent_not_sufficient"],
   ["http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/collaborative-work-graph", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/discussion-projection", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/product-projection", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/replay", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/outcome-deltas", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/hypervisor/work-results/*id", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/hypervisor/outcome-deltas/*id", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/work-frontier-items", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/work-claim-leases", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/attempts", "required_journey"],
@@ -3175,9 +3343,12 @@ const SELECTED_JOURNEY = [
   },
   {
     step: 3,
-    visible_action: "Describe the goal, repository, constraints, authority, and acceptance.",
+    visible_action: "Describe the goal, repository, constraints, authority, and acceptance; draft, review, and explicitly submit the GoalRun activation.",
     route_identities: [
       "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations",
+      "http:hypervisor-daemon:GET /v1/goal-orchestration/goal-run-activations/:id",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations/:id/submit",
     ],
     state: "unavailable",
     blocker_ref: "BLK-M0-SELECTED-JOURNEY-BINDING",
@@ -3209,9 +3380,15 @@ const SELECTED_JOURNEY = [
   },
   {
     step: 7,
-    visible_action: "Observe planning, claimed work, attempts, verification, and blockers.",
+    visible_action: "Observe planning, claimed work, attempts, verification, blockers, admitted results and deltas, and the graph, discussion, and product projections reconstructed from room truth.",
     route_identities: [
       "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id",
+      "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/collaborative-work-graph",
+      "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/discussion-projection",
+      "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/product-projection",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/outcome-deltas",
+      "http:hypervisor-daemon:GET /v1/hypervisor/work-results/*id",
+      "http:hypervisor-daemon:GET /v1/hypervisor/outcome-deltas/*id",
       "http:hypervisor-daemon:POST /v1/goal-orchestration/work-frontier-items",
       "http:hypervisor-daemon:POST /v1/goal-orchestration/work-claim-leases",
       "http:hypervisor-daemon:POST /v1/goal-orchestration/attempts",
@@ -3265,6 +3442,7 @@ const SELECTED_JOURNEY = [
     visible_action: "Restart and replay the decision and effect; back up, restore, export, and independently verify the evidence offline.",
     route_identities: [
       "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+      "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/replay",
       "http:hypervisor-daemon:POST /v1/hypervisor/backups",
       "http:hypervisor-daemon:POST /v1/hypervisor/snapshots/:id/restore",
       "http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-preview",

@@ -4,10 +4,10 @@ Status: canonical low-level reference.
 Canonical owner: this file for the shared object shapes of GoalRun profiles, goal-run activations (the typed crossing that creates or joins goal identity from an existing context), orchestration constraints, orchestration policies, orchestration plans, and network goal budgets.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file; untyped `activation_evidence` payloads as a claimed activation contract.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-07-30.
 Doctrine status: canonical
-Implementation status: partial (a narrow software GoalRun profile path exists; GoalRunActivation, orchestration plan/policy objects, and NetworkGoalBudget remain planned — the current runtime carries only an untyped `activation_evidence` field where the activation object must land)
-Last implementation audit: 2026-07-25
+Implementation status: partial (the `GoalRunActivationEnvelope` and `GoalRunActivationReceipt` have registered schemas, portable invariants, adversarial fixtures, and generated projections; the daemon durably implements the `create` + `ioi_goal_draft` slice with exact-hash review, independently resolved and consumed wallet authority, idempotency, immutable profile/component resolution, Agentgres-admitted state, typed receipt-obligation discharge, a contract-valid activation receipt, complete-census GoalRun registry reads, owner-filtered replay/mutation, restart, and fault recovery. The focused fresh-process verifier and retained result are owned by the implementation program; `join_existing`, the other six source kinds, the general admission path, orchestration plan/policy objects, and `NetworkGoalBudget` remain planned)
+Last implementation audit: 2026-07-30
 
 ## Purpose
 
@@ -145,8 +145,8 @@ GoalRunActivationEnvelope:
       ioi_goal_draft | hypervisor_session | work_run | work_item |
       outcome_room_claim | automation_workflow_step | gateway_adapter_context
     source_ref:
-      intent://... | session://... | work_run://... | run://... |
-      work_item://... | work-claim://... | action://goal-run/activate/... |
+      intent://... | session://... | work-run://... | run://... |
+      work-item://... | work-claim://... | action://goal-run/activate/... |
       adapter://...
     source_owner_ref: org://... | project://... | system://... | user://...
   requested_goal_run_profile_revision_ref: goal-run-profile://.../revision/... | null

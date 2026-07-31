@@ -2513,6 +2513,38 @@ fn get_state(key: &str, data_dir: &str, sequence: u64) -> (StatusCode, Json<Valu
     }
 }
 
+/// Resolve the exact sequence-two graph for a live bounded System.
+///
+/// OutcomeRoom admission uses this read-only owner-plane bridge rather than
+/// trusting caller-supplied genesis, constitution, profile, or state refs. The
+/// underlying loader reconstructs the graph from the admitted genesis,
+/// sequence-zero, lifecycle authority, wallet-consumption, local projection,
+/// and required Agentgres evidence before returning it.
+pub(crate) fn load_active_system_graph(
+    data_dir: &str,
+    system_id: &str,
+) -> Result<Value, (String, String)> {
+    if !system_id.starts_with("system://") || system_id.len() > 320 {
+        return Err(verr(
+            "system_lifecycle_source_key_invalid",
+            "system_id must be a bounded canonical system:// ref",
+        ));
+    }
+    let key = super::system_genesis_routes::record_tail(system_id);
+    let graph = with_source_locks(|| load_visible_graph(data_dir, &key, 2))?;
+    if graph.pointer("/autonomous_system_activation_state/status") != Some(&json!("active"))
+        || graph.pointer("/autonomous_system_activation_state/system_id") != Some(&json!(system_id))
+        || graph.pointer("/autonomous_system_chain/status") != Some(&json!("active"))
+        || graph.pointer("/autonomous_system_chain/system_id") != Some(&json!(system_id))
+    {
+        return Err(verr(
+            "system_lifecycle_artifact_mismatch",
+            "sequence-two graph is not an active, identity-matched bounded System",
+        ));
+    }
+    Ok(graph)
+}
+
 pub(crate) fn enumerate_family(data_dir: &str, family: &str) -> Result<Vec<(String, Value)>, VErr> {
     let directory = match super::durable_fs::open_family_dir_pinned(data_dir, family) {
         Ok(directory) => directory,

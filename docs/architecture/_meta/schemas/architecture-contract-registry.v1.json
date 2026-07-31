@@ -5734,7 +5734,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/work-result/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -5777,7 +5777,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/work-result/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -6379,7 +6379,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/outcome-delta/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -6702,12 +6702,68 @@
           "symbol": "GoalRunV1"
         }
       ],
-      "positive_fixture_refs": [
-        "fixtures/goal-run-v1/positive-minimal.json"
-      ],
+      "positive_fixture_refs": ["fixtures/goal-run-v1/positive-minimal.json"],
       "negative_fixture_refs": [
         {
           "path": "fixtures/goal-run-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+      "canonical_name": "GoalRunExecutionCeiling",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalrunexecutionceilingenvelope",
+      "schema_version": "ioi.goal-run-execution-ceiling.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "goal-run-execution-ceiling.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/goal-run-execution-ceiling/release/v1",
+          "path": "invariants/goal-run-execution-ceiling.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "GoalRunExecutionCeilingV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "GoalRunExecutionCeilingV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/goal-run-execution-ceiling-v1/positive-zero.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/goal-run-execution-ceiling-v1/negative-widened-parallel.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "goal_run_execution_ceiling.parallel_lte_total"
+        },
+        {
+          "path": "fixtures/goal-run-execution-ceiling-v1/negative-tampered-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "goal_run_execution_ceiling.hash.recomputes"
+        },
+        {
+          "path": "fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json",
           "expected_failure": "schema"
         }
       ]
@@ -6766,7 +6822,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/attempt/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -6788,9 +6844,7 @@
           "symbol": "AttemptV1"
         }
       ],
-      "positive_fixture_refs": [
-        "fixtures/attempt-v1/positive-minimal.json"
-      ],
+      "positive_fixture_refs": ["fixtures/attempt-v1/positive-minimal.json"],
       "negative_fixture_refs": [
         {
           "path": "fixtures/attempt-v1/negative-unknown-field.json",
@@ -6838,6 +6892,14 @@
         {
           "path": "fixtures/collaborative-work-graph-v1/negative-unknown-field.json",
           "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collaborative-work-graph-v1/negative-over-cardinality.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json",
+          "expected_failure": "schema"
         }
       ]
     },
@@ -6852,7 +6914,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/finding/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -6874,9 +6936,7 @@
           "symbol": "FindingV1"
         }
       ],
-      "positive_fixture_refs": [
-        "fixtures/finding-v1/positive-minimal.json"
-      ],
+      "positive_fixture_refs": ["fixtures/finding-v1/positive-minimal.json"],
       "negative_fixture_refs": [
         {
           "path": "fixtures/finding-v1/negative-unknown-field.json",
@@ -6924,6 +6984,14 @@
         {
           "path": "fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json",
           "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/outcome-room-discussion-projection-v1/negative-over-permitted-subjects.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/outcome-room-discussion-projection-v1/negative-over-source-receipts.json",
+          "expected_failure": "schema"
         }
       ]
     },
@@ -6938,7 +7006,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/outcome-room/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -6981,7 +7049,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -7024,7 +7092,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/room-admitted-object-base/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -7067,7 +7135,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/verifier-challenge/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -7110,7 +7178,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/work-claim-lease/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -7153,7 +7221,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/work-frontier-item/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -7181,6 +7249,797 @@
       "negative_fixture_refs": [
         {
           "path": "fixtures/work-frontier-item-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/goal-run-activation/v1",
+      "canonical_name": "GoalRunActivationEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-pursuit.md#goalrunactivationenvelope",
+      "schema_version": "ioi.goal-run-activation.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "goal-run-activation.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/goal-run-activation/crossing/v1",
+          "path": "invariants/goal-run-activation.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "GoalRunActivationEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "GoalRunActivationEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/goal-run-activation-v1/positive-admitted-create.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/goal-run-activation-v1/negative-source-kind-ref-mismatch.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/goal-run-activation-v1/negative-create-missing-profile-hash.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/goal-run-activation-v1/negative-admitted-without-receipt.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+      "canonical_name": "GoalRunActivationReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#goalrun-activation-receipts",
+      "schema_version": "ioi.goal-run-activation-receipt.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "goal-run-activation-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/goal-run-activation-receipt/admission/v1",
+          "path": "invariants/goal-run-activation-receipt.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "GoalRunActivationReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "GoalRunActivationReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/goal-run-activation-receipt-v1/negative-receipt-identity-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "goal_run_activation_receipt.identity.matches"
+        },
+        {
+          "path": "fixtures/goal-run-activation-receipt-v1/negative-source-kind-ref-mismatch.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/goal-run-activation-receipt-v1/negative-admitted-goal-substitution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "goal_run_activation_receipt.root.recomputes"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/goal-run-admitted-state/v1",
+      "canonical_name": "GoalRunAdmittedState",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalrunenvelope",
+      "schema_version": "ioi.goal-run-admitted-state.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "goal-run-admitted-state.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/goal-run-admitted-state/content-root/v1",
+          "path": "invariants/goal-run-admitted-state.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "GoalRunAdmittedStateV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "GoalRunAdmittedStateV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/goal-run-admitted-state-v1/positive-admitted-create.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/goal-run-admitted-state-v1/negative-prefix-only-state-root.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/goal-run-admitted-state-v1/negative-tampered-source-context.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "goal_run_admitted_state.root.matches_record"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/outcome-room/v2",
+      "canonical_name": "OutcomeRoom",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#outcomeroomenvelope",
+      "schema_version": "ioi.foundations.outcome-room.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/outcome-room/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "outcome-room.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/outcome-room/bounded-system/v2",
+          "path": "invariants/outcome-room.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OutcomeRoomV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OutcomeRoomV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/outcome-room-v2/positive-hosted-active.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/outcome-room-v2/negative-hosted-without-host-domain.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "outcome_room.host.required_for_hosted_admission"
+        },
+        {
+          "path": "fixtures/outcome-room-v2/negative-owner-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/outcome-room-v2/negative-over-cardinality.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/outcome-room-v2/negative-over-objective.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/outcome-room-v2/negative-over-replay-cardinality.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/outcome-room-v2/negative-max-sequence.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/room-admitted-object-base/v2",
+      "canonical_name": "RoomAdmittedObjectBase",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#roomadmittedobjectbase",
+      "schema_version": "ioi.foundations.room-admitted-object-base.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/room-admitted-object-base/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "room-admitted-object-base.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/room-admitted-object-base/cas/v2",
+          "path": "invariants/room-admitted-object-base.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "RoomAdmittedObjectBaseV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "RoomAdmittedObjectBaseV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/room-admitted-object-base-v2/positive-admitted.json",
+        "fixtures/room-admitted-object-base-v2/positive-proposed-zero-revision.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/room-admitted-object-base-v2/negative-admitted-missing-receipt.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "room_admission.receipt.required_for_terminal_truth"
+        },
+        {
+          "path": "fixtures/room-admitted-object-base-v2/negative-agentgres-decision-ref.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/room-admitted-object-base-v2/negative-admitted-missing-cas-position.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/room-admitted-object-base-v2/negative-proposed-carries-admitted-roots.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/work-frontier-item/v2",
+      "canonical_name": "WorkFrontierItem",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workfrontieritemenvelope",
+      "schema_version": "ioi.foundations.work-frontier-item.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/work-frontier-item/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "work-frontier-item.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/work-frontier-item/room-binding/v2",
+          "path": "invariants/work-frontier-item.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "WorkFrontierItemV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "WorkFrontierItemV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/work-frontier-item-v2/positive-admitted.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/work-frontier-item-v2/negative-room-substitution.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/work-frontier-item-v2/negative-evaluating-carries-admitted-roots.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
+      "canonical_name": "WorkClaimLease",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workclaimleaseenvelope",
+      "schema_version": "ioi.foundations.work-claim-lease.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/work-claim-lease/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "work-claim-lease.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/work-claim-lease/room-claim/v2",
+          "path": "invariants/work-claim-lease.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "WorkClaimLeaseV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "WorkClaimLeaseV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/work-claim-lease-v2/positive-active-room-claim.json",
+        "fixtures/work-claim-lease-v2/positive-direct-bilateral.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/work-claim-lease-v2/negative-room-substitution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "work_claim.room.matches_admission"
+        },
+        {
+          "path": "fixtures/work-claim-lease-v2/negative-participant-lease-substitution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "work_claim.participant_lease.matches_admission_issuer"
+        },
+        {
+          "path": "fixtures/work-claim-lease-v2/negative-wrong-task-offer-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/work-claim-lease-v2/negative-rejected-carries-admitted-roots.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/attempt/v2",
+      "canonical_name": "Attempt",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#attemptenvelope",
+      "schema_version": "ioi.foundations.attempt.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/attempt/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "attempt.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/attempt/frozen-room-coordinates/v2",
+          "path": "invariants/attempt.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AttemptV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AttemptV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/attempt-v2/positive-hosted-admitted.json",
+        "fixtures/attempt-v2/positive-non-room.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/attempt-v2/negative-stale-bound-goal.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "attempt.goal.matches_bound_goal"
+        },
+        {
+          "path": "fixtures/attempt-v2/negative-admission-lease-substitution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "attempt.admission_issuer.matches_bound_lease_or_room_system"
+        },
+        {
+          "path": "fixtures/attempt-v2/negative-wrong-work-subject-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/attempt-v2/negative-non-room-bound-coordinates.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/attempt-v2/negative-proposed-carries-admitted-roots.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/finding/v2",
+      "canonical_name": "Finding",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope",
+      "schema_version": "ioi.foundations.finding.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/finding/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "finding.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/finding/frozen-room-coordinates/v2",
+          "path": "invariants/finding.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "FindingV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "FindingV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/finding-v2/positive-hosted-admitted.json",
+        "fixtures/finding-v2/positive-non-room.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/finding-v2/negative-stale-attempt-coordinate.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "finding.attempt.matches_bound_attempt"
+        },
+        {
+          "path": "fixtures/finding-v2/negative-admission-lease-substitution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "finding.admission_issuer.matches_participant_or_room_system"
+        },
+        {
+          "path": "fixtures/finding-v2/negative-proposer-principal-substitution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "finding.proposer.resolves_through_bound_lease_or_room_system"
+        },
+        {
+          "path": "fixtures/finding-v2/negative-wrong-source-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/finding-v2/negative-non-room-bound-coordinates.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/finding-v2/negative-evaluating-carries-admitted-roots.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/verifier-challenge/v2",
+      "canonical_name": "VerifierChallenge",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#verifierchallengeenvelope",
+      "schema_version": "ioi.foundations.verifier-challenge.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/verifier-challenge/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "verifier-challenge.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/verifier-challenge/room-binding/v2",
+          "path": "invariants/verifier-challenge.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "VerifierChallengeV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "VerifierChallengeV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/verifier-challenge-v2/positive-hosted-admitted.json",
+        "fixtures/verifier-challenge-v2/positive-non-room.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/verifier-challenge-v2/negative-room-substitution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "verifier_challenge.room.matches_admission"
+        },
+        {
+          "path": "fixtures/verifier-challenge-v2/negative-unsupported-challenger-kind.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/verifier-challenge-v2/negative-rejected-carries-admitted-roots.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
+      "canonical_name": "ParticipantStateBundle",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#participantstatebundleenvelope",
+      "schema_version": "ioi.foundations.participant-state-bundle.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/participant-state-bundle/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "participant-state-bundle.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/participant-state-bundle/portable-room-binding/v2",
+          "path": "invariants/participant-state-bundle.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ParticipantStateBundleV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ParticipantStateBundleV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/participant-state-bundle-v2/positive-hosted-export.json",
+        "fixtures/participant-state-bundle-v2/positive-system-issued-expiry.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/participant-state-bundle-v2/negative-database-access-leakage.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/participant-state-bundle-v2/negative-foreign-system-issuer.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "participant_state_bundle.issuer.matches_lease_or_room_system"
+        },
+        {
+          "path": "fixtures/participant-state-bundle-v2/negative-encrypted-ref-smuggling.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/participant-state-bundle-v2/negative-proposed-carries-admitted-roots.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/work-result/v2",
+      "canonical_name": "WorkResult",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
+      "schema_version": "ioi.foundations.work-result.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/work-result/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "work-result.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/work-result/room-accountability/v2",
+          "path": "invariants/work-result.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "WorkResultV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "WorkResultV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/work-result-v2/positive-hosted-admitted.json",
+        "fixtures/work-result-v2/positive-direct-non-room.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/work-result-v2/negative-room-substitution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "work_result.room.matches_admission"
+        },
+        {
+          "path": "fixtures/work-result-v2/negative-array-uncertainty.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/work-result-v2/negative-over-cardinality.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/work-result-v2/negative-evaluating-carries-admitted-roots.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/outcome-delta/v2",
+      "canonical_name": "OutcomeDelta",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
+      "schema_version": "ioi.foundations.outcome-delta.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/outcome-delta/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "outcome-delta.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/outcome-delta/room-binding/v2",
+          "path": "invariants/outcome-delta.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OutcomeDeltaV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OutcomeDeltaV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/outcome-delta-v2/positive-hosted-admitted.json",
+        "fixtures/outcome-delta-v2/positive-direct-non-room.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/outcome-delta-v2/negative-unsupported-proposer-kind.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/outcome-delta-v2/negative-over-cardinality.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/outcome-delta-v2/negative-rejected-carries-admitted-roots.json",
           "expected_failure": "schema"
         }
       ]

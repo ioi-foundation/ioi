@@ -1499,6 +1499,7 @@ fn strict_room_lease_refs(
 }
 
 fn live_lease_exists(data_dir: &str, room_ref: &str, participant: &str) -> Result<bool, VErr> {
+    refuse_predecessor_room(data_dir, room_ref)?;
     let leases = scan_family(
         data_dir,
         LEASE_DIR,
@@ -1678,6 +1679,18 @@ fn live_lease_exists(data_dir: &str, room_ref: &str, participant: &str) -> Resul
     Ok(completed_live || reserved_live || backlink_live_for_participant)
 }
 
+fn refuse_predecessor_room(data_dir: &str, room_ref: &str) -> Result<(), VErr> {
+    rooms::refuse_predecessor_child_profile_for_room_ref(data_dir, room_ref).map_err(
+        |(code, message)| {
+            if code == "outcome_room_registry_unreadable" {
+                verr("room_participation_room_unreadable", message)
+            } else {
+                (code, message)
+            }
+        },
+    )
+}
+
 /// Durably consume a submit intent through a pinned family descriptor. A checked directory fsync
 /// makes rollback of a pre-linearization intent survive a crash instead of resurrecting an
 /// impossible submission on the next boot.
@@ -1813,12 +1826,13 @@ fn complete_submit(
     receipt: &Value,
     _room_scope: &std::sync::MutexGuard<'_, ()>,
 ) -> Result<(), VErr> {
+    let room_ref = s(final_request, "outcome_room_ref", "");
+    refuse_predecessor_room(data_dir, &room_ref)?;
     // Preflight every participation-owned target BEFORE reserving the room. The participation
     // mutex excludes in-daemon writers until commit, so a foreign/unreadable target cannot strand
     // a room backlink. Byte-identical occupants are valid crash replay.
     let (request_preexisting, receipt_preexisting) =
         preflight_submit_targets(data_dir, tail, final_request, receipt_id, receipt)?;
-    let room_ref = s(final_request, "outcome_room_ref", "");
     let request_id = s(final_request, "participation_request_id", "");
     match rooms::bind_room_backlink_room_locked(
         data_dir,
@@ -2148,6 +2162,8 @@ fn complete_admit(
 ) -> Result<(), VErr> {
     let final_request = admit.get("final_request").cloned().unwrap_or(Value::Null);
     let final_lease = admit.get("final_lease").cloned().unwrap_or(Value::Null);
+    let room_ref = s(&final_lease, "outcome_room_ref", "");
+    refuse_predecessor_room(data_dir, &room_ref)?;
     let lease_tail = admit
         .get("lease_tail")
         .and_then(Value::as_str)
@@ -2174,7 +2190,6 @@ fn complete_admit(
     preflight_admit_targets(data_dir, admit)?;
     // ROOM FIRST. Its durable intent is the cross-plane reservation that keeps close from
     // winning after admission evidence starts to land.
-    let room_ref = s(&final_lease, "outcome_room_ref", "");
     let lease_id = s(&final_lease, "participant_lease_id", "");
     match rooms::bind_room_backlink_room_locked(
         data_dir,
@@ -2706,6 +2721,7 @@ fn rollback_impossible_unlinearized_admit(
     _room_scope: &std::sync::MutexGuard<'_, ()>,
 ) -> Result<bool, VErr> {
     let room_ref = s(prior_request, "outcome_room_ref", "");
+    refuse_predecessor_room(data_dir, &room_ref)?;
     let final_lease = admit.get("final_lease").cloned().unwrap_or(Value::Null);
     if s(&final_lease, "outcome_room_ref", "") != room_ref {
         return Ok(false);
@@ -2922,6 +2938,8 @@ pub(crate) fn complete_participation_intents(data_dir: &str) {
 }
 
 fn replay_host_authority(data_dir: &str, room_ref: &str) -> Result<String, String> {
+    refuse_predecessor_room(data_dir, room_ref)
+        .map_err(|(code, message)| format!("{code}: {message}"))?;
     match rooms::resolve_room_strict(data_dir, room_ref) {
         Ok(Some(room)) => {
             let host = s(&room, "host_domain_ref", "");
@@ -3009,6 +3027,8 @@ async fn complete_live_transition_intent(
         lease_op_gov(op)
     };
     let room_ref = s(prior, "outcome_room_ref", "");
+    refuse_predecessor_room(data_dir, &room_ref)
+        .map_err(|(code, message)| format!("{code}: {message}"))?;
     let required_authority = match gov {
         Gov::Host => replay_host_authority(data_dir, &room_ref)?,
         Gov::Participant if is_request => s(prior, "requested_by_ref", ""),
@@ -3102,6 +3122,8 @@ async fn complete_live_admit_intent(
         return Err("admit receipts do not retain the same complete authority tuple".into());
     }
     let room_ref = s(prior, "outcome_room_ref", "");
+    refuse_predecessor_room(data_dir, &room_ref)
+        .map_err(|(code, message)| format!("{code}: {message}"))?;
     let host = replay_host_authority(data_dir, &room_ref)?;
     reauthorize_sealed_receipt(
         data_dir,
@@ -3302,11 +3324,19 @@ pub(crate) async fn handle_participation_request_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    if let Some(room_ref) = body.get("outcome_room_ref").and_then(Value::as_str) {
+        if let Err(error) = refuse_predecessor_room(&st.data_dir, room_ref) {
+            return classify(error);
+        }
+    }
     let declaration = match validate_request_create(&body) {
         Ok(d) => d,
         Err(e) => return classify(e),
     };
     let room_ref = s(&declaration, "outcome_room_ref", "");
+    if let Err(error) = refuse_predecessor_room(&st.data_dir, &room_ref) {
+        return classify(error);
+    }
     let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     // Fixed lock order: participation → room. Hold the room lock from exact status/intent
     // validation through the room-first submit finalizer so close cannot win in between.
@@ -3410,6 +3440,11 @@ pub(crate) async fn handle_participation_requests_list(
     State(st): State<Arc<DaemonState>>,
     Query(q): Query<std::collections::HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
+    if let Some(room_ref) = q.get("room") {
+        if let Err(error) = refuse_predecessor_room(&st.data_dir, room_ref) {
+            return classify(error);
+        }
+    }
     match scan_family(
         &st.data_dir,
         REQUEST_DIR,
@@ -3418,9 +3453,15 @@ pub(crate) async fn handle_participation_requests_list(
         is_canonical_request_tail,
     ) {
         Ok(items) => {
-            let mut rows: Vec<Value> = items
+            let rows = match rooms::retain_historical_predecessor_child_records(
+                &st.data_dir,
+                items.into_iter().map(|(_, record)| record).collect(),
+            ) {
+                Ok(rows) => rows,
+                Err(error) => return classify(error),
+            };
+            let mut rows: Vec<Value> = rows
                 .into_iter()
-                .map(|(_, r)| r)
                 .filter(|r| {
                     q.get("room")
                         .map(|room| s(r, "outcome_room_ref", "") == *room)
@@ -3448,7 +3489,14 @@ pub(crate) async fn handle_participation_request_get(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     match load_request(&st.data_dir, &id) {
-        Ok(Some(r)) => (StatusCode::OK, Json(json!({ "participation_request": r }))),
+        Ok(Some(r)) => {
+            if let Err(error) =
+                refuse_predecessor_room(&st.data_dir, &s(&r, "outcome_room_ref", ""))
+            {
+                return classify(error);
+            }
+            (StatusCode::OK, Json(json!({ "participation_request": r })))
+        }
         Ok(None) => http_err(
             StatusCode::NOT_FOUND,
             verr(
@@ -3529,6 +3577,9 @@ pub(crate) async fn handle_participation_request_transition(
     };
     let gov = request_op_gov(&transition);
     let room_ref = s(&prior, "outcome_room_ref", "");
+    if let Err(error) = refuse_predecessor_room(&st.data_dir, &room_ref) {
+        return classify(error);
+    }
     let subject_ref = s(&prior, "participation_request_id", "");
     let revision = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
     let required_authority = match gov {
@@ -3663,6 +3714,7 @@ fn plan_record_transition(
     }
     if family == LEASE_DIR {
         let room_ref = s(&prior, "outcome_room_ref", "");
+        refuse_predecessor_room(data_dir, &room_ref)?;
         match rooms::resolve_open_room(data_dir, &room_ref) {
             Some(room) if s(&room, "status", "") == "open" => {}
             _ => return Err(verr("participant_lease_room_not_open", format!("the lease's room '{room_ref}' is not open — no lease transition is admitted once the room has left `open`"))),
@@ -3780,6 +3832,7 @@ fn transition_record_with_terminal_release(
 /// pending convergence; the boot completer retries it.
 fn ensure_lease_released(data_dir: &str, lease: &Value) -> Result<(), VErr> {
     let room_ref = s(lease, "outcome_room_ref", "");
+    refuse_predecessor_room(data_dir, &room_ref)?;
     let lease_id = s(lease, "participant_lease_id", "");
     if room_ref.is_empty() || lease_id.is_empty() {
         return Err(verr(
@@ -3856,6 +3909,9 @@ pub(crate) async fn handle_participation_request_admit(
         return classify(verr("room_participation_revision_conflict", m));
     }
     let room_ref = s(&prior, "outcome_room_ref", "");
+    if let Err(error) = refuse_predecessor_room(&st.data_dir, &room_ref) {
+        return classify(error);
+    }
     match live_lease_exists(&st.data_dir, &room_ref, &s(&prior, "requested_by_ref", "")) {
         Ok(true) => return classify(verr("participant_lease_duplicate", "this principal already holds a live lease in this room — one participant, one lease; revoke or retire the existing lease first")),
         Ok(false) => {}
@@ -4043,6 +4099,11 @@ pub(crate) async fn handle_participant_leases_list(
     State(st): State<Arc<DaemonState>>,
     Query(q): Query<std::collections::HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
+    if let Some(room_ref) = q.get("room") {
+        if let Err(error) = refuse_predecessor_room(&st.data_dir, room_ref) {
+            return classify(error);
+        }
+    }
     match scan_family(
         &st.data_dir,
         LEASE_DIR,
@@ -4051,9 +4112,15 @@ pub(crate) async fn handle_participant_leases_list(
         is_canonical_lease_tail,
     ) {
         Ok(items) => {
-            let mut rows: Vec<Value> = items
+            let rows = match rooms::retain_historical_predecessor_child_records(
+                &st.data_dir,
+                items.into_iter().map(|(_, record)| record).collect(),
+            ) {
+                Ok(rows) => rows,
+                Err(error) => return classify(error),
+            };
+            let mut rows: Vec<Value> = rows
                 .into_iter()
-                .map(|(_, r)| r)
                 .filter(|r| {
                     q.get("room")
                         .map(|room| s(r, "outcome_room_ref", "") == *room)
@@ -4081,7 +4148,14 @@ pub(crate) async fn handle_participant_lease_get(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     match load_lease(&st.data_dir, &id) {
-        Ok(Some(r)) => (StatusCode::OK, Json(json!({ "participant_lease": r }))),
+        Ok(Some(r)) => {
+            if let Err(error) =
+                refuse_predecessor_room(&st.data_dir, &s(&r, "outcome_room_ref", ""))
+            {
+                return classify(error);
+            }
+            (StatusCode::OK, Json(json!({ "participant_lease": r })))
+        }
         Ok(None) => http_err(
             StatusCode::NOT_FOUND,
             verr(
@@ -4162,6 +4236,9 @@ pub(crate) async fn handle_participant_lease_transition(
     };
     let gov = lease_op_gov(&transition);
     let room_ref = s(&prior, "outcome_room_ref", "");
+    if let Err(error) = refuse_predecessor_room(&st.data_dir, &room_ref) {
+        return classify(error);
+    }
     let subject_ref = s(&prior, "participant_lease_id", "");
     if let Err(error) = super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
         &st.data_dir,
@@ -4385,6 +4462,48 @@ mod participation_tests {
         let d = std::env::temp_dir().join(format!("ioi-participation-{tag}-{:x}", nanos()));
         std::fs::create_dir_all(&d).unwrap();
         d
+    }
+
+    #[test]
+    fn predecessor_child_profile_retains_participation_submit_intent_bytes() {
+        let directory = temp_dir("predecessor-profile");
+        let data_dir = directory.to_str().unwrap();
+        let room_tail = "or_ab";
+        let room_ref = format!("outcome-room://{room_tail}");
+        std::fs::create_dir_all(directory.join(rooms::ROOM_DIR)).unwrap();
+        std::fs::write(
+            directory
+                .join(rooms::ROOM_DIR)
+                .join(format!("{room_tail}.json")),
+            serde_json::to_vec(&json!({
+                "schema_version": "ioi.foundations.outcome-room.v2",
+                "outcome_room_id": room_ref,
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let intent_bytes = br#"{"room_ref":"outcome-room://or_ab","sentinel":"retain-exactly"}"#;
+        let intent_directory = directory.join(SUBMIT_INTENT_DIR);
+        std::fs::create_dir_all(&intent_directory).unwrap();
+        let intent_path = intent_directory.join("rsi_ab.json");
+        std::fs::write(&intent_path, intent_bytes).unwrap();
+
+        let room_scope = rooms::ROOM_MUTATION_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let error = complete_submit(
+            data_dir,
+            "rpr_ab",
+            &json!({"outcome_room_ref": room_ref}),
+            "rqt_ab",
+            &json!({}),
+            &room_scope,
+        )
+        .unwrap_err();
+        assert_eq!(error.0, "outcome_room_predecessor_child_profile_retired");
+        assert_eq!(std::fs::read(intent_path).unwrap(), intent_bytes);
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     /// A fixed decision authority for lower-seam transaction/structural-validation tests. It is

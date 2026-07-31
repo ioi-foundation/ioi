@@ -61,6 +61,16 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-home-bindings",
     "autonomous-system-operation-log-revisions",
     "autonomous-system-chain-revisions",
+    "outcome-room-admission-operations",
+    "outcome-room-transition-operations",
+    "outcome-room-admission-receipts",
+    "outcome-room-admitted-objects",
+    "outcome-room-head-reservations",
+    "outcome-room-information-flow-labels",
+    "outcome-room-result-payload-write-admissions",
+    "outcome-room-component-resolution-snapshots",
+    "outcome-room-conductor-verification-evidence",
+    "goal-run-activation-admitted-states",
     "autonomous-system-chain-successor-claims",
     "autonomous-system-chain-writer-reservations",
     "autonomous-system-lifecycle-states",
@@ -421,6 +431,24 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             "chain_root",
             format!("sha256:{}", record_id.strip_prefix("asc_").unwrap_or("")),
         ),
+        "outcome-room-admission-operations"
+        | "outcome-room-transition-operations"
+        | "outcome-room-admission-receipts"
+        | "outcome-room-admitted-objects" => {
+            unreachable!("identity is validated by the room-family content-root branch")
+        }
+        "outcome-room-head-reservations" => {
+            unreachable!("identity is validated by the room-head reservation branch")
+        }
+        "outcome-room-information-flow-labels"
+        | "outcome-room-result-payload-write-admissions"
+        | "outcome-room-component-resolution-snapshots"
+        | "outcome-room-conductor-verification-evidence" => {
+            unreachable!("identity is validated by the room runtime-dependency content-root branch")
+        }
+        "goal-run-activation-admitted-states" => {
+            unreachable!("identity is validated by the GoalRun admitted-state content-root branch")
+        }
         "autonomous-system-chain-successor-claims" => (
             "predecessor_chain_root",
             format!("sha256:{}", record_id.strip_prefix("ascsc_").unwrap_or("")),
@@ -800,6 +828,16 @@ fn validate_required_identity(
         "autonomous-system-home-bindings" => "ashdb_",
         "autonomous-system-operation-log-revisions" => "asol_",
         "autonomous-system-chain-revisions" => "asc_",
+        "outcome-room-admission-operations" => "orao_",
+        "outcome-room-transition-operations" => "orto_",
+        "outcome-room-admission-receipts" => "orrc_",
+        "outcome-room-admitted-objects" => "orobj_",
+        "outcome-room-head-reservations" => "orhr_",
+        "outcome-room-information-flow-labels" => "orifl_",
+        "outcome-room-result-payload-write-admissions" => "orpwa_",
+        "outcome-room-component-resolution-snapshots" => "orcps_",
+        "outcome-room-conductor-verification-evidence" => "orcve_",
+        "goal-run-activation-admitted-states" => "gras_",
         "autonomous-system-chain-successor-claims" => "ascsc_",
         "autonomous-system-chain-writer-reservations" => "ascwr_",
         "autonomous-system-desired-topologies" => "asdt_",
@@ -846,6 +884,153 @@ fn validate_required_identity(
                 "required Agentgres key must be '{required_prefix}' plus 64 lowercase hex characters"
             ),
         ));
+    }
+    if record_dir == "goal-run-activation-admitted-states" {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let root = format!("sha256:{encoded}");
+        if record.get("state_root").and_then(Value::as_str) != Some(root.as_str()) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres GoalRun state key does not match state_root",
+            ));
+        }
+        let root_ref = record
+            .get("state_root_ref")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if !root_ref.starts_with("agentgres://state-root/goal-run/")
+            || !root_ref.ends_with(&format!("/{root}"))
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres GoalRun state_root_ref does not bind the state root",
+            ));
+        }
+        let mut state = record.clone();
+        state["state_root"] = Value::Null;
+        state["state_root_ref"] = Value::Null;
+        let expected = jcs_root(&state)?;
+        if expected != root {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres GoalRun admitted-state root does not recompute",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "outcome-room-head-reservations" {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let root = format!("sha256:{encoded}");
+        if record.get("reservation_slot_root").and_then(Value::as_str) != Some(root.as_str()) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres room reservation key does not match reservation_slot_root",
+            ));
+        }
+        let room_ref = record
+            .get("outcome_room_ref")
+            .and_then(Value::as_str)
+            .filter(|value| value.starts_with("outcome-room://"))
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "room reservation omits its canonical outcome_room_ref",
+                )
+            })?;
+        let predecessor = match record.get("expected_predecessor_commitment_ref") {
+            Some(Value::Null) => Value::Null,
+            Some(Value::String(value)) if value.starts_with("commitment://") => {
+                Value::String(value.clone())
+            }
+            _ => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "room reservation predecessor is neither genesis null nor a commitment ref",
+                ))
+            }
+        };
+        let expected = jcs_root(&json!({
+            "domain":"ioi.outcome-room-head-reservation-slot-jcs-sha256.v1",
+            "value":{
+                "outcome_room_ref":room_ref,
+                "expected_predecessor_commitment_ref":predecessor,
+            }
+        }))?;
+        if expected != root {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres room reservation slot root does not recompute",
+            ));
+        }
+        return Ok(());
+    }
+    if matches!(
+        record_dir,
+        "outcome-room-admission-operations"
+            | "outcome-room-transition-operations"
+            | "outcome-room-admission-receipts"
+            | "outcome-room-admitted-objects"
+    ) {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let root_field = match record_dir {
+            "outcome-room-admission-operations" | "outcome-room-transition-operations" => {
+                "operation_root"
+            }
+            "outcome-room-admission-receipts" => "receipt_root",
+            "outcome-room-admitted-objects" => "object_root",
+            _ => unreachable!(),
+        };
+        if record.get(root_field).and_then(Value::as_str)
+            != Some(format!("sha256:{encoded}").as_str())
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("required Agentgres room record key does not match '{root_field}'"),
+            ));
+        }
+        let mut material = record.clone();
+        material[root_field] = Value::Null;
+        let expected = jcs_root(&json!({
+            "domain": "ioi.outcome-room-required-admission-record-jcs-sha256.v1",
+            "record_family": record_dir,
+            "record": material,
+        }))?;
+        if expected != format!("sha256:{encoded}") {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres room record content root does not recompute",
+            ));
+        }
+        return Ok(());
+    }
+    if matches!(
+        record_dir,
+        "outcome-room-information-flow-labels"
+            | "outcome-room-result-payload-write-admissions"
+            | "outcome-room-component-resolution-snapshots"
+            | "outcome-room-conductor-verification-evidence"
+    ) {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let expected = jcs_root(&json!({
+            "domain": "ioi.outcome-room-runtime-dependency-record-jcs-sha256.v1",
+            "record_family": record_dir,
+            "record": record,
+        }))?;
+        if expected != format!("sha256:{encoded}") {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres room runtime-dependency key does not match its exact record bytes",
+            ));
+        }
+        return Ok(());
     }
     if matches!(
         record_dir,
@@ -2164,6 +2349,47 @@ pub(crate) fn admit_chain_writer_reservation(
     })
 }
 
+/// Cross-process expected-absent reservation for one exact OutcomeRoom predecessor slot.
+/// The key is derived solely from `(room, predecessor)`, while the immutable value binds the
+/// proposed successor. Identical retries converge; a distinct successor receives AlreadyExists.
+pub(crate) fn admit_outcome_room_head_reservation(
+    data_dir: &str,
+    record_id: &str,
+    record: &Value,
+) -> std::io::Result<()> {
+    const DOMAIN: &str = "outcome-room-head-reservations";
+    validate_required_domain(DOMAIN)?;
+    validate_required_identity(DOMAIN, record_id, record)?;
+
+    with_current_handle(data_dir, |handle| {
+        let proposed = build_required_op(DOMAIN, record_id, record);
+        if let Some(existing_record) = read_reservation_fence(data_dir, record_id)? {
+            if existing_record != *record {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::AlreadyExists,
+                    format!(
+                        "Agentgres key '{DOMAIN}/{record_id}' already holds different immutable evidence"
+                    ),
+                ));
+            }
+            let exact = handle.project_exact(DOMAIN, &required_object_ref(DOMAIN, record_id))?;
+            verify_required_projection(DOMAIN, record_id, record, exact)?;
+            confirm_required_admission_durability(data_dir)?;
+            return Ok(());
+        }
+        if let Some(existing) =
+            handle.project_exact(DOMAIN, &required_object_ref(DOMAIN, record_id))?
+        {
+            classify_required_existing(DOMAIN, record_id, &proposed, &existing)?;
+            confirm_required_admission_durability(data_dir)?;
+            write_reservation_fence(data_dir, record_id, record)?;
+            return Ok(());
+        }
+        admit_required_with_handle(data_dir, handle, DOMAIN, record_id, record)?;
+        write_reservation_fence(data_dir, record_id, record)
+    })
+}
+
 /// Strict writer-thread projection for a required-admission key. Callers use
 /// the complete operation, admission sequence/head/batch/root, and terminal
 /// domain root to verify local evidence before serving it.
@@ -2525,6 +2751,75 @@ mod tests {
         let error = admit_chain_writer_reservation(data_dir.to_str().unwrap(), &record_id, &record)
             .expect_err("an orphan fence must not satisfy authoritative CAS");
         assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+
+        let mut cached = HANDLE.get_or_init(|| Mutex::new(None)).lock().unwrap();
+        let owned_slot = if cached
+            .as_ref()
+            .is_some_and(|slot| slot.data_dir == data_dir.to_str().unwrap())
+        {
+            cached.take()
+        } else {
+            None
+        };
+        drop(cached);
+        if let Some(slot) = owned_slot {
+            slot.handle.shutdown().unwrap();
+        }
+        std::fs::remove_dir_all(data_dir).unwrap();
+    }
+
+    #[test]
+    fn outcome_room_head_reservation_is_idempotent_and_rejects_a_distinct_successor() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let data_dir = std::env::temp_dir().join(format!(
+            "ioi-substrate-room-head-reservation-{}-{nonce}",
+            std::process::id()
+        ));
+        let room_ref = format!("outcome-room://or_{}", "ab".repeat(32));
+        let predecessor = format!(
+            "commitment://ioi/outcome-room/sequence/7/{}",
+            "11".repeat(32)
+        );
+        let slot_root = jcs_root(&json!({
+            "domain":"ioi.outcome-room-head-reservation-slot-jcs-sha256.v1",
+            "value":{
+                "outcome_room_ref":room_ref,
+                "expected_predecessor_commitment_ref":predecessor,
+            }
+        }))
+        .unwrap();
+        let record_id = format!("orhr_{}", slot_root.strip_prefix("sha256:").unwrap());
+        let first = json!({
+            "schema_version":"ioi.outcome-room-head-reservation.v1",
+            "reservation_slot_root":slot_root,
+            "outcome_room_ref":format!("outcome-room://or_{}", "ab".repeat(32)),
+            "sequence":8,
+            "expected_predecessor_commitment_ref":format!("commitment://ioi/outcome-room/sequence/7/{}", "11".repeat(32)),
+            "resulting_transition_commitment_ref":format!("commitment://ioi/outcome-room/sequence/8/{}", "22".repeat(32)),
+            "resulting_room_state_root":format!("sha256:{}", "33".repeat(32)),
+            "operation_root":format!("sha256:{}", "44".repeat(32)),
+            "at":"2026-07-30T12:00:00Z",
+        });
+
+        admit_outcome_room_head_reservation(data_dir.to_str().unwrap(), &record_id, &first)
+            .unwrap();
+        admit_outcome_room_head_reservation(data_dir.to_str().unwrap(), &record_id, &first)
+            .expect("the identical successor is an idempotent replay");
+
+        let mut distinct = first.clone();
+        distinct["resulting_transition_commitment_ref"] = json!(format!(
+            "commitment://ioi/outcome-room/sequence/8/{}",
+            "55".repeat(32)
+        ));
+        distinct["resulting_room_state_root"] = json!(format!("sha256:{}", "66".repeat(32)));
+        distinct["operation_root"] = json!(format!("sha256:{}", "77".repeat(32)));
+        let conflict =
+            admit_outcome_room_head_reservation(data_dir.to_str().unwrap(), &record_id, &distinct)
+                .expect_err("one predecessor slot must admit exactly one distinct successor");
+        assert_eq!(conflict.kind(), std::io::ErrorKind::AlreadyExists);
 
         let mut cached = HANDLE.get_or_init(|| Mutex::new(None)).lock().unwrap();
         let owned_slot = if cached

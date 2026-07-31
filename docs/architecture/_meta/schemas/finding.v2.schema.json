@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/finding/v2",
+  "title": "Finding",
+  "x-ioi-schema-version": "ioi.foundations.finding.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "finding_id", "outcome_room_ref", "room_admission", "attempt_ref",
+    "work_result_ref", "participant_ref", "proposed_by_ref", "bound_coordinates", "proposition",
+    "finding_kind", "confidence_or_uncertainty", "valid_time", "transaction_time",
+    "source_and_observation_context_refs", "supporting_evidence_refs", "proof_refs",
+    "contradicting_evidence_refs", "applicability_and_counterexample_refs",
+    "provenance_ontology_and_mapping_refs", "proposed_effect_refs", "supersedes_ref",
+    "dispute_ref", "status"
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "timestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+    "roomAdmission": {
+      "type": "object",
+      "required": ["schema_version", "room_system_id", "outcome_room_ref", "proposed_or_issued_by_ref", "expected_room_revision", "expected_predecessor_commitment_ref", "payload_root", "admission_policy_ref", "admission_decision_ref", "admission_receipt_ref", "admitted_sequence", "resulting_room_revision", "resulting_transition_commitment_ref", "resulting_room_state_root", "resulting_receipt_root", "created_at", "updated_at", "admission_status"],
+      "properties": {
+        "schema_version": { "const": "ioi.foundations.room-admitted-object-base.v2" },
+        "room_system_id": { "type": "string", "pattern": "^system://[^\\s]{1,500}$" },
+        "outcome_room_ref": { "type": "string", "pattern": "^outcome-room://[^\\s]{1,500}$" },
+        "proposed_or_issued_by_ref": { "type": "string", "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$" },
+        "expected_room_revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "expected_predecessor_commitment_ref": { "type": "string", "pattern": "^commitment://[^\\s]{1,500}$" },
+        "payload_root": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "admission_policy_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,500}$" },
+        "admission_decision_ref": { "anyOf": [{ "type": "string", "pattern": "^decision://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "admission_receipt_ref": { "anyOf": [{ "type": "string", "pattern": "^receipt://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "admitted_sequence": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, { "type": "null" }] },
+        "resulting_room_revision": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, { "type": "null" }] },
+        "resulting_transition_commitment_ref": { "anyOf": [{ "type": "string", "pattern": "^commitment://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "resulting_room_state_root": { "anyOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }] },
+        "resulting_receipt_root": { "anyOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }] },
+        "created_at": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+        "updated_at": { "anyOf": [{ "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" }, { "type": "null" }] },
+        "admission_status": { "enum": ["proposed", "evaluating", "admitted", "rejected", "superseded", "revoked"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "admission_status": { "enum": ["admitted", "superseded", "revoked"] } } },
+          "then": { "properties": {
+            "admission_decision_ref": { "type": "string" },
+            "admission_receipt_ref": { "type": "string" },
+            "admitted_sequence": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "resulting_room_revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "resulting_transition_commitment_ref": { "type": "string" },
+            "resulting_room_state_root": { "type": "string" },
+            "resulting_receipt_root": { "type": "string" },
+            "updated_at": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" }
+          } }
+        },
+        {
+          "if": { "properties": { "admission_status": { "enum": ["proposed", "evaluating", "rejected"] } } },
+          "then": { "properties": {
+            "admitted_sequence": { "type": "null" },
+            "resulting_room_revision": { "type": "null" },
+            "resulting_transition_commitment_ref": { "type": "null" },
+            "resulting_room_state_root": { "type": "null" },
+            "resulting_receipt_root": { "type": "null" }
+          } }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "recordCoordinate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["record_ref", "outcome_room_ref", "revision", "record_hash"],
+      "properties": {
+        "record_ref": { "type": "string", "pattern": "^finding://[^\\s]{1,500}$" },
+        "outcome_room_ref": { "type": "string", "pattern": "^outcome-room://[^\\s]{1,500}$" },
+        "revision": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        "record_hash": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "boundCoordinates": {
+      "type": "object", "additionalProperties": false,
+      "required": ["attempt", "work_result", "participant_lease", "supersedes_finding"],
+      "properties": {
+        "attempt": {
+          "type": "object", "additionalProperties": false,
+          "required": ["record_ref", "outcome_room_ref", "participant_ref", "work_result_ref", "revision", "record_hash"],
+          "properties": {
+            "record_ref": { "type": "string", "pattern": "^attempt://[^\\s]{1,500}$" },
+            "outcome_room_ref": { "type": "string", "pattern": "^outcome-room://[^\\s]{1,500}$" },
+            "participant_ref": { "type": "string", "pattern": "^participant-lease://[^\\s]{1,500}$" },
+            "work_result_ref": { "type": "string", "pattern": "^work-result://[^\\s]{1,500}$" },
+            "revision": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+            "record_hash": { "$ref": "#/$defs/hash" }
+          }
+        },
+        "work_result": {
+          "type": "object", "additionalProperties": false,
+          "required": ["record_ref", "outcome_room_ref", "goal_run_ref", "goal_ref", "updated_at", "record_hash"],
+          "properties": {
+            "record_ref": { "type": "string", "pattern": "^work-result://[^\\s]{1,500}$" },
+            "outcome_room_ref": { "type": "string", "pattern": "^outcome-room://[^\\s]{1,500}$" },
+            "goal_run_ref": { "type": "string", "pattern": "^goal://[^\\s]{1,500}$" },
+            "goal_ref": { "type": "string", "pattern": "^goal://[^\\s]{1,500}$" },
+            "updated_at": { "anyOf": [{ "$ref": "#/$defs/timestamp" }, { "type": "null" }] },
+            "record_hash": { "$ref": "#/$defs/hash" }
+          }
+        },
+        "participant_lease": {
+          "type": "object", "additionalProperties": false,
+          "required": ["record_ref", "outcome_room_ref", "principal_ref", "revision", "record_hash"],
+          "properties": {
+            "record_ref": { "type": "string", "pattern": "^participant-lease://[^\\s]{1,500}$" },
+            "outcome_room_ref": { "type": "string", "pattern": "^outcome-room://[^\\s]{1,500}$" },
+            "principal_ref": { "type": "string", "pattern": "^(?:worker|agent)://[^\\s]{1,500}$" },
+            "revision": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+            "record_hash": { "$ref": "#/$defs/hash" }
+          }
+        },
+        "supersedes_finding": { "anyOf": [{ "$ref": "#/$defs/recordCoordinate" }, { "type": "null" }] }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": { "const": "ioi.foundations.finding.v2" },
+    "finding_id": { "type": "string", "pattern": "^finding://[^\\s]{1,500}$" },
+    "outcome_room_ref": { "anyOf": [{ "type": "string", "pattern": "^outcome-room://[^\\s]{1,500}$" }, { "type": "null" }] },
+    "room_admission": { "anyOf": [{ "$ref": "#/$defs/roomAdmission" }, { "type": "null" }] },
+    "attempt_ref": { "type": "string", "pattern": "^attempt://[^\\s]{1,500}$" },
+    "work_result_ref": { "type": "string", "pattern": "^work-result://[^\\s]{1,500}$" },
+    "participant_ref": { "type": "string", "pattern": "^participant-lease://[^\\s]{1,500}$" },
+    "proposed_by_ref": { "type": "string", "pattern": "^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$" },
+    "bound_coordinates": { "anyOf": [{ "$ref": "#/$defs/boundCoordinates" }, { "type": "null" }] },
+    "proposition": { "type": "string", "minLength": 1, "maxLength": 8000 },
+    "finding_kind": { "enum": ["hypothesis", "observation", "claim", "negative_result", "integrity_incident", "mapping_claim", "causal_claim", "counterexample", "synthesis"] },
+    "confidence_or_uncertainty": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+    "valid_time": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+    "transaction_time": { "$ref": "#/$defs/timestamp" },
+    "source_and_observation_context_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$" } },
+    "supporting_evidence_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$" } },
+    "proof_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$" } },
+    "contradicting_evidence_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:evidence|artifact|finding)://[^\\s]{1,500}$" } },
+    "applicability_and_counterexample_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:policy|finding|ontology)://[^\\s]{1,500}$" } },
+    "provenance_ontology_and_mapping_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:provenance|ontology|ontology-mapping)://[^\\s]{1,500}$" } },
+    "proposed_effect_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$" } },
+    "supersedes_ref": { "anyOf": [{ "type": "string", "pattern": "^finding://[^\\s]{1,500}$" }, { "type": "null" }] },
+    "dispute_ref": { "anyOf": [{ "type": "string", "pattern": "^dispute://[^\\s]{1,500}$" }, { "type": "null" }] },
+    "status": { "enum": ["branch_local", "proposed", "admitted", "contradicted", "superseded", "disputed", "rejected", "archived"] }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "outcome_room_ref": { "type": "string" } } },
+      "then": {
+        "properties": {
+          "room_admission": { "$ref": "#/$defs/roomAdmission" },
+          "bound_coordinates": { "$ref": "#/$defs/boundCoordinates" }
+        }
+      },
+      "else": {
+        "properties": {
+          "room_admission": { "type": "null" },
+          "bound_coordinates": { "type": "null" }
+        }
+      }
+    }
+  ]
+}

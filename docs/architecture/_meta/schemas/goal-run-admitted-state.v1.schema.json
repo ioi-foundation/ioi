@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/goal-run-admitted-state/v1",
+  "title": "GoalRunAdmittedState",
+  "description": "Daemon-owned, content-addressed GoalRun activation state whose root is admitted through the required Agentgres boundary.",
+  "x-ioi-schema-version": "ioi.goal-run-admitted-state.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "state_root_ref",
+    "state_root",
+    "goal_run_ref",
+    "activation_ref",
+    "source_context_hash",
+    "requesting_principal_ref",
+    "authority_decision_ref",
+    "goal_run_profile_revision_ref",
+    "goal_run_profile_content_hash",
+    "goal_run_execution_ceiling_revision_ref",
+    "goal_run_execution_ceiling_content_hash",
+    "declared_invocation_budget",
+    "admitted_override_set_ref",
+    "admitted_override_set_hash",
+    "resolved_component_set_snapshot_ref",
+    "resolved_component_set_hash",
+    "profile_resolution_receipt_ref",
+    "admission_decision_ref",
+    "admission_receipt_ref",
+    "receipt_obligations",
+    "admitted_at",
+    "non_grants"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.goal-run-admitted-state.v1" },
+    "state_root_ref": {
+      "type": "string",
+      "pattern": "^agentgres://state-root/goal-run/[^/\\s]{1,160}/sha256:[0-9a-f]{64}$"
+    },
+    "state_root": { "$ref": "#/$defs/hash" },
+    "goal_run_ref": { "type": "string", "pattern": "^goal://[^\\s]{1,500}$" },
+    "activation_ref": { "type": "string", "pattern": "^goal-run-activation://[^\\s]{1,500}$" },
+    "source_context_hash": { "$ref": "#/$defs/hash" },
+    "requesting_principal_ref": { "$ref": "#/$defs/ref" },
+    "authority_decision_ref": { "$ref": "#/$defs/ref" },
+    "goal_run_profile_revision_ref": {
+      "type": "string",
+      "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+    },
+    "goal_run_profile_content_hash": { "$ref": "#/$defs/hash" },
+    "goal_run_execution_ceiling_revision_ref": {
+      "type": "string",
+      "pattern": "^goal-run-execution-ceiling://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "goal_run_execution_ceiling_content_hash": { "$ref": "#/$defs/hash" },
+    "declared_invocation_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_total_invocations", "max_parallel_invocations"],
+      "properties": {
+        "max_total_invocations": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "max_parallel_invocations": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+      }
+    },
+    "admitted_override_set_ref": {
+      "anyOf": [
+        { "$ref": "#/$defs/ref" },
+        { "type": "null" }
+      ]
+    },
+    "admitted_override_set_hash": {
+      "anyOf": [
+        { "$ref": "#/$defs/hash" },
+        { "type": "null" }
+      ]
+    },
+    "resolved_component_set_snapshot_ref": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,500}$"
+    },
+    "resolved_component_set_hash": { "$ref": "#/$defs/hash" },
+    "profile_resolution_receipt_ref": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,500}$"
+    },
+    "admission_decision_ref": { "$ref": "#/$defs/ref" },
+    "admission_receipt_ref": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,500}$"
+    },
+    "receipt_obligations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/receiptObligation" }
+    },
+    "admitted_at": { "$ref": "#/$defs/canonicalDateTime" },
+    "non_grants": { "$ref": "#/$defs/nonGrants" }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "canonicalDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "receiptObligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "obligation_id",
+        "boundary_event",
+        "receipt_type",
+        "receipt_profile_ref",
+        "bound_fact_requirement_refs",
+        "required"
+      ],
+      "properties": {
+        "obligation_id": { "type": "string", "pattern": "^receipt-obligation://[^\\s]{1,500}$" },
+        "boundary_event": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "receipt_type": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,159}$" },
+        "receipt_profile_ref": { "$ref": "#/$defs/ref" },
+        "bound_fact_requirement_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/ref" }
+        },
+        "required": { "type": "boolean" }
+      }
+    },
+    "nonGrants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_widening",
+        "context_declassification",
+        "room_membership",
+        "budget_creation"
+      ],
+      "properties": {
+        "authority_widening": { "const": "none" },
+        "context_declassification": { "const": "none" },
+        "room_membership": { "const": "none" },
+        "budget_creation": { "const": "none" }
+      }
+    }
+  }
+}

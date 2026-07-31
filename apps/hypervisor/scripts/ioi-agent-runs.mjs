@@ -22,6 +22,28 @@ const genId = (prefix) => `${prefix}_${Date.now().toString(36)}${(counter++).toS
 // survives serve restarts and becomes replayable/auditable. We write-through on every state change
 // and rehydrate the cache from the daemon at boot. Boundary: daemon RECORDS, this layer PROJECTS.
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+const DAEMON_IDENTITY_HEADERS = [
+  "authorization",
+  "cookie",
+  "x-ioi-forwarded",
+  "x-forwarded-for",
+  "x-forwarded-host",
+  "x-forwarded-proto",
+];
+
+function boundedDaemonHeaders(headers = {}, includeContentType = false) {
+  const result = {};
+  for (const name of DAEMON_IDENTITY_HEADERS) {
+    const value = headers[name] ?? headers[name.toLowerCase()];
+    if (typeof value === "string" && value.length > 0) result[name] = value;
+  }
+  if (includeContentType) result["content-type"] = "application/json";
+  return result;
+}
+
+function runDaemonHeaders(run, includeContentType = false) {
+  return boundedDaemonHeaders(run?.daemonHeaders, includeContentType);
+}
 
 // The durable subset of a run (the Run Timeline truth). Transcript is bounded — it's a view, not a
 // raw-context dump.
@@ -86,7 +108,7 @@ function persistRun(run) {
   if (!run?.id) return;
   fetch(`${DAEMON}/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(run.id)}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: runDaemonHeaders(run, true),
     body: JSON.stringify(runRecord(run)),
   })
     .then((r) => r.json())
@@ -99,6 +121,7 @@ function persistRun(run) {
 export async function hydrateRunsFromDaemon() {
   try {
     const res = await fetch(`${DAEMON}/v1/hypervisor/agent-run-transcripts`);
+    if (!res.ok) return 0;
     const body = await res.json();
     let n = 0;
     for (const r of body.runs || []) {
@@ -213,12 +236,17 @@ export function runToAgentExecution(run) {
 // Start a real agent run. `daemonBase` is the hypervisor-daemon origin. Returns the immediate
 // projection ({ agentExecutionId, environment, userInputBlockId }) once the env exists; the
 // harness executes asynchronously and updates the run in place.
-export async function startAgentRun({ daemonBase, prompt, environmentClassId }) {
+export async function startAgentRun({
+  daemonBase,
+  prompt,
+  environmentClassId,
+  daemonHeaders = {},
+}) {
   const base = daemonBase.replace(/\/$/, "");
   const dj = async (method, path, payload) => {
     const res = await fetch(base + path, {
       method,
-      headers: payload ? { "content-type": "application/json" } : undefined,
+      headers: boundedDaemonHeaders(daemonHeaders, Boolean(payload)),
       body: payload ? JSON.stringify(payload) : undefined,
     });
     const text = await res.text();
@@ -257,6 +285,7 @@ export async function startAgentRun({ daemonBase, prompt, environmentClassId }) 
     changedFiles: [],
     summary: null,
     error: null,
+    daemonHeaders: boundedDaemonHeaders(daemonHeaders),
   };
   // The optimistic user message the SPA renders on submit is keyed by this id (it navigates with
   // {pendingMessageId: userInputBlockId}). The conversation stream MUST echo the userInput entry
@@ -275,7 +304,7 @@ export async function startAgentRun({ daemonBase, prompt, environmentClassId }) 
 // Register a run bound to an ALREADY-created environment (the compose flow's StartAgent step:
 // CreateEnvironment made the env, StartAgent binds the agent to codeContext.environmentId). No
 // prompt yet — the harness kicks off on SendToAgentExecution.
-export function registerAgentRun({ envId }) {
+export function registerAgentRun({ envId, daemonHeaders = {} }) {
   const id = genId("agent");
   const run = {
     id,
@@ -296,6 +325,7 @@ export function registerAgentRun({ envId }) {
     changedFiles: [],
     summary: null,
     error: null,
+    daemonHeaders: boundedDaemonHeaders(daemonHeaders),
   };
   runs.set(id, run);
   persistRun(run); // #3 durable from creation
@@ -304,9 +334,16 @@ export function registerAgentRun({ envId }) {
 
 // Attach the task prompt to a run and kick off the real harness execution (bound session →
 // challenge → mint grant → execute). The compose flow calls this via SendToAgentExecution.
-export async function sendToAgentRun({ daemonBase, runId, prompt, userInputBlockId }) {
+export async function sendToAgentRun({
+  daemonBase,
+  runId,
+  prompt,
+  userInputBlockId,
+  daemonHeaders = {},
+}) {
   const run = runs.get(runId);
   if (!run) return false;
+  run.daemonHeaders = boundedDaemonHeaders(daemonHeaders);
   run.prompt = prompt;
   run.name = deriveName(prompt);
   run.status = "running";
@@ -319,7 +356,7 @@ export async function sendToAgentRun({ daemonBase, runId, prompt, userInputBlock
   const dj = async (method, path, payload) => {
     const res = await fetch(base + path, {
       method,
-      headers: payload ? { "content-type": "application/json" } : undefined,
+      headers: boundedDaemonHeaders(daemonHeaders, Boolean(payload)),
       body: payload ? JSON.stringify(payload) : undefined,
     });
     const text = await res.text();
@@ -410,12 +447,21 @@ async function createLocalPullRequestDraft(run, dj) {
 // challenge → mint wallet grant → publish loop as executeRun, but for the daemon's scm/publish
 // endpoint (a real git push to the connector remote). Resolves a usable connector (given, else the
 // latest credential-free local one) and records the publish receipt onto the run (durable via bump).
-export async function publishRunViaConnector(runId, connectorId) {
+export async function publishRunViaConnector(
+  runId,
+  connectorId,
+  daemonHeaders = {},
+) {
   const run = runs.get(runId);
   if (!run) return { ok: false, reason: "run not found" };
   if (!run.envId) return { ok: false, reason: "run has no environment" };
+  run.daemonHeaders = boundedDaemonHeaders(daemonHeaders);
   const dj = async (method, path, payload) => {
-    const res = await fetch(DAEMON + path, { method, headers: payload ? { "content-type": "application/json" } : undefined, body: payload ? JSON.stringify(payload) : undefined });
+    const res = await fetch(DAEMON + path, {
+      method,
+      headers: boundedDaemonHeaders(daemonHeaders, Boolean(payload)),
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
     return { status: res.status, body: await res.json().catch(() => ({})) };
   };
   let cid = connectorId;

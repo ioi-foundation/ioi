@@ -1,0 +1,52 @@
+{
+  "schema_version": "ioi.foundations.participant-state-bundle.v2",
+  "participant_state_bundle_id": "participant-state://alpha/researcher/1",
+  "outcome_room_ref": "outcome-room://alpha",
+  "room_admission": {
+    "schema_version": "ioi.foundations.room-admitted-object-base.v2",
+    "room_system_id": "system://room-alpha",
+    "outcome_room_ref": "outcome-room://alpha",
+    "proposed_or_issued_by_ref": "participant-lease://alpha/researcher",
+    "expected_room_revision": 5,
+    "expected_predecessor_commitment_ref": "commitment://room-alpha/5",
+    "payload_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "admission_policy_ref": "policy://room-alpha/admission",
+    "admission_decision_ref": "decision://room-alpha/export-one",
+    "admission_receipt_ref": "receipt://room-alpha/export-one",
+    "admitted_sequence": 6,
+    "resulting_room_revision": 6,
+    "resulting_transition_commitment_ref": "commitment://room-alpha/6",
+    "resulting_room_state_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "resulting_receipt_root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "created_at": "2026-07-30T12:00:00Z",
+    "updated_at": "2026-07-30T12:00:01Z",
+    "admission_status": "proposed"
+  },
+  "participant_lease_ref": "participant-lease://alpha/researcher",
+  "participant_and_home_domain_refs": ["worker://researcher", "domain://home"],
+  "coordination_topology": "hosted_admission",
+  "bundle_reason": "voluntary_retirement",
+  "source_admission_watermark_ref": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+  "released_or_reassigned_claim_refs": ["work-claim://alpha/one"],
+  "preserved_contribution_attempt_finding_and_result_refs": [
+    "attempt://alpha/one",
+    "finding://alpha/one",
+    "work-result://alpha/one"
+  ],
+  "preserved_receipt_acceptance_settlement_and_dispute_refs": [
+    "receipt://alpha/one"
+  ],
+  "portable_artifact_and_view_refs": ["artifact://alpha/export"],
+  "lineage_and_supersession_refs": ["work-result://alpha/one"],
+  "export_license_retention_and_recall_policy_refs": ["policy://alpha/export"],
+  "excluded_context_classes": ["raw_secret", "private_room_database_state"],
+  "released_future_access_refs": ["revocation://alpha/lease"],
+  "revocation_or_supersession_refs": [],
+  "revocation_effect": "future_access_only",
+  "bundle_artifact_ref": "encrypted_ref",
+  "bundle_root": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "room_database_access_required": false,
+  "issued_at": "2026-07-30T12:00:02Z",
+  "signature": "sig:portable-bundle",
+  "status": "exported"
+}

@@ -6,10 +6,10 @@ Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
 Last alignment pass: 2026-07-19.
 Doctrine status: canonical
-Implementation status: partial (the runtime state store and multiple daemon object planes are live; thread forks, run replay, counterfactual what-if replay, and workspace snapshot/restore custody are implementation precedents. `ReceiptCheckpoint`/`ReceiptProofBundle` schemas, fixtures, invariants, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. Hosted OutcomeRoom participation, frontier/claim, offer/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge planes are merged. Per-System writer-transition/fencing control, room discovery, portable exit, federation, acceptance/verdict/settlement, branch/staged-effect object families, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
+Implementation status: partial (the runtime state store and multiple daemon object planes are live; thread forks, run replay, counterfactual what-if replay, and workspace snapshot/restore custody are implementation precedents. `ReceiptCheckpoint`/`ReceiptProofBundle` schemas, fixtures, invariants, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. The current hosted v2 OutcomeRoom slice admits one bounded-System-backed room, reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with payload/label custody and reconstructable projections. Current v2 participation, frontier/claim, offer/matching, Attempt/Finding, and VerifierChallenge lifecycles are not started; mounted v1 predecessor planes remain historical executable/source disposition and are fenced from v2 rooms. Per-System writer-transition/fencing control, room discovery, portable exit, federation, acceptance/verdict/settlement, branch/staged-effect object families, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
 Implementation refs:
   - `crates/services/src/agentic/runtime/`
-Last implementation audit: 2026-07-16
+Last implementation audit: 2026-07-30
 
 ## Canonical Definition
 

@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+  "title": "GoalRunActivationReceipt",
+  "description": "Portable receipt for one admitted GoalRunActivation crossing. It binds the exact activation draft, typed source context and source payload commitment, requesting principal, authority and review decisions, admission decision and receipt, admitted GoalRun identity and state root, and the exact profile resolution for create mode without widening authority, declassifying context, granting room membership, or creating budget.",
+  "x-ioi-schema-version": "ioi.goal-run-activation-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "receipt_ref",
+    "receipt_type",
+    "receipt_profile_ref",
+    "activation_ref",
+    "activation_mode",
+    "source_context",
+    "draft_activation_hash",
+    "source_context_hash",
+    "requesting_principal_ref",
+    "authority_decision_ref",
+    "review_decision_ref",
+    "admission_decision_ref",
+    "admission_receipt_ref",
+    "admitted_goal_ref",
+    "existing_goal_ref",
+    "goal_run_profile_revision_ref",
+    "goal_run_profile_content_hash",
+    "resolved_component_set_snapshot_ref",
+    "resolved_component_set_hash",
+    "profile_resolution_receipt_ref",
+    "receipt_obligations_hash",
+    "attested_boundary_fact_refs",
+    "admitted_state_root_ref",
+    "admitted_at",
+    "non_grants",
+    "receipt_root"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.goal-run-activation-receipt.v1" },
+    "receipt_id": { "$ref": "#/$defs/receiptRef" },
+    "receipt_ref": { "$ref": "#/$defs/receiptRef" },
+    "receipt_type": { "const": "goal_run_activation" },
+    "receipt_profile_ref": { "const": "schema://ioi/foundations/goal-run-activation-receipt/v1" },
+    "activation_ref": { "$ref": "#/$defs/activationRef" },
+    "activation_mode": { "enum": ["create", "join_existing"] },
+    "source_context": { "$ref": "#/$defs/sourceContext" },
+    "draft_activation_hash": { "$ref": "#/$defs/hash" },
+    "source_context_hash": { "$ref": "#/$defs/hash" },
+    "requesting_principal_ref": {
+      "type": "string",
+      "pattern": "^(?:wallet|user|agent|system)://[^\\s]{1,500}$"
+    },
+    "authority_decision_ref": {
+      "type": "string",
+      "pattern": "^(?:grant|approval)://[^\\s]{1,500}$"
+    },
+    "review_decision_ref": {
+      "anyOf": [
+        { "type": "string", "pattern": "^(?:receipt|approval)://[^\\s]{1,500}$" },
+        { "type": "null" }
+      ]
+    },
+    "admission_decision_ref": {
+      "type": "string",
+      "pattern": "^(?:agentgres|decision)://[^\\s]{1,500}$"
+    },
+    "admission_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+    "admitted_goal_ref": { "$ref": "#/$defs/goalRef" },
+    "existing_goal_ref": {
+      "anyOf": [
+        { "$ref": "#/$defs/goalRef" },
+        { "type": "null" }
+      ]
+    },
+    "goal_run_profile_revision_ref": {
+      "anyOf": [
+        { "type": "string", "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$" },
+        { "type": "null" }
+      ]
+    },
+    "goal_run_profile_content_hash": {
+      "anyOf": [
+        { "$ref": "#/$defs/hash" },
+        { "type": "null" }
+      ]
+    },
+    "resolved_component_set_snapshot_ref": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,500}$"
+    },
+    "resolved_component_set_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "profile_resolution_receipt_ref": {
+      "$ref": "#/$defs/receiptRef"
+    },
+    "receipt_obligations_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "attested_boundary_fact_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "admitted_state_root_ref": {
+      "type": "string",
+      "pattern": "^agentgres://state-root/goal-run/[^/\\s]{1,160}/sha256:[0-9a-f]{64}$"
+    },
+    "admitted_at": { "$ref": "#/$defs/canonicalDateTime" },
+    "non_grants": { "$ref": "#/$defs/nonGrants" },
+    "receipt_root": { "$ref": "#/$defs/hash" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "activation_mode": { "const": "create" } } },
+      "then": {
+        "properties": {
+          "goal_run_profile_revision_ref": { "type": "string" },
+          "goal_run_profile_content_hash": { "type": "string" },
+          "existing_goal_ref": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "activation_mode": { "const": "join_existing" } } },
+      "then": {
+        "properties": {
+          "goal_run_profile_revision_ref": { "type": "null" },
+          "goal_run_profile_content_hash": { "type": "null" },
+          "existing_goal_ref": { "type": "string" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,500}$" },
+    "activationRef": { "type": "string", "pattern": "^goal-run-activation://[^\\s]{1,500}$" },
+    "goalRef": { "type": "string", "pattern": "^goal://[^\\s]{1,500}$" },
+    "canonicalDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "sourceContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_kind", "source_ref", "source_owner_ref"],
+      "properties": {
+        "source_kind": {
+          "enum": [
+            "ioi_goal_draft",
+            "hypervisor_session",
+            "work_run",
+            "work_item",
+            "outcome_room_claim",
+            "automation_workflow_step",
+            "gateway_adapter_context"
+          ]
+        },
+        "source_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "source_owner_ref": {
+          "type": "string",
+          "pattern": "^(?:org|project|system|user)://[^\\s]{1,500}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source_kind": { "const": "ioi_goal_draft" } } },
+          "then": { "properties": { "source_ref": { "type": "string", "pattern": "^(?:intent|prompt)://[^\\s]{1,500}$" } } }
+        },
+        {
+          "if": { "properties": { "source_kind": { "const": "hypervisor_session" } } },
+          "then": { "properties": { "source_ref": { "type": "string", "pattern": "^session://[^\\s]{1,500}$" } } }
+        },
+        {
+          "if": { "properties": { "source_kind": { "const": "work_run" } } },
+          "then": { "properties": { "source_ref": { "type": "string", "pattern": "^(?:work-run|run)://[^\\s]{1,500}$" } } }
+        },
+        {
+          "if": { "properties": { "source_kind": { "const": "work_item" } } },
+          "then": { "properties": { "source_ref": { "type": "string", "pattern": "^work-item://[^\\s]{1,500}$" } } }
+        },
+        {
+          "if": { "properties": { "source_kind": { "const": "outcome_room_claim" } } },
+          "then": { "properties": { "source_ref": { "type": "string", "pattern": "^work-claim://[^\\s]{1,500}$" } } }
+        },
+        {
+          "if": { "properties": { "source_kind": { "const": "automation_workflow_step" } } },
+          "then": { "properties": { "source_ref": { "type": "string", "pattern": "^action://goal-run/activate/[^\\s]{1,500}$" } } }
+        },
+        {
+          "if": { "properties": { "source_kind": { "const": "gateway_adapter_context" } } },
+          "then": { "properties": { "source_ref": { "type": "string", "pattern": "^adapter://[^\\s]{1,500}$" } } }
+        }
+      ]
+    },
+    "nonGrants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_widening", "context_declassification", "room_membership", "budget_creation"],
+      "properties": {
+        "authority_widening": { "const": "none" },
+        "context_declassification": { "const": "none" },
+        "room_membership": { "const": "none" },
+        "budget_creation": { "const": "none" }
+      }
+    }
+  }
+}

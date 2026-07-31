@@ -1,0 +1,33 @@
+{
+  "schema_version": "ioi.goal-run-activation.v1",
+  "activation_id": "goal-run-activation://demo/create-1",
+  "activation_mode": "create",
+  "source_context": {
+    "source_kind": "ioi_goal_draft",
+    "source_ref": "intent://demo/goal-1",
+    "source_owner_ref": "user://demo"
+  },
+  "requested_goal_run_profile_revision_ref": "goal-run-profile://demo/revision/1",
+  "requested_goal_run_profile_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "existing_goal_ref": null,
+  "normalized_intent_ref": "intent://demo/goal-1",
+  "carried_context_refs": ["context://demo/1"],
+  "requested_constraint_refs": ["policy://demo/bounded"],
+  "requesting_principal_ref": "user://demo",
+  "authority_decision_ref": "grant://demo/goal-create",
+  "review_requirement": "explicit_user",
+  "review_decision_ref": "approval://demo/goal-create",
+  "idempotency_key": "demo-create-1",
+  "admission_decision_ref": "agentgres://object/goal-activation/demo-create-1",
+  "admitted_goal_ref": "goal://demo/1",
+  "activation_receipt_ref": "receipt://demo/goal-activation/1",
+  "refusal_reason_code": null,
+  "expires_at": "2026-08-01T00:00:00Z",
+  "status": "admitted",
+  "non_grants": {
+    "authority_widening": "none",
+    "context_declassification": "none",
+    "room_membership": "none",
+    "budget_creation": "none"
+  }
+}

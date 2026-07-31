@@ -7,10 +7,10 @@ meaning, authority, lifecycle, or restore validity.
 Superseded by: none.
 Last alignment pass: 2026-07-20.
 Doctrine status: canonical
-Implementation status: partial (archive/restore refs, state-root restore truth, and repair receipts built on the storage plane)
+Implementation status: partial (archive/restore refs, state-root restore truth, and repair receipts are built on the storage plane. The narrow M4 room-result slice maps one canonical opaque `artifact://` result identity through a registered `StorageBackendWriteAdmission` to immutable exact output bytes and re-resolves the admission, hash, size, receipt, bundle, and file bytes before dependent admission or projection. That slice does not implement the full ArtifactRef producer, lifecycle, portable resolver, export, deletion, or migration plane.)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-07-30
 
 ## Canonical Definition
 
@@ -164,15 +164,21 @@ ArtifactRef:
     updated_at: timestamp
 ```
 
-Registered wire contract: none yet — deferred by the M2 storage cut. No
-in-tree code produces or enforces this full `ArtifactRef` object. The realized
-in-tree substrate is (a) opaque `artifact://...` ref strings carried on
-Agentgres operations, storage-write admissions, and incident admissions, and
-(b) the sealed-archive realization registered as
+Registered provisional contract:
+`schema://ioi/components/agentgres/artifact-ref/v1` (`partial`,
+`provisional`). Registration freezes a validation and planning shape; it is not
+evidence of an admitted producer, byte resolver, or complete artifact
+lifecycle. No in-tree code currently produces or enforces this full
+`ArtifactRef` object. The realized in-tree substrate is (a) opaque
+`artifact://...` and `payload://...` ref strings carried on Agentgres
+operations, storage-write admissions, and incident admissions, and (b) the
+sealed-archive realization registered as
 `schema://ioi/components/hypervisor/storage-archive-object/v1` under the
-`AgentStateArchive` section below. Registering this envelope before a producer
-exists would pin fields nothing emits; the enforced ref boundary is registered
-instead under the Admission / Settlement Boundary section.
+`AgentStateArchive` section below. The enforced ref boundary is registered
+under the Admission / Settlement Boundary section. A stage may resolve bytes
+through that boundary without claiming the full `ArtifactRef` object; promotion
+of this provisional envelope to an implemented contract requires a separately
+owned producer, resolver, and lifecycle proof.
 
 ### PayloadRef
 

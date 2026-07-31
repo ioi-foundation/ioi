@@ -705,6 +705,7 @@ pub(crate) fn refuse_external_mutation_if_reserved_except(
 }
 
 fn resolve_open_room(data_dir: &str, room_ref: &str) -> Result<Value, VErr> {
+    refuse_predecessor_room(data_dir, room_ref)?;
     rooms::resolve_room_strict(data_dir, room_ref)
         .map_err(|message| verr("attempt_finding_room_registry_unreadable", message))?
         .ok_or_else(|| {
@@ -723,6 +724,18 @@ fn resolve_open_room(data_dir: &str, room_ref: &str) -> Result<Value, VErr> {
                 ))
             }
         })
+}
+
+fn refuse_predecessor_room(data_dir: &str, room_ref: &str) -> Result<(), VErr> {
+    rooms::refuse_predecessor_child_profile_for_room_ref(data_dir, room_ref).map_err(
+        |(code, message)| {
+            if code == "outcome_room_registry_unreadable" {
+                verr("attempt_finding_room_registry_unreadable", message)
+            } else {
+                (code, message)
+            }
+        },
+    )
 }
 
 fn participant_strict(data_dir: &str, participant_ref: &str) -> Result<Value, VErr> {
@@ -882,6 +895,7 @@ fn resolve_attempt_dependencies_with_posture(
         }
     })?;
     let room_ref = s(declaration, "outcome_room_ref", "");
+    refuse_predecessor_room(data_dir, &room_ref)?;
     let frontier_ref = s(declaration, "frontier_item_ref", "");
     let claim_ref = s(declaration, "work_claim_ref", "");
     let participant_ref = s(declaration, "participant_ref", "");
@@ -1488,6 +1502,9 @@ fn persist_successor(
 }
 
 fn complete_intent_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<(), VErr> {
+    if let Some(room_ref) = intent.get("room_ref").and_then(Value::as_str) {
+        refuse_predecessor_room(data_dir, room_ref)?;
+    }
     validate_intent_seal(intent, tail)
         .map_err(|message| verr("attempt_finding_intent_unreadable", message))?;
     let kind = intent
@@ -1763,6 +1780,7 @@ fn resolve_finding_dependencies(
     require_active_participant: bool,
 ) -> Result<FindingDependencies, VErr> {
     let room_ref = s(declaration, "outcome_room_ref", "");
+    refuse_predecessor_room(data_dir, &room_ref)?;
     let attempt_ref = s(declaration, "attempt_ref", "");
     let result_ref = s(declaration, "work_result_ref", "");
     let participant_ref = s(declaration, "participant_ref", "");
@@ -1935,6 +1953,11 @@ pub(crate) async fn handle_attempt_create(
     State(state): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    if let Some(room_ref) = body.get("outcome_room_ref").and_then(Value::as_str) {
+        if let Err(error) = refuse_predecessor_room(&state.data_dir, room_ref) {
+            return classify(error);
+        }
+    }
     let declaration = match validate_attempt_create(&body) {
         Ok(value) => value,
         Err(error) => return classify(error),
@@ -2344,6 +2367,11 @@ pub(crate) async fn handle_finding_create(
     State(state): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    if let Some(room_ref) = body.get("outcome_room_ref").and_then(Value::as_str) {
+        if let Err(error) = refuse_predecessor_room(&state.data_dir, room_ref) {
+            return classify(error);
+        }
+    }
     let declaration = match validate_finding_create(&body) {
         Ok(value) => value,
         Err(error) => return classify(error),
@@ -2723,6 +2751,10 @@ pub(crate) async fn handle_finding_transition(
 fn ensure_read_converged(data_dir: &str) -> Result<(), VErr> {
     let intents = scan_intents(data_dir)
         .map_err(|message| verr("attempt_finding_intent_unreadable", message))?;
+    let intents = rooms::retain_historical_predecessor_child_records(
+        data_dir,
+        intents.into_iter().map(|(_, intent)| intent).collect(),
+    )?;
     if intents.is_empty() {
         Ok(())
     } else {
@@ -2741,6 +2773,11 @@ async fn list(
     query: HashMap<String, String>,
     attempts: bool,
 ) -> (StatusCode, Json<Value>) {
+    if let Some(room_ref) = query.get("room") {
+        if let Err(error) = refuse_predecessor_room(&state.data_dir, room_ref) {
+            return classify(error);
+        }
+    }
     if let Err(error) = ensure_read_converged(&state.data_dir) {
         return classify(error);
     }
@@ -2750,10 +2787,13 @@ async fn list(
         (FINDING_DIR, canonical_finding_tail as fn(&str) -> bool)
     };
     let mut records = match scan_records(&state.data_dir, family, canonical) {
-        Ok(values) => values
-            .into_iter()
-            .map(|(_, value)| value)
-            .collect::<Vec<_>>(),
+        Ok(values) => match rooms::retain_historical_predecessor_child_records(
+            &state.data_dir,
+            values.into_iter().map(|(_, value)| value).collect(),
+        ) {
+            Ok(records) => records,
+            Err(error) => return classify(error),
+        },
         Err(message) => return classify(verr("attempt_finding_registry_unreadable", message)),
     };
     records.retain(|record| {
@@ -2807,7 +2847,14 @@ pub(crate) async fn handle_attempt_get(
         return classify(error);
     }
     match load_attempt_strict(&state.data_dir, &id) {
-        Ok(Some(value)) => (StatusCode::OK, Json(json!({"attempt":value}))),
+        Ok(Some(value)) => {
+            if let Err(error) =
+                refuse_predecessor_room(&state.data_dir, &s(&value, "outcome_room_ref", ""))
+            {
+                return classify(error);
+            }
+            (StatusCode::OK, Json(json!({"attempt":value})))
+        }
         Ok(None) => classify(verr("attempt_not_found", format!("no Attempt '{id}'"))),
         Err(message) => classify(verr("attempt_finding_registry_unreadable", message)),
     }
@@ -2821,7 +2868,14 @@ pub(crate) async fn handle_finding_get(
         return classify(error);
     }
     match load_finding_strict(&state.data_dir, &id) {
-        Ok(Some(value)) => (StatusCode::OK, Json(json!({"finding":value}))),
+        Ok(Some(value)) => {
+            if let Err(error) =
+                refuse_predecessor_room(&state.data_dir, &s(&value, "outcome_room_ref", ""))
+            {
+                return classify(error);
+            }
+            (StatusCode::OK, Json(json!({"finding":value})))
+        }
         Ok(None) => classify(verr("finding_not_found", format!("no Finding '{id}'"))),
         Err(message) => classify(verr("attempt_finding_registry_unreadable", message)),
     }
@@ -2834,11 +2888,23 @@ async fn overview(state: Arc<DaemonState>, attempts: bool) -> (StatusCode, Json<
         (FINDING_DIR, canonical_finding_tail as fn(&str) -> bool)
     };
     let count = match scan_records(&state.data_dir, family, canonical) {
-        Ok(values) => values.len(),
+        Ok(values) => match rooms::retain_historical_predecessor_child_records(
+            &state.data_dir,
+            values.into_iter().map(|(_, value)| value).collect(),
+        ) {
+            Ok(records) => records.len(),
+            Err(error) => return classify(error),
+        },
         Err(message) => return classify(verr("attempt_finding_registry_unreadable", message)),
     };
     let pending = match scan_intents(&state.data_dir) {
-        Ok(values) => values.len(),
+        Ok(values) => match rooms::retain_historical_predecessor_child_records(
+            &state.data_dir,
+            values.into_iter().map(|(_, value)| value).collect(),
+        ) {
+            Ok(records) => records.len(),
+            Err(error) => return classify(error),
+        },
         Err(message) => return classify(verr("attempt_finding_intent_unreadable", message)),
     };
     (
@@ -3467,6 +3533,12 @@ pub(crate) async fn complete_governed_attempt_finding_intents(data_dir: &str, ma
             }
         };
         let room_ref = s(&intent, "room_ref", "");
+        if let Err((code, message)) = refuse_predecessor_room(data_dir, &room_ref) {
+            eprintln!(
+                "Attempt/Finding completer: '{tail}' room profile refused ({code}: {message}); retained"
+            );
+            continue;
+        }
         let participant_ref = s(&intent, "participant_ref", "");
         let required_authority = if governance == Governance::Host {
             match rooms::resolve_room_host(data_dir, &room_ref) {
@@ -3604,6 +3676,37 @@ mod attempt_finding_tests {
         ));
         std::fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    #[test]
+    fn predecessor_child_profile_retains_attempt_finding_intent_bytes() {
+        let directory = temp_dir("predecessor-profile");
+        let data_dir = directory.to_str().unwrap();
+        let room_tail = "or_ab";
+        let room_ref = format!("outcome-room://{room_tail}");
+        std::fs::create_dir_all(directory.join(rooms::ROOM_DIR)).unwrap();
+        std::fs::write(
+            directory
+                .join(rooms::ROOM_DIR)
+                .join(format!("{room_tail}.json")),
+            serde_json::to_vec(&json!({
+                "schema_version": "ioi.foundations.outcome-room.v2",
+                "outcome_room_id": room_ref,
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let intent = json!({"room_ref": room_ref, "sentinel": "retain-exactly"});
+        let intent_bytes = serde_json::to_vec(&intent).unwrap();
+        let intent_directory = directory.join(INTENT_DIR);
+        std::fs::create_dir_all(&intent_directory).unwrap();
+        let intent_path = intent_directory.join("afi_ab.json");
+        std::fs::write(&intent_path, &intent_bytes).unwrap();
+
+        let error = complete_intent_locked(data_dir, "afi_ab", &intent).unwrap_err();
+        assert_eq!(error.0, "outcome_room_predecessor_child_profile_retired");
+        assert_eq!(std::fs::read(intent_path).unwrap(), intent_bytes);
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     fn declaration() -> Value {

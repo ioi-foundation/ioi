@@ -153,6 +153,11 @@ OutcomeDeltaEnvelope:
   status: proposed | evaluating | admitted | rejected | superseded | rolled_back
 ```
 
+The registered v2 form bounds every repeated ref set in `WorkResultEnvelope`
+and `OutcomeDeltaEnvelope` to at most 64 unique entries. Producers and readers
+MUST refuse an over-bound record; they MUST NOT truncate, partially project, or
+silently omit refs to manufacture a valid result.
+
 Information-flow labels are part of result lineage, not an assertion that the
 result is true or authoritative. A room-scoped result preserves every label
 that can influence its payload, summary, claims, or proposed delta. An

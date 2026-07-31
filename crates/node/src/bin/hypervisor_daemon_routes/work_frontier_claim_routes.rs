@@ -2233,6 +2233,9 @@ fn intent_string<'a>(intent: &'a Value, field: &str) -> Result<&'a str, VErr> {
 /// idempotent and compares exact prior/final bytes; partial application remains hidden behind the
 /// durable intent and converges forward on authenticated replay.
 fn complete_intent_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<(), VErr> {
+    if let Some(room_ref) = intent.get("room_ref").and_then(Value::as_str) {
+        refuse_predecessor_room(data_dir, room_ref)?;
+    }
     let kind = intent_string(intent, "kind")?;
     let receipt_tail = intent_string(intent, "receipt_tail")?;
     let receipt = intent_value(intent, "receipt").ok_or_else(|| {
@@ -2591,6 +2594,7 @@ pub(crate) fn refuse_room_close_if_blocked_locked(
 }
 
 fn resolve_room_open_strict(data_dir: &str, room_ref: &str) -> Result<Value, VErr> {
+    refuse_predecessor_room(data_dir, room_ref)?;
     let room = rooms::resolve_room_strict(data_dir, room_ref)
         .map_err(|message| verr("work_frontier_claim_room_unreadable", message))?
         .ok_or_else(|| {
@@ -2612,6 +2616,18 @@ fn resolve_room_open_strict(data_dir: &str, room_ref: &str) -> Result<Value, VEr
         ));
     }
     Ok(room)
+}
+
+fn refuse_predecessor_room(data_dir: &str, room_ref: &str) -> Result<(), VErr> {
+    rooms::refuse_predecessor_child_profile_for_room_ref(data_dir, room_ref).map_err(
+        |(code, message)| {
+            if code == "outcome_room_registry_unreadable" {
+                verr("work_frontier_claim_room_unreadable", message)
+            } else {
+                (code, message)
+            }
+        },
+    )
 }
 
 fn participant_strict(data_dir: &str, participant_ref: &str) -> Result<Value, VErr> {
@@ -2660,11 +2676,19 @@ pub(crate) async fn handle_frontier_create(
     State(state): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    if let Some(room_ref) = body.get("outcome_room_ref").and_then(Value::as_str) {
+        if let Err(error) = refuse_predecessor_room(&state.data_dir, room_ref) {
+            return classify(error);
+        }
+    }
     let declaration = match validate_frontier_create(&body) {
         Ok(declaration) => declaration,
         Err(error) => return classify(error),
     };
     let room_ref = s(&declaration, "outcome_room_ref", "");
+    if let Err(error) = refuse_predecessor_room(&state.data_dir, &room_ref) {
+        return classify(error);
+    }
     let room = match rooms::resolve_room_strict(&state.data_dir, &room_ref) {
         Ok(Some(room)) => room,
         Ok(None) => {
@@ -2911,6 +2935,9 @@ pub(crate) async fn handle_frontier_transition(
         ));
     }
     let room_ref = s(&prior, "outcome_room_ref", "");
+    if let Err(error) = refuse_predecessor_room(&state.data_dir, &room_ref) {
+        return classify(error);
+    }
     let host_ref = match rooms::resolve_room_host(&state.data_dir, &room_ref) {
         Some(host) => host,
         None => {
@@ -3050,6 +3077,11 @@ pub(crate) async fn handle_claim_acquire(
     State(state): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    if let Some(room_ref) = body.get("outcome_room_ref").and_then(Value::as_str) {
+        if let Err(error) = refuse_predecessor_room(&state.data_dir, room_ref) {
+            return classify(error);
+        }
+    }
     let declaration = match validate_claim_acquire(&body) {
         Ok(declaration) => declaration,
         Err(error) => return classify(error),
@@ -3611,6 +3643,7 @@ pub(crate) async fn prepare_participant_terminal_claim(
             )))
         }
     }
+    refuse_predecessor_room(data_dir, &room_ref).map_err(classify)?;
     let (effect_op, to_status, governance, required_authority) =
         if participant_transition == "retire" {
             (
@@ -3923,6 +3956,9 @@ pub(crate) async fn handle_claim_transition(
             Err(error) => return classify(error),
         };
     let room_ref = s(&prior_claim, "outcome_room_ref", "");
+    if let Err(error) = refuse_predecessor_room(&state.data_dir, &room_ref) {
+        return classify(error);
+    }
     let participant_ref = s(&prior_claim, "claimant_ref", "");
     let participant = match participant_strict(&state.data_dir, &participant_ref) {
         Ok(record) => record,
@@ -3986,7 +4022,11 @@ pub(crate) async fn handle_claim_transition(
         }
     } else {
         match rooms::resolve_room_strict(&state.data_dir, &room_ref) {
-            Ok(Some(_)) => {}
+            Ok(Some(room)) => {
+                if let Err(error) = rooms::refuse_predecessor_child_profile_for_room(&room) {
+                    return classify(error);
+                }
+            }
             Ok(None) => {
                 return classify(verr(
                     "work_frontier_claim_room_not_found",
@@ -4173,6 +4213,10 @@ fn read_registry_error(message: String) -> (StatusCode, Json<Value>) {
 fn ensure_read_converged(data_dir: &str) -> Result<(), VErr> {
     let pending = scan_intents(data_dir)
         .map_err(|message| verr("work_frontier_claim_intent_unreadable", message))?;
+    let pending = rooms::retain_historical_predecessor_child_records(
+        data_dir,
+        pending.into_iter().map(|(_, intent)| intent).collect(),
+    )?;
     if pending.is_empty() {
         Ok(())
     } else {
@@ -4220,6 +4264,8 @@ fn replay_required_authority(
         .get("room_ref")
         .and_then(Value::as_str)
         .ok_or_else(|| "intent lacks room_ref".to_string())?;
+    refuse_predecessor_room(data_dir, room_ref)
+        .map_err(|(code, message)| format!("{code}: {message}"))?;
     let expected = match governance {
         Governance::Host => rooms::resolve_room_host(data_dir, room_ref)
             .ok_or_else(|| format!("room host for '{room_ref}' does not resolve"))?,
@@ -4336,6 +4382,11 @@ pub(crate) async fn handle_frontier_list(
     State(state): State<Arc<DaemonState>>,
     Query(query): Query<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
+    if let Some(room_ref) = query.get("room") {
+        if let Err(error) = refuse_predecessor_room(&state.data_dir, room_ref) {
+            return classify(error);
+        }
+    }
     if let Err(error) = ensure_read_converged(&state.data_dir) {
         return classify(error);
     }
@@ -4343,9 +4394,15 @@ pub(crate) async fn handle_frontier_list(
         Ok(records) => records,
         Err(message) => return read_registry_error(message),
     };
+    let records = match rooms::retain_historical_predecessor_child_records(
+        &state.data_dir,
+        records.into_iter().map(|(_, record)| record).collect(),
+    ) {
+        Ok(records) => records,
+        Err(error) => return classify(error),
+    };
     let mut rows: Vec<Value> = records
         .into_iter()
-        .map(|(_, record)| record)
         .filter(|record| {
             query
                 .get("room")
@@ -4393,7 +4450,14 @@ pub(crate) async fn handle_frontier_get(
         return classify(error);
     }
     match load_frontier(&state.data_dir, &id) {
-        Ok(Some(record)) => (StatusCode::OK, Json(json!({ "frontier_item": record }))),
+        Ok(Some(record)) => {
+            if let Err(error) =
+                refuse_predecessor_room(&state.data_dir, &s(&record, "outcome_room_ref", ""))
+            {
+                return classify(error);
+            }
+            (StatusCode::OK, Json(json!({ "frontier_item": record })))
+        }
         Ok(None) => classify(verr(
             "work_frontier_not_found",
             format!("no frontier item '{id}'"),
@@ -4407,18 +4471,30 @@ pub(crate) async fn handle_frontier_overview(
     State(state): State<Arc<DaemonState>>,
 ) -> (StatusCode, Json<Value>) {
     let pending = match scan_intents(&state.data_dir) {
-        Ok(intents) => intents.len(),
+        Ok(intents) => match rooms::retain_historical_predecessor_child_records(
+            &state.data_dir,
+            intents.into_iter().map(|(_, intent)| intent).collect(),
+        ) {
+            Ok(intents) => intents.len(),
+            Err(error) => return classify(error),
+        },
         Err(message) => return read_registry_error(message),
     };
     let records = match scan_records(&state.data_dir, FRONTIER_DIR, canonical_frontier_tail) {
-        Ok(records) => records,
+        Ok(records) => match rooms::retain_historical_predecessor_child_records(
+            &state.data_dir,
+            records.into_iter().map(|(_, record)| record).collect(),
+        ) {
+            Ok(records) => records,
+            Err(error) => return classify(error),
+        },
         Err(message) => return read_registry_error(message),
     };
     let mut counts: HashMap<String, usize> = FRONTIER_STATUSES
         .iter()
         .map(|status| ((*status).to_string(), 0))
         .collect();
-    for (_, record) in &records {
+    for record in &records {
         *counts.entry(s(record, "status", "")).or_default() += 1;
     }
     (
@@ -4444,6 +4520,11 @@ pub(crate) async fn handle_claim_list(
     State(state): State<Arc<DaemonState>>,
     Query(query): Query<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
+    if let Some(room_ref) = query.get("room") {
+        if let Err(error) = refuse_predecessor_room(&state.data_dir, room_ref) {
+            return classify(error);
+        }
+    }
     if let Err(error) = ensure_read_converged(&state.data_dir) {
         return classify(error);
     }
@@ -4451,9 +4532,15 @@ pub(crate) async fn handle_claim_list(
         Ok(records) => records,
         Err(message) => return read_registry_error(message),
     };
+    let records = match rooms::retain_historical_predecessor_child_records(
+        &state.data_dir,
+        records.into_iter().map(|(_, record)| record).collect(),
+    ) {
+        Ok(records) => records,
+        Err(error) => return classify(error),
+    };
     let mut rows: Vec<Value> = records
         .into_iter()
-        .map(|(_, record)| record)
         .filter(|record| {
             query
                 .get("room")
@@ -4501,7 +4588,14 @@ pub(crate) async fn handle_claim_get(
         return classify(error);
     }
     match load_claim(&state.data_dir, &id) {
-        Ok(Some(record)) => (StatusCode::OK, Json(json!({ "work_claim": record }))),
+        Ok(Some(record)) => {
+            if let Err(error) =
+                refuse_predecessor_room(&state.data_dir, &s(&record, "outcome_room_ref", ""))
+            {
+                return classify(error);
+            }
+            (StatusCode::OK, Json(json!({ "work_claim": record })))
+        }
         Ok(None) => classify(verr(
             "work_claim_not_found",
             format!("no work claim '{id}'"),
@@ -4515,18 +4609,30 @@ pub(crate) async fn handle_claim_overview(
     State(state): State<Arc<DaemonState>>,
 ) -> (StatusCode, Json<Value>) {
     let pending = match scan_intents(&state.data_dir) {
-        Ok(intents) => intents.len(),
+        Ok(intents) => match rooms::retain_historical_predecessor_child_records(
+            &state.data_dir,
+            intents.into_iter().map(|(_, intent)| intent).collect(),
+        ) {
+            Ok(intents) => intents.len(),
+            Err(error) => return classify(error),
+        },
         Err(message) => return read_registry_error(message),
     };
     let records = match scan_records(&state.data_dir, CLAIM_DIR, canonical_claim_tail) {
-        Ok(records) => records,
+        Ok(records) => match rooms::retain_historical_predecessor_child_records(
+            &state.data_dir,
+            records.into_iter().map(|(_, record)| record).collect(),
+        ) {
+            Ok(records) => records,
+            Err(error) => return classify(error),
+        },
         Err(message) => return read_registry_error(message),
     };
     let mut counts: HashMap<String, usize> = CLAIM_STATUSES
         .iter()
         .map(|status| ((*status).to_string(), 0))
         .collect();
-    for (_, record) in &records {
+    for record in &records {
         *counts.entry(s(record, "status", "")).or_default() += 1;
     }
     (
@@ -4534,7 +4640,7 @@ pub(crate) async fn handle_claim_overview(
         Json(json!({
             "schema_version": CLAIM_SCHEMA,
             "count": records.len(),
-            "live_count": records.iter().filter(|(_, record)| live_claim_status(&s(record, "status", ""))).count(),
+            "live_count": records.iter().filter(|record| live_claim_status(&s(record, "status", ""))).count(),
             "status_counts": counts,
             "pending_convergence_count": pending,
             "lease_clock": "wallet.network PrincipalAuthorityResolutionReceipt.resolved_at_ms",
@@ -4554,6 +4660,37 @@ mod frontier_claim_tests {
             std::env::temp_dir().join(format!("ioi-frontier-claim-{tag}-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&directory).unwrap();
         directory
+    }
+
+    #[test]
+    fn predecessor_child_profile_retains_frontier_claim_intent_bytes() {
+        let directory = temp_dir("predecessor-profile");
+        let data_dir = directory.to_str().unwrap();
+        let room_tail = "or_ab";
+        let room_ref = format!("outcome-room://{room_tail}");
+        std::fs::create_dir_all(directory.join(rooms::ROOM_DIR)).unwrap();
+        std::fs::write(
+            directory
+                .join(rooms::ROOM_DIR)
+                .join(format!("{room_tail}.json")),
+            serde_json::to_vec(&json!({
+                "schema_version": "ioi.foundations.outcome-room.v2",
+                "outcome_room_id": room_ref,
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let intent = json!({"room_ref": room_ref, "sentinel": "retain-exactly"});
+        let intent_bytes = serde_json::to_vec(&intent).unwrap();
+        let intent_directory = directory.join(INTENT_DIR);
+        std::fs::create_dir_all(&intent_directory).unwrap();
+        let intent_path = intent_directory.join("wci_ab.json");
+        std::fs::write(&intent_path, &intent_bytes).unwrap();
+
+        let error = complete_intent_locked(data_dir, "wci_ab", &intent).unwrap_err();
+        assert_eq!(error.0, "outcome_room_predecessor_child_profile_retired");
+        assert_eq!(std::fs::read(intent_path).unwrap(), intent_bytes);
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     fn authorized(ms: u64, contract: AuthorityContract, effect: Value) -> AuthorizedDecision {

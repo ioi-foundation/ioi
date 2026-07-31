@@ -11,13 +11,17 @@ workflow.
 Superseded by: none.
 Last alignment pass: 2026-07-12.
 Doctrine status: canonical
-Implementation status: partial (the M3 direct GoalRun/WorkResult seam and
-hosted room-family route implementations exist, but the 2026-07-30 fresh
-runtime re-audit remains red on terminal participation replay and eligibility
-retry idempotency and did not admit an M4 aggregate proof; collaboration-terms
-negotiation, federated and cross-domain admission, local-agent pairing,
+Implementation status: partial (the M3 direct GoalRun/WorkResult seam exists.
+The current hosted v2 M4 slice admits one bounded-System-backed OutcomeRoom,
+reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with
+payload/label custody plus an owner-filtered proof projection in the restored
+ported shell. Current v2 participation, frontier/claim, offer, Attempt/Finding,
+and VerifierChallenge lifecycles are not started and project honest-empty sets;
+mounted v1 predecessor routes remain historical executable/source disposition
+and are generation-fenced from v2 rooms. Collaboration-terms negotiation,
+federated and cross-domain admission, local-agent pairing,
 acceptance/verdict/settlement, product-level attempt comparison, and the
-visible ioi.ai Goal Space client remain planned)
+complete visible ioi.ai Goal Space client remain planned.)
 Last implementation audit: 2026-07-30
 
 ## Canonical Definition
@@ -34,6 +38,13 @@ the substrate.
 
 When a goal is simple, ioi.ai may route it to one model, one worker, one
 automation, one service, or one Hypervisor session.
+
+The conversation surface preserves an explicit durability boundary. Sending a
+prompt may start an ephemeral bounded Session, but it does not itself create a
+GoalRun or Goal Space. A user must separately invoke and review the typed goal
+activation act; that act crosses `GoalRunActivationEnvelope`, and only daemon
+admission produces durable goal identity and receipts. A Session or transcript
+may then project or attach to that identity, never originate or repair it.
 
 When a goal benefits from multiple models, harnesses, tools, verifier paths,
 attempt strategies, or independent contributors, ioi.ai may materialize an

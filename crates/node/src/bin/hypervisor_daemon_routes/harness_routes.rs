@@ -541,7 +541,7 @@ fn save_profile(data_dir: &str, profile: &mut Value) {
 /// under the registry lock, re-load the record, set only `runnability` (plus an optional receipt
 /// ref), save, and return the reloaded+updated record.
 fn persist_runnability_locked(
-    st: &Arc<DaemonState>,
+    st: &DaemonState,
     id: &str,
     runnability: Value,
     receipt: Option<&str>,
@@ -570,6 +570,177 @@ fn sorted_profiles(data_dir: &str) -> Vec<Value> {
             .then(s(a, "profile_id", "").cmp(&s(b, "profile_id", "")))
     });
     profiles
+}
+
+/// Complete, no-follow census used by M4 authority-bearing GoalRun activation and execution.
+/// The compatibility list endpoints intentionally remain permissive for older local records, but
+/// this lane may not turn a malformed, relocated, duplicated, or partially read registry into an
+/// arbitrary profile choice.  Run this BEFORE `ensure_seed`: otherwise a malformed canonical seed
+/// slot could be silently overwritten and make a refusal look like successful reconciliation.
+fn strict_profile_census(data_dir: &str) -> Result<Vec<Value>, String> {
+    const MAX_PROFILES: usize = 4_096;
+    const MAX_PROFILE_BYTES: usize = 1_048_576;
+    const MAX_TOTAL_BYTES: usize = 32 * 1_048_576;
+
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, RECORD_DIR) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => {
+            return Err(format!(
+                "harness-profile registry cannot be pinned ({error})"
+            ))
+        }
+    };
+    let mut names = super::durable_fs::enumerate_pinned(&directory)
+        .map_err(|error| format!("harness-profile registry cannot be enumerated ({error})"))?;
+    names.sort();
+    if names.len() > MAX_PROFILES {
+        return Err(format!(
+            "harness-profile registry exceeds its bounded census ({}/{MAX_PROFILES})",
+            names.len()
+        ));
+    }
+
+    let mut total_bytes = 0usize;
+    let mut profile_ids = std::collections::HashSet::new();
+    let mut profile_refs = std::collections::HashSet::new();
+    let mut defaults = 0usize;
+    let mut profiles = Vec::with_capacity(names.len());
+    for name in names {
+        let Some(profile_id) = name.strip_suffix(".json") else {
+            return Err(format!(
+                "harness-profile registry contains unexpected occupant '{name}'"
+            ));
+        };
+        if profile_id.is_empty()
+            || !profile_id.chars().all(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '-' | '_')
+            })
+        {
+            return Err(format!(
+                "harness-profile registry slot '{name}' has a non-canonical key"
+            ));
+        }
+        let Some((_file, bytes)) = super::durable_fs::read_slot_strict(&directory, &name)
+            .map_err(|error| format!("harness-profile slot '{name}' is unreadable ({error})"))?
+        else {
+            return Err(format!(
+                "harness-profile slot '{name}' disappeared during its strict census"
+            ));
+        };
+        if bytes.len() > MAX_PROFILE_BYTES {
+            return Err(format!(
+                "harness-profile slot '{name}' exceeds the {MAX_PROFILE_BYTES}-byte bound"
+            ));
+        }
+        total_bytes = total_bytes
+            .checked_add(bytes.len())
+            .ok_or_else(|| "harness-profile registry byte census overflowed".to_string())?;
+        if total_bytes > MAX_TOTAL_BYTES {
+            return Err(format!(
+                "harness-profile registry exceeds the {MAX_TOTAL_BYTES}-byte aggregate bound"
+            ));
+        }
+        let profile: Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("harness-profile slot '{name}' is malformed ({error})"))?;
+        if profile.get("schema_version").and_then(Value::as_str) != Some(PROFILE_SCHEMA)
+            || profile.get("profile_id").and_then(Value::as_str) != Some(profile_id)
+            || profile.get("profile_ref").and_then(Value::as_str)
+                != Some(format!("harness-profile:{profile_id}").as_str())
+            || !profile
+                .get("harness")
+                .and_then(Value::as_str)
+                .is_some_and(|harness| !harness.trim().is_empty())
+        {
+            return Err(format!(
+                "harness-profile slot '{name}' fails schema/key/ref/harness binding"
+            ));
+        }
+        let profile_ref = profile
+            .get("profile_ref")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        if !profile_ids.insert(profile_id.to_string()) || !profile_refs.insert(profile_ref) {
+            return Err(format!(
+                "harness-profile identity '{profile_id}' resolves more than once"
+            ));
+        }
+        if profile.get("default_profile").and_then(Value::as_bool) == Some(true) {
+            defaults += 1;
+            if defaults > 1 {
+                return Err(
+                    "harness-profile registry contains more than one default profile".to_string(),
+                );
+            }
+        }
+        profiles.push(profile);
+    }
+    Ok(profiles)
+}
+
+/// Strict, live profile facts for the M4 GoalRun lane. Existing bytes are proved before seeded
+/// records may be reconciled, every live probe is persisted, and a second complete census proves
+/// the facts returned to the caller. This is deliberately separate from compatibility reads.
+pub(crate) fn existing_profiles_strict(st: &DaemonState) -> Result<Vec<Value>, String> {
+    let mut profiles = strict_profile_census(&st.data_dir)?;
+    profiles.sort_by(|a, b| s(a, "profile_id", "").cmp(&s(b, "profile_id", "")));
+    Ok(profiles)
+}
+
+/// Read-only preflight above is intentionally separate from this reconciler. Callers that can
+/// refuse on already-retained facts must do so before invoking this function: seed repair and
+/// runnability probes are durable effects, even when a later admission would refuse.
+pub(crate) fn live_profiles_strict(st: &DaemonState) -> Result<Vec<Value>, String> {
+    let before = strict_profile_census(&st.data_dir)?;
+    if !before.is_empty()
+        && !before.iter().any(|profile| {
+            profile.get("profile_id").and_then(Value::as_str) == Some(DEFAULT_PROFILE_ID)
+        })
+        && before
+            .iter()
+            .any(|profile| profile.get("default_profile").and_then(Value::as_bool) == Some(true))
+    {
+        return Err(
+            "harness-profile seed is absent while another default occupies the registry; automatic seed reconciliation is refused"
+                .to_string(),
+        );
+    }
+    ensure_seed(&st.data_dir);
+    let profiles = strict_profile_census(&st.data_dir)?;
+    for profile in &profiles {
+        let profile_id = profile
+            .get("profile_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "strict harness-profile census lost profile_id".to_string())?;
+        let runnability = probe_profile(profile);
+        persist_runnability_locked(st, profile_id, runnability, None).ok_or_else(|| {
+            format!("harness-profile '{profile_id}' disappeared while its live fact was persisted")
+        })?;
+    }
+    let mut refreshed = strict_profile_census(&st.data_dir)?;
+    refreshed.sort_by(|a, b| s(a, "profile_id", "").cmp(&s(b, "profile_id", "")));
+    Ok(refreshed)
+}
+
+/// Resolve exactly one profile for a harness from an already-strict census. Duplicate harness
+/// aliases are an ambiguity at an execution boundary, even when their profile ids differ.
+pub(crate) fn unique_profile_by_harness<'a>(
+    profiles: &'a [Value],
+    harness: &str,
+) -> Result<&'a Value, String> {
+    let mut matches = profiles
+        .iter()
+        .filter(|profile| profile.get("harness").and_then(Value::as_str) == Some(harness));
+    let profile = matches
+        .next()
+        .ok_or_else(|| format!("harness '{harness}' has no profile in the strict registry"))?;
+    if matches.next().is_some() {
+        return Err(format!(
+            "harness '{harness}' resolves more than one profile in the strict registry"
+        ));
+    }
+    Ok(profile)
 }
 
 /// Legacy-shape runner-profile projection for `/v1/hypervisor/agent-runner-profiles` and the
@@ -905,13 +1076,16 @@ pub(crate) async fn handle_harness_profile_bind_session(
 /// The bind core, shared by the route handler above and session creation (which fail-closes the
 /// whole create when a requested harness selection cannot be admitted). Returns the response
 /// object carrying `binding` + `transcript_recorded` on success.
-pub(crate) async fn bind_profile_for_session(
-    st: &Arc<DaemonState>,
+pub(crate) fn bind_profile_for_session_recoverable(
+    st: &DaemonState,
     id: &str,
     session_ref: &str,
     model_route_ref: Option<&str>,
+    commit: bool,
 ) -> Result<Value, (StatusCode, Value)> {
-    ensure_seed(&st.data_dir);
+    if commit {
+        ensure_seed(&st.data_dir);
+    }
     let Some(profile) = load_profile_record(&st.data_dir, id) else {
         return Err((
             StatusCode::NOT_FOUND,
@@ -943,11 +1117,11 @@ pub(crate) async fn bind_profile_for_session(
             } }),
         ));
     }
-    // LIVE runnability at bind time — persisted so the registry reflects what the bind saw.
+    // LIVE runnability at bind time. Refusal is side-effect free; persistence happens only after
+    // every binding precondition and admission passes, so a rejected Session reservation cannot
+    // leave a ghost profile mutation.
     let runnability = probe_profile(&profile);
     let run_state = ps(&runnability, "/state", "not_probed");
-    let mut profile =
-        persist_runnability_locked(st, id, runnability.clone(), None).unwrap_or(profile);
     if run_state != "runnable" {
         return Err((
             StatusCode::PRECONDITION_FAILED,
@@ -960,7 +1134,9 @@ pub(crate) async fn bind_profile_for_session(
     }
     // Cross-registry truth: the model route must be an active+available registry record.
     let route_ref = model_route_ref.map(str::to_string).unwrap_or_else(|| {
-        super::model_routes::ensure_seed(&st.data_dir);
+        if commit {
+            super::model_routes::ensure_seed(&st.data_dir);
+        }
         read_record_dir(&st.data_dir, super::model_routes::RECORD_DIR)
             .into_iter()
             .find(|r| r.get("default_route").and_then(|v| v.as_bool()) == Some(true))
@@ -995,6 +1171,11 @@ pub(crate) async fn bind_profile_for_session(
         None,
     ) {
         Ok(admission) => {
+            if !commit {
+                return Ok(json!({"binding": Value::Null, "transcript_recorded": false}));
+            }
+            let mut profile =
+                persist_runnability_locked(st, id, runnability.clone(), None).unwrap_or(profile);
             let profile_ref = s(&profile, "profile_ref", "");
             let binding_id = format!("hpb_{:x}", nanos());
             let receipt = profile_receipt(
@@ -1040,11 +1221,9 @@ pub(crate) async fn bind_profile_for_session(
                 }
             }
             let _ = &profile;
-            let transcript_run =
-                post_op_transcript(&st.base_url, "bind_session", &profile_ref, &binding).await;
             Ok(json!({
                 "binding": binding,
-                "transcript_recorded": transcript_run.is_some(),
+                "transcript_recorded": false,
             }))
         }
         Err((status, body)) => Err((
@@ -1052,6 +1231,25 @@ pub(crate) async fn bind_profile_for_session(
             body,
         )),
     }
+}
+
+pub(crate) async fn bind_profile_for_session(
+    st: &Arc<DaemonState>,
+    id: &str,
+    session_ref: &str,
+    model_route_ref: Option<&str>,
+) -> Result<Value, (StatusCode, Value)> {
+    let mut response =
+        bind_profile_for_session_recoverable(st, id, session_ref, model_route_ref, true)?;
+    let binding = response.get("binding").cloned().unwrap_or(Value::Null);
+    let profile_ref = binding
+        .get("profile_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let transcript_run =
+        post_op_transcript(&st.base_url, "bind_session", profile_ref, &binding).await;
+    response["transcript_recorded"] = json!(transcript_run.is_some());
+    Ok(response)
 }
 
 pub(crate) async fn handle_harness_profile_bindings_list(
@@ -1094,6 +1292,13 @@ pub(crate) async fn handle_harness_profile_bindings_list(
 #[cfg(test)]
 mod harness_profile_tests {
     use super::*;
+
+    fn temp_dir(tag: &str) -> std::path::PathBuf {
+        let directory =
+            std::env::temp_dir().join(format!("ioi-harness-profile-{tag}-{:x}", super::nanos()));
+        std::fs::create_dir_all(&directory).unwrap();
+        directory
+    }
 
     #[test]
     fn seed_set_covers_the_goal_adapters_with_one_default() {
@@ -1191,5 +1396,52 @@ mod harness_profile_tests {
             err.1.pointer("/error/code").and_then(|v| v.as_str()),
             Some("harness_profile_mutation_execution_unwired")
         );
+    }
+
+    #[test]
+    fn strict_profile_census_refuses_malformed_seed_without_repairing_it() {
+        let directory = temp_dir("malformed-seed");
+        std::fs::create_dir_all(directory.join(RECORD_DIR)).unwrap();
+        let slot = directory
+            .join(RECORD_DIR)
+            .join(format!("{DEFAULT_PROFILE_ID}.json"));
+        std::fs::write(&slot, b"{malformed-profile").unwrap();
+        let before = std::fs::read(&slot).unwrap();
+        assert!(strict_profile_census(directory.to_str().unwrap())
+            .unwrap_err()
+            .contains("malformed"));
+        assert_eq!(std::fs::read(&slot).unwrap(), before);
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn strict_harness_selection_refuses_duplicate_aliases() {
+        let directory = temp_dir("duplicate-alias");
+        let data_dir = directory.to_str().unwrap();
+        let mut first = seed_profiles().into_iter().next().unwrap();
+        first["lifecycle"]["status"] = json!("active");
+        let mut second = first.clone();
+        second["profile_id"] = json!("hp_hypervisor_worker_duplicate");
+        second["profile_ref"] = json!("harness-profile:hp_hypervisor_worker_duplicate");
+        second["default_profile"] = json!(false);
+        super::super::durable_fs::persist_record_durable(
+            data_dir,
+            RECORD_DIR,
+            DEFAULT_PROFILE_ID,
+            &first,
+        )
+        .unwrap();
+        super::super::durable_fs::persist_record_durable(
+            data_dir,
+            RECORD_DIR,
+            "hp_hypervisor_worker_duplicate",
+            &second,
+        )
+        .unwrap();
+        let profiles = strict_profile_census(data_dir).expect("identity census is complete");
+        assert!(unique_profile_by_harness(&profiles, "hypervisor_worker")
+            .unwrap_err()
+            .contains("more than one"));
+        let _ = std::fs::remove_dir_all(directory);
     }
 }

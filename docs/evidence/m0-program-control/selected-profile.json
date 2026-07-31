@@ -1,6 +1,6 @@
 {
-  "as_of_date": "2026-07-30",
-  "build_fingerprint": "7d47e2837bebf0d625f53d3dfe9c0e2084ea8e9803320170ad34efed26a57f0c",
+  "as_of_date": "2026-07-31",
+  "build_fingerprint": "3e9e47bd6f75bafe74e2e739b1bd3e6624e06e645d3e7895c0df1ca0aae690c5",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -217,11 +217,14 @@
       {
         "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
         "route_identities": [
-          "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs"
+          "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs",
+          "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations",
+          "http:hypervisor-daemon:GET /v1/goal-orchestration/goal-run-activations/:id",
+          "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations/:id/submit"
         ],
         "state": "unavailable",
         "step": 3,
-        "visible_action": "Describe the goal, repository, constraints, authority, and acceptance."
+        "visible_action": "Describe the goal, repository, constraints, authority, and acceptance; draft, review, and explicitly submit the GoalRun activation."
       },
       {
         "blocker_ref": "BLK-M0-SELECTED-PACKAGE-GENESIS",
@@ -252,6 +255,12 @@
         "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
         "route_identities": [
           "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id",
+          "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/collaborative-work-graph",
+          "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/discussion-projection",
+          "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/product-projection",
+          "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/outcome-deltas",
+          "http:hypervisor-daemon:GET /v1/hypervisor/work-results/*id",
+          "http:hypervisor-daemon:GET /v1/hypervisor/outcome-deltas/*id",
           "http:hypervisor-daemon:POST /v1/goal-orchestration/work-frontier-items",
           "http:hypervisor-daemon:POST /v1/goal-orchestration/work-claim-leases",
           "http:hypervisor-daemon:POST /v1/goal-orchestration/attempts",
@@ -259,7 +268,7 @@
         ],
         "state": "unavailable",
         "step": 7,
-        "visible_action": "Observe planning, claimed work, attempts, verification, and blockers."
+        "visible_action": "Observe planning, claimed work, attempts, verification, blockers, admitted results and deltas, and the graph, discussion, and product projections reconstructed from room truth."
       },
       {
         "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
@@ -323,6 +332,7 @@
         "blocker_ref": "BLK-M0-SELECTED-BACKUP-RESTORE",
         "route_identities": [
           "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+          "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/replay",
           "http:hypervisor-daemon:POST /v1/hypervisor/backups",
           "http:hypervisor-daemon:POST /v1/hypervisor/snapshots/:id/restore",
           "http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-preview",
@@ -362,7 +372,21 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "d0a37b9321fa98846866ebcbe6c87e67699f873895ab51c2a9e798f14802fef5",
+        "source_anchor_sha256": "c085c1a18e968ae4810fb9b5615e816008988f4fa574ac23fdbf3295a722c09f",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "symbol": "spawn_mux_writer_cfg"
+      },
+      "identity": "http:hypervisor-daemon:GET /v1/goal-orchestration/goal-run-activations/:id",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "c085c1a18e968ae4810fb9b5615e816008988f4fa574ac23fdbf3295a722c09f",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
         "symbol": "spawn_mux_writer_cfg"
       },
@@ -372,7 +396,14 @@
     },
     {
       "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "final_invoker": null,
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "79e73a7d1596c9211fe6042b5dd2f7883516fe5ca9789aa021f0c8a90219072c",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
+        "symbol": "spawn_mux_writer_cfg"
+      },
       "identity": "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id",
       "implementation_state": "unavailable",
       "selected_profile_applicability": "required_journey"
@@ -383,7 +414,63 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "67f09de8cd3c3321be1b52f18c737b4ff9f0c668691dd762643a2064203a9b2e",
+        "source_anchor_sha256": "274192a4fa1af5a9e9213ad8c676e263479116d926312ad6827ea0c948c905b4",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
+        "symbol": "root.sync_all"
+      },
+      "identity": "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/collaborative-work-graph",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "274192a4fa1af5a9e9213ad8c676e263479116d926312ad6827ea0c948c905b4",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
+        "symbol": "root.sync_all"
+      },
+      "identity": "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/discussion-projection",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "274192a4fa1af5a9e9213ad8c676e263479116d926312ad6827ea0c948c905b4",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
+        "symbol": "root.sync_all"
+      },
+      "identity": "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/product-projection",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "274192a4fa1af5a9e9213ad8c676e263479116d926312ad6827ea0c948c905b4",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
+        "symbol": "root.sync_all"
+      },
+      "identity": "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/replay",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "6f0b6d137b180593f1d2e8efd95fb00d0e3939bd86c0fd2aa16c9b4d74e44f4d",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -407,6 +494,34 @@
     },
     {
       "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "4e82527958361ea98953feccb9182efe61415d38c2aae9777ef8cddda1314208",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs",
+        "symbol": "spawn_mux_writer_cfg"
+      },
+      "identity": "http:hypervisor-daemon:GET /v1/hypervisor/outcome-deltas/*id",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "4e82527958361ea98953feccb9182efe61415d38c2aae9777ef8cddda1314208",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs",
+        "symbol": "spawn_mux_writer_cfg"
+      },
+      "identity": "http:hypervisor-daemon:GET /v1/hypervisor/work-results/*id",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
       "final_invoker": null,
       "identity": "http:hypervisor-daemon:GET /v1/runs/:id/inspect",
       "implementation_state": "unavailable",
@@ -418,7 +533,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "67f09de8cd3c3321be1b52f18c737b4ff9f0c668691dd762643a2064203a9b2e",
+        "source_anchor_sha256": "6f0b6d137b180593f1d2e8efd95fb00d0e3939bd86c0fd2aa16c9b4d74e44f4d",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "spawn_mux_writer_cfg"
       },
@@ -432,7 +547,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "f7b8ca69a0d3c87dcdd3ddf71f43e9641aa95f7853c5e506f1c734a2a554e0ad",
+        "source_anchor_sha256": "3cafed4cc7ad260ae5f0a707e8d7a5608a911045901dea76f13bd2bba59b2f44",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs",
         "symbol": "directory.sync_all"
       },
@@ -446,9 +561,37 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "d0a37b9321fa98846866ebcbe6c87e67699f873895ab51c2a9e798f14802fef5",
+        "source_anchor_sha256": "c085c1a18e968ae4810fb9b5615e816008988f4fa574ac23fdbf3295a722c09f",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
-        "symbol": ".send"
+        "symbol": "std::fs::rename"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "c085c1a18e968ae4810fb9b5615e816008988f4fa574ac23fdbf3295a722c09f",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "symbol": "lifecycle.append"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations/:id/submit",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "c085c1a18e968ae4810fb9b5615e816008988f4fa574ac23fdbf3295a722c09f",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "symbol": "governed::append_evidence"
       },
       "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs",
       "implementation_state": "unavailable",
@@ -460,7 +603,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "d0a37b9321fa98846866ebcbe6c87e67699f873895ab51c2a9e798f14802fef5",
+        "source_anchor_sha256": "c085c1a18e968ae4810fb9b5615e816008988f4fa574ac23fdbf3295a722c09f",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
         "symbol": "persist_record_durable"
       },
@@ -474,7 +617,21 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "d0a37b9321fa98846866ebcbe6c87e67699f873895ab51c2a9e798f14802fef5",
+        "source_anchor_sha256": "c085c1a18e968ae4810fb9b5615e816008988f4fa574ac23fdbf3295a722c09f",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "symbol": "std::fs::write"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/outcome-deltas",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "c085c1a18e968ae4810fb9b5615e816008988f4fa574ac23fdbf3295a722c09f",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
         "symbol": "invocations.append"
       },
@@ -488,9 +645,9 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "177ef00d9bc08bdb90ba8f0bd2cdcfe2b39c260ac7f8b18dd39783e14cd635bf",
+        "source_anchor_sha256": "79e73a7d1596c9211fe6042b5dd2f7883516fe5ca9789aa021f0c8a90219072c",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
-        "symbol": "occupant.sync_all"
+        "symbol": "directory.sync_all"
       },
       "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms",
       "implementation_state": "unavailable",
@@ -502,13 +659,41 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "177ef00d9bc08bdb90ba8f0bd2cdcfe2b39c260ac7f8b18dd39783e14cd635bf",
+        "source_anchor_sha256": "79e73a7d1596c9211fe6042b5dd2f7883516fe5ca9789aa021f0c8a90219072c",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
-        "symbol": "occupant.sync_all"
+        "symbol": "persist_record_durable"
       },
       "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/attach-goal-run",
       "implementation_state": "unavailable",
       "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-FINAL-INVOKER-PROOF",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "79e73a7d1596c9211fe6042b5dd2f7883516fe5ca9789aa021f0c8a90219072c",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
+        "symbol": "persist_record_durable"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/detach-goal-run",
+      "implementation_state": "partial",
+      "selected_profile_applicability": "adjacent_not_sufficient"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-FINAL-INVOKER-PROOF",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "79e73a7d1596c9211fe6042b5dd2f7883516fe5ca9789aa021f0c8a90219072c",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
+        "symbol": "occupant.sync_all"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/lifecycle/transitions",
+      "implementation_state": "partial",
+      "selected_profile_applicability": "adjacent_not_sufficient"
     },
     {
       "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
@@ -516,7 +701,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "499a4acf6e780ac818e4a3f3b1fd74dc5537afb581ef2b39c74dd8cdc9014cc6",
+        "source_anchor_sha256": "3b7e2df59944d1528d995d36f630d53e5f22d03ff99499eabfc41776bffbed78",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
         "symbol": "directory.sync_all"
       },
@@ -530,7 +715,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "499a4acf6e780ac818e4a3f3b1fd74dc5537afb581ef2b39c74dd8cdc9014cc6",
+        "source_anchor_sha256": "3b7e2df59944d1528d995d36f630d53e5f22d03ff99499eabfc41776bffbed78",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
         "symbol": "directory.sync_all"
       },
@@ -544,7 +729,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "67f09de8cd3c3321be1b52f18c737b4ff9f0c668691dd762643a2064203a9b2e",
+        "source_anchor_sha256": "6f0b6d137b180593f1d2e8efd95fb00d0e3939bd86c0fd2aa16c9b4d74e44f4d",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -558,7 +743,7 @@
         "claim_state": "verified_effect_leaf",
         "note": "Every admit and refusal branch calls emit_receipt, whose final leaf persists an authority-receipt record.",
         "resolution": "verified_effect_leaf",
-        "source_anchor_sha256": "eddefb6f451dec5d4c7bd7fe30ab1739a76fe224297ddf1a1efaa9b498b13853",
+        "source_anchor_sha256": "5542f3826290ccf3c0d7576d943695c9a944833933558be121226e538adbbb12",
         "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
         "symbol": "persist_record[authority-receipts]"
       },
@@ -572,7 +757,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "d7969514e9a61b7caf49c54d0425fbd708b0b93f77a6294fda6244001c200bf7",
+        "source_anchor_sha256": "be375e9efc85e5f26107f1ffee703ef798841b72edf4c0228ba15a7aeac251ff",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
         "symbol": "spawn_mux_writer_cfg"
       },
@@ -586,7 +771,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "d7969514e9a61b7caf49c54d0425fbd708b0b93f77a6294fda6244001c200bf7",
+        "source_anchor_sha256": "be375e9efc85e5f26107f1ffee703ef798841b72edf4c0228ba15a7aeac251ff",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -600,7 +785,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5d7f1deeea4b1780e567a29805909f1dd6803827a7ce256b8526322a68965984",
+        "source_anchor_sha256": "4e82527958361ea98953feccb9182efe61415d38c2aae9777ef8cddda1314208",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs",
         "symbol": "std::fs::remove_file"
       },
@@ -614,7 +799,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "67f09de8cd3c3321be1b52f18c737b4ff9f0c668691dd762643a2064203a9b2e",
+        "source_anchor_sha256": "6f0b6d137b180593f1d2e8efd95fb00d0e3939bd86c0fd2aa16c9b4d74e44f4d",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": ".append"
       },
@@ -649,7 +834,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "67f09de8cd3c3321be1b52f18c737b4ff9f0c668691dd762643a2064203a9b2e",
+        "source_anchor_sha256": "6f0b6d137b180593f1d2e8efd95fb00d0e3939bd86c0fd2aa16c9b4d74e44f4d",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "std::fs::OpenOptions::open[write]"
       },
@@ -663,7 +848,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "67f09de8cd3c3321be1b52f18c737b4ff9f0c668691dd762643a2064203a9b2e",
+        "source_anchor_sha256": "6f0b6d137b180593f1d2e8efd95fb00d0e3939bd86c0fd2aa16c9b4d74e44f4d",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "std::fs::OpenOptions::open[write]"
       },
@@ -744,15 +929,15 @@
   ],
   "selected_entry_counts": {
     "by_applicability": {
-      "adjacent_not_sufficient": 9,
+      "adjacent_not_sufficient": 11,
       "required_effect": 1,
-      "required_journey": 19
+      "required_journey": 29
     },
     "by_state": {
       "not_applicable": 1,
-      "partial": 8,
-      "unavailable": 20
+      "partial": 10,
+      "unavailable": 30
     },
-    "total": 29
+    "total": 41
   }
 }

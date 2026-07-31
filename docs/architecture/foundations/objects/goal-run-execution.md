@@ -4,10 +4,10 @@ Status: canonical low-level reference.
 Canonical owner: this file for the shared object shapes of GoalRuns, goal grounding loops, role topologies, information-flow labels and declassification approvals, context cells, context leases, context handoffs, task briefs, harness invocations, harness adapter events, implementation result payloads, verifier paths, orchestration decision receipt registration, benchmarks, and routing decisions.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-07-30.
 Doctrine status: canonical
-Implementation status: mixed (`InformationFlowLabel` v1 and `DeclassificationApproval` v1 have registered schemas, invariants, fixtures, and generated projections; a narrow software GoalRun and the harness-profile registry exist; production information-flow enforcement, ContextCell leasing, typed handoff, and the GoalRun admission bindings for activation, source context, retained state root, and typed receipt obligations remain planned)
-Last implementation audit: 2026-07-25
+Implementation status: mixed (`InformationFlowLabel` v1 and `DeclassificationApproval` v1 have registered schemas, invariants, fixtures, and generated projections; the M4 `create` + `ioi_goal_draft` lane admits a content-addressed `GoalRunAdmittedState` through Agentgres and retains the exact profile/component closure plus typed activation-receipt obligations on its GoalRun. The narrow M4 room-result slice produces and resolves one conservative WorkResult label, requires exact Agentgres label closure, carries the complete inherited label set onto its OutcomeDelta, and fences projections when custody or labels no longer resolve. General ContextCell/tool/model/memory and pre-effect information-flow enforcement, ContextCell leasing, typed handoff, `join_existing`, the other activation sources, and the general GoalRun admission path remain planned.)
+Last implementation audit: 2026-07-30
 
 ## Purpose
 
@@ -45,6 +45,11 @@ GoalRunEnvelope:
   owner_ref: system://... | user://... | org://... | project://... | domain://...
   goal_run_profile_revision_ref: goal-run-profile://.../revision/...
   goal_run_profile_content_hash: hash
+  goal_run_execution_ceiling_revision_ref: goal-run-execution-ceiling://.../revision/sha256:...
+  goal_run_execution_ceiling_content_hash: sha256:...
+  declared_invocation_budget:
+    max_total_invocations: integer
+    max_parallel_invocations: integer
   admitted_override_set_ref: artifact://... | null
   admitted_override_set_hash: hash | null
   resolved_component_set_snapshot_ref: artifact://...
@@ -107,11 +112,15 @@ GoalRunEnvelope:
   receipt_refs:
     - receipt://... | ledger://...
   receipt_obligations:
-    - boundary_event:
+    - obligation_id: receipt-obligation://...
+      boundary_event:
         admission | activation | invocation | reconciliation |
         cancellation | close_or_escalate
       receipt_type: string
       receipt_profile_ref: schema://... | receipt://profile/...
+      bound_fact_requirement_refs:
+        - goal://... | receipt://... | artifact://... | decision://...
+      required: boolean
   admitted_state_root_ref: agentgres://state-root/goal-run/... | null
   authority_scope_refs:
     - scope:...
@@ -131,6 +140,10 @@ work uses the versioned generic-adaptive profile plus explicit run constraints;
 null profile fields are accepted only by a versioned legacy migration adapter
 and must be resolved before activation. The resolved-component snapshot,
 hash, and resolution receipt are required before the GoalRun becomes `active`.
+The run also binds one exact immutable `GoalRunExecutionCeilingEnvelope`
+revision and content hash plus a closed `declared_invocation_budget`; omission
+never means an implementation default. The declaration may be narrower than
+the ceiling but cannot widen either count.
 When an override set is present, both its ref and hash are required; when it is
 absent, both are null. The receipt binds the admitted override set and the
 transitive versions/hashes actually resolved for this run. Profile revocation
@@ -176,14 +189,70 @@ observed in its own runtime:
   `receipt_required: true` boolean is a claim, not a contract; it cannot say
   which receipt binds which boundary, so it satisfies nothing on its own.
 
+For an activation-backed admission, `admitted_state_root_ref` resolves an
+immutable `GoalRunAdmittedState` record whose registered v1 contract retains
+the exact `goal_run_ref`, activation and source commitments, requesting
+principal, authority/admission decisions and receipts, profile revision/hash,
+execution-ceiling revision/hash, declared invocation budget, admitted override
+tuple,
+resolved-component snapshot/hash, profile-resolution receipt, typed receipt
+obligations, admission instant, and non-grants. Its `state_root` is SHA-256 over
+JCS of that complete record with `state_root` and `state_root_ref` null; the
+coordinate is
+`agentgres://state-root/goal-run/<goal-id>/<state-root>`. A file alone is not
+admission: the daemon must admit the identical record through Agentgres and
+must reconstruct and verify both owners on replay.
+
+## GoalRunExecutionCeilingEnvelope
+
+Immutable, source-neutral bounds admitted with a GoalRun. A ceiling constrains
+execution; it does not authorize execution, mint a budget, choose a harness, or
+infer a default.
+
+```yaml
+GoalRunExecutionCeilingEnvelope:
+  schema_version: ioi.goal-run-execution-ceiling.v1
+  goal_run_execution_ceiling_id: goal-run-execution-ceiling://...
+  revision_ref: goal-run-execution-ceiling://.../revision/sha256:...
+  content_hash: sha256:...
+  owner_ref: system://... | org://... | project://... | user://...
+  max_total_invocations: integer
+  max_parallel_invocations: integer
+  registry_status: released
+```
+
+The revision is the content-addressed identity of the complete immutable body.
+`max_parallel_invocations` cannot exceed `max_total_invocations`. A GoalRun
+admits a separate `declared_invocation_budget` with the same two fields and
+both values less than or equal to the selected ceiling. The ceiling and the
+declaration are required facts: a missing, malformed, unresolved, substituted,
+tampered, or widened value refuses admission instead of receiving a fallback.
+
+For the M4 `ioi_goal_draft` activation lane, the selected ceiling and the
+declared budget are both exactly `{max_total_invocations: 0,
+max_parallel_invocations: 0}`. This lane admits durable Goal Space identity,
+authority state, receipts, and replayable truth but performs no harness,
+worker, model, tool, or service invocation and produces no WorkResult. Its
+`active` status means the durable GoalRun identity is admitted and may
+participate in bounded room truth; it does not mean execution capacity exists.
+An attempted start or invocation must refuse before reservation or effect.
+The registered GoalRun v1 contract makes these fields mandatory when the
+GoalRun has `origin_surface: ioi_goal_chat`; the corresponding M4 activation
+crossing has `source_kind: ioi_goal_draft`. Other already-admitted GoalRun lanes
+remain explicitly partial until their own owner-approved ceiling-adoption cut;
+their omission is not interpreted as a zero, nonzero, or otherwise inferred
+budget, and this M4 ruling does not recertify or broaden M3.
+
 ### The admission contract
 
 This is the goal-orchestration application's admission contract (ADR 0020;
 placement per
 [ADR 0022](../../../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md)).
 The daemon executes and enforces it under the substrate's admission-evidence
-discipline (INV-37); the application owns its content. It is the target
-contract; the current runtime enforces a narrower subset
+discipline (INV-37); the application owns its content. The M4
+`create` + `ioi_goal_draft` slice implements all seven requirements for that
+one source lane; this remains the target contract for every other source and
+for `join_existing`, whose current runtime paths enforce narrower subsets
 ([`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)).
 
 Admitting a GoalRun requires all of the following, together, before the run
@@ -205,7 +274,9 @@ may become `active`:
 5. **State commitment.** The retained `admitted_state_root_ref` above.
 6. **Receipt obligations.** The typed `ReceiptObligation` set above.
 7. **Bounds.** The declared invocation/parallelism budget and any
-   profile-declared ceilings, admitted as stated, never widened by defaults.
+   profile-declared ceilings, admitted as exact revision/hash bindings, never
+   widened by defaults. The profile-resolution closure, admitted state, and
+   GoalRun retain the identical ceiling and declared budget.
 
 Every precondition is discharged by evidence the admission core resolves or
 independently verifies — never by route-supplied constants (INV-37).

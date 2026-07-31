@@ -34,9 +34,33 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", ".."
 const APP_LOCAL = join(REPO_ROOT, ".ioi", "hypervisor-app-local");
 const PREF_STORE = join(APP_LOCAL, "app-preferences.json");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-// Per-request context: carries the caller's session cookie so daemon calls forward the principal
-// when auth enforcement is on (the daemon's auth_gate reads ioi_session= / Bearer). Off → no-op.
+// Per-request context carries the complete bounded identity envelope. Dropping Authorization or
+// x-ioi-forwarded here silently turns a managed caller into a loopback local operator at the
+// daemon, so every owned adapter path must reuse this exact envelope.
 const reqCtx = new AsyncLocalStorage();
+const DAEMON_IDENTITY_HEADERS = [
+  "authorization",
+  "cookie",
+  "x-ioi-forwarded",
+  "x-forwarded-for",
+  "x-forwarded-host",
+  "x-forwarded-proto",
+];
+
+function daemonIdentityHeaders(reqHeaders = {}) {
+  const normalized = {};
+  for (const name of DAEMON_IDENTITY_HEADERS) {
+    const value = reqHeaders[name] ?? reqHeaders[name.toLowerCase()];
+    if (typeof value === "string" && value.length > 0) normalized[name] = value;
+  }
+  return normalized;
+}
+
+function currentDaemonHeaders({ includeContentType = false } = {}) {
+  const headers = { ...(reqCtx.getStore()?.daemonHeaders || {}) };
+  if (includeContentType) headers["content-type"] = "application/json";
+  return headers;
+}
 
 const json = (payload) => ({ contentType: "application/json", body: JSON.stringify(payload) });
 // Connect-protocol error: non-2xx HTTP + {code,message} so the SPA's client rejects (e.g. a
@@ -61,10 +85,7 @@ const IDENTITY = {
 };
 
 async function daemon(method, path, body) {
-  const headers = body ? { "Content-Type": "application/json" } : {};
-  const ctx = reqCtx.getStore();
-  if (ctx?.cookie) headers.Cookie = ctx.cookie; // forward the caller's session so enforcement resolves the principal
-  if (ctx?.forwardedHost) headers["X-Forwarded-Host"] = ctx.forwardedHost; // tell the loopback daemon it was reached via a tunnel
+  const headers = currentDaemonHeaders({ includeContentType: Boolean(body) });
   const res = await fetch(DAEMON + path, {
     method,
     headers: Object.keys(headers).length ? headers : undefined,
@@ -74,6 +95,51 @@ async function daemon(method, path, body) {
   if (!res.ok) throw new Error(`daemon ${method} ${path} -> ${res.status}`);
   const text = await res.text();
   return text ? JSON.parse(text) : {};
+}
+
+// The legacy agent-run cache has no durable principal/owner coordinate. Until that family is
+// replaced by an owner-scoped daemon projection, it is admissible only in the selected
+// local-development profile. This preflight runs before listRuns/getRun/register/send/start.
+async function agentRunCacheAccessDecision() {
+  let response;
+  let payload = {};
+  try {
+    response = await fetch(`${DAEMON}/v1/hypervisor/auth/policy`, {
+      headers: currentDaemonHeaders(),
+      signal: AbortSignal.timeout(8000),
+    });
+    const text = await response.text();
+    try { payload = text ? JSON.parse(text) : {}; } catch { payload = {}; }
+  } catch {
+    return {
+      allowed: false,
+      status: 503,
+      code: "agent_run_cache_authority_unavailable",
+      message: "Agent-run authority could not be adjudicated; no run identity or state was resolved.",
+    };
+  }
+  if (!response.ok) {
+    return {
+      allowed: false,
+      status: response.status >= 400 ? response.status : 503,
+      code:
+        payload?.error?.code ||
+        payload?.code ||
+        payload?.reason ||
+        "agent_run_cache_authentication_required",
+      message: "Agent-run authority was refused; no run identity or state was resolved.",
+    };
+  }
+  if (payload?.deployment_auth_posture !== "local_development") {
+    return {
+      allowed: false,
+      status: 403,
+      code: "agent_run_cache_principal_scope_unavailable",
+      message:
+        "The retained agent-run cache has no principal ownership coordinates and is unavailable on a managed deployment.",
+    };
+  }
+  return { allowed: true, status: 200 };
 }
 
 // Project the daemon's MCP connectors (kind: mcp) into the native IntegrationService shape so they
@@ -209,11 +275,8 @@ async function waitForRunTerminal(runId, timeoutMs = 45000) {
 }
 
 export async function handle(pathname, bodyText, reqHeaders = {}) {
-  // Establish the per-request context (session cookie) so owned handlers' daemon calls carry the
-  // caller's identity under enforcement. Off → cookie undefined → no-op.
-  const cookie = reqHeaders.cookie || reqHeaders.Cookie || "";
-  const forwardedHost = reqHeaders["x-forwarded-host"] || reqHeaders["X-Forwarded-Host"] || "";
-  return reqCtx.run({ cookie, forwardedHost }, () => handleImpl(pathname, bodyText));
+  const daemonHeaders = daemonIdentityHeaders(reqHeaders);
+  return reqCtx.run({ daemonHeaders }, () => handleImpl(pathname, bodyText));
 }
 
 async function handleImpl(pathname, bodyText) {
@@ -431,6 +494,14 @@ async function handleImpl(pathname, bodyText) {
 
   // ---- AgentService: real IOI daemon threads/turns (Session) ----
   try {
+    if (pathname.startsWith("/api/ioi.v1.AgentService/")) {
+      const decision = await agentRunCacheAccessDecision();
+      if (!decision.allowed) {
+        return jsonStatus(decision.status, {
+          error: { code: decision.code, message: decision.message },
+        });
+      }
+    }
     // CreateAgentSession is the /ai composer's submit: spin up a real env + run the agent over
     // the harness (create env → start → bound session → mint grant → execute). Returns once the
     // env exists; the harness runs async (tracked in the run registry). The SPA then navigates to
@@ -443,6 +514,7 @@ async function handleImpl(pathname, bodyText) {
         daemonBase: DAEMON,
         prompt,
         environmentClassId,
+        daemonHeaders: currentDaemonHeaders(),
       });
       return json({ environment, agentExecutionId, userInputBlockId });
     }
@@ -471,7 +543,10 @@ async function handleImpl(pathname, bodyText) {
       // the subsequent SendToAgentExecution (which carries the prompt).
       const envId = body.codeContext?.environmentId || body.code_context?.environmentId;
       if (envId) {
-        const run = registerAgentRun({ envId });
+        const run = registerAgentRun({
+          envId,
+          daemonHeaders: currentDaemonHeaders(),
+        });
         return json({ agentExecutionId: run.id });
       }
       const created = await daemon("POST", "/v1/threads", { title: textFromBody(body).slice(0, 80) || undefined });
@@ -485,7 +560,13 @@ async function handleImpl(pathname, bodyText) {
         // id as its optimistic pending message (pendingMessageId). Echo THIS id in the conversation
         // stream so the pending turn reconciles (no duplicate prompt, "Thinking…" resolves).
         const clientBlockId = body.userInput?.id || body.input?.value?.id || body.input?.userInput?.id;
-        const userInputBlockId = await sendToAgentRun({ daemonBase: DAEMON, runId: id, prompt, userInputBlockId: clientBlockId });
+        const userInputBlockId = await sendToAgentRun({
+          daemonBase: DAEMON,
+          runId: id,
+          prompt,
+          userInputBlockId: clientBlockId,
+          daemonHeaders: currentDaemonHeaders(),
+        });
         // The product-ui bundle invalidates/refetches the execution immediately after this RPC
         // completes. If we return while the local harness is still RUNNING, the conversation pane
         // keeps its optimistic "Thinking…" row even though the files and final reply arrive in our
@@ -512,6 +593,16 @@ async function handleImpl(pathname, bodyText) {
       return json({ token: `ioi-agent-conv-${body.agentExecutionId || "anon"}` });
     }
   } catch (e) {
+    if (pathname.startsWith("/api/ioi.v1.AgentService/")) {
+      console.error("[ioi-api-adapter] owned AgentService call failed closed:", e.message);
+      return jsonStatus(503, {
+        error: {
+          code: "agent_service_owned_path_unavailable",
+          message:
+            "The owned AgentService path is unavailable; no harvested or mock substitute is admissible.",
+        },
+      });
+    }
     console.error("[ioi-api-adapter] daemon call failed, proxying:", e.message);
     return null;
   }

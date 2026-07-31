@@ -1,0 +1,43 @@
+{
+  "schema_version": "ioi.goal-run-activation-receipt.v1",
+  "receipt_id": "receipt://goal-run-activation/demo-create-1/admission",
+  "receipt_ref": "receipt://goal-run-activation/demo-create-1/admission",
+  "receipt_type": "goal_run_activation",
+  "receipt_profile_ref": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+  "activation_ref": "goal-run-activation://demo/create-1",
+  "activation_mode": "create",
+  "source_context": {
+    "source_kind": "ioi_goal_draft",
+    "source_ref": "intent://demo/goal-1",
+    "source_owner_ref": "user://demo"
+  },
+  "draft_activation_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "source_context_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "requesting_principal_ref": "user://demo",
+  "authority_decision_ref": "grant://demo/goal-create",
+  "review_decision_ref": "receipt://goal-run-activation/demo-create-1/explicit-user-review",
+  "admission_decision_ref": "agentgres://object/goal-activation/demo-create-1",
+  "admission_receipt_ref": "receipt://goal-run-admission/demo-create-1",
+  "admitted_goal_ref": "goal://demo/1",
+  "existing_goal_ref": null,
+  "goal_run_profile_revision_ref": "goal-run-profile://demo/revision/1",
+  "goal_run_profile_content_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "resolved_component_set_snapshot_ref": "artifact://goal-run/demo-1/resolved-components",
+  "resolved_component_set_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "profile_resolution_receipt_ref": "receipt://goal-run/demo-1/profile-resolution",
+  "receipt_obligations_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "attested_boundary_fact_refs": [
+    "goal-run-activation://demo/create-1",
+    "goal://demo/1",
+    "receipt://goal-run/demo-1/profile-resolution"
+  ],
+  "admitted_state_root_ref": "agentgres://state-root/goal-run/demo-1/sha256:6666666666666666666666666666666666666666666666666666666666666666",
+  "admitted_at": "2026-07-30T16:00:00Z",
+  "non_grants": {
+    "authority_widening": "none",
+    "context_declassification": "none",
+    "room_membership": "none",
+    "budget_creation": "none"
+  },
+  "receipt_root": "sha256:02d387b51679889632f233bf1ff1d5288f3f5be81308725fba478455fb0b6523"
+}

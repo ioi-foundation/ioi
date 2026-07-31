@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+  "title": "GoalRunExecutionCeiling",
+  "description": "Immutable source-neutral invocation-count ceiling admitted with a GoalRun.",
+  "x-ioi-schema-version": "ioi.goal-run-execution-ceiling.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "goal_run_execution_ceiling_id",
+    "revision_ref",
+    "content_hash",
+    "owner_ref",
+    "max_total_invocations",
+    "max_parallel_invocations",
+    "registry_status"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.goal-run-execution-ceiling.v1" },
+    "goal_run_execution_ceiling_id": {
+      "type": "string",
+      "pattern": "^goal-run-execution-ceiling://[^\\s?#\\\\]{1,160}$"
+    },
+    "revision_ref": {
+      "type": "string",
+      "pattern": "^goal-run-execution-ceiling://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "content_hash": { "$ref": "#/$defs/hash" },
+    "owner_ref": { "$ref": "#/$defs/ref" },
+    "max_total_invocations": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "max_parallel_invocations": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "registry_status": { "const": "released" }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

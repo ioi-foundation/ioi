@@ -8,10 +8,10 @@ Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
 Last alignment pass: 2026-07-20.
 Doctrine status: reference
-Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate, while production propagation and enforcement remain planned; the shared work-lifecycle integrity/replay kernel, local append store, projection repair, cancellation planner, archive/snapshot writer, and status route are target-only; generalized GoalRunProfile resolution, local-agent pairing, OutcomeRoom discussion/artifact resolution, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are also target-only; source of truth is the daemon route registry)
+Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate. The current M4 v2 OutcomeRoom slice has a read-only discussion projection plus exact WorkResult artifact-to-byte custody and label resolution, but generalized artifact/discussion resolution and production-wide propagation/enforcement remain planned. The shared work-lifecycle integrity/replay kernel, local append store, projection repair, cancellation planner, archive/snapshot writer, and status route are target-only; generalized GoalRunProfile resolution, local-agent pairing, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are also target-only; source of truth is the daemon route registry)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-07-18
+Last implementation audit: 2026-07-30
 
 ## Purpose
 
@@ -3099,13 +3099,19 @@ GoalRun / step-resolution broker behavior
   and completion loop for a goal or claimed frontier item
 ```
 
-The currently audited live slice exposes only GoalRun create/list/get,
-`start`, `reconcile`, and event projection. It admits
-`parallel_implement_reconcile` with one deterministic conductor, at most two
-implementers, and software-shaped `ImplementationResultPayload` results. The
-local-agent pairing, room, dynamic-participation, generic-result, and remaining
-fine-grained routes below are target contract; their presence here is not a
-live-route claim.
+The currently audited live slice exposes GoalRun activation/create/list/get,
+`start`, `reconcile`, lifecycle recovery, result/delta admission, and event
+projection, plus the selected hosted-v2 OutcomeRoom create/read, reciprocal
+membership, replay, graph, discussion, and product-projection routes. It admits
+`parallel_implement_reconcile` with one deterministic conductor and at most two
+implementers. A successful adapter execution is retained as a non-canonical
+result candidate on a `waiting_on_conductor` HarnessInvocation; only reciprocal
+WorkResult admission materializes the canonical
+`ImplementationResultPayloadEnvelope`, binds `work_result_ref` and
+`profile_result_ref`, and advances the invocation to `completed`. The local-agent
+pairing, current participant/frontier/claim/attempt/finding/challenge
+lifecycles, federation, and remaining fine-grained routes below are target
+contract; their presence here is not a live-route claim.
 
 The `/v1/goal-orchestration/*` namespace is the ioi.ai orchestration
 application's route namespace (ADR 0022): the daemon hosts, admits, and
@@ -3116,13 +3122,37 @@ application, not Hypervisor-substrate ownership of the objects.
 Live audited GoalRun routes:
 
 ```http
+POST /v1/goal-orchestration/goal-run-activations
+GET  /v1/goal-orchestration/goal-run-activations/{activation_ref}
+POST /v1/goal-orchestration/goal-run-activations/{activation_ref}/submit
 POST /v1/goal-orchestration/goal-runs
 GET  /v1/goal-orchestration/goal-runs
 GET  /v1/goal-orchestration/goal-runs/{goal_ref}
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/results
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/outcome-deltas
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/start
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/reconcile
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/lifecycle-recovery
 GET  /v1/goal-orchestration/goal-runs/{goal_ref}/events
 ```
+
+Selected hosted-v2 OutcomeRoom routes in the audited M4 slice:
+
+```http
+GET  /v1/goal-orchestration/outcome-rooms
+POST /v1/goal-orchestration/outcome-rooms
+GET  /v1/goal-orchestration/outcome-rooms/overview
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/attach-goal-run
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/detach-goal-run
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/replay
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/collaborative-work-graph
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/discussion-projection
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/product-projection
+```
+
+The mounted lifecycle-transition URIs are typed unavailable or retired in this
+profile; registration does not make their target lifecycle live.
 
 Target pursuit-profile discovery and nonbinding validation routes:
 
@@ -3240,6 +3270,8 @@ Target OutcomeRoom / CollaborativeWorkGraph routes:
 POST  /v1/goal-orchestration/outcome-rooms
 GET   /v1/goal-orchestration/outcome-rooms
 GET   /v1/goal-orchestration/outcome-rooms/{room_ref}
+POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/attach-goal-run
+POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/detach-goal-run
 POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/upgrade-proposals
 POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/lifecycle/transitions
 
@@ -3290,11 +3322,85 @@ POST /v1/goal-orchestration/outcome-rooms/{room_ref}/admission-proposals/{propos
 GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/replay
 ```
 
-`POST /outcome-rooms` is a package-to-genesis convenience over the autonomous-
-system create path. It selects the reusable OutcomeRoom release and proposes one
-new room `system_id`, constitution, active profile set, and cryptographic origin;
-the room cannot become open/active until genesis and activation are admitted.
-The hosted service/domain may operate many such room systems.
+The canonical `outcome-rooms` family admits and projects the bounded-System
+`OutcomeRoom` contract only. The predecessor v1 free-form aggregate is not a
+fallback when a create body omits or substitutes the current schema/System
+coordinates: its create, lifecycle, and membership writes return
+`410 outcome_room_v1_write_retired`; a canonical lookup whose storage slot is
+occupied only by a predecessor record returns
+`410 outcome_room_v1_read_retired`; list and overview omit predecessor records.
+M4 admits no public predecessor compatibility route. Historical v1 schemas and
+fixtures may remain for source disposition and regression, but cannot create,
+mutate, project, or prove current room truth.
+
+The plural `/lifecycle/transitions` URI above is the canonical lifecycle-write
+route. In the selected M4 profile it returns the typed
+`outcome_room_v2_lifecycle_transition_unavailable` refusal for a current v2
+room without mutating the room; implementing room lifecycle transitions is not
+part of the hosted M4 cut. For a predecessor room it returns the typed
+`outcome_room_v1_write_retired` refusal. The former singular `/transition` URI
+is retired for both current and predecessor records and returns a distinct
+typed route-retirement refusal with no compatibility dispatch. Attach and
+detach are current reciprocal dual-head membership transitions: each compares
+the exact room revision/predecessor commitment and GoalRun record root, then
+commits both sides under one operation and receipt or writes neither side.
+
+`POST /outcome-rooms` is the room-admission leg of the package-to-genesis
+composition, not a hidden autonomous-System create path. Its current bounded-
+System contract requires an exact `system_id` whose reusable OutcomeRoom
+package, release, genesis, constitution, active profile set, cryptographic
+origin, and activation already resolve through the canonical autonomous-System
+owner routes. A product or client may present the explicit System admission and
+room admission sequence as one guided workflow, but it may not collapse the
+wallet-authorized System acts into this route, invent their coordinates, or
+infer authority from room creation. Missing, inactive, wrong-package, or stale
+System truth refuses before any room record, receipt, or transition is written.
+The hosted service/domain may operate many such room systems; the service is not
+their logical or authority owner.
+
+The selected hosted M4 route profile admits no more than 50 current v2 room
+records. Each room objective is bounded to 4,096 characters, each repeated room
+semantic ref set to 64 unique entries, the sequence-complete
+`admission_and_replay_refs` set to 128 entries, and the admitted room sequence
+to `0..127`.
+Canonical room, replay, collaborative-graph, discussion, and product JSON bodies
+are each capped at 1 MiB. Create refuses before its intent or Agentgres operation
+when capacity is exhausted. Every mutation validates the complete candidate room
+and serialized bound before its first durable effect. Every census and point read
+validates the same limits; an over-cap or malformed record makes the read typed-
+unavailable rather than truncated, omitted, or false-empty. General collection
+cursor pagination remains the shared Hypervisor collection/application-surface
+contract and is not claimed by this M4 route profile.
+
+The selected profile is hosted-only. A create request whose
+`coordination_topology` is `federated_admission` returns
+`422 outcome_room_federated_admission_unavailable` before any room intent,
+record, receipt, transition, or bounded-System mutation. This is the one typed
+refusal for that current route condition; clients must not alias it to a
+predecessor spelling or treat it as a compatibility dispatch. External,
+federated, cross-sovereign, and AIIP admission remain later-stage contracts.
+
+WorkResult and OutcomeDelta repeated ref sets and generated collaborative-graph
+semantic ref/summary sets are capped at 64. Graph/discussion source-admission
+receipt refs and replay operations are capped at 128. Discussion permitted
+subjects are capped at 67 (System, owner, and host coordinates plus at most 64
+participant leases, after set deduplication). The runtime bounds these source
+censuses before projection use and returns typed unavailable on excess; it does
+not allocate a successful partial projection.
+
+The daemon-private WorkResult/OutcomeDelta room-admission seam returns the
+admitted object plus a bounded owner-convergence summary, never duplicate full
+GoalRun, HarnessInvocation, or parent-WorkResult bodies. The summary carries the
+exact owner contract/ref, admitted-object projection root, room ref and
+resulting revision/transition/state head, room-admission receipt ref/root, and
+the applicable GoalRun, invocation/run, or parent-WorkResult refs. Callers that
+need the converged owner bodies re-read them from their canonical owner routes
+after success. A successful WorkResult admission returns exactly `ok` and this
+`admission` envelope; an OutcomeDelta admission also returns the explicit
+`effect_executed: false` and `acceptance_granted: false` nonclaims. The daemon
+serializes and checks this exact final HTTP response before
+writing an intent, runtime dependency, Agentgres admission, room projection, or
+owner backlink; an oversized response therefore refuses without side effects.
 
 Room create/update routes never mint free-form mutable aggregates. Every
 frontier item, offer, claim, attempt, finding, challenge, result, delta, lease,

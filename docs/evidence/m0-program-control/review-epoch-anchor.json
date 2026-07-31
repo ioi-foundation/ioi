@@ -492,12 +492,44 @@
       "total_reviewed_entry_count": 1584,
       "total_reviewed_entry_set_sha256": "ff784ac0bfef60367cea4b9fb1a48191d903e986cf1635702111eb95479209d7",
       "total_reviewed_identity_set_sha256": "49957f0269b7b021e8f8d9ab554343faaddca93f2331a99e014226a86a43d61b"
+    },
+    {
+      "authorship_binding": "self_declared_unsigned",
+      "epoch_id": "m4-outcome-room-source-review-2026-07-31",
+      "latest_epoch_identity_set_sha256": "d93ca96b7bebe27c871e6a81e29e90687c742dd76221267052f59c46f70c93a3",
+      "latest_epoch_reviewed_entry_count": 1421,
+      "latest_epoch_reviewed_entry_set_sha256": "3c3d5b1e808666d9123a1c5527503afef0fc878fd944e4cbcc9f08a237b94426",
+      "predecessor_entry_sha256": "ee3c35bafe804260f4b4c3d5c553ecd636ab673cff19fca693027d1ac3b5662b",
+      "program_source_material_sha256": "63fa2ce1ed4d9766854733cd27c54f466a6c556450aa1da27635985109be9bab",
+      "review_lock_sha256": "eab157775f1929c4a241c3408b51c0a5f8d34d850a058e09ff32a673a5bd5432",
+      "reviewed_as_of": "2026-07-31",
+      "reviewer_id": "reviewer://ioi/m0-program-control-m4-source-review",
+      "sequence": 27,
+      "total_reviewed_entry_count": 1594,
+      "total_reviewed_entry_set_sha256": "e5fbfafb7f158894bc70eb030ee2710880e294b12dcb85511371cf06f74b275c",
+      "total_reviewed_identity_set_sha256": "808a5fb874ab21c6b4ddc132a136f28c2333f90e341577da5760a0b5fa84ad71"
+    },
+    {
+      "authorship_binding": "self_declared_unsigned",
+      "epoch_id": "m4-outcome-room-final-source-review-2026-07-31",
+      "latest_epoch_identity_set_sha256": "c91155d27942082beedc425184583f2c2f0c92c6744bea6dd34b1b33a4f18965",
+      "latest_epoch_reviewed_entry_count": 1421,
+      "latest_epoch_reviewed_entry_set_sha256": "ed8d8d13786e2b436f10940c71236b6d4c57001d1d45e07369184a7e2a37939c",
+      "predecessor_entry_sha256": "5914db61625a203356284ddae5243dfde62d3877e6b8d13105d6d96915870db8",
+      "program_source_material_sha256": "616680557f02138a8776c7760c13b9ef344972c675d404688dd0c65354dd3d94",
+      "review_lock_sha256": "47f2e35e801226a520c014f7932ef48c9e713a5144d130d140e970da0759ee18",
+      "reviewed_as_of": "2026-07-31",
+      "reviewer_id": "reviewer://ioi/m0-program-control-m4-final-source-review",
+      "sequence": 28,
+      "total_reviewed_entry_count": 1594,
+      "total_reviewed_entry_set_sha256": "95a13a783455a2e7d65e726e417401e4476f75bd0f1913dfcc759f5eda14d797",
+      "total_reviewed_identity_set_sha256": "b02f8b93529a1fc5edbf1346e5dd7ce392e043f2db839952b23bd3c3fd156208"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "ee3c35bafe804260f4b4c3d5c553ecd636ab673cff19fca693027d1ac3b5662b",
-    "epoch_id": "m3-and-ported-seed-reconciliation-review-2026-07-30",
-    "sequence": 26
+    "entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
+    "epoch_id": "m4-outcome-room-final-source-review-2026-07-31",
+    "sequence": 28
   }
 }

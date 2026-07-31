@@ -31,6 +31,7 @@ import {
   SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
   assertRenderedArtifactsCurrent,
   attestProgramSourceReview,
+  bindReviewedJsSystemEffectActions,
   buildM0Artifacts,
   buildM0Fingerprint,
   createInitialProgramSource,
@@ -69,6 +70,173 @@ function temporaryRepository(files) {
   }
   return root;
 }
+
+test("reviewed JavaScript system-effect labels cannot inherit a reused line identity", (t) => {
+  const fixtureRoot = temporaryRepository({
+    "effect.mjs": 'process.on("SIGINT", () => child.kill("SIGINT"));\n',
+  });
+  const reusedLineRoot = temporaryRepository({
+    "effect.mjs": 'process.on("SIGTERM", () => child.kill("SIGTERM"));\n',
+  });
+  t.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(reusedLineRoot, { recursive: true, force: true }));
+
+  const identity = "js-system-effect:effect.mjs#module_scope_line_1";
+  const discovered = {
+    identity,
+    kind: "js_system_effect",
+    operation: "process effect at module_scope_line_1",
+    source_file: "effect.mjs",
+    source_symbol: "module_scope_line_1",
+    handler: "child.kill",
+    source_anchor: { line: 1, sha256: "fixture-anchor" },
+    handler_source_file: "effect.mjs",
+    handler_source_symbol: "module_scope_line_1",
+    handler_anchor: { line: 1, sha256: "fixture-anchor" },
+    handler_resolution: "typescript_ast_system_effect_calls",
+    handler_calls: ["child.kill"],
+    handler_call_sequence: ["child.kill"],
+    system_effect_categories: ["process"],
+  };
+  const reviewed = {
+    discovery_binding: {
+      handler_call_sequence: ["child.kill"],
+      system_effect_categories: ["process"],
+      source_line_includes: ['"SIGINT"'],
+    },
+    surface: "fixture-process",
+    operation: "SIGINT terminate fixture child",
+    method: "SIGINT",
+    path: "fixture child",
+    active_state: "fixture_signal_handler",
+  };
+
+  const [bound] = bindReviewedJsSystemEffectActions({
+    repoRoot: fixtureRoot,
+    discoveredEntries: [discovered],
+    reviewedActions: { [identity]: reviewed },
+  });
+  assert.equal(bound.operation, reviewed.operation);
+  assert.equal(bound.discovered_operation, discovered.operation);
+  assert.equal(bound.handler, discovered.handler);
+  assert.equal(bound.discovery_binding, undefined);
+
+  assert.throws(
+    () => bindReviewedJsSystemEffectActions({
+      repoRoot: fixtureRoot,
+      discoveredEntries: [{
+        ...discovered,
+        handler: "process.exit",
+        handler_calls: ["process.exit"],
+        handler_call_sequence: ["process.exit"],
+      }],
+      reviewedActions: { [identity]: reviewed },
+    }),
+    /discovery semantic binding changed for handler_call_sequence/u,
+  );
+
+  assert.throws(
+    () => bindReviewedJsSystemEffectActions({
+      repoRoot: reusedLineRoot,
+      discoveredEntries: [discovered],
+      reviewedActions: { [identity]: reviewed },
+    }),
+    /discovery semantic binding changed at source line 1/u,
+  );
+
+  assert.throws(
+    () => bindReviewedJsSystemEffectActions({
+      repoRoot: fixtureRoot,
+      discoveredEntries: [discovered],
+      reviewedActions: {
+        [identity]: { ...reviewed, handler: "reviewed-handler-must-not-win" },
+      },
+    }),
+    /attempt to override discovery-owned field handler/u,
+  );
+});
+
+test("M4 selected routes have one adjudicated journey placement", () => {
+  const candidate = createInitialReview(repoRoot, discoveredEntries);
+  const reviewByIdentity = new Map(candidate.entries.map((entry) => (
+    [entry.identity, entry]
+  )));
+  const requiredByStep = new Map([
+    [
+      3,
+      [
+        "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations",
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/goal-run-activations/:id",
+        "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations/:id/submit",
+      ],
+    ],
+    [
+      7,
+      [
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/collaborative-work-graph",
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/discussion-projection",
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/product-projection",
+        "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/outcome-deltas",
+        "http:hypervisor-daemon:GET /v1/hypervisor/work-results/*id",
+        "http:hypervisor-daemon:GET /v1/hypervisor/outcome-deltas/*id",
+      ],
+    ],
+    [
+      12,
+      [
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/replay",
+      ],
+    ],
+  ]);
+  const adjacent = [
+    "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/detach-goal-run",
+    "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/lifecycle/transitions",
+    "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/transition",
+  ];
+  const facadeNonclaims = [
+    "js-outbound:hypervisor-product-ui-outbound:GET `${DAEMON}${p}`#1",
+    "js-outbound:hypervisor-product-ui-outbound:POST /v1/goal-orchestration/goal-run-activations#1",
+    "js-outbound:hypervisor-product-ui-outbound:POST /v1/goal-orchestration/goal-run-activations/ + encodeURIComponent ( id ) + /submit#1",
+    "js-outbound:hypervisor-product-ui-outbound:POST /v1/hypervisor/sessions#1",
+  ];
+
+  const journey = createInitialProgramSource(repoRoot)
+    .selected_profile.visible_terminal_journey;
+  const placements = new Map();
+  for (const step of journey) {
+    for (const identity of step.route_identities ?? []) {
+      const existing = placements.get(identity) ?? [];
+      existing.push(step.step);
+      placements.set(identity, existing);
+    }
+  }
+  for (const [step, identities] of requiredByStep) {
+    for (const identity of identities) {
+      assert.equal(
+        reviewByIdentity.get(identity)?.selected_profile_applicability,
+        "required_journey",
+        identity,
+      );
+      assert.deepEqual(placements.get(identity), [step], identity);
+    }
+  }
+  for (const identity of adjacent) {
+    assert.equal(
+      reviewByIdentity.get(identity)?.selected_profile_applicability,
+      "adjacent_not_sufficient",
+      identity,
+    );
+    assert.equal(placements.has(identity), false, identity);
+  }
+  for (const identity of facadeNonclaims) {
+    assert.equal(
+      reviewByIdentity.get(identity)?.selected_profile_applicability,
+      "not_selected",
+      identity,
+    );
+    assert.equal(placements.has(identity), false, identity);
+  }
+});
 
 function hashEvidenceTree() {
   const root = path.join(repoRoot, EVIDENCE_DIR);

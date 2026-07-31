@@ -89,14 +89,13 @@ try {
 
     const created = await request(plane.daemonUrl, "POST", "/v1/goal-orchestration/goal-runs", {
       goal: "Research the bounded selected profile",
-      owner_ref: "user://operator",
       origin_surface: "api",
       authority_scope_refs: ["scope:goal.run.orchestrate"],
       admission_path_request: pathRequest,
       definition_resolution: definitionResolution,
     });
     const run = created.body.goal_run;
-    check("direct GoalRun admits active through exact profile resolution", created.status === 201 && run?.status === "active" && run?.schema_version === "ioi.goal-run.v1" && run?.admission_path_status === "direct_non_system", `${created.status}/${created.body?.error?.code}`);
+    check("direct GoalRun admits active through exact profile resolution and daemon-derived ownership", created.status === 201 && run?.status === "active" && run?.schema_version === "ioi.goal-run.v1" && run?.admission_path_status === "direct_non_system" && run?.owner_ref === "user://local-operator", `${created.status}/${created.body?.error?.code}/${run?.owner_ref}`);
     check("component, active-skill, resolution, and lifecycle records persist", count("goal-run-component-snapshots") === 1 && count("active-skill-set-snapshots") === 1 && count("goal-run-profile-resolution-receipts") === 1 && count("work-lifecycle-records") === 2);
     check("activation retained exact lifecycle and state commitments", String(run?.lifecycle_head).startsWith("sha256:") && String(run?.admitted_state_root_ref).startsWith("agentgres://state-root/") && run?.lifecycle_record_refs?.length === 2);
 

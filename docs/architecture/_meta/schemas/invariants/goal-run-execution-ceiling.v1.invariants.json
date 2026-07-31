@@ -1,0 +1,42 @@
+{
+  "$id": "invariant://ioi/foundations/goal-run-execution-ceiling/release/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+  "rules": [
+    {
+      "rule_id": "goal_run_execution_ceiling.hash.recomputes",
+      "description": "The release content hash is the domain-separated JCS commitment over the immutable ceiling body.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.goal-run-execution-ceiling-release-jcs-sha256.v1" },
+          "schema_version": { "path": "$.schema_version" },
+          "goal_run_execution_ceiling_id": { "path": "$.goal_run_execution_ceiling_id" },
+          "owner_ref": { "path": "$.owner_ref" },
+          "max_total_invocations": { "path": "$.max_total_invocations" },
+          "max_parallel_invocations": { "path": "$.max_parallel_invocations" }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "goal_run_execution_ceiling.ref.ends_with_hash",
+      "description": "The immutable revision coordinate ends in the exact release content hash.",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.revision_ref",
+        "expected_path": "$.content_hash"
+      }
+    },
+    {
+      "rule_id": "goal_run_execution_ceiling.parallel_lte_total",
+      "description": "Parallel invocations cannot exceed the total invocation ceiling.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": ["$.max_parallel_invocations", "$.max_total_invocations"]
+      }
+    }
+  ]
+}

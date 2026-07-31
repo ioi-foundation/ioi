@@ -31,7 +31,11 @@ import {
   mkdtempSync,
   rmSync,
   readdirSync,
+  readFileSync,
+  readlinkSync,
   openSync,
+  readSync,
+  statSync,
 } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -51,6 +55,61 @@ export function isIsolatedDaemonLogName(name) {
     name === "isolated-daemon.log" ||
     /^isolated-daemon-restart-\d+-\d+-\d+[.]log$/u.test(name)
   );
+}
+
+// A held verifier must not inherit fault-injection or an ambient wallet fixture from the shell
+// that launched it. Deliberate faults and authority fixtures are passed through `env` instead.
+export function sanitizedVerifierBaseEnv(source = process.env) {
+  return Object.fromEntries(
+    Object.entries(source).filter(
+      ([key]) =>
+        !key.startsWith("IOI_TEST_") &&
+        !key.startsWith("IOI_HYPERVISOR_WALLET_") &&
+        !key.startsWith("IOI_WALLET_NETWORK_"),
+    ),
+  );
+}
+
+const STARTUP_LOG_TAIL_BYTES = 16 * 1024;
+
+// Startup diagnostics must survive teardown of helper-owned temporary directories, but the
+// exception must neither ingest an unbounded log nor echo authority material. Read only the tail
+// and redact the common JSON/header/environment spellings used by local verifier fixtures.
+export function boundedSanitizedLogTail(
+  logPath,
+  maxBytes = STARTUP_LOG_TAIL_BYTES,
+) {
+  const limit = Number.isSafeInteger(maxBytes) && maxBytes > 0
+    ? Math.min(maxBytes, STARTUP_LOG_TAIL_BYTES)
+    : STARTUP_LOG_TAIL_BYTES;
+  let fd;
+  try {
+    const size = statSync(logPath).size;
+    const length = Math.min(size, limit);
+    const bytes = Buffer.alloc(length);
+    fd = openSync(logPath, "r");
+    readSync(fd, bytes, 0, length, Math.max(0, size - length));
+    let tail = bytes.toString("utf8");
+    tail = tail.replace(
+      /("[^"\n]*(?:secret|password|token|private[_-]?key|approval[_-]?grant)[^"\n]*"\s*:\s*)"[^"\n]*"/giu,
+      '$1"[REDACTED]"',
+    );
+    tail = tail.replace(
+      /\b([A-Z0-9_]*(?:SECRET|PASSWORD|TOKEN|PRIVATE_KEY|APPROVAL_GRANT)[A-Z0-9_]*=)[^\s]+/gu,
+      "$1[REDACTED]",
+    );
+    tail = tail.replace(
+      /\b(authorization\s*:\s*(?:bearer\s+)?)[^\s]+/giu,
+      "$1[REDACTED]",
+    );
+    return tail.trimEnd();
+  } catch (error) {
+    return `[startup log unavailable: ${error?.code || error?.message || "read failed"}]`;
+  } finally {
+    if (fd !== undefined) {
+      try { closeSync(fd); } catch { /* already closed */ }
+    }
+  }
 }
 
 // A genuinely free ephemeral port, handed back by the kernel (listen on 0, read, close).
@@ -74,6 +133,103 @@ async function waitFor(url, tries = 60, delayMs = 500) {
   return false;
 }
 
+const LINUX_LISTEN_STATE = "0A";
+
+function linuxListeningSocketInodes(port, procRoot) {
+  if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(`isolated listener port is invalid: ${port}`);
+  }
+  const portHex = port.toString(16).toUpperCase().padStart(4, "0");
+  const inodes = new Set();
+  let readableTableCount = 0;
+  for (const table of ["tcp", "tcp6"]) {
+    let text;
+    try {
+      text = readFileSync(join(procRoot, "net", table), "utf8");
+      readableTableCount += 1;
+    } catch (error) {
+      if (error?.code === "ENOENT") continue;
+      throw error;
+    }
+    for (const line of text.split(/\r?\n/u).slice(1)) {
+      const fields = line.trim().split(/\s+/u);
+      if (fields.length < 10 || fields[3] !== LINUX_LISTEN_STATE) continue;
+      const local = fields[1] || "";
+      const separator = local.lastIndexOf(":");
+      const localPort = separator >= 0 ? local.slice(separator + 1).toUpperCase() : "";
+      const inode = fields[9] || "";
+      if (localPort === portHex && /^\d+$/u.test(inode)) inodes.add(inode);
+    }
+  }
+  if (readableTableCount === 0) {
+    throw new Error(`Linux listener tables are unavailable beneath ${procRoot}`);
+  }
+  return inodes;
+}
+
+function linuxProcessSocketInodes(pid, procRoot) {
+  if (!Number.isSafeInteger(pid) || pid < 1) {
+    throw new Error(`isolated listener PID is invalid: ${pid}`);
+  }
+  const inodes = new Set();
+  const fdRoot = join(procRoot, String(pid), "fd");
+  for (const fd of readdirSync(fdRoot)) {
+    let target;
+    try {
+      target = readlinkSync(join(fdRoot, fd));
+    } catch (error) {
+      // Descriptors unrelated to the long-lived listener can close while /proc is enumerated.
+      if (error?.code === "ENOENT") continue;
+      throw error;
+    }
+    const match = /^socket:\[(\d+)\]$/u.exec(target);
+    if (match) inodes.add(match[1]);
+  }
+  return inodes;
+}
+
+// Prove that every listening socket bound to an isolated verifier port belongs to the exact
+// process this helper spawned. Health + liveness alone are insufficient: freePort() necessarily
+// releases its reservation before the daemon binds, so a stale or racing process could otherwise
+// answer the health probe while the spawned child remains alive. The M4 proof environment is
+// Linux; fail closed when its kernel socket ownership boundary cannot be inspected.
+export function linuxListenerOwnershipEvidence(pid, port, procRoot = "/proc") {
+  const listenerInodes = [...linuxListeningSocketInodes(port, procRoot)].sort();
+  const processSocketInodes = linuxProcessSocketInodes(pid, procRoot);
+  const foreignListenerInodes = listenerInodes.filter(
+    (inode) => !processSocketInodes.has(inode),
+  );
+  return {
+    proof_kind: "ioi.verifier.linux-listener-ownership.v1",
+    pid,
+    port,
+    listener_inodes: listenerInodes,
+    foreign_listener_inodes: foreignListenerInodes,
+    owned:
+      listenerInodes.length > 0 && foreignListenerInodes.length === 0,
+  };
+}
+
+function requireLinuxListenerOwnership(child, port, role) {
+  if (process.platform !== "linux") {
+    throw new Error(
+      `isolated ${role} listener ownership requires the Linux /proc proof boundary`,
+    );
+  }
+  const evidence = linuxListenerOwnershipEvidence(child?.pid, port);
+  if (!evidence.owned) {
+    throw new Error(
+      `isolated ${role} listener on port ${port} is not owned exclusively by spawned pid ${child?.pid || "unassigned"}` +
+        ` (listeners=${evidence.listener_inodes.join(",") || "none"}; foreign=${evidence.foreign_listener_inodes.join(",") || "none"})`,
+    );
+  }
+  console.log(
+    `IOI_ISOLATED_LISTENER_OWNERSHIP role=${role} pid=${evidence.pid} port=${evidence.port}` +
+      ` inode=${evidence.listener_inodes.join(",")} owned=true`,
+  );
+  return evidence;
+}
+
 // Count durable receipt FILES for a record family straight from observable storage (the same
 // evidence lane the action-runtime verifier uses for its exact receipt deltas).
 export function receiptFileCount(dataDir, family) {
@@ -88,7 +244,8 @@ export function receiptFileCount(dataDir, family) {
  * options.env     — extra env for BOTH processes (e.g. test flags for a flagged serve).
  * options.dataDir — reuse an EXISTING isolated data dir (crash/restart lanes prove recovery
  *                   against the same durable state); the caller keeps ownership of cleanup.
- * The returned handle exposes daemonPid so crash lanes can SIGKILL the daemon mid-request.
+ * The returned handle exposes daemonPid/servePid so callers can prove the process they test is
+ * the one this helper started; crash lanes may SIGKILL daemonPid mid-request.
  */
 const EXIT_CLEANUPS = new Set();
 process.on("exit", () => { for (const fn of EXIT_CLEANUPS) fn(); });
@@ -147,6 +304,16 @@ export async function startIsolatedPlane({
     stdio: ["ignore", logFd, logFd],
   }));
   closeSync(logFd);
+  const childIsAlive = (child) => {
+    if (!Number.isInteger(child?.pid) || child.pid <= 0) return false;
+    if (child.exitCode !== null || child.signalCode !== null || child.killed) return false;
+    try {
+      process.kill(child.pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   let cleanupFinished = false;
   let stopPromise = null;
@@ -188,18 +355,44 @@ export async function startIsolatedPlane({
     return stopPromise;
   };
 
-  if (!(await waitFor(`${daemonUrl}/v1/hypervisor/data-sources`))) {
+  if (!(await waitFor(`${daemonUrl}/v1/hypervisor/data-sources`)) || !childIsAlive(daemon)) {
+    const diagnosticTail = boundedSanitizedLogTail(logPath);
+    const exit = await Promise.race([
+      childExits.get(daemon),
+      new Promise((resolve) => setTimeout(() => resolve(null), 250)),
+    ]);
     await stop();
-    throw new Error(`isolated daemon never became healthy on ${daemonUrl} (log was in the removed temp dir)`);
+    throw new Error(
+      `isolated daemon never became healthy as owned pid ${daemon.pid || "unassigned"} on ${daemonUrl}` +
+      ` (exit=${exit ? `${exit.code ?? "null"}/${exit.signal ?? "none"}` : "still-pending"}; ` +
+      `${reused ? `retained log ${logPath}` : "helper-owned log removed after bounded capture"})` +
+      `\n--- bounded sanitized daemon log tail ---\n${diagnosticTail || "[empty log]"}`,
+    );
+  }
+  let daemonListenerOwnership;
+  try {
+    daemonListenerOwnership = requireLinuxListenerOwnership(
+      daemon,
+      daemonPort,
+      "daemon",
+    );
+  } catch (error) {
+    const diagnosticTail = boundedSanitizedLogTail(logPath);
+    await stop();
+    throw new Error(
+      `${error.message}\n--- bounded sanitized daemon log tail ---\n${diagnosticTail || "[empty log]"}`,
+    );
   }
 
   let serveUrl = null;
+  let serveChild = null;
+  let serveListenerOwnership = null;
   if (serve) {
     const servePort = await freePort();
     const seedBackendPort = await freePort(); // isolate the seed server's fixture backend from :9301
     serveUrl = `http://127.0.0.1:${servePort}`;
     const serveLogFd = openSync(logPath, "a");
-    const child = trackChild(spawn(process.execPath, [join(APP, "scripts", "serve-product-ui.mjs")], {
+    serveChild = trackChild(spawn(process.execPath, [join(APP, "scripts", "serve-product-ui.mjs")], {
       env: {
         ...baseEnv,
         PORT: String(servePort), PRODUCT_UI_PORT: String(seedBackendPort),
@@ -214,11 +407,45 @@ export async function startIsolatedPlane({
       stdio: ["ignore", serveLogFd, serveLogFd],
     }));
     closeSync(serveLogFd);
-    if (!(await waitFor(`${serveUrl}/__ioi/data/sources`))) {
+    if (!(await waitFor(`${serveUrl}/__ioi/data/sources`)) || !childIsAlive(serveChild)) {
+      const diagnosticTail = boundedSanitizedLogTail(logPath);
+      const exit = await Promise.race([
+        childExits.get(serveChild),
+        new Promise((resolve) => setTimeout(() => resolve(null), 250)),
+      ]);
       await stop();
-      throw new Error(`isolated serve never became healthy on ${serveUrl}`);
+      throw new Error(
+        `isolated serve never became healthy as owned pid ${serveChild.pid || "unassigned"} on ${serveUrl}` +
+        ` (exit=${exit ? `${exit.code ?? "null"}/${exit.signal ?? "none"}` : "still-pending"}; ` +
+        `${reused ? `retained log ${logPath}` : "helper-owned log removed after bounded capture"})` +
+        `\n--- bounded sanitized isolated-plane log tail ---\n${diagnosticTail || "[empty log]"}`,
+      );
+    }
+    try {
+      serveListenerOwnership = requireLinuxListenerOwnership(
+        serveChild,
+        servePort,
+        "serve",
+      );
+    } catch (error) {
+      const diagnosticTail = boundedSanitizedLogTail(logPath);
+      await stop();
+      throw new Error(
+        `${error.message}\n--- bounded sanitized isolated-plane log tail ---\n${diagnosticTail || "[empty log]"}`,
+      );
     }
   }
 
-  return { daemonUrl, serveUrl, dataDir, stop, daemonPid: daemon.pid };
+  return {
+    daemonUrl,
+    serveUrl,
+    dataDir,
+    stop,
+    daemonPid: daemon.pid,
+    servePid: serveChild?.pid || null,
+    listenerOwnership: {
+      daemon: daemonListenerOwnership,
+      serve: serveListenerOwnership,
+    },
+  };
 }

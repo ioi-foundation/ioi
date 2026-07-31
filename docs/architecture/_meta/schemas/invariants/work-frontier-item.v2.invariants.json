@@ -1,0 +1,12 @@
+{
+  "$id": "invariant://ioi/foundations/work-frontier-item/room-binding/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/work-frontier-item/v2",
+  "rules": [
+    {
+      "rule_id": "work_frontier.admission_receipt.required_for_terminal_truth",
+      "description": "A terminally admitted frontier item carries the CAS admission receipt required by RoomAdmittedObjectBase.",
+      "expression": { "operator": "non_empty_when_in", "path": "$.room_admission.admission_receipt_ref", "when_path": "$.room_admission.admission_status", "values": ["admitted", "superseded", "revoked"] }
+    }
+  ]
+}

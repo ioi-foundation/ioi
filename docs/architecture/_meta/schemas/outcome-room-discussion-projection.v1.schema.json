@@ -44,6 +44,7 @@
     },
     "source_admission_receipt_refs": {
       "type": "array",
+      "maxItems": 128,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -56,6 +57,7 @@
     },
     "information_flow_label_refs": {
       "type": "array",
+      "maxItems": 64,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -64,6 +66,7 @@
     },
     "permitted_subject_refs": {
       "type": "array",
+      "maxItems": 67,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -72,6 +75,7 @@
     },
     "message_refs": {
       "type": "array",
+      "maxItems": 64,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -80,6 +84,7 @@
     },
     "redaction_summary_refs": {
       "type": "array",
+      "maxItems": 64,
       "uniqueItems": true,
       "items": {
         "type": "string",

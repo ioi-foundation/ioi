@@ -531,8 +531,39 @@ pub(crate) async fn handle_operations(State(st): State<Arc<DaemonState>>) -> Jso
 /// their transcript) + webhook trigger receipts. Real records only — no fabricated rows.
 pub(crate) async fn handle_work_ledger(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Query(q): Query<HashMap<String, String>>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    // This legacy aggregate joins several durable families that do not yet share principal
+    // ownership coordinates. The generic auth gate proves who called, not which rows they own;
+    // therefore managed/exposed reads must fail before any family is enumerated.
+    match super::lifecycle_routes::deployment_auth_posture(&st.data_dir, &headers) {
+        "local_development" => {}
+        "exposed_untrusted" => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "ok": false,
+                    "error": {
+                        "code": "work_ledger_exposed_untrusted_refused",
+                        "message": "Work Ledger truth is unavailable on an exposed deployment without enforceable principal ownership."
+                    }
+                })),
+            );
+        }
+        _ => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "ok": false,
+                    "error": {
+                        "code": "work_ledger_principal_scope_unavailable",
+                        "message": "The retained Work Ledger families do not share principal ownership coordinates and cannot be read on a managed deployment."
+                    }
+                })),
+            );
+        }
+    }
     let g = |v: &Value, k: &str| v.get(k).cloned().unwrap_or(Value::Null);
     // run_id -> transcript (state_root + durable name/project captured at run time).
     let mut by_run: HashMap<String, Value> = HashMap::new();
@@ -925,7 +956,10 @@ pub(crate) async fn handle_work_ledger(
     if let Some(pid) = q.get("project").map(|s| s.trim()).filter(|s| !s.is_empty()) {
         entries.retain(|e| e.get("project_id").and_then(|v| v.as_str()) == Some(pid));
     }
-    Json(json!({ "ok": true, "entries": entries }))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "entries": entries })),
+    )
 }
 
 fn new_webhook_token() -> String {

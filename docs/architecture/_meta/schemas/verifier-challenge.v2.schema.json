@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/verifier-challenge/v2",
+  "title": "VerifierChallenge",
+  "x-ioi-schema-version": "ioi.foundations.verifier-challenge.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "verifier_challenge_id", "outcome_room_ref", "room_admission", "challenger_ref", "challenged_ref", "challenge_kind", "challenge_evidence_refs", "adjudicator_policy_ref", "prior_rule_version_ref", "proposed_rule_version_ref", "affected_attempt_refs", "reverification_required", "adjudication_ref", "status"],
+  "$defs": {
+    "roomAdmission": {
+      "type": "object",
+      "required": ["schema_version", "room_system_id", "outcome_room_ref", "proposed_or_issued_by_ref", "expected_room_revision", "expected_predecessor_commitment_ref", "payload_root", "admission_policy_ref", "admission_decision_ref", "admission_receipt_ref", "admitted_sequence", "resulting_room_revision", "resulting_transition_commitment_ref", "resulting_room_state_root", "resulting_receipt_root", "created_at", "updated_at", "admission_status"],
+      "properties": {
+        "schema_version": { "const": "ioi.foundations.room-admitted-object-base.v2" },
+        "room_system_id": { "type": "string", "pattern": "^system://[^\\s]{1,500}$" },
+        "outcome_room_ref": { "type": "string", "pattern": "^outcome-room://[^\\s]{1,500}$" },
+        "proposed_or_issued_by_ref": { "type": "string", "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$" },
+        "expected_room_revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "expected_predecessor_commitment_ref": { "type": "string", "pattern": "^commitment://[^\\s]{1,500}$" },
+        "payload_root": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "admission_policy_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,500}$" },
+        "admission_decision_ref": { "anyOf": [{ "type": "string", "pattern": "^decision://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "admission_receipt_ref": { "anyOf": [{ "type": "string", "pattern": "^receipt://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "admitted_sequence": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, { "type": "null" }] },
+        "resulting_room_revision": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, { "type": "null" }] },
+        "resulting_transition_commitment_ref": { "anyOf": [{ "type": "string", "pattern": "^commitment://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "resulting_room_state_root": { "anyOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }] },
+        "resulting_receipt_root": { "anyOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }] },
+        "created_at": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+        "updated_at": { "anyOf": [{ "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" }, { "type": "null" }] },
+        "admission_status": { "enum": ["proposed", "evaluating", "admitted", "rejected", "superseded", "revoked"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "admission_status": { "enum": ["admitted", "superseded", "revoked"] } } },
+          "then": { "properties": {
+            "admission_decision_ref": { "type": "string" },
+            "admission_receipt_ref": { "type": "string" },
+            "admitted_sequence": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "resulting_room_revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "resulting_transition_commitment_ref": { "type": "string" },
+            "resulting_room_state_root": { "type": "string" },
+            "resulting_receipt_root": { "type": "string" },
+            "updated_at": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" }
+          } }
+        },
+        {
+          "if": { "properties": { "admission_status": { "enum": ["proposed", "evaluating", "rejected"] } } },
+          "then": { "properties": {
+            "admitted_sequence": { "type": "null" },
+            "resulting_room_revision": { "type": "null" },
+            "resulting_transition_commitment_ref": { "type": "null" },
+            "resulting_room_state_root": { "type": "null" },
+            "resulting_receipt_root": { "type": "null" }
+          } }
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "schema_version": { "const": "ioi.foundations.verifier-challenge.v2" },
+    "verifier_challenge_id": { "type": "string", "pattern": "^verifier-challenge://[^\\s]{1,500}$" },
+    "outcome_room_ref": { "anyOf": [{ "type": "string", "pattern": "^outcome-room://[^\\s]{1,500}$" }, { "type": "null" }] },
+    "room_admission": { "anyOf": [{ "$ref": "#/$defs/roomAdmission" }, { "type": "null" }] },
+    "challenger_ref": { "type": "string", "pattern": "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$" },
+    "challenged_ref": { "type": "string", "pattern": "^(?:attempt|finding|verifier-path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$" },
+    "challenge_kind": { "enum": ["metric", "rule", "verifier", "evidence", "eligibility", "result", "exploit", "independence", "collusion", "mapping"] },
+    "challenge_evidence_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$" } },
+    "adjudicator_policy_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,500}$" },
+    "prior_rule_version_ref": { "anyOf": [{ "type": "string", "pattern": "^(?:rubric|verifier-path)://[^\\s]{1,500}$" }, { "type": "null" }] },
+    "proposed_rule_version_ref": { "anyOf": [{ "type": "string", "pattern": "^(?:rubric|verifier-path)://[^\\s]{1,500}$" }, { "type": "null" }] },
+    "affected_attempt_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^attempt://[^\\s]{1,500}$" } },
+    "reverification_required": { "type": "boolean" },
+    "adjudication_ref": { "anyOf": [{ "type": "string", "pattern": "^(?:decision|dispute)://[^\\s]{1,500}$" }, { "type": "null" }] },
+    "status": { "enum": ["proposed", "admitted", "investigating", "upheld", "rejected", "rule_changed", "reverifying", "resolved", "withdrawn"] }
+  }
+}

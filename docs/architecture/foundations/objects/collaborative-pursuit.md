@@ -6,7 +6,7 @@ Supersedes: the same object definitions when they were carried inside the single
 Superseded by: none.
 Last alignment pass: 2026-07-25.
 Doctrine status: canonical
-Implementation status: partial (room, participation, frontier, claim, offer, Attempt/Finding, and challenge routes exist in the daemon; the 2026-07-30 fresh runtime re-audit remains red on terminal participation replay and eligibility retry idempotency, and no M4 aggregate proof is admitted; collaborative AIIP federation and cross-domain assurance remain planned)
+Implementation status: partial (the current hosted v2 M4 slice admits one bounded-System-backed OutcomeRoom, reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with payload/label custody and reconstructable projections. Current v2 participation, frontier/claim, offer, Attempt/Finding, and VerifierChallenge lifecycles are not started and project honest-empty sets. Mounted v1 predecessor routes remain historical executable/source disposition and are generation-fenced from current v2 rooms. Collaborative AIIP federation, cross-domain assurance, acceptance/verdict, settlement, and portable participant-state export remain planned.)
 Last implementation audit: 2026-07-30
 
 ## Purpose
@@ -172,8 +172,8 @@ machinery.
 
 Every room declares who orders and admits its shared state:
 
-- `hosted_admission`: one named governed domain orders and admits room-level
-  frontier, attempt, finding, evaluation, and decision updates;
+- `hosted_admission`: one named governed System or domain orders and admits
+  room-level frontier, attempt, finding, evaluation, and decision updates;
 - `federated_admission`: a versioned policy names participating domains,
   ordering/merge rules, quorum or adjudicator requirements, conflict behavior,
   failover, and dispute handling.
@@ -263,10 +263,44 @@ OutcomeRoomEnvelope:
     - contribution://... | receipt://...
   participant_state_bundle_refs:
     - participant-state://...
+  latest_sequence: nonnegative_integer
+  latest_transition_commitment_ref: commitment://...
+  room_state_root: hash
+  room_receipt_root: hash
   status:
     proposed | open | active | paused | blocked | verifying |
     accepted | disputed | settled | closed | revoked | archived
 ```
+
+The four room-head fields are admitted-plane truth, not caller-authored
+metadata. `latest_sequence` is the exact monotonic sequence of the current
+room transition; `latest_transition_commitment_ref` identifies that transition;
+`room_state_root` commits the resulting room state; and `room_receipt_root`
+commits the receipted transition prefix. Clients and projections may display
+those coordinates but cannot mint, repair, or advance them.
+
+The selected hosted M4 profile is deliberately finite. Its `objective` is at
+most 4,096 characters; every semantic repeated ref set in
+`OutcomeRoomEnvelope`, including the active oracle-profile set, contains at
+most 64 unique refs. The sequence-complete `admission_and_replay_refs` set may
+contain 128 refs (genesis sequence zero through sequence 127), and
+`latest_sequence` is at most 127. A daemon admits at most 50 hosted v2 room
+records in this selected profile. One canonical room record and each replay,
+graph, discussion, or product response serialize to at most 1 MiB. Admission
+refuses a candidate before any durable effect when the candidate would cross a
+bound. Census and read paths refuse a typed unavailable/over-cap result on
+tampered or already-over-cap truth; they never truncate a ref set, omit a room,
+or return a false-empty projection. General cursor pagination remains owned by
+the Hypervisor collection contract and its later application-surface cut; M4
+does not emulate or claim that wider contract.
+
+The M4 WorkResult and OutcomeDelta repeated ref sets and every generated
+collaborative-graph semantic ref or summary set contain at most 64 entries. A
+graph or discussion projection may carry at most 128 source-admission receipt
+refs. A discussion projection may carry at most 67 permitted subjects: the
+System, owner, and host coordinates plus at most 64 participant leases, with
+set deduplication. Any source census beyond those bounds is typed-unavailable;
+no projection truncates or silently omits the excess truth.
 
 Room membership is a reciprocal, atomically admitted relation. The
 `OutcomeRoomEnvelope.member_goal_run_refs` set is authoritative for the room's
@@ -728,7 +762,7 @@ AttemptEnvelope:
   work_claim_ref: work-claim://... | null
   participant_ref:
     participant-lease://... | system://... | worker://... | agent://...
-  bound_coordinates:
+  bound_coordinates:  # null for non-room work; otherwise the hosted coordinates below
     outcome_room: { record_ref: outcome-room://..., host_domain_ref: domain://..., control_hash: hash }
     frontier_item: { record_ref: frontier://..., outcome_room_ref: outcome-room://..., revision: integer, record_hash: hash }
     work_claim: { record_ref: work-claim://..., outcome_room_ref: outcome-room://..., frontier_item_ref: frontier://..., claimant_ref: participant-lease://..., revision: integer, record_hash: hash }
@@ -766,6 +800,12 @@ AttemptEnvelope:
   status: draft | running | submitted | admitted | challenged | accepted | rejected | superseded
 ```
 
+`bound_coordinates` is non-null only for a room-scoped Attempt. A non-room
+Attempt sets it to `null`; it MUST NOT fabricate an OutcomeRoom, frontier,
+claim, participant lease, or room-bound GoalRun merely to satisfy a shape. When
+`outcome_room_ref` is non-null, `room_admission` and every hosted coordinate
+shown above are non-null and mutually bound.
+
 ## FindingEnvelope
 
 Operational admission of a finding proves that the domain admitted a
@@ -795,7 +835,7 @@ FindingEnvelope:
   proposed_by_ref:
     participant-lease://... | system://... | worker://... |
     service://... | org://... | domain://...
-  bound_coordinates:
+  bound_coordinates:  # null for non-room work; otherwise the hosted coordinates below
     attempt: { record_ref: attempt://..., outcome_room_ref: outcome-room://..., participant_ref: participant-lease://..., work_result_ref: work-result://..., revision: integer, record_hash: hash }
     work_result: { record_ref: work-result://..., outcome_room_ref: outcome-room://..., goal_run_ref: goal://..., goal_ref: goal://..., updated_at: timestamp | null, record_hash: hash }
     participant_lease: { record_ref: participant-lease://..., outcome_room_ref: outcome-room://..., principal_ref: worker://... | agent://..., revision: integer, record_hash: hash }
@@ -827,6 +867,12 @@ FindingEnvelope:
     branch_local | proposed | admitted | contradicted | superseded |
     disputed | rejected | archived
 ```
+
+`bound_coordinates` is non-null only for a room-scoped Finding. A non-room
+Finding sets it to `null`; it MUST NOT invent room, participant-lease, Attempt,
+or WorkResult room coordinates. When `outcome_room_ref` is non-null,
+`room_admission` and the hosted coordinate set above are non-null and mutually
+bound.
 
 ## VerifierChallengeEnvelope
 
