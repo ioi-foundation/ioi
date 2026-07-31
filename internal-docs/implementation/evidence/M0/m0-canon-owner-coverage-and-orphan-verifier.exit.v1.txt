@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-canon-owner-coverage-and-orphan-verifier
+ARTIFACT=internal-docs/implementation/generated/architecture-coverage.v1.json
+ARTIFACT_SHA256=311e765ec7147147999f23f77b1a9b4ee6e862d134548e76afba1e9849d558cc
+M0_CANON_OWNER_COVERAGE_EXIT=0
+NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

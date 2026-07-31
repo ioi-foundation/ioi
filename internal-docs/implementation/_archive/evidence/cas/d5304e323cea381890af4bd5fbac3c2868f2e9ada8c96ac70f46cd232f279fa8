@@ -1,0 +1,142 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-invariant-registry-census-successor",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "status": "evidence_ready",
+  "canon_owners": [
+    "docs/architecture/foundations/invariants.md",
+    "docs/architecture/_meta/current-canon-defaults.md",
+    "docs/architecture/_meta/source-of-truth-map.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "1daf6cbebd27af710cbeec810fd801cc46f0983352047851949333bcf3a2dc8c",
+    "owners": [
+      {
+        "path": "docs/architecture/foundations/invariants.md",
+        "sha256": "a333e4b653ea3402f6217fe2cfb314f842de8de6a6586eb542178431f377c8f5"
+      },
+      {
+        "path": "docs/architecture/_meta/current-canon-defaults.md",
+        "sha256": "8ca50a056184538edd8a00ed4fbc251ff2afe1a1cbeb840fc2535eb962254e53"
+      },
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "8a8e48f7685046e0f66ccff127559c53182e92d18bb2d45df49ec930120ba60d"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "M0_INVARIANT_REGISTRY_CENSUS_SUCCESSOR_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m0-invariant-registry-census-successor.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": true,
+    "task_exit_code_is_proof": false
+  },
+  "evidence_refs": [],
+  "pr": null,
+  "last_status_transaction": {
+    "from": "proposed",
+    "to": "evidence_ready",
+    "at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "certification_result_sha256": null,
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  },
+  "required_work": [
+    "Successor to the verified closure m0-invariant-registry-census, required because canon now carries INV-38 while the retained census ends at INV-37, and the census no longer reproduces byte-for-byte from a fresh derivation."
+  ],
+  "objective": "Re-derive the invariant registry census over canon as it now stands, and type the difference instead of overwriting it. The retained census records 37 invariants and stops at INV-37; docs/architecture/foundations/invariants.md now carries INV-38, and tools/invariant-census.mjs --check is RED because the generated artifact does not reproduce. Re-deriving is easy and is not the point: the successor must say, per invariant identity, whether it was ADDED, whether an existing entry's ownership or text MOVED, and whether anything was RETIRED — so a growing registry can never be reported as a coverage change and a coverage change can never hide inside a growing registry. M0_INVARIANT_REGISTRY_CENSUS_SUCCESSOR_EXIT=0.",
+  "falsifiable_claim": "A fresh derivation over current canon reproduces the successor census byte-for-byte; every difference from the retained 37-entry census is typed as added | owner_rebind | text_change | retired with no residue; the added set is exactly {INV-38}; and no retained census entry is edited in place to reach that result.",
+  "selected_profile": "The invariant registry census for the selected deployment profile: one identity per canon invariant, with its declared owner.",
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m0-invariant-registry-census-successor",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m0-invariant-registry-census-successor.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M0_INVARIANT_REGISTRY_CENSUS_SUCCESSOR_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": [
+    "THE CENSUS IS RED AND THE REASON IS KNOWN. tools/invariant-census.mjs --check reports that the generated census does not reproduce byte-for-byte from a fresh derivation. generated/invariant-census.v1.json declares invariant_count 37 and its last identity is INV-37; docs/architecture/foundations/invariants.md carries INV-38.",
+    "GROWTH IS NOT THE ONLY POSSIBLE DIFFERENCE, WHICH IS WHY THE DELTA MUST BE TYPED. A census that only reports totals cannot distinguish 'one invariant was added' from 'one was added and one silently changed owner'. The predecessor closure proved a registry census; its successor must prove a typed reconciliation, or the same blind spot survives the repair.",
+    "THIS RECORD IS ORDERED AS AN INV-38 SUBORDINATE FOR osh-0003 AND DOES NOT DISCHARGE IT. osh-0003 is held over docs/architecture/foundations/invariants.md and qualifies ELEVEN verified closures: m0-invariant-registry-census plus m1-dual-genesis-and-read-projection, m1-protected-migration-dissolution-enrollment, m1-selected-profile-exit-proof, m1-system-genesis-product-journey, m2-agentgres-replay-recovery-and-product-topology, m2-membership-readiness-plane, m2-node-attestation-identity-secret-readiness, m2-route-restore-activation-cleanup, m2-selected-profile-exit-proof and m2-writer-fence-and-lost-suffix. This record re-proves ONE of them. The remaining M1 and M2 predecessor graph is unmapped, and osh-0003's successor is deliberately left UNNAMED so that a single subordinate cannot be read as a discharge.",
+    "THE RETAINED CENSUS IS NOT REFRESHED IN PLACE. generated/invariant-census.v1.json stays as the predecessor left it. Regenerating it to clear the bar would erase the only evidence of what the closure actually bound.",
+    "DEMONSTRATION PENDING. This record is proposed; the `verified` transition that would admit it is a HELD ACTION."
+  ],
+  "in_scope": [
+    "A fresh derivation of the invariant registry over current canon that reproduces byte-for-byte on re-run.",
+    "A typed delta against the retained 37-entry census over the closed vocabulary added | owner_rebind | text_change | retired, with every identity accounted for exactly once and no residue.",
+    "The explicit statement that the added set is {INV-38} and the retired set is empty, each derived rather than asserted.",
+    "The owner binding for INV-38: which canon document declares it and which record, if any, is bound to it — reported by name, including 'none' if that is the answer.",
+    "An explicit record that this proof re-proves ONE of osh-0003's eleven qualified closures and discharges nothing."
+  ],
+  "out_of_scope": [
+    "Editing generated/invariant-census.v1.json in place, or any retained predecessor artifact.",
+    "Re-proving the M1 or M2 closures osh-0003 also qualifies. They are named here as unmapped, not absorbed.",
+    "Discharging osh-0003, or naming this record as its required successor.",
+    "Adding, renumbering, or interpreting any invariant. The census counts and binds; it does not author canon.",
+    "Re-certifying stage M0."
+  ],
+  "positive_proof": [
+    "A fresh derivation reproduces byte-for-byte; the typed delta accounts for every identity exactly once; added = {INV-38}; retired = {}; and the retained literal appears exactly once."
+  ],
+  "adversarial_or_fault_proof": [
+    "Predeclared refusals: a hand-edited census that does not reproduce; a delta with residue, meaning an identity in neither the retained nor the derived set is accounted for; an owner_rebind reported as an addition, which is the exact substitution this typing exists to prevent; a retired identity reported without a tombstone; a duplicate invariant identity in canon; and an invariant present in the census and absent from canon.",
+    "The retained baseline is the RED reproduction failure itself, kept as it is: the census that ends at INV-37 while canon carries INV-38, so the difference between a stale generation and a coverage change is in evidence rather than in a summary."
+  ],
+  "code_anchors": [
+    {
+      "path": "internal-docs/implementation/tools/invariant-census.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the derivation and its --check reproduction gate; its passing is not the proof carrier"
+    },
+    {
+      "path": "internal-docs/implementation/generated/invariant-census.v1.json",
+      "present_when": "current_precedent",
+      "evidence_scope": "the retained 37-entry census, left byte-intact as this record's baseline"
+    }
+  ],
+  "remaining_nonclaims": [
+    "A reproducing census proves the derivation is deterministic over its inputs. It never proves an invariant is enforced anywhere.",
+    "This record re-proves ONE of the eleven closures osh-0003 qualifies. It does not discharge that hold and must not be read as doing so.",
+    "The M1 and M2 predecessor graph beneath osh-0003 remains unmapped. Nothing here reduces that obligation.",
+    "The predecessor closure is not reopened, weakened, or restated.",
+    "Until the certification hold releases and the `verified` transition is taken, this record closes nothing and discharges no hold."
+  ],
+  "rollback_or_stop_rule": "Stop if the delta cannot be typed without residue — an unaccounted identity means the census and canon disagree about what an invariant IS, and that is a canon question, not a census repair. Never close this record by regenerating the retained census in place, and never by reporting an owner rebind as an addition.",
+  "exit_criteria": [
+    "Fresh derivation reproduces byte-for-byte; the typed delta is complete with no residue; added and retired sets are derived and stated; the INV-38 owner binding is reported by name; every predeclared refusal fires by name; and the retained literal appears exactly once."
+  ],
+  "source_provenance": "Authored 2026-07-29 under an owner-directed repair pass while _archive/holds/certification-hold.v1.json is OPEN. Ordered explicitly by the owner NOW as the INV-38 subordinate for osh-0003, with the instruction to record explicitly that it does not by itself discharge that hold and that the complete M1/M2 predecessor graph still must be mapped."
+}

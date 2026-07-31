@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+  "phase": "restart-after-fallback-fix",
+  "pattern": "[n]pm run dev:desktop|[n]pm run goal:autopilot-agent-studio|[l]aunch-autopilot-ide-fork|[r]un-autopilot-agent-studio-.*goal\\.mjs|scripts/[i]oi-local-runtime-daemon\\.mjs|ide/builds/VSCode-linux-x64/[a]utopilot|[i]oi-runtime-bridge|[s]tartRuntimeDaemonService|packages/runtime-daemon/src/[i]ndex.mjs",
+  "before": [],
+  "stubborn": [],
+  "after": [],
+  "cleaned": 0,
+  "ok": true,
+  "timestamp": "2026-05-25T14:48:09.917Z"
+}

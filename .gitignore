@@ -115,7 +115,18 @@ __pycache__/
 
 internal-docs/reverse-engineering
 /internal-docs/prompts/
-/internal-docs/implementation/
+
+# The implementation program is versioned. Only reproducible orientation,
+# cache state, and nested working checkouts stay local; see
+# internal-docs/implementation/README.md#version-control-classification.
+/internal-docs/implementation/worktrees/
+/internal-docs/implementation/NOW.md
+/internal-docs/implementation/generated/program-state.v1.json
+/internal-docs/implementation/generated/.fast-lane-stamp
+/internal-docs/implementation/generated/.certify/
+/internal-docs/implementation/**/.cache/
+/internal-docs/implementation/**/__pycache__/
+/internal-docs/implementation/**/node_modules/
 
 
 .chrome-flatpak-profile

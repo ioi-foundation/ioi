@@ -1,0 +1,89 @@
+{
+  "format": "ioi.program.canon_gap_dispositions.v1",
+  "role": "Dispositions recorded against program/canon-gaps.v1.json (found_at ba7513bac). The gap report itself is a dated snapshot and is not rewritten.",
+  "recorded_on": "2026-07-25",
+  "dispositions": [
+    {
+      "gap_index": 24,
+      "gap_summary": "The Hypervisor-to-ioi.ai crossing has no contract.",
+      "disposition": "resolved_in_canon",
+      "resolution": "GoalRunActivationEnvelope (docs/architecture/foundations/objects/goal-pursuit.md; ADR 0019) defines the typed, receipted, idempotent crossing; correlation-is-not-admission is normative; ADR 0022 places the object in the ioi.ai orchestration application layer. Runtime implementation remains not started (canon-to-code-delta row).",
+      "resolved_at_commits": [
+        "055321e64",
+        "29f0a4c51",
+        "ac73220c5"
+      ]
+    },
+    {
+      "gap_index": 22,
+      "gap_summary": "vocabulary.md contains no prim: entry while ADR 0006/INV-4 canonize prim:*.",
+      "disposition": "resolved_in_canon",
+      "resolution": "prim:* and scope:* vocabulary entries added (055321e64).",
+      "resolved_at_commits": [
+        "055321e64"
+      ]
+    },
+    {
+      "gap_index": 1,
+      "gap_summary": "Dissolution residual disposition has no named receipt or evidence owner (M1.5d blocker).",
+      "disposition": "resolved_in_canon",
+      "resolution": "AutonomousSystemDissolutionDispositionEnvelope + AutonomousSystemDissolutionReceiptEnvelope added to docs/architecture/foundations/objects/bounded-system-genesis.md (the actual post-modularization owner; m1.md's pointer to common-objects-and-envelopes.md was the superseded owner). Eight policy-bound outcome domains bind LifecycleContinuityProfile.dissolution residuals to the initiate/complete transitions; complete_dissolution admits only over a terminal record; LifecycleTransitionEnvelope.disposition_receipt_refs is now typed by this family; ContinuityState status gains the missing dissolving member. Implementation not started.",
+      "recorded_on": "2026-07-26"
+    },
+    {
+      "gap_summary": "M2 gap: EnforcementCoverageDeclaration bound to hypervisoros.md#node-enforcement-profile + registry id, but undefined there and absent from the registry.",
+      "disposition": "resolved_in_canon",
+      "resolution": "Canonical definition and YAML shape now under hypervisoros.md Node Enforcement Profile (the anchor consumers bind); coverage_fact six-member enum owned by canonical-enums.md; vocabulary entry points at the owner. ADDITIONAL FINDING recorded: the previously claimed schema/fixtures/projections AND the runtime module (enforcement_coverage.rs) are absent from current master (pre-refactor audit only) \u2014 canon-to-code-delta row corrected to nothing-on-master; re-registration + re-landing required before any record claims registry residency. The m2-membership-readiness-plane record's registry_resolution claim is therefore unsatisfiable until then.",
+      "recorded_on": "2026-07-26"
+    },
+    {
+      "gap_summary": "M2 gap: route-binding drift has no observation or reconciliation term.",
+      "disposition": "resolved_in_canon",
+      "resolution": "providers-and-environments.md now defines route-binding drift (seven typed drift classes) as admitted HypervisorObservedState evidence with declared freshness; reconciliation is exclusively an admitted HypervisorChangePlan under fresh authority + active-head checks; unexpected_exposure opens an incident + cleanup obligation; port and route drift stay distinct. Verb list extended with observe drift / reconcile.",
+      "recorded_on": "2026-07-26"
+    },
+    {
+      "gap_summary": "M2 gap: no canonical storage-profile object, durability class, or storage-class contract.",
+      "disposition": "resolved_in_canon",
+      "resolution": "storage-backends/doctrine.md now owns the immutable successor-versioned StorageProfile contract (backend class, storage_durability_class, custody/encryption/retention/hold/incident/repair/cost refs) with exact-revision binding, mechanism-vs-proof rules, and retention-hold protection of live refs; ArtifactAvailabilityIncident and ArtifactRepairReceipt get canonical shapes; canonical-enums.md owns storage_durability_class (token deliberately distinct from the Agentgres ack durability enum). Implementation not started.",
+      "recorded_on": "2026-07-26"
+    },
+    {
+      "gap_summary": "ADR 0022 named untangling #1: ImprovementCampaign coupling to GoalRun; plus load-bearing 'assurance class' prose; plus no continuous operational-assurance contract (external comparative analysis 2026-07-26).",
+      "disposition": "resolved_in_canon",
+      "resolution": "ADR 0023: Campaign coordination generalized to typed work subjects (pursuit coordination = optional application-present profile; envelope fields renamed pre-registration); improvement_assurance_profile executable ladder (member set in canonical-enums; tier requirements in bounded-recursive-improvement; SLSA/TUF as admission-bound evidence never authority); Continuous Operational Assurance target contract in platform-operability.md (standing AutomationSpec family, no new runtime); adversarial-control conformance targets named in the claim coverage index gating claims above bounded_optimization. Implementation waits for its stages.",
+      "recorded_on": "2026-07-26"
+    },
+    {
+      "gap_index": null,
+      "gap_source": "internal-docs/implementation/stages/m0.md#canon-gaps",
+      "gap_summary": "Six M0 records name docs/architecture/_meta/public-web-estate.md as a canon owner and no such path existed, leaving M0.3's explicitly-public route class without a resolvable canonical owner.",
+      "disposition": "resolved_in_canon",
+      "resolution": "docs/architecture/_meta/public-web-estate.md created as the canonical owner of the explicitly-public surface class (route-class membership rule, public web properties, public-claims discipline) with a subject-ownership row added to source-of-truth-map.md. Route-census evidence refs point at docs/evidence/m0-program-control/.",
+      "resolved_at_commits": []
+    },
+    {
+      "gap_index": null,
+      "gap_source": "internal-docs/implementation/stages/m0.md#canon-gaps",
+      "gap_summary": "No PG-* identifier appears anywhere in public canon; M0.6 must map gates without redefining them, presuming a definition owner canon does not name.",
+      "disposition": "resolved_in_canon",
+      "resolution": "Ruling recorded in source-of-truth-map.md (new subject row) and docs/decisions/README.md: the PG-* registry is canonically owned by the private program estate under the single-sequencer rule (internal-docs/implementation/modules/mechanism-gates.md); public canon deliberately defines no gate identifiers; capability claims bind through the conformance claim coverage index; any PG-* projection in tracked artifacts is oversight projection only, never closure authority.",
+      "resolved_at_commits": []
+    },
+    {
+      "gap_index": null,
+      "gap_source": "internal-docs/implementation/stages/m0.md#canon-gaps",
+      "gap_summary": "Final invoker was normative only for embodied effects; no foundation defined it as an enumerable, census-bearing property of every consequential non-embodied route as M0.3 requires.",
+      "disposition": "resolved_in_canon",
+      "resolution": "Final-Invoker Invariants section added to docs/architecture/foundations/security-privacy-policy-invariants.md: exactly one final invoker per consequential invocation path; enumerable census-bearing property per route (unnameable final invoker = census defect, fail closed); all modalities converge on the same policy enforcement point and final invoker with resolved admission evidence (INV-37); physical-action-safety.md retains the embodied specialization.",
+      "resolved_at_commits": []
+    },
+    {
+      "gap_index": 4,
+      "gap_summary": "No docs gate validates docs/security/, docs/crypto/, docs/commitment/, docs/specs/, docs/templates/.",
+      "disposition": "resolved_in_canon",
+      "resolution": "All 14 subjects across the five directories carry explicit placement front matter (Document class line, canonical owner or explicit disclaimer, two-axis doctrine/implementation status, audit date). The m0-adjacent-canon-doc-class-and-placement-disposition verifier is the standing gate over these directories; scripts/check-architecture-docs.mjs remains scoped to docs/architecture by design.",
+      "resolved_at_commits": []
+    }
+  ]
+}

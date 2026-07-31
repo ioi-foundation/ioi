@@ -1,0 +1,63 @@
+{
+  "status": "canonical_live",
+  "canonicalOwner": "Agentgres",
+  "proofClass": "daemon_backed_canonical_operation_log",
+  "stateDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/live-agentgres",
+  "schemaPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/live-agentgres/schema.json",
+  "operationLogPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/live-agentgres/operation-log.jsonl",
+  "operationKinds": [
+    "model_route_selection",
+    "agent.create",
+    "run.create",
+    "run.cancel"
+  ],
+  "stateFiles": {
+    "schema.json": true,
+    "runs/run_78075344-dc89-4f4c-aaf0-8a2abe3a323b.json": true,
+    "tasks/run_78075344-dc89-4f4c-aaf0-8a2abe3a323b.json": true,
+    "scorecards/run_78075344-dc89-4f4c-aaf0-8a2abe3a323b.json": true,
+    "ledgers/run_78075344-dc89-4f4c-aaf0-8a2abe3a323b.json": true,
+    "quality/run_78075344-dc89-4f4c-aaf0-8a2abe3a323b.json": true,
+    "projections/run_78075344-dc89-4f4c-aaf0-8a2abe3a323b.json": true,
+    "operation-log.jsonl": true
+  },
+  "projection": {
+    "schemaVersion": "ioi.agentgres.runtime.v0",
+    "runId": "run_78075344-dc89-4f4c-aaf0-8a2abe3a323b",
+    "source": "agentgres_canonical_operation_log",
+    "watermark": 4,
+    "freshness": {
+      "source": "local-agentgres-v0",
+      "operationCount": 4,
+      "generatedAt": "2026-05-19T21:49:01.838Z"
+    },
+    "paths": {
+      "run": "runs/run_78075344-dc89-4f4c-aaf0-8a2abe3a323b.json",
+      "task": "tasks/run_78075344-dc89-4f4c-aaf0-8a2abe3a323b.json",
+      "job": "jobs/job_run_78075344-dc89-4f4c-aaf0-8a2abe3a323b.json",
+      "checklist": "checklists/checklist_run_78075344-dc89-4f4c-aaf0-8a2abe3a323b.json",
+      "quality": "quality/run_78075344-dc89-4f4c-aaf0-8a2abe3a323b.json",
+      "operationLog": "operation-log.jsonl"
+    },
+    "terminalState": "canceled",
+    "stopCondition": {
+      "reason": "marginal_improvement_too_low",
+      "evidenceSufficient": true,
+      "rationale": "Cancellation became the single terminal event and replay cursor continuity was preserved."
+    },
+    "scorecard": {
+      "taskPassRate": 1,
+      "recoverySuccess": 1,
+      "memoryRelevance": 0.92,
+      "toolQuality": 0.96,
+      "strategyRoi": 0.93,
+      "operatorInterventionRate": 0,
+      "verifierIndependence": 1
+    }
+  },
+  "replayTerminalState": "canceled",
+  "sdkCheckpointAuthority": "cache_only",
+  "sdkCheckpointDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/live-daemon-workspace/.ioi/agent-sdk",
+  "sdkCheckpointDirExists": false,
+  "traceBundleId": "trace_run_78075344-dc89-4f4c-aaf0-8a2abe3a323b"
+}

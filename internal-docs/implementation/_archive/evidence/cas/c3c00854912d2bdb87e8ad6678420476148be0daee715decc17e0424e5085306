@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "campaign": "autopilot-agent-studio-quality-harness-runtime-parity",
+  "scan_id": "runtime-wide-disease-scan-2026-05-30",
+  "status": "in_progress",
+  "purpose": "Classify remaining deterministic-answer-shaping strings after the first product parity exemplar. Deterministic code may remain only for enforcement, observation, normalization, receipts, traces, cleanup, typed-result shaping, and validation.",
+  "source_query": "rg deterministic-answer markers across product runtime, Studio, daemon, and live validation harness code with tests/bundles excluded",
+  "rows": [
+    {
+      "id": "live_gui_validation_canned_projection_guards",
+      "paths": [
+        "scripts/run-autopilot-agent-studio-live-gui-validation.mjs",
+        "scripts/lib/autopilot-agent-studio-chat-scenarios.mjs"
+      ],
+      "classification": "supporting_pass",
+      "owner_layer": "validation_harness",
+      "finding": "Canned/Briefing/Story/Web retrieval strings are bad-output guards and scenario rejection criteria.",
+      "product_chat_reachable": false,
+      "action": "Keep as rejection/validation fixtures only; do not use as product templates."
+    },
+    {
+      "id": "terminal_reply_shape_observer",
+      "paths": [
+        "crates/services/src/agentic/runtime/service/output/terminal_reply_shape.rs",
+        "crates/services/src/agentic/runtime/service/queue/processing/terminal_reply.rs",
+        "crates/services/src/agentic/runtime/service/queue/processing/completion_receipts.rs",
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/finalize_action_processing.rs"
+      ],
+      "classification": "fixed_then_pass",
+      "owner_layer": "rust_runtime_observation",
+      "finding": "Legacy Story/Briefing/timestamp shape detection is used to emit receipts and detect bad old-shape replies, not to author final text.",
+      "product_chat_reachable": false,
+      "action": "Centralized the observer in output/terminal_reply_shape.rs and removed duplicated detector code from action finalization."
+    },
+    {
+      "id": "web_finalization_contract_rejection_markers",
+      "paths": [
+        "crates/services/src/agentic/runtime/service/queue/support/synthesis/hybrid.rs",
+        "crates/services/src/agentic/runtime/service/queue/support/pipeline/facts.rs",
+        "crates/services/src/agentic/runtime/service/queue/support/pipeline/facts/types.rs"
+      ],
+      "classification": "supporting_pass",
+      "owner_layer": "rust_runtime_validation",
+      "finding": "Run date, confidence, Story, Briefing, and fixed-template strings are used to strip or reject old product metadata and fixed report templates before selected-model finalization.",
+      "product_chat_reachable": false,
+      "action": "Keep as validation/normalization until the full web lane is proven; do not add deterministic final-answer renderers."
+    },
+    {
+      "id": "test_only_synthesis_draft_renderers",
+      "paths": [
+        "crates/services/src/agentic/runtime/service/queue/support/synthesis/draft/mod.rs",
+        "crates/services/src/agentic/runtime/service/queue/support/synthesis/draft/renderers/mod.rs",
+        "crates/services/src/agentic/runtime/service/queue/support/synthesis/draft/renderers/multi_story.rs"
+      ],
+      "classification": "supporting_pass",
+      "owner_layer": "test_fixture",
+      "finding": "Legacy deterministic story/briefing renderers are cfg(test)-only and are no longer exported into product runtime.",
+      "product_chat_reachable": false,
+      "action": "Keep only while needed for rejection tests; rename/remove once benchmark/live quality proofs fully replace old canned-prose fixtures."
+    },
+    {
+      "id": "command_contract_timestamp_marker",
+      "paths": [
+        "crates/services/src/agentic/runtime/service/tool_execution/command_contract.rs"
+      ],
+      "classification": "supporting_pass",
+      "owner_layer": "rust_runtime_normalization",
+      "finding": "Run timestamp markers are parsed as structured contract fields for command/tool receipts, not emitted as final user prose.",
+      "product_chat_reachable": false,
+      "action": "Keep as normalization/receipt infrastructure; ensure final chat rendering strips metadata."
+    },
+    {
+      "id": "toolcat_live_probe_support",
+      "paths": [
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/finalize_action_processing/toolcat.rs"
+      ],
+      "classification": "supporting_pass",
+      "owner_layer": "live_validation_probe",
+      "finding": "TOOLCAT strings are live catalogue proof probes and terminal probe messages, not end-user product answers.",
+      "product_chat_reachable": "test_or_validation_only",
+      "action": "Quarantined in a dedicated ToolCat support module so normal action finalization stays readable."
+    },
+    {
+      "id": "remaining_large_modules_inventory",
+      "paths": [
+        "packages/runtime-daemon/src/index.mjs",
+        "packages/runtime-daemon/src/model-mounting.mjs",
+        "crates/services/src/agentic/runtime/service/decision_loop/cognition/mod.rs",
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/success_path.rs",
+        "crates/services/src/agentic/runtime/service/handler/execution/handlers/model.rs",
+        "crates/services/src/agentic/runtime/service/queue/support/pipeline/signal.rs",
+        "crates/services/src/agentic/runtime/service/queue/support/synthesis/draft/builder.rs",
+        "packages/runtime-daemon/src/coding-tools.mjs",
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs",
+        "packages/runtime-daemon/src/computer-use-projection.mjs"
+      ],
+      "classification": "partial_unproven",
+      "owner_layer": "mixed",
+      "finding": "Large runtime/daemon modules remain above 2000 LOC and need ownership review before the final verdict, especially if modified by this campaign.",
+      "product_chat_reachable": "mixed",
+      "action": "Treat as Stage 5A follow-up. Split or justify any touched product/runtime/GUI harness file above 2000 LOC before final verdict."
+    }
+  ],
+  "not_final_verdict": true
+}

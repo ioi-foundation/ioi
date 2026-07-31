@@ -1,0 +1,420 @@
+#!/usr/bin/env node
+// LANE 2 — stage certification.
+//
+//   node tools/certify-stage.mjs <STAGE> [--apply]
+//
+// One content-bound stage proof. It:
+//   * resolves the stage's aggregate exit record and every child from
+//     program/sequence.v1.json and the work-item estate;
+//   * checks every child has reached `verified` under its own status authority;
+//   * checks every child's retained literal exit — declared in the record's
+//     evidence_index — is present exactly once in a retained artifact, AND that
+//     the artifact is a conforming ioi.program.literal_exit.v1 log under the
+//     shared validator. A child that declares no literal is reported, not
+//     silently skipped, when it is verified;
+//   * refuses to certify on any child or aggregate held by an open successor
+//     hold: a closure that projects as verified_historical_with_open_successor
+//     is not a satisfied closure;
+//   * runs the stage module's declared focused checks;
+//   * with --apply, hands the retained result to tools/transition.mjs so the
+//     status change, evidence registration, and every regeneration happen in one
+//     atomic step.
+//
+// Certification results are cached by input digest under generated/.certify/, so
+// re-running with unchanged inputs is free. The cache keys on content, never on
+// time, so a stale cache cannot certify a changed stage.
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+import { execFileSync } from "node:child_process";
+import {
+  ESTATE_ROOT,
+  finding,
+  parseFrontMatter,
+  readJson,
+  REPO_ROOT,
+  report,
+  sha256File,
+  sha256Text,
+  writeJsonDeterministic,
+} from "./lib/estate.mjs";
+import { refuseUnlessConformingLiteralExitLog } from "./lib/literal-exit.mjs";
+import { openHoldsForRecord, QUALIFIED_STATUS } from "./lib/holds.mjs";
+import { loadWorkItems, statusAuthority } from "./generate-now.mjs";
+
+function focusedChecks(stageModuleRel) {
+  const absolute = path.join(ESTATE_ROOT, stageModuleRel);
+  if (!fs.existsSync(absolute)) return [];
+  const parsed = parseFrontMatter(fs.readFileSync(absolute, "utf8"));
+  if (!parsed) return [];
+  const section = /## Focused checks during development\n([\s\S]*?)(\n## |$)/u
+    .exec(parsed.body);
+  if (!section) return [];
+  return [...section[1].matchAll(/`([^`]+)`/gu)]
+    .map((m) => m[1])
+    .filter((c) => c.startsWith("npm run ") || c.startsWith("node ") || c.startsWith("cargo "));
+}
+
+function main() {
+  const stageId = process.argv[2];
+  const apply = process.argv.includes("--apply");
+  const runChecks = !process.argv.includes("--no-run");
+  if (!stageId) {
+    process.stderr.write("usage: certify-stage.mjs <STAGE> [--apply] [--no-run]\n");
+    process.exit(2);
+  }
+
+  const sequence = readJson(
+    path.join(ESTATE_ROOT, "program", "sequence.v1.json"),
+  );
+  const stage = sequence.stages.find((s) => s.id === stageId);
+  if (!stage) {
+    process.stderr.write(`unknown stage: ${stageId}\n`);
+    process.exit(2);
+  }
+
+  const findings = [];
+  const records = loadWorkItems();
+  const mine = records.filter((r) => r.stage_id === stageId);
+  const aggregate = stage.exit_gate
+    ? records.find((r) =>
+      r.work_item_id === stage.exit_gate.aggregate_work_item_id
+    )
+    : null;
+
+  if (stage.exit_gate && !aggregate) {
+    findings.push(
+      finding(
+        "error",
+        "aggregate-missing",
+        `stage ${stageId} names exit gate ${stage.exit_gate.aggregate_work_item_id}, which has no record`,
+      ),
+    );
+  }
+
+  // --- dependency edges
+  for (const dep of stage.depends_on ?? []) {
+    const depStage = sequence.stages.find((s) => s.id === dep);
+    const depAggregate = depStage?.exit_gate
+      ? records.find((r) =>
+        r.work_item_id === depStage.exit_gate.aggregate_work_item_id
+      )
+      : null;
+    const depStatus = depAggregate ? statusAuthority(depAggregate).status : null;
+    if (depStatus !== "verified") {
+      findings.push(
+        finding(
+          "error",
+          "dependency",
+          `stage ${stageId} depends on ${dep}, whose exit gate is ${
+            depStatus ?? "absent"
+          }`,
+        ),
+      );
+    }
+  }
+
+  // --- children
+  const childIds = aggregate?.aggregate_child_ids ?? [];
+  const children = childIds.map((id) => ({
+    id,
+    record: records.find((r) => r.work_item_id === id) ?? null,
+  }));
+  for (const child of children) {
+    if (!child.record) {
+      findings.push(
+        finding("error", "child-missing", `aggregate names unknown child ${child.id}`),
+      );
+      continue;
+    }
+    const authority = statusAuthority(child.record);
+    if (authority.status !== "verified") {
+      findings.push(
+        finding(
+          "error",
+          "child-status",
+          `child ${child.id} is ${authority.status} under ${authority.ref}; the aggregate manufactures no child status`,
+        ),
+      );
+    }
+    // A verified child under an open successor hold is not a satisfied
+    // closure: it projects as verified_historical_with_open_successor, and a
+    // stage cannot be certified on top of a qualification.
+    for (const hold of openHoldsForRecord(child.id)) {
+      findings.push(
+        finding(
+          "error",
+          "child-open-successor-hold",
+          `child ${child.id} is held by ${hold.hold_id} (${hold.subject}) and projects as ${QUALIFIED_STATUS}; the stage cannot certify on a closure whose successor is owed and unwritten`,
+        ),
+      );
+    }
+  }
+  if (aggregate) {
+    for (const hold of openHoldsForRecord(aggregate.work_item_id)) {
+      findings.push(
+        finding(
+          "error",
+          "aggregate-open-successor-hold",
+          `aggregate ${aggregate.work_item_id} is held by ${hold.hold_id} (${hold.subject}) and projects as ${QUALIFIED_STATUS}`,
+        ),
+      );
+    }
+  }
+
+  // --- content-bound literal exits
+  // Records declare their literal inside evidence_index, not at the top level.
+  // Reading a top-level `literal_exit` made this bar dead code on 100% of the
+  // estate, so every stage certified its literal dimension unconditionally.
+  const literals = [];
+  for (const child of children.filter((c) => c.record)) {
+    const index = child.record.evidence_index;
+    const declared = index && !Array.isArray(index) ? index.literal_exit : null;
+    const paths = index && !Array.isArray(index)
+      ? (index.expected_output_paths ?? [])
+      : [];
+    const childStatus = statusAuthority(child.record).status;
+    if (!declared) {
+      if (childStatus === "verified") {
+        findings.push(
+          finding(
+            "error",
+            "literal-undeclared",
+            `child ${child.id} is verified but declares no evidence_index.literal_exit`,
+          ),
+        );
+      }
+      continue;
+    }
+    const literal = { expected: declared, artifact_path: paths[0] ?? null };
+    const artifact = literal.artifact_path
+      ? path.join(REPO_ROOT, literal.artifact_path)
+      : null;
+    if (!artifact || !fs.existsSync(artifact)) {
+      findings.push(
+        finding(
+          childStatus === "verified" ? "error" : "warn",
+          "literal-artifact",
+          `child ${child.id} (${childStatus}) declares "${declared}" but its artifact is not retained: ${
+            literal.artifact_path ?? "(no expected_output_paths)"
+          }`,
+        ),
+      );
+      continue;
+    }
+    const text = fs.readFileSync(artifact, "utf8");
+    const count = text.split(literal.expected).length - 1;
+    if (count !== 1) {
+      findings.push(
+        finding(
+          "error",
+          "literal-exit",
+          `child ${child.id}: expected exactly one "${literal.expected}", found ${count}`,
+        ),
+      );
+    }
+    // The artifact must be a conforming retained log, not merely a file with
+    // the literal somewhere inside it. Same shared validator as the transition
+    // gate and the literal-exit bar.
+    for (const refusal of refuseUnlessConformingLiteralExitLog(
+      literal.artifact_path,
+      { expectLiteral: literal.expected },
+    )) {
+      findings.push(
+        finding(
+          childStatus === "verified" ? "error" : "warn",
+          refusal.check,
+          `child ${child.id}: ${refusal.message}`,
+        ),
+      );
+    }
+    literals.push({
+      work_item_id: child.id,
+      expected: literal.expected,
+      artifact_path: literal.artifact_path,
+      artifact_sha256: sha256File(artifact),
+    });
+  }
+
+  // The aggregate owns a distinct retained literal. It is not one of its own
+  // children, so validate and bind it explicitly; otherwise --apply can never
+  // locate the aggregate proof and stage certification is permanently dead.
+  if (aggregate) {
+    const index = aggregate.evidence_index;
+    const declared = index && !Array.isArray(index) ? index.literal_exit : null;
+    const paths = index && !Array.isArray(index)
+      ? (index.expected_output_paths ?? [])
+      : [];
+    const artifactPath = paths[0] ?? null;
+    const artifact = artifactPath ? path.join(REPO_ROOT, artifactPath) : null;
+    if (!declared) {
+      findings.push(finding(
+        "error",
+        "aggregate-literal-undeclared",
+        `aggregate ${aggregate.work_item_id} declares no evidence_index.literal_exit`,
+      ));
+    } else if (!artifact || !fs.existsSync(artifact)) {
+      findings.push(finding(
+        "error",
+        "aggregate-literal-artifact",
+        `aggregate ${aggregate.work_item_id} declares "${declared}" but its artifact is not retained: ${artifactPath ?? "(no expected_output_paths)"}`,
+      ));
+    } else {
+      const artifactText = fs.readFileSync(artifact, "utf8");
+      const count = artifactText.split(declared).length - 1;
+      if (count !== 1) {
+        findings.push(finding(
+          "error",
+          "aggregate-literal-exit",
+          `aggregate ${aggregate.work_item_id}: expected exactly one "${declared}", found ${count}`,
+        ));
+      }
+      for (const refusal of refuseUnlessConformingLiteralExitLog(
+        artifactPath,
+        { expectLiteral: declared },
+      )) {
+        findings.push(finding(
+          "error",
+          refusal.check,
+          `aggregate ${aggregate.work_item_id}: ${refusal.message}`,
+        ));
+      }
+      literals.push({
+        work_item_id: aggregate.work_item_id,
+        expected: declared,
+        artifact_path: artifactPath,
+        artifact_sha256: sha256File(artifact),
+      });
+    }
+  }
+
+  // --- input digest for the cache
+  const inputDigest = sha256Text(JSON.stringify({
+    stage: stage,
+    records: mine.map((r) => ({
+      id: r.work_item_id,
+      status: statusAuthority(r).status,
+      sha256: sha256File(path.join(ESTATE_ROOT, r.file)),
+    })),
+    module: fs.existsSync(path.join(ESTATE_ROOT, stage.module))
+      ? sha256File(path.join(ESTATE_ROOT, stage.module))
+      : null,
+    // The commands themselves are part of the cache key. Changing a stage's
+    // focused checks must invalidate a prior certification.
+    commands: focusedChecks(stage.module),
+  }));
+  const cachePath = path.join(
+    ESTATE_ROOT,
+    "generated",
+    ".certify",
+    `${stageId}.${inputDigest.slice(0, 16)}.json`,
+  );
+
+  // --- focused checks, only when inputs changed
+  const checks = [];
+  if (runChecks && !fs.existsSync(cachePath)) {
+    for (const command of focusedChecks(stage.module)) {
+      const started = Date.now();
+      let exit = 0;
+      try {
+        execFileSync("bash", ["-lc", command], {
+          cwd: REPO_ROOT,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 900_000,
+        });
+      } catch (error) {
+        exit = error.status ?? 1;
+      }
+      checks.push({
+        command,
+        exit,
+        seconds: (Date.now() - started) / 1000,
+      });
+      if (exit !== 0) {
+        findings.push(
+          finding(
+            "error",
+            "focused-check",
+            `${command} exited ${exit}`,
+          ),
+        );
+      }
+    }
+  } else if (fs.existsSync(cachePath)) {
+    process.stdout.write(
+      `inputs unchanged; reusing cached certification ${path.basename(cachePath)}\n`,
+    );
+  }
+
+  const result = {
+    evidence_format: "ioi.program.stage_certification.v1",
+    stage_id: stageId,
+    aggregate_work_item_id: aggregate?.work_item_id ?? null,
+    input_digest: inputDigest,
+    children: children.map((c) => ({
+      id: c.id,
+      status: c.record ? statusAuthority(c.record).status : "absent",
+    })),
+    literal_exits: literals,
+    focused_checks: checks,
+    result: findings.some((f) => f.level === "error") ? "FAIL" : "PASS",
+    nonclaims: [
+      "A passing focused check proves only its own scope.",
+      "This certification closes the stage exit gate only when every child is verified under its own status authority and every retained literal is content-bound.",
+    ],
+  };
+
+  // A --no-run pass must NEVER populate the cache: it executed zero focused
+  // checks, so caching it would make every later full run reuse a certification
+  // that proved nothing. The cache is also keyed on the set of commands, so
+  // editing a stage's focused checks invalidates it.
+  if (result.result === "PASS" && runChecks) {
+    writeJsonDeterministic(cachePath, result);
+  }
+
+  if (apply && result.result === "PASS" && aggregate) {
+    // The aggregate's OWN literal binding drives the transition — never a
+    // child's. (literals[0] was the alphabetically-first child, a latent bug
+    // that could not fire before the first stage certification.)
+    const aggregateLiteral = literals.find(
+      (l) => l.work_item_id === aggregate.work_item_id,
+    ) ?? null;
+    if (statusAuthority(aggregate).status === "verified") {
+      process.stdout.write(
+        `${aggregate.work_item_id} is already verified under its own certification; certification recorded, no transition re-applied\n`,
+      );
+    } else if (!aggregateLiteral) {
+      throw new Error(
+        `cannot apply: no content-bound literal for the aggregate ${aggregate.work_item_id}`,
+      );
+    } else {
+      const resultPath = path.join(
+        ESTATE_ROOT,
+        "generated",
+        ".certify",
+        `${stageId}.latest.json`,
+      );
+      writeJsonDeterministic(resultPath, {
+        ...result,
+        literal_exit: aggregateLiteral,
+        adversarial_or_fault_proof: aggregate.adversarial_or_fault_proof ?? [],
+      });
+      execFileSync("node", [
+        "internal-docs/implementation/tools/transition.mjs",
+        aggregate.work_item_id,
+        "verified",
+        "--result",
+        resultPath,
+        "--apply",
+      ], { cwd: REPO_ROOT, stdio: "inherit" });
+    }
+  }
+
+  process.stdout.write(
+    `certify ${stageId}: ${children.length} child(ren), ${literals.length} content-bound literal(s), ${checks.length} focused check(s)\n`,
+  );
+  process.exit(report(`certify-stage:${stageId}`, findings));
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) main();

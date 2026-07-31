@@ -1,0 +1,450 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m13-selected-profile-aggregate-exit",
+  "stage_id": "M13",
+  "record_role": "aggregate_exit",
+  "required_work": [
+    "Approved plan-level gap closure: m13-selected-profile-aggregate-exit"
+  ],
+  "status": "proposed",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Aggregate manifest; M13_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if No one-shot/cohort overclaim, no hidden sponsor, no missing independent evidence, no M14 service claim.",
+  "selected_profile": "A preregistered, independently operated two-sovereign trial with safe decline and portable exit; no M14 service claim.",
+  "canon_owners": [
+    "docs/architecture/foundations/aiip.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-25",
+    "captured_at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "4310a324545c6bae44e85486572e1e5158b8fdd4245c20225dae31c35a4a586c",
+    "owners": [
+      {
+        "path": "docs/architecture/foundations/aiip.md",
+        "sha256": "1dcf1af6fc0ed06bb61089355f15fc6e81e1bf856f71642882db9d5f52401221"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m13-selected-profile-aggregate-exit",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m13-selected-profile-aggregate-exit.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M13_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:M13SelectedProfileEvidence",
+      "artifact_class": "private_m13_aggregate_evidence_join",
+      "candidate_name": "M13SelectedProfileEvidence",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:FrozenTrialPreregistration",
+      "artifact_class": "private_frozen_trial_preregistration_join",
+      "candidate_name": "FrozenTrialPreregistration",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "m13-independent-operation-and-external-worker-product-proof",
+    "m13-sovereignty-trial-preregistration",
+    "m13-two-sovereign-surplus-and-decline-proof"
+  ],
+  "external_gates": [
+    {
+      "gate_id": "applicable-pg-profile-gates",
+      "owner": "internal-docs/implementation/modules/mechanism-gates.md",
+      "activation_condition": "Every applicable gate is selected and evidenced in the owning work-item records; planning creates no closure."
+    },
+    {
+      "gate_id": "independent-operation-preregistration",
+      "owner": "docs/architecture/foundations/aiip.md",
+      "activation_condition": "Independent administration, custody, outside options, costs, risks, and valuation are frozen before observation."
+    }
+  ],
+  "aggregate_child_ids": [
+    "m13-independent-operation-and-external-worker-product-proof",
+    "m13-sovereignty-trial-preregistration",
+    "m13-two-sovereign-surplus-and-decline-proof"
+  ],
+  "aggregate_child_dispositions": [
+    {
+      "child_work_item_id": "m13-independent-operation-and-external-worker-product-proof",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m13-sovereignty-trial-preregistration",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m13-two-sovereign-surplus-and-decline-proof",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    }
+  ],
+  "aggregate_verification_binding": {
+    "schema_version": "ioi.program.aggregate-verification-binding.v1",
+    "child_dispositions": [
+      {
+        "child_work_item_id": "m13-independent-operation-and-external-worker-product-proof",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m13-sovereignty-trial-preregistration",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m13-two-sovereign-surplus-and-decline-proof",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      }
+    ],
+    "child_bindings": [
+      {
+        "work_item_id": "m13-independent-operation-and-external-worker-product-proof",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "c5380987bf6322323ef1b530b7accd6ca8987091ae77f3c190255727115b147f",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M13_INDEPENDENT_OPERATION_WORKER_PRODUCT_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "7ce3d46037e1235871115269a59cf2a2c0b719ab0b0e4d6e2cd68e0d491a0b1b"
+        }
+      },
+      {
+        "work_item_id": "m13-sovereignty-trial-preregistration",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "c53e63b9c8b08a17bf9df8c76da0b89500194c923a9a6cb69294da62c2b49c1e",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M13_SOVEREIGNTY_TRIAL_PREREGISTRATION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "adacd06d672e5a1bb321b48f4a2adfcc1c91991b165873e4cbc16161030cf01c"
+        }
+      },
+      {
+        "work_item_id": "m13-two-sovereign-surplus-and-decline-proof",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "4dc69dda0aab77d7f764e42412d1f70d79a220fbc4cf393f3017bf7f9add0dea",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M13_TWO_SOVEREIGN_SURPLUS_AND_DECLINE_PROOF_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "05775f230d567f0794aff13029e05de9cedd50dd86c89c5fd1569841091450e8"
+        }
+      }
+    ],
+    "dependency_bindings": [
+      {
+        "work_item_id": "m13-independent-operation-and-external-worker-product-proof",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "c5380987bf6322323ef1b530b7accd6ca8987091ae77f3c190255727115b147f",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M13_INDEPENDENT_OPERATION_WORKER_PRODUCT_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "7ce3d46037e1235871115269a59cf2a2c0b719ab0b0e4d6e2cd68e0d491a0b1b"
+        }
+      },
+      {
+        "work_item_id": "m13-sovereignty-trial-preregistration",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "c53e63b9c8b08a17bf9df8c76da0b89500194c923a9a6cb69294da62c2b49c1e",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M13_SOVEREIGNTY_TRIAL_PREREGISTRATION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "adacd06d672e5a1bb321b48f4a2adfcc1c91991b165873e4cbc16161030cf01c"
+        }
+      },
+      {
+        "work_item_id": "m13-two-sovereign-surplus-and-decline-proof",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "4dc69dda0aab77d7f764e42412d1f70d79a220fbc4cf393f3017bf7f9add0dea",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M13_TWO_SOVEREIGN_SURPLUS_AND_DECLINE_PROOF_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "05775f230d567f0794aff13029e05de9cedd50dd86c89c5fd1569841091450e8"
+        }
+      }
+    ],
+    "aggregate_evidence_binding": {
+      "expected_literal": "M13_EXIT=0",
+      "evidence_files": [],
+      "exact_literal_line_count": 0,
+      "literal_valid": false,
+      "evidence_bundle_sha256": "8f5531dc36995f30101de88654bf9b07d11c06c670b8e24d2875b7dfafded83c"
+    },
+    "binding_payload_sha256": "78bd6952a2244ad5a203fe78ebe11d04c30466dcf19fcd2eb50bec023bd576ec",
+    "nonclaim": "This exact-digest binding is a private closure precondition. It does not promote a child, dependency, proof gate, aggregate, work item, or stage and cannot substitute for literal-valid retained evidence."
+  },
+  "in_scope": [
+    "`PROGRAM`, `AIIP`; private trial/baseline/surplus/aggregate evidence families",
+    "Aggregate manifest; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "No one-shot/cohort overclaim, no hidden sponsor, no missing independent evidence, no M14 service claim",
+    "No M14 connected/secured-service, demand, network-effect, native-asset, or L1 claim.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `PROGRAM`, `AIIP`; private trial/baseline/surplus/aggregate evidence families.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Aggregate manifest; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: No one-shot/cohort overclaim, no hidden sponsor, no missing independent evidence, no M14 service claim.",
+    "Retain an evidence index and require the exact content-bound M13_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "trial work admission, acceptance, revocation, dispute, or portable exit",
+      "final_invoker": "each independently operated System's local final invoker",
+      "authority_source": "each sovereign party's own policy/authority under frozen terms",
+      "receipt_or_evidence": "trial contribution/acceptance/exit evidence bundle",
+      "negative_behavior": "safe decline and local continuation; no shared admin, database, or authority"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded m13-selected-profile-aggregate-exit journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M13_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for No one-shot/cohort overclaim, no hidden sponsor, no missing independent evidence, no M14 service claim; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m13-selected-profile-aggregate-exit; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for No one-shot/cohort overclaim, no hidden sponsor, no missing independent evidence, no M14 service claim; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M13_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m13.outside_option_coverage",
+      "metric": "required parties with outside option frozen before trial",
+      "threshold": "100_percent_of_required_parties",
+      "unit": "required parties",
+      "threshold_source": "M13.2 and M13 exit proof",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m13.declared_cost_coverage",
+      "metric": "required parties with all trial costs frozen before trial",
+      "threshold": "100_percent_of_required_parties",
+      "unit": "required parties",
+      "threshold_source": "M13.2",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m13.declared_risk_coverage",
+      "metric": "required parties with material trial risks frozen before trial",
+      "threshold": "100_percent_of_required_parties",
+      "unit": "required parties",
+      "threshold_source": "M13.2",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m13.contracted_benefit_coverage",
+      "metric": "required parties with contracted benefit and private valuation method frozen before trial",
+      "threshold": "100_percent_of_required_parties",
+      "unit": "required parties",
+      "threshold_source": "M13.2",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m13.positive_surplus_floor",
+      "metric": "party surplus after declared cost and risk plus sponsor value over frozen outside option",
+      "threshold": "positive_for_every_required_party_and_sponsor_above_outside_option",
+      "unit": "party-level preregistered valuation",
+      "threshold_source": "M13 exit proof",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m13.repeat_useful_work_floor",
+      "metric": "useful cross-sovereign work cycles preserving separate identity, truth, admission, and authority",
+      "threshold": ">=2",
+      "unit": "accepted cycles",
+      "threshold_source": "M13.3 repeat floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m13.independence_violations",
+      "metric": "proof steps requiring shared runtime, database, administrator, authority, or continued hosted trust",
+      "threshold": 0,
+      "unit": "violations",
+      "threshold_source": "M13 independence exit proof",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m13.subsidy_disclosure_and_baseline_coverage",
+      "metric": "subsidy disclosed and compared with eligible same-domain/direct-local baseline",
+      "threshold": "100_percent_of_trial_subsidy_and_eligible_baselines",
+      "unit": "trial economics",
+      "threshold_source": "M13.5",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m13.safe_decline_control",
+      "metric": "negative-surplus controls with safe decline, zero foreign effect, and local continuation",
+      "threshold": ">=1",
+      "unit": "controls",
+      "threshold_source": "M13.6",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M13_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M13/m13-selected-profile-aggregate-exit.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/src/data/productSurface.ts",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "No M14 connected/secured-service, demand, network-effect, native-asset, or L1 claim.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: No one-shot/cohort overclaim, no hidden sponsor, no missing independent evidence, no M14 service claim. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Aggregate manifest; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M13_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": "2026-07-22"
+}

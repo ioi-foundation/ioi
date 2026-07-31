@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-unsigned-review-anchor-successor
+ARTIFACT=docs/evidence/m0-program-control/review-epoch-anchor.json
+ARTIFACT_SHA256=027d7423fcf2f3fddf0bac3b988f60180b96f604cfa8d0bf94dffce7816d6dcd
+M0_UNSIGNED_REVIEW_ANCHOR_SUCCESSOR_EXIT=0
+NONCLAIM=This binds the append-only anchor head as workflow-integrity evidence; it establishes no cryptographic authorship or independent review.

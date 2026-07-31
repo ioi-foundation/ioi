@@ -1,0 +1,160 @@
+---
+module_id: stage-m10
+module_class: stage
+title: Two-Failure-Domain Continuity
+sequencer: program/sequence.v1.json
+status_owner: work-item records
+stage_ids: [M10]
+canon_owners:
+  - docs/architecture/foundations/governed-autonomous-systems.md
+  - docs/architecture/foundations/invariants.md
+  - docs/architecture/foundations/common-objects-and-envelopes.md
+  - docs/architecture/foundations/domain-kernels.md
+  - docs/architecture/components/daemon-runtime/platform-operability.md
+  - docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md
+  - docs/architecture/components/daemon-runtime/api.md
+  - docs/architecture/components/daemon-runtime/doctrine.md
+  - docs/architecture/components/daemon-runtime/default-harness-profile.md
+  - docs/architecture/components/daemon-runtime/hypervisoros.md
+  - docs/architecture/components/daemon-runtime/private-workspace-ctee.md
+  - docs/architecture/components/daemon-runtime/runtime-nodes-tee-depin.md
+  - docs/architecture/components/daemon-runtime/task-capsule-protocol.md
+  - docs/architecture/components/agentgres/doctrine.md
+  - docs/architecture/components/agentgres/api-object-model.md
+  - docs/architecture/components/agentgres/artifact-ref-plane.md
+  - docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md
+  - docs/architecture/components/agentgres/projection-system-reference.md
+  - docs/architecture/components/hypervisor/core-clients-surfaces.md
+  - docs/architecture/components/hypervisor/providers-and-environments.md
+  - docs/architecture/components/hypervisor/byo-provider-plane.md
+  - docs/architecture/components/wallet-network/doctrine.md
+  - docs/architecture/components/wallet-network/api-authority-scopes.md
+  - docs/architecture/components/wallet-network/product-exchange-risk.md
+  - docs/architecture/_meta/execution-horizons.md
+  - docs/conformance/hypervisor-core/platform-operability.md
+  - docs/conformance/hypervisor-core/platform-fault-matrix.v1.json
+  - docs/conformance/hypervisor-core/attestation-assurance.md
+  - docs/conformance/hypervisor-core/effect-execution.md
+  - docs/conformance/hypervisor-core/work-lifecycle.md
+  - docs/decisions/0015-bounded-distributed-autonomous-systems-and-network-enrollment.md
+  - docs/decisions/0010-verifiable-bounded-agency-and-execution-boundary-alignment.md
+  - docs/decisions/0003-agentgres-operation-backed-domain-truth.md
+  - docs/decisions/0013-hypervisor-core-clients-surfaces-and-adapters.md
+  - docs/decisions/0016-hypervisor-systems-work-and-application-taxonomy.md
+---
+
+# M10 — Two-Failure-Domain Continuity
+
+Prove that one logical System preserves identity, authority, state, and effect history across two admitted nodes and failure domains.
+
+## Why this is next
+
+M10 `depends_on` M9 ([`sequence.v1.json`](../program/sequence.v1.json)), so it starts from a terminal single-node journey whose routes are Rust-owned and whose product proof already carries adversarial evidence. M2 supplied the membership, writer, fence, recovery, checkpoint, and removal families; M10 is where those families are exercised together against a second declared failure domain rather than in isolation. It adds provisioning/attestation of a candidate, checkpoint restore and ordered catch-up, fenced writer-epoch transition, and the operator-visible continuity projection. M11 `depends_on` M10, so useful same-system distribution stays downstream of a proven continuity floor.
+
+## Canon owners
+
+| Canon owner | Obligation this stage must satisfy |
+| --- | --- |
+| [`foundations/governed-autonomous-systems.md`](../../../docs/architecture/foundations/governed-autonomous-systems.md) | Multi-node deployment: declared roles, administrative/physical failure domains, replication/durability class, read-watermark rules, failover and fencing, RPO/RTO, partition behavior, degraded/read-only modes, backup/restore, drain/removal; desired topology separated from observed topology. |
+| [`foundations/invariants.md`](../../../docs/architecture/foundations/invariants.md) | INV-22 one system/governed membership, INV-23 replication is not consensus, INV-24 failover fences before promotion and effect, INV-29 cryptographic continuity, INV-36 proposition-scoped temporal evidence. |
+| [`foundations/common-objects-and-envelopes.md`](../../../docs/architecture/foundations/common-objects-and-envelopes.md) | Envelope shapes for membership, writer-epoch transition, failover profile, lost-suffix record, ordering/finality recovery, `RuntimeAssignment`, `ReceiptEnvelope`, `AuthorityKeySet`, `AuthorityRevocationSnapshot`. |
+| [`foundations/domain-kernels.md`](../../../docs/architecture/foundations/domain-kernels.md) | Semantic ownership of the node-role, membership, and continuity kernels the envelopes project. |
+| [`components/daemon-runtime/platform-operability.md`](../../../docs/architecture/components/daemon-runtime/platform-operability.md) | `TemporalVerificationProfile`/`TemporalValidityEvaluation`, rollback-domain and continuity-floor policy, fault matrices, checkpoint/restore/compaction posture, degraded-mode consequences, key rotation/revocation operations. |
+| [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../../../docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md) | Promotion, fence, recovery, and continuity receipt bodies plus replay-bound evidence wrapping. |
+| [`components/daemon-runtime/api.md`](../../../docs/architecture/components/daemon-runtime/api.md), [`doctrine.md`](../../../docs/architecture/components/daemon-runtime/doctrine.md), [`runtime-nodes-tee-depin.md`](../../../docs/architecture/components/daemon-runtime/runtime-nodes-tee-depin.md), [`private-workspace-ctee.md`](../../../docs/architecture/components/daemon-runtime/private-workspace-ctee.md), [`hypervisoros.md`](../../../docs/architecture/components/daemon-runtime/hypervisoros.md), [`task-capsule-protocol.md`](../../../docs/architecture/components/daemon-runtime/task-capsule-protocol.md), [`default-harness-profile.md`](../../../docs/architecture/components/daemon-runtime/default-harness-profile.md) | One Rust-owned admission/execution path for membership, promotion, fence, drain, and removal; plus candidate-node attestation, measured boot/capsule posture, and the runtime profile a joining node must satisfy. |
+| [`components/agentgres/doctrine.md`](../../../docs/architecture/components/agentgres/doctrine.md), [`api-object-model.md`](../../../docs/architecture/components/agentgres/api-object-model.md), [`artifact-ref-plane.md`](../../../docs/architecture/components/agentgres/artifact-ref-plane.md), [`postgres-bridge-and-readiness-contract.md`](../../../docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md), [`projection-system-reference.md`](../../../docs/architecture/components/agentgres/projection-system-reference.md) | Durable continuity CAS, ordered log, head/root and watermark truth, checkpoint restore, replica readiness, and rebuildable projections. |
+| [`components/hypervisor/core-clients-surfaces.md`](../../../docs/architecture/components/hypervisor/core-clients-surfaces.md), [`providers-and-environments.md`](../../../docs/architecture/components/hypervisor/providers-and-environments.md), [`byo-provider-plane.md`](../../../docs/architecture/components/hypervisor/byo-provider-plane.md) | Systems/Operations/Provenance surface registration and policy-filtered projection for topology, epoch/fence, incident, and continuity state; second-failure-domain provisioning, `HypervisorChangePlan`-fenced cutover, environment route binding, and lifecycle observation. |
+| [`components/wallet-network/doctrine.md`](../../../docs/architecture/components/wallet-network/doctrine.md), [`api-authority-scopes.md`](../../../docs/architecture/components/wallet-network/api-authority-scopes.md), [`product-exchange-risk.md`](../../../docs/architecture/components/wallet-network/product-exchange-risk.md) | Authority key set and revocation snapshot currency at the promotion/fence decision; no authority widening from membership. |
+| [`_meta/execution-horizons.md`](../../../docs/architecture/_meta/execution-horizons.md) | Horizon 2A: the canonical shape of the minimum credible distributed-system continuity proof and its unbuilt-labelled exclusions. |
+| [`conformance/hypervisor-core/platform-operability.md`](../../../docs/conformance/hypervisor-core/platform-operability.md), [`platform-fault-matrix.v1.json`](../../../docs/conformance/hypervisor-core/platform-fault-matrix.v1.json), [`effect-execution.md`](../../../docs/conformance/hypervisor-core/effect-execution.md), [`work-lifecycle.md`](../../../docs/conformance/hypervisor-core/work-lifecycle.md) | Required fault-matrix decisions and reason codes (stale resource fence, rollback with and without an outside-domain floor, partition continuation) plus effect-admission and work-lifecycle reconciliation for work in flight across a promotion. |
+| [`conformance/hypervisor-core/attestation-assurance.md`](../../../docs/conformance/hypervisor-core/attestation-assurance.md) | CAA lease/revocation/cadence and CAA-10 temporal qualification plus restored-verifier rollback behavior for the joining candidate. |
+| [ADR 0015](../../../docs/decisions/0015-bounded-distributed-autonomous-systems-and-network-enrollment.md), [ADR 0010](../../../docs/decisions/0010-verifiable-bounded-agency-and-execution-boundary-alignment.md), [ADR 0003](../../../docs/decisions/0003-agentgres-operation-backed-domain-truth.md), [ADR 0013](../../../docs/decisions/0013-hypervisor-core-clients-surfaces-and-adapters.md), [ADR 0016](../../../docs/decisions/0016-hypervisor-systems-work-and-application-taxonomy.md) | Accepted decisions governing bounded distributed systems and enrollment, execution-boundary alignment, operation-backed domain truth, surface/adapter boundaries, and the Systems/Operations taxonomy. |
+
+Pulled modules declared by the sequencer for M10: [`runtime-fabric`](../modules/runtime-fabric.md), [`proof-and-evidence`](../modules/proof-and-evidence.md), [`adversarial-proof-matrix`](../modules/adversarial-proof-matrix.md), [`mechanism-gates`](../modules/mechanism-gates.md), and [`workload-isolation-and-virtualization`](../modules/workload-isolation-and-virtualization.md). PG-\* definitions are read from [`proof-gates/mechanism-gate-registry.md`](../modules/mechanism-gates.md) without restatement or modification.
+
+## In scope
+
+- `M10.1` provision and attest a candidate node;
+- `M10.2` admit membership and assign replica/hot-standby roles;
+- `M10.3` restore a checkpoint, catch up the ordered log, verify roots and watermarks plus required outside-rollback-domain temporal/key/revocation floors, and mark readiness;
+- `M10.4` inject writer, node, link, storage, witness, and restart failures;
+- `M10.5` reconcile active work, perform only policy-controlled promotion, increment the writer epoch, and fence the displaced writer;
+- `M10.6` replay, drain, remove, and prove declared RPO/RTO and lost-suffix handling;
+- `M10.7` expose desired/observed topology, root, epoch/fence, degraded state, recovery, and continuity receipts.
+- M10 owns the Operations operational-journey record (observe → promote/fence/rejoin → declare incident → recover → export), including its ordered-transition coverage obligation.
+- `MEASURED`, `SYSTEM`, `AGENTGRES`, `WALLET` crossings for node attestation, epoch/floor, and checkpoint/key/revocation families; `SYSTEM`, `DAEMON`, `ENVIRONMENTS`, `SURFACES` crossings for membership/fence/promotion/rejoin/fault/RPO/RTO projection families.
+- Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and retained-evidence work for the bounded claim, across the pulled product surfaces Systems, Operations, Environments, and Provenance.
+
+## Out of scope
+
+- Useful same-system distributed work, role-to-membership runtime assignment, allocation leases, and rebalance (M11).
+- Federated admission, AIIP channel envelopes, portable exit, and cross-sovereign settlement (M12 and later).
+- Dynamic membership, leader election, and automated failover, which remain labelled unbuilt until their own fault-model and conformance proof exists; consensus membership, threshold-authority roles, and any public-finality or L1 claim.
+- The single-node terminal product journey and its claim publication (M9).
+
+## Work items
+
+| Work item id | Role | What it owns |
+| --- | --- | --- |
+| `m10-two-failure-domain-continuity` | **aggregate_exit** | The stage join over `M10.1`–`M10.7`: closed evidence manifest, child/evidence join, and the `M10_TWO_FAILURE_DOMAIN_CONTINUITY_EXIT=0` literal contract. Rejects a missing Operations child, false healthy state, split brain, duplicate effect, or task-code success. |
+| `m10-attestation-temporal-floor-and-revocation-continuity` | implementation_cut | Continuity-floor mechanism: candidate attestation, temporal profile/evaluation, outside-rollback-domain key/revocation floors, checkpoint currency; `M10_ATTESTATION_TEMPORAL_FLOOR_CONTINUITY_EXIT=0`. Carries PG-4A.2 and PG-7.3. |
+| `m10-topology-chaos-and-operator-product-proof` | implementation_cut | Chaos and operator-state runner over membership/fence/promotion/rejoin/fault and RPO/RTO projections; `M10_TOPOLOGY_CHAOS_OPERATOR_PRODUCT_EXIT=0`. Carries PG-4A.5 and PG-4A.6. |
+| `m10-operations-operational-journey` | implementation_cut | The seven-transition Operations journey and its honest degraded/denied/ambiguous states; `M10_OPERATIONS_OPERATIONAL_JOURNEY_EXIT=0`. |
+
+Every consequential writer-promotion, fencing, rejoin, or recovery effect names the daemon continuity/fencing final invoker plus the resource-side fence, draws authority from System governance and current epoch/floor/authority facts, and emits a promotion/fence/recovery receipt and root. Frozen thresholds include zero dual-effective-writer intervals and zero continuity trials observed before the RPO/RTO floors were frozen.
+
+## Code surfaces likely affected
+
+- `crates/services/src/agentic/runtime/kernel/mod.rs` — the record-declared code anchor; adjacent implementation precedent only.
+- `crates/agentgres/src/replica.rs`, `crates/agentgres/src/mux.rs` — storage-writer replication and epoch precedent; never a substitute for per-System authority.
+- `crates/node/`, `crates/state/`, `crates/storage/` — ordered-log catch-up, root/watermark verification, checkpoint restore; `crates/api/`, `crates/services/` — membership, promotion, fence, drain, and removal admission routes.
+- `apps/hypervisor/scripts/serve-product-ui.mjs`, `apps/hypervisor/scripts/ioi-api-adapter.mjs`, `apps/hypervisor/surfaces/` — Systems/Operations/Environments/Provenance projections and honest degraded states evolved from the owned ported application seed.
+- `docs/architecture/_meta/schemas/` — `autonomous-system-continuity-state.v1.schema.json`, `lifecycle-continuity-profile.v1.schema.json`, `ordering-admission-finality-profile.v1.schema.json`, `receipt-checkpoint.v1.schema.json`, `authority-revocation-snapshot.v1.schema.json`, `autonomous-system-chain-writer-reservation.v1.schema.json`, plus the membership/writer-epoch/failover/lost-suffix schemas (to be created — see Canon gaps).
+- `scripts/conformance/` — continuity fault and operator-state runners (to be created); `internal-docs/implementation/evidence/M10/` — retained exit and negative/inconclusive evidence (to be created).
+
+## Focused checks during development
+
+- `npm run check:work-items`
+- `npm run check:architecture-docs`
+- `npm run check:conformance-docs`
+- `npm run check:architecture-contracts`, then `npm run check:architecture-contract-bar`
+- `npm run hypervisor-conformance:receipts`
+- `npm run hypervisor-conformance:negative`
+- `npm run check:m0-program-control`
+- `npm run check:pre-next-leg`
+- `node internal-docs/implementation/tools/certify-stage.mjs` and `node internal-docs/implementation/tools/check-estate.mjs`
+
+## Exit proof
+
+The aggregate exit named by [`sequence.v1.json`](../program/sequence.v1.json) is `m10-two-failure-domain-continuity`, whose literal contract is `M10_TWO_FAILURE_DOMAIN_CONTINUITY_EXIT=0`. For that literal to be retained, all of the following must hold under the selected profile — one logical System across two admitted failure domains:
+
+- one stable `system_id`, constitution, owner set, and finality profile survive the declared faults;
+- no fault path produces dual accepted effects, and no interval shows two effective writers;
+- read/execution distribution is demonstrated without calling replication consensus and without authority expansion;
+- measured recovery and any lost suffix are explicit, with RPO/RTO floors frozen before observation;
+- each child literal (`M10_ATTESTATION_TEMPORAL_FLOOR_CONTINUITY_EXIT=0`, `M10_TOPOLOGY_CHAOS_OPERATOR_PRODUCT_EXIT=0`, `M10_OPERATIONS_OPERATIONAL_JOURNEY_EXIT=0`) is retained as exactly one content-bound line, and the aggregate's child/dependency digest binding matches the records it names;
+- the M10 continuity aggregate joins the Operations literal exit;
+- automated failover remains unclaimed unless separately proven.
+
+## Blocks advancement
+
+- The M9 dependency edge, and each child work item's own literal exit, must resolve before the aggregate can be considered.
+- The external gate `applicable-pg-profile-gates` ([`proof-gates/mechanism-gate-registry.md`](../modules/mechanism-gates.md)) must be selected and evidenced in the owning records; planning creates no closure.
+- PG-4A.2, PG-4A.5, PG-4A.6, and PG-7.3 must be mapped without redefinition, with their evidence conditions met by the owning child records.
+- Any unresolved canon gap below leaves the affected contract without a registered owner form, which blocks the completion bundle rather than being resolved inside a work item.
+- A missing Operations child, a false healthy state, an unreconciled rejoin, telemetry leak, or a multi-node conclusion inferred from a single-domain run each stop the affected item.
+
+## Nonclaims
+
+- No claim of useful distributed work or sovereign federation.
+- Promotion remains operator-controlled unless separately proven; automated failover is unclaimed.
+- No consensus, authority expansion, party independence, or public-finality claim; node count, placement, replication, durability quorum, and shared administration grant none of them and do not change authority distribution.
+- Agentgres storage-writer epochs and replication are adjacent durability substrate, not per-System authority.
+- A planning or orchestration record closes no work item, stage, runtime capability, application, or public claim.
+
+## Canon gaps
+
+- The continuity contract families this stage depends on — `AutonomousSystemNodeMembershipEnvelope`, `AutonomousSystemWriterEpochTransitionEnvelope`, `AutonomousSystemFailoverProfileEnvelope`, `LostSuffixRecordEnvelope`, `OrderingFinalityRecoveryEnvelope`, `TemporalVerificationProfile`, `TemporalValidityEvaluation`, `EnforcementCoverageDeclaration`, `RuntimeAssignment` — resolve only through reviewed owner locators and carry no `contract_id` or `schema_version` in [`_meta/schemas/architecture-contract-registry.v1.json`](../../../docs/architecture/_meta/schemas/architecture-contract-registry.v1.json). Canon owner to resolve: [`foundations/common-objects-and-envelopes.md`](../../../docs/architecture/foundations/common-objects-and-envelopes.md) with the registry.
+- The same families are named with an `…Envelope` suffix in [`_meta/implementation-matrix.md`](../../../docs/architecture/_meta/implementation-matrix.md) and without it in [`_meta/canon-to-code-delta.md`](../../../docs/architecture/_meta/canon-to-code-delta.md). Canon owner to resolve: [`_meta/source-of-truth-map.md`](../../../docs/architecture/_meta/source-of-truth-map.md).
+- PG-4A.2 and INV-24 require a durable external continuity CAS/witness and an outside-rollback-domain floor or fresh re-anchor adapter, but no canon owner defines that witness/CAS interface, its trust root, or its admission contract. Canon owner to resolve: [`components/daemon-runtime/platform-operability.md`](../../../docs/architecture/components/daemon-runtime/platform-operability.md) with [`foundations/governed-autonomous-systems.md`](../../../docs/architecture/foundations/governed-autonomous-systems.md).
+- Canon requires the deployment profile to declare RPO/RTO, but no envelope field or owner section states where declared RPO/RTO floors are recorded and frozen for a selected profile, which the stage's frozen-threshold obligation depends on. Canon owner to resolve: [`foundations/governed-autonomous-systems.md`](../../../docs/architecture/foundations/governed-autonomous-systems.md) with [`foundations/common-objects-and-envelopes.md`](../../../docs/architecture/foundations/common-objects-and-envelopes.md).

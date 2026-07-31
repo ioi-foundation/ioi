@@ -1,0 +1,10 @@
+{
+  "literal_exit": {
+    "expected": "M0_ADJACENT_CANON_PLACEMENT_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M0/m0-adjacent-canon-doc-class-and-placement-disposition.exit.v1.txt",
+    "artifact_sha256": "e8caab513b3bfa486d1a6ebacd4960d2bdc154072970705c14c544dcd422c3bd"
+  },
+  "adversarial_or_fault_proof": [
+    "tools/check-adjacent-canon-placement.mjs fails closed when canon-universe enumerates zero adjacent subjects; frozen thresholds (0 subjects without class, 0 without owner-or-disclaimer, 0 missing status axes) were declared before observation and the live run measures 0/0/0 over 14 subjects"
+  ]
+}

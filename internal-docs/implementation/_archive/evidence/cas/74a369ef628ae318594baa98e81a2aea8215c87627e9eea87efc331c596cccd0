@@ -1,0 +1,73 @@
+{
+  "evidence_format": "ioi.program.estate_freeze.v1",
+  "role": "Content-bound freeze of the estate inputs whose silent movement was not detectable by any bar. A frozen subject is discharged by a SUPERSEDING freeze entry, never by editing the frozen body.",
+  "frozen_on": "2026-07-29",
+  "frozen_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+  "frozen_by": "owner-directed program-architecture repair under _archive/holds/certification-hold.v1.json (order step 2)",
+  "rule": "Append-only. An entry is never rewritten or removed. A subject that must change gains a NEW entry carrying superseded_freeze_id, and the old entry gains superseded_by; enforcement then reads only the live entry.",
+  "enforced_by": "internal-docs/implementation/tools/check-canonical-estate.mjs (checks: freeze-drift, freeze-subject-absent)",
+  "immutable_store": {
+    "root": "_archive/evidence/cas",
+    "addressing": "cas://sha256/<hex>; the object's name IS its digest and objects are write-once",
+    "object_count": 4
+  },
+  "frozen_subjects": [
+    {
+      "freeze_id": "frz-0001",
+      "id": "internal-docs/implementation/_archive",
+      "kind": "directory_root_set",
+      "what": "The set of archive roots, one level deep, directories only.",
+      "sha256": "c07cc95bb216dea4c4cabbe9fffcf25706239204f64ab84f1334d1f9cd220242",
+      "cas": "cas://sha256/eb72c819d2090c197dec2dafb3fc6c0b789cbd74a52b9cbe47f2411bd254e291",
+      "why_frozen": "tools/check-source-dispositions.mjs derives one ledger entry per archive root. The holds root was added and the ledger population moved with it, silently. Frozen so the next root announces itself instead of being discovered in a diff.",
+      "discharge": "A superseding freeze entry naming the new root and why it exists. Never by editing this entry.",
+      "superseded_by": "frz-0005"
+    },
+    {
+      "freeze_id": "frz-0002",
+      "id": "internal-docs/implementation/program/canon-overlay-manifest.v1.json",
+      "kind": "file",
+      "what": "The explicit durable overlay a canon baseline binds alongside an exact git tree.",
+      "sha256": "36980f8477026c30b5e35a78139637aa5160d72f98b5dbf947df7814e136c081",
+      "cas": "cas://sha256/36980f8477026c30b5e35a78139637aa5160d72f98b5dbf947df7814e136c081",
+      "why_frozen": "This manifest is half of canon identity. If it can drift, a baseline built on it binds the ambient filesystem again by another route.",
+      "discharge": "A superseding freeze entry after an explicit, reviewed overlay change — an admitted member, or a retirement carrying a tombstone and successor disposition.",
+      "superseded_by": null
+    },
+    {
+      "freeze_id": "frz-0003",
+      "id": "internal-docs/implementation/program/guide-registry.v1.json",
+      "kind": "file",
+      "what": "The repo-wide classification of every first-party document that could be mistaken for active implementation guidance.",
+      "sha256": "26f903512e3aed531cbf1a1d0a28bef483f8defa513a04cf6bea788648d748c4",
+      "cas": "cas://sha256/26f903512e3aed531cbf1a1d0a28bef483f8defa513a04cf6bea788648d748c4",
+      "why_frozen": "The registry is the sole input to the source-disposition ledger's classified half. Its population and per-entry roles moved twice without any bar noticing.",
+      "discharge": "A superseding freeze entry plus an appended amendment in the registry's own amendments list.",
+      "superseded_by": null
+    },
+    {
+      "freeze_id": "frz-0004",
+      "id": "internal-docs/implementation/_archive/manifests/external-plan-disposition.v1.json",
+      "kind": "file",
+      "what": "The obligation-by-obligation disposition of the external planning document, and the evidence for its reclassification.",
+      "sha256": "75586aa55c393a503fe07c035f1fe7313dffe5f975d55a243f51f8ef38c78246",
+      "cas": "cas://sha256/75586aa55c393a503fe07c035f1fe7313dffe5f975d55a243f51f8ef38c78246",
+      "why_frozen": "A reclassification whose justification can be edited afterwards is not a justification. This is what the registry entry points at.",
+      "discharge": "A superseding freeze entry. The disposition itself is historical and is not rewritten.",
+      "superseded_by": null
+    },
+    {
+      "freeze_id": "frz-0005",
+      "superseded_freeze_id": "frz-0001",
+      "id": "internal-docs/implementation/_archive",
+      "kind": "directory_root_set",
+      "what": "The superseding set of archive roots after adding the release-candidates root for independently reviewed phase-two inputs.",
+      "sha256": "9426cfd5d542de173e40fe394e7d40f90e6b608b19bad6dd6bdb1a4a6af669d3",
+      "cas": "cas://sha256/38955e5e03ed43c8b98c0d5065243c217de0eee6a1c2a0ad6f981d72bfab8be3",
+      "why_frozen": "The release-candidates root is a deliberate new archive identity holding exact non-authoritative review inputs. It must enter through an announced superseding freeze, never as ambient directory drift.",
+      "discharge": "A later superseding freeze entry naming any further archive-root change and its reason. Never by editing this entry.",
+      "superseded_by": null
+    }
+  ],
+  "nonclaim": "A freeze binds bytes at a moment. It makes no claim that the frozen body is correct, complete, or sufficient, and it closes nothing."
+}

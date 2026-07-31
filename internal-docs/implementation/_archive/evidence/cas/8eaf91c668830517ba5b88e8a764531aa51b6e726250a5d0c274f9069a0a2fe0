@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m2-isolation-containment-enforcement-successor
+ARTIFACT=crates/services/src/agentic/runtime/kernel/emergency_containment.rs
+ARTIFACT_SHA256=f73e4fc1a77518062abb171899033f662dbf2e7789c43b24623f664f2d122509
+M2_ISOLATION_CONTAINMENT_ENFORCEMENT_SUCCESSOR_EXIT=0
+NONCLAIM=This binds the source whose 21 focused tests passed, including named refusal branches; it does not claim hostile-kernel, VMM, proxy, or physical-host resistance.

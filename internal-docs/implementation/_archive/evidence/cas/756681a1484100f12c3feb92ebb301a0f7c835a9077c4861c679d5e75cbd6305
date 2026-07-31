@@ -1,0 +1,45 @@
+{
+  "importedSkills": [
+    "runtime-reviewer"
+  ],
+  "toolSequence": [
+    "authority_check",
+    "policy_check",
+    "task_state_write",
+    "agentgres_operation_log",
+    "trace_export",
+    "canonical_replay",
+    "mcp_containment",
+    "skill_instruction_import",
+    "runtime_event_hook"
+  ],
+  "evidenceRefs": [
+    "ioi_daemon_public_runtime_api",
+    "agentgres_canonical_operation_log",
+    "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "github_pr_create_plan_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+    "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+    "hook_invocations_run_b599456e-97d0-450d-a929-be029a0b28a6_5a7017420336",
+    "5c882768d02549f88c7d216e480aa38352290f8ff29791113dc174bdbab2f435",
+    "297e556bf8f40b81ceaf2dade6a54f6b265300286f932f722932f235b2754712",
+    "inlineEcho",
+    "filesystemProbe",
+    "runtime-reviewer",
+    "onEvent",
+    "model_router",
+    "route.local-first",
+    "endpoint.local.auto",
+    "provider.local.folder",
+    "receipt_model_route_selection_e37fc1c3-a814-4b10-9627-9707eca2ddba",
+    "memory_policy_thread_thread_e31998b8-7370-46ef-93eb-bd7765ae145e"
+  ]
+}

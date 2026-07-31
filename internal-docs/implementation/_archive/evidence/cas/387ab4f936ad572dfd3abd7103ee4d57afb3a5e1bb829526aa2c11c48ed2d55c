@@ -1,0 +1,417 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m4-room-graph-truth-and-product-projection",
+  "stage_id": "M4",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Approved plan-level gap closure: m4-room-graph-truth-and-product-projection"
+  ],
+  "status": "proposed",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Split truth/replay from minimum Goal Space/Work/Governance/Provenance proof projections; M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if Direct UI graph write, wrong-System child, stale verdict, export leakage; does not own those applications' complete journeys.",
+  "selected_profile": "One hosted OutcomeRoom compiled as a bounded System; no external participant or federation claim.",
+  "canon_owners": [
+    "docs/architecture/components/agentgres/api-object-model.md",
+    "docs/architecture/components/agentgres/artifact-ref-plane.md",
+    "docs/architecture/components/agentgres/doctrine.md",
+    "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+    "docs/architecture/components/agentgres/projection-system-reference.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/hypervisor/evaluations.md",
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    "docs/architecture/domains/ioi-ai/control-plane.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md",
+    "docs/architecture/foundations/invariants.md",
+    "docs/architecture/foundations/objects/evidence-and-delivery.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "8b06529b4da05b12190f03b58302d9c9116cd92d758016a22cd492608a31dc22",
+    "owners": [
+      {
+        "path": "docs/architecture/components/agentgres/api-object-model.md",
+        "sha256": "d9c0027e36a382df2fd326cc54f983e1593235ab0efb2ef987a8e4f59bee10c9"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/artifact-ref-plane.md",
+        "sha256": "8bdf076fba386f3b62a4fceccf55d9aaed8150a8aff127230d49edb6d5c00b92"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/doctrine.md",
+        "sha256": "4a8b06374f7b0a415eaab12841347c3e7d1e1acde2084dd8be23b4f1f838370b"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+        "sha256": "fdc0f94961a2d3f7cf29a766f29a37dc291b28248bb9109da685ada643fe1e6c"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/projection-system-reference.md",
+        "sha256": "3708db2a8c5a0db9bd9cd32a4fb5526b01b3dcbd80b6a8d26c871bfac3dacfbc"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "9ac1878598a4b9636bcc601106b08f8d7a524d6a685b9ea12007df4eef870f77"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/evaluations.md",
+        "sha256": "f6d309aefe1302c9acb79a2862754a4f3cdc31a1f371a879af4068c148c0299e"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "sha256": "4b36e978235c09cfe035fa263e7a78305041935b426274850ddc2e43884312f0"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/control-plane.md",
+        "sha256": "f19df1dc772e34311acca6cdaa8b2fe80bf7dbf1efb80c05500664d05e4f7455"
+      },
+      {
+        "path": "docs/architecture/foundations/governed-autonomous-systems.md",
+        "sha256": "172d5522c76a48860c9449c893fc4aea72d8647c8d76ad42aff785b21d1c2746"
+      },
+      {
+        "path": "docs/architecture/foundations/invariants.md",
+        "sha256": "754c322a2dbc2287d02220ca2309c4b6d213cad92814ef7c92cb9b833e94148a"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+        "sha256": "fc222a6a52751c148ea82498e19a7d2a98e6c96cbd57bfce308efc1703454bd3"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "OutcomeRoom",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CollaborativeWorkGraph",
+      "owner_path": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkFrontierItemEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkClaimLeaseEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "Attempt",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "Finding",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "docs/architecture/components/hypervisor/evaluations.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "VerifierChallenge",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "docs/architecture/components/hypervisor/evaluations.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkResult",
+      "owner_path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "OutcomeDelta",
+      "owner_path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ParticipantStateBundleEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ReceiptEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#receiptenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-envelope/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-envelope.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m4-room-graph-truth-and-product-projection",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m4-room-graph-truth-and-product-projection.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "m3-direct-path-and-exit-proof"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`ROOMS`, `SYSTEM`, `AGENTGRES`, `SURFACES`; OutcomeRoom, CollaborativeWorkGraph, admitted-child, membership, acceptance/verdict/export families",
+    "Split truth/replay from minimum Goal Space/Work/Governance/Provenance proof projections; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Direct UI graph write, wrong-System child, stale verdict, export leakage; does not own those applications' complete journeys",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `ROOMS`, `SYSTEM`, `AGENTGRES`, `SURFACES`; OutcomeRoom, CollaborativeWorkGraph, admitted-child, membership, acceptance/verdict/export families.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Split truth/replay from minimum Goal Space/Work/Governance/Provenance proof projections; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Direct UI graph write, wrong-System child, stale verdict, export leakage; does not own those applications' complete journeys.",
+    "Retain an evidence index and require the exact content-bound M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "OutcomeRoom shared-graph admission",
+      "final_invoker": "room owner admission followed by Agentgres append",
+      "authority_source": "room/System governance; UI and participant evidence do not self-admit",
+      "receipt_or_evidence": "room transition receipt and resulting root",
+      "negative_behavior": "deny wrong System, stale predecessor, changed child body, or direct client write"
+    }
+  ],
+  "applicable_pg_ids": [
+    "PG-3.5"
+  ],
+  "pg_gate_states": [
+    {
+      "pg_id": "PG-3.5",
+      "applicability": "required_now",
+      "closure_stage_id": "M4",
+      "profile_selection": "selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    }
+  ],
+  "positive_proof": [
+    "The selected profile completes the bounded m4-room-graph-truth-and-product-projection journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for Direct UI graph write, wrong-System child, stale verdict, export leakage; does not own those applications' complete journeys; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m4-room-graph-truth-and-product-projection; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Direct UI graph write, wrong-System child, stale verdict, export leakage; does not own those applications' complete journeys; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m4.direct_client_shared_graph_writes",
+      "metric": "direct client writes admitted to the shared OutcomeRoom graph",
+      "threshold": 0,
+      "unit": "writes",
+      "threshold_source": "M4 room admission floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M4/m4-room-graph-truth-and-product-projection.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/src/data/productSurface.ts",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Direct UI graph write, wrong-System child, stale verdict, export leakage; does not own those applications' complete journeys. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Split truth/replay from minimum Goal Space/Work/Governance/Provenance proof projections; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": "2026-07-22"
+}

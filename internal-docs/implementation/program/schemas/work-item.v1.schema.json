@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ioi://program/schemas/work-item/v1",
+  "title": "ioi.program.work_item.v1",
+  "description": "The published contract for private work-item authority records. Derived 2026-07-26 from the full 126-record corpus: `required` is the exact key intersection of every record on disk, so no existing record is grandfathered by waiver. Reference resolution (owners exist, contract families resolve in the architecture contract registry, dependencies name real records) is enforced by tools/check-work-item-contract.mjs, which interprets this document rather than carrying a duplicate field list.",
+  "type": "object",
+  "required": [
+    "adversarial_or_fault_proof",
+    "canon_owners",
+    "canon_snapshot",
+    "code_anchors",
+    "compatibility_and_migration",
+    "consequential_effects_and_final_invokers",
+    "contract_families",
+    "dependency_work_item_ids",
+    "evidence_format",
+    "evidence_index",
+    "evidence_refs",
+    "falsifiable_claim",
+    "implementation_actions",
+    "in_scope",
+    "metrics_and_frozen_thresholds",
+    "objective",
+    "ordered_product_operator_journey",
+    "out_of_scope",
+    "positive_proof",
+    "record_role",
+    "remaining_nonclaims",
+    "rollback_or_stop_rule",
+    "source_provenance",
+    "stage_id",
+    "status",
+    "work_item_id"
+  ],
+  "properties": {
+    "evidence_format": {
+      "const": "ioi.program.work_item.v1"
+    },
+    "work_item_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+    },
+    "stage_id": {
+      "type": "string",
+      "pattern": "^(M[0-9]{1,2}|FUTURE)$"
+    },
+    "record_role": {
+      "enum": [
+        "implementation_cut",
+        "aggregate_exit",
+        "private_verifier",
+        "conditional_future"
+      ]
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "scoped",
+        "active",
+        "evidence_ready",
+        "verified",
+        "blocked",
+        "superseded",
+        "rejected"
+      ]
+    },
+    "dependency_work_item_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+      }
+    },
+    "canon_owners": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(docs|internal-docs)/"
+      }
+    },
+    "evidence_index": {
+      "oneOf": [
+        {
+          "type": "array",
+          "maxItems": 0,
+          "$comment": "An empty array is tolerated only while a record is proposed or scoped and claims no evidence. Any record at active or beyond, and any record declaring a literal, uses the object form."
+        },
+        {
+          "type": "object",
+          "required": [
+            "literal_exit",
+            "retained_refs",
+            "expected_output_paths",
+            "task_exit_code_is_proof"
+          ],
+          "properties": {
+            "literal_exit": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]+_EXIT=0$"
+            },
+            "retained_refs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "expected_output_paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "task_exit_code_is_proof": {
+              "const": false,
+              "$comment": "Workflow evidence never becomes product authority: a task or process exit code can never be declared as the proof carrier."
+            }
+          }
+        }
+      ]
+    },
+    "contract_families": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "registry_resolution"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "registry_resolution": {
+            "enum": [
+              "architecture_contract_registry",
+              "reviewed_owner_locator"
+            ]
+          },
+          "contract_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^schema://ioi/"
+            }
+          }
+        }
+      }
+    },
+    "canon_snapshot": {
+      "type": "object"
+    },
+    "last_status_transaction": {
+      "type": [
+        "object",
+        "string"
+      ]
+    }
+  }
+}

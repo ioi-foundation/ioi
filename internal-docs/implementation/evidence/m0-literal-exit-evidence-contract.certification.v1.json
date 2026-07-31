@@ -1,0 +1,10 @@
+{
+  "literal_exit": {
+    "expected": "M0_LITERAL_EXIT_EVIDENCE_CONTRACT_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M0/m0-literal-exit-evidence-contract.exit.v1.txt",
+    "artifact_sha256": "135c55b7ce3984dfbe4b677cf88dff844da37500e2718665dec2ff02e6998451"
+  },
+  "adversarial_or_fault_proof": [
+    "internal-docs/implementation/fixtures/literal-exit/ — the eight predeclared fail-closed classes (missing, duplicate, conflicting, malformed, stale artifact binding, truncated, non-success, green-process-no-literal) each rejected for its predeclared reason on every run of tools/check-literal-exit-contract.mjs; the green-process fixture proves a passing process with no literal is never proof"
+  ]
+}

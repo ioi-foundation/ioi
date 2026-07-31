@@ -1,0 +1,4170 @@
+{
+  "schemaVersion": "ioi.agent-sdk.trace.v1",
+  "traceBundleId": "trace_run_b599456e-97d0-450d-a929-be029a0b28a6",
+  "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+  "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+  "eventStreamId": "events_run_b599456e-97d0-450d-a929-be029a0b28a6",
+  "events": [
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:000:run_started",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "run_started",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:0",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Run entered local IOI daemon",
+      "data": {
+        "taskFamily": "local_daemon_agentgres",
+        "selectedStrategy": "local_daemon_agentgres_execution"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:001:runtime_task",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "runtime_task",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:1",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Runtime task record written",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.task-record.v1",
+        "object": "ioi.runtime_task",
+        "taskId": "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "turnId": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "completed",
+        "mode": "send",
+        "taskFamily": "local_daemon_agentgres",
+        "selectedStrategy": "local_daemon_agentgres_execution",
+        "summary": "Runtime task for local_daemon_agentgres is completed.",
+        "promptHash": "42bc54088d88b0997568dd588f52921121b8bd10e2e739183e94f0b7e7cf0d5a",
+        "promptIncluded": false,
+        "objectivePreviewIncluded": false,
+        "modelRouteDecisionId": "7953170d43aceb2eee5ebe74526b65d40387566c545b6786a35c5a35d8a8c403",
+        "activeSkillHookManifestId": "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+        "createdAt": "2026-05-19T21:49:03.012Z",
+        "updatedAt": "2026-05-19T21:49:03.012Z",
+        "durable": true,
+        "replayable": true,
+        "cancelable": true,
+        "cancelEndpoint": "/v1/tasks/task_run_b599456e-97d0-450d-a929-be029a0b28a6/cancel",
+        "endpoints": {
+          "self": "/v1/tasks/task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "cancel": "/v1/tasks/task_run_b599456e-97d0-450d-a929-be029a0b28a6/cancel",
+          "run": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "job": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "events": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6/events",
+          "trace": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6/trace"
+        },
+        "workflowNodeId": "runtime.runtime-task",
+        "redaction": {
+          "profile": "runtime_task_safe",
+          "promptIncluded": false,
+          "secretValuesIncluded": false
+        },
+        "evidenceRefs": [
+          "runtime_task",
+          "runtime.tasks.durable_projection",
+          "RuntimeTaskNode",
+          "run:run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983"
+        ],
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_runtime_task",
+        "eventKind": "RuntimeTaskRecord"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:002:job_queued",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "job_queued",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:2",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Runtime job queued",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.job-record.v1",
+        "object": "ioi.runtime_job",
+        "jobId": "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "taskId": "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "turnId": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "queued",
+        "lifecycle": [
+          "queued",
+          "started",
+          "completed"
+        ],
+        "summary": "Runtime job job_run_b599456e-97d0-450d-a929-be029a0b28a6 is completed.",
+        "queueName": "local-agentgres",
+        "runner": "local-daemon-agentgres",
+        "jobType": "agent_run",
+        "priority": "normal",
+        "background": true,
+        "durable": true,
+        "replayable": true,
+        "createdAt": "2026-05-19T21:49:03.012Z",
+        "updatedAt": "2026-05-19T21:49:03.012Z",
+        "queuedAt": "2026-05-19T21:49:03.012Z",
+        "startedAt": "2026-05-19T21:49:03.012Z",
+        "completedAt": null,
+        "progress": {
+          "completedSteps": 1,
+          "totalSteps": 1,
+          "percent": 100
+        },
+        "eventCount": null,
+        "terminalEventCount": null,
+        "artifactNames": [
+          "runtime-task.json",
+          "runtime-job.json",
+          "runtime-checklist.json",
+          "trace.json",
+          "agentgres-projection.json"
+        ],
+        "receiptKinds": [
+          "runtime_task",
+          "runtime_job",
+          "runtime_checklist",
+          "agentgres_canonical_write"
+        ],
+        "checklistId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "checklistStatus": "completed",
+        "checklistItemCount": 6,
+        "checklistCompletedItemCount": 6,
+        "failure": null,
+        "cancellation": null,
+        "retryCount": 0,
+        "cancelable": true,
+        "cancelEndpoint": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6/cancel",
+        "endpoints": {
+          "self": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "cancel": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6/cancel",
+          "run": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "events": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6/events",
+          "trace": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6/trace"
+        },
+        "workflowNodeId": "runtime.runtime-job",
+        "redaction": {
+          "profile": "runtime_job_safe",
+          "promptIncluded": false,
+          "secretValuesIncluded": false
+        },
+        "evidenceRefs": [
+          "runtime_job",
+          "runtime.jobs.durable_projection",
+          "RuntimeJobNode",
+          "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "run:run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "runtime_checklist"
+        ],
+        "lifecycleStatus": "queued",
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_runtime_job",
+        "eventKind": "JobQueued"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:003:job_started",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "job_started",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:3",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Runtime job started",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.job-record.v1",
+        "object": "ioi.runtime_job",
+        "jobId": "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "taskId": "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "turnId": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "running",
+        "lifecycle": [
+          "queued",
+          "started",
+          "completed"
+        ],
+        "summary": "Runtime job job_run_b599456e-97d0-450d-a929-be029a0b28a6 is completed.",
+        "queueName": "local-agentgres",
+        "runner": "local-daemon-agentgres",
+        "jobType": "agent_run",
+        "priority": "normal",
+        "background": true,
+        "durable": true,
+        "replayable": true,
+        "createdAt": "2026-05-19T21:49:03.012Z",
+        "updatedAt": "2026-05-19T21:49:03.012Z",
+        "queuedAt": "2026-05-19T21:49:03.012Z",
+        "startedAt": "2026-05-19T21:49:03.012Z",
+        "completedAt": null,
+        "progress": {
+          "completedSteps": 1,
+          "totalSteps": 1,
+          "percent": 100
+        },
+        "eventCount": null,
+        "terminalEventCount": null,
+        "artifactNames": [
+          "runtime-task.json",
+          "runtime-job.json",
+          "runtime-checklist.json",
+          "trace.json",
+          "agentgres-projection.json"
+        ],
+        "receiptKinds": [
+          "runtime_task",
+          "runtime_job",
+          "runtime_checklist",
+          "agentgres_canonical_write"
+        ],
+        "checklistId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "checklistStatus": "completed",
+        "checklistItemCount": 6,
+        "checklistCompletedItemCount": 6,
+        "failure": null,
+        "cancellation": null,
+        "retryCount": 0,
+        "cancelable": true,
+        "cancelEndpoint": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6/cancel",
+        "endpoints": {
+          "self": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "cancel": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6/cancel",
+          "run": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "events": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6/events",
+          "trace": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6/trace"
+        },
+        "workflowNodeId": "runtime.runtime-job",
+        "redaction": {
+          "profile": "runtime_job_safe",
+          "promptIncluded": false,
+          "secretValuesIncluded": false
+        },
+        "evidenceRefs": [
+          "runtime_job",
+          "runtime.jobs.durable_projection",
+          "RuntimeJobNode",
+          "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "run:run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "runtime_checklist"
+        ],
+        "lifecycleStatus": "started",
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_runtime_job",
+        "eventKind": "JobStarted"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:004:runtime_checklist",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "runtime_checklist",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:4",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Runtime checklist recorded",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.checklist-record.v1",
+        "object": "ioi.runtime_checklist",
+        "checklistId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "taskId": "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "jobId": "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "turnId": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "completed",
+        "summary": "Runtime checklist for job_run_b599456e-97d0-450d-a929-be029a0b28a6 is completed.",
+        "durable": true,
+        "replayable": true,
+        "readOnly": true,
+        "itemCount": 6,
+        "completedItemCount": 6,
+        "canceledItemCount": 0,
+        "failedItemCount": 0,
+        "blockedItemCount": 0,
+        "items": [
+          {
+            "itemId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:task_record",
+            "label": "Runtime task record durable",
+            "status": "passed",
+            "evidenceRefs": [
+              "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+              "RuntimeTaskNode",
+              "runtime.tasks.durable_projection"
+            ]
+          },
+          {
+            "itemId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_record",
+            "label": "Runtime job record durable",
+            "status": "passed",
+            "evidenceRefs": [
+              "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+              "RuntimeJobNode",
+              "runtime.jobs.durable_projection"
+            ]
+          },
+          {
+            "itemId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_queued",
+            "label": "Job queued event emitted",
+            "status": "passed",
+            "evidenceRefs": [
+              "JobQueued"
+            ]
+          },
+          {
+            "itemId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_started",
+            "label": "Job started event emitted",
+            "status": "passed",
+            "evidenceRefs": [
+              "JobStarted"
+            ]
+          },
+          {
+            "itemId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_terminal",
+            "label": "Job completed event emitted",
+            "status": "passed",
+            "evidenceRefs": [
+              "JobCompleted"
+            ]
+          },
+          {
+            "itemId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:artifacts",
+            "label": "Runtime task/job/checklist artifacts attached",
+            "status": "passed",
+            "evidenceRefs": [
+              "runtime-task.json",
+              "runtime-job.json",
+              "runtime-checklist.json"
+            ]
+          }
+        ],
+        "requiredItemIds": [
+          "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:task_record",
+          "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_record",
+          "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_queued",
+          "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_started",
+          "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_terminal",
+          "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:artifacts"
+        ],
+        "createdAt": "2026-05-19T21:49:03.012Z",
+        "updatedAt": "2026-05-19T21:49:03.012Z",
+        "workflowNodeId": "runtime.runtime-checklist",
+        "redaction": {
+          "profile": "runtime_checklist_safe",
+          "promptIncluded": false,
+          "secretValuesIncluded": false
+        },
+        "evidenceRefs": [
+          "runtime_checklist",
+          "runtime.checklists.durable_projection",
+          "RuntimeChecklistNode",
+          "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "run:run_b599456e-97d0-450d-a929-be029a0b28a6"
+        ],
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_runtime_checklist",
+        "eventKind": "RuntimeChecklistRecord"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:005:repository_context",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "repository_context",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:5",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Repository context recorded",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.repository-context.v1",
+        "object": "ioi.repository_context",
+        "contextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "generatedAt": "2026-05-19T21:49:03.012Z",
+        "workspaceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/sdk-proof-workspace",
+        "workspaceRootHash": "335040be04df54f7735107503733d6527cdd06ca803474afa12c6a02bbb0b638",
+        "provider": "git",
+        "readOnly": true,
+        "mutationExecuted": false,
+        "evidenceRefs": [
+          "repository_context",
+          "repository.context.read_only",
+          "RepositoryContextNode"
+        ],
+        "status": {
+          "availability": "available",
+          "clean": false,
+          "isDirty": true,
+          "counts": {
+            "staged": 0,
+            "unstaged": 10,
+            "untracked": 1,
+            "ignored": 0,
+            "conflicted": 0
+          },
+          "ahead": 0,
+          "behind": 0,
+          "porcelainHash": "c1b0716f7cf7eb958b4b126a25c4edbf66cc11de05370fdac5438f5bac7f1e71",
+          "untrackedMode": "normal"
+        },
+        "isGitRepository": true,
+        "repoRoot": "/home/heathledger/Documents/ioi/repos/ioi",
+        "repoRootHash": "ada80a2ccd8852bb9a4948ecbe5afc3c8885bf805f6ae7022e166b7316457829",
+        "workspaceRelativePath": "docs/evidence/architectural-improvements-broad/sdk-proof-workspace",
+        "branch": "master",
+        "defaultBranch": "master",
+        "detachedHead": false,
+        "headSha": "352dbe47151cf61e7c420bf635c8709ca8911c61",
+        "headShortSha": "352dbe47151c",
+        "upstream": "origin/master",
+        "remoteCount": 1,
+        "remotes": [
+          {
+            "name": "origin",
+            "fetchUrl": "redacted:9e9478097dee",
+            "fetchUrlHash": "9e9478097dee46bcf387f64d4c5c5a9a5f7b50d01ce9974454269878ac696d1e",
+            "provider": "github",
+            "host": "github.com",
+            "owner": "ioi-foundation",
+            "repo": "ioi",
+            "repoFullName": "ioi-foundation/ioi",
+            "pushUrl": "redacted:9e9478097dee",
+            "pushUrlHash": "9e9478097dee46bcf387f64d4c5c5a9a5f7b50d01ce9974454269878ac696d1e"
+          }
+        ],
+        "redaction": {
+          "profile": "repository_context_safe",
+          "pathIncluded": true,
+          "remoteUrlsHashed": true,
+          "remoteCredentialsIncluded": false,
+          "statusPathsIncluded": false
+        },
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_repository_context",
+        "eventKind": "RepositoryContext",
+        "workflowNodeId": "runtime.repository-context"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:006:branch_policy",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "branch_policy",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:6",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Branch policy decision recorded",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.branch-policy.v1",
+        "object": "ioi.branch_policy_decision",
+        "policyId": "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "generatedAt": "2026-05-19T21:49:03.012Z",
+        "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "blocked",
+        "decision": "blocked",
+        "summary": "Branch policy blocked master because it is protected/default: protected_branch.",
+        "readOnly": true,
+        "mutationExecuted": false,
+        "mutationAllowed": false,
+        "prCreationAllowed": false,
+        "reviewRequired": true,
+        "approvalRequired": true,
+        "branch": "master",
+        "defaultBranch": "master",
+        "protectedBranch": true,
+        "protectedBranchNames": [
+          "master",
+          "main",
+          "trunk",
+          "production",
+          "release",
+          "stable"
+        ],
+        "detachedHead": false,
+        "headSha": "352dbe47151cf61e7c420bf635c8709ca8911c61",
+        "headShortSha": "352dbe47151c",
+        "upstream": "origin/master",
+        "ahead": 0,
+        "behind": 0,
+        "dirty": true,
+        "counts": {
+          "staged": 0,
+          "unstaged": 10,
+          "untracked": 1,
+          "ignored": 0,
+          "conflicted": 0
+        },
+        "blockers": [
+          "protected_branch"
+        ],
+        "warnings": [
+          "dirty_worktree",
+          "untracked_files"
+        ],
+        "recommendedNextAction": "Create or switch to a feature branch before requesting branch mutation or PR creation.",
+        "redaction": {
+          "profile": "branch_policy_safe",
+          "remoteCredentialsIncluded": false,
+          "statusPathsIncluded": false
+        },
+        "evidenceRefs": [
+          "branch_policy",
+          "repository.branch_policy.read_only",
+          "BranchPolicyNode",
+          "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6"
+        ],
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_branch_policy",
+        "eventKind": "BranchPolicyDecision",
+        "workflowNodeId": "runtime.branch-policy"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:007:github_context",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "github_context",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:7",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "GitHub context recorded",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.github-context.v1",
+        "object": "ioi.github_context",
+        "contextId": "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "generatedAt": "2026-05-19T21:49:03.012Z",
+        "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "branchPolicyId": "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "blocked",
+        "summary": "GitHub context resolved ioi-foundation/ioi, but branch policy is blocked: protected_branch.",
+        "readOnly": true,
+        "networkLookupPerformed": false,
+        "mutationExecuted": false,
+        "provider": "github",
+        "githubRemotePresent": true,
+        "defaultRemoteName": "origin",
+        "owner": "ioi-foundation",
+        "repo": "ioi",
+        "repoFullName": "ioi-foundation/ioi",
+        "htmlUrl": "https://github.com/ioi-foundation/ioi",
+        "defaultBranch": "master",
+        "branch": "master",
+        "branchPolicyStatus": "blocked",
+        "branchPolicyBlockers": [
+          "protected_branch"
+        ],
+        "branchPolicyWarnings": [
+          "dirty_worktree",
+          "untracked_files"
+        ],
+        "prCreationEligible": false,
+        "prCreationPreconditions": {
+          "githubRemotePresent": true,
+          "branchPolicyAllowsPr": false,
+          "tokenAvailable": false,
+          "networkLookupPerformed": false,
+          "mutationExecuted": false
+        },
+        "remotes": [
+          {
+            "name": "origin",
+            "host": "github.com",
+            "owner": "ioi-foundation",
+            "repo": "ioi",
+            "repoFullName": "ioi-foundation/ioi",
+            "fetchUrl": "redacted:9e9478097dee",
+            "fetchUrlHash": "9e9478097dee46bcf387f64d4c5c5a9a5f7b50d01ce9974454269878ac696d1e",
+            "pushUrl": "redacted:9e9478097dee",
+            "pushUrlHash": "9e9478097dee46bcf387f64d4c5c5a9a5f7b50d01ce9974454269878ac696d1e"
+          }
+        ],
+        "credentials": {
+          "tokenAvailable": false,
+          "tokenSources": [],
+          "tokenValueIncluded": false,
+          "authorizationHeaderIncluded": false
+        },
+        "redaction": {
+          "profile": "github_context_safe",
+          "tokenValueIncluded": false,
+          "remoteCredentialsIncluded": false,
+          "networkResponseIncluded": false
+        },
+        "evidenceRefs": [
+          "github_context",
+          "github.context.read_only",
+          "GitHubContextNode",
+          "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6"
+        ],
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_github_context",
+        "eventKind": "GitHubContext",
+        "workflowNodeId": "runtime.github-context"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:008:issue_context",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "issue_context",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:8",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Issue context recorded",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.issue-context.v1",
+        "object": "ioi.issue_context",
+        "contextId": "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "generatedAt": "2026-05-19T21:49:03.012Z",
+        "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "githubContextId": "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "prAttemptId": "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "reviewGateId": "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "unbound",
+        "summary": "No issue is bound for ioi-foundation/ioi; PR workflow may continue with an unbound issue context.",
+        "readOnly": true,
+        "provider": "github",
+        "repoFullName": "ioi-foundation/ioi",
+        "htmlUrl": "https://github.com/ioi-foundation/ioi",
+        "bound": false,
+        "issueProvided": false,
+        "issueNumber": null,
+        "title": null,
+        "sourceUrl": null,
+        "sourceKind": "unbound",
+        "labels": [],
+        "assignees": [],
+        "blockers": [],
+        "warnings": [
+          "issue_context_unbound"
+        ],
+        "noIssuePolicy": {
+          "allowed": true,
+          "reason": "Issue context is optional for local PR previews until a task source is supplied."
+        },
+        "networkLookupPerformed": false,
+        "mutationExecuted": false,
+        "redaction": {
+          "profile": "issue_context_safe",
+          "tokenValueIncluded": false,
+          "remoteCredentialsIncluded": false,
+          "networkResponseIncluded": false,
+          "bodyIncluded": false,
+          "reviewerIdentityIncluded": false
+        },
+        "evidenceRefs": [
+          "issue_context",
+          "IssueContextNode",
+          "github.issue_context.read_only",
+          "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6"
+        ],
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_issue_context",
+        "eventKind": "IssueContext",
+        "workflowNodeId": "runtime.issue-context"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:009:pr_attempt",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "pr_attempt",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:9",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "PR attempt preview recorded",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.pr-attempt.v1",
+        "object": "ioi.pr_attempt",
+        "attemptId": "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "generatedAt": "2026-05-19T21:49:03.012Z",
+        "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "branchPolicyId": "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "githubContextId": "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "blocked",
+        "outcome": "failed_precondition",
+        "summary": "PR attempt for ioi-foundation/ioi recorded as failed_precondition; blockers: protected_branch, missing_github_token, branch_policy_not_passed, missing_authority_scope:github.pr.create.",
+        "previewOnly": true,
+        "readOnly": true,
+        "provider": "github",
+        "action": "pr_create",
+        "title": "Draft PR for: Summarize the IOI runtime execution surface.",
+        "bodyIncluded": false,
+        "repoFullName": "ioi-foundation/ioi",
+        "htmlUrl": "https://github.com/ioi-foundation/ioi",
+        "branch": "master",
+        "defaultBranch": "master",
+        "headSha": "352dbe47151cf61e7c420bf635c8709ca8911c61",
+        "headShortSha": "352dbe47151c",
+        "upstream": "origin/master",
+        "dirty": true,
+        "counts": {
+          "staged": 0,
+          "unstaged": 10,
+          "untracked": 1,
+          "ignored": 0,
+          "conflicted": 0
+        },
+        "blockers": [
+          "protected_branch",
+          "missing_github_token",
+          "branch_policy_not_passed",
+          "missing_authority_scope:github.pr.create"
+        ],
+        "warnings": [
+          "dirty_worktree",
+          "untracked_files",
+          "pr_attempt_preview_only"
+        ],
+        "failure": {
+          "reason": "protected_branch",
+          "message": "PR creation was not attempted because preview preconditions or authority requirements were not satisfied."
+        },
+        "authority": {
+          "requiredScopes": [
+            "github.pr.create"
+          ],
+          "grantedScopes": [],
+          "missingScopes": [
+            "github.pr.create"
+          ],
+          "scopeGranted": false,
+          "approvalRequired": true,
+          "approvalSatisfied": false
+        },
+        "preconditions": {
+          "gitRepositoryPresent": true,
+          "githubRemotePresent": true,
+          "branchPolicyAllowsPr": false,
+          "tokenAvailable": false,
+          "authorityScopeGranted": false,
+          "diffCaptured": true,
+          "branchArtifactAttached": true,
+          "diffArtifactAttached": true,
+          "networkLookupPerformed": false,
+          "mutationExecuted": false
+        },
+        "mutationAttempted": false,
+        "mutationExecuted": false,
+        "networkLookupPerformed": false,
+        "prNumber": null,
+        "prUrl": null,
+        "branchArtifact": {
+          "artifactName": "pr-branch.json",
+          "mediaType": "application/json",
+          "artifactHash": "9652ac7196da9a74683428bc454ebe3d5cfbf6896b464f444bed65694cc6183a"
+        },
+        "diffArtifact": {
+          "artifactName": "pr-diff.patch",
+          "mediaType": "text/x-diff",
+          "artifactHash": "2e88e3e5fde4830e3b799a3e3dc0d14a0cac8ebc79464c7ec9c65347e793987d",
+          "diffHash": "2e88e3e5fde4830e3b799a3e3dc0d14a0cac8ebc79464c7ec9c65347e793987d",
+          "byteLength": 334865,
+          "retainedByteLength": 334865,
+          "truncated": false,
+          "fileCount": 10,
+          "hasDiff": true,
+          "untrackedCount": 1
+        },
+        "artifacts": [
+          {
+            "name": "pr-attempt.json",
+            "mediaType": "application/json"
+          },
+          {
+            "artifactName": "pr-branch.json",
+            "mediaType": "application/json",
+            "artifactHash": "9652ac7196da9a74683428bc454ebe3d5cfbf6896b464f444bed65694cc6183a"
+          },
+          {
+            "artifactName": "pr-diff.patch",
+            "mediaType": "text/x-diff",
+            "artifactHash": "2e88e3e5fde4830e3b799a3e3dc0d14a0cac8ebc79464c7ec9c65347e793987d",
+            "diffHash": "2e88e3e5fde4830e3b799a3e3dc0d14a0cac8ebc79464c7ec9c65347e793987d",
+            "byteLength": 334865,
+            "retainedByteLength": 334865,
+            "truncated": false,
+            "fileCount": 10,
+            "hasDiff": true,
+            "untrackedCount": 1
+          }
+        ],
+        "redaction": {
+          "profile": "pr_attempt_safe",
+          "tokenValueIncluded": false,
+          "remoteCredentialsIncluded": false,
+          "networkResponseIncluded": false,
+          "diffContentInProjection": false
+        },
+        "evidenceRefs": [
+          "pr_attempt",
+          "pr_attempt_preview_only",
+          "PrAttemptNode",
+          "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "pr-branch.json",
+          "pr-diff.patch"
+        ],
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_pr_attempt",
+        "eventKind": "PrAttemptRecord",
+        "workflowNodeId": "runtime.pr-attempt"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:010:review_gate",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "review_gate",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:10",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Review gate decision recorded",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.review-gate.v1",
+        "object": "ioi.review_gate_decision",
+        "gateId": "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "generatedAt": "2026-05-19T21:49:03.012Z",
+        "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "branchPolicyId": "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "githubContextId": "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "prAttemptId": "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "blocked",
+        "decision": "blocked",
+        "summary": "Review gate blocked PR creation for ioi-foundation/ioi: protected_branch, missing_github_token, branch_policy_not_passed, missing_authority_scope:github.pr.create, github_context_not_available, pr_attempt_not_ready, review_not_satisfied.",
+        "readOnly": true,
+        "previewOnly": true,
+        "reviewRequired": true,
+        "approvalRequired": true,
+        "reviewSatisfied": false,
+        "approvalSatisfied": false,
+        "mutationAllowed": false,
+        "prCreationAllowed": false,
+        "mutationExecuted": false,
+        "networkLookupPerformed": false,
+        "provider": "github",
+        "repoFullName": "ioi-foundation/ioi",
+        "branch": "master",
+        "defaultBranch": "master",
+        "prAttemptStatus": "blocked",
+        "prAttemptOutcome": "failed_precondition",
+        "requiredReviewers": [
+          "code-owner"
+        ],
+        "satisfiedReviewers": [],
+        "requiredChecks": [
+          "branch_policy_passed",
+          "github_context_available",
+          "pr_attempt_ready",
+          "diff_artifact_attached",
+          "human_review_satisfied"
+        ],
+        "passedChecks": [],
+        "blockers": [
+          "protected_branch",
+          "missing_github_token",
+          "branch_policy_not_passed",
+          "missing_authority_scope:github.pr.create",
+          "github_context_not_available",
+          "pr_attempt_not_ready",
+          "review_not_satisfied"
+        ],
+        "warnings": [
+          "dirty_worktree",
+          "untracked_files",
+          "pr_attempt_preview_only",
+          "review_gate_preview_only"
+        ],
+        "authority": {
+          "requiredScopes": [
+            "github.pr.create"
+          ],
+          "grantedScopes": [],
+          "missingScopes": [
+            "github.pr.create"
+          ],
+          "scopeGranted": false,
+          "approvalRequired": true,
+          "approvalSatisfied": false
+        },
+        "preconditions": {
+          "repositoryContextPresent": true,
+          "branchPolicyPassed": false,
+          "githubContextAvailable": false,
+          "prAttemptPresent": true,
+          "prAttemptReady": false,
+          "diffArtifactAttached": true,
+          "branchArtifactAttached": true,
+          "reviewPolicySatisfied": false,
+          "networkLookupPerformed": false,
+          "mutationExecuted": false
+        },
+        "redaction": {
+          "profile": "review_gate_safe",
+          "reviewerIdentityIncluded": false,
+          "tokenValueIncluded": false,
+          "networkResponseIncluded": false
+        },
+        "evidenceRefs": [
+          "review_gate",
+          "review_gate_preview_only",
+          "ReviewGateNode",
+          "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6"
+        ],
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_review_gate",
+        "eventKind": "ReviewGateDecision",
+        "workflowNodeId": "runtime.review-gate"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:011:github_pr_create_plan",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "github_pr_create_plan",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:11",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "GitHub PR create dry-run plan recorded",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.github-pr-create-plan.v1",
+        "object": "ioi.github_pr_create_plan",
+        "planId": "github_pr_create_plan_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "generatedAt": "2026-05-19T21:49:03.012Z",
+        "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "branchPolicyId": "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "githubContextId": "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "issueContextId": "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "prAttemptId": "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "reviewGateId": "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "blocked",
+        "decision": "blocked",
+        "summary": "GitHub PR create dry-run plan is blocked for ioi-foundation/ioi: protected_branch, missing_github_token, branch_policy_not_passed, missing_authority_scope:github.pr.create, github_context_not_available, pr_attempt_not_ready, review_not_satisfied, review_gate_not_passed, dry_run_only.",
+        "dryRun": true,
+        "previewOnly": true,
+        "provider": "github",
+        "toolName": "github__pr_create",
+        "action": "pr_create",
+        "repoFullName": "ioi-foundation/ioi",
+        "owner": "ioi-foundation",
+        "repo": "ioi",
+        "baseBranch": "master",
+        "headBranch": "master",
+        "title": "Draft PR for: Summarize the IOI runtime execution surface.",
+        "bodyPlan": {
+          "included": false,
+          "source": "runtime_template",
+          "redaction": "body_not_included_in_projection"
+        },
+        "issueNumber": null,
+        "reviewGateStatus": "blocked",
+        "reviewSatisfied": false,
+        "authority": {
+          "requiredScopes": [
+            "github.pr.create"
+          ],
+          "grantedScopes": [],
+          "missingScopes": [
+            "github.pr.create"
+          ],
+          "scopeGranted": false,
+          "approvalRequired": true,
+          "approvalSatisfied": false
+        },
+        "request": {
+          "method": "POST",
+          "path": "/repos/ioi-foundation/ioi/pulls",
+          "payloadHash": "b3ca57ce0a5f3a73fcaeea8edb666430b5953892d64c5c55f3854a601d20a429",
+          "payloadPreview": {
+            "owner": "ioi-foundation",
+            "repo": "ioi",
+            "base": "master",
+            "head": "master",
+            "title": "Draft PR for: Summarize the IOI runtime execution surface.",
+            "bodyIncluded": false,
+            "draft": true,
+            "maintainerCanModify": true,
+            "issueNumber": null
+          },
+          "bodyIncluded": false,
+          "tokenIncluded": false
+        },
+        "blockers": [
+          "protected_branch",
+          "missing_github_token",
+          "branch_policy_not_passed",
+          "missing_authority_scope:github.pr.create",
+          "github_context_not_available",
+          "pr_attempt_not_ready",
+          "review_not_satisfied",
+          "review_gate_not_passed",
+          "dry_run_only"
+        ],
+        "warnings": [
+          "issue_context_unbound",
+          "dirty_worktree",
+          "untracked_files",
+          "pr_attempt_preview_only",
+          "review_gate_preview_only",
+          "github_pr_create_plan_dry_run"
+        ],
+        "networkLookupPerformed": false,
+        "mutationAttempted": false,
+        "mutationExecuted": false,
+        "prNumber": null,
+        "prUrl": null,
+        "redaction": {
+          "profile": "github_pr_create_plan_safe",
+          "tokenValueIncluded": false,
+          "authorizationHeaderIncluded": false,
+          "requestBodyIncluded": false,
+          "responseBodyIncluded": false,
+          "networkResponseIncluded": false
+        },
+        "evidenceRefs": [
+          "github_pr_create_plan",
+          "github.pr_create.request_hash",
+          "github.pr_create.authority_scope",
+          "github.pr_create.dry_run",
+          "GitHubPrCreateNode",
+          "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6"
+        ],
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_github_pr_create_plan",
+        "eventKind": "GitHubPrCreatePlan",
+        "workflowNodeId": "runtime.github-pr-create"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:012:skill_hook_manifest",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "skill_hook_manifest",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:12",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Active skill and hook manifest recorded",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.active-skill-hook-manifest.v1",
+        "object": "ioi.agent_active_skill_hook_manifest",
+        "manifestId": "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "generatedAt": "2026-05-19T21:49:03.012Z",
+        "workspace": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/sdk-proof-workspace",
+        "selectionMode": "explicit_or_configured",
+        "catalog": {
+          "schemaVersion": "ioi.agent-runtime.skill-hook-catalog.v1",
+          "generatedAt": "2026-05-19T21:49:03.011Z",
+          "status": "degraded",
+          "activeSkillSetHash": "5c882768d02549f88c7d216e480aa38352290f8ff29791113dc174bdbab2f435",
+          "activeHookSetHash": "297e556bf8f40b81ceaf2dade6a54f6b265300286f932f722932f235b2754712",
+          "skillCount": 1,
+          "hookCount": 1
+        },
+        "activeSkillSetHash": "5c882768d02549f88c7d216e480aa38352290f8ff29791113dc174bdbab2f435",
+        "activeHookSetHash": "297e556bf8f40b81ceaf2dade6a54f6b265300286f932f722932f235b2754712",
+        "manifestHash": "6e86fb119983bfbecfb1cb6d20e024700a2cc699b0685d7e34f86bb4e7055c05",
+        "selectedSkillIds": [
+          "skill.workspace.cursor.skills.Runtime_Reviewer.aba0b854ab"
+        ],
+        "selectedHookIds": [
+          "hook.workspace.cursor.hooks_file.onEvent.cb6eb15272"
+        ],
+        "requestedSkillRefs": [
+          "runtime-reviewer"
+        ],
+        "requestedHookRefs": [
+          "onEvent"
+        ],
+        "skills": [
+          {
+            "id": "skill.workspace.cursor.skills.Runtime_Reviewer.aba0b854ab",
+            "name": "Runtime Reviewer",
+            "skillHash": "aba0b854ab42cb4bc38e87092e8e7654126da86affce233f350ec50c86ab5283",
+            "sourceId": "workspace.cursor.skills",
+            "compatibility": "cursor",
+            "trustLevel": "workspace",
+            "activationMode": "discoverable",
+            "validationStatus": "pass",
+            "provenance": {
+              "importedFrom": "cursor",
+              "governed": true,
+              "readOnlyDiscovery": true
+            },
+            "evidenceRefs": [
+              "runtime_skill_discovery",
+              "workspace.cursor.skills",
+              "SKILL.md"
+            ]
+          }
+        ],
+        "hooks": [
+          {
+            "id": "hook.workspace.cursor.hooks_file.onEvent.cb6eb15272",
+            "name": "onEvent",
+            "enabled": true,
+            "definitionHash": "cb6eb1527251c7f1628c584b2fb83266f1ddda787025c6aa727a625de8d1afe8",
+            "sourceId": "workspace.cursor.hooks_file",
+            "compatibility": "cursor",
+            "trustLevel": "workspace",
+            "eventKinds": [
+              "event_subscriber"
+            ],
+            "failurePolicy": "warn",
+            "sideEffectClass": "none",
+            "authorityScopes": [],
+            "toolContracts": [],
+            "commandConfigured": true,
+            "commandHash": "545ea538461003efdc8c81c244531b003f6f26cfccf6c0073b3239fdedf49446",
+            "commandRedacted": true,
+            "validationStatus": "degraded",
+            "mutationPolicy": {
+              "outsideDeclaredCapabilitiesBlocked": true,
+              "mutationRequiresAuthorityScope": true,
+              "mutationRequiresToolContract": true
+            },
+            "evidenceRefs": [
+              "runtime_hook_discovery",
+              "workspace.cursor.hooks_file",
+              "hook_failure_policy"
+            ]
+          }
+        ],
+        "validation": {
+          "status": "degraded",
+          "issueCount": 1,
+          "issues": [
+            "missing_authority_scope"
+          ]
+        },
+        "hookExecution": {
+          "enabled": false,
+          "disabledReason": "hook_execution_policy_slice_pending",
+          "mutationBlockedWithoutDeclaredCapabilities": true,
+          "mutationAllowedHookIds": [],
+          "mutationBlockedHookIds": [
+            "hook.workspace.cursor.hooks_file.onEvent.cb6eb15272"
+          ]
+        },
+        "mutationBlockedHookIds": [
+          "hook.workspace.cursor.hooks_file.onEvent.cb6eb15272"
+        ],
+        "redaction": {
+          "profile": "active_skill_hook_manifest_safe",
+          "skillBodiesIncluded": false,
+          "hookCommandsIncluded": false,
+          "hookCommandsHashed": true,
+          "secretValuesIncluded": false
+        },
+        "evidenceRefs": [
+          "active_skill_hook_manifest",
+          "runtime_skill_hook_discovery",
+          "prompt_audit",
+          "hook_execution_disabled_until_policy"
+        ],
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_skill_hook_manifest",
+        "eventKind": "ActiveSkillHookManifest",
+        "workflowNodeId": "runtime.skill-hook-manifest"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:013:hook_dry_run_plan",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "hook_dry_run_plan",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:13",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Hook dry-run plan recorded",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.hook-dry-run-plan.v1",
+        "object": "ioi.agent_hook_dry_run_plan",
+        "planId": "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "manifestId": "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+        "activeHookSetHash": "297e556bf8f40b81ceaf2dade6a54f6b265300286f932f722932f235b2754712",
+        "generatedAt": "2026-05-19T21:49:03.013Z",
+        "mode": "preview_only",
+        "hookExecutionEnabled": false,
+        "commandExecutionEnabled": false,
+        "decisionCount": 1,
+        "wouldRunCount": 0,
+        "blockedCount": 1,
+        "skippedCount": 0,
+        "decisions": [
+          {
+            "hookId": "hook.workspace.cursor.hooks_file.onEvent.cb6eb15272",
+            "name": "onEvent",
+            "eventKinds": [
+              "event_subscriber"
+            ],
+            "failurePolicy": "warn",
+            "sideEffectClass": "none",
+            "commandConfigured": true,
+            "commandHash": "545ea538461003efdc8c81c244531b003f6f26cfccf6c0073b3239fdedf49446",
+            "commandRedacted": true,
+            "authorityScopes": [],
+            "toolContracts": [],
+            "decision": "blocked",
+            "reason": "missing_declared_capabilities",
+            "blockers": [
+              "missing_authority_scope",
+              "missing_tool_contract"
+            ],
+            "execution": {
+              "previewOnly": true,
+              "commandExecuted": false,
+              "mutationAllowed": false
+            },
+            "evidenceRefs": [
+              "runtime_hook_discovery",
+              "workspace.cursor.hooks_file",
+              "hook_failure_policy"
+            ]
+          }
+        ],
+        "policyDecision": {
+          "status": "blocked",
+          "summary": "1 hook(s) blocked by missing declared capabilities; no commands executed.",
+          "previewOnly": true,
+          "hookExecutionEnabled": false,
+          "commandExecutionEnabled": false
+        },
+        "redaction": {
+          "profile": "hook_dry_run_safe",
+          "hookCommandsIncluded": false,
+          "hookCommandsHashed": true,
+          "secretValuesIncluded": false
+        },
+        "evidenceRefs": [
+          "hook_dry_run_plan",
+          "hook_policy_decision",
+          "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983"
+        ],
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_hook_dry_run_plan",
+        "policyReceiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_hook_policy_decision",
+        "eventKind": "HookDryRunPlan",
+        "workflowNodeId": "runtime.hook-policy"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:014:hook_invocation_ledger",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "hook_invocation_ledger",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:14",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Hook invocation ledger recorded",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.hook-invocation-ledger.v1",
+        "object": "ioi.agent_hook_invocation_ledger",
+        "ledgerId": "hook_invocations_run_b599456e-97d0-450d-a929-be029a0b28a6_5a7017420336",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "manifestId": "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+        "dryRunPlanId": "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+        "activeHookSetHash": "297e556bf8f40b81ceaf2dade6a54f6b265300286f932f722932f235b2754712",
+        "generatedAt": "2026-05-19T21:49:03.013Z",
+        "mode": "preview_only",
+        "hookExecutionEnabled": false,
+        "commandExecutionEnabled": false,
+        "emittedEventKinds": [
+          "workflow_activation",
+          "pre_model",
+          "post_model"
+        ],
+        "invocationCount": 0,
+        "wouldRunCount": 0,
+        "blockedCount": 0,
+        "skippedCount": 0,
+        "escalationCount": 0,
+        "escalations": [],
+        "records": [],
+        "redaction": {
+          "profile": "hook_invocation_ledger_safe",
+          "hookCommandsIncluded": false,
+          "hookCommandsHashed": true,
+          "secretValuesIncluded": false
+        },
+        "evidenceRefs": [
+          "hook_invocation_ledger",
+          "hook_invocation_preview_only",
+          "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+          "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983"
+        ],
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_hook_invocation_ledger",
+        "escalationReceiptIds": [],
+        "eventKind": "HookInvocationLedger",
+        "workflowNodeId": "runtime.hook-invocations"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:015:model_route_decision",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "model_route_decision",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:15",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Model route decision recorded",
+      "data": {
+        "schemaVersion": "ioi.model-route-decision.v1",
+        "object": "ioi.model_route_decision",
+        "eventKind": "ModelRouteDecision",
+        "decisionId": "7953170d43aceb2eee5ebe74526b65d40387566c545b6786a35c5a35d8a8c403",
+        "routeId": "route.local-first",
+        "capability": "chat",
+        "requestedModel": "local:auto",
+        "requestedModelMode": "explicit",
+        "autoResolved": false,
+        "selectedModel": "local:auto",
+        "upstreamModel": "local:auto",
+        "neverSendAutoUpstream": true,
+        "endpointId": "endpoint.local.auto",
+        "providerId": "provider.local.folder",
+        "providerKind": "local_folder",
+        "providerLabel": "Local model folder",
+        "reasoningEffort": "provider_default",
+        "localRemotePlacement": "local",
+        "privacyPosture": "local_or_enterprise",
+        "costEstimateUsd": 0,
+        "costEstimateSource": "local_default",
+        "fallbackModel": null,
+        "fallbackEndpointId": null,
+        "fallbackAllowed": false,
+        "fallbackTriggered": false,
+        "fallbackReason": null,
+        "rationale": "Explicit model local:auto resolved to local:auto on local_folder.",
+        "policyConstraints": {
+          "routePrivacy": "local_or_enterprise",
+          "requestedPrivacy": null,
+          "providerEligibility": [
+            "local_folder",
+            "lm_studio",
+            "ollama",
+            "vllm",
+            "openai_compatible"
+          ],
+          "deniedProviders": [
+            "openai",
+            "anthropic",
+            "gemini"
+          ],
+          "maxCostUsd": 0.25,
+          "maxLatencyMs": 30000,
+          "allowHostedFallback": false,
+          "localOnly": false
+        },
+        "evaluatedCandidateCount": 1,
+        "rejectedCandidates": [],
+        "workflowGraphId": null,
+        "workflowNodeId": "runtime.model-router",
+        "workflowNodeType": "Model Router",
+        "responseId": null,
+        "previousResponseId": null,
+        "policyHash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "evidenceRefs": [
+          "model_router",
+          "route.local-first",
+          "endpoint.local.auto",
+          "provider.local.folder"
+        ],
+        "receiptId": "receipt_model_route_selection_e37fc1c3-a814-4b10-9627-9707eca2ddba",
+        "receiptCreatedAt": "2026-05-19T21:49:02.627Z",
+        "receiptKind": "model_route_selection"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:016:task_state",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "task_state",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:16",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Task state written to Agentgres",
+      "data": {
+        "currentObjective": "Summarize the IOI runtime execution surface.",
+        "knownFacts": [
+          "Run entered the live local IOI daemon public runtime API",
+          "Agentgres v0 is the canonical owner for this run state",
+          "Selected model profile: local:auto",
+          "Runtime task: id=task_run_b599456e-97d0-450d-a929-be029a0b28a6, family=local_daemon_agentgres, status=completed",
+          "Runtime job: id=job_run_b599456e-97d0-450d-a929-be029a0b28a6, status=completed, queue=local-agentgres",
+          "Runtime checklist: id=checklist_run_b599456e-97d0-450d-a929-be029a0b28a6, status=completed, items=6/6",
+          "Repository context: git root=/home/heathledger/Documents/ioi/repos/ioi, branch=master, dirty=true",
+          "Branch policy: status=blocked, protected=true, mutationAllowed=false",
+          "GitHub context: status=blocked, repo=ioi-foundation/ioi, prEligible=false",
+          "Issue context: status=unbound, bound=false, repo=ioi-foundation/ioi",
+          "PR attempt: status=blocked, outcome=failed_precondition, mutationExecuted=false",
+          "Review gate: status=blocked, reviewRequired=true, reviewSatisfied=false",
+          "GitHub PR create plan: status=blocked, dryRun=true, mutationExecuted=false",
+          "Memory policy: disabled=false, injection=true, readOnly=false, writeRequiresApproval=false",
+          "Active skill/hook manifest: skills=1, hooks=1, skillSet=5c882768d025, hookSet=297e556bf8f4",
+          "Hook dry-run plan: wouldRun=0, blocked=1, skipped=0",
+          "Hook invocation ledger: invocations=0, wouldRun=0, blocked=0, skipped=0",
+          "Hook escalation receipts: 0 blocked invocation(s) require declaration fixes"
+        ],
+        "uncertainFacts": [],
+        "assumptions": [],
+        "constraints": [
+          "No GUI internals",
+          "No raw receipt dump",
+          "No policy bypass"
+        ],
+        "blockers": [],
+        "changedObjects": [],
+        "evidenceRefs": [
+          "ioi_daemon_public_runtime_api",
+          "agentgres_canonical_operation_log",
+          "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "github_pr_create_plan_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+          "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+          "hook_invocations_run_b599456e-97d0-450d-a929-be029a0b28a6_5a7017420336",
+          "5c882768d02549f88c7d216e480aa38352290f8ff29791113dc174bdbab2f435",
+          "297e556bf8f40b81ceaf2dade6a54f6b265300286f932f722932f235b2754712",
+          "inlineEcho",
+          "filesystemProbe",
+          "runtime-reviewer",
+          "onEvent",
+          "model_router",
+          "route.local-first",
+          "endpoint.local.auto",
+          "provider.local.folder",
+          "receipt_model_route_selection_e37fc1c3-a814-4b10-9627-9707eca2ddba",
+          "memory_policy_thread_thread_e31998b8-7370-46ef-93eb-bd7765ae145e"
+        ]
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:017:uncertainty",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "uncertainty",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:17",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Uncertainty assessed",
+      "data": {
+        "ambiguityLevel": "low",
+        "selectedAction": "probe",
+        "rationale": "Live daemon run chose bounded local execution with canonical state writeback.",
+        "valueOfProbe": "medium"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:018:probe",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "probe",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:18",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Canonical replay probe completed",
+      "data": {
+        "probeId": "run_b599456e-97d0-450d-a929-be029a0b28a6:probe:canonical-replay",
+        "hypothesis": "Agentgres canonical operation log can replay the terminal run event stream.",
+        "cheapestValidationAction": "Read canonical run projection and replay events by cursor.",
+        "expectedObservation": "Monotonic event stream with exactly one terminal event.",
+        "result": "confirmed",
+        "confidenceUpdate": "Canonical replay and daemon stream use the same event IDs."
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:019:postcondition_synthesized",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "postcondition_synthesized",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:19",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Postconditions synthesized",
+      "data": {
+        "objective": "Summarize the IOI runtime execution surface.",
+        "taskFamily": "local_daemon_agentgres",
+        "riskClass": "bounded_local",
+        "checks": [
+          {
+            "checkId": "daemon-event-stream-terminal",
+            "description": "Daemon event stream contains exactly one terminal event.",
+            "status": "passed"
+          },
+          {
+            "checkId": "agentgres-operation-log",
+            "description": "Run, task, receipts, scorecard, and ledger are written to Agentgres v0.",
+            "status": "passed"
+          },
+          {
+            "checkId": "runtime-job-ledger",
+            "description": "Runtime task and job records are durable, replayable, and inspectable through the public jobs API.",
+            "status": "passed"
+          },
+          {
+            "checkId": "runtime-checklist-ledger",
+            "description": "Runtime checklist record binds task, job, lifecycle, artifacts, and receipts into a replayable workflow projection.",
+            "status": "passed"
+          },
+          {
+            "checkId": "canonical-replay",
+            "description": "Replay from Agentgres reconstructs terminal event stream.",
+            "status": "passed"
+          },
+          {
+            "checkId": "active-skill-hook-manifest",
+            "description": "Trace records the exact skill and hook catalog snapshot used by this turn.",
+            "status": "passed"
+          },
+          {
+            "checkId": "repository-context-read-only",
+            "description": "Repository context is captured without mutating branch, index, or worktree state.",
+            "status": "passed"
+          },
+          {
+            "checkId": "branch-policy-read-only",
+            "description": "Branch policy decision consumes repository context without mutating branch, index, or worktree state.",
+            "status": "passed"
+          },
+          {
+            "checkId": "github-context-read-only",
+            "description": "GitHub context is resolved from repository remotes without network calls or PR mutation.",
+            "status": "passed"
+          },
+          {
+            "checkId": "issue-context-read-only",
+            "description": "Issue context is projected without GitHub network reads or mutation, and may remain unbound.",
+            "status": "passed"
+          },
+          {
+            "checkId": "pr-attempt-preview-only",
+            "description": "PR attempt intent, branch, and diff artifacts are recorded without creating or updating a PR.",
+            "status": "passed"
+          },
+          {
+            "checkId": "review-gate-read-only",
+            "description": "Review gate decision is recorded before PR creation and cannot satisfy review or mutate GitHub.",
+            "status": "passed"
+          },
+          {
+            "checkId": "github-pr-create-dry-run",
+            "description": "GitHub PR creation is represented as a dry-run request plan with no network lookup, token exposure, or mutation.",
+            "status": "passed"
+          },
+          {
+            "checkId": "hook-dry-run-plan",
+            "description": "Hook execution is previewed with policy decisions and no command execution.",
+            "status": "passed"
+          }
+        ],
+        "minimumEvidence": [
+          "events",
+          "receipts",
+          "trace",
+          "scorecard",
+          "agentgres_operation_log",
+          "runtime_task",
+          "runtime_job",
+          "runtime_checklist",
+          "repository_context",
+          "branch_policy",
+          "github_context",
+          "issue_context",
+          "pr_attempt",
+          "pr_branch_artifact",
+          "pr_diff_artifact",
+          "review_gate",
+          "github_pr_create_plan",
+          "active_skill_hook_manifest",
+          "hook_dry_run_plan",
+          "hook_invocation_ledger",
+          "hook_escalation_receipt"
+        ]
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:020:semantic_impact",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "semantic_impact",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:20",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Semantic impact classified",
+      "data": {
+        "changedSymbols": [],
+        "changedApis": [
+          "/v1/agents/{id}/runs",
+          "/v1/agents/{id}/memory",
+          "/v1/threads/{id}/memory",
+          "/v1/jobs",
+          "/v1/jobs/{id}",
+          "/v1/jobs/{id}/cancel",
+          "/v1/runs/{id}/events",
+          "/v1/runs/{id}/trace",
+          "/v1/skills",
+          "/v1/hooks",
+          "/v1/usage",
+          "/v1/threads/{id}/usage",
+          "/v1/runs/{id}/usage",
+          "/v1/repository-context",
+          "/v1/branch-policy",
+          "/v1/github-context",
+          "/v1/issue-context",
+          "/v1/pr-attempts",
+          "/v1/review-gate",
+          "/v1/github/pr-create-plan",
+          "/v1/repositories"
+        ],
+        "changedSchemas": [
+          "IOISDKMessage",
+          "RuntimeTraceBundle",
+          "AgentgresRuntimeStateV0",
+          "RuntimeTaskRecord",
+          "RuntimeJobRecord",
+          "RuntimeChecklistRecord",
+          "RepositoryContext",
+          "BranchPolicyDecision",
+          "GitHubContext",
+          "IssueContext",
+          "PrAttemptRecord",
+          "ReviewGateDecision",
+          "GitHubPrCreatePlan",
+          "ModelRouteDecision",
+          "AgentMemoryRecord",
+          "SubagentMemoryInheritanceProjection",
+          "ActiveSkillHookManifest",
+          "HookDryRunPlan",
+          "HookInvocationLedger",
+          "HookInvocationRecord",
+          "HookEscalationReceipt",
+          "RuntimeUsageTelemetry",
+          "RuntimeEventEnvelope"
+        ],
+        "changedPolicies": [
+          "runtime.jobs.durable_projection",
+          "runtime.tasks.durable_projection",
+          "runtime.checklists.durable_projection",
+          "repository.context.read_only",
+          "repository.branch_policy.read_only",
+          "github.context.read_only",
+          "github.issue_context.read_only",
+          "github.pr_attempt.preview_only",
+          "repository.review_gate.read_only",
+          "github.pr_create.dry_run",
+          "skills_hooks.active_manifest.read_only",
+          "hooks.dry_run_preview_only",
+          "hooks.invocation_ledger_preview_only",
+          "hooks.mutation_blocked_without_contract",
+          "hooks.dry_run_blocked_without_declared_capabilities"
+        ],
+        "affectedTests": [
+          "live-runtime-daemon-contract"
+        ],
+        "affectedDocs": [
+          "internal-docs/plans/architectural-improvements-broad-master-guide.md"
+        ],
+        "riskClass": "bounded_local"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:021:usage_delta",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "usage_delta",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:21",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Usage delta 1/2: 11 tokens, context 0.0001.",
+      "data": {
+        "schema_version": "ioi.runtime.usage-delta.v1",
+        "schemaVersion": "ioi.runtime.usage-delta.v1",
+        "object": "ioi.runtime_usage_delta",
+        "eventKind": "RuntimeUsageTelemetry.Delta",
+        "workflowNodeId": "runtime.usage-telemetry",
+        "componentKind": "usage_telemetry",
+        "run_id": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "agent_id": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "thread_id": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "turn_id": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "turnId": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "provider": "provider.local.folder",
+        "model": "local:auto",
+        "route_id": "route.local-first",
+        "routeId": "route.local-first",
+        "status": "running",
+        "summary": "Usage delta 1/2: 11 tokens, context 0.0001.",
+        "contextPressureSummary": "Context pressure delta 1/2: nominal at 0.0001.",
+        "stage": "prompt_prepared",
+        "delta_index": 1,
+        "delta_total": 2,
+        "input_tokens_delta": 11,
+        "output_tokens_delta": 0,
+        "total_tokens_delta": 11,
+        "cumulative_input_tokens": 11,
+        "cumulative_output_tokens": 0,
+        "cumulative_total_tokens": 11,
+        "cumulative_cost_estimate_usd": 0.000011,
+        "context_used_tokens": 11,
+        "context_pressure": 0.0001,
+        "context_pressure_status": "nominal",
+        "input_tokens": 11,
+        "inputTokens": 11,
+        "output_tokens": 0,
+        "outputTokens": 0,
+        "total_tokens": 11,
+        "totalTokens": 11,
+        "estimated_cost_usd": 0.000011,
+        "estimatedCostUsd": 0.000011,
+        "context_window_tokens": 128000,
+        "contextWindowTokens": 128000,
+        "contextUsedTokens": 11,
+        "contextPressure": 0.0001,
+        "contextPressureStatus": "nominal",
+        "generated_at": "2026-05-19T21:49:03.049Z"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:022:context_pressure_delta",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "context_pressure_delta",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:22",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Context pressure delta 1/2: nominal at 0.0001.",
+      "data": {
+        "schema_version": "ioi.runtime.context-pressure-delta.v1",
+        "schemaVersion": "ioi.runtime.context-pressure-delta.v1",
+        "object": "ioi.runtime_context_pressure_delta",
+        "eventKind": "RuntimeContextPressure.Delta",
+        "workflowNodeId": "runtime.context-budget",
+        "componentKind": "context_pressure",
+        "run_id": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "thread_id": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "turn_id": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "turnId": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "running",
+        "summary": "Context pressure delta 1/2: nominal at 0.0001.",
+        "stage": "prompt_prepared",
+        "delta_index": 1,
+        "delta_total": 2,
+        "usage_delta_ref": "run_b599456e-97d0-450d-a929-be029a0b28a6:prompt_prepared",
+        "usage_total_tokens": 11,
+        "usageTotalTokens": 11,
+        "usage_cost_estimate_usd": 0.000011,
+        "usageCostEstimateUsd": 0.000011,
+        "usage_context_pressure": 0.0001,
+        "usageContextPressure": 0.0001,
+        "usage_context_pressure_status": "nominal",
+        "usageContextPressureStatus": "nominal",
+        "generated_at": "2026-05-19T21:49:03.049Z"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:023:delta",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "delta",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:23",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "IOI daemon run completed for /home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/sdk-proof-workspace. Source=local_daemon_agentgres. Trace, receipts, Agentgres canonical projection, task state, uncertainty, probe, postconditions, semantic impact, stop condition, and scorecard are available through public runtime APIs.",
+      "data": {
+        "text": "IOI daemon run completed for /home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/sdk-proof-workspace. Source=local_daemon_agentgres. Trace, receipts, Agentgres canonical projection, task state, uncertainty, probe, postconditions, semantic impact, stop condition, and scorecard are available through public runtime APIs."
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:024:usage_delta",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "usage_delta",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:24",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Usage delta 2/2: 100 tokens, context 0.0008.",
+      "data": {
+        "schema_version": "ioi.runtime.usage-delta.v1",
+        "schemaVersion": "ioi.runtime.usage-delta.v1",
+        "object": "ioi.runtime_usage_delta",
+        "eventKind": "RuntimeUsageTelemetry.Delta",
+        "workflowNodeId": "runtime.usage-telemetry",
+        "componentKind": "usage_telemetry",
+        "run_id": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "agent_id": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "thread_id": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "turn_id": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "turnId": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "provider": "provider.local.folder",
+        "model": "local:auto",
+        "route_id": "route.local-first",
+        "routeId": "route.local-first",
+        "status": "running",
+        "summary": "Usage delta 2/2: 100 tokens, context 0.0008.",
+        "contextPressureSummary": "Context pressure delta 2/2: nominal at 0.0008.",
+        "stage": "completion_streamed",
+        "delta_index": 2,
+        "delta_total": 2,
+        "input_tokens_delta": 0,
+        "output_tokens_delta": 89,
+        "total_tokens_delta": 89,
+        "cumulative_input_tokens": 11,
+        "cumulative_output_tokens": 89,
+        "cumulative_total_tokens": 100,
+        "cumulative_cost_estimate_usd": 0.0001,
+        "context_used_tokens": 100,
+        "context_pressure": 0.0008,
+        "context_pressure_status": "nominal",
+        "input_tokens": 11,
+        "inputTokens": 11,
+        "output_tokens": 89,
+        "outputTokens": 89,
+        "total_tokens": 100,
+        "totalTokens": 100,
+        "estimated_cost_usd": 0.0001,
+        "estimatedCostUsd": 0.0001,
+        "context_window_tokens": 128000,
+        "contextWindowTokens": 128000,
+        "contextUsedTokens": 100,
+        "contextPressure": 0.0008,
+        "contextPressureStatus": "nominal",
+        "generated_at": "2026-05-19T21:49:03.049Z"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:025:context_pressure_delta",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "context_pressure_delta",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:25",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Context pressure delta 2/2: nominal at 0.0008.",
+      "data": {
+        "schema_version": "ioi.runtime.context-pressure-delta.v1",
+        "schemaVersion": "ioi.runtime.context-pressure-delta.v1",
+        "object": "ioi.runtime_context_pressure_delta",
+        "eventKind": "RuntimeContextPressure.Delta",
+        "workflowNodeId": "runtime.context-budget",
+        "componentKind": "context_pressure",
+        "run_id": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "thread_id": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "turn_id": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "turnId": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "running",
+        "summary": "Context pressure delta 2/2: nominal at 0.0008.",
+        "stage": "completion_streamed",
+        "delta_index": 2,
+        "delta_total": 2,
+        "usage_delta_ref": "run_b599456e-97d0-450d-a929-be029a0b28a6:completion_streamed",
+        "usage_total_tokens": 100,
+        "usageTotalTokens": 100,
+        "usage_cost_estimate_usd": 0.0001,
+        "usageCostEstimateUsd": 0.0001,
+        "usage_context_pressure": 0.0008,
+        "usageContextPressure": 0.0008,
+        "usage_context_pressure_status": "nominal",
+        "usageContextPressureStatus": "nominal",
+        "generated_at": "2026-05-19T21:49:03.049Z"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:026:usage_final",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "usage_final",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:26",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Usage telemetry recorded",
+      "data": {
+        "schema_version": "ioi.runtime.usage-telemetry.v1",
+        "schemaVersion": "ioi.runtime.usage-telemetry.v1",
+        "object": "ioi.runtime_usage_telemetry",
+        "scope": "run",
+        "thread_id": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "turn_id": "turn_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "turnId": "turn_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "run_id": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "agent_id": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "provider": "provider.local.folder",
+        "model": "local:auto",
+        "route_id": "route.local-first",
+        "routeId": "route.local-first",
+        "model_route_id": "route.local-first",
+        "modelRouteId": "route.local-first",
+        "input_tokens": 11,
+        "inputTokens": 11,
+        "output_tokens": 89,
+        "outputTokens": 89,
+        "reasoning_tokens": 0,
+        "reasoningTokens": 0,
+        "cached_input_tokens": 0,
+        "cachedInputTokens": 0,
+        "tool_result_tokens": 0,
+        "toolResultTokens": 0,
+        "compacted_tokens": 0,
+        "compactedTokens": 0,
+        "total_tokens": 100,
+        "totalTokens": 100,
+        "estimated_cost_micros": 100,
+        "estimatedCostMicros": 100,
+        "estimated_cost_usd": 0.0001,
+        "estimatedCostUsd": 0.0001,
+        "currency": "USD",
+        "context_window_tokens": 128000,
+        "contextWindowTokens": 128000,
+        "context_used_tokens": 100,
+        "contextUsedTokens": 100,
+        "context_pressure": 0.0008,
+        "contextPressure": 0.0008,
+        "context_pressure_status": "nominal",
+        "contextPressureStatus": "nominal",
+        "latency_ms": 0,
+        "latencyMs": 0,
+        "estimated": true,
+        "source_counts": {
+          "runs": 1,
+          "subagents": 0
+        },
+        "sourceCounts": {
+          "runs": 1,
+          "subagents": 0
+        },
+        "source_refs": [
+          "run_b599456e-97d0-450d-a929-be029a0b28a6"
+        ],
+        "sourceRefs": [
+          "run_b599456e-97d0-450d-a929-be029a0b28a6"
+        ],
+        "generated_at": "2026-05-19T21:49:03.049Z",
+        "generatedAt": "2026-05-19T21:49:03.049Z",
+        "eventKind": "RuntimeUsageTelemetry",
+        "workflowNodeId": "runtime.usage-telemetry",
+        "summary": {
+          "total_tokens": 100,
+          "totalTokens": 100,
+          "estimated_cost_usd": 0.0001,
+          "estimatedCostUsd": 0.0001,
+          "context_pressure": 0.0008,
+          "contextPressure": 0.0008,
+          "context_pressure_status": "nominal",
+          "contextPressureStatus": "nominal",
+          "source_counts": {
+            "runs": 1,
+            "subagents": 0
+          },
+          "sourceCounts": {
+            "runs": 1,
+            "subagents": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:027:stop_condition",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "stop_condition",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:27",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Stop condition recorded",
+      "data": {
+        "reason": "evidence_sufficient",
+        "evidenceSufficient": true,
+        "rationale": "Daemon stream, canonical Agentgres writeback, trace export, replay, and scorecard evidence were produced."
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:028:quality_ledger",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "quality_ledger",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:28",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Quality ledger recorded",
+      "data": {
+        "ledgerId": "quality_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "taskFamily": "local_daemon_agentgres",
+        "selectedStrategy": "local_daemon_agentgres_execution",
+        "toolSequence": [
+          "authority_check",
+          "policy_check",
+          "task_state_write",
+          "agentgres_operation_log",
+          "trace_export",
+          "canonical_replay",
+          "mcp_containment",
+          "skill_instruction_import",
+          "runtime_event_hook"
+        ],
+        "scorecardMetrics": {
+          "task_pass_rate": 100,
+          "recovery_success": 100,
+          "memory_relevance": 92,
+          "tool_quality": 96,
+          "strategy_roi": 93,
+          "operator_interventions": 0,
+          "verifier_independence": 100
+        },
+        "failureOntologyLabels": []
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:029:job_completed",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "job_completed",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:29",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Runtime job completed",
+      "data": {
+        "schemaVersion": "ioi.agent-runtime.job-record.v1",
+        "object": "ioi.runtime_job",
+        "jobId": "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "taskId": "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "turnId": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "status": "completed",
+        "lifecycle": [
+          "queued",
+          "started",
+          "completed"
+        ],
+        "summary": "Runtime job job_run_b599456e-97d0-450d-a929-be029a0b28a6 is completed.",
+        "queueName": "local-agentgres",
+        "runner": "local-daemon-agentgres",
+        "jobType": "agent_run",
+        "priority": "normal",
+        "background": true,
+        "durable": true,
+        "replayable": true,
+        "createdAt": "2026-05-19T21:49:03.012Z",
+        "updatedAt": "2026-05-19T21:49:03.012Z",
+        "queuedAt": "2026-05-19T21:49:03.012Z",
+        "startedAt": "2026-05-19T21:49:03.012Z",
+        "completedAt": "2026-05-19T21:49:03.012Z",
+        "progress": {
+          "completedSteps": 1,
+          "totalSteps": 1,
+          "percent": 100
+        },
+        "eventCount": null,
+        "terminalEventCount": null,
+        "artifactNames": [
+          "runtime-task.json",
+          "runtime-job.json",
+          "runtime-checklist.json",
+          "trace.json",
+          "agentgres-projection.json"
+        ],
+        "receiptKinds": [
+          "runtime_task",
+          "runtime_job",
+          "runtime_checklist",
+          "agentgres_canonical_write"
+        ],
+        "checklistId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "checklistStatus": "completed",
+        "checklistItemCount": 6,
+        "checklistCompletedItemCount": 6,
+        "failure": null,
+        "cancellation": null,
+        "retryCount": 0,
+        "cancelable": true,
+        "cancelEndpoint": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6/cancel",
+        "endpoints": {
+          "self": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "cancel": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6/cancel",
+          "run": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "events": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6/events",
+          "trace": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6/trace"
+        },
+        "workflowNodeId": "runtime.runtime-job",
+        "redaction": {
+          "profile": "runtime_job_safe",
+          "promptIncluded": false,
+          "secretValuesIncluded": false
+        },
+        "evidenceRefs": [
+          "runtime_job",
+          "runtime.jobs.durable_projection",
+          "RuntimeJobNode",
+          "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "run:run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "runtime_checklist"
+        ],
+        "lifecycleStatus": "completed",
+        "receiptId": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_runtime_job",
+        "eventKind": "JobCompleted"
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:030:artifact",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "artifact",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:30",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Trace and scorecard artifacts recorded",
+      "data": {
+        "artifactNames": [
+          "trace.json",
+          "runtime-task.json",
+          "runtime-job.json",
+          "runtime-checklist.json",
+          "repository-context.json",
+          "branch-policy.json",
+          "github-context.json",
+          "issue-context.json",
+          "pr-attempt.json",
+          "pr-branch.json",
+          "pr-diff.patch",
+          "review-gate.json",
+          "github-pr-create-plan.json",
+          "active-skill-hook-manifest.json",
+          "hook-dry-run-plan.json",
+          "hook-invocations.json",
+          "scorecard.json",
+          "agentgres-projection.json"
+        ]
+      }
+    },
+    {
+      "id": "run_b599456e-97d0-450d-a929-be029a0b28a6:event:031:completed",
+      "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+      "type": "completed",
+      "cursor": "run_b599456e-97d0-450d-a929-be029a0b28a6:31",
+      "createdAt": "2026-05-19T21:49:03.049Z",
+      "summary": "Run completed",
+      "data": {
+        "stopReason": "evidence_sufficient"
+      }
+    }
+  ],
+  "receipts": [
+    {
+      "id": "receipt_model_route_selection_e37fc1c3-a814-4b10-9627-9707eca2ddba",
+      "kind": "model_route_selection",
+      "summary": "Route route.local-first selected local:auto.",
+      "redaction": "none",
+      "evidenceRefs": [
+        "model_router",
+        "route.local-first",
+        "endpoint.local.auto",
+        "provider.local.folder"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_runtime_task",
+      "kind": "runtime_task",
+      "summary": "Runtime task for local_daemon_agentgres is completed.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+        "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+        "RuntimeTaskNode",
+        "runtime.tasks.durable_projection"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_runtime_job",
+      "kind": "runtime_job",
+      "summary": "Runtime job job_run_b599456e-97d0-450d-a929-be029a0b28a6 is completed.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "run:run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "RuntimeJobNode",
+        "runtime.jobs.durable_projection"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_runtime_checklist",
+      "kind": "runtime_checklist",
+      "summary": "Runtime checklist for job_run_b599456e-97d0-450d-a929-be029a0b28a6 is completed.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "RuntimeChecklistNode",
+        "runtime.checklists.durable_projection"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_repository_context",
+      "kind": "repository_context",
+      "summary": "Captured read-only repository context for /home/heathledger/Documents/ioi/repos/ioi: branch=master, dirty=true.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "ada80a2ccd8852bb9a4948ecbe5afc3c8885bf805f6ae7022e166b7316457829",
+        "RepositoryContextNode",
+        "repository.context.read_only"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_branch_policy",
+      "kind": "branch_policy",
+      "summary": "Branch policy blocked master because it is protected/default: protected_branch.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "BranchPolicyNode",
+        "repository.branch_policy.read_only"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_github_context",
+      "kind": "github_context",
+      "summary": "GitHub context resolved ioi-foundation/ioi, but branch policy is blocked: protected_branch.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "GitHubContextNode",
+        "github.context.read_only"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_issue_context",
+      "kind": "issue_context",
+      "summary": "No issue is bound for ioi-foundation/ioi; PR workflow may continue with an unbound issue context.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "IssueContextNode",
+        "github.issue_context.read_only"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_pr_attempt",
+      "kind": "pr_attempt",
+      "summary": "PR attempt for ioi-foundation/ioi recorded as failed_precondition; blockers: protected_branch, missing_github_token, branch_policy_not_passed, missing_authority_scope:github.pr.create.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "pr-branch.json",
+        "pr-diff.patch",
+        "PrAttemptNode",
+        "github.pr_attempt.preview_only"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_review_gate",
+      "kind": "review_gate",
+      "summary": "Review gate blocked PR creation for ioi-foundation/ioi: protected_branch, missing_github_token, branch_policy_not_passed, missing_authority_scope:github.pr.create, github_context_not_available, pr_attempt_not_ready, review_not_satisfied.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "ReviewGateNode",
+        "repository.review_gate.read_only"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_github_pr_create_plan",
+      "kind": "github_pr_create_plan",
+      "summary": "GitHub PR create dry-run plan is blocked for ioi-foundation/ioi: protected_branch, missing_github_token, branch_policy_not_passed, missing_authority_scope:github.pr.create, github_context_not_available, pr_attempt_not_ready, review_not_satisfied, review_gate_not_passed, dry_run_only.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "github_pr_create_plan_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+        "GitHubPrCreateNode",
+        "github.pr_create.dry_run"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_skill_hook_manifest",
+      "kind": "active_skill_hook_manifest",
+      "summary": "Recorded active skill/hook manifest with 1 skill(s) and 1 hook(s).",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+        "runtime_skill_hook_discovery",
+        "hook_execution_disabled_until_policy"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_hook_dry_run_plan",
+      "kind": "hook_dry_run_plan",
+      "summary": "Previewed 1 hook(s): 0 would run, 1 blocked, 0 skipped.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+        "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+        "hook_preview_only"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_hook_policy_decision",
+      "kind": "hook_policy_decision",
+      "summary": "1 hook(s) blocked by missing declared capabilities; no commands executed.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+        "hook_policy_decision",
+        "hook_execution_disabled_until_policy"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_hook_invocation_ledger",
+      "kind": "hook_invocation_ledger",
+      "summary": "Recorded 0 preview hook invocation(s): 0 would run, 0 blocked, 0 skipped, 0 escalated.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "hook_invocations_run_b599456e-97d0-450d-a929-be029a0b28a6_5a7017420336",
+        "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+        "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+        "hook_invocation_preview_only"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_policy",
+      "kind": "policy_decision",
+      "summary": "Local daemon run was admitted under bounded local/private runtime policy.",
+      "redaction": "none",
+      "evidenceRefs": [
+        "prim:model.invoke",
+        "policy.local_private"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_authority",
+      "kind": "authority_decision",
+      "summary": "No external authority scope was required for this bounded local daemon run.",
+      "redaction": "none",
+      "evidenceRefs": [
+        "wallet.network",
+        "authority.no_external_scope"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_agentgres",
+      "kind": "agentgres_canonical_write",
+      "summary": "Run state, task state, receipts, scorecard, stop condition, and quality ledger were written to Agentgres v0.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "agentgres_canonical_operation_log",
+        "run:run_b599456e-97d0-450d-a929-be029a0b28a6"
+      ]
+    },
+    {
+      "id": "receipt_run_b599456e-97d0-450d-a929-be029a0b28a6_trace",
+      "kind": "trace_export",
+      "summary": "Trace export is reconstructed from daemon runtime state and canonical Agentgres projection.",
+      "redaction": "redacted",
+      "evidenceRefs": [
+        "RuntimeTraceBundle",
+        "canonical_replay"
+      ]
+    }
+  ],
+  "taskState": {
+    "currentObjective": "Summarize the IOI runtime execution surface.",
+    "knownFacts": [
+      "Run entered the live local IOI daemon public runtime API",
+      "Agentgres v0 is the canonical owner for this run state",
+      "Selected model profile: local:auto",
+      "Runtime task: id=task_run_b599456e-97d0-450d-a929-be029a0b28a6, family=local_daemon_agentgres, status=completed",
+      "Runtime job: id=job_run_b599456e-97d0-450d-a929-be029a0b28a6, status=completed, queue=local-agentgres",
+      "Runtime checklist: id=checklist_run_b599456e-97d0-450d-a929-be029a0b28a6, status=completed, items=6/6",
+      "Repository context: git root=/home/heathledger/Documents/ioi/repos/ioi, branch=master, dirty=true",
+      "Branch policy: status=blocked, protected=true, mutationAllowed=false",
+      "GitHub context: status=blocked, repo=ioi-foundation/ioi, prEligible=false",
+      "Issue context: status=unbound, bound=false, repo=ioi-foundation/ioi",
+      "PR attempt: status=blocked, outcome=failed_precondition, mutationExecuted=false",
+      "Review gate: status=blocked, reviewRequired=true, reviewSatisfied=false",
+      "GitHub PR create plan: status=blocked, dryRun=true, mutationExecuted=false",
+      "Memory policy: disabled=false, injection=true, readOnly=false, writeRequiresApproval=false",
+      "Active skill/hook manifest: skills=1, hooks=1, skillSet=5c882768d025, hookSet=297e556bf8f4",
+      "Hook dry-run plan: wouldRun=0, blocked=1, skipped=0",
+      "Hook invocation ledger: invocations=0, wouldRun=0, blocked=0, skipped=0",
+      "Hook escalation receipts: 0 blocked invocation(s) require declaration fixes"
+    ],
+    "uncertainFacts": [],
+    "assumptions": [],
+    "constraints": [
+      "No GUI internals",
+      "No raw receipt dump",
+      "No policy bypass"
+    ],
+    "blockers": [],
+    "changedObjects": [],
+    "evidenceRefs": [
+      "ioi_daemon_public_runtime_api",
+      "agentgres_canonical_operation_log",
+      "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "github_pr_create_plan_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+      "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+      "hook_invocations_run_b599456e-97d0-450d-a929-be029a0b28a6_5a7017420336",
+      "5c882768d02549f88c7d216e480aa38352290f8ff29791113dc174bdbab2f435",
+      "297e556bf8f40b81ceaf2dade6a54f6b265300286f932f722932f235b2754712",
+      "inlineEcho",
+      "filesystemProbe",
+      "runtime-reviewer",
+      "onEvent",
+      "model_router",
+      "route.local-first",
+      "endpoint.local.auto",
+      "provider.local.folder",
+      "receipt_model_route_selection_e37fc1c3-a814-4b10-9627-9707eca2ddba",
+      "memory_policy_thread_thread_e31998b8-7370-46ef-93eb-bd7765ae145e"
+    ]
+  },
+  "uncertainty": {
+    "ambiguityLevel": "low",
+    "selectedAction": "probe",
+    "rationale": "Live daemon run chose bounded local execution with canonical state writeback.",
+    "valueOfProbe": "medium"
+  },
+  "probes": [
+    {
+      "probeId": "run_b599456e-97d0-450d-a929-be029a0b28a6:probe:canonical-replay",
+      "hypothesis": "Agentgres canonical operation log can replay the terminal run event stream.",
+      "cheapestValidationAction": "Read canonical run projection and replay events by cursor.",
+      "expectedObservation": "Monotonic event stream with exactly one terminal event.",
+      "result": "confirmed",
+      "confidenceUpdate": "Canonical replay and daemon stream use the same event IDs."
+    }
+  ],
+  "postconditions": {
+    "objective": "Summarize the IOI runtime execution surface.",
+    "taskFamily": "local_daemon_agentgres",
+    "riskClass": "bounded_local",
+    "checks": [
+      {
+        "checkId": "daemon-event-stream-terminal",
+        "description": "Daemon event stream contains exactly one terminal event.",
+        "status": "passed"
+      },
+      {
+        "checkId": "agentgres-operation-log",
+        "description": "Run, task, receipts, scorecard, and ledger are written to Agentgres v0.",
+        "status": "passed"
+      },
+      {
+        "checkId": "runtime-job-ledger",
+        "description": "Runtime task and job records are durable, replayable, and inspectable through the public jobs API.",
+        "status": "passed"
+      },
+      {
+        "checkId": "runtime-checklist-ledger",
+        "description": "Runtime checklist record binds task, job, lifecycle, artifacts, and receipts into a replayable workflow projection.",
+        "status": "passed"
+      },
+      {
+        "checkId": "canonical-replay",
+        "description": "Replay from Agentgres reconstructs terminal event stream.",
+        "status": "passed"
+      },
+      {
+        "checkId": "active-skill-hook-manifest",
+        "description": "Trace records the exact skill and hook catalog snapshot used by this turn.",
+        "status": "passed"
+      },
+      {
+        "checkId": "repository-context-read-only",
+        "description": "Repository context is captured without mutating branch, index, or worktree state.",
+        "status": "passed"
+      },
+      {
+        "checkId": "branch-policy-read-only",
+        "description": "Branch policy decision consumes repository context without mutating branch, index, or worktree state.",
+        "status": "passed"
+      },
+      {
+        "checkId": "github-context-read-only",
+        "description": "GitHub context is resolved from repository remotes without network calls or PR mutation.",
+        "status": "passed"
+      },
+      {
+        "checkId": "issue-context-read-only",
+        "description": "Issue context is projected without GitHub network reads or mutation, and may remain unbound.",
+        "status": "passed"
+      },
+      {
+        "checkId": "pr-attempt-preview-only",
+        "description": "PR attempt intent, branch, and diff artifacts are recorded without creating or updating a PR.",
+        "status": "passed"
+      },
+      {
+        "checkId": "review-gate-read-only",
+        "description": "Review gate decision is recorded before PR creation and cannot satisfy review or mutate GitHub.",
+        "status": "passed"
+      },
+      {
+        "checkId": "github-pr-create-dry-run",
+        "description": "GitHub PR creation is represented as a dry-run request plan with no network lookup, token exposure, or mutation.",
+        "status": "passed"
+      },
+      {
+        "checkId": "hook-dry-run-plan",
+        "description": "Hook execution is previewed with policy decisions and no command execution.",
+        "status": "passed"
+      }
+    ],
+    "minimumEvidence": [
+      "events",
+      "receipts",
+      "trace",
+      "scorecard",
+      "agentgres_operation_log",
+      "runtime_task",
+      "runtime_job",
+      "runtime_checklist",
+      "repository_context",
+      "branch_policy",
+      "github_context",
+      "issue_context",
+      "pr_attempt",
+      "pr_branch_artifact",
+      "pr_diff_artifact",
+      "review_gate",
+      "github_pr_create_plan",
+      "active_skill_hook_manifest",
+      "hook_dry_run_plan",
+      "hook_invocation_ledger",
+      "hook_escalation_receipt"
+    ]
+  },
+  "semanticImpact": {
+    "changedSymbols": [],
+    "changedApis": [
+      "/v1/agents/{id}/runs",
+      "/v1/agents/{id}/memory",
+      "/v1/threads/{id}/memory",
+      "/v1/jobs",
+      "/v1/jobs/{id}",
+      "/v1/jobs/{id}/cancel",
+      "/v1/runs/{id}/events",
+      "/v1/runs/{id}/trace",
+      "/v1/skills",
+      "/v1/hooks",
+      "/v1/usage",
+      "/v1/threads/{id}/usage",
+      "/v1/runs/{id}/usage",
+      "/v1/repository-context",
+      "/v1/branch-policy",
+      "/v1/github-context",
+      "/v1/issue-context",
+      "/v1/pr-attempts",
+      "/v1/review-gate",
+      "/v1/github/pr-create-plan",
+      "/v1/repositories"
+    ],
+    "changedSchemas": [
+      "IOISDKMessage",
+      "RuntimeTraceBundle",
+      "AgentgresRuntimeStateV0",
+      "RuntimeTaskRecord",
+      "RuntimeJobRecord",
+      "RuntimeChecklistRecord",
+      "RepositoryContext",
+      "BranchPolicyDecision",
+      "GitHubContext",
+      "IssueContext",
+      "PrAttemptRecord",
+      "ReviewGateDecision",
+      "GitHubPrCreatePlan",
+      "ModelRouteDecision",
+      "AgentMemoryRecord",
+      "SubagentMemoryInheritanceProjection",
+      "ActiveSkillHookManifest",
+      "HookDryRunPlan",
+      "HookInvocationLedger",
+      "HookInvocationRecord",
+      "HookEscalationReceipt",
+      "RuntimeUsageTelemetry",
+      "RuntimeEventEnvelope"
+    ],
+    "changedPolicies": [
+      "runtime.jobs.durable_projection",
+      "runtime.tasks.durable_projection",
+      "runtime.checklists.durable_projection",
+      "repository.context.read_only",
+      "repository.branch_policy.read_only",
+      "github.context.read_only",
+      "github.issue_context.read_only",
+      "github.pr_attempt.preview_only",
+      "repository.review_gate.read_only",
+      "github.pr_create.dry_run",
+      "skills_hooks.active_manifest.read_only",
+      "hooks.dry_run_preview_only",
+      "hooks.invocation_ledger_preview_only",
+      "hooks.mutation_blocked_without_contract",
+      "hooks.dry_run_blocked_without_declared_capabilities"
+    ],
+    "affectedTests": [
+      "live-runtime-daemon-contract"
+    ],
+    "affectedDocs": [
+      "internal-docs/plans/architectural-improvements-broad-master-guide.md"
+    ],
+    "riskClass": "bounded_local"
+  },
+  "modelRouteDecision": {
+    "schemaVersion": "ioi.model-route-decision.v1",
+    "object": "ioi.model_route_decision",
+    "eventKind": "ModelRouteDecision",
+    "decisionId": "7953170d43aceb2eee5ebe74526b65d40387566c545b6786a35c5a35d8a8c403",
+    "routeId": "route.local-first",
+    "capability": "chat",
+    "requestedModel": "local:auto",
+    "requestedModelMode": "explicit",
+    "autoResolved": false,
+    "selectedModel": "local:auto",
+    "upstreamModel": "local:auto",
+    "neverSendAutoUpstream": true,
+    "endpointId": "endpoint.local.auto",
+    "providerId": "provider.local.folder",
+    "providerKind": "local_folder",
+    "providerLabel": "Local model folder",
+    "reasoningEffort": "provider_default",
+    "localRemotePlacement": "local",
+    "privacyPosture": "local_or_enterprise",
+    "costEstimateUsd": 0,
+    "costEstimateSource": "local_default",
+    "fallbackModel": null,
+    "fallbackEndpointId": null,
+    "fallbackAllowed": false,
+    "fallbackTriggered": false,
+    "fallbackReason": null,
+    "rationale": "Explicit model local:auto resolved to local:auto on local_folder.",
+    "policyConstraints": {
+      "routePrivacy": "local_or_enterprise",
+      "requestedPrivacy": null,
+      "providerEligibility": [
+        "local_folder",
+        "lm_studio",
+        "ollama",
+        "vllm",
+        "openai_compatible"
+      ],
+      "deniedProviders": [
+        "openai",
+        "anthropic",
+        "gemini"
+      ],
+      "maxCostUsd": 0.25,
+      "maxLatencyMs": 30000,
+      "allowHostedFallback": false,
+      "localOnly": false
+    },
+    "evaluatedCandidateCount": 1,
+    "rejectedCandidates": [],
+    "workflowGraphId": null,
+    "workflowNodeId": "runtime.model-router",
+    "workflowNodeType": "Model Router",
+    "responseId": null,
+    "previousResponseId": null,
+    "policyHash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "evidenceRefs": [
+      "model_router",
+      "route.local-first",
+      "endpoint.local.auto",
+      "provider.local.folder"
+    ],
+    "receiptId": "receipt_model_route_selection_e37fc1c3-a814-4b10-9627-9707eca2ddba",
+    "receiptCreatedAt": "2026-05-19T21:49:02.627Z",
+    "receiptKind": "model_route_selection"
+  },
+  "activeSkillHookManifest": {
+    "schemaVersion": "ioi.agent-runtime.active-skill-hook-manifest.v1",
+    "object": "ioi.agent_active_skill_hook_manifest",
+    "manifestId": "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "generatedAt": "2026-05-19T21:49:03.012Z",
+    "workspace": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/sdk-proof-workspace",
+    "selectionMode": "explicit_or_configured",
+    "catalog": {
+      "schemaVersion": "ioi.agent-runtime.skill-hook-catalog.v1",
+      "generatedAt": "2026-05-19T21:49:03.011Z",
+      "status": "degraded",
+      "activeSkillSetHash": "5c882768d02549f88c7d216e480aa38352290f8ff29791113dc174bdbab2f435",
+      "activeHookSetHash": "297e556bf8f40b81ceaf2dade6a54f6b265300286f932f722932f235b2754712",
+      "skillCount": 1,
+      "hookCount": 1
+    },
+    "activeSkillSetHash": "5c882768d02549f88c7d216e480aa38352290f8ff29791113dc174bdbab2f435",
+    "activeHookSetHash": "297e556bf8f40b81ceaf2dade6a54f6b265300286f932f722932f235b2754712",
+    "manifestHash": "6e86fb119983bfbecfb1cb6d20e024700a2cc699b0685d7e34f86bb4e7055c05",
+    "selectedSkillIds": [
+      "skill.workspace.cursor.skills.Runtime_Reviewer.aba0b854ab"
+    ],
+    "selectedHookIds": [
+      "hook.workspace.cursor.hooks_file.onEvent.cb6eb15272"
+    ],
+    "requestedSkillRefs": [
+      "runtime-reviewer"
+    ],
+    "requestedHookRefs": [
+      "onEvent"
+    ],
+    "skills": [
+      {
+        "id": "skill.workspace.cursor.skills.Runtime_Reviewer.aba0b854ab",
+        "name": "Runtime Reviewer",
+        "skillHash": "aba0b854ab42cb4bc38e87092e8e7654126da86affce233f350ec50c86ab5283",
+        "sourceId": "workspace.cursor.skills",
+        "compatibility": "cursor",
+        "trustLevel": "workspace",
+        "activationMode": "discoverable",
+        "validationStatus": "pass",
+        "provenance": {
+          "importedFrom": "cursor",
+          "governed": true,
+          "readOnlyDiscovery": true
+        },
+        "evidenceRefs": [
+          "runtime_skill_discovery",
+          "workspace.cursor.skills",
+          "SKILL.md"
+        ]
+      }
+    ],
+    "hooks": [
+      {
+        "id": "hook.workspace.cursor.hooks_file.onEvent.cb6eb15272",
+        "name": "onEvent",
+        "enabled": true,
+        "definitionHash": "cb6eb1527251c7f1628c584b2fb83266f1ddda787025c6aa727a625de8d1afe8",
+        "sourceId": "workspace.cursor.hooks_file",
+        "compatibility": "cursor",
+        "trustLevel": "workspace",
+        "eventKinds": [
+          "event_subscriber"
+        ],
+        "failurePolicy": "warn",
+        "sideEffectClass": "none",
+        "authorityScopes": [],
+        "toolContracts": [],
+        "commandConfigured": true,
+        "commandHash": "545ea538461003efdc8c81c244531b003f6f26cfccf6c0073b3239fdedf49446",
+        "commandRedacted": true,
+        "validationStatus": "degraded",
+        "mutationPolicy": {
+          "outsideDeclaredCapabilitiesBlocked": true,
+          "mutationRequiresAuthorityScope": true,
+          "mutationRequiresToolContract": true
+        },
+        "evidenceRefs": [
+          "runtime_hook_discovery",
+          "workspace.cursor.hooks_file",
+          "hook_failure_policy"
+        ]
+      }
+    ],
+    "validation": {
+      "status": "degraded",
+      "issueCount": 1,
+      "issues": [
+        "missing_authority_scope"
+      ]
+    },
+    "hookExecution": {
+      "enabled": false,
+      "disabledReason": "hook_execution_policy_slice_pending",
+      "mutationBlockedWithoutDeclaredCapabilities": true,
+      "mutationAllowedHookIds": [],
+      "mutationBlockedHookIds": [
+        "hook.workspace.cursor.hooks_file.onEvent.cb6eb15272"
+      ]
+    },
+    "mutationBlockedHookIds": [
+      "hook.workspace.cursor.hooks_file.onEvent.cb6eb15272"
+    ],
+    "redaction": {
+      "profile": "active_skill_hook_manifest_safe",
+      "skillBodiesIncluded": false,
+      "hookCommandsIncluded": false,
+      "hookCommandsHashed": true,
+      "secretValuesIncluded": false
+    },
+    "evidenceRefs": [
+      "active_skill_hook_manifest",
+      "runtime_skill_hook_discovery",
+      "prompt_audit",
+      "hook_execution_disabled_until_policy"
+    ]
+  },
+  "runtimeTask": {
+    "schemaVersion": "ioi.agent-runtime.task-record.v1",
+    "object": "ioi.runtime_task",
+    "taskId": "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "turnId": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+    "status": "completed",
+    "mode": "send",
+    "taskFamily": "local_daemon_agentgres",
+    "selectedStrategy": "local_daemon_agentgres_execution",
+    "summary": "Runtime task for local_daemon_agentgres is completed.",
+    "promptHash": "42bc54088d88b0997568dd588f52921121b8bd10e2e739183e94f0b7e7cf0d5a",
+    "promptIncluded": false,
+    "objectivePreviewIncluded": false,
+    "modelRouteDecisionId": "7953170d43aceb2eee5ebe74526b65d40387566c545b6786a35c5a35d8a8c403",
+    "activeSkillHookManifestId": "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+    "createdAt": "2026-05-19T21:49:03.012Z",
+    "updatedAt": "2026-05-19T21:49:03.012Z",
+    "durable": true,
+    "replayable": true,
+    "cancelable": true,
+    "cancelEndpoint": "/v1/tasks/task_run_b599456e-97d0-450d-a929-be029a0b28a6/cancel",
+    "endpoints": {
+      "self": "/v1/tasks/task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "cancel": "/v1/tasks/task_run_b599456e-97d0-450d-a929-be029a0b28a6/cancel",
+      "run": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "job": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "events": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6/events",
+      "trace": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6/trace"
+    },
+    "workflowNodeId": "runtime.runtime-task",
+    "redaction": {
+      "profile": "runtime_task_safe",
+      "promptIncluded": false,
+      "secretValuesIncluded": false
+    },
+    "evidenceRefs": [
+      "runtime_task",
+      "runtime.tasks.durable_projection",
+      "RuntimeTaskNode",
+      "run:run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983"
+    ]
+  },
+  "runtimeJob": {
+    "schemaVersion": "ioi.agent-runtime.job-record.v1",
+    "object": "ioi.runtime_job",
+    "jobId": "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "taskId": "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "turnId": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+    "status": "completed",
+    "lifecycle": [
+      "queued",
+      "started",
+      "completed"
+    ],
+    "summary": "Runtime job job_run_b599456e-97d0-450d-a929-be029a0b28a6 is completed.",
+    "queueName": "local-agentgres",
+    "runner": "local-daemon-agentgres",
+    "jobType": "agent_run",
+    "priority": "normal",
+    "background": true,
+    "durable": true,
+    "replayable": true,
+    "createdAt": "2026-05-19T21:49:03.012Z",
+    "updatedAt": "2026-05-19T21:49:03.012Z",
+    "queuedAt": "2026-05-19T21:49:03.012Z",
+    "startedAt": "2026-05-19T21:49:03.012Z",
+    "completedAt": "2026-05-19T21:49:03.012Z",
+    "progress": {
+      "completedSteps": 1,
+      "totalSteps": 1,
+      "percent": 100
+    },
+    "eventCount": null,
+    "terminalEventCount": null,
+    "artifactNames": [
+      "runtime-task.json",
+      "runtime-job.json",
+      "runtime-checklist.json",
+      "trace.json",
+      "agentgres-projection.json"
+    ],
+    "receiptKinds": [
+      "runtime_task",
+      "runtime_job",
+      "runtime_checklist",
+      "agentgres_canonical_write"
+    ],
+    "checklistId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "checklistStatus": "completed",
+    "checklistItemCount": 6,
+    "checklistCompletedItemCount": 6,
+    "failure": null,
+    "cancellation": null,
+    "retryCount": 0,
+    "cancelable": true,
+    "cancelEndpoint": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6/cancel",
+    "endpoints": {
+      "self": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "cancel": "/v1/jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6/cancel",
+      "run": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "events": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6/events",
+      "trace": "/v1/runs/run_b599456e-97d0-450d-a929-be029a0b28a6/trace"
+    },
+    "workflowNodeId": "runtime.runtime-job",
+    "redaction": {
+      "profile": "runtime_job_safe",
+      "promptIncluded": false,
+      "secretValuesIncluded": false
+    },
+    "evidenceRefs": [
+      "runtime_job",
+      "runtime.jobs.durable_projection",
+      "RuntimeJobNode",
+      "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "run:run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "runtime_checklist"
+    ]
+  },
+  "runtimeChecklist": {
+    "schemaVersion": "ioi.agent-runtime.checklist-record.v1",
+    "object": "ioi.runtime_checklist",
+    "checklistId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "taskId": "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "jobId": "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "turnId": "turn_b599456e-97d0-450d-a929-be029a0b28a6",
+    "status": "completed",
+    "summary": "Runtime checklist for job_run_b599456e-97d0-450d-a929-be029a0b28a6 is completed.",
+    "durable": true,
+    "replayable": true,
+    "readOnly": true,
+    "itemCount": 6,
+    "completedItemCount": 6,
+    "canceledItemCount": 0,
+    "failedItemCount": 0,
+    "blockedItemCount": 0,
+    "items": [
+      {
+        "itemId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:task_record",
+        "label": "Runtime task record durable",
+        "status": "passed",
+        "evidenceRefs": [
+          "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "RuntimeTaskNode",
+          "runtime.tasks.durable_projection"
+        ]
+      },
+      {
+        "itemId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_record",
+        "label": "Runtime job record durable",
+        "status": "passed",
+        "evidenceRefs": [
+          "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+          "RuntimeJobNode",
+          "runtime.jobs.durable_projection"
+        ]
+      },
+      {
+        "itemId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_queued",
+        "label": "Job queued event emitted",
+        "status": "passed",
+        "evidenceRefs": [
+          "JobQueued"
+        ]
+      },
+      {
+        "itemId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_started",
+        "label": "Job started event emitted",
+        "status": "passed",
+        "evidenceRefs": [
+          "JobStarted"
+        ]
+      },
+      {
+        "itemId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_terminal",
+        "label": "Job completed event emitted",
+        "status": "passed",
+        "evidenceRefs": [
+          "JobCompleted"
+        ]
+      },
+      {
+        "itemId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:artifacts",
+        "label": "Runtime task/job/checklist artifacts attached",
+        "status": "passed",
+        "evidenceRefs": [
+          "runtime-task.json",
+          "runtime-job.json",
+          "runtime-checklist.json"
+        ]
+      }
+    ],
+    "requiredItemIds": [
+      "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:task_record",
+      "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_record",
+      "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_queued",
+      "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_started",
+      "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:job_terminal",
+      "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6:artifacts"
+    ],
+    "createdAt": "2026-05-19T21:49:03.012Z",
+    "updatedAt": "2026-05-19T21:49:03.012Z",
+    "workflowNodeId": "runtime.runtime-checklist",
+    "redaction": {
+      "profile": "runtime_checklist_safe",
+      "promptIncluded": false,
+      "secretValuesIncluded": false
+    },
+    "evidenceRefs": [
+      "runtime_checklist",
+      "runtime.checklists.durable_projection",
+      "RuntimeChecklistNode",
+      "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "run:run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ]
+  },
+  "repositoryContext": {
+    "schemaVersion": "ioi.agent-runtime.repository-context.v1",
+    "object": "ioi.repository_context",
+    "contextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "generatedAt": "2026-05-19T21:49:03.012Z",
+    "workspaceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/sdk-proof-workspace",
+    "workspaceRootHash": "335040be04df54f7735107503733d6527cdd06ca803474afa12c6a02bbb0b638",
+    "provider": "git",
+    "readOnly": true,
+    "mutationExecuted": false,
+    "evidenceRefs": [
+      "repository_context",
+      "repository.context.read_only",
+      "RepositoryContextNode"
+    ],
+    "status": {
+      "availability": "available",
+      "clean": false,
+      "isDirty": true,
+      "counts": {
+        "staged": 0,
+        "unstaged": 10,
+        "untracked": 1,
+        "ignored": 0,
+        "conflicted": 0
+      },
+      "ahead": 0,
+      "behind": 0,
+      "porcelainHash": "c1b0716f7cf7eb958b4b126a25c4edbf66cc11de05370fdac5438f5bac7f1e71",
+      "untrackedMode": "normal"
+    },
+    "isGitRepository": true,
+    "repoRoot": "/home/heathledger/Documents/ioi/repos/ioi",
+    "repoRootHash": "ada80a2ccd8852bb9a4948ecbe5afc3c8885bf805f6ae7022e166b7316457829",
+    "workspaceRelativePath": "docs/evidence/architectural-improvements-broad/sdk-proof-workspace",
+    "branch": "master",
+    "defaultBranch": "master",
+    "detachedHead": false,
+    "headSha": "352dbe47151cf61e7c420bf635c8709ca8911c61",
+    "headShortSha": "352dbe47151c",
+    "upstream": "origin/master",
+    "remoteCount": 1,
+    "remotes": [
+      {
+        "name": "origin",
+        "fetchUrl": "redacted:9e9478097dee",
+        "fetchUrlHash": "9e9478097dee46bcf387f64d4c5c5a9a5f7b50d01ce9974454269878ac696d1e",
+        "provider": "github",
+        "host": "github.com",
+        "owner": "ioi-foundation",
+        "repo": "ioi",
+        "repoFullName": "ioi-foundation/ioi",
+        "pushUrl": "redacted:9e9478097dee",
+        "pushUrlHash": "9e9478097dee46bcf387f64d4c5c5a9a5f7b50d01ce9974454269878ac696d1e"
+      }
+    ],
+    "redaction": {
+      "profile": "repository_context_safe",
+      "pathIncluded": true,
+      "remoteUrlsHashed": true,
+      "remoteCredentialsIncluded": false,
+      "statusPathsIncluded": false
+    }
+  },
+  "branchPolicy": {
+    "schemaVersion": "ioi.agent-runtime.branch-policy.v1",
+    "object": "ioi.branch_policy_decision",
+    "policyId": "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "generatedAt": "2026-05-19T21:49:03.012Z",
+    "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "status": "blocked",
+    "decision": "blocked",
+    "summary": "Branch policy blocked master because it is protected/default: protected_branch.",
+    "readOnly": true,
+    "mutationExecuted": false,
+    "mutationAllowed": false,
+    "prCreationAllowed": false,
+    "reviewRequired": true,
+    "approvalRequired": true,
+    "branch": "master",
+    "defaultBranch": "master",
+    "protectedBranch": true,
+    "protectedBranchNames": [
+      "master",
+      "main",
+      "trunk",
+      "production",
+      "release",
+      "stable"
+    ],
+    "detachedHead": false,
+    "headSha": "352dbe47151cf61e7c420bf635c8709ca8911c61",
+    "headShortSha": "352dbe47151c",
+    "upstream": "origin/master",
+    "ahead": 0,
+    "behind": 0,
+    "dirty": true,
+    "counts": {
+      "staged": 0,
+      "unstaged": 10,
+      "untracked": 1,
+      "ignored": 0,
+      "conflicted": 0
+    },
+    "blockers": [
+      "protected_branch"
+    ],
+    "warnings": [
+      "dirty_worktree",
+      "untracked_files"
+    ],
+    "recommendedNextAction": "Create or switch to a feature branch before requesting branch mutation or PR creation.",
+    "redaction": {
+      "profile": "branch_policy_safe",
+      "remoteCredentialsIncluded": false,
+      "statusPathsIncluded": false
+    },
+    "evidenceRefs": [
+      "branch_policy",
+      "repository.branch_policy.read_only",
+      "BranchPolicyNode",
+      "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ]
+  },
+  "githubContext": {
+    "schemaVersion": "ioi.agent-runtime.github-context.v1",
+    "object": "ioi.github_context",
+    "contextId": "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "generatedAt": "2026-05-19T21:49:03.012Z",
+    "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "branchPolicyId": "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "status": "blocked",
+    "summary": "GitHub context resolved ioi-foundation/ioi, but branch policy is blocked: protected_branch.",
+    "readOnly": true,
+    "networkLookupPerformed": false,
+    "mutationExecuted": false,
+    "provider": "github",
+    "githubRemotePresent": true,
+    "defaultRemoteName": "origin",
+    "owner": "ioi-foundation",
+    "repo": "ioi",
+    "repoFullName": "ioi-foundation/ioi",
+    "htmlUrl": "https://github.com/ioi-foundation/ioi",
+    "defaultBranch": "master",
+    "branch": "master",
+    "branchPolicyStatus": "blocked",
+    "branchPolicyBlockers": [
+      "protected_branch"
+    ],
+    "branchPolicyWarnings": [
+      "dirty_worktree",
+      "untracked_files"
+    ],
+    "prCreationEligible": false,
+    "prCreationPreconditions": {
+      "githubRemotePresent": true,
+      "branchPolicyAllowsPr": false,
+      "tokenAvailable": false,
+      "networkLookupPerformed": false,
+      "mutationExecuted": false
+    },
+    "remotes": [
+      {
+        "name": "origin",
+        "host": "github.com",
+        "owner": "ioi-foundation",
+        "repo": "ioi",
+        "repoFullName": "ioi-foundation/ioi",
+        "fetchUrl": "redacted:9e9478097dee",
+        "fetchUrlHash": "9e9478097dee46bcf387f64d4c5c5a9a5f7b50d01ce9974454269878ac696d1e",
+        "pushUrl": "redacted:9e9478097dee",
+        "pushUrlHash": "9e9478097dee46bcf387f64d4c5c5a9a5f7b50d01ce9974454269878ac696d1e"
+      }
+    ],
+    "credentials": {
+      "tokenAvailable": false,
+      "tokenSources": [],
+      "tokenValueIncluded": false,
+      "authorizationHeaderIncluded": false
+    },
+    "redaction": {
+      "profile": "github_context_safe",
+      "tokenValueIncluded": false,
+      "remoteCredentialsIncluded": false,
+      "networkResponseIncluded": false
+    },
+    "evidenceRefs": [
+      "github_context",
+      "github.context.read_only",
+      "GitHubContextNode",
+      "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ]
+  },
+  "issueContext": {
+    "schemaVersion": "ioi.agent-runtime.issue-context.v1",
+    "object": "ioi.issue_context",
+    "contextId": "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "generatedAt": "2026-05-19T21:49:03.012Z",
+    "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "githubContextId": "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "prAttemptId": "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "reviewGateId": "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "status": "unbound",
+    "summary": "No issue is bound for ioi-foundation/ioi; PR workflow may continue with an unbound issue context.",
+    "readOnly": true,
+    "provider": "github",
+    "repoFullName": "ioi-foundation/ioi",
+    "htmlUrl": "https://github.com/ioi-foundation/ioi",
+    "bound": false,
+    "issueProvided": false,
+    "issueNumber": null,
+    "title": null,
+    "sourceUrl": null,
+    "sourceKind": "unbound",
+    "labels": [],
+    "assignees": [],
+    "blockers": [],
+    "warnings": [
+      "issue_context_unbound"
+    ],
+    "noIssuePolicy": {
+      "allowed": true,
+      "reason": "Issue context is optional for local PR previews until a task source is supplied."
+    },
+    "networkLookupPerformed": false,
+    "mutationExecuted": false,
+    "redaction": {
+      "profile": "issue_context_safe",
+      "tokenValueIncluded": false,
+      "remoteCredentialsIncluded": false,
+      "networkResponseIncluded": false,
+      "bodyIncluded": false,
+      "reviewerIdentityIncluded": false
+    },
+    "evidenceRefs": [
+      "issue_context",
+      "IssueContextNode",
+      "github.issue_context.read_only",
+      "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ]
+  },
+  "prAttempt": {
+    "schemaVersion": "ioi.agent-runtime.pr-attempt.v1",
+    "object": "ioi.pr_attempt",
+    "attemptId": "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "generatedAt": "2026-05-19T21:49:03.012Z",
+    "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "branchPolicyId": "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "githubContextId": "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "status": "blocked",
+    "outcome": "failed_precondition",
+    "summary": "PR attempt for ioi-foundation/ioi recorded as failed_precondition; blockers: protected_branch, missing_github_token, branch_policy_not_passed, missing_authority_scope:github.pr.create.",
+    "previewOnly": true,
+    "readOnly": true,
+    "provider": "github",
+    "action": "pr_create",
+    "title": "Draft PR for: Summarize the IOI runtime execution surface.",
+    "bodyIncluded": false,
+    "repoFullName": "ioi-foundation/ioi",
+    "htmlUrl": "https://github.com/ioi-foundation/ioi",
+    "branch": "master",
+    "defaultBranch": "master",
+    "headSha": "352dbe47151cf61e7c420bf635c8709ca8911c61",
+    "headShortSha": "352dbe47151c",
+    "upstream": "origin/master",
+    "dirty": true,
+    "counts": {
+      "staged": 0,
+      "unstaged": 10,
+      "untracked": 1,
+      "ignored": 0,
+      "conflicted": 0
+    },
+    "blockers": [
+      "protected_branch",
+      "missing_github_token",
+      "branch_policy_not_passed",
+      "missing_authority_scope:github.pr.create"
+    ],
+    "warnings": [
+      "dirty_worktree",
+      "untracked_files",
+      "pr_attempt_preview_only"
+    ],
+    "failure": {
+      "reason": "protected_branch",
+      "message": "PR creation was not attempted because preview preconditions or authority requirements were not satisfied."
+    },
+    "authority": {
+      "requiredScopes": [
+        "github.pr.create"
+      ],
+      "grantedScopes": [],
+      "missingScopes": [
+        "github.pr.create"
+      ],
+      "scopeGranted": false,
+      "approvalRequired": true,
+      "approvalSatisfied": false
+    },
+    "preconditions": {
+      "gitRepositoryPresent": true,
+      "githubRemotePresent": true,
+      "branchPolicyAllowsPr": false,
+      "tokenAvailable": false,
+      "authorityScopeGranted": false,
+      "diffCaptured": true,
+      "branchArtifactAttached": true,
+      "diffArtifactAttached": true,
+      "networkLookupPerformed": false,
+      "mutationExecuted": false
+    },
+    "mutationAttempted": false,
+    "mutationExecuted": false,
+    "networkLookupPerformed": false,
+    "prNumber": null,
+    "prUrl": null,
+    "branchArtifact": {
+      "artifactName": "pr-branch.json",
+      "mediaType": "application/json",
+      "artifactHash": "9652ac7196da9a74683428bc454ebe3d5cfbf6896b464f444bed65694cc6183a"
+    },
+    "diffArtifact": {
+      "artifactName": "pr-diff.patch",
+      "mediaType": "text/x-diff",
+      "artifactHash": "2e88e3e5fde4830e3b799a3e3dc0d14a0cac8ebc79464c7ec9c65347e793987d",
+      "diffHash": "2e88e3e5fde4830e3b799a3e3dc0d14a0cac8ebc79464c7ec9c65347e793987d",
+      "byteLength": 334865,
+      "retainedByteLength": 334865,
+      "truncated": false,
+      "fileCount": 10,
+      "hasDiff": true,
+      "untrackedCount": 1
+    },
+    "artifacts": [
+      {
+        "name": "pr-attempt.json",
+        "mediaType": "application/json"
+      },
+      {
+        "artifactName": "pr-branch.json",
+        "mediaType": "application/json",
+        "artifactHash": "9652ac7196da9a74683428bc454ebe3d5cfbf6896b464f444bed65694cc6183a"
+      },
+      {
+        "artifactName": "pr-diff.patch",
+        "mediaType": "text/x-diff",
+        "artifactHash": "2e88e3e5fde4830e3b799a3e3dc0d14a0cac8ebc79464c7ec9c65347e793987d",
+        "diffHash": "2e88e3e5fde4830e3b799a3e3dc0d14a0cac8ebc79464c7ec9c65347e793987d",
+        "byteLength": 334865,
+        "retainedByteLength": 334865,
+        "truncated": false,
+        "fileCount": 10,
+        "hasDiff": true,
+        "untrackedCount": 1
+      }
+    ],
+    "redaction": {
+      "profile": "pr_attempt_safe",
+      "tokenValueIncluded": false,
+      "remoteCredentialsIncluded": false,
+      "networkResponseIncluded": false,
+      "diffContentInProjection": false
+    },
+    "evidenceRefs": [
+      "pr_attempt",
+      "pr_attempt_preview_only",
+      "PrAttemptNode",
+      "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "pr-branch.json",
+      "pr-diff.patch"
+    ]
+  },
+  "reviewGate": {
+    "schemaVersion": "ioi.agent-runtime.review-gate.v1",
+    "object": "ioi.review_gate_decision",
+    "gateId": "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "generatedAt": "2026-05-19T21:49:03.012Z",
+    "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "branchPolicyId": "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "githubContextId": "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "prAttemptId": "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "status": "blocked",
+    "decision": "blocked",
+    "summary": "Review gate blocked PR creation for ioi-foundation/ioi: protected_branch, missing_github_token, branch_policy_not_passed, missing_authority_scope:github.pr.create, github_context_not_available, pr_attempt_not_ready, review_not_satisfied.",
+    "readOnly": true,
+    "previewOnly": true,
+    "reviewRequired": true,
+    "approvalRequired": true,
+    "reviewSatisfied": false,
+    "approvalSatisfied": false,
+    "mutationAllowed": false,
+    "prCreationAllowed": false,
+    "mutationExecuted": false,
+    "networkLookupPerformed": false,
+    "provider": "github",
+    "repoFullName": "ioi-foundation/ioi",
+    "branch": "master",
+    "defaultBranch": "master",
+    "prAttemptStatus": "blocked",
+    "prAttemptOutcome": "failed_precondition",
+    "requiredReviewers": [
+      "code-owner"
+    ],
+    "satisfiedReviewers": [],
+    "requiredChecks": [
+      "branch_policy_passed",
+      "github_context_available",
+      "pr_attempt_ready",
+      "diff_artifact_attached",
+      "human_review_satisfied"
+    ],
+    "passedChecks": [],
+    "blockers": [
+      "protected_branch",
+      "missing_github_token",
+      "branch_policy_not_passed",
+      "missing_authority_scope:github.pr.create",
+      "github_context_not_available",
+      "pr_attempt_not_ready",
+      "review_not_satisfied"
+    ],
+    "warnings": [
+      "dirty_worktree",
+      "untracked_files",
+      "pr_attempt_preview_only",
+      "review_gate_preview_only"
+    ],
+    "authority": {
+      "requiredScopes": [
+        "github.pr.create"
+      ],
+      "grantedScopes": [],
+      "missingScopes": [
+        "github.pr.create"
+      ],
+      "scopeGranted": false,
+      "approvalRequired": true,
+      "approvalSatisfied": false
+    },
+    "preconditions": {
+      "repositoryContextPresent": true,
+      "branchPolicyPassed": false,
+      "githubContextAvailable": false,
+      "prAttemptPresent": true,
+      "prAttemptReady": false,
+      "diffArtifactAttached": true,
+      "branchArtifactAttached": true,
+      "reviewPolicySatisfied": false,
+      "networkLookupPerformed": false,
+      "mutationExecuted": false
+    },
+    "redaction": {
+      "profile": "review_gate_safe",
+      "reviewerIdentityIncluded": false,
+      "tokenValueIncluded": false,
+      "networkResponseIncluded": false
+    },
+    "evidenceRefs": [
+      "review_gate",
+      "review_gate_preview_only",
+      "ReviewGateNode",
+      "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ]
+  },
+  "githubPrCreatePlan": {
+    "schemaVersion": "ioi.agent-runtime.github-pr-create-plan.v1",
+    "object": "ioi.github_pr_create_plan",
+    "planId": "github_pr_create_plan_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "generatedAt": "2026-05-19T21:49:03.012Z",
+    "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "branchPolicyId": "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "githubContextId": "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "issueContextId": "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "prAttemptId": "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "reviewGateId": "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "status": "blocked",
+    "decision": "blocked",
+    "summary": "GitHub PR create dry-run plan is blocked for ioi-foundation/ioi: protected_branch, missing_github_token, branch_policy_not_passed, missing_authority_scope:github.pr.create, github_context_not_available, pr_attempt_not_ready, review_not_satisfied, review_gate_not_passed, dry_run_only.",
+    "dryRun": true,
+    "previewOnly": true,
+    "provider": "github",
+    "toolName": "github__pr_create",
+    "action": "pr_create",
+    "repoFullName": "ioi-foundation/ioi",
+    "owner": "ioi-foundation",
+    "repo": "ioi",
+    "baseBranch": "master",
+    "headBranch": "master",
+    "title": "Draft PR for: Summarize the IOI runtime execution surface.",
+    "bodyPlan": {
+      "included": false,
+      "source": "runtime_template",
+      "redaction": "body_not_included_in_projection"
+    },
+    "issueNumber": null,
+    "reviewGateStatus": "blocked",
+    "reviewSatisfied": false,
+    "authority": {
+      "requiredScopes": [
+        "github.pr.create"
+      ],
+      "grantedScopes": [],
+      "missingScopes": [
+        "github.pr.create"
+      ],
+      "scopeGranted": false,
+      "approvalRequired": true,
+      "approvalSatisfied": false
+    },
+    "request": {
+      "method": "POST",
+      "path": "/repos/ioi-foundation/ioi/pulls",
+      "payloadHash": "b3ca57ce0a5f3a73fcaeea8edb666430b5953892d64c5c55f3854a601d20a429",
+      "payloadPreview": {
+        "owner": "ioi-foundation",
+        "repo": "ioi",
+        "base": "master",
+        "head": "master",
+        "title": "Draft PR for: Summarize the IOI runtime execution surface.",
+        "bodyIncluded": false,
+        "draft": true,
+        "maintainerCanModify": true,
+        "issueNumber": null
+      },
+      "bodyIncluded": false,
+      "tokenIncluded": false
+    },
+    "blockers": [
+      "protected_branch",
+      "missing_github_token",
+      "branch_policy_not_passed",
+      "missing_authority_scope:github.pr.create",
+      "github_context_not_available",
+      "pr_attempt_not_ready",
+      "review_not_satisfied",
+      "review_gate_not_passed",
+      "dry_run_only"
+    ],
+    "warnings": [
+      "issue_context_unbound",
+      "dirty_worktree",
+      "untracked_files",
+      "pr_attempt_preview_only",
+      "review_gate_preview_only",
+      "github_pr_create_plan_dry_run"
+    ],
+    "networkLookupPerformed": false,
+    "mutationAttempted": false,
+    "mutationExecuted": false,
+    "prNumber": null,
+    "prUrl": null,
+    "redaction": {
+      "profile": "github_pr_create_plan_safe",
+      "tokenValueIncluded": false,
+      "authorizationHeaderIncluded": false,
+      "requestBodyIncluded": false,
+      "responseBodyIncluded": false,
+      "networkResponseIncluded": false
+    },
+    "evidenceRefs": [
+      "github_pr_create_plan",
+      "github.pr_create.request_hash",
+      "github.pr_create.authority_scope",
+      "github.pr_create.dry_run",
+      "GitHubPrCreateNode",
+      "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ]
+  },
+  "hookDryRunPlan": {
+    "schemaVersion": "ioi.agent-runtime.hook-dry-run-plan.v1",
+    "object": "ioi.agent_hook_dry_run_plan",
+    "planId": "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "manifestId": "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+    "activeHookSetHash": "297e556bf8f40b81ceaf2dade6a54f6b265300286f932f722932f235b2754712",
+    "generatedAt": "2026-05-19T21:49:03.013Z",
+    "mode": "preview_only",
+    "hookExecutionEnabled": false,
+    "commandExecutionEnabled": false,
+    "decisionCount": 1,
+    "wouldRunCount": 0,
+    "blockedCount": 1,
+    "skippedCount": 0,
+    "decisions": [
+      {
+        "hookId": "hook.workspace.cursor.hooks_file.onEvent.cb6eb15272",
+        "name": "onEvent",
+        "eventKinds": [
+          "event_subscriber"
+        ],
+        "failurePolicy": "warn",
+        "sideEffectClass": "none",
+        "commandConfigured": true,
+        "commandHash": "545ea538461003efdc8c81c244531b003f6f26cfccf6c0073b3239fdedf49446",
+        "commandRedacted": true,
+        "authorityScopes": [],
+        "toolContracts": [],
+        "decision": "blocked",
+        "reason": "missing_declared_capabilities",
+        "blockers": [
+          "missing_authority_scope",
+          "missing_tool_contract"
+        ],
+        "execution": {
+          "previewOnly": true,
+          "commandExecuted": false,
+          "mutationAllowed": false
+        },
+        "evidenceRefs": [
+          "runtime_hook_discovery",
+          "workspace.cursor.hooks_file",
+          "hook_failure_policy"
+        ]
+      }
+    ],
+    "policyDecision": {
+      "status": "blocked",
+      "summary": "1 hook(s) blocked by missing declared capabilities; no commands executed.",
+      "previewOnly": true,
+      "hookExecutionEnabled": false,
+      "commandExecutionEnabled": false
+    },
+    "redaction": {
+      "profile": "hook_dry_run_safe",
+      "hookCommandsIncluded": false,
+      "hookCommandsHashed": true,
+      "secretValuesIncluded": false
+    },
+    "evidenceRefs": [
+      "hook_dry_run_plan",
+      "hook_policy_decision",
+      "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983"
+    ]
+  },
+  "hookInvocationLedger": {
+    "schemaVersion": "ioi.agent-runtime.hook-invocation-ledger.v1",
+    "object": "ioi.agent_hook_invocation_ledger",
+    "ledgerId": "hook_invocations_run_b599456e-97d0-450d-a929-be029a0b28a6_5a7017420336",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "manifestId": "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+    "dryRunPlanId": "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+    "activeHookSetHash": "297e556bf8f40b81ceaf2dade6a54f6b265300286f932f722932f235b2754712",
+    "generatedAt": "2026-05-19T21:49:03.013Z",
+    "mode": "preview_only",
+    "hookExecutionEnabled": false,
+    "commandExecutionEnabled": false,
+    "emittedEventKinds": [
+      "workflow_activation",
+      "pre_model",
+      "post_model"
+    ],
+    "invocationCount": 0,
+    "wouldRunCount": 0,
+    "blockedCount": 0,
+    "skippedCount": 0,
+    "escalationCount": 0,
+    "escalations": [],
+    "records": [],
+    "redaction": {
+      "profile": "hook_invocation_ledger_safe",
+      "hookCommandsIncluded": false,
+      "hookCommandsHashed": true,
+      "secretValuesIncluded": false
+    },
+    "evidenceRefs": [
+      "hook_invocation_ledger",
+      "hook_invocation_preview_only",
+      "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+      "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983"
+    ]
+  },
+  "promptAudit": {
+    "schemaVersion": "ioi.agent-runtime.prompt-audit.v1",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "promptHash": "42bc54088d88b0997568dd588f52921121b8bd10e2e739183e94f0b7e7cf0d5a",
+    "runtimeTaskId": "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runtimeJobId": "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runtimeChecklistId": "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "repositoryContextId": "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "branchPolicyId": "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "githubContextId": "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "issueContextId": "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "prAttemptId": "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "reviewGateId": "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "githubPrCreatePlanId": "github_pr_create_plan_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "activeSkillHookManifestId": "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983",
+    "activeSkillSetHash": "5c882768d02549f88c7d216e480aa38352290f8ff29791113dc174bdbab2f435",
+    "activeHookSetHash": "297e556bf8f40b81ceaf2dade6a54f6b265300286f932f722932f235b2754712",
+    "selectedSkillIds": [
+      "skill.workspace.cursor.skills.Runtime_Reviewer.aba0b854ab"
+    ],
+    "selectedHookIds": [
+      "hook.workspace.cursor.hooks_file.onEvent.cb6eb15272"
+    ],
+    "hookExecutionEnabled": false,
+    "hookDryRunPlanId": "hook_dry_run_run_b599456e-97d0-450d-a929-be029a0b28a6_4d149599c269",
+    "hookInvocationLedgerId": "hook_invocations_run_b599456e-97d0-450d-a929-be029a0b28a6_5a7017420336",
+    "redaction": {
+      "promptIncluded": false,
+      "hookCommandsIncluded": false
+    },
+    "evidenceRefs": [
+      "prompt_audit",
+      "task_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "job_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "checklist_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "repoctx_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "branch_policy_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "github_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "issue_context_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "pr_attempt_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "review_gate_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "github_pr_create_plan_run_b599456e-97d0-450d-a929-be029a0b28a6",
+      "skill_hook_manifest_run_b599456e-97d0-450d-a929-be029a0b28a6_6e86fb119983"
+    ]
+  },
+  "memoryPolicy": {
+    "schemaVersion": "ioi.agent-runtime.memory-policy.v1",
+    "object": "ioi.agent_memory_policy",
+    "disabled": false,
+    "injectionEnabled": true,
+    "readOnly": false,
+    "writeRequiresApproval": false,
+    "retention": "persistent",
+    "redaction": "none",
+    "subagentInheritance": "explicit",
+    "scope": "thread",
+    "id": "memory_policy_thread_thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "targetType": "thread",
+    "targetId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "workspace": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/architectural-improvements-broad/sdk-proof-workspace",
+    "source": "default",
+    "createdAt": "2026-05-19T21:49:03.011Z",
+    "updatedAt": "2026-05-19T21:49:03.011Z",
+    "evidenceRefs": [
+      "agent_memory_store",
+      "memory.policy.default"
+    ],
+    "effective": true,
+    "policyRefs": []
+  },
+  "memoryRecords": [],
+  "memoryWrites": [],
+  "usage": {
+    "schema_version": "ioi.runtime.usage-telemetry.v1",
+    "schemaVersion": "ioi.runtime.usage-telemetry.v1",
+    "object": "ioi.runtime_usage_telemetry",
+    "scope": "run",
+    "thread_id": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "turn_id": "turn_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "turnId": "turn_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "run_id": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "agent_id": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "provider": "provider.local.folder",
+    "model": "local:auto",
+    "route_id": "route.local-first",
+    "routeId": "route.local-first",
+    "model_route_id": "route.local-first",
+    "modelRouteId": "route.local-first",
+    "input_tokens": 11,
+    "inputTokens": 11,
+    "output_tokens": 89,
+    "outputTokens": 89,
+    "reasoning_tokens": 0,
+    "reasoningTokens": 0,
+    "cached_input_tokens": 0,
+    "cachedInputTokens": 0,
+    "tool_result_tokens": 0,
+    "toolResultTokens": 0,
+    "compacted_tokens": 0,
+    "compactedTokens": 0,
+    "total_tokens": 100,
+    "totalTokens": 100,
+    "estimated_cost_micros": 100,
+    "estimatedCostMicros": 100,
+    "estimated_cost_usd": 0.0001,
+    "estimatedCostUsd": 0.0001,
+    "currency": "USD",
+    "context_window_tokens": 128000,
+    "contextWindowTokens": 128000,
+    "context_used_tokens": 100,
+    "contextUsedTokens": 100,
+    "context_pressure": 0.0008,
+    "contextPressure": 0.0008,
+    "context_pressure_status": "nominal",
+    "contextPressureStatus": "nominal",
+    "latency_ms": 0,
+    "latencyMs": 0,
+    "estimated": false,
+    "source_counts": {
+      "runs": 1,
+      "subagents": 0
+    },
+    "sourceCounts": {
+      "runs": 1,
+      "subagents": 0
+    },
+    "source_refs": [
+      "run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ],
+    "sourceRefs": [
+      "run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ],
+    "generated_at": "2026-05-19T21:49:03.049Z",
+    "generatedAt": "2026-05-19T21:49:03.049Z"
+  },
+  "usage_telemetry": {
+    "schema_version": "ioi.runtime.usage-telemetry.v1",
+    "schemaVersion": "ioi.runtime.usage-telemetry.v1",
+    "object": "ioi.runtime_usage_telemetry",
+    "scope": "run",
+    "thread_id": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "turn_id": "turn_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "turnId": "turn_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "run_id": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "agent_id": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "provider": "provider.local.folder",
+    "model": "local:auto",
+    "route_id": "route.local-first",
+    "routeId": "route.local-first",
+    "model_route_id": "route.local-first",
+    "modelRouteId": "route.local-first",
+    "input_tokens": 11,
+    "inputTokens": 11,
+    "output_tokens": 89,
+    "outputTokens": 89,
+    "reasoning_tokens": 0,
+    "reasoningTokens": 0,
+    "cached_input_tokens": 0,
+    "cachedInputTokens": 0,
+    "tool_result_tokens": 0,
+    "toolResultTokens": 0,
+    "compacted_tokens": 0,
+    "compactedTokens": 0,
+    "total_tokens": 100,
+    "totalTokens": 100,
+    "estimated_cost_micros": 100,
+    "estimatedCostMicros": 100,
+    "estimated_cost_usd": 0.0001,
+    "estimatedCostUsd": 0.0001,
+    "currency": "USD",
+    "context_window_tokens": 128000,
+    "contextWindowTokens": 128000,
+    "context_used_tokens": 100,
+    "contextUsedTokens": 100,
+    "context_pressure": 0.0008,
+    "contextPressure": 0.0008,
+    "context_pressure_status": "nominal",
+    "contextPressureStatus": "nominal",
+    "latency_ms": 0,
+    "latencyMs": 0,
+    "estimated": false,
+    "source_counts": {
+      "runs": 1,
+      "subagents": 0
+    },
+    "sourceCounts": {
+      "runs": 1,
+      "subagents": 0
+    },
+    "source_refs": [
+      "run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ],
+    "sourceRefs": [
+      "run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ],
+    "generated_at": "2026-05-19T21:49:03.049Z",
+    "generatedAt": "2026-05-19T21:49:03.049Z"
+  },
+  "usageTelemetry": {
+    "schema_version": "ioi.runtime.usage-telemetry.v1",
+    "schemaVersion": "ioi.runtime.usage-telemetry.v1",
+    "object": "ioi.runtime_usage_telemetry",
+    "scope": "run",
+    "thread_id": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "turn_id": "turn_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "turnId": "turn_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "run_id": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "agent_id": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "provider": "provider.local.folder",
+    "model": "local:auto",
+    "route_id": "route.local-first",
+    "routeId": "route.local-first",
+    "model_route_id": "route.local-first",
+    "modelRouteId": "route.local-first",
+    "input_tokens": 11,
+    "inputTokens": 11,
+    "output_tokens": 89,
+    "outputTokens": 89,
+    "reasoning_tokens": 0,
+    "reasoningTokens": 0,
+    "cached_input_tokens": 0,
+    "cachedInputTokens": 0,
+    "tool_result_tokens": 0,
+    "toolResultTokens": 0,
+    "compacted_tokens": 0,
+    "compactedTokens": 0,
+    "total_tokens": 100,
+    "totalTokens": 100,
+    "estimated_cost_micros": 100,
+    "estimatedCostMicros": 100,
+    "estimated_cost_usd": 0.0001,
+    "estimatedCostUsd": 0.0001,
+    "currency": "USD",
+    "context_window_tokens": 128000,
+    "contextWindowTokens": 128000,
+    "context_used_tokens": 100,
+    "contextUsedTokens": 100,
+    "context_pressure": 0.0008,
+    "contextPressure": 0.0008,
+    "context_pressure_status": "nominal",
+    "contextPressureStatus": "nominal",
+    "latency_ms": 0,
+    "latencyMs": 0,
+    "estimated": false,
+    "source_counts": {
+      "runs": 1,
+      "subagents": 0
+    },
+    "sourceCounts": {
+      "runs": 1,
+      "subagents": 0
+    },
+    "source_refs": [
+      "run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ],
+    "sourceRefs": [
+      "run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ],
+    "generated_at": "2026-05-19T21:49:03.049Z",
+    "generatedAt": "2026-05-19T21:49:03.049Z"
+  },
+  "runtimeUsage": {
+    "schema_version": "ioi.runtime.usage-telemetry.v1",
+    "schemaVersion": "ioi.runtime.usage-telemetry.v1",
+    "object": "ioi.runtime_usage_telemetry",
+    "scope": "run",
+    "thread_id": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "threadId": "thread_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "turn_id": "turn_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "turnId": "turn_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "run_id": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "agent_id": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "agentId": "agent_e31998b8-7370-46ef-93eb-bd7765ae145e",
+    "provider": "provider.local.folder",
+    "model": "local:auto",
+    "route_id": "route.local-first",
+    "routeId": "route.local-first",
+    "model_route_id": "route.local-first",
+    "modelRouteId": "route.local-first",
+    "input_tokens": 11,
+    "inputTokens": 11,
+    "output_tokens": 89,
+    "outputTokens": 89,
+    "reasoning_tokens": 0,
+    "reasoningTokens": 0,
+    "cached_input_tokens": 0,
+    "cachedInputTokens": 0,
+    "tool_result_tokens": 0,
+    "toolResultTokens": 0,
+    "compacted_tokens": 0,
+    "compactedTokens": 0,
+    "total_tokens": 100,
+    "totalTokens": 100,
+    "estimated_cost_micros": 100,
+    "estimatedCostMicros": 100,
+    "estimated_cost_usd": 0.0001,
+    "estimatedCostUsd": 0.0001,
+    "currency": "USD",
+    "context_window_tokens": 128000,
+    "contextWindowTokens": 128000,
+    "context_used_tokens": 100,
+    "contextUsedTokens": 100,
+    "context_pressure": 0.0008,
+    "contextPressure": 0.0008,
+    "context_pressure_status": "nominal",
+    "contextPressureStatus": "nominal",
+    "latency_ms": 0,
+    "latencyMs": 0,
+    "estimated": false,
+    "source_counts": {
+      "runs": 1,
+      "subagents": 0
+    },
+    "sourceCounts": {
+      "runs": 1,
+      "subagents": 0
+    },
+    "source_refs": [
+      "run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ],
+    "sourceRefs": [
+      "run_b599456e-97d0-450d-a929-be029a0b28a6"
+    ],
+    "generated_at": "2026-05-19T21:49:03.049Z",
+    "generatedAt": "2026-05-19T21:49:03.049Z"
+  },
+  "computerUse": null,
+  "diagnosticsFeedback": null,
+  "diagnosticsBlockingGate": null,
+  "subagentMemoryInheritance": null,
+  "stopCondition": {
+    "reason": "evidence_sufficient",
+    "evidenceSufficient": true,
+    "rationale": "Daemon stream, canonical Agentgres writeback, trace export, replay, and scorecard evidence were produced."
+  },
+  "qualityLedger": {
+    "ledgerId": "quality_run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "taskFamily": "local_daemon_agentgres",
+    "selectedStrategy": "local_daemon_agentgres_execution",
+    "toolSequence": [
+      "authority_check",
+      "policy_check",
+      "task_state_write",
+      "agentgres_operation_log",
+      "trace_export",
+      "canonical_replay",
+      "mcp_containment",
+      "skill_instruction_import",
+      "runtime_event_hook"
+    ],
+    "scorecardMetrics": {
+      "task_pass_rate": 100,
+      "recovery_success": 100,
+      "memory_relevance": 92,
+      "tool_quality": 96,
+      "strategy_roi": 93,
+      "operator_interventions": 0,
+      "verifier_independence": 100
+    },
+    "failureOntologyLabels": []
+  },
+  "scorecard": {
+    "taskPassRate": 1,
+    "recoverySuccess": 1,
+    "memoryRelevance": 0.92,
+    "toolQuality": 0.96,
+    "strategyRoi": 0.93,
+    "operatorInterventionRate": 0,
+    "verifierIndependence": 1
+  },
+  "canonicalState": {
+    "schemaVersion": "ioi.agentgres.runtime.v0",
+    "runId": "run_b599456e-97d0-450d-a929-be029a0b28a6",
+    "source": "agentgres_canonical_operation_log",
+    "watermark": 3,
+    "freshness": {
+      "source": "local-agentgres-v0",
+      "operationCount": 3,
+      "generatedAt": "2026-05-19T21:49:03.062Z"
+    },
+    "paths": {
+      "run": "runs/run_b599456e-97d0-450d-a929-be029a0b28a6.json",
+      "task": "tasks/run_b599456e-97d0-450d-a929-be029a0b28a6.json",
+      "job": "jobs/job_run_b599456e-97d0-450d-a929-be029a0b28a6.json",
+      "checklist": "checklists/checklist_run_b599456e-97d0-450d-a929-be029a0b28a6.json",
+      "quality": "quality/run_b599456e-97d0-450d-a929-be029a0b28a6.json",
+      "operationLog": "operation-log.jsonl"
+    },
+    "terminalState": "completed",
+    "stopCondition": {
+      "reason": "evidence_sufficient",
+      "evidenceSufficient": true,
+      "rationale": "Daemon stream, canonical Agentgres writeback, trace export, replay, and scorecard evidence were produced."
+    },
+    "scorecard": {
+      "taskPassRate": 1,
+      "recoverySuccess": 1,
+      "memoryRelevance": 0.92,
+      "toolQuality": 0.96,
+      "strategyRoi": 0.93,
+      "operatorInterventionRate": 0,
+      "verifierIndependence": 1
+    }
+  }
+}

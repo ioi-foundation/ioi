@@ -1,0 +1,52 @@
+{
+  "evidence_format": "ioi.program.canon_review_manifest.v1",
+  "manifest_role": "Content-bound enumeration of every canon subject pending baseline review, with the disposition and written reasoning of one accountable reviewer. Presenting this manifest to --accept advances the baseline. It closes no work item, certifies no stage, and changes no status.",
+  "claim": "canon_drift_reviewed_only",
+  "reviewer_ref": "reviewer://codex/hypervisor-surface-reconciliation",
+  "emitted_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+  "instructions": [
+    "Fill reviewer_ref, and per subject a disposition (unaffected | successor_required | blocked) and a review_note that argues it from what actually changed.",
+    "`unaffected` must be ARGUED. Say why this subject's change does not reach the stages, modules, and work items named in review_required below. An unargued `unaffected` is a mechanical accept with extra steps.",
+    "Never rewrite a verified closure to absorb a semantic change: disposition it `successor_required` and open a successor record that states what must now be proven.",
+    "Do not edit the ids or digests. They bind this manifest to one exact revision, and --accept refuses if they drift."
+  ],
+  "review_required": {
+    "stages": [
+      "M0",
+      "M6"
+    ],
+    "modules": [
+      "product-surface-ux-proof",
+      "runtime-trust-boundary"
+    ],
+    "work_items": [
+      "m0-program-control-selected-profile-exit-proof",
+      "m6-production-truth-fallback-retirement",
+      "m6-surface-compiler-and-source-convergence"
+    ],
+    "conformance_targets": [
+      "scripts/check-runtime-layout.mjs"
+    ],
+    "contract_families": []
+  },
+  "subject_count": 2,
+  "subject_set_sha256": "017eb869a40685a63934648cadb240c2611da4d640f4d20b58bf7f22acbf37c1",
+  "subjects": [
+    {
+      "id": "docs/evidence/runtime-layout-refactor/guardrail-report.json",
+      "change": "changed",
+      "baseline_sha256": "a80011c5d3b3308b24802ac4bcae1469c66ff996fcc848ef85307f1e245e4b0f",
+      "tree_sha256": "c0a120ed7325879fefc5893bf4193643a3eeaaddea6498834e9d08e9852aae92",
+      "disposition": "unaffected",
+      "review_note": "Restores the immutable historical guardrail bytes already bound by overlay v1/v2 after separating current reconciliation evidence under a new identity. This narrows accidental drift and does not change the M0 runtime-trust obligation or any prior closure."
+    },
+    {
+      "id": "docs/evidence/runtime-layout-refactor/hypervisor-surface-reconciliation.v1.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "76a7339cf031222ef5d0e9f07adb0d209646b17aff2ac7f46b7283975853ed05",
+      "disposition": "unaffected",
+      "review_note": "Adds a deterministic conformance-only projection of the already implemented M6 source-owned layout. Existing active records m6-production-truth-fallback-retirement and m6-surface-compiler-and-source-convergence own it and remain evidence_ready; no prior verified closure or durable behavior is widened."
+    }
+  ]
+}

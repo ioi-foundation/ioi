@@ -1,0 +1,210 @@
+{
+  "schemaVersion": "ioi.autopilot.antigravity-agent-harness-gap-audit.v1",
+  "generatedAt": "2026-05-27T00:00:00-04:00",
+  "scope": "current Autopilot Agent Studio / Rust default harness state compared with internal-docs/reverse-engineering Antigravity harness requirements",
+  "baseline": {
+    "defaultHarnessVerdict": "full_default_harness_parity_proven",
+    "defaultHarnessManifest": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/tool-catalogue-full-default-harness-parity-final-manifest.json",
+    "closedRows": 29,
+    "outsideDefaultHarnessClaimRows": 12,
+    "openRows": 0
+  },
+  "summary": {
+    "verdict": "default_harness_parity_green_antigravity_harness_parity_has_gaps",
+    "p0": 10,
+    "p1": 7,
+    "p2": 3
+  },
+  "sources": [
+    "internal-docs/reverse-engineering/antigravity-tool-catalogue.md",
+    "internal-docs/reverse-engineering/antigravity-runtime-traces.md",
+    "internal-docs/reverse-engineering/antigravity-protocol-schemas.md",
+    "internal-docs/reverse-engineering/antigravity-brain-memory-architecture.md",
+    "internal-docs/reverse-engineering/antigravity-sandbox-boundary-report.md",
+    "internal-docs/reverse-engineering/ux/antigravity-workbench-ux-reconciliation.md",
+    "docs/evidence/autopilot-agent-studio-full-default-harness-parity/final-default-harness-parity-verdict.md",
+    "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z/parity-verdict.json"
+  ],
+  "gaps": [
+    {
+      "id": "AG-HARNESS-001",
+      "priority": "P0",
+      "area": "trajectory_sqlite_protobuf_compatibility",
+      "status": "gap",
+      "currentState": "Autopilot produces JSON traces, receipts, and final manifests; default tool rows are proven.",
+      "gap": "No Antigravity-compatible seven-table SQLite trajectory store, protobuf step blobs, or replay import/export proof.",
+      "nextProof": "Persist one live run into compatible SQLite, inspect it, replay it, and resume from it."
+    },
+    {
+      "id": "AG-HARNESS-002",
+      "priority": "P0",
+      "area": "crash_restart_resume",
+      "status": "gap",
+      "currentState": "Process cleanup and restart are campaign hygiene, not product recovery proof.",
+      "gap": "No live IDE proof that killed runtime bridge/daemon resumes active run from durable trajectory state.",
+      "nextProof": "Kill runtime mid-turn, restart, reload Agent Studio, and verify resumed trajectory."
+    },
+    {
+      "id": "AG-HARNESS-003",
+      "priority": "P0",
+      "area": "runtime_cancellation",
+      "status": "gap",
+      "currentState": "Cleanup proof confirms no processes remain after scenarios.",
+      "gap": "No product Stop Agent proof that aborts model stream, shell trees, browser sessions, and subagents while recording cancelled state.",
+      "nextProof": "Stop a retained-shell plus browser turn and verify process-tree kill and cancellation trace."
+    },
+    {
+      "id": "AG-HARNESS-004",
+      "priority": "P0",
+      "area": "inline_hunk_review_ux",
+      "status": "gap",
+      "currentState": "File mutation catalogue rows are covered by the Rust catalogue, not editor hunk UX.",
+      "gap": "Missing pending hunk decorations, navigation, accept/reject controls, and rollback receipts.",
+      "nextProof": "Propose edits, accept one hunk, reject one hunk, and capture editor plus trace proof."
+    },
+    {
+      "id": "AG-HARNESS-005",
+      "priority": "P0",
+      "area": "exact_hunk_atomic_edit_semantics",
+      "status": "partial_unproven",
+      "currentState": "file__edit and file__multi_edit are represented in catalogue scenarios.",
+      "gap": "No explicit Antigravity-style stale hunk and partial multi-hunk rollback proof.",
+      "nextProof": "Run stale single-hunk and failed second-hunk fixtures and assert no mutation."
+    },
+    {
+      "id": "AG-HARNESS-006",
+      "priority": "P0",
+      "area": "active_brain_directory",
+      "status": "gap",
+      "currentState": "Autopilot has plans, traces, and memory, but no proven session brain directory.",
+      "gap": "Missing per-run implementation_plan.md, task.md, walkthrough.md, and scratch lifecycle outside workspace.",
+      "nextProof": "Create per-run brain storage, update artifacts live, and preserve read-only after completion."
+    },
+    {
+      "id": "AG-HARNESS-007",
+      "priority": "P0",
+      "area": "stop_hooks_goal_verification",
+      "status": "gap",
+      "currentState": "Verification assertions exist in focused scripts and runtime tests.",
+      "gap": "Missing user-facing stop hook that blocks completion on diagnostics/test regression and forces repair loop.",
+      "nextProof": "Attempt completion with broken code, verify blocked panel, repair, then complete."
+    },
+    {
+      "id": "AG-HARNESS-008",
+      "priority": "P0",
+      "area": "shell_sandbox_isolation",
+      "status": "partial_unproven",
+      "currentState": "Shell lifecycle and retained controls are live-proven; policy denial fixtures exist.",
+      "gap": "Missing hard Linux container isolation proof: network namespace default deny, readonly host, env scrub, output cap, timeout, process cleanup.",
+      "nextProof": "Run shell sandbox boundary matrix under one sandbox runner."
+    },
+    {
+      "id": "AG-HARNESS-009",
+      "priority": "P0",
+      "area": "policy_lease_ux",
+      "status": "gap",
+      "currentState": "Agent Studio has approval modes and policy gate surfacing.",
+      "gap": "Missing full Policy Lease Dialog and Active Leases panel with scope, policy hash, duration, revocation, affected resources.",
+      "nextProof": "Trigger elevated action, approve once, revoke, and verify subsequent denial."
+    },
+    {
+      "id": "AG-HARNESS-010",
+      "priority": "P0",
+      "area": "live_subprocess_output_cards",
+      "status": "gap",
+      "currentState": "Retained shell command controls pass; chat stays summarized.",
+      "gap": "Missing live stdout/stderr subprocess card with running/failed/succeeded states, kill control, exit code, and trace link.",
+      "nextProof": "Run long streaming command, capture live card, kill it, and verify trace."
+    },
+    {
+      "id": "AG-HARNESS-011",
+      "priority": "P1",
+      "area": "context_compilation",
+      "status": "partial_unproven",
+      "currentState": "Repo-aware fixtures and memory search/read are proven.",
+      "gap": "Active editor file, cursor, selection, diagnostics, ignore rules, and semantic index are not proven as prompt context.",
+      "nextProof": "Focused context probe with selected text, diagnostics, ignored file, and semantic hit."
+    },
+    {
+      "id": "AG-HARNESS-012",
+      "priority": "P1",
+      "area": "local_loopback_auth",
+      "status": "gap",
+      "currentState": "Autopilot has daemon endpoints and bridge receipts.",
+      "gap": "No proof of fresh local CSRF/session token enforcement and stale/missing token rejection for every bridge/RPC request.",
+      "nextProof": "Bridge-auth negative tests and GUI proof for stale/missing token rejection."
+    },
+    {
+      "id": "AG-HARNESS-013",
+      "priority": "P1",
+      "area": "subagent_monitor_scoped_workers",
+      "status": "partial_unproven",
+      "currentState": "agent__await and browser__subagent are live-proven.",
+      "gap": "Missing visual delegation lanes, child trajectory DBs, failure panel, read-only child scope, and contribution trace.",
+      "nextProof": "Run parent with two child workers, fail one, complete one, and capture delegation matrix."
+    },
+    {
+      "id": "AG-HARNESS-014",
+      "priority": "P1",
+      "area": "browser_computer_viewport_depth",
+      "status": "partial_unproven",
+      "currentState": "Compact managed session card and controls are proven.",
+      "gap": "Need true live refresh stream, Waiting for user state, manual takeover, and local browser/desktop opt-in boundary proof.",
+      "nextProof": "Manual-only browser fixture plus local-desktop opt-in fixture."
+    },
+    {
+      "id": "AG-HARNESS-015",
+      "priority": "P1",
+      "area": "typed_model_stream_protocol",
+      "status": "gap",
+      "currentState": "Ask and Agent responsibility split is product-aligned.",
+      "gap": "No typed stream contract proof equivalent to THINKING, TEXT_DELTA, TOOL_CALL, and progress state notifications.",
+      "nextProof": "Record typed stream trace for Ask and Agent with clean UI rendering."
+    },
+    {
+      "id": "AG-HARNESS-016",
+      "priority": "P1",
+      "area": "evidence_pane_artifacts",
+      "status": "gap",
+      "currentState": "Evidence exists on disk; product chat is intentionally clean.",
+      "gap": "Missing live artifact panes for implementation plans, task lists, walkthroughs, and browser snapshots.",
+      "nextProof": "Render brain artifacts in side evidence pane with runtime updates."
+    },
+    {
+      "id": "AG-HARNESS-017",
+      "priority": "P1",
+      "area": "structured_rule_policy_composer",
+      "status": "gap",
+      "currentState": "Policy checks exist in runtime and docs.",
+      "gap": "Missing structured rule editor that compiles rules into enforceable constraints.",
+      "nextProof": "Edit rule in GUI, compile to policy, and prove tool behavior changes."
+    },
+    {
+      "id": "AG-HARNESS-018",
+      "priority": "P2",
+      "area": "signed_receipts_replay",
+      "status": "gap",
+      "currentState": "Traces and receipts exist; final manifests are strong evidence.",
+      "gap": "Missing signed execution envelopes, pre/post state hashes, and click-to-replay restoration.",
+      "nextProof": "Signed receipt bundle for one file edit plus shell command; replay pre/post checkpoints."
+    },
+    {
+      "id": "AG-HARNESS-019",
+      "priority": "P2",
+      "area": "onboarding_readiness",
+      "status": "gap",
+      "currentState": "Dev scripts and evidence probes exist.",
+      "gap": "Missing Workbench bootstrapper for local binaries, sandbox support, browser support, daemon health, model routing readiness.",
+      "nextProof": "GUI readiness checklist with pass/fail states and remediation paths."
+    },
+    {
+      "id": "AG-HARNESS-020",
+      "priority": "P2",
+      "area": "provider_catalogue_parity_plus",
+      "status": "deferred_optional",
+      "currentState": "Several provider rows are outside default harness claim.",
+      "gap": "Competitiveness needs clear default/optional/marketplace provider adapter story with hermetic fixtures for promoted defaults.",
+      "nextProof": "Provider decision matrix and hermetic fixtures for any promoted default provider."
+    }
+  ]
+}

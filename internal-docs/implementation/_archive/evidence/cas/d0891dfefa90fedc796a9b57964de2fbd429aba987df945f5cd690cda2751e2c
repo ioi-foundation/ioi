@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+  "phase": "restart-after-runtime-authority-copy-fix",
+  "pattern": "[n]pm run dev:desktop|[l]aunch-autopilot-ide-fork|scripts/[i]oi-local-runtime-daemon\\.mjs|ide/builds/VSCode-linux-x64/[a]utopilot|[i]oi-runtime-bridge|[s]tartRuntimeDaemonService|packages/runtime-daemon/src/[i]ndex.mjs",
+  "before": [
+    {
+      "pid": 3826773,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot --remote-debugging-port=43561 --user-data-dir=/tmp/autopilot-agent-studio-chat-hardening-user-TziTU4 --extensions-dir=/tmp/autopilot-agent-studio-hardening-ext-n0BVaY --disable-updates --disable-workspace-trust --new-window /home/heathledger/Documents/ioi/repos/ioi"
+    },
+    {
+      "pid": 3826776,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot --type=zygote --no-zygote-sandbox"
+    },
+    {
+      "pid": 3826777,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot --type=zygote"
+    },
+    {
+      "pid": 3826779,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot --type=zygote"
+    },
+    {
+      "pid": 3826808,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot --type=gpu-process --crashpad-handler-pid=3826793 --enable-crash-reporter=8d9debad-b874-4c7d-be2f-06bb73ffca4a,no_channel --user-data-dir=/tmp/autopilot-agent-studio-chat-hardening-user-TziTU4 --gpu-preferences=WAAAAAAAAAAgAAAEAAAAAAAAAAAAAAAAAABgAAAAAAA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAGAAAAAAAAAAYAAAAAAAAAAgAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --shared-files --field-trial-handle=0,i,8336031478688977218,10463809609486675977,262144 --enable-features=kWebSQLAccess --disable-features=CalculateNativeWinOcclusion,SpareRendererForSitePerProcess --variations-seed-version"
+    },
+    {
+      "pid": 3826814,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=none --crashpad-handler-pid=3826793 --enable-crash-reporter=8d9debad-b874-4c7d-be2f-06bb73ffca4a,no_channel --user-data-dir=/tmp/autopilot-agent-studio-chat-hardening-user-TziTU4 --standard-schemes=vscode-webview,vscode-file --enable-sandbox --secure-schemes=vscode-webview,vscode-file --cors-schemes=vscode-webview,vscode-file --fetch-schemes=vscode-webview,vscode-file --service-worker-schemes=vscode-webview --code-cache-schemes=vscode-webview,vscode-file --shared-files=v8_context_snapshot_data:100 --field-trial-handle=0,i,8336031478688977218,10463809609486675977,262144 --enable-features=kWebSQLAccess --disable-features=CalculateNativeWinOcclusion,SpareRendererForSitePerProcess --variations-seed-version"
+    },
+    {
+      "pid": 3826864,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot --type=renderer --crashpad-handler-pid=3826793 --enable-crash-reporter=8d9debad-b874-4c7d-be2f-06bb73ffca4a,no_channel --user-data-dir=/tmp/autopilot-agent-studio-chat-hardening-user-TziTU4 --standard-schemes=vscode-webview,vscode-file --enable-sandbox --secure-schemes=vscode-webview,vscode-file --cors-schemes=vscode-webview,vscode-file --fetch-schemes=vscode-webview,vscode-file --service-worker-schemes=vscode-webview --code-cache-schemes=vscode-webview,vscode-file --app-path=/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/resources/app --enable-sandbox --enable-blink-features=HighlightAPI --remote-debugging-port=43561 --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=4 --time-ticks-at-unix-epoch=-1779296293625881 --launch-time-ticks=434351243385 --shared-files=v8_context_snapshot_data:100 --field-trial-handle=0,i,8336031478688977218,10463809609486675977,262144 --enable-features=kWebSQLAccess --disable-features=CalculateNativeWinOcclusion,SpareRendererForSitePerProcess --variations-seed-version --vscode-window-config=vscode:0e7701e3-78d7-40da-b7e9-ba689ea680be"
+    },
+    {
+      "pid": 3826892,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot --type=utility --utility-sub-type=node.mojom.NodeService --lang=en-US --service-sandbox-type=none --crashpad-handler-pid=3826793 --enable-crash-reporter=8d9debad-b874-4c7d-be2f-06bb73ffca4a,no_channel --user-data-dir=/tmp/autopilot-agent-studio-chat-hardening-user-TziTU4 --standard-schemes=vscode-webview,vscode-file --enable-sandbox --secure-schemes=vscode-webview,vscode-file --cors-schemes=vscode-webview,vscode-file --fetch-schemes=vscode-webview,vscode-file --service-worker-schemes=vscode-webview --code-cache-schemes=vscode-webview,vscode-file --shared-files=v8_context_snapshot_data:100 --field-trial-handle=0,i,8336031478688977218,10463809609486675977,262144 --enable-features=kWebSQLAccess --disable-features=CalculateNativeWinOcclusion,SpareRendererForSitePerProcess --variations-seed-version"
+    },
+    {
+      "pid": 3826893,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot --type=utility --utility-sub-type=node.mojom.NodeService --lang=en-US --service-sandbox-type=none --crashpad-handler-pid=3826793 --enable-crash-reporter=8d9debad-b874-4c7d-be2f-06bb73ffca4a,no_channel --user-data-dir=/tmp/autopilot-agent-studio-chat-hardening-user-TziTU4 --standard-schemes=vscode-webview,vscode-file --enable-sandbox --secure-schemes=vscode-webview,vscode-file --cors-schemes=vscode-webview,vscode-file --fetch-schemes=vscode-webview,vscode-file --service-worker-schemes=vscode-webview --code-cache-schemes=vscode-webview,vscode-file --shared-files=v8_context_snapshot_data:100 --field-trial-handle=0,i,8336031478688977218,10463809609486675977,262144 --enable-features=kWebSQLAccess --disable-features=CalculateNativeWinOcclusion,SpareRendererForSitePerProcess --variations-seed-version"
+    },
+    {
+      "pid": 3826912,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot --type=utility --utility-sub-type=node.mojom.NodeService --lang=en-US --service-sandbox-type=none --dns-result-order=ipv4first --inspect-port=0 --crashpad-handler-pid=3826793 --enable-crash-reporter=8d9debad-b874-4c7d-be2f-06bb73ffca4a,no_channel --user-data-dir=/tmp/autopilot-agent-studio-chat-hardening-user-TziTU4 --standard-schemes=vscode-webview,vscode-file --enable-sandbox --secure-schemes=vscode-webview,vscode-file --cors-schemes=vscode-webview,vscode-file --fetch-schemes=vscode-webview,vscode-file --service-worker-schemes=vscode-webview --code-cache-schemes=vscode-webview,vscode-file --shared-files=v8_context_snapshot_data:100 --field-trial-handle=0,i,8336031478688977218,10463809609486675977,262144 --enable-features=kWebSQLAccess --disable-features=CalculateNativeWinOcclusion,SpareRendererForSitePerProcess --variations-seed-version"
+    },
+    {
+      "pid": 3826940,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot --type=renderer --crashpad-handler-pid=3826793 --enable-crash-reporter=8d9debad-b874-4c7d-be2f-06bb73ffca4a,no_channel --user-data-dir=/tmp/autopilot-agent-studio-chat-hardening-user-TziTU4 --standard-schemes=vscode-webview,vscode-file --enable-sandbox --secure-schemes=vscode-webview,vscode-file --cors-schemes=vscode-webview,vscode-file --fetch-schemes=vscode-webview,vscode-file --service-worker-schemes=vscode-webview --code-cache-schemes=vscode-webview,vscode-file --app-path=/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/resources/app --enable-sandbox --enable-blink-features=HighlightAPI --remote-debugging-port=43561 --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=8 --time-ticks-at-unix-epoch=-1779296293625881 --launch-time-ticks=434352228715 --shared-files=v8_context_snapshot_data:100 --field-trial-handle=0,i,8336031478688977218,10463809609486675977,262144 --enable-features=kWebSQLAccess --disable-features=CalculateNativeWinOcclusion,SpareRendererForSitePerProcess --variations-seed-version --vscode-window-config=vscode:0e7701e3-78d7-40da-b7e9-ba689ea680be"
+    },
+    {
+      "pid": 3827028,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot /home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/resources/app/extensions/json-language-features/server/dist/node/jsonServerMain --node-ipc --clientProcessId=3826912"
+    },
+    {
+      "pid": 3827372,
+      "command": "/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/autopilot --type=renderer --crashpad-handler-pid=3826793 --enable-crash-reporter=8d9debad-b874-4c7d-be2f-06bb73ffca4a,no_channel --user-data-dir=/tmp/autopilot-agent-studio-chat-hardening-user-TziTU4 --standard-schemes=vscode-webview,vscode-file --enable-sandbox --secure-schemes=vscode-webview,vscode-file --cors-schemes=vscode-webview,vscode-file --fetch-schemes=vscode-webview,vscode-file --service-worker-schemes=vscode-webview --code-cache-schemes=vscode-webview,vscode-file --app-path=/home/heathledger/Documents/ioi/repos/ioi/ide/builds/VSCode-linux-x64/resources/app --enable-sandbox --enable-blink-features=HighlightAPI --remote-debugging-port=43561 --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=9 --time-ticks-at-unix-epoch=-1779296293625881 --launch-time-ticks=434354027024 --shared-files=v8_context_snapshot_data:100 --field-trial-handle=0,i,8336031478688977218,10463809609486675977,262144 --enable-features=kWebSQLAccess --disable-features=CalculateNativeWinOcclusion,SpareRendererForSitePerProcess --variations-seed-version --vscode-window-config=vscode:0e7701e3-78d7-40da-b7e9-ba689ea680be"
+    }
+  ],
+  "stubborn": [],
+  "after": [],
+  "cleaned": 13,
+  "ok": true,
+  "timestamp": "2026-05-25T17:37:34.117Z"
+}

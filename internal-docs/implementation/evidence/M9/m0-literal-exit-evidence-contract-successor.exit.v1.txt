@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-literal-exit-evidence-contract-successor
+ARTIFACT=internal-docs/implementation/tools/check-literal-exit-contract.mjs
+ARTIFACT_SHA256=96bfcf35b38381bb53f10d010be31ef2dffdd915c1af4c174120c4c148a011d9
+M0_LITERAL_EXIT_EVIDENCE_CONTRACT_SUCCESSOR_EXIT=0
+NONCLAIM=This binds the shared literal-log validator, historical-disposition refusals, and exact legacy registration check; it does not validate malformed predecessor prose.

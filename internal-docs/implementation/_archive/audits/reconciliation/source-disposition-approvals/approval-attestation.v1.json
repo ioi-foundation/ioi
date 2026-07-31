@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.program.source-disposition-approval-attestation.v1",
+  "document_class": "work_record",
+  "revision": 1,
+  "transaction_id": "source-disposition-root-finalization-2026-07-23",
+  "predecessor": null,
+  "approval_scope": "the exact complete root source-disposition snapshot; no filesystem discovery or prefix rule grants approval",
+  "approval_basis": "Explicit user-directed source-disposition finalization under master-guide section 14; this records artifact identity and does not claim a cryptographic signature.",
+  "approved_snapshot_path": "audits/reconciliation/source-disposition-approvals/approved-source-dispositions.v1.json",
+  "approved_snapshot_sha256": "e1aa9149495c0d943d852265991df106ef89f2332e6d79c4954552f58a5c0cec",
+  "current_path_count": 309,
+  "complete_current_disposition_rows_sha256": "c342c46e0494f3ebd1dc197fe68cec5f3137fcc4b99c8bc11a698ca3ee7455eb",
+  "approved_disposition_decisions_sha256": "9494c9b55e1426a7dc869f7a327810cf10bfa42f104d31454ef16d06fcd2dea2",
+  "reviewed_successor_protocol": {
+    "mode": "append_only_content_addressed_successor",
+    "auto_discovery_permitted": false,
+    "in_place_replacement_permitted": false,
+    "checker_pin_required": true,
+    "rule": "Retain every prior snapshot and attestation; review the exact derived row delta; add new files and append their exact hashes to SEALED_APPROVAL_CHAIN."
+  },
+  "nonclaim": "This attestation records review scope and artifact identity only; it proves no implementation, product behavior, work status, or stage closure."
+}

@@ -1,0 +1,116 @@
+# NOW
+
+Generated. Do not edit. `node internal-docs/implementation/tools/generate-now.mjs --write`
+
+This file is a projection. It owns no sequence and no status. Sequence lives in
+[`program/sequence.v1.json`](./program/sequence.v1.json); status lives in the work-item record named below.
+
+## Open stages
+
+| Stage | State | Records | Exit gate |
+| --- | --- | --- | --- |
+| [M0](./stages/m0.md) — Program Control And Claim Lock | evidence_ready — **exit gate held by osh-0025** | verified_historical_with_open_successor 8, verified 3 | `m0-program-control-selected-profile-exit-proof` |
+| [M4](./stages/m4.md) — OutcomeRoom As The Flagship Bounded DAS | pending | proposed 2 | `m4-outcome-room-system-spine` |
+
+## Earliest open stage
+
+**M0 — Program Control And Claim Lock** (evidence_ready)
+
+- why it is current: exact sequence exit gate is verified_historical_with_open_successor under osh-0025
+- depends on: (nothing)
+- stage module: [`stages/m0.md`](./stages/m0.md)
+- records: 11 (verified_historical_with_open_successor 8, verified 3)
+- exit gate: `m0-program-control-selected-profile-exit-proof`
+
+## Next cut
+
+**`m4-room-graph-truth-and-product-projection`** — proposed
+
+Produce the bounded plan, owner integration, product/operator states, and proof bundle for Split truth/replay from minimum Goal Space/Work/Governance/Provenance proof projections; M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0.
+
+- record: [`work-items/proposed/m4-room-graph-truth-and-product-projection.v1.json`](./work-items/proposed/m4-room-graph-truth-and-product-projection.v1.json)
+- status authority: `private_record` → `internal-docs/implementation/work-items/proposed/m4-room-graph-truth-and-product-projection.v1.json`
+- dependencies satisfied: yes
+- canon owners:
+  - `docs/architecture/components/agentgres/api-object-model.md`
+  - `docs/architecture/components/agentgres/artifact-ref-plane.md`
+  - `docs/architecture/components/agentgres/doctrine.md`
+  - `docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md`
+  - `docs/architecture/components/agentgres/projection-system-reference.md`
+  - `docs/architecture/components/hypervisor/core-clients-surfaces.md`
+  - `docs/architecture/components/hypervisor/evaluations.md`
+  - `docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md`
+  - `docs/architecture/domains/ioi-ai/control-plane.md`
+  - `docs/architecture/foundations/governed-autonomous-systems.md`
+  - `docs/architecture/foundations/invariants.md`
+  - `docs/architecture/foundations/objects/evidence-and-delivery.md`
+- in scope:
+  - `ROOMS`, `SYSTEM`, `AGENTGRES`, `SURFACES`; OutcomeRoom, CollaborativeWorkGraph, admitted-child, membership, acceptance/verdict/export families
+  - Split truth/replay from minimum Goal Space/Work/Governance/Provenance proof projections; the declared literal exit contract
+  - Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim.
+- out of scope:
+  - Direct UI graph write, wrong-System child, stale verdict, export leakage; does not own those applications' complete journeys
+  - This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.
+  - Creating this record does not implement behavior, activate work, close its literal exit, or change a stage.
+
+## Permitted differential lanes
+
+These lanes are derived from structured exceptions in `program/sequence.v1.json`. They do not change stage state or satisfy a stage dependency.
+
+None currently permitted.
+
+## Open successor holds
+
+Source of truth: [`./_archive/holds/open-successor-holds.v1.json`](./_archive/holds/open-successor-holds.v1.json). A hold opens when a review dispositions a change `successor_required`, or when a
+verification is withdrawn. While it is open every predecessor closure it names projects as
+`verified_historical_with_open_successor` — proven against the revision it was proven against, with a
+successor owed and unwritten. It is never projected as unqualified `verified`.
+
+| Hold | Subject | Source | Required successor | Predecessors projected as qualified |
+| --- | --- | --- | --- | --- |
+| `osh-0019` | `docs/architecture/components/daemon-runtime/doctrine.md` | canon_acceptance_disposition (acceptance 3) | `m9-hypervisor-app-primary-attach-binding-and-retirement` | 2 |
+| `osh-0020` | `docs/architecture/components/hypervisor/core-clients-surfaces.md` | canon_acceptance_disposition (acceptance 3) | `m9-hypervisor-app-primary-attach-binding-and-retirement` | 6 |
+| `osh-0025` | `docs/decisions/README.md` | canon_acceptance_disposition (acceptance 3) | `m9-hypervisor-app-primary-attach-binding-and-retirement` | 9 |
+
+15 verified record(s) project as `verified_historical_with_open_successor`:
+
+- `m0-adjacent-canon-doc-class-and-placement-disposition` — held by osh-0025
+- `m0-canon-owner-coverage-and-orphan-verifier` — held by osh-0025
+- `m0-literal-exit-evidence-contract` — held by osh-0025
+- `m0-program-control-selected-profile-exit-proof` — held by osh-0025
+- `m0-route-final-invoker-pg-census-maintenance` — held by osh-0019, osh-0020
+- `m0-selected-profile-baseline-and-claim-lock-successor` — held by osh-0025
+- `m0-selected-profile-baseline-evidence-and-claim-lock` — held by osh-0025
+- `m0-source-disposition-and-single-sequencer-successor` — held by osh-0025
+- `m0-source-disposition-and-single-sequencer-verifier` — held by osh-0025
+- `m0-work-item-contract-completeness-and-owner-lint` — held by osh-0025
+- `m1-dual-genesis-and-read-projection` — held by osh-0020
+- `m1-system-genesis-product-journey` — held by osh-0020
+- `m2-agentgres-replay-recovery-and-product-topology` — held by osh-0020
+- `project-discovery-startup-and-session-chain` — held by osh-0019, osh-0020
+- `scm-publication-effect-and-route-rebuild` — held by osh-0020
+
+## What to run
+
+```text
+while developing   node internal-docs/implementation/tools/check-fast.mjs
+at stage exit      node internal-docs/implementation/tools/certify-stage.mjs M0
+at a release gate  node internal-docs/implementation/tools/check-program.mjs
+```
+
+## What blocks advancement
+
+- open successor hold `osh-0019` on `docs/architecture/components/daemon-runtime/doctrine.md`: successor `m9-hypervisor-app-primary-attach-binding-and-retirement`; 2 predecessor closure(s) project as `verified_historical_with_open_successor`
+- open successor hold `osh-0020` on `docs/architecture/components/hypervisor/core-clients-surfaces.md`: successor `m9-hypervisor-app-primary-attach-binding-and-retirement`; 6 predecessor closure(s) project as `verified_historical_with_open_successor`
+- open successor hold `osh-0025` on `docs/decisions/README.md`: successor `m9-hypervisor-app-primary-attach-binding-and-retirement`; 9 predecessor closure(s) project as `verified_historical_with_open_successor`
+- stage exit requires the aggregate record `m0-program-control-selected-profile-exit-proof` to reach `verified` on proof
+
+## Provenance
+
+```text
+checkout        3ddda174faf2bb1a90d2dfd96d9fb034038afe85 (owner-ratification-authority-and-hypervisor-floor)
+origin/master   7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb
+checkout is an ancestor of master: NO — this projection is bound to a checkout that has not landed
+```
+
+Route presence, an HTTP 200, a screenshot, a plan, or a process exit code is not proof. See [`program/rules.md`](./program/rules.md) §6.

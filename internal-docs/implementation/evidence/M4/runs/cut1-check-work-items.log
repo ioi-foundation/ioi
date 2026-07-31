@@ -1,0 +1,5 @@
+
+> check:work-items
+> node scripts/check-work-items.mjs
+
+work-item check passed: 7 records, 0 pr_open anchors pending in this checkout.

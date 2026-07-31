@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m3-result-lifecycle-negative-retention
+ARTIFACT=internal-docs/implementation/evidence/M3/m3-selected-profile-e2e.v1.json
+ARTIFACT_SHA256=3e7239fc615a5841f1dfeade7ff8538d0d0e00372d54fa16eb09138e5b1ab09a
+M3_RESULT_LIFECYCLE_NEGATIVE_RETENTION_EXIT=0
+NONCLAIM=Generic negative-result and lifecycle retention are proven; this does not grant result acceptance authority or close archive-scale claims.

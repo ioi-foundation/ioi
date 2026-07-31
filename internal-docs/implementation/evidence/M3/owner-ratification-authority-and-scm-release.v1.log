@@ -1,0 +1,2002 @@
+IOI_OWNER_RATIFICATION_RELEASE_EVIDENCE=v1
+CLAIM_BOUNDARY=Immediate source-neutral authorized-issuer, atomic consumption, affected-route fence, recovery reuse, and SCM v2 implementation proof only. This artifact does not activate standing-authority v3 or make the Hypervisor App primary.
+
+CHECK=affected-route-census
+COMMAND=node scripts/verify-affected-route-authority-census.mjs
+STATUS=0
+STDOUT_BEGIN
+affected-route authority census: PASS (whole mutating universe 453 @ 2574175d036a1c19bc47c38f45fb7db64255e0c291defa12862adb5fe8a7450e; 39 repaired overlay registrations; 17 retained controls; 2 explicit non-effect POST registrations; 395 registrations statically outside this approval-grant dataflow; 3 recovery aliases; 4 branch exclusions)
+STDOUT_END
+
+CHECK=raw-verifier-source-fence
+COMMAND=cargo test -p ioi-types --test live_authority_source_policy
+STATUS=0
+STDOUT_BEGIN
+
+running 1 test
+test live_routes_cannot_call_the_raw_approval_grant_verifier ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+STDOUT_END
+STDERR_BEGIN
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41368:9
+      |
+41368 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+      |
+      = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41369:9
+      |
+41369 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41681:9
+      |
+41681 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42100:9
+      |
+42100 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42101:9
+      |
+42101 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42500:9
+      |
+42500 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42501:9
+      |
+42501 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42950:9
+      |
+42950 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42951:9
+      |
+42951 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43266:9
+      |
+43266 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43267:9
+      |
+43267 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43706:9
+      |
+43706 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43915:9
+      |
+43915 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44153:9
+      |
+44153 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44154:9
+      |
+44154 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44412:9
+      |
+44412 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44413:9
+      |
+44413 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: `ioi-types` (lib) generated 17 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.21s
+     Running tests/live_authority_source_policy.rs (target/debug/deps/live_authority_source_policy-b00cd2de7bb4390f)
+STDERR_END
+
+CHECK=fixture-minter-link-fence
+COMMAND=cargo test -p ioi-node --test production_authority_fixture_symbols
+STATUS=0
+STDOUT_BEGIN
+
+running 1 test
+test approval_grant_minters_are_test_scoped_and_absent_from_the_production_daemon ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.29s
+STDOUT_END
+STDERR_BEGIN
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41368:9
+      |
+41368 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+      |
+      = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41369:9
+      |
+41369 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41681:9
+      |
+41681 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42100:9
+      |
+42100 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42101:9
+      |
+42101 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42500:9
+      |
+42500 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42501:9
+      |
+42501 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42950:9
+      |
+42950 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42951:9
+      |
+42951 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43266:9
+      |
+43266 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43267:9
+      |
+43267 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43706:9
+      |
+43706 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43915:9
+      |
+43915 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44153:9
+      |
+44153 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44154:9
+      |
+44154 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44412:9
+      |
+44412 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44413:9
+      |
+44413 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: `ioi-types` (lib) generated 17 warnings
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: `ioi-services` (lib) generated 8 warnings (run `cargo fix --lib -p ioi-services` to apply 1 suggestion)
+warning: unused import: `remove_record`
+  --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:32:55
+   |
+32 | use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
+   |                                                       ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary parentheses around closure body
+    --> crates/node/src/bin/hypervisor-daemon.rs:4783:22
+     |
+4783 |     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+     |                      ^                                                              ^
+     |
+     = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+     |
+4783 -     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+4783 +     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+     |
+
+warning: unnecessary parentheses around closure body
+    --> crates/node/src/bin/hypervisor-daemon.rs:4823:22
+     |
+4823 |     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+     |                      ^                                                              ^
+     |
+help: remove these parentheses
+     |
+4823 -     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+4823 +     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+     |
+
+warning: variable does not need to be mutable
+    --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:1653:9
+     |
+1653 |     let mut record_edges =
+     |         ----^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> crates/node/src/bin/hypervisor_daemon_routes/storage_backend_routes.rs:1288:9
+     |
+1288 |     let mut fail = |reason: String, verification: Value| {
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: unused variable: `inbound`
+   --> crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs:915:5
+    |
+915 |     inbound: axum::http::HeaderMap,
+    |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_inbound`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable `final_count` is assigned to, but never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs:166:9
+    |
+166 |     let mut final_count = 0usize;
+    |         ^^^^^^^^^^^^^^^
+    |
+    = note: consider using `_final_count` instead
+
+warning: value assigned to `final_count` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs:219:13
+    |
+219 |             final_count += 1;
+    |             ^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `url`, `capability_lease_ref`, and `workspace_root` are never read
+   --> crates/node/src/bin/hypervisor-daemon.rs:269:16
+    |
+267 | pub(crate) struct PreviewServer {
+    |                   ------------- fields in this struct
+268 |     pub(crate) port: u16,
+269 |     pub(crate) url: String,
+    |                ^^^
+270 |     pub(crate) capability_lease_ref: String,
+    |                ^^^^^^^^^^^^^^^^^^^^
+271 |     pub(crate) workspace_root: String,
+    |                ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `internal_port`, `log_path`, `started_at`, and `workspace_root` are never read
+  --> crates/node/src/bin/hypervisor_daemon_routes/editor_host.rs:25:16
+   |
+23 | pub(crate) struct EditorRuntime {
+   |                   ------------- fields in this struct
+24 |     pub(crate) child: std::process::Child,
+25 |     pub(crate) internal_port: u16,
+   |                ^^^^^^^^^^^^^
+26 |     pub(crate) log_path: String,
+   |                ^^^^^^^^
+27 |     pub(crate) started_at: String,
+   |                ^^^^^^^^^^
+28 |     pub(crate) workspace_root: String,
+   |                ^^^^^^^^^^^^^^
+
+warning: fields `public_port`, `internal_port`, `lease_id`, `service_id`, and `join` are never read
+  --> crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs:20:16
+   |
+19 | pub(crate) struct EditorProxy {
+   |                   ----------- fields in this struct
+20 |     pub(crate) public_port: u16,
+   |                ^^^^^^^^^^^
+21 |     pub(crate) internal_port: u16,
+   |                ^^^^^^^^^^^^^
+22 |     pub(crate) lease_id: String,
+   |                ^^^^^^^^
+23 |     pub(crate) service_id: String,
+   |                ^^^^^^^^^^
+24 |     pub(crate) shutdown: tokio::sync::oneshot::Sender<()>,
+25 |     pub(crate) join: tokio::task::JoinHandle<()>,
+   |                ^^^^
+
+warning: methods `record` and `durable` are never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs:89:19
+   |
+88 | impl MutationOutcome {
+   | -------------------- methods in this implementation
+89 |     pub(crate) fn record(&self) -> &Value {
+   |                   ^^^^^^
+...
+99 |     pub(crate) fn durable(&self) -> bool {
+   |                   ^^^^^^^
+
+warning: constant `SCM_PUBLICATION_AUTHORITY` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:51:18
+   |
+51 | pub(crate) const SCM_PUBLICATION_AUTHORITY: AuthorityContract = AuthorityContract {
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `claim_id`, `reference`, and `effect_hash` are never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:265:19
+    |
+264 | impl FinalInvocationClaim {
+    | ------------------------- methods in this implementation
+265 |     pub(crate) fn claim_id(&self) -> &str {
+    |                   ^^^^^^^^
+...
+269 |     pub(crate) fn reference(&self) -> &str {
+    |                   ^^^^^^^^^
+...
+273 |     pub(crate) fn effect_hash(&self) -> &str {
+    |                   ^^^^^^^^^^^
+
+warning: function `final_invocation_disposition` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:999:15
+    |
+999 | pub(crate) fn final_invocation_disposition(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `decision_policy_hash` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:1160:15
+     |
+1160 | pub(crate) fn decision_policy_hash(
+     |               ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `authorize_decision_for_resolution` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:1571:15
+     |
+1571 | pub(crate) fn authorize_decision_for_resolution(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `IMPROVEMENT_STATES` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:2258:7
+     |
+2258 | const IMPROVEMENT_STATES: &[&str] = &["pending", "approved", "rejected", "applied", "superseded"];
+     |       ^^^^^^^^^^^^^^^^^^
+
+warning: field `run_dir` is never read
+  --> crates/node/src/bin/hypervisor_daemon_routes/microvm.rs:78:9
+   |
+75 | pub(crate) struct VmHandle {
+   |                   -------- field in this struct
+...
+78 |     pub run_dir: PathBuf,
+   |         ^^^^^^^
+
+warning: function `decision_policy_hash` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:245:4
+    |
+245 | fn decision_policy_hash(gov: Gov, room_ref: &str, required_authority: &str, op: &str) -> String {
+    |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `decision_request_hash` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:248:4
+    |
+248 | fn decision_request_hash(
+    |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type alias `VerifiedAuthorityResolution` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:297:6
+    |
+297 | type VerifiedAuthorityResolution = governed::VerifiedAuthorityResolution;
+    |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `authorize_decision_for_resolution` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:303:4
+    |
+303 | fn authorize_decision_for_resolution(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: variant `Opened` is never constructed
+   --> crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs:176:5
+    |
+174 | pub(crate) enum ReviewRequestOpenOutcome {
+    |                 ------------------------ variant in this enum
+175 |     /// A review request was opened; this is its locator.
+176 |     Opened {
+    |     ^^^^^^
+    |
+    = note: `ReviewRequestOpenOutcome` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `prior_effects` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs:566:16
+    |
+560 | pub(crate) struct ScmPublicationSource {
+    |                   -------------------- field in this struct
+...
+566 |     pub(crate) prior_effects: Vec<Value>,
+    |                ^^^^^^^^^^^^^
+
+warning: function `execute_scm_publication` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs:1319:15
+     |
+1319 | pub(crate) fn execute_scm_publication<P: ScmRemotePort>(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `observation_tail` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs:1520:4
+     |
+1520 | fn observation_tail(observed: &ObservedHeads, target_ref: &str) -> String {
+     |    ^^^^^^^^^^^^^^^^
+
+warning: function `refusal_err` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs:1539:4
+     |
+1539 | fn refusal_err(verdict: ioi_types::app::scm_publication::ScmPublicationVerdict) -> VErr {
+     |    ^^^^^^^^^^^
+
+warning: function `persist_effect_graph` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs:1553:4
+     |
+1553 | fn persist_effect_graph(data_dir: &str, effect: &Value, now: &str) -> Result<Vec<Value>, VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MINIMUM_TOPOLOGY_ROUTE` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/system_topology_routes.rs:45:18
+   |
+45 | pub(crate) const MINIMUM_TOPOLOGY_ROUTE: &str =
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `transitions` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/system_writer_routes.rs:230:9
+    |
+225 | pub(crate) struct WriterSource {
+    |                   ------------ field in this struct
+...
+230 |     pub transitions: Vec<Value>,
+    |         ^^^^^^^^^^^
+
+warning: `ioi-node` (bin "hypervisor-daemon") generated 31 warnings (run `cargo fix --bin "hypervisor-daemon" -p ioi-node` to apply 6 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.29s
+     Running tests/production_authority_fixture_symbols.rs (target/debug/deps/production_authority_fixture_symbols-61775d5f53846fb7)
+STDERR_END
+
+CHECK=approval-v1-v2-history
+COMMAND=cargo test -p ioi-services agentic::runtime::kernel::approval --lib
+STATUS=0
+STDOUT_BEGIN
+
+running 61 tests
+test agentic::runtime::kernel::approval::tests::rejects_out_of_scope_authority ... ok
+test agentic::runtime::kernel::approval::tests::matches_operation_label ... ok
+test agentic::runtime::kernel::approval::tests::matches_domain_scope_from_params ... ok
+test agentic::runtime::kernel::approval::tests::rust_approval_request_state_update_rejects_js_candidate_transport ... ok
+test agentic::runtime::kernel::approval::tests::rust_approval_request_state_update_requires_state_dir ... ok
+test agentic::runtime::kernel::approval::tests::rust_approval_request_state_update_rejects_cross_thread_run_id_replay ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_blocks_coding_tool_approval_satisfaction_mismatch ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_authorizes_approval_request_with_authority_receipt ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_plans_approval_request_state_update_from_state_dir_without_run_id ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_omits_local_read_coding_tool_approval_manifest ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_blocks_expired_coding_tool_approval_lease ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_plans_approval_request_state_update ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_plans_approval_request_agent_state_update ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_plans_coding_tool_approval_satisfaction ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_plans_coding_tool_approval_block_result_event ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_plans_coding_tool_approval_manifest ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_approval_request_state_update_without_authority_binding ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_approval_request_without_authority_receipt ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_approval_request_state_update_with_mismatched_authority_hash ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_binds_matching_policy_request_and_unexpired_grant ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_approval_decision_without_authority_grant ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_invalid_approval_request_state_update_schema ... ok
+test agentic::runtime::kernel::approval::tests::rust_approval_decision_state_update_requires_state_dir ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_invalid_coding_tool_approval_schema ... ok
+test agentic::runtime::kernel::approval::tests::rust_approval_revoke_state_update_rejects_js_candidate_transport ... ok
+test agentic::runtime::kernel::approval::tests::rust_approval_revoke_state_update_requires_state_dir ... ok
+test agentic::runtime::kernel::approval::tests::rust_approval_decision_state_update_rejects_js_candidate_transport ... ok
+test agentic::runtime::kernel::approval::tests::rust_approval_satisfaction_projection_requires_state_dir ... ok
+test agentic::runtime::kernel::approval::tests::rust_approval_satisfaction_projection_rejects_js_candidate_transport ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_plans_approval_decision_agent_state_update ... ok
+test agentic::runtime::kernel::approval::tests::rust_core_shapes_approval_request_authority_protocol_response ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_approval_decision_state_update_without_wallet_authority ... ok
+test agentic::runtime::kernel::approval::tests::rust_approval_queue_projection_requires_state_dir ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_plans_rejected_approval_decision_turn_input_state ... ok
+test agentic::runtime::kernel::approval::tests::rust_core_shapes_coding_tool_approval_protocol_response ... ok
+test agentic::runtime::kernel::approval::tests::rust_core_shapes_approval_request_state_update_protocol_response ... ok
+test agentic::runtime::kernel::approval::tests::rust_core_shapes_coding_tool_approval_satisfaction_protocol_response ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_plans_approval_revoke_state_update ... ok
+test agentic::runtime::kernel::approval::tests::rust_core_shapes_coding_tool_approval_block_protocol_response ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_plans_approval_revoke_agent_state_update ... ok
+test agentic::runtime::kernel::approval::tests::rust_approval_queue_projection_rejects_js_candidate_transport ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_projects_coding_tool_approval_satisfaction_from_state_dir_replay ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_authorizes_approval_decision_with_wallet_network_grant ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_reject_decision_without_wallet_approval_grant ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_revoke_decision_without_wallet_approval_grant ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_projects_public_approval_queue_with_resolved_records ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_authorizes_approval_decision_with_neutral_authority_grant ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_plans_approval_decision_state_update ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_projects_public_approval_queue_pending_only ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_policy_hash_mismatch ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_invalid_approval_revoke_state_update_schema ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_invalid_approval_decision_state_update_schema ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_request_hash_mismatch ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_approval_revoke_state_update_without_wallet_authority ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_rejects_expired_grant ... ok
+test agentic::runtime::kernel::approval::tests::rust_core_shapes_approval_decision_state_update_protocol_response ... ok
+test agentic::runtime::kernel::approval::tests::rust_core_shapes_approval_revoke_state_update_protocol_response ... ok
+test agentic::runtime::kernel::approval::tests::rust_core_shapes_coding_tool_approval_satisfaction_projection_protocol_response ... ok
+test agentic::runtime::kernel::approval::tests::rust_core_shapes_approval_decision_authority_protocol_response ... ok
+test agentic::runtime::kernel::approval::tests::rust_core_shapes_public_approval_queue_protocol_response ... ok
+test agentic::runtime::kernel::approval::tests::rust_authority_projects_revoked_approval_as_latest_decision ... ok
+
+test result: ok. 61 passed; 0 failed; 0 ignored; 0 measured; 3447 filtered out; finished in 0.07s
+STDOUT_END
+STDERR_BEGIN
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41368:9
+      |
+41368 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+      |
+      = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41369:9
+      |
+41369 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41681:9
+      |
+41681 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42100:9
+      |
+42100 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42101:9
+      |
+42101 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42500:9
+      |
+42500 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42501:9
+      |
+42501 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42950:9
+      |
+42950 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42951:9
+      |
+42951 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43266:9
+      |
+43266 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43267:9
+      |
+43267 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43706:9
+      |
+43706 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43915:9
+      |
+43915 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44153:9
+      |
+44153 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44154:9
+      |
+44154 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44412:9
+      |
+44412 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44413:9
+      |
+44413 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: `ioi-types` (lib) generated 17 warnings
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.27s
+     Running unittests src/lib.rs (target/debug/deps/ioi_services-ef254211342629ac)
+STDERR_END
+
+CHECK=daemon-route-and-recovery-suite
+COMMAND=cargo test -p ioi-node --bin hypervisor-daemon
+STATUS=0
+STDOUT_BEGIN
+
+running 427 tests
+test attempt_finding_routes::attempt_finding_tests::canonical_prefix_refs_do_not_accept_uri_substitutions ... ok
+test attempt_finding_routes::attempt_finding_tests::canonical_ids_are_exact_64_hex ... ok
+test attempt_finding_routes::attempt_finding_tests::strict_loader_distinguishes_absent_from_malformed ... ok
+test attempt_finding_routes::attempt_finding_tests::room_coordinate_ignores_only_owner_backlink_churn ... ok
+test attempt_finding_routes::attempt_finding_tests::recursively_rejects_secret_bearing_payloads ... ok
+test attempt_finding_routes::attempt_finding_tests::finding_uncertainty_and_future_verdicts_fail_closed ... ok
+test capability_lease_plan_routes::capability_lease_plan_tests::gateway_is_the_existing_primitive_and_ttl_is_bounded ... ok
+test attempt_finding_routes::attempt_finding_tests::touched_refs_are_exact_sorted_aggregate_reservations ... ok
+test capability_lease_plan_routes::capability_lease_plan_tests::bypass_keys_are_named ... ok
+test capability_lease_plan_routes::capability_lease_plan_tests::subset_of_finds_the_widening_element ... ok
+test connector_execution_routes::connector_execution_tests::allowlist_and_bounds_are_narrow ... ok
+test connector_execution_routes::connector_execution_tests::endpoint_redaction_strips_userinfo_and_query ... ok
+test connector_execution_routes::connector_execution_tests::executed_run_clears_missing_authority ... ok
+test capability_lease_plan_routes::capability_lease_plan_tests::high_risk_ops_match_the_view_contract ... ok
+test connector_execution_routes::connector_execution_tests::run_bindings_always_include_key_and_title ... ok
+test connector_execution_routes::connector_execution_tests::source_hash_is_stable_and_prefixed ... ok
+test connector_mapping_routes::connector_mapping_tests::resolve_base_prefers_declared_value_type_then_literal ... ok
+test connector_mapping_routes::connector_mapping_tests::source_field_types_and_missing_contracts_are_named ... ok
+test connector_mapping_routes::connector_mapping_tests::value_compat_is_conservative ... ok
+test connector_session_routes::connector_session_tests::lease_expiry_only_when_declared_and_past ... ok
+test connector_session_routes::connector_session_tests::lifecycle_and_missing_authority_are_explicit ... ok
+test connector_session_routes::connector_session_tests::connector_authority_binds_credential_to_endpoint ... ok
+test connector_session_routes::connector_session_tests::local_source_kinds_have_no_session ... ok
+test connector_session_routes::connector_session_tests::scope_keys_cover_every_restatement_path ... ok
+test connector_session_routes::connector_session_tests::session_release_wording_is_honest_about_execution ... ok
+test connector_execution_routes::connector_execution_tests::source_type_validation_is_conservative ... ok
+test cron_tests::offset_parsing ... ok
+test cron_tests::step_minutes ... ok
+test data_source_routes::data_source_tests::credentialed_endpoints_are_detected ... ok
+test attempt_finding_routes::attempt_finding_tests::attempt_create_reconstructs_and_effect_swap_refuses ... ok
+test data_source_routes::data_source_tests::plaintext_secret_keys_are_named ... ok
+test data_source_routes::data_source_tests::typed_bounded_fields_refuse_wrong_types_and_oversize ... ok
+test cron_tests::validate_and_dispatch ... ok
+test domain_apps_routes::domain_apps_tests::derive_snapshot_merges_descriptor_and_manifest_and_dedups ... ok
+test cron_tests::timezone_shifts_the_utc_instant ... ok
+test domain_apps_routes::domain_apps_tests::manifest_include_check ... ok
+test cron_tests::daily_same_day_then_next_day ... ok
+test domain_apps_routes::domain_apps_tests::mount_gating_requires_approved_and_open_and_right_subject ... ok
+test domain_apps_routes::domain_apps_tests::visibility_enum ... ok
+test domain_apps_routes::domain_apps_tests::serve_precheck_requires_mounted_not_already_serving ... ok
+test domain_apps_routes::domain_apps_tests::derive_snapshot_without_manifest ... ok
+test environment_routes::containment_tests::an_unattributed_recipe_cache_is_not_shared_across_tenants ... ok
+test cron_tests::weekday_list_skips_to_saturday ... ok
+test cron_tests::invalid_expressions_rejected ... ok
+test domain_apps_routes::domain_apps_tests::split_ref_and_prefixes ... ok
+test environment_routes::containment_tests::a_host_executed_workrun_refuses_under_a_declared_isolation_requirement ... ok
+test data_source_routes::data_source_tests::network_kind_requires_endpoint ... ok
+test environment_routes::containment_tests::a_teardown_that_cannot_prove_absence_is_unknown_not_succeeded ... ok
+test environment_routes::containment_tests::environment_deletion_reports_each_of_the_three_outcomes_with_obligations ... ok
+test environment_routes::containment_tests::a_failed_microvm_boot_no_longer_publishes_vm_kernel_enforcement ... ok
+test environment_routes::containment_tests::exec_refuses_host_fallback_when_a_declared_microvm_is_not_live ... ok
+test environment_routes::containment_tests::exec_still_runs_in_guest_when_the_microvm_is_live ... ok
+test environment_routes::containment_tests::local_environments_are_unaffected_by_containment ... ok
+test environment_routes::containment_tests::recipe_cache_paths_that_escape_the_root_are_dropped ... ok
+test environment_routes::containment_tests::the_guest_to_host_workspace_restore_is_off_by_default ... ok
+test environment_routes::containment_tests::the_withdrawn_label_names_what_is_actually_unverified ... ok
+test eval_suite_routes::tests::candidate_refs_are_local_handoffs_only ... ok
+test eval_suite_routes::tests::consent_requirements_gate_fails_closed ... ok
+test eval_suite_routes::tests::health_is_declared_completeness_not_a_score ... ok
+test eval_suite_routes::tests::str_array_rejects_non_strings ... ok
+test feedback_routes::tests::consent_gates_conversion ... ok
+test feedback_routes::tests::feedback_status_machine ... ok
+test environment_routes::environments_summary_tests::default_excludes_deleted_and_counts_globally ... ok
+test foundry_routes::foundry_tests::as_list_handles_array_and_wrapped_shapes ... ok
+test foundry_routes::foundry_tests::binding_requires_at_least_one_route_or_provider ... ok
+test foundry_routes::foundry_tests::binding_accepts_a_real_route_and_rejects_an_unknown_ref ... ok
+test environment_routes::environments_summary_tests::pagination_limit_offset_has_more ... ok
+test foundry_routes::foundry_tests::collect_ids_reads_multiple_keys ... ok
+test foundry_routes::foundry_tests::str_refs_filters_non_strings_and_empties ... ok
+test goalrun_routes::goal_run_seam_tests::contained_rel_path_rejects_every_escape_shape ... ok
+test environment_routes::environments_summary_tests::phase_and_filter_params ... ok
+test data_source_routes::data_source_tests::receipt_builder_is_pure_and_record_shaped ... ok
+test data_source_routes::data_source_tests::finalize_rolls_back_record_on_receipt_failure_no_orphans ... ok
+test durable_fs::durable_fs_tests::enumeration_distinguishes_eof_from_error_deterministically ... ok
+test goalrun_routes::goal_run_seam_tests::symlink_containment_catches_a_symlinked_ancestor_without_mutating_anything ... ok
+test environment_routes::containment_tests::a_non_succeeded_deletion_records_a_durable_obligation_on_the_record ... ok
+test data_source_routes::data_source_tests::finalize_record_persist_failure_writes_no_orphan_receipt ... ok
+test durable_fs::durable_fs_tests::drain_dir_stream_error_branch_discards_partial_names ... ok
+test governance_routes::governance_tests::approval_transition_accepted_builds_record_and_receipt ... ok
+test governance_routes::governance_tests::approval_history_is_bounded ... ok
+test governance_routes::governance_tests::approval_transitions_valid_and_invalid ... ok
+test governance_routes::governance_tests::count_with_refs_detects_declared_refs ... ok
+test governance_routes::governance_tests::grant_stats_counts_granted_revoked_active ... ok
+test governance_routes::governance_tests::histogram_groups_by_key ... ok
+test governance_routes::governance_tests::kill_and_gate_and_release_transitions ... ok
+test governance_routes::governance_tests::lease_stats_counts_active_revoked_receipt ... ok
+test governance_routes::governance_tests::resolve_governance_ref_named_vs_local ... ok
+test governed_authority::final_invocation_claim_tests::a_claim_from_a_dead_process_becomes_reconciliation_and_is_never_reinvoked ... ok
+test governed_authority::final_invocation_claim_tests::a_consumed_admission_starts_admitted_so_it_is_claimable_exactly_once ... ok
+test governed_authority::final_invocation_claim_tests::a_second_claim_in_this_process_never_reaches_a_second_invocation ... ok
+test governed_authority::final_invocation_claim_tests::an_unclaimed_admission_grants_exactly_one_claim ... ok
+test governed_authority::final_invocation_claim_tests::dispositions_round_trip_through_their_durable_labels ... ok
+test governed_authority::final_invocation_claim_tests::every_terminal_and_reconciling_disposition_refuses_a_new_invocation ... ok
+test governed_authority::scm_publication_scope_tests::publication_operations_resolve_their_exact_named_scopes ... ok
+test governed_authority::scm_publication_scope_tests::publication_scopes_are_disjoint_from_every_other_family ... ok
+test governance_routes::governance_tests::approval_transition_refused_touches_nothing_and_duplicates_refuse ... ok
+test data_source_routes::data_source_tests::finalize_reports_rollback_failure_as_its_own_typed_lane ... ok
+test goalrun_routes::goal_run_seam_tests::bounded_read_refuses_fifo_and_oversize_without_blocking ... ok
+test harness_routes::harness_profile_tests::adapter_wiring_is_honest_and_remote_trust_is_explicit ... ok
+test harness_routes::harness_profile_tests::remote_trust_enable_without_acceptance_is_planner_rejected ... ok
+test governed_completer_tests::dependent_subpasses_keep_owner_local_order ... ok
+test harness_routes::harness_profile_tests::seed_default_composes_real_enable_admission ... ok
+test harness_routes::harness_profile_tests::seed_set_covers_the_goal_adapters_with_one_default ... ok
+test harness_routes::harness_profile_tests::unwired_profile_bind_is_planner_rejected ... ok
+test hypervisor_environment_routes::tests::environment_ops_have_owner_scopes_and_never_parse_as_other_families ... ok
+test hypervisor_environment_routes::tests::projection_without_any_environment_truth_is_honest ... ok
+test goalrun_routes::goal_run_seam_tests::validate_staged_manifest_detects_mutation_and_loss_deterministically ... ok
+test governance_routes::governance_tests::approval_finalize_restores_prior_state_when_receipt_persist_fails ... ok
+test durable_fs::durable_fs_tests::crash_pause_marker_is_durable_and_exact ... ok
+test durable_fs::durable_fs_tests::empty_family_removal_is_pinned_durable_and_refuses_nonempty_evidence ... ok
+test hypervisoros_node_routes::tests::node_ops_have_owner_scopes_and_never_parse_as_other_families ... ok
+test attempt_finding_routes::attempt_finding_tests::pending_intent_reserves_every_touched_aggregate ... ok
+test hypervisoros_node_routes::tests::projection_without_declared_profiles_is_honest ... ok
+test durable_fs::durable_fs_tests::unconfirmed_unlink_restores_a_byte_exact_durable_replay_anchor ... ok
+test goalrun_routes::goal_run_seam_tests::durable_persist_dirsync_failure_reports_visible_and_leaves_the_new_record ... ok
+test ioi_intelligence_routes::improvement_gate_tests::fresh_low_impact_applies_without_controls ... ok
+test ioi_intelligence_routes::improvement_gate_tests::missing_report_record_is_stale_not_trusted ... ok
+test ioi_intelligence_routes::improvement_gate_tests::mutated_proposal_makes_simulation_stale ... ok
+test ioi_intelligence_routes::improvement_gate_tests::policy_without_simulation_blocks ... ok
+test ioi_intelligence_routes::improvement_gate_tests::skill_without_simulation_keeps_existing_behavior ... ok
+test ioi_intelligence_routes::improvement_gate_tests::high_impact_requires_approval_then_release ... ok
+test goalrun_routes::goal_run_seam_tests::nofollow_walks_refuse_symlinks_at_use_time_and_pinned_fds_survive_swaps ... ok
+test marketplace_routes::marketplace_tests::histogram_groups ... ok
+test goalrun_routes::goal_run_seam_tests::commit_one_is_atomic_hashed_and_symlink_safe ... ok
+test ioi_intelligence_routes::improvement_gate_tests::wrong_subject_controls_do_not_satisfy_the_gate ... ok
+test marketplace_routes::marketplace_tests::listing_and_offer_and_decision_enums ... ok
+test lifecycle_routes::sigv4_tests::sigv4_get_vanilla_matches_aws_vector ... ok
+test marketplace_routes::marketplace_tests::publish_reasons_empty_only_when_all_gates_pass ... ok
+test marketplace_routes::marketplace_tests::publish_reasons_flag_each_missing_gate ... ok
+test marketplace_routes::marketplace_tests::split_ref_parses_marketplace_schemes ... ok
+test materializing_run_routes::materializing_run_tests::bypass_keys_are_named ... ok
+test materializing_run_routes::materializing_run_tests::lifecycle_and_missing_authority_are_explicit ... ok
+test materializing_run_routes::materializing_run_tests::release_receipt_wording_is_honest_about_execution ... ok
+test materializing_run_routes::materializing_run_tests::subset_of_finds_the_widening_element ... ok
+test microvm::tests::host_extract_accepts_only_relative_regular_files_and_directories ... ok
+test microvm::tests::host_extract_rejects_truncated_or_extended_archives ... ok
+test microvm::tests::monitor_selection_is_closed_and_unsupported_profiles_fail_closed ... ok
+test model_routes::model_route_tests::base_url_normalization_strips_openai_suffix ... ok
+test model_routes::model_route_tests::iso_formatter_matches_known_epoch ... ok
+test model_routes::model_route_tests::ollama_availability_matches_tag_and_latest_forms ... ok
+test model_routes::model_route_tests::tag_matches_handles_latest_equivalence_both_directions ... ok
+test model_routes::model_route_tests::credentialed_mutation_without_lease_is_rejected_by_planner ... ok
+test model_routes::model_route_tests::bind_session_admission_normalizes_session_ref ... ok
+test odk_routes::odk_tests::bad_cardinality_and_action_kind_are_rejected ... ok
+test model_routes::model_route_tests::seed_route_composes_real_planner_admissions ... ok
+test odk_routes::odk_tests::check_named_refs_ignores_external_but_flags_local_missing ... ok
+test odk_routes::odk_tests::composition_pattern_enum_validates ... ok
+test odk_routes::odk_tests::duplicate_object_name_is_rejected ... ok
+test odk_routes::odk_tests::empty_model_is_allowed_but_empty_health ... ok
+test odk_routes::odk_tests::enum_value_type_requires_values ... ok
+test odk_routes::odk_tests::expected_revision_matches_mismatches_and_malformed ... ok
+test odk_routes::odk_tests::hardened_fields_reject_wrong_types_and_oversize ... ok
+test odk_routes::odk_tests::invalid_type_id_is_rejected ... ok
+test odk_routes::odk_tests::legacy_string_array_model_is_tolerated_as_empty ... ok
+test odk_routes::odk_tests::local_scheme_mapping_is_exhaustive_and_rejects_unknown ... ok
+test odk_routes::odk_tests::object_without_relation_or_action_is_incomplete ... ok
+test odk_routes::odk_tests::recipe_output_kinds_enum ... ok
+test odk_routes::odk_tests::ready_model_projects_ready_health ... ok
+test odk_routes::odk_tests::require_local_ref_rejects_wrong_prefix ... ok
+test odk_routes::odk_tests::split_ref_parses_scheme_and_rest ... ok
+test odk_routes::odk_tests::type_id_shape_is_enforced ... ok
+test odk_routes::odk_tests::unresolved_link_end_is_rejected ... ok
+test odk_routes::odk_tests::unresolved_property_value_type_is_rejected ... ok
+test ontology_projection_routes::ontology_projection_tests::body_of_recovers_run_id_from_ref ... ok
+test ontology_projection_routes::ontology_projection_tests::lifecycle_and_layouts_are_declarative ... ok
+test ontology_projection_routes::ontology_projection_tests::raw_query_and_secret_keys_are_named ... ok
+test ontology_projection_routes::ontology_projection_tests::links_touching_matches_either_end ... ok
+test odk_routes::odk_tests::validator_rejects_untyped_entries_bad_enums_and_bad_required ... ok
+test durable_fs::durable_fs_tests::daemon_family_precreation_is_durable_contained_and_preserves_existing_evidence ... ok
+test odk_routes::odk_tests::ontology_finalize_rolls_back_create_and_restores_patch_on_receipt_failure ... ok
+test outcome_room_routes::outcome_room_tests::admission_receipt_carries_the_pinned_envelope_base ... ok
+test durable_fs::durable_fs_tests::shared_boundary_refuses_traversal_and_collisions_with_zero_mutation ... ok
+test goalrun_routes::goal_run_seam_tests::durable_persist_fails_typed_at_write_rename_and_dirsync_boundaries ... ok
+test goalrun_routes::goal_run_seam_tests::boot_completer_finishes_a_sealed_recovery_intent_forward ... ok
+test goalrun_routes::goal_run_seam_tests::guarded_seam_distinguishes_not_found_refusal_and_persist_failure ... ok
+test durable_fs::durable_fs_tests::no_clobber_commit_is_descriptor_bound_and_certified ... ok
+test goalrun_routes::goal_run_seam_tests::start_evidence_abort_marks_the_reservation_recovery_required_with_executed_evidence ... ok
+test outcome_room_routes::outcome_room_tests::atomic_replacement_cleans_temp_on_rename_failure ... ok
+test outcome_room_routes::outcome_room_tests::admission_replay_binds_the_storage_key_to_the_room_identity ... ok
+test outcome_room_routes::outcome_room_tests::admission_replay_refuses_a_hollow_ungoverned_envelope ... ok
+test goalrun_routes::goal_run_seam_tests::completer_rejects_a_tampered_receipt_hash_and_leaves_the_intent ... ok
+test outcome_room_routes::outcome_room_tests::admission_replay_refuses_a_forged_intent_when_the_room_is_ABSENT ... ok
+test outcome_room_routes::outcome_room_tests::admission_completer_refuses_when_the_receipt_slot_is_occupied ... ok
+test outcome_room_routes::outcome_room_tests::admission_replay_refuses_non_rfc3339_timestamps ... ok
+test outcome_room_routes::outcome_room_tests::creation_is_fail_closed_typed_and_hosted_only ... ok
+test outcome_room_routes::outcome_room_tests::admission_completer_refuses_an_unreadable_receipt_slot ... ok
+test outcome_room_routes::outcome_room_tests::admission_replay_refuses_a_tampered_declaration_behind_the_same_anchor ... ok
+test outcome_room_routes::outcome_room_tests::admission_completer_recognizes_its_own_later_mutated_room_by_anchor ... ok
+test outcome_room_routes::outcome_room_tests::admission_replay_refuses_a_widened_hash_scope_that_hides_tampering ... ok
+test outcome_room_routes::outcome_room_tests::admission_intent_family_converges_without_a_public_pending_status ... ok
+test outcome_room_routes::outcome_room_tests::persist_atomic_rejects_a_normalization_unsafe_key ... ok
+test goalrun_routes::goal_run_seam_tests::completer_rejects_a_mutated_attempt_record_even_with_a_valid_receipt_hash ... ok
+test outcome_room_routes::outcome_room_tests::receipt_writer_refuses_unreadable_and_symlink_occupants ... ok
+test outcome_room_routes::outcome_room_tests::room_reads_refuse_path_traversal_stems ... ok
+test outcome_room_routes::outcome_room_tests::receipt_commit_from_anonymous_descriptor_leaves_no_residue ... ok
+test outcome_room_routes::outcome_room_tests::relocated_room_file_is_invisible_to_every_read_path ... ok
+test outcome_room_routes::outcome_room_tests::transition_hashes_are_distinct_and_cover_the_output_state ... ok
+test outcome_room_routes::outcome_room_tests::receipt_writer_is_append_only_no_clobber ... ok
+test outcome_room_routes::outcome_room_tests::scanner_returns_typed_error_not_false_empty_when_registry_is_unreadable ... ok
+test outcome_room_routes::outcome_room_tests::receipt_failure_restores_the_exact_prior_room ... ok
+test policy_bound_data_view_routes::policy_bound_data_view_tests::mapped_property_ids_cover_key_title_and_fields ... ok
+test policy_bound_data_view_routes::policy_bound_data_view_tests::operation_enum_and_high_risk_are_named ... ok
+test policy_bound_data_view_routes::policy_bound_data_view_tests::posture_governs_the_right_operations ... ok
+test policy_bound_data_view_routes::policy_bound_data_view_tests::wildcard_subjects_are_detected_case_insensitively ... ok
+test outcome_room_routes::outcome_room_tests::scanner_skips_symlink_and_noncanonical_entries ... ok
+test provider_routes::containment_tests::a_confirmed_provider_destroy_is_succeeded_and_opens_no_obligation ... ok
+test provider_routes::containment_tests::a_missing_destroyed_verdict_is_unknown_never_coerced ... ok
+test provider_routes::containment_tests::an_explicit_destroy_failure_is_failed_and_opens_an_obligation ... ok
+test provider_routes::containment_tests::an_unimplemented_live_teardown_is_failed_never_verified ... ok
+test provider_routes::containment_tests::an_unreachable_remote_half_degrades_to_unknown_not_success ... ok
+test provider_routes::containment_tests::provider_deletion_is_total_and_never_refuses ... ok
+test recipe_routes::m2_contract_tests::absent_recipe_predecessor_loads_none ... ok
+test recipe_routes::m2_contract_tests::readiness_gate_cannot_fabricate_full_over_unmet_edges ... ok
+test resource_capability_offer_routes::offer_match_tests::allocation_transitions_remain_typed_unavailable ... ok
+test outcome_room_routes::outcome_room_tests::mutation_requires_exact_revision_and_receipts_bind_the_transition ... ok
+test resource_capability_offer_routes::offer_match_tests::match_effect_binds_claim_leases_and_offer_coordinates ... ok
+test resource_capability_offer_routes::offer_match_tests::matching_covers_exact_requirements_and_refuses_unprovable_scope ... ok
+test resource_capability_offer_routes::offer_match_tests::offer_prerequisites_are_constraints_never_proof ... ok
+test resource_capability_offer_routes::offer_match_tests::resource_offer_expiry_uses_authenticated_wallet_time ... ok
+test resource_capability_offer_routes::offer_match_tests::unreadable_canonical_slots_are_uncertainty_not_absence ... ok
+test resource_capability_offer_routes::offer_match_tests::validators_bind_inventory_and_refuse_secret_or_unbacked_profiles ... ok
+test recipe_routes::m2_contract_tests::detected_recipe_and_resolution_validate_registered_contracts ... ok
+test governed_completer_tests::watchdog_is_honest_prevents_overlap_and_does_not_starve_other_owners ... ok
+test outcome_room_routes::outcome_room_tests::deterministic_interleaving_reconcile_reads_first_attach_lands_reconcile_persists_last ... ok
+test hypervisoros_node_routes::tests::boot_profile_declarations_enforce_floor_monotonicity_and_temporal_binding ... ok
+test goalrun_routes::goal_run_seam_tests::operation_reservation_admits_exactly_one_winner_and_finalizes_by_token ... ok
+test goalrun_routes::goal_run_seam_tests::preserve_abort_updates_the_operation_record_and_never_deletes_evidence ... ok
+test outcome_room_routes::outcome_room_tests::attach_completer_rolls_back_when_the_run_never_became_durable ... ok
+test resource_capability_offer_routes::offer_match_tests::eligibility_receipt_revalidates_exact_offer_frontier_participant_and_claim_tuple ... ok
+test room_participation_routes::participation_tests::creation_declaration_is_fail_closed ... ok
+test outcome_room_routes::outcome_room_tests::attach_completer_never_overwrites_another_rooms_binding ... ok
+test outcome_room_routes::outcome_room_tests::attach_replay_refuses_a_forged_membership_successor ... ok
+test outcome_room_routes::outcome_room_tests::attach_replay_refuses_a_truthful_membership_with_a_lying_receipt ... ok
+test room_participation_routes::participation_tests::decision_authority_requires_identity_binding_and_refuses_same_hash_foreign_signer ... ok
+test room_participation_routes::participation_tests::canonical_scans_refuse_slots_that_vanish_after_enumeration ... ok
+test outcome_room_routes::outcome_room_tests::transition_replay_refuses_a_forged_successor ... ok
+test outcome_room_routes::outcome_room_tests::transition_replay_refuses_a_truthful_successor_with_a_lying_receipt ... ok
+test room_participation_routes::participation_tests::reference_grammar_accepts_canonical_forms_and_refuses_aliases ... ok
+test room_participation_routes::participation_tests::orphaned_or_malformed_room_lease_reservations_fail_typed ... ok
+test room_participation_routes::participation_tests::admit_mints_the_lease_binds_the_room_and_guards_duplicates ... ok
+test room_participation_routes::participation_tests::strict_loaders_and_scans_refuse_canonical_slot_corruption ... ok
+test outcome_room_routes::outcome_room_tests::transition_intent_completer_applies_the_sealed_final_state ... ok
+test outcome_room_routes::outcome_room_tests::attach_receipt_failure_keeps_the_intent_and_the_boot_completer_converges ... ok
+test outcome_room_routes::outcome_room_tests::backlink_seam_binds_receipted_refuses_typed_and_replays_byte_exact ... ok
+test room_participation_routes::participation_tests::closed_room_submit_replay_consumes_intent_without_false_evidence ... ok
+test scm_publication_routes::tests::a_base_head_that_moved_refuses_stale_expected_head_by_name ... ok
+test scm_publication_routes::tests::a_caller_supplied_remote_refuses_unbound_destination_by_name ... ok
+test room_participation_routes::participation_tests::lease_transitions_walk_receipted_and_revoke_appends_revocation ... ok
+test room_participation_routes::participation_tests::storage_key_binding_refuses_a_relocated_intent ... ok
+test room_participation_routes::participation_tests::pending_submit_and_admit_intents_reserve_uniqueness_keys ... ok
+test hypervisor_environment_routes::tests::drift_projection_labels_refusals_and_never_adopts_the_observed_binding ... ok
+test hypervisor_environment_routes::tests::restart_rebuilds_the_projection_from_durable_records_byte_exactly ... ok
+test hypervisor_environment_routes::tests::stale_plane_root_and_reentered_stage_are_refused_at_the_route_compile ... ok
+test scm_publication_routes::tests::a_failed_durable_write_is_never_reported_as_success ... ok
+test scm_publication_routes::tests::a_forced_overwrite_refuses_by_name ... ok
+test hypervisoros_node_routes::tests::node_attestation_ladder_artifacts_validate_every_registered_envelope ... ok
+test scm_publication_routes::tests::a_replay_assertion_without_a_prior_effect_refuses_by_name ... ok
+test scm_publication_routes::tests::both_new_ambiguity_dimensions_are_registered_and_distinct ... ok
+test scm_publication_routes::tests::a_whole_workspace_stage_refuses_by_name ... ok
+test room_participation_routes::participation_tests::room_close_interlock_blocks_while_a_lease_is_live_then_releases ... ok
+test hypervisoros_node_routes::tests::restart_rebuilds_the_projection_from_durable_records_only ... ok
+test room_participation_routes::participation_tests::room_backlink_remains_a_lease_reservation_until_exact_release ... ok
+test hypervisoros_node_routes::tests::persisted_artifacts_never_carry_sealed_identity_material ... ok
+test room_participation_routes::participation_tests::submit_finalizes_and_binds_the_room_through_the_seam ... ok
+test scm_publication_routes::tests::the_remote_ref_mapping_is_bounded_to_the_binding_namespace ... ok
+test room_participation_routes::participation_tests::already_terminal_lease_releases_in_one_boot_pass ... ok
+test scm_publication_routes::tests::an_unobservable_remote_head_refuses_by_name ... ok
+test room_participation_routes::participation_tests::closed_room_admit_replay_rolls_back_without_false_evidence ... ok
+test scm_publication_routes::tests::a_detached_prior_commitment_refuses_by_name ... ok
+test state_machine_routes::tests::adversarial_hardening_lanes ... ok
+test state_machine_routes::tests::empty_definition_is_health_empty_not_error ... ok
+test state_machine_routes::tests::fail_closed_lanes ... ok
+test state_machine_routes::tests::ready_requires_initial_forward_and_reachable_terminal ... ok
+test state_machine_routes::tests::slug_and_owner_ref_shapes ... ok
+test room_participation_routes::participation_tests::lease_transition_intent_is_quarantined_without_replayable_authority ... ok
+test scm_publication_routes::tests::one_admitted_revision_resolves_and_a_missing_one_still_refuses_not_found ... ok
+test hypervisor_environment_routes::tests::environment_ladder_artifacts_validate_every_registered_envelope ... ok
+test substrate_store::tests::backfill_failure_prevents_writer_start_and_requires_reopen ... ok
+test substrate_store::tests::lifecycle_required_domains_bind_all_family_specific_keys ... ok
+test substrate_store::tests::required_generic_lifecycle_state_root_binds_the_live_governing_authority ... ok
+test substrate_store::tests::required_projection_recovery_validates_before_exposing_payload ... ok
+test substrate_store::tests::required_projection_verifier_owns_complete_expected_absent_operation ... ok
+test room_participation_routes::participation_tests::submit_completer_converges_a_crashed_submission_and_refuses_tamper ... ok
+test substrate_store::tests::sequence_zero_required_identities_bind_every_agentgres_key ... ok
+test substrate_store::tests::wallet_consumption_required_identity_binds_canonical_key_to_receipt_bytes ... ok
+test system_activation_routes::tests::activation_input_is_closed_and_oversize_refuses ... ok
+test scm_publication_routes::tests::two_destination_binding_revisions_under_one_ref_refuse_by_name ... ok
+test room_participation_routes::participation_tests::terminal_release_failure_is_typed_pending_then_one_boot_converges ... ok
+test system_activation_routes::tests::initialize_input_is_closed_and_sensitive_recursive ... ok
+test system_activation_routes::tests::intent_seal_and_poison_fairness_are_exact ... ok
+test system_activation_routes::tests::intent_storage_key_is_bound_to_its_sealed_operation_and_request ... ok
+test system_activation_routes::tests::intent_storage_slot_requires_the_canonical_json_filename ... ok
+test system_activation_routes::tests::internal_storage_failures_never_masquerade_as_client_input ... ok
+test system_activation_routes::tests::lifecycle_slots_are_strict_and_no_clobber ... ok
+test substrate_store::tests::reservation_fence_cannot_substitute_for_missing_agentgres_record ... ok
+test system_activation_routes::tests::operations_have_distinct_scopes_and_replay_lanes ... ok
+test scm_publication_routes::tests::a_moved_remote_head_refuses_and_advances_nothing ... ok
+test room_participation_routes::participation_tests::governed_admit_and_request_replays_are_quarantined_without_identity_binding ... ok
+test scm_publication_routes::tests::two_proposal_revisions_under_one_ref_refuse_by_name ... ok
+test system_amendment_routes::builder_tests::amendment_intent_generation_is_closed_and_never_partially_migrated ... ok
+test storage_backend_routes::m2_contract_tests::corruption_and_loss_surface_as_named_incidents_never_silent_success ... ok
+test room_participation_routes::participation_tests::admit_preflights_all_targets_before_room_linearization ... ok
+test room_participation_routes::participation_tests::unreadable_room_never_consumes_submit_or_admit_recovery_intents ... ok
+test system_amendment_routes::builder_tests::definitive_refusal_cleanup_removes_the_matching_approval_intent ... ok
+test storage_backend_routes::m2_contract_tests::unreceipted_or_unverified_close_is_unrepresentable ... ok
+test system_amendment_routes::builder_tests::pending_governance_approval_entry_interlocks_the_target_system ... ok
+test scm_publication_routes::tests::one_revision_recorded_twice_is_not_ambiguous ... ok
+test scm_publication_routes::tests::positive_ladder_publishes_and_persists_both_receipts ... ok
+test storage_backend_routes::m2_contract_tests::sealed_store_commitment_and_archive_record_validate_registered_contract ... ok
+test scm_publication_routes::tests::workspace_bytes_that_left_the_proposal_refuse_and_never_cross ... ok
+test scm_publication_routes::tests::review_request_failure_is_never_reported_as_success ... ok
+test system_continuity_routes::tests::migration_ack_plan_binds_exact_head_and_rejects_a_noop_destination ... ok
+test system_continuity_routes::tests::named_ops_never_parse_as_generic_protected_ops ... ok
+test system_continuity_routes::tests::relocated_migration_ack_intent_refuses_its_filename_coordinate ... ok
+test room_participation_routes::participation_tests::close_vs_submit_race_serializes_open_validation_and_room_reservation ... ok
+test system_continuity_routes::tests::succession_refuses_a_new_principal_aliasing_the_current_signer ... ok
+test scm_publication_routes::tests::an_unclosed_prepared_dispatch_window_is_reconciliation_not_a_second_dispatch ... ok
+test system_genesis_routes::system_genesis_tests::admission_intake_rejects_recursive_secrets_and_noncanonical_keys ... ok
+test scm_publication_routes::tests::v2_operation_persists_prepared_before_one_dispatch_and_replays_terminal ... ok
+test scm_publication_routes::tests::an_idempotency_key_claimed_over_changed_material_refuses_by_name ... ok
+test system_genesis_routes::system_genesis_tests::bounded_replay_window_rotates_past_a_retained_prefix ... ok
+test system_genesis_routes::system_genesis_tests::default_ceiling_still_rotates_the_first_replayed_intent ... ok
+test scm_publication_routes::tests::the_plane_rebuilds_from_durable_records_after_a_restart ... ok
+test scm_publication_routes::tests::the_prepared_commitment_binds_the_consumed_admission_effect_hash ... ok
+test scm_publication_routes::tests::an_exact_replay_converges_instead_of_crossing_twice ... ok
+test room_participation_routes::participation_tests::close_vs_admit_race_has_one_room_scoped_winner ... ok
+test system_amendment_routes::builder_tests::amendment_compiler_uses_the_live_successor_authority ... ok
+test system_genesis_routes::system_genesis_tests::request_created_family_cleanup_obligation_follows_the_last_concurrent_intent ... ok
+test system_genesis_routes::system_genesis_tests::room_policy_hash_is_byte_stable_and_system_context_is_explicit ... ok
+test system_amendment_routes::builder_tests::decision_binds_the_proposal_effect_hash_and_recomputes ... ok
+test system_activation_routes::tests::wallet_receipt_must_be_complete_and_exact ... ok
+test system_membership_routes::tests::membership_ops_have_owner_scopes_and_never_parse_as_other_families ... ok
+test system_membership_routes::tests::projection_without_a_declared_desired_topology_is_honest ... ok
+test system_amendment_routes::builder_tests::log_appends_a_constitution_amendment_entry_with_continuity ... ok
+test system_activation_routes::tests::wallet_recovery_never_replicates_unvalidated_single_side_evidence ... ok
+test system_genesis_routes::system_genesis_tests::admission_authority_is_constitution_owned_and_multi_owner_is_unavailable ... ok
+test system_amendment_routes::builder_tests::chain_swaps_only_the_constitution_and_head_coordinates ... ok
+test system_protected_transition_routes::builder_tests::continuation_refuses_a_detached_predecessor ... ok
+test system_protected_transition_routes::tests::duplicate_heads_at_the_top_sequence_refuse ... ok
+test system_protected_transition_routes::tests::head_selection_takes_the_highest_sequence_for_the_system ... ok
+test system_protected_transition_routes::tests::missing_system_refuses_not_found ... ok
+test system_protected_transition_routes::tests::superseded_duplicates_below_the_head_do_not_refuse ... ok
+test system_sequence_zero_routes::system_sequence_zero_tests::bounded_replay_window_rotates_past_a_retained_prefix ... ok
+test system_sequence_zero_routes::system_sequence_zero_tests::converged_get_gate_rejects_coherent_evidence_from_a_foreign_wallet_root ... ok
+test system_sequence_zero_routes::system_sequence_zero_tests::default_ceiling_still_rotates_the_first_replayed_intent ... ok
+test system_sequence_zero_routes::system_sequence_zero_tests::legacy_pending_intent_without_family_provenance_remains_readable ... ok
+test system_amendment_routes::builder_tests::governance_approval_request_is_stable_across_execution_sequence_changes ... ok
+test system_sequence_zero_routes::system_sequence_zero_tests::portable_grant_ref_binds_the_exact_retained_signed_artifact ... ok
+test system_genesis_routes::system_genesis_tests::genesis_receipt_pins_the_portable_base_and_governed_evidence_fields ... ok
+test system_sequence_zero_routes::system_sequence_zero_tests::request_created_family_cleanup_obligation_follows_the_last_concurrent_intent ... ok
+test system_sequence_zero_routes::system_sequence_zero_tests::request_shape_is_closed_bounded_and_secret_free ... ok
+test system_sequence_zero_routes::system_sequence_zero_tests::retained_authority_evidence_accepts_legacy_nulls_but_rejects_unknown_fields ... ok
+test system_sequence_zero_routes::system_sequence_zero_tests::sealed_authority_context_cannot_move_between_system_genesis_pairs ... ok
+test system_sequence_zero_routes::system_sequence_zero_tests::storage_tails_reject_aliases_and_path_components ... ok
+test system_sequence_zero_routes::system_sequence_zero_tests::materialization_storage_identity_is_exact_and_pre_activation ... ok
+test system_genesis_routes::system_genesis_tests::authorized_projection_is_valid_but_activation_remains_absent ... ok
+test system_topology_routes::tests::projection_without_durable_truth_is_honest_empty ... ok
+test system_amendment_routes::builder_tests::profile_set_admitted_by_slots_fill_without_moving_the_root ... ok
+test system_topology_routes::tests::topology_route_is_disjoint_and_scopeless ... ok
+test system_amendment_routes::builder_tests::proposal_root_recomputes_per_the_invariant_material ... ok
+test system_writer_routes::tests::projection_without_any_writer_truth_is_honest ... ok
+test system_topology_routes::tests::divergent_membership_root_fails_closed ... ok
+test system_amendment_routes::builder_tests::state_slots_fill_and_status_stays_unchanged ... ok
+test system_writer_routes::tests::writer_ops_have_owner_scopes_and_never_parse_as_other_families ... ok
+test transformation_run_routes::transformation_run_tests::high_risk_intents_map_to_downstream_ops ... ok
+test transformation_run_routes::transformation_run_tests::lifecycle_states_and_reserved_are_explicit ... ok
+test transformation_run_routes::transformation_run_tests::mapping_binding_resolves_across_key_title_fields ... ok
+test transformation_run_routes::transformation_run_tests::raw_query_and_secret_keys_are_named ... ok
+test system_topology_routes::tests::wrong_system_sources_fail_closed ... ok
+test verifier_challenge_routes::verifier_challenge_tests::canonical_identity_is_exact_lower_hex ... ok
+test verifier_challenge_routes::verifier_challenge_tests::lifecycle_is_exact_and_creates_no_verdict ... ok
+test verifier_challenge_routes::verifier_challenge_tests::only_attempt_and_finding_targets_are_available ... ok
+test verifier_challenge_routes::verifier_challenge_tests::pending_intent_reserves_room_target_attempt_participant_and_result ... ok
+test verifier_challenge_routes::verifier_challenge_tests::recursive_secrets_and_plane_owned_fields_refuse ... ok
+test verifier_challenge_routes::verifier_challenge_tests::rule_change_requires_exact_versions_attempts_and_reverification ... ok
+test verifier_challenge_routes::verifier_challenge_tests::strict_loader_distinguishes_absent_malformed_and_relocated ... ok
+test verifier_challenge_routes::verifier_challenge_tests::supported_graph_refs_are_exact_before_storage_access ... ok
+test verifier_challenge_routes::verifier_challenge_tests::touched_refs_are_exact_sorted_aggregate_reservations ... ok
+test verifier_challenge_routes::verifier_challenge_tests::transition_intent_reconstructs_its_complete_successor ... ok
+test verifier_challenge_routes::verifier_challenge_tests::worker_org_and_user_challengers_fail_closed ... ok
+test work_frontier_claim_routes::frontier_claim_tests::claim_clock_concurrency_and_completion_are_canonical ... ok
+test work_frontier_claim_routes::frontier_claim_tests::claim_declaration_pins_the_eligibility_match_receipt ... ok
+test work_frontier_claim_routes::frontier_claim_tests::declarations_are_bounded_hosted_and_secret_free ... ok
+test work_frontier_claim_routes::frontier_claim_tests::every_mutation_requires_exact_revision ... ok
+test verifier_challenge_routes::verifier_challenge_tests::attempt_challenge_blocks_acceptance_of_its_derived_finding ... ok
+test work_frontier_claim_routes::frontier_claim_tests::governed_effects_refuse_body_swaps_at_the_same_revision ... ok
+test work_frontier_claim_routes::frontier_claim_tests::graph_cycle_and_unresolved_dependencies_refuse ... ok
+test work_frontier_claim_routes::frontier_claim_tests::occupied_unreadable_and_malformed_slots_are_never_absent ... ok
+test work_frontier_claim_routes::frontier_claim_tests::persistence_failures_are_server_uncertainty ... ok
+test work_frontier_claim_routes::frontier_claim_tests::frontier_create_intent_reconstructs_and_coupled_tamper_refuses ... ok
+test work_result_routes::work_result_tests::atomic_replacement_cleans_its_temp_file_on_rename_failure ... ok
+test work_result_routes::work_result_tests::delta_binds_same_goal_result_and_receipts_bind_facts ... ok
+test work_result_routes::work_result_tests::delta_finalize_is_atomic_across_record_backlink_and_receipt ... ok
+test work_result_routes::work_result_tests::finalize_reports_rollback_failure_as_its_own_typed_lane ... ok
+test work_result_routes::work_result_tests::future_plane_fields_refuse_with_named_codes ... ok
+test work_result_routes::work_result_tests::generic_profiles_admit_beyond_software ... ok
+test work_result_routes::work_result_tests::receipt_failure_restores_the_exact_prior_record_including_interleaving ... ok
+test work_result_routes::work_result_tests::receipts_carry_the_exact_portable_envelope_key_set ... ok
+test work_result_routes::work_result_tests::refs_are_canonical_per_field_and_raw_strings_never_pass ... ok
+test work_result_routes::work_result_tests::result_finalize_atomicity_no_orphan_record_no_orphan_receipt ... ok
+test work_result_routes::work_result_tests::room_binding_resolves_open_rooms_and_deltas_never_cross_rooms ... ok
+test work_result_routes::work_result_tests::sensitive_keys_are_rejected_recursively ... ok
+test work_result_routes::work_result_tests::supersedes_requires_resolvable_same_goal_same_room_result ... ok
+test work_result_routes::work_result_tests::verifier_challenge_backlink_is_plane_owned_and_exact ... ok
+test work_frontier_claim_routes::frontier_claim_tests::room_close_interlock_tracks_unresolved_and_live_lineage ... ok
+test system_amendment_routes::builder_tests::receipt_boundary_is_exactly_the_nonnull_refs_plus_authority_coordinates ... ok
+test system_protected_transition_routes::builder_tests::full_protected_step_builds_and_every_artifact_validates ... ok
+test system_writer_routes::tests::registered_transition_fixture_replays_into_the_projection ... ok
+test system_topology_routes::tests::minimum_topology_reports_the_exact_tuple_from_durable_records_only ... ok
+test system_genesis_routes::system_genesis_tests::authority_effect_binds_release_projection_fields_excluded_from_release_root ... ok
+test system_protected_transition_routes::builder_tests::protected_compiler_uses_the_live_successor_authority ... ok
+test system_genesis_routes::system_genesis_tests::intent_reconstruction_rejects_a_forged_successor ... ok
+test system_genesis_routes::system_genesis_tests::legacy_pending_intent_without_family_provenance_remains_replayable ... ok
+test system_genesis_routes::system_genesis_tests::unchanged_m1_3_admission_preserves_omitted_and_multi_use_grant_semantics ... ok
+test system_activation_routes::tests::activation_refuses_detached_initialized_tuple ... ok
+test system_sequence_zero_routes::system_sequence_zero_tests::receipt_reader_pins_current_v2_and_frozen_legacy_v1_bytes ... ok
+test system_membership_routes::tests::restart_projection_loss_rebuilds_the_projection_from_durable_records_only ... ok
+test system_topology_routes::tests::restart_rebuilds_the_minimum_topology_projection_byte_exactly ... ok
+test system_writer_routes::tests::writer_ladder_artifacts_validate_every_registered_envelope ... ok
+test system_continuity_routes::tests::succession_builds_a_contract_valid_live_chain_successor ... ok
+test system_activation_routes::tests::compiler_effect_hash_matches_governed_helper ... ok
+test system_membership_routes::tests::membership_ladder_artifacts_validate_every_registered_envelope ... ok
+test system_protected_transition_routes::builder_tests::one_way_and_terminal_arcs_build_over_the_real_prior ... ok
+test system_genesis_routes::system_genesis_tests::pre_m1_4_pending_post_consumption_evidence_preserves_recorded_usage_semantics ... ok
+test system_genesis_routes::system_genesis_tests::pre_m1_4_converged_omitted_and_multi_use_evidence_remains_reconstructable ... ok
+test system_activation_routes::tests::node_constructor_builds_registered_initialize_and_activate_graphs ... ok
+test system_continuity_routes::tests::dissolution_ladder_artifacts_validate_every_registered_envelope ... ok
+
+test result: ok. 427 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 48.41s
+STDOUT_END
+STDERR_BEGIN
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41368:9
+      |
+41368 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+      |
+      = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41369:9
+      |
+41369 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41681:9
+      |
+41681 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42100:9
+      |
+42100 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42101:9
+      |
+42101 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42500:9
+      |
+42500 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42501:9
+      |
+42501 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42950:9
+      |
+42950 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42951:9
+      |
+42951 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43266:9
+      |
+43266 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43267:9
+      |
+43267 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43706:9
+      |
+43706 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43915:9
+      |
+43915 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44153:9
+      |
+44153 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44154:9
+      |
+44154 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44412:9
+      |
+44412 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44413:9
+      |
+44413 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: `ioi-types` (lib) generated 17 warnings
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: `ioi-services` (lib) generated 8 warnings (run `cargo fix --lib -p ioi-services` to apply 1 suggestion)
+warning: unused import: `remove_record`
+  --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:32:55
+   |
+32 | use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
+   |                                                       ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary parentheses around closure body
+    --> crates/node/src/bin/hypervisor-daemon.rs:4783:22
+     |
+4783 |     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+     |                      ^                                                              ^
+     |
+     = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+     |
+4783 -     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+4783 +     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+     |
+
+warning: unnecessary parentheses around closure body
+    --> crates/node/src/bin/hypervisor-daemon.rs:4823:22
+     |
+4823 |     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+     |                      ^                                                              ^
+     |
+help: remove these parentheses
+     |
+4823 -     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+4823 +     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+     |
+
+warning: variable does not need to be mutable
+    --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:1653:9
+     |
+1653 |     let mut record_edges =
+     |         ----^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> crates/node/src/bin/hypervisor_daemon_routes/storage_backend_routes.rs:1288:9
+     |
+1288 |     let mut fail = |reason: String, verification: Value| {
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: unused variable: `inbound`
+   --> crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs:915:5
+    |
+915 |     inbound: axum::http::HeaderMap,
+    |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_inbound`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable `final_count` is assigned to, but never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs:166:9
+    |
+166 |     let mut final_count = 0usize;
+    |         ^^^^^^^^^^^^^^^
+    |
+    = note: consider using `_final_count` instead
+
+warning: value assigned to `final_count` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs:219:13
+    |
+219 |             final_count += 1;
+    |             ^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `url`, `capability_lease_ref`, and `workspace_root` are never read
+   --> crates/node/src/bin/hypervisor-daemon.rs:269:16
+    |
+267 | pub(crate) struct PreviewServer {
+    |                   ------------- fields in this struct
+268 |     pub(crate) port: u16,
+269 |     pub(crate) url: String,
+    |                ^^^
+270 |     pub(crate) capability_lease_ref: String,
+    |                ^^^^^^^^^^^^^^^^^^^^
+271 |     pub(crate) workspace_root: String,
+    |                ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `internal_port`, `log_path`, `started_at`, and `workspace_root` are never read
+  --> crates/node/src/bin/hypervisor_daemon_routes/editor_host.rs:25:16
+   |
+23 | pub(crate) struct EditorRuntime {
+   |                   ------------- fields in this struct
+24 |     pub(crate) child: std::process::Child,
+25 |     pub(crate) internal_port: u16,
+   |                ^^^^^^^^^^^^^
+26 |     pub(crate) log_path: String,
+   |                ^^^^^^^^
+27 |     pub(crate) started_at: String,
+   |                ^^^^^^^^^^
+28 |     pub(crate) workspace_root: String,
+   |                ^^^^^^^^^^^^^^
+
+warning: fields `public_port`, `internal_port`, `lease_id`, `service_id`, and `join` are never read
+  --> crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs:20:16
+   |
+19 | pub(crate) struct EditorProxy {
+   |                   ----------- fields in this struct
+20 |     pub(crate) public_port: u16,
+   |                ^^^^^^^^^^^
+21 |     pub(crate) internal_port: u16,
+   |                ^^^^^^^^^^^^^
+22 |     pub(crate) lease_id: String,
+   |                ^^^^^^^^
+23 |     pub(crate) service_id: String,
+   |                ^^^^^^^^^^
+24 |     pub(crate) shutdown: tokio::sync::oneshot::Sender<()>,
+25 |     pub(crate) join: tokio::task::JoinHandle<()>,
+   |                ^^^^
+
+warning: methods `record` and `durable` are never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs:89:19
+   |
+88 | impl MutationOutcome {
+   | -------------------- methods in this implementation
+89 |     pub(crate) fn record(&self) -> &Value {
+   |                   ^^^^^^
+...
+99 |     pub(crate) fn durable(&self) -> bool {
+   |                   ^^^^^^^
+
+warning: methods `claim_id`, `reference`, and `effect_hash` are never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:265:19
+    |
+264 | impl FinalInvocationClaim {
+    | ------------------------- methods in this implementation
+265 |     pub(crate) fn claim_id(&self) -> &str {
+    |                   ^^^^^^^^
+...
+269 |     pub(crate) fn reference(&self) -> &str {
+    |                   ^^^^^^^^^
+...
+273 |     pub(crate) fn effect_hash(&self) -> &str {
+    |                   ^^^^^^^^^^^
+
+warning: function `final_invocation_disposition` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:999:15
+    |
+999 | pub(crate) fn final_invocation_disposition(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `IMPROVEMENT_STATES` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:2258:7
+     |
+2258 | const IMPROVEMENT_STATES: &[&str] = &["pending", "approved", "rejected", "applied", "superseded"];
+     |       ^^^^^^^^^^^^^^^^^^
+
+warning: field `run_dir` is never read
+  --> crates/node/src/bin/hypervisor_daemon_routes/microvm.rs:78:9
+   |
+75 | pub(crate) struct VmHandle {
+   |                   -------- field in this struct
+...
+78 |     pub run_dir: PathBuf,
+   |         ^^^^^^^
+
+warning: constant `TEST_ONLY_AUTHORITY_MINTER_SENTINEL` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/system_activation_routes.rs:3009:11
+     |
+3009 |     const TEST_ONLY_AUTHORITY_MINTER_SENTINEL: &str = "IOI_TEST_ONLY_AUTHORITY_MINTER_SENTINEL_v1";
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TEST_ONLY_AUTHORITY_MINTER_SENTINEL` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/system_genesis_routes.rs:2335:11
+     |
+2335 |     const TEST_ONLY_AUTHORITY_MINTER_SENTINEL: &str = "IOI_TEST_ONLY_AUTHORITY_MINTER_SENTINEL_v1";
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `transitions` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/system_writer_routes.rs:230:9
+    |
+225 | pub(crate) struct WriterSource {
+    |                   ------------ field in this struct
+...
+230 |     pub transitions: Vec<Value>,
+    |         ^^^^^^^^^^^
+
+warning: function `admission_replay_refuses_a_forged_intent_when_the_room_is_ABSENT` should have a snake case name
+    --> crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs:4438:8
+     |
+4438 |     fn admission_replay_refuses_a_forged_intent_when_the_room_is_ABSENT() {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `admission_replay_refuses_a_forged_intent_when_the_room_is_absent`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: `ioi-node` (bin "hypervisor-daemon" test) generated 20 warnings (run `cargo fix --bin "hypervisor-daemon" -p ioi-node --tests` to apply 6 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.29s
+     Running unittests src/bin/hypervisor-daemon.rs (target/debug/deps/hypervisor_daemon-546228d55a11b55d)
+STDERR_END
+
+CHECK=scm-v2-operation-suite
+COMMAND=cargo test -p ioi-node --bin hypervisor-daemon scm_publication_routes::tests
+STATUS=0
+STDOUT_BEGIN
+
+running 24 tests
+test scm_publication_routes::tests::both_new_ambiguity_dimensions_are_registered_and_distinct ... ok
+test scm_publication_routes::tests::the_remote_ref_mapping_is_bounded_to_the_binding_namespace ... ok
+test scm_publication_routes::tests::a_forced_overwrite_refuses_by_name ... ok
+test scm_publication_routes::tests::two_destination_binding_revisions_under_one_ref_refuse_by_name ... ok
+test scm_publication_routes::tests::a_base_head_that_moved_refuses_stale_expected_head_by_name ... ok
+test scm_publication_routes::tests::one_admitted_revision_resolves_and_a_missing_one_still_refuses_not_found ... ok
+test scm_publication_routes::tests::a_whole_workspace_stage_refuses_by_name ... ok
+test scm_publication_routes::tests::a_caller_supplied_remote_refuses_unbound_destination_by_name ... ok
+test scm_publication_routes::tests::two_proposal_revisions_under_one_ref_refuse_by_name ... ok
+test scm_publication_routes::tests::an_unobservable_remote_head_refuses_by_name ... ok
+test scm_publication_routes::tests::a_replay_assertion_without_a_prior_effect_refuses_by_name ... ok
+test scm_publication_routes::tests::a_moved_remote_head_refuses_and_advances_nothing ... ok
+test scm_publication_routes::tests::workspace_bytes_that_left_the_proposal_refuse_and_never_cross ... ok
+test scm_publication_routes::tests::a_failed_durable_write_is_never_reported_as_success ... ok
+test scm_publication_routes::tests::positive_ladder_publishes_and_persists_both_receipts ... ok
+test scm_publication_routes::tests::v2_operation_persists_prepared_before_one_dispatch_and_replays_terminal ... ok
+test scm_publication_routes::tests::review_request_failure_is_never_reported_as_success ... ok
+test scm_publication_routes::tests::a_detached_prior_commitment_refuses_by_name ... ok
+test scm_publication_routes::tests::an_unclosed_prepared_dispatch_window_is_reconciliation_not_a_second_dispatch ... ok
+test scm_publication_routes::tests::one_revision_recorded_twice_is_not_ambiguous ... ok
+test scm_publication_routes::tests::the_plane_rebuilds_from_durable_records_after_a_restart ... ok
+test scm_publication_routes::tests::the_prepared_commitment_binds_the_consumed_admission_effect_hash ... ok
+test scm_publication_routes::tests::an_idempotency_key_claimed_over_changed_material_refuses_by_name ... ok
+test scm_publication_routes::tests::an_exact_replay_converges_instead_of_crossing_twice ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 403 filtered out; finished in 2.15s
+STDOUT_END
+STDERR_BEGIN
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41368:9
+      |
+41368 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+      |
+      = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41369:9
+      |
+41369 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:41681:9
+      |
+41681 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42100:9
+      |
+42100 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42101:9
+      |
+42101 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42500:9
+      |
+42500 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42501:9
+      |
+42501 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42950:9
+      |
+42950 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:42951:9
+      |
+42951 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43266:9
+      |
+43266 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43267:9
+      |
+43267 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43706:9
+      |
+43706 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:43915:9
+      |
+43915 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44153:9
+      |
+44153 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44154:9
+      |
+44154 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44412:9
+      |
+44412 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:44413:9
+      |
+44413 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: `ioi-types` (lib) generated 17 warnings
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: `ioi-services` (lib) generated 8 warnings (run `cargo fix --lib -p ioi-services` to apply 1 suggestion)
+warning: unused import: `remove_record`
+  --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:32:55
+   |
+32 | use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
+   |                                                       ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary parentheses around closure body
+    --> crates/node/src/bin/hypervisor-daemon.rs:4783:22
+     |
+4783 |     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+     |                      ^                                                              ^
+     |
+     = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+     |
+4783 -     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+4783 +     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+     |
+
+warning: unnecessary parentheses around closure body
+    --> crates/node/src/bin/hypervisor-daemon.rs:4823:22
+     |
+4823 |     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+     |                      ^                                                              ^
+     |
+help: remove these parentheses
+     |
+4823 -     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+4823 +     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+     |
+
+warning: variable does not need to be mutable
+    --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:1653:9
+     |
+1653 |     let mut record_edges =
+     |         ----^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> crates/node/src/bin/hypervisor_daemon_routes/storage_backend_routes.rs:1288:9
+     |
+1288 |     let mut fail = |reason: String, verification: Value| {
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: unused variable: `inbound`
+   --> crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs:915:5
+    |
+915 |     inbound: axum::http::HeaderMap,
+    |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_inbound`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable `final_count` is assigned to, but never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs:166:9
+    |
+166 |     let mut final_count = 0usize;
+    |         ^^^^^^^^^^^^^^^
+    |
+    = note: consider using `_final_count` instead
+
+warning: value assigned to `final_count` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs:219:13
+    |
+219 |             final_count += 1;
+    |             ^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `url`, `capability_lease_ref`, and `workspace_root` are never read
+   --> crates/node/src/bin/hypervisor-daemon.rs:269:16
+    |
+267 | pub(crate) struct PreviewServer {
+    |                   ------------- fields in this struct
+268 |     pub(crate) port: u16,
+269 |     pub(crate) url: String,
+    |                ^^^
+270 |     pub(crate) capability_lease_ref: String,
+    |                ^^^^^^^^^^^^^^^^^^^^
+271 |     pub(crate) workspace_root: String,
+    |                ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `internal_port`, `log_path`, `started_at`, and `workspace_root` are never read
+  --> crates/node/src/bin/hypervisor_daemon_routes/editor_host.rs:25:16
+   |
+23 | pub(crate) struct EditorRuntime {
+   |                   ------------- fields in this struct
+24 |     pub(crate) child: std::process::Child,
+25 |     pub(crate) internal_port: u16,
+   |                ^^^^^^^^^^^^^
+26 |     pub(crate) log_path: String,
+   |                ^^^^^^^^
+27 |     pub(crate) started_at: String,
+   |                ^^^^^^^^^^
+28 |     pub(crate) workspace_root: String,
+   |                ^^^^^^^^^^^^^^
+
+warning: fields `public_port`, `internal_port`, `lease_id`, `service_id`, and `join` are never read
+  --> crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs:20:16
+   |
+19 | pub(crate) struct EditorProxy {
+   |                   ----------- fields in this struct
+20 |     pub(crate) public_port: u16,
+   |                ^^^^^^^^^^^
+21 |     pub(crate) internal_port: u16,
+   |                ^^^^^^^^^^^^^
+22 |     pub(crate) lease_id: String,
+   |                ^^^^^^^^
+23 |     pub(crate) service_id: String,
+   |                ^^^^^^^^^^
+24 |     pub(crate) shutdown: tokio::sync::oneshot::Sender<()>,
+25 |     pub(crate) join: tokio::task::JoinHandle<()>,
+   |                ^^^^
+
+warning: methods `record` and `durable` are never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs:89:19
+   |
+88 | impl MutationOutcome {
+   | -------------------- methods in this implementation
+89 |     pub(crate) fn record(&self) -> &Value {
+   |                   ^^^^^^
+...
+99 |     pub(crate) fn durable(&self) -> bool {
+   |                   ^^^^^^^
+
+warning: methods `claim_id`, `reference`, and `effect_hash` are never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:265:19
+    |
+264 | impl FinalInvocationClaim {
+    | ------------------------- methods in this implementation
+265 |     pub(crate) fn claim_id(&self) -> &str {
+    |                   ^^^^^^^^
+...
+269 |     pub(crate) fn reference(&self) -> &str {
+    |                   ^^^^^^^^^
+...
+273 |     pub(crate) fn effect_hash(&self) -> &str {
+    |                   ^^^^^^^^^^^
+
+warning: function `final_invocation_disposition` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:999:15
+    |
+999 | pub(crate) fn final_invocation_disposition(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `IMPROVEMENT_STATES` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:2258:7
+     |
+2258 | const IMPROVEMENT_STATES: &[&str] = &["pending", "approved", "rejected", "applied", "superseded"];
+     |       ^^^^^^^^^^^^^^^^^^
+
+warning: field `run_dir` is never read
+  --> crates/node/src/bin/hypervisor_daemon_routes/microvm.rs:78:9
+   |
+75 | pub(crate) struct VmHandle {
+   |                   -------- field in this struct
+...
+78 |     pub run_dir: PathBuf,
+   |         ^^^^^^^
+
+warning: constant `TEST_ONLY_AUTHORITY_MINTER_SENTINEL` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/system_activation_routes.rs:3009:11
+     |
+3009 |     const TEST_ONLY_AUTHORITY_MINTER_SENTINEL: &str = "IOI_TEST_ONLY_AUTHORITY_MINTER_SENTINEL_v1";
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TEST_ONLY_AUTHORITY_MINTER_SENTINEL` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/system_genesis_routes.rs:2335:11
+     |
+2335 |     const TEST_ONLY_AUTHORITY_MINTER_SENTINEL: &str = "IOI_TEST_ONLY_AUTHORITY_MINTER_SENTINEL_v1";
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `transitions` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/system_writer_routes.rs:230:9
+    |
+225 | pub(crate) struct WriterSource {
+    |                   ------------ field in this struct
+...
+230 |     pub transitions: Vec<Value>,
+    |         ^^^^^^^^^^^
+
+warning: function `admission_replay_refuses_a_forged_intent_when_the_room_is_ABSENT` should have a snake case name
+    --> crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs:4438:8
+     |
+4438 |     fn admission_replay_refuses_a_forged_intent_when_the_room_is_ABSENT() {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `admission_replay_refuses_a_forged_intent_when_the_room_is_absent`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: `ioi-node` (bin "hypervisor-daemon" test) generated 20 warnings (run `cargo fix --bin "hypervisor-daemon" -p ioi-node --tests` to apply 6 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running unittests src/bin/hypervisor-daemon.rs (target/debug/deps/hypervisor_daemon-546228d55a11b55d)
+STDERR_END
+
+OWNER_RATIFICATION_IMMEDIATE_RELEASE=PASS

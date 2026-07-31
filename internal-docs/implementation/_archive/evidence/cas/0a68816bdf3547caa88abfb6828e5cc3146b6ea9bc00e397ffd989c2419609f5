@@ -1,0 +1,116 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m3-authorized-issuer-and-atomic-authority-consumption",
+  "stage_id": "M3",
+  "record_role": "implementation_cut",
+  "status": "verified",
+  "objective": "Migrate every censused branch onto one existing-owner admission boundary with independently resolved current issuers, Prepared-before-dispatch intent, atomic grant or lease accounting, immutable receipts, and final-invoker revalidation.",
+  "falsifiable_claim": "A request-carried key, unresolved grant, replayed usage, or unaccounted lease can reach any censused owner-visible mutation or effect.",
+  "canon_owners": [
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/components/wallet-network/api-authority-scopes.md",
+    "docs/architecture/foundations/security-privacy-policy-invariants.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "f845a463bfb99acf75802ee747004118ad75281df2be4b96c69e272d43670ce6",
+    "owners": [
+      {
+        "path": "docs/architecture/components/wallet-network/doctrine.md",
+        "sha256": "8b5c6c5ea1eaee29d4fb5488d5b3ae4f136c35a8a2a3647504aa1d39391dd580"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "sha256": "5a77e3506857e4f670a03da32b83af10634a79ed1b64f74ab5006bf6970503ca"
+      },
+      {
+        "path": "docs/architecture/foundations/security-privacy-policy-invariants.md",
+        "sha256": "a6a88ac7cda56eb98482f148e7d95813e3e4c25b415631eb8424aaaf6b329060"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [
+    "m3-affected-route-authority-census-and-fence"
+  ],
+  "in_scope": [
+    "Principal/holder derivation from daemon-owned authenticated state; current issuer/grant/head resolution; exact effect checks; atomic call/budget use; deterministic recovery and final-invoker receipt fences.",
+    "Every derived Cohort B governance-truth registration carries its own admission-to-terminal-leaf order proof. These mutations remain release-blocking: replay of admission, frontier, claim, finding, attempt, offer, or challenge transitions can corrupt inputs to evaluation and improvement even without an external network effect."
+  ],
+  "out_of_scope": [
+    "New service or authority plane.",
+    "Authority-grant version changes.",
+    "Future heterogeneous standing authority."
+  ],
+  "implementation_actions": [
+    "Reuse the current wallet resolver and transaction owners.",
+    "Treat ApprovalGrant structural/signature functions as evidence validation only.",
+    "Replace descriptive leases with owner-controlled reserved, active, consumed, terminal, and revoked states."
+  ],
+  "consequential_effects_and_final_invokers": [
+    "All final leaves are owned row-by-row by m3-affected-route-authority-census-and-fence."
+  ],
+  "ordered_product_operator_journey": [
+    "Derive holder; resolve current issuer; validate exact commitments; persist Prepared; consume atomically; pass opaque receipt; revalidate; invoke at most once; reconcile uncertainty without refund or reinvocation."
+  ],
+  "metrics_and_frozen_thresholds": [
+    "Every registration derived into the affected overlay and every alias has order proof; exactly one consumption; at most one invocation; zero invocations on denied/ambiguous branches."
+  ],
+  "compatibility_and_migration": [
+    "v1/v2 serialization and historical verification remain byte- and semantics-stable; fixture minters require registered test authority and never become production trust roots."
+  ],
+  "positive_proof": [
+    "Current issuer and grant heads resolve independently and wallet usage decreases atomically before each terminal leaf."
+  ],
+  "adversarial_or_fault_proof": [
+    "max_usages=1 replay/concurrency, holder/audience mismatch, stale/revoked heads, substitutions, lease reuse, budget overrun, and crash windows retain one deterministic outcome.",
+    "Every ApprovalGrant literal in daemon route sources is enclosed by a cfg(test) module, and the production hypervisor-daemon binary has no test-minter sentinel at link time."
+  ],
+  "evidence_index": {
+    "literal_exit": "M3_AUTHORIZED_ISSUER_AND_ATOMIC_AUTHORITY_CONSUMPTION_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/evidence/m3-authorized-issuer-and-atomic-authority-consumption.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M3/m3-authorized-issuer-and-atomic-authority-consumption.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs",
+      "present_when": "implementation",
+      "evidence_scope": "generic resolver, intent, consumption and receipt fence"
+    },
+    {
+      "path": "crates/services/src/wallet_network/handlers/approval.rs",
+      "present_when": "existing_owner",
+      "evidence_scope": "atomic wallet transaction"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This same-host static and executed conformance proof is not a claim that the pre-repair defect was exploited. It activates no standing-authority v3 profile."
+  ],
+  "rollback_or_stop_rule": "Keep the release blocked and all incomplete row fences closed if any raw verifier can authorize a live route or any completion loop can consume twice.",
+  "source_provenance": "Owner-ratified immediate source-neutral authority repair, 2026-07-29.",
+  "applicable_pg_ids": [
+    "PG-2.2",
+    "PG-2.3",
+    "PG-2.4"
+  ],
+  "last_status_transaction": {
+    "from": "evidence_ready",
+    "to": "verified",
+    "at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "certification_result_sha256": "d20a1912fc958c48e1eed6eff0eb1cf7eb1492993c79a31ce87ef478d3b9dee0",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

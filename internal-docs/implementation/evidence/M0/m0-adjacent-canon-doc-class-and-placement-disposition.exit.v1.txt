@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-adjacent-canon-doc-class-and-placement-disposition
+ARTIFACT=internal-docs/implementation/generated/adjacent-canon-placement.v1.json
+ARTIFACT_SHA256=f8cd602492533aca1621a5e4d2b9c322cafbca468f98be5e9faeef7884368ae9
+M0_ADJACENT_CANON_PLACEMENT_EXIT=0
+NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

@@ -1,0 +1,13 @@
+{
+  "literal_exit": {
+    "expected": "M0_CANONICAL_ESTATE_AND_BASELINE_BINDING_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M9/m0-canonical-estate-and-baseline-binding-successor.exit.v1.txt",
+    "artifact_sha256": "392fabb7b3a334105dafa17e30810bca50c85568152c8449429b4879fc84c2f9"
+  },
+  "adversarial_or_fault_proof": [
+    "check-canonical-estate executes 30 named fail-closed rejections, derives all worktree estate copies from git, checks writability and hard-link aliasing across canonical and archive scopes, validates the dense promotion ledger and CAS retention, and distinguishes relocation from a later content-bound successor promotion."
+  ],
+  "positive_proof": [
+    "The live estate check passes with one canonical estate, five declared read-only references, 220 digest-bound overlay members, and every authoritative promoted body retained in CAS."
+  ]
+}

@@ -1,0 +1,221 @@
+# Private implementation-directory unification — delegated self-review
+
+Document class: dated private review work-record.
+
+Review date: 2026-07-23.
+
+Reviewed checkout: branch `feat/estate-camera-pipeline`, commit
+`a894b25054cdb45f27deb3163793773d6449dd2b`.
+
+Authority boundary: this review owns no architecture meaning, sequence, work-
+item status, product authority, proof-gate disposition, or exit. Architecture
+meaning remains in `docs/architecture/`; the sole sequencer remains the
+[`M0–M14 master guide`](../../ioi-target-end-state-master-implementation-guide.md);
+status remains only in private work-item JSON and
+[`program-state.json`](../../program-state.json). This is delegated self-review,
+not an external or cryptographically independent approval.
+
+## Verdict
+
+**PASS for the bounded private docs-and-orchestration transaction, with the
+explicit SKIP/nonclaim boundaries below.** The approved SA-1 through SA-9
+changes are the only semantic changes to the master. The private estate retains
+all 73 baseline bodies, has one logical sequencer, preserves every historical
+status, adds 79 proposed records, assigns all 58 proof gates exactly once,
+maps the reviewed current architecture inputs without an orphan, and keeps all
+current M0–M14 aggregate exits unsatisfied.
+
+This verdict does **not** claim full physical legacy-body unification, a clean
+authoritative checkout, visual Hypervisor verification, implementation
+completion, a work-item or stage closure, federation, a two-sovereign proof,
+connected-service operation, an L1, a live cohort, or live embodied control.
+
+## Requirement disposition
+
+| Requirement | Result | Review evidence and boundary |
+| --- | --- | --- |
+| Source dispositions and recoverability | **PASS** | The registry contains the 73-source baseline at the named branch/commit. Independent digest recomputation matched all 73 `exact_body_path` bodies to their baseline SHA-256. Nothing is deletion-permitted. The pre-report source projection contained 264 materializations excluding itself and 73/73 exact baseline bodies. |
+| Approved master changes | **PASS** | A baseline-to-current semantic diff contains only SA-1 through SA-9. Previously detected extra command substitutions, canonical-term edits, and compatibility prose were removed before this verdict. Master SHA-256 at the pre-report seal: `e2d19235be492a5aae8a3d9886ac8757ef3712cf548f1433df1d5ac1b351b190`. |
+| Sole sequencer | **PASS**, plus one physical-unification **SKIP** | Exactly one active M0–M14 master is detected. The compatibility-held root trust-boundary audit still contains legacy Gate 0–5 ordering because a tracked verifier parses that exact body. Logical authority is unambiguous; physical removal of every legacy ordering body is not proven. |
+| Status Truth Rule | **PASS**, plus two physical-cleanup **SKIPs** | Live status is confined to work-item records and `program-state.json`. The held trust-boundary audit retains point-in-time status prose, and the held root namespace residual retains a legacy `status` field. Neither is treated as current authority. |
+| Historical status preservation | **PASS** | All 43 pre-existing work-item IDs retain their exact status. The 79 added records are all `proposed`. Totals are 122 records: 115 `proposed`, four `verified`, one `scoped`, one `evidence_ready`, and one `active`. No successful exit log was added. |
+| Complete §4.1 records and graph | **PASS** | All 122 records satisfy the full master-owned field contract, exact owner snapshots, evidence-index rules, closed dependency IDs, stage-order and cycle checks, nonempty scope/action/proof/journey/metric obligations, and aggregate-membership checks. Conditional M9, M11, and M14 children retain explicit activation semantics. |
+| Proof-gate ownership | **PASS** | All 58 registry gates have exactly one non-aggregate closure owner. There are 57 `open` gates and one `not_applicable`; none is closed. PG-0.3 and PG-1.1 are owned by `m11-canonical-contract-registry-and-legacy-ref-migration`. PG-7.2 is conditionally owned by `m14-cross-plane-correlated-failure-injection`. |
+| Contract routing and alias discipline | **PASS** | Exact registry owners, reviewed shape owners, semantic owner paths, and per-record allowlists validate. All 115 proposed records have a reviewed allowlist. Pending definitions remain private decision gaps attached only to proposed records. `CapabilityLease` and `WorkLifecycleProjection` are not presented as canonical contracts. Unsafe generic aliases for `SystemPackage`, `AssuranceStage`, `AgentgresProjection`, `ModelRoutePolicy`, and `ProviderRouteRights` are rejected rather than silently equated. |
+| Architecture coverage | **PASS** | The deterministic projection contains 50 obligations and 174 exact locators. Its seven-input census covers the source-of-truth map, accepted ADR index, execution horizons, implementation matrix, canon-to-code delta, architecture contract registry, and conformance index. It inventories 87 owner subjects, 27 registered contract revisions, and 14 active conformance targets with zero owner, contract, or conformance orphans. Superseded ADRs cannot be current owners. |
+| Program-state and literal exits | **PASS**, plus historical-checkout **SKIPs** | Current aggregate satisfaction requires a verified aggregate and exactly one expected-path `ioi.program.literal_exit.v1` log whose BAR and artifact SHA bind checkout bytes or a committed artifact identity. Every current M0–M14 aggregate is proposed and unsatisfied. Historical M0 remains explicitly scoped to the pre-amendment proof; it does not satisfy current M0. Four historical verified-record literal checks are unavailable in this checkout and remain SKIP, not renewed verification. |
+| P0 readiness | **PASS as plan coverage** | `m5-p0-readiness-verifier` explicitly requires verified M3–M5 prerequisites, direct-path preservation, and the readiness verifier. Program state says `planned_not_activated` and keeps the claim gate at M9. |
+| Hypervisor source breadth | **PASS as deterministic breadth evidence** | The projection covers 14 registered surfaces, 39 executable seeds, three dormant seeds, 76 captured SPA routes, 202 static route strings, 102 normalized IOI handler templates, 103 Connect operations, 55 unique fixture endpoints in 110 paired files, 563 controls including 173 declared unimplemented, and 99 feature flags. Shell, route, fixture, parity, or atlas presence is never treated as operational depth. |
+| Hypervisor supported launch and safe crawl | **PASS as retained transport evidence** | The retained cut records the supported `serve:product-ui` launch on a loopback private port and 74 GET-only results: 70 HTTP 200, four HTTP 307, zero request errors. The validator enforces the supported command, loopback URL, launch observation, exact source hashes, GET/manual-redirect/nonmutation policy, route set, 2xx/3xx status range, body metadata, and recomputed all-route reachability. This does not independently replay the point-in-time server session. |
+| Hypervisor rendered-surface review | **SKIP / unverified** | The supported in-app browser was unavailable. Desktop and narrow viewport obligations remain unverified. No DOM, responsive, interaction, focus, keyboard, modal, embed, accessibility, or visual-parity result is claimed. |
+| Tracked/private boundary | **PASS**, plus clean-checkout **SKIP** | The private estate remains ignored. Exactly seven pre-existing tracked paths remain modified and byte-identical to the frozen boundary manifest; this private transaction changed no tracked file. The checkout is not clean, so a clean-checkout proof was not obtained. |
+| Private acceptance bar | **PASS** | Immediately before this review file was materialized, `check-implementation-estate.mjs` passed all 18 bars. Its emitted SKIPs retain the nonclaims above and are not success evidence. |
+
+## Sequencer amendment review
+
+The preserved baseline and current master were compared directly. Each current
+semantic diff maps to exactly one approved amendment:
+
+| Amendment | Result | Current master evidence |
+| --- | --- | --- |
+| SA-1 | **PASS** | Authority stack, subordinate-module table, runtime rail ownership/evidence, validation transaction, archived kernel references, and stale-conflict owner text are replaced as approved. |
+| SA-2 | **PASS** | §4.1 contains the complete record role, canon snapshot, contract/private-artifact, dependency/aggregate, code-anchor, and evidence-ref fields. |
+| SA-3 | **PASS** | Admission requires current architecture coverage and closed dependency identities; §13.3 requires architecture-coverage regeneration. |
+| SA-4 | **PASS** | Conflict handling permits digest-preserving archive/tombstone recovery, and §14 delegates exact per-path facts to the status-free source registry and generated manifest. |
+| SA-5 | **PASS** | The PG module owns definitions/proof shapes only; work-item records own applicability/status and program state projects them. |
+| SA-6 | **PASS** | Exact `### 8.12 Architecture coverage disposition` text assigns every build-relevant target to a stage record, work package, or amendment-gated future record. |
+| SA-7 | **PASS** | Missing M0/M1/M9/M13/M14 aggregates, M6 surface/state and journey ownership, M7/M8/M10 journeys, and conditional non-live M11 obligations are explicit. |
+| SA-8 | **PASS** | Daemon doctrine owns Authority Gateway semantics; current HypervisorOS/daemon canon owns `EnforcementCoverageDeclaration`; private route censuses remain non-canonical. |
+| SA-9 | **PASS** | The approved M2, M3, M6, M8, M9, M12, M14, and conditional FUTURE A–Z families have named owners and aggregate/dependency obligations without pulling gated claims forward. |
+
+No additional sequencer amendment was improvised. Markdown links, wrapping,
+imperative list grammar, and explicit noun expansion do not change the approved
+semantics.
+
+## Status, records, aggregates, and gates
+
+The status-preservation ledger and current records were compared by ID rather
+than inferred from prose. There are no missing old IDs, no altered historical
+status values, and no non-proposed new record. The checker also protects the
+objective, required-work labels, owner set, contract-family names, and retained
+evidence refs of each historical non-proposed record against its immutable
+pre-unification copy.
+
+There are 16 aggregate records: the 15 M0–M14 stage aggregates plus the
+historical M1 protected-transition aggregate. Every bounded non-top-level,
+non-FUTURE record has exactly one same-stage aggregate membership. Dependency
+IDs exist, do not point forward to a later stage, and form no cycle. Conditional
+children are represented without silently making the unselected posture an
+unconditional dependency.
+
+The proof-gate checker derives the 58 IDs from the status-free mechanism-gate
+registry, requires one closure owner per ID, forbids aggregate ownership, and
+requires the M0 census to match the record-owned mapping. Closed gates require
+an exact retained literal and evidence refs; the current projection contains no
+closed gate and no successful gate literal.
+
+## Contract and architecture audit
+
+The contract checker distinguishes:
+
+- registered canonical names and revisions;
+- reviewed unregistered shape owners;
+- separate semantic doctrine owners;
+- explicitly non-canonical private artifacts;
+- pending field-level definition decisions; and
+- rejected generic candidates that must not enter `contract_families`.
+
+Registered contracts must carry the registry owner ref, complete contract IDs
+and schema versions. Unregistered canonical objects must resolve through a
+reviewed exact-token shape owner and may not invent registry identity. Record
+families must exactly equal the configured allowlist after safe alias
+canonicalization. Pending candidates require a named decision owner and a
+literal decision exit, and occur only on proposed records.
+
+The architecture generator reads the current source-of-truth owner table,
+contract registry, conformance index, and ADR index rather than trusting the
+dated audit alone. A fingerprint forces explicit review when an owner-subject
+row changes; current registry and conformance additions become orphans until
+mapped. Exact owner fragments and digests, record stages, proposed bounded
+owners, contract IDs, conformance refs, product/runtime owners, projection
+surfaces, proof definitions, and dispositions are emitted per obligation.
+
+## Hypervisor evidence audit
+
+The retained live artifact is intentionally narrow. It records a supported
+local launch and safe transport observations; it neither invokes a mutation nor
+uses application controls. The hardened checker rejects a non-loopback base,
+an unsupported command, missing/stale source hashes, changed request policy,
+missing/reordered routes, request errors, non-2xx/3xx responses, malformed body
+metadata, and a false reachability summary.
+
+That bar validates the retained record's internal and source consistency; it
+does not make a past server observation cryptographically independent. More
+importantly, HTTP reachability and body hashes remain categorically separate
+from rendered-surface evidence. The visual-browser failure is therefore an
+explicit SKIP with desktop and narrow follow-up obligations, not a degraded
+visual PASS.
+
+## Adversarial checker review
+
+Two issues were found during delegated review and corrected before the verdict:
+
+1. A first master comparison found direct-command substitutions, two canonical-
+   term edits, compatibility-hold prose, and a section-heading difference
+   outside the literal approved SA hunks. Those edits were reverted or made
+   exact, and a fresh comparison now confines the master diff to SA-1–SA-9.
+2. The initial Hypervisor crawl validator trusted several retained summary and
+   launch fields. It now binds the supported command, loopback endpoint,
+   source hashes, read-only policy, status range, and recomputed transport
+   count before the crawl bar can pass.
+
+Additional checker inspection confirmed that:
+
+- source checking rejects unclassified or missing private paths, deletion
+  permission, broken destinations, missing tombstones, missing exact baseline
+  bodies, and stale manifests;
+- single-sequencer and status checks emit structured compatibility SKIPs rather
+  than treating held legacy text/JSON as physically removed;
+- work-item checking covers field shape, immutable historical scope, exact
+  contract routing, gate ownership, aggregate membership, dependency closure,
+  stage direction, and cycles;
+- literal checking accepts only one expected-path, content-bound successful
+  literal for a verified record and never inspects task/process exit codes;
+- current stage aggregates use the same content-bound rule before program state
+  can mark a current sequencer exit satisfied;
+- architecture checking rejects changed owner-subject census, current owner,
+  registered-contract, conformance-target, and superseded-ADR mapping gaps; and
+- generated-projection checks are read-only and fail stale bytes rather than
+  rewriting evidence during validation.
+
+## Commands and observed results
+
+The final pre-report read-only seal was:
+
+```text
+node internal-docs/implementation/tools/check-implementation-estate.mjs
+```
+
+Observed result: **18/18 private bars PASS**. The umbrella exercised source
+dispositions, source-manifest preservation, work items, single-sequencer,
+status truth, private boundary, module headers, links, Markdown structure,
+literal exits, architecture coverage, Hypervisor live evidence, Hypervisor
+generation/contract checks, program-state generation/compatibility, all
+generated projections, and checkout nonclaims.
+
+Focused independent observations also included:
+
+```text
+73/73 exact baseline body digests matched
+122 records = 43 pre-existing + 79 new proposed
+58/58 proof gates have exactly one closure owner
+50 architecture obligations / 174 exact locators / 0 reviewed orphan classes
+74 retained GETs = 70 HTTP 200 + 4 HTTP 307; visual SKIP
+15/15 current stage aggregates unsatisfied
+7 pre-existing tracked modifications, byte-preserved
+```
+
+## Explicit SKIPs and smallest follow-ups
+
+| SKIP | Nonclaim | Smallest follow-up |
+| --- | --- | --- |
+| Root trust-boundary audit legacy order | Full physical single-voice cleanup is not proven. | Approve and retarget `scripts/internal/verify-runtime-kernel-trust-audit.mjs`, then replace the root body with its stable pointer. |
+| Root trust-boundary status prose and root namespace `status` | Full physical status cleanup is not proven; held fields own no current status. | Apply the same tracked-verifier path/schema decision, then remove the held legacy bodies. |
+| Seven unavailable historical refs/anchors | Their absence is not implementation or evidence proof and changes no preserved status. | Validate in the authoritative checkout containing the merged artifacts. |
+| Four unavailable historical verified literals | Their preserved status is not re-verified in this checkout. | Validate the exact retained literal/artifact binding in the checkout or committed ref that contains it. |
+| Desktop and narrow rendered-surface crawl | No visual, responsive, interaction, keyboard, focus, modal, embed, or accessibility result exists. | Repeat the read-only crawl with the supported in-app browser when available. |
+| Dirty authoritative checkout | A clean-checkout proof was not obtained. | Re-run the same read-only bar from a clean authoritative checkout when that proof is required. |
+
+## Final nonclaims and handoff
+
+The transaction is logically reconciled within the approved private scope, but
+the two tracked-verifier compatibility holds deliberately prevent a claim of
+complete physical unification. Visual verification is deliberately unpassed.
+No current aggregate, proof gate, work item, stage, federation, sovereign,
+service, economic, L1, cohort, or embodied-live claim was closed.
+
+Materializing this review adds one new ignored private source after the
+pre-report seal. The transaction owner must classify this exact path, regenerate
+the source manifest, and rerun the 18-bar umbrella after this file's bytes are
+final. That deterministic bookkeeping does not change this review's findings
+or grant it authority.

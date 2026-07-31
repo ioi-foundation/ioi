@@ -1,0 +1,13 @@
+{
+  "literal_exit": {
+    "expected": "M0_SELECTED_PROFILE_BASELINE_AND_CLAIM_LOCK_SUCCESSOR_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M9/m0-selected-profile-baseline-and-claim-lock-successor.exit.v1.txt",
+    "artifact_sha256": "cd3429b15fd7e79862d0677e22f9cee05b628daa0aee2b9394d056a8b55368ed"
+  },
+  "adversarial_or_fault_proof": [
+    "check-claim-lock re-derives the complete lock from frozen policy and current content-bound sources and rejects claim widening, mutable thresholds, missing nonclaims, missing sources, and byte drift."
+  ],
+  "positive_proof": [
+    "The re-derived claim lock changes only its four source digests and changes no threshold, frozen date, nonclaim, or permitted claim."
+  ]
+}

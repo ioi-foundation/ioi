@@ -1,0 +1,176 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-canonical-estate-and-baseline-binding-successor",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Establish ONE identified canonical estate with immutable content-addressed evidence and read-only worktree references, and bind canon baselines to an exact git tree plus an explicit durable overlay manifest instead of the ambient filesystem."
+  ],
+  "status": "verified",
+  "objective": "Two things had no owner and no bar. First, WHICH copy of this gitignored tree is authoritative: every worktree held something indistinguishable from the original, and the workaround used to share bytes between them was a hard link, which aliases one inode into two trees so a write through the alias mutates the canonical estate with no git status, no event, and no ledger entry. Second, WHAT a canon baseline is permitted to bind: the accepted 990-subject baseline took 770 subjects from the git tree and 220 from host-local ignored bytes, then described those 220 in a SKIP as unmerged branch canon. Identify the canonical estate and its reference copies, prohibit byte aliasing and enforce the prohibition, store evidence by content address, and decompose canon identity into (exact git tree) + (explicit durable overlay manifest) with missing ignored bytes reported as an overlay defect rather than a deletion. M0_CANONICAL_ESTATE_AND_BASELINE_BINDING_EXIT=0.",
+  "falsifiable_claim": "Exactly one estate is canonical and every other copy declares itself a read-only reference with its own private staging; no file in the estate's digest scope is hard-linked; every stored evidence object is addressed by its own bytes; and the successor baseline binds a named commit and docs tree plus a frozen overlay manifest whose 220 members are classified host-local durable evidence, none of which appears in any commit on any ref.",
+  "selected_profile": "The private implementation estate itself: one canonical tree, its reference copies, its evidence store, and the canon baseline derived over it.",
+  "canon_owners": [
+    "docs/architecture/_meta/current-canon-defaults.md",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/start-here.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "84072fe741f152b8bd129b138547fee10b8252937a7e4d88c1c9f567806e9314",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/current-canon-defaults.md",
+        "sha256": "8ca50a056184538edd8a00ed4fbc251ff2afe1a1cbeb840fc2535eb962254e53"
+      },
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "8a8e48f7685046e0f66ccff127559c53182e92d18bb2d45df49ec930120ba60d"
+      },
+      {
+        "path": "docs/architecture/_meta/start-here.md",
+        "sha256": "0503f14fe8de1627e0d9d2a8aa0733550e72e58aabc69ef5c9f878c9cac22c9d"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m0-canonical-estate-and-baseline-binding-successor",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/active/m0-canonical-estate-and-baseline-binding-successor.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "canonical-estate-declaration",
+      "artifact_class": "private_program_declaration",
+      "path": "internal-docs/implementation/program/canonical-estate.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "canon-overlay-manifest",
+      "artifact_class": "private_program_declaration",
+      "path": "internal-docs/implementation/program/canon-overlay-manifest.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "canon-baseline-successor-candidate",
+      "artifact_class": "private_unadmitted_candidate_consumed_by_no_tool",
+      "path": "internal-docs/implementation/program/canon-baseline-successor.candidate.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "estate-freeze",
+      "artifact_class": "private_content_bound_freeze_manifest",
+      "path": "internal-docs/implementation/_archive/manifests/estate-freeze.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": [
+    "THE HARD-LINK WORKAROUND IS PROHIBITED, NOT ADOPTED. program/canonical-estate.v1.json records it as a prohibited technique with the reason, and tools/check-canonical-estate.mjs fails closed on any file in the digest scope with a link count above one. Sharing between trees is by read-only reference and content address.",
+    "THE FIRST UNDECLARED COPY WAS FOUND BY THE BAR, NOT BY A READER. On its first run the new bar reported a nested estate copy under worktrees/ with no role marker — a complete, writable-looking estate indistinguishable from the canonical one. It now carries estate-role.v1.json declaring reference_readonly, the canonical estate id, and a private staging directory outside the copied tree.",
+    "THE 220 ARE NOT BRANCH CANON. A full object walk (git rev-list --all --objects -- docs/) finds ZERO of the 220 local-only subjects in any commit on any ref. They are gitignored evidence bytes under docs/evidence/ that exist only on this host. The prior baseline's SKIP described them as unmerged branch canon; that description was false for all 220, and the canon-impact SKIP text still says it.",
+    "THE DECOMPOSITION CHANGES NO SUBJECT IDENTITY. The successor baseline candidate's subject_set_sha256 is c0155c055b64c6b031abf74436c36c166c579fa48f1df476a239bf8a14daf41c, byte-identical to the predecessor baseline's, under the identical digest rule. What changes is that every subject's provenance is now explicit: 770 from the bound git tree, 220 from the frozen overlay manifest.",
+    "DEMONSTRATION RETAINED, ADMISSION WITHHELD. The successor baseline is a CANDIDATE that no tool consumes. Wiring it into tools/canon-impact.mjs is a baseline advance and is a HELD ACTION under _archive/holds/certification-hold.v1.json, so the 220 certification-relevant SKIPs stand and the audit stays red on them."
+  ],
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "One identified canonical estate: a declaration naming the canonical tree, the reference-copy contract (read-only reference plus private staging, never a second writable estate), and the role marker every non-canonical copy must carry.",
+    "The byte-aliasing prohibition and its enforcement: no file in the declared digest scope may carry a hard-link count above one, with the workaround recorded as prohibited rather than as doctrine.",
+    "An immutable content-addressed evidence store whose object names ARE their digests, write-once, generalising the existing review-manifest store rather than adding a second one.",
+    "Canon baselines bound to an exact git tree plus an explicit durable overlay manifest, with a closed classification vocabulary for overlay members.",
+    "The absence rule, enforced: a declared overlay member missing from disk is reported as an overlay defect and never as a canon deletion, and retirement requires a tombstone plus a named successor disposition.",
+    "The successor baseline as an unadmitted candidate that no tool consumes, so the honest classification exists without advancing anything.",
+    "A bar that self-tests every one of its refusals against synthetic bad input on every run."
+  ],
+  "out_of_scope": [
+    "Rewriting, refreshing, or regenerating generated/canon-baseline.v1.json. The contaminated 990-subject baseline is preserved historically and is the evidence of what was accepted.",
+    "Rewriting the canon-acceptance ledger entry that advanced it. The acceptance happened and its record stands.",
+    "Wiring the successor baseline into canon-impact. That is a baseline advance and is held.",
+    "Relocating, deleting, or curating any of the 220 overlay members. They are bound, not judged.",
+    "Making any claim about the evidence the overlay members contain."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "tools/check-canonical-estate.mjs passes over the canonical estate with the overlay manifest reproducing its own self-digest, all 220 members present at their frozen digests, every frozen subject at its frozen digest, every content-addressed object addressed by its own bytes, and every predeclared refusal self-tested."
+  ],
+  "adversarial_or_fault_proof": [
+    "Predeclared refusals, each exercised against synthetic bad input on every run: a missing or misformatted canonical-estate declaration; an estate running somewhere the declaration does not name, with no role marker; a role marker claiming canonical; a role marker naming the wrong canonical estate id; a role marker with no private staging directory; a nested estate copy with no marker at all; a file in the digest scope with a link count above one; an overlay manifest that does not reproduce its own self-digest; an overlay member classified outside the closed vocabulary; an overlay member absent from disk; an overlay member whose bytes moved; a retirement carrying no tombstone and successor disposition; a frozen subject that moved after its freeze; a frozen subject that vanished; a content-addressed object whose name is not its digest; a successor baseline that stops declaring itself unadmitted; a successor baseline binding no git tree; a successor baseline citing an overlay digest that does not match the frozen manifest.",
+    "The retained baseline is the two live defects: an undeclared nested estate copy, found by this bar on its first run, and a 990-subject baseline in which 220 subjects entered from the ambient filesystem under a SKIP that misdescribed them."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "M0_CANONICAL_ESTATE_AND_BASELINE_BINDING_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/program/canonical-estate.v1.json",
+      "internal-docs/implementation/program/canon-overlay-manifest.v1.json",
+      "internal-docs/implementation/program/canon-baseline-successor.candidate.v1.json",
+      "internal-docs/implementation/_archive/manifests/estate-freeze.v1.json",
+      "internal-docs/implementation/evidence/m0-canonical-estate-and-baseline-binding-successor.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m0-canonical-estate-and-baseline-binding-successor.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "declarations_and_bar_retained_baseline_admission_withheld_under_certification_hold",
+    "historical_status_preserved": true,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "internal-docs/implementation/tools/check-canonical-estate.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the bar this record owns; its passing is one input to the proof and is not the proof carrier"
+    },
+    {
+      "path": "internal-docs/implementation/generated/canon-baseline.v1.json",
+      "present_when": "current_precedent",
+      "evidence_scope": "the contaminated predecessor baseline, preserved historically and never rewritten; it is this record's baseline defect, not its proof"
+    }
+  ],
+  "evidence_refs": [
+    "internal-docs/implementation/program/canonical-estate.v1.json",
+    "internal-docs/implementation/program/canon-overlay-manifest.v1.json",
+    "internal-docs/implementation/_archive/manifests/estate-freeze.v1.json"
+  ],
+  "remaining_nonclaims": [
+    "Identifying a canonical estate makes copies distinguishable. It does not make any copy correct, current, or equal to the canonical one.",
+    "Content addressing makes an object immutable and citable. It does not make the object true, current, or sufficient.",
+    "Binding an overlay manifest asserts that those bytes were bound at freeze time. It grants no coverage to any subject and makes no claim that the evidence they contain is correct.",
+    "The successor baseline is a candidate. Nothing consumes it, it reviews nothing, dispositions nothing, and the 220 subjects still carry no classification and still grant no coverage.",
+    "A link count of one proves no alias exists now. It does not prove none was ever created, and it says nothing about copies outside the declared digest scope."
+  ],
+  "rollback_or_stop_rule": "Stop if the canonical estate cannot be identified without depending on an absolute host path as its identity, or if the overlay cannot be bound without admitting a subject that is neither in the bound tree nor an enumerated member. Never close this record by refreshing generated/canon-baseline.v1.json, by wiring the successor candidate into canon-impact, or by relaxing the absence rule so a missing ignored file reads as a deletion — that relaxation is the exact defect this record exists to make impossible.",
+  "exit_criteria": [
+    "The canonical estate is declared and every nested copy carries a valid reference marker; the byte-aliasing bar passes over the whole digest scope; every stored evidence object is addressed by its own bytes; the overlay manifest is frozen, self-verifying, and complete; the successor baseline binds a named tree plus that manifest and declares itself unadmitted; and every predeclared refusal fires by name against synthetic bad input.",
+    "Admission of the successor baseline is separate and is withheld until the certification hold releases."
+  ],
+  "pr": null,
+  "source_provenance": "Authored 2026-07-29 under an owner-directed repair pass while _archive/holds/certification-hold.v1.json is OPEN, as the first step of the owner's revised M0 order (rulings 1 and 2). It succeeds nothing by rewriting: the contaminated baseline, its acceptance ledger entry, and every predecessor closure are left exactly as they are.",
+  "last_status_transaction": {
+    "from": "evidence_ready",
+    "to": "verified",
+    "at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "certification_result_sha256": "e193cca4e38e6634d1c016f78f2611f672ceadd849384e2b0e65aa802a8e7b18",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

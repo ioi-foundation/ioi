@@ -1,0 +1,98 @@
+{
+  "expected_check": "unresolved-contract-family",
+  "record": {
+    "evidence_format": "ioi.program.work_item.v1",
+    "work_item_id": "fixture-unregistered-contract-family",
+    "stage_id": "M0",
+    "record_role": "private_verifier",
+    "status": "proposed",
+    "objective": "Census every INV-* identifier parsed directly from the registry (INV-1..INV-37 at this writing) from docs/architecture/foundations/invariants.md against citing implementation records, so a new, changed, or unowned canonical invariant is detected rather than assumed covered.",
+    "falsifiable_claim": "This plan fails if the census can be produced only by a hand-written invariant list, if any INV id present in canon is absent from the census, if an unowned invariant is reported as owned, or if the census asserts an owner that the citing record does not actually carry.",
+    "canon_owners": [
+      "docs/architecture/foundations/invariants.md",
+      "docs/architecture/_meta/source-of-truth-map.md",
+      "docs/architecture/foundations/security-privacy-policy-invariants.md"
+    ],
+    "canon_snapshot": {
+      "captured_at": "2026-07-25",
+      "captured_at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+      "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+      "aggregate_sha256": "eb1fc4d5f0d9a0f20145cfc35a084320001ebd8874f9b794880813a68eef2f42",
+      "owners": [
+        {
+          "path": "docs/architecture/foundations/invariants.md",
+          "sha256": "60c28094705b684987d5a353ed07224bc5248d08428a36aeb0c34d6281a98c48"
+        },
+        {
+          "path": "docs/architecture/_meta/source-of-truth-map.md",
+          "sha256": "8a8e48f7685046e0f66ccff127559c53182e92d18bb2d45df49ec930120ba60d"
+        },
+        {
+          "path": "docs/architecture/foundations/security-privacy-policy-invariants.md",
+          "sha256": "de3bb8d91d6932e95821c7d812c3f36cb68728cd8bb79426b51502fd9a5de998"
+        }
+      ]
+    },
+    "contract_families": [
+      {
+        "name": "GhostContract",
+        "registry_resolution": "architecture_contract_registry",
+        "contract_ids": [
+          "schema://ioi/foundations/ghost-contract/v9"
+        ]
+      }
+    ],
+    "dependency_work_item_ids": [],
+    "in_scope": [
+      "Parse every INV-* identifier from docs/architecture/foundations/invariants.md directly, with no hand-written identifier list.",
+      "Join each identifier to the work-item records, stage modules, and reusable modules that cite it.",
+      "Report every invariant with zero citing records as an honest unowned invariant, never as covered.",
+      "Detect an added, removed, or renamed invariant as a bounded impact routed to the citing records."
+    ],
+    "out_of_scope": [
+      "Ruling which invariants are implementation-bearing — that is a canon decision owned by docs/architecture/foundations/invariants.md.",
+      "Binding an invariant to a record by assertion in order to make the census green.",
+      "Changing any work-item status, stage state, or claim level."
+    ],
+    "implementation_actions": [
+      "Extend tools/canon-impact.mjs, or add a bounded sibling, to enumerate INV ids from the registry file and join them to citing records.",
+      "Emit the census as a generated projection, regenerated deterministically and reproducing byte-for-byte."
+    ],
+    "consequential_effects_and_final_invokers": [],
+    "ordered_product_operator_journey": [],
+    "positive_proof": [
+      "Every INV id in the registry appears in the census with its citing records, and re-running reproduces the projection byte-for-byte.",
+      "Adding a fixture invariant to a fixture registry appears as exactly one new unowned entry and names no unrelated record."
+    ],
+    "adversarial_or_fault_proof": [
+      "A renamed invariant is reported as one removal plus one addition, never as unchanged.",
+      "An invariant cited only inside _archive/ or inside prose that is not a record is reported as UNOWNED, not as covered.",
+      "A hand-edited census that does not match a fresh derivation fails closed.",
+      "Deleting the registry file fails closed rather than reporting zero invariants and passing."
+    ],
+    "compatibility_and_migration": [],
+    "metrics_and_frozen_thresholds": [],
+    "evidence_index": {
+      "literal_exit": "M0_INVARIANT_REGISTRY_CENSUS_EXIT=0",
+      "retained_refs": [],
+      "expected_output_paths": [
+        "internal-docs/implementation/evidence/M0/m0-invariant-registry-census.exit.v1.txt"
+      ],
+      "historical_unavailable_refs": [],
+      "negative_and_inconclusive_retention": true,
+      "producer_independence_required": true,
+      "checkout_validation": "not_applicable_until_evidence_ready",
+      "historical_status_preserved": false,
+      "task_exit_code_is_proof": false
+    },
+    "code_anchors": [],
+    "evidence_refs": [],
+    "remaining_nonclaims": [
+      "A census proves ownership bookkeeping only. It proves nothing about whether any invariant is enforced in code.",
+      "An invariant gaining a citing record does not make it implemented, verified, or claimed.",
+      "Creating this record implements no behaviour, activates no work, closes no gate, and changes no stage."
+    ],
+    "rollback_or_stop_rule": "Stop if the registry's INV identifiers cannot be parsed deterministically, or if closing the census would require asserting an owner that no record carries. In either case record the blockage as a canon gap against docs/architecture/foundations/invariants.md rather than widening the census.",
+    "source_provenance": "Authored 2026-07-25 by the implementation-system refactor after an independent verification pass found that zero work items reference any INV id and only 9 of 36 appear anywhere in the estate, so nothing would detect a new or orphaned invariant. Recorded at ba7513bac458cc6bfa398d3a814d65b963c6a287. Status is proposed: no implementation evidence exists."
+  }
+}

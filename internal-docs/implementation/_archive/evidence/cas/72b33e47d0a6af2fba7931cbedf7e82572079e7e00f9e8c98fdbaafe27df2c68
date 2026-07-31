@@ -1,0 +1,467 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m3-result-lifecycle-negative-retention",
+  "stage_id": "M3",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "M3.6",
+    "M3.7",
+    "M3.8"
+  ],
+  "status": "verified",
+  "objective": "Plan generic result and delta admission, owner-correct lifecycle and cancellation, restart reconstruction, archive-only replay, and negative-output retention.",
+  "falsifiable_claim": "Non-software, invalid, negative, inconclusive, and challenged outputs remain inspectable while cancellation and replay cannot bypass owning lifecycle or effect fences.",
+  "selected_profile": "Generic direct and System-bound GoalRun pursuit with replaceable Sessions, workers, models, and harnesses.",
+  "canon_owners": [
+    "docs/architecture/components/agentgres/api-object-model.md",
+    "docs/architecture/components/agentgres/artifact-ref-plane.md",
+    "docs/architecture/components/agentgres/doctrine.md",
+    "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+    "docs/architecture/components/agentgres/projection-system-reference.md",
+    "docs/architecture/components/connectors-tools/contracts.md",
+    "docs/architecture/components/connectors-tools/doctrine.md",
+    "docs/architecture/components/daemon-runtime/api.md",
+    "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+    "docs/architecture/components/daemon-runtime/doctrine.md",
+    "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md",
+    "docs/architecture/foundations/invariants.md",
+    "docs/architecture/foundations/objects/evidence-and-delivery.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "18738fd3a3103f52f5723e844ce9cc5ec14ad5ded789b8112ddfe963c28685f4",
+    "owners": [
+      {
+        "path": "docs/architecture/components/agentgres/api-object-model.md",
+        "sha256": "d9c0027e36a382df2fd326cc54f983e1593235ab0efb2ef987a8e4f59bee10c9"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/artifact-ref-plane.md",
+        "sha256": "8bdf076fba386f3b62a4fceccf55d9aaed8150a8aff127230d49edb6d5c00b92"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/doctrine.md",
+        "sha256": "4a8b06374f7b0a415eaab12841347c3e7d1e1acde2084dd8be23b4f1f838370b"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+        "sha256": "fdc0f94961a2d3f7cf29a766f29a37dc291b28248bb9109da685ada643fe1e6c"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/projection-system-reference.md",
+        "sha256": "3708db2a8c5a0db9bd9cd32a4fb5526b01b3dcbd80b6a8d26c871bfac3dacfbc"
+      },
+      {
+        "path": "docs/architecture/components/connectors-tools/contracts.md",
+        "sha256": "2296bc26155d6519cc357b0fcfb718cb58ce1b43052c90e5481d7509c7274b0f"
+      },
+      {
+        "path": "docs/architecture/components/connectors-tools/doctrine.md",
+        "sha256": "28915ebbf084413b6af4a94c014a8f9436e84056c7c1e8be23969b51fb24cd31"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/api.md",
+        "sha256": "a761ead62c929a90ff3ce4ff0958869301afe081bec91c0aa9d9ec67661b7d52"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+        "sha256": "8922d339c9e492a0e1e8ce657264af2b904a48c771d56f8296902ca8c826299f"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/doctrine.md",
+        "sha256": "27a34c7bcf9035fc13607150cfce10b10a3320eaeba0de6fbbf17b8cb46101b1"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+        "sha256": "1e318e51a9ce2b9ae5b3323e7d891c6519a204b9b69cec36e0f4d83bf122be98"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+        "sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "sha256": "4b36e978235c09cfe035fa263e7a78305041935b426274850ddc2e43884312f0"
+      },
+      {
+        "path": "docs/architecture/foundations/governed-autonomous-systems.md",
+        "sha256": "172d5522c76a48860c9449c893fc4aea72d8647c8d76ad42aff785b21d1c2746"
+      },
+      {
+        "path": "docs/architecture/foundations/invariants.md",
+        "sha256": "754c322a2dbc2287d02220ca2309c4b6d213cad92814ef7c92cb9b833e94148a"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+        "sha256": "fc222a6a52751c148ea82498e19a7d2a98e6c96cbd57bfce308efc1703454bd3"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "WorkResult",
+      "owner_path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/work-result/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.work-result.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "OutcomeDelta",
+      "owner_path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/outcome-delta/v1"
+      ],
+      "schema_versions": [
+        "ioi.outcome-delta.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkLifecycleRecord",
+      "owner_path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#worklifecyclerecordenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/work-lifecycle-record/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.work-lifecycle-record.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CancellationFanoutPlan",
+      "owner_path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#worklifecyclerecordenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/cancellation-fanout-plan/v1"
+      ],
+      "schema_versions": [
+        "ioi.cancellation-fanout-plan.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ReceiptEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#receiptenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-envelope/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-envelope.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "OperationLogEntry",
+      "owner_path": "docs/architecture/components/agentgres/api-object-model.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/agentgres/doctrine.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/components/agentgres/api-object-model.md#operation-shape",
+      "contract_ids": [
+        "schema://ioi/components/agentgres/operation-log-entry/v1"
+      ],
+      "schema_versions": [
+        "ioi.agentgres.operation-log-entry.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m3-result-lifecycle-negative-retention",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/active/m3-result-lifecycle-negative-retention.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M3_RESULT_LIFECYCLE_NEGATIVE_RETENTION_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "M3 implementation is present at the declared code anchors, registered contract fixtures and generated projections validate, the isolated daemon journey proves direct admission/result retention/restart reconstruction, and the focused Rust suite retains denial, stale-head, tamper, omission, revocation, label-loss, and exact-head evidence.",
+  "dependency_work_item_ids": [
+    "m2-selected-profile-exit-proof",
+    "m3-pursuit-definition-resolution"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "The canonical owner and contract crossings declared by m3-result-lifecycle-negative-retention",
+    "Plan generic result and delta admission, owner-correct lifecycle and cancellation, restart reconstruction, archive-only replay, and negative-output retention",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Inject cancellation races, stale lifecycle transitions, replay from archive, duplicate results, invalid deltas, inconclusive output loss, and challenged-output suppression",
+    "No acceptance authority or collective pursuit.",
+    "Archived evidence cannot execute, authorize, or close a stage.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: Plan generic result and delta admission, owner-correct lifecycle and cancellation, restart reconstruction, archive-only replay, and negative-output retention.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Plan generic result and delta admission, owner-correct lifecycle and cancellation, restart reconstruction, archive-only replay, and negative-output retention.",
+    "Build positive plus adversarial/fault runners that reject: Inject cancellation races, stale lifecycle transitions, replay from archive, duplicate results, invalid deltas, inconclusive output loss, and challenged-output suppression.",
+    "Retain an evidence index and require the exact content-bound M3_RESULT_LIFECYCLE_NEGATIVE_RETENTION_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "runtime work/tool invocation or lifecycle transition",
+      "final_invoker": "daemon RuntimeToolContract/work-lifecycle final invoker",
+      "authority_source": "local/domain policy and applicable grant; harness/MCP transports grant nothing",
+      "receipt_or_evidence": "invocation/result operation and ReceiptEnvelope",
+      "negative_behavior": "deny stale context, widened lease, duplicate idempotency key, or cancelled ancestor"
+    }
+  ],
+  "applicable_pg_ids": [
+    "PG-4B.1",
+    "PG-4B.2",
+    "PG-4B.4",
+    "PG-4B.5",
+    "PG-4B.6"
+  ],
+  "pg_gate_states": [
+    {
+      "pg_id": "PG-4B.1",
+      "applicability": "required_now",
+      "closure_stage_id": "M3",
+      "profile_selection": "selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    },
+    {
+      "pg_id": "PG-4B.2",
+      "applicability": "required_now",
+      "closure_stage_id": "M3",
+      "profile_selection": "selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    },
+    {
+      "pg_id": "PG-4B.4",
+      "applicability": "required_now",
+      "closure_stage_id": "M3",
+      "profile_selection": "selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    },
+    {
+      "pg_id": "PG-4B.5",
+      "applicability": "required_now",
+      "closure_stage_id": "M3",
+      "profile_selection": "selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    },
+    {
+      "pg_id": "PG-4B.6",
+      "applicability": "required_now",
+      "closure_stage_id": "M3",
+      "profile_selection": "selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    }
+  ],
+  "positive_proof": [
+    "The selected profile completes the bounded m3-result-lifecycle-negative-retention journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M3_RESULT_LIFECYCLE_NEGATIVE_RETENTION_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Inject cancellation races, stale lifecycle transitions, replay from archive, duplicate results, invalid deltas, inconclusive output loss, and challenged-output suppression.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m3-result-lifecycle-negative-retention; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Inject cancellation races, stale lifecycle transitions, replay from archive, duplicate results, invalid deltas, inconclusive output loss, and challenged-output suppression; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M3_RESULT_LIFECYCLE_NEGATIVE_RETENTION_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m3.direct_path_substitution_failures",
+      "metric": "selected direct-path substitutions that change authority, truth, or accepted effect",
+      "threshold": 0,
+      "unit": "substitutions",
+      "threshold_source": "M3 direct-path preservation floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M3_RESULT_LIFECYCLE_NEGATIVE_RETENTION_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/evidence/m3-result-lifecycle-negative-retention.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M3/m3-result-lifecycle-negative-retention.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_goal_pursuit.rs",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/work-result.v1.schema.json",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/outcome-delta.v1.schema.json",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/cancellation-fanout-plan.v1.schema.json",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-m3-goalrun-plane.mjs",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "No collective pursuit, OutcomeRoom acceptance authority, P0 readiness, independent-party operation, public production claim, or later-stage closure is inferred from this M3 selected-profile proof."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Inject cancellation races, stale lifecycle transitions, replay from archive, duplicate results, invalid deltas, inconclusive output loss, and challenged-output suppression. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Plan generic result and delta admission, owner-correct lifecycle and cancellation, restart reconstruction, archive-only replay, and negative-output retention",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M3_RESULT_LIFECYCLE_NEGATIVE_RETENTION_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Plan-level proposal derived from internal-docs/implementation/m0-m14-plan-gap-audit.md at origin/master 69592149186cb29383a397ad0aa3ad6f5ab4ab7b; status transaction 2026-07-22. Enriched under approved SA-2/SA-7/SA-9 private migration on 2026-07-22; status preserved.",
+  "last_status_transaction": {
+    "from": "active",
+    "to": "verified",
+    "at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "certification_result_sha256": "a883bc8d3229939e49e20a587100af78c061da9e3645cb9e8fd8477f8892ad18",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

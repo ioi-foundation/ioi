@@ -1,0 +1,11 @@
+{
+  "literal_exit": {
+    "expected": "M1_DUAL_GENESIS_AND_READ_PROJECTION_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M1/m1-dual-genesis-and-read-projection.exit.v1.txt",
+    "artifact_sha256": "a474f8b05c0fa98208c01e091ebfc2922c20f778380e3adcc98f768dbba83901"
+  },
+  "adversarial_or_fault_proof": [
+    "Retained held-bar certification run (internal-docs/implementation/evidence/M1/system-verifier-certification-run.v1.log, 140/140, CERT_EXIT=0, all fourteen journeys, real-wallet authority): the dual-system-projection journey proves one reusable package materializing two distinct admitted Systems with no shared live identity, lease, credential, or state; M1.7 FILTER proves exact-System selection never substitutes the other admitted System; compact and advanced projection inputs resolve to identical canonical roots; M1.7 COMPLETENESS proves a local admission loss with retained Agentgres truth fails closed (422 system_projection_source_incomplete) instead of claiming honest empty; M1.7 RESTART proves projections rebuild byte-exactly with no persisted projection truth.",
+    "Compile/route-layer negatives retained in the verifier: wrong-System reads refuse; honest-empty is only reachable with zero admitted Systems; projection source incompleteness fails closed rather than fabricating defaults."
+  ]
+}

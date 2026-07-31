@@ -1,0 +1,8 @@
+# CLI/Public Runtime Transcript
+
+Endpoint: http://127.0.0.1:40377
+GET /v1/runs/run_78075344-dc89-4f4c-aaf0-8a2abe3a323b -> canceled
+GET /v1/runs/run_78075344-dc89-4f4c-aaf0-8a2abe3a323b/trace -> trace_run_78075344-dc89-4f4c-aaf0-8a2abe3a323b
+Canonical source: agentgres_canonical_operation_log
+Terminal state: canceled
+Stop reason: marginal_improvement_too_low

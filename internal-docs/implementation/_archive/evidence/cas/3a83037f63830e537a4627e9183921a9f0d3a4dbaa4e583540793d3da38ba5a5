@@ -1,0 +1,81 @@
+# Autopilot LM Studio Quality, Routing, And Chat UX Parity Plus Verdict
+
+Verdict: **lm_studio_quality_routing_chat_ux_parity_plus_proven**
+
+## Post-Verdict Erratum - 2026-05-28
+
+A later fresh/default Agent Studio screenshot showed `route.local-first · local:auto` selected and a blocked website artifact response. That invalidated the original wording that product-mode defaults could not surface the fixture/auto placeholder.
+
+Root cause: the Studio selector trusted the active route fallback endpoint before applying the product-model filter, then `studioSnapshotFromState` fell back to the first endpoint/artifact. In an unseeded or stale state that let `endpoint.local.auto` become visible and submit as `local:auto`.
+
+Fix applied after the erratum:
+
+- Product model selection now requires a non-fixture, non-`local:auto` model before the selector can show it.
+- If qwen is present in daemon model mounting state, `route.local-first` resolves to `qwen/qwen3.5-9b`, including via `lastSelectedModel`.
+- If only fixture/auto records exist, the selector shows `No product model mounted` and submits `__product_model_unavailable__`, which fails closed before artifact generation.
+- Stale webview submits carrying `local:auto`, `autopilot:native-fixture`, `stories260k`, or fixture ids are rejected before model invocation.
+
+Support verification after the fix:
+
+- `node --check apps/autopilot/openvscode-extension/ioi-workbench/extension.js`
+- `node --check apps/autopilot/openvscode-extension/ioi-workbench/studio/operational-surface.js`
+- `node --test apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs`
+- `node --test packages/runtime-daemon/src/conversation-artifacts.test.mjs`
+- `npm run test:model-mounting`
+
+Additional selector sanity check against the captured daemon snapshot showed qwen selected when qwen and `local:auto` both exist, and showed `No product model mounted` when only `local:auto` exists.
+
+Autopilot now treats LM Studio as a reference product surface, not as an embedded engine. The qwen/qwen3.5-9b path is Autopilot-native: the daemon mounts and invokes the local GGUF through the cached Vulkan llama.cpp runtime, while the GUI consumes daemon-owned route truth, metrics, artifact lifecycle, and stream events.
+
+## Second Post-Verdict Erratum - 2026-05-28
+
+A second fresh Agent Studio screenshot showed `route.native-local · LM Studio detected` and the same blocked website-artifact response. That invalidated the remaining overclaim that explicit qwen product submissions could not be captured by a non-product endpoint.
+
+Root causes:
+
+- Desktop bootstrap mounted LM Studio-discovered records on `endpoint.electron.model-gui`, so a placeholder `lmstudio:detected` slot could appear as a product route.
+- Persisted `backend.llama-cpp` records could keep stale `binary_absent` state even after the launcher discovered the cached Vulkan `llama-server`.
+- The daemon selector resolved an explicit model id by the first matching endpoint, so `qwen/qwen3.5-9b` could evaluate an autodiscovered LM Studio endpoint before the native route fallback and then fail policy.
+
+Fix applied after the second erratum:
+
+- Desktop bootstrap now gives the product GUI endpoint only to `provider.llama-cpp` and rejects `lmstudio:detected`, `local:auto`, fixture ids, and external-provider detections for product Studio routes.
+- The launcher discovers the cached native llama.cpp server and the local GGUF bytes, then seeds `route.local-first` and `route.native-local` as local-only routes with `provider_eligibility: ["llama_cpp"]`.
+- Dynamic backend seeding overwrites stale derived backend fields so a newly discovered llama.cpp binary clears old `binary_absent` state.
+- Explicit model routing now prefers the selected route's matching fallback endpoint before any other endpoint with the same model id.
+
+Support verification after the second fix:
+
+- `node --check packages/runtime-daemon/src/model-mounting.mjs`
+- `node --check scripts/launch-autopilot-ide-fork.mjs`
+- `node --check apps/autopilot/openvscode-extension/ioi-workbench/extension.js`
+- `node --test apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs`
+- `node --test scripts/lib/model-mounting-ui-contract.test.mjs`
+- `node --test scripts/lib/model-mounting-daemon-contract.test.mjs`
+- Fresh desktop boot projected `route.local-first` and `route.native-local` to `endpoint.electron.model-gui` on `provider.llama-cpp`, model `qwen/qwen3.5-9b`, backend `backend.llama-cpp`, with spawned Vulkan `llama-server`.
+- Live daemon invocation with `model: "qwen/qwen3.5-9b"` and route `route.local-first` returned content in 2.5s through the native route.
+- Live artifact-shaped website completion returned a complete `<!DOCTYPE html>...</html>` document through the native route, fixture-free, with `finish_reason: "stop"`.
+
+## What Was Proven
+
+- Quality: five live Agent Studio prompts produced selected-model, fixture-free answers/artifacts through qwen/qwen3.5-9b. Evidence: `docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/2026-05-28T04-28-42-269Z/autopilot/live-gui-five-prompt-matrix/2026-05-28T08-24-37-540Z/proof.json`.
+- Routing truth: explicit qwen selection stayed on `provider.llama-cpp` / `backend.llama-cpp`; `local:auto` and fixture routes fail closed in product mode. Evidence: `docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/2026-05-28T04-28-42-269Z/autopilot/model-route-decisions/native-route-truth-and-fixture-deny-proof.json`.
+- Native runtime: Autopilot used `autopilot_native_llama_cpp`, not LM Studio's runtime. Evidence: `docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/2026-05-28T04-28-42-269Z/autopilot/live-gui-five-prompt-matrix/2026-05-28T08-24-37-540Z/runtime-model-route.json` and `docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/2026-05-28T04-28-42-269Z/autopilot/native-backend-acceleration/vulkan-qwen-visible-content-smoke.json`.
+- Chat UX: direct Ask streams model tokens; reasoning mode streams a Thinking block; Agent produces a clean handoff plus sandboxed artifact preview; response metrics are available at the bottom of responses. Evidence: `docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/2026-05-28T04-28-42-269Z/autopilot/live-gui-reasoning-stream-rerun/2026-05-28T08-43-49-303Z/proof.json`, `docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/2026-05-28T04-28-42-269Z/autopilot/live-gui-five-prompt-matrix/2026-05-28T08-24-37-540Z/conversation-artifact-compact.png`, and `docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/2026-05-28T04-28-42-269Z/autopilot/live-gui-five-prompt-matrix/2026-05-28T08-24-37-540Z/assistant-response.png`.
+- Artifact quality: incomplete/truncated HTML and canned fixture fallback are rejected; compact native artifact generation produced complete HTML with no external network assets. Evidence: `docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/2026-05-28T04-28-42-269Z/autopilot/native-backend-acceleration/vulkan-artifact-html-compact-repro.json`.
+- Cleanup: both final live GUI runs cleaned Autopilot/runtime/model processes with no remaining orphans. Evidence: `docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/2026-05-28T04-28-42-269Z/autopilot/live-gui-five-prompt-matrix/2026-05-28T08-24-37-540Z/process-cleanup-after-run.json` and `docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/2026-05-28T04-28-42-269Z/autopilot/live-gui-reasoning-stream-rerun/2026-05-28T08-43-49-303Z/process-cleanup-after-run.json`.
+
+## Product Decisions
+
+- Preserve the Autopilot/OpenVSCode look; add LM Studio-equivalent components only where they fit the workbench.
+- Keep model execution semantics daemon-owned. The GUI renders controls and metrics but does not own route truth, invocation semantics, artifact execution, or cleanup.
+- Treat LM Studio settings as a breadth reference. Autopilot ports missing primitives into the native model mounting/router contract rather than depending on LM Studio internals.
+- Keep raw receipts, route payloads, fixture details, and trace IDs out of product chat; they live in tracing/evidence.
+
+## Remaining Blockers
+
+None for the P0 campaign scope. P1 long-tail provider knobs remain product-decision rows in the manifest, not blockers to this parity-plus verdict.
+
+## Final Manifest
+
+See `docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/lm-studio-quality-routing-chat-ux-final-manifest.json`.

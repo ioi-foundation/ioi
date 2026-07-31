@@ -1,0 +1,165 @@
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284099 port=45049 inode=52637589 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284131 port=42051 inode=52607979 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284162 port=44129 inode=52630842 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284196 port=41993 inode=52614921 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284227 port=35391 inode=52642009 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284259 port=35459 inode=52630284 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284291 port=44065 inode=52605694 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284320 port=34593 inode=52639185 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284351 port=39407 inode=52644011 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284382 port=43513 inode=52639192 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284414 port=45777 inode=52636123 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284445 port=33397 inode=52599668 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284476 port=44237 inode=52640968 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284508 port=37937 inode=52642010 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284539 port=33173 inode=52646954 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284570 port=39901 inode=52645945 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284601 port=34829 inode=52630845 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284632 port=33899 inode=52599677 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284663 port=35279 inode=52583313 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284692 port=45839 inode=52636130 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284723 port=45251 inode=52642017 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284754 port=38857 inode=52630846 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284785 port=45947 inode=52646961 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284817 port=33799 inode=52630847 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284849 port=36697 inode=52635092 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284880 port=36381 inode=52630291 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284911 port=42071 inode=52614934 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284942 port=34215 inode=52630852 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2284973 port=33997 inode=52600710 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285005 port=34535 inode=52644024 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285036 port=38063 inode=52600711 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285067 port=45253 inode=52630856 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285098 port=38403 inode=52639209 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285129 port=39967 inode=52646986 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285160 port=39373 inode=52644025 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285192 port=34059 inode=52637640 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285515 port=45817 inode=52630896 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285644 port=46545 inode=52630909 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285676 port=46561 inode=52630910 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285804 port=42695 inode=52647985 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285835 port=35991 inode=52647992 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285927 port=42759 inode=52632525 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2285976 port=38149 inode=52644989 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2286120 port=35105 inode=52642110 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2286152 port=44869 inode=52599804 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2286321 port=38939 inode=52644153 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2286352 port=35733 inode=52600801 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2286548 port=35031 inode=52647061 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2286579 port=37029 inode=52650013 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2286793 port=32809 inode=52651152 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2286824 port=44919 inode=52651159 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2287096 port=35439 inode=52654103 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2287127 port=38743 inode=52650079 owned=true
+PASS invalid input and non-canonical identity refuse before every durable side effect — type=422 bound=422 ref=422
+PASS anonymous exposed create/list/get deny before recovery, projection, or provisioning — 401/401/401
+PASS existing-environment bind enforces principal ownership and no-follow workspace containment — 412/412
+PASS ordinary composer creates one owner-bound receipt-backed Session projection — 202/undefined
+PASS same canonical identity and JCS-equivalent body replay without a second workspace or receipt — 202/undefined
+PASS same Session identity with a changed body is a no-clobber conflict — 409/session_create_idempotency_conflict
+PASS Session WAL and record keys bind the full exact identity digest — session_create_8184f9a9e721183815eb6a731d8e56421a2faf8a0f88db6bf0d4a1d490d451e5.json/session_8184f9a9e721183815eb6a731d8e56421a2faf8a0f88db6bf0d4a1d490d451e5.json
+PASS fresh process replays byte-identical Session transcript truth — 200/undefined
+PASS identities sharing the old normalized/truncated prefix never alias — 202/202
+PASS teardown of one formerly-colliding identity cannot delete or mutate its sibling — 200/200
+PASS authenticated Session create binds daemon-resolved principal ownership — 202/200
+PASS list/get/idempotency conflict never project one principal's prompt to another — 404/200/409
+PASS events/execute/port-revoke/teardown authorize owner before projection, wallet challenge, or effect — 404/404/404/404
+PASS anonymous exposed events/execute/port-revoke/teardown all deny without owner leakage — 401/401/401/401
+PASS later Session lifecycle mutation advances the exact digest slot without split truth — 200/200
+PASS cross-process same-ref concurrency elects exactly one reservation/provisioning winner — 202/202 replay=[false,true]
+PASS fail:prepare_intent cannot return false Session-create success — 503/session_create_reservation_failed
+PASS fail:prepare_intent leaves exactly the declared durable boundary and no Goal identity — intent=absent receipts=0 sessions=0 workspaces=0
+PASS fail:prepare_intent fresh-process recovery converges to one complete committed Session bundle — 202/undefined intent=committed
+PASS crash:prepare_intent cannot return false Session-create success — 0/transport_error
+PASS crash:prepare_intent leaves exactly the declared durable boundary and no Goal identity — intent=reserved receipts=0 sessions=0 workspaces=0
+PASS crash:prepare_intent list performs recovery before projecting Session truth — 200/undefined
+PASS crash:prepare_intent fresh-process recovery converges to one complete committed Session bundle — 200/undefined intent=committed
+PASS fail:provision_bundle cannot return false Session-create success — 503/session_create_persist_failed
+PASS fail:provision_bundle leaves exactly the declared durable boundary and no Goal identity — intent=reserved receipts=0 sessions=0 workspaces=1
+PASS fail:provision_bundle fresh-process recovery converges to one complete committed Session bundle — 200/undefined intent=committed
+PASS crash:provision_bundle cannot return false Session-create success — 0/transport_error
+PASS crash:provision_bundle leaves exactly the declared durable boundary and no Goal identity — intent=prepared receipts=0 sessions=0 workspaces=1
+PASS crash:provision_bundle fresh-process recovery converges to one complete committed Session bundle — 200/undefined intent=committed
+PASS fail:provisioning_receipt cannot return false Session-create success — 503/session_create_persist_failed
+PASS fail:provisioning_receipt leaves exactly the declared durable boundary and no Goal identity — intent=prepared receipts=0 sessions=0 workspaces=1
+PASS fail:provisioning_receipt fresh-process recovery converges to one complete committed Session bundle — 200/undefined intent=committed
+PASS crash:provisioning_receipt cannot return false Session-create success — 0/transport_error
+PASS crash:provisioning_receipt leaves exactly the declared durable boundary and no Goal identity — intent=prepared receipts=1 sessions=0 workspaces=1
+PASS crash:provisioning_receipt fresh-process recovery converges to one complete committed Session bundle — 200/undefined intent=committed
+PASS fail:initial_input_receipt cannot return false Session-create success — 503/session_create_persist_failed
+PASS fail:initial_input_receipt leaves exactly the declared durable boundary and no Goal identity — intent=prepared receipts=1 sessions=0 workspaces=1
+PASS fail:initial_input_receipt fresh-process recovery converges to one complete committed Session bundle — 200/undefined intent=committed
+PASS crash:initial_input_receipt cannot return false Session-create success — 0/transport_error
+PASS crash:initial_input_receipt leaves exactly the declared durable boundary and no Goal identity — intent=prepared receipts=2 sessions=0 workspaces=1
+PASS crash:initial_input_receipt fresh-process recovery converges to one complete committed Session bundle — 200/undefined intent=committed
+PASS fail:session_record cannot return false Session-create success — 503/session_create_persist_failed
+PASS fail:session_record leaves exactly the declared durable boundary and no Goal identity — intent=prepared receipts=2 sessions=0 workspaces=1
+PASS fail:session_record fresh-process recovery converges to one complete committed Session bundle — 200/undefined intent=committed
+PASS crash:session_record cannot return false Session-create success — 0/transport_error
+PASS crash:session_record leaves exactly the declared durable boundary and no Goal identity — intent=prepared receipts=2 sessions=1 workspaces=1
+PASS crash:session_record fresh-process recovery converges to one complete committed Session bundle — 200/undefined intent=committed
+PASS fail:commit_intent cannot return false Session-create success — 503/session_create_persist_failed
+PASS fail:commit_intent leaves exactly the declared durable boundary and no Goal identity — intent=prepared receipts=2 sessions=1 workspaces=1
+PASS fail:commit_intent fresh-process recovery converges to one complete committed Session bundle — 200/undefined intent=committed
+PASS crash:commit_intent cannot return false Session-create success — 0/transport_error
+PASS crash:commit_intent leaves exactly the declared durable boundary and no Goal identity — intent=committed receipts=2 sessions=1 workspaces=1
+PASS crash:commit_intent fresh-process recovery converges to one complete committed Session bundle — 200/undefined intent=committed
+PASS fail:teardown_session_prepared fixture Session commits before lifecycle fault
+PASS fail:teardown_session_prepared never returns false lifecycle success — 503/session_lifecycle_durability_unconfirmed
+PASS fail:teardown_session_prepared preserves workspace and pre-effect Session truth
+PASS fail:teardown_session_prepared restart keeps the unexecuted operation unapplied
+PASS fail:teardown_session_prepared explicit retry reaches a durable teardown
+PASS crash:teardown_session_prepared fixture Session commits before lifecycle fault
+PASS crash:teardown_session_prepared never returns false lifecycle success — 0/transport_error
+PASS crash:teardown_session_prepared retains a teardown replay anchor without reporting success
+PASS crash:teardown_session_prepared fresh read recovers durable teardown before projection — 200/undefined
+PASS fail:teardown_session_final fixture Session commits before lifecycle fault
+PASS fail:teardown_session_final never returns false lifecycle success — 503/session_lifecycle_durability_unconfirmed
+PASS fail:teardown_session_final retains a teardown replay anchor without reporting success
+PASS fail:teardown_session_final fresh read recovers durable teardown before projection — 200/undefined
+PASS fail:port_session_final fixture Session commits before lifecycle fault
+PASS fail:port_session_final never returns false lifecycle success — 503/session_lifecycle_durability_unconfirmed
+PASS fail:port_session_final retains a port-revoke replay anchor without reporting success
+PASS fail:port_session_final fresh read recovers durable port-revoke before projection — 200/undefined
+PASS fail:execute_session_prepared fixture Session commits before execution fault
+PASS fail:execute_session_prepared never reports execution success across an unconfirmed durability boundary — 403/no_typed_error/503/session_execute_durability_unconfirmed
+PASS fail:execute_session_prepared leaves the exact pre-effect or retained-outcome recovery anchor — phase=absent artifact=false
+PASS fail:execute_session_prepared fresh read converges without replaying an unconfirmed external effect — 200/provisioned/undefined
+PASS crash:execute_session_prepared fixture Session commits before execution fault
+PASS crash:execute_session_prepared never reports execution success across an unconfirmed durability boundary — 403/no_typed_error/0/transport_error
+PASS crash:execute_session_prepared leaves the exact pre-effect or retained-outcome recovery anchor — phase=prepared artifact=false
+PASS crash:execute_session_prepared fresh read converges without replaying an unconfirmed external effect — 200/execution_interrupted_unconfirmed/interrupted_unconfirmed
+PASS fail:execute_outcome_prepared fixture Session commits before execution fault
+PASS fail:execute_outcome_prepared never reports execution success across an unconfirmed durability boundary — 403/no_typed_error/503/session_execute_durability_unconfirmed
+PASS fail:execute_outcome_prepared leaves the exact pre-effect or retained-outcome recovery anchor — phase=prepared artifact=true
+PASS fail:execute_outcome_prepared fresh read converges without replaying an unconfirmed external effect — 200/execution_interrupted_unconfirmed/interrupted_unconfirmed
+PASS crash:execute_outcome_prepared fixture Session commits before execution fault
+PASS crash:execute_outcome_prepared never reports execution success across an unconfirmed durability boundary — 403/no_typed_error/0/transport_error
+PASS crash:execute_outcome_prepared leaves the exact pre-effect or retained-outcome recovery anchor — phase=outcome_ready artifact=true
+PASS crash:execute_outcome_prepared fresh read converges without replaying an unconfirmed external effect — 200/executed_native_local/success
+PASS fail:execute_receipt_final fixture Session commits before execution fault
+PASS fail:execute_receipt_final never reports execution success across an unconfirmed durability boundary — 403/no_typed_error/503/session_execute_durability_unconfirmed
+PASS fail:execute_receipt_final leaves the exact pre-effect or retained-outcome recovery anchor — phase=outcome_ready artifact=true
+PASS fail:execute_receipt_final fresh read converges without replaying an unconfirmed external effect — 200/executed_native_local/success
+PASS crash:execute_receipt_final fixture Session commits before execution fault
+PASS crash:execute_receipt_final never reports execution success across an unconfirmed durability boundary — 403/no_typed_error/0/transport_error
+PASS crash:execute_receipt_final leaves the exact pre-effect or retained-outcome recovery anchor — phase=outcome_ready artifact=true
+PASS crash:execute_receipt_final fresh read converges without replaying an unconfirmed external effect — 200/executed_native_local/success
+PASS fail:execute_session_final fixture Session commits before execution fault
+PASS fail:execute_session_final never reports execution success across an unconfirmed durability boundary — 403/no_typed_error/503/session_execute_durability_unconfirmed
+PASS fail:execute_session_final leaves the exact pre-effect or retained-outcome recovery anchor — phase=outcome_ready artifact=true
+PASS fail:execute_session_final fresh read converges without replaying an unconfirmed external effect — 200/executed_native_local/success
+PASS crash:execute_session_final fixture Session commits before execution fault
+PASS crash:execute_session_final never reports execution success across an unconfirmed durability boundary — 403/no_typed_error/0/transport_error
+PASS crash:execute_session_final leaves the exact pre-effect or retained-outcome recovery anchor — phase=absent artifact=true
+PASS crash:execute_session_final fresh read converges without replaying an unconfirmed external effect — 200/executed_native_local/success
+PASS strict-WAL adversarial plane has a committed baseline
+PASS corrupt WAL slot makes list/get/create typed-unavailable without partial projection — 503/503/503
+PASS unreadable WAL slot makes list/get/create typed-unavailable without partial projection — 503/503/503
+PASS symlink WAL slot makes list/get/create typed-unavailable without partial projection — 503/503/503
+PASS semantic-invalid WAL slot makes list/get/create typed-unavailable without partial projection — 503/503/503
+PASS committed WAL marker cannot act as an umbrella claim over a missing durable member — 503/session_create_wal_unavailable
+PASS corrupt Session-registry slot blocks a partial list through the pinned no-follow census — 503/session_registry_unavailable
+PASS symlink Session-registry slot blocks a partial list through the pinned no-follow census — 503/session_registry_unavailable
+PASS tampered workspace coordinates fail closed before projection or destructive teardown — 503/503
+M4 Session initial-input isolated plane: PASS (111/111)

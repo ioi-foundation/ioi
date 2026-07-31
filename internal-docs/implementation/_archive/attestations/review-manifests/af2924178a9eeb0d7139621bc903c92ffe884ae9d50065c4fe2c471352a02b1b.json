@@ -1,0 +1,345 @@
+{
+  "evidence_format": "ioi.program.canon_review_manifest.v1",
+  "manifest_role": "Content-bound enumeration of every canon subject pending baseline review, with the disposition and written reasoning of one accountable reviewer. Presenting this manifest to --accept advances the baseline. It closes no work item, certifies no stage, and changes no status.",
+  "claim": "canon_drift_reviewed_only",
+  "reviewer_ref": "owner://ioi/repository-owner",
+  "emitted_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+  "instructions": [
+    "Fill reviewer_ref, and per subject a disposition (unaffected | successor_required | blocked) and a review_note that argues it from what actually changed.",
+    "`unaffected` must be ARGUED. Say why this subject's change does not reach the stages, modules, and work items named in review_required below. An unargued `unaffected` is a mechanical accept with extra steps.",
+    "Never rewrite a verified closure to absorb a semantic change: disposition it `successor_required` and open a successor record that states what must now be proven.",
+    "Do not edit the ids or digests. They bind this manifest to one exact revision, and --accept refuses if they drift."
+  ],
+  "review_required": {
+    "stages": [
+      "M0",
+      "M11",
+      "M14",
+      "M3",
+      "M6",
+      "M9"
+    ],
+    "modules": [
+      "adversarial-proof-matrix",
+      "cooperation",
+      "docs-and-comms",
+      "embodied",
+      "mechanism-gates",
+      "network-and-l1",
+      "product-surface-ux-proof",
+      "product-ux",
+      "proof-and-evidence",
+      "runtime-fabric",
+      "runtime-trust-boundary",
+      "supply-and-commerce",
+      "wallet-authority"
+    ],
+    "work_items": [
+      "agentgres-production-readiness-and-branch-effects",
+      "ecosystem-assurance-and-public-claim-estate",
+      "m0-canon-owner-coverage-and-orphan-verifier",
+      "m0-literal-exit-evidence-contract",
+      "m0-program-control-selected-profile-exit-proof",
+      "m0-route-final-invoker-pg-census-maintenance",
+      "m0-selected-profile-baseline-evidence-and-claim-lock",
+      "m0-source-disposition-and-single-sequencer-verifier",
+      "m0-work-item-contract-completeness-and-owner-lint",
+      "m11-canonical-embodied-contract-alignment",
+      "m3-direct-path-and-exit-proof",
+      "m3-goal-kernel-context-and-runtime-truth-spine",
+      "m3-pursuit-definition-resolution",
+      "m3-result-lifecycle-negative-retention",
+      "m3-work-session-automation-product-journey",
+      "m6-reference-shell-disposition-and-depth-ledger",
+      "m9-selected-profile-aggregate-exit-and-claim-publication",
+      "sdk-cli-adk-odk-builder-journey"
+    ],
+    "conformance_targets": [],
+    "contract_families": [
+      "AgentExecutionBranch",
+      "BranchCheckpoint",
+      "BranchMergePlan",
+      "GoalGroundingLoop",
+      "GoalRunProfile",
+      "GoalRunProfileResolutionReceipt",
+      "StagedEffect",
+      "WorkLifecycleRecord"
+    ]
+  },
+  "subject_count": 34,
+  "subject_set_sha256": "e8ea32e81f50457441892b31691a06ff8c430a7a5b7a59bfb5f1acae2ecdceb8",
+  "subjects": [
+    {
+      "id": "docs/architecture/_meta/schemas/agent-execution-branch.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "acc95ccfb1f3c406300b35da30de6c8a39172e1cca77a4ec690e6a98608783ae",
+      "tree_sha256": "afe57099e71cc788c2d103d23e2465e2be4d4320f4db3b2367612df3843c1fc3",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "change": "changed",
+      "baseline_sha256": "48aa823182961ce5d15aae1163f8eb617e4ab5b7d07a982bf0ad3b49fdada6f2",
+      "tree_sha256": "785b7d8ce9e45bd83d1911fb7d96b45f0209075c8e6c9c39e5a45b2b2a81e763",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/branch-checkpoint.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "bb720210d1bc4a29954bb0c3736f96ca7745751fcefe245df88ced139f5b6dea",
+      "tree_sha256": "e4bb3c85867d841a6992e1494805c19fbd6e4d4fe06d7df60f2542af7be569af",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/branch-merge-plan.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "4fa05012c567e383cf1f51e81afb456a6d1a3abe36c6228be7d3e5fc531c213e",
+      "tree_sha256": "26bf2d63975c804b47ea9f6ce3777cf5c5e091f15b6ce7a0ac8b9c8d1ffb8676",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "ff11ab4bc4990c4e5591cbcc2dbf29f6495d6961ff30039618addcfe82867ae2",
+      "tree_sha256": "fe199118eee300609233c44b82830fcf1b4d8c569e15693325bc4395df6b430a",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "1a5c98c99d400c1c5e581687d5e4048bd57cea72e89f1558ed72ea24512a9df1",
+      "tree_sha256": "3c23a12ccd5d7c8c0f886926542ddcef6833e3d9397bddc220a9bb3689029cc1",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "81b96f0b8ddae6416ca2498148fd9a49babb95851942e4657046444f19280035",
+      "tree_sha256": "af999cd5318ca7458145a45058cdebec9ca193b6e1436f688077c4f1e072ecfa",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "8f998f6d3e9ae4b329666e860d72ec155dd02655416c7965600574018e3821d1",
+      "tree_sha256": "4950b0c9658eb6f601e0b236c6c8e9ff3d00a1589c225ee50aee57f135f948c5",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "b8eea5be3f9c775d5b70e84354b95667e18bc7a621fba64aa24bf9fb059c4687",
+      "tree_sha256": "97dff7bb632b6c50378fb450c6db80faf32dcc200e4c2d38e4e7902850cc2b5b",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "98085fd0d58d925100788aa84d9f329a689f4e9f39eb3e7ffe32a42f5b96b2b0",
+      "tree_sha256": "7e85e740f7e04d062af73ab3892646179b23a87041222ecbb3aa2d0425c6e861",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "d5415e069774ee4777637839591e571d963cfca06c5563ef35da6b03f645d6f7",
+      "tree_sha256": "24d9d4a04f0d3d50fd161b00a6c0e6b40bbd9c329f832bd238d06bf1b8717853",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "34ae4c50012b17b83517e0c2f27cd901179e09d4d84c73a4bedcf1fc0d6fad1c",
+      "tree_sha256": "e60e8f5309929e71361d0f8df559cb563db62d184d3c34acae9f5f37890882cb",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "141b288a36fe3ddfec75e381b8946c46b1b29c35ae21a5f8849a499b51afd392",
+      "tree_sha256": "a5b0c32ddce0d1150e304a0ba3186d15bea03beca5b7c40f2ad056821cc3152d",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "59d56eb20799fa0f2340ddbc9891b2dc5c8b7d938cdb57f3e0dc3bd321d4a94b",
+      "tree_sha256": "98e71f22013dbff96f2a55e28622ca7e304214ff974a65ef783e13edac500133",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "e65f542e924b0d477d9eb149535a3c4f64db679c772c7a1f0e5cbc9f4ac25e55",
+      "tree_sha256": "fd7a6422829949b6e0843aa2397a5454fa32da48effa431d70e8de713591726c",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "b8d2b6aff0bbce4359709ca2fdbdbc95c1705e5a106a88eb1fec9b829df5fa22",
+      "tree_sha256": "6c938da1bb22dabe0d5568f81bfc92e58aa8c06fe5e3b781ad9583bcdb8fbd46",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/staged-effect-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "4a4e00e251738b8bc7488c1b39af2a775da43c2872c059d6509d5650b12ff613",
+      "tree_sha256": "a1577f6d166129805efc88e5965bcd8cfc46021647f6a0de6268786ed8c47dda",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/staged-effect-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "13ad36e66de1f3946707b7abb211b8a3d78afd389db0b476da1034495864d868",
+      "tree_sha256": "73de35c23cf03c1a10d92f573245d8c8583a5d84f6504605202267487a079199",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "3df53afc4fc836df32bc9de3af29032ffca52e061b78ba5f36ab46b50f952f9b",
+      "tree_sha256": "632d988243060330e98dc64b16779ecc53b896f5589299eca2cba473a133b7fd",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "a8f1cc21c2dfb192d1b54339a1dd65045740fe4f283bfd322471cd6baf2097cc",
+      "tree_sha256": "b65462146dd2d87e735246ab8dd1a4eefbf85f31fbf885ff060c032919adb461",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/staged-effect.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "93f8e91733c9fbff3a1bf55e1e0b02f57204e35678facf878ef30304f1e655c9",
+      "tree_sha256": "f1ef30d22bdafb5a30a7fcb150095119244572e9eabe2e485c9c58991ddfc6a8",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-lifecycle-record.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "d5c754d38aceb1023f1fe8b22277406d5f53a004f6aa5bf725a7a6d25bc2ed62",
+      "tree_sha256": "e255343ae5663906da4f172ec3cbd12601ce7a5285e4120aaed16ae8396c8d97",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+      "change": "changed",
+      "baseline_sha256": "a77d8e76bd68b29aa219218fd16213fad305f6bd9b1a3d649ee7ecb5ed58401c",
+      "tree_sha256": "7174ccddc3f5e519f02f1b7305cefda3e9c9573561a92722f78fc949810760ba",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/current-baselines.json",
+      "change": "changed",
+      "baseline_sha256": "378c79e8343d0cdcb456488ceff95771f7c377cb1a7ba8b2684b715d2bacf904",
+      "tree_sha256": "0bb204c642b75f3ce055672f0136c2b2f540205e30b5ca9996d9c4afe0e5890a",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/effect-census.json",
+      "change": "changed",
+      "baseline_sha256": "c7cd4dfa323b39cd75534e3578365a08c8397119160c4d8e36bd99d2bb0ec7e8",
+      "tree_sha256": "9bfaec81916e74e4196b9436e51d6467e0b5b29d32371a3772c0983ce0a6d34e",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+      "change": "changed",
+      "baseline_sha256": "ade291d41cfbd8d6eb8bbc2e6f9ae1fc1cd747e6ea5b32a39429e7bf095bd40a",
+      "tree_sha256": "1c07af34cf621255b71dac78322459e7a1503335cb5d4c286f88e6d8db3afc2d",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/manifest.json",
+      "change": "changed",
+      "baseline_sha256": "6b1b9727c3c1fb5fcb6a96d58e09c6525bd0fe271158cee63fcfdcaf8bd95a29",
+      "tree_sha256": "f7b10248ca25d4fdacc391bba63d13258a7b6ff380e4df3d15afd6a3f681b479",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+      "change": "changed",
+      "baseline_sha256": "2e5f44ab6e9dd1c0ec8c7a91259522b8e057ccd4c262a3bcd32495ffac674597",
+      "tree_sha256": "369ae444bb75fbf7463a11b2b0e1faaa8f1cbb29348f092640c0b3eb922da894",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/program-control-source.json",
+      "change": "changed",
+      "baseline_sha256": "9d129467541d3787500a44e269edbaf6af751374b8d6360b78c2653a13cd088b",
+      "tree_sha256": "23d63b32442e4ed2641e5aeca7c4be75ece8ee50773c47e59fbe123d9ecf2842",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+      "change": "changed",
+      "baseline_sha256": "7651644188619c3abcf3b48e730454bf37fee235e74f1307be7e12c2e2c937e6",
+      "tree_sha256": "59ac908943fd421236b4b02f803eb4fae9c61fb1b8cec0052ffb9d50fcc23611",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/release-ladder.json",
+      "change": "changed",
+      "baseline_sha256": "dc01a50512df85aaaa6b5980e98d78225fa6340ae8d45a8ccad7618df9c17189",
+      "tree_sha256": "f7c68b54a859bd09c2c52632c5294b30d37c102bad977ff888a5e3822da64705",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+      "change": "changed",
+      "baseline_sha256": "403022099da5b233afb846eb298bc92a1e4669d8ad2d7e2fc5d05381f2a63283",
+      "tree_sha256": "656a0f12c364b40923bbe04b243a5f2b6ac8d9a37108eaea426eb721f3183d06",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
+      "change": "changed",
+      "baseline_sha256": "3ee62c574b2afa44f32770f1579d5ec254eaf7ca142fb46080ad4e0678e319d9",
+      "tree_sha256": "45d08df056bf632e242649a593c42ed9c0c336b3e6987b068fe26c5e31c5f995",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/selected-profile.json",
+      "change": "changed",
+      "baseline_sha256": "b1b6cb64e5ac058599cdcc4759c836aab4f3a1a13ce59024f5083f30304d265c",
+      "tree_sha256": "9aad8840e3898a6a2c9fb399d83bba16ea11816d7b2f34c2f265c55ffc0d1cc8",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as the same M3 admission cut: new unverified M3 contracts were corrected from read-only legacy URI aliases to canonical write-side schemes and WorkLifecycleRecord was aligned to its already-canonical schema version. Generated projections and M0 source anchors moved accordingly; no previously verified contract semantics, durable owner, release claim, or historical closure is changed. All affected current M3 records are re-anchored and remain subject to their own evidence gates."
+    }
+  ]
+}

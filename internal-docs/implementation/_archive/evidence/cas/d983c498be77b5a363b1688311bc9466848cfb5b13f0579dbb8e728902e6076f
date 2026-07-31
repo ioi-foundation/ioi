@@ -1,0 +1,3942 @@
+{
+  "evidence_format": "ioi.program.canon_acceptances.v1",
+  "entries": [
+    {
+      "accepted_at_commit": "cb2684b0d4560c504dd0719c66142754a000c3f5",
+      "reviewer_ref": "agent://claude-fable-5/session-5a92602f/scm-v2-canon-landing",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest": "/tmp/review-manifest.json",
+      "review_manifest_sha256": "6948fcb9dd875933ee10958c821d2bdd83a2ff2800528f6624662e2065afc466",
+      "subject_count": 26,
+      "dispositions": {
+        "unaffected": 26
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+          "change": "changed",
+          "baseline_sha256": "29f91b62f209a9884d98dd6a8dcf851946be1b93aede71159622f4af605870fa",
+          "tree_sha256": "b19e5145fbcf809878ed0097e131dcbdbc87c0329b1ccaab9b42cd17d96be1dc",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-converged-recovery-reinvoked-remote-effect.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "48071b73b7a5dc4aa6cf57de799a4a243be28b55499dba5f971b663131a6ad77",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-moved-head-fresh-child-commit.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "235c436c12c6da7e94f45fa2cb864271e3a73baebae8e7dfeaa6f0718e9eadea",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "ecd731d871cef08f4ae87e8351b9070cd47621dc685c32a2d6cc0d300f817811",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-observed-head-in-operation-identity.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "1f3dd858eae2b0ce7b03472fbe79842fadc238281a0f45cf6220abf2d12cf118",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-operation-key-bound-to-observed-head.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "fd87b66afb0c1038e3e63f80c79fd40ffc80b3c3fc29750edc73b42a48853b4d",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-overwrite-remote-head-requested.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "95b6a6a100f1ee1a109e4765ed5a32e0b50d26bb4ca27bbe843d8fae98b1b12f",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "7bda9b11d55443f6f1aaaa13c1476cf23dad6c706a42fe959efa6c3a33144c87",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-remote-effect-before-prepared-persistence.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "835784324b94808bd7a2a2f8871cdb6ec324b7de19ebba1af4862fe58fb0af6e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-replay-without-prior-terminal-effect.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "4575790a1f317a41569135bb5444f500148c1e5d74dca779d14a16a0ffd14a16",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-retry-recomputed-cas-onto-moved-head.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "36dcc879e067d196132a71a404db3bacb6f73c45d5859d691c8669e0308c91fa",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-ambiguity-absorbed-into-publication.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "2ca44c1e70a59ae388f63990ad48ebe59da7f068fe3680f0d71df4be6404eb19",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "b066f50327b1db40ecc8be3a120939c5ee6ef7b5ba48ab32a78d04624e3ec381",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-shared-effect-receipt.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "f2f46d38977b86663a030688e129b5a915b75546ba76eb0e05dc4d384be08134",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-unbound-destination.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "3c6c09969f2ca22a88cb4b564009633e45a84d18e46d6674d8f03ba9e8bba10f",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-whole-workspace-change-set.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "775f3935e017705c7294f5ca9b25f61994f65b5ffba84115c8648c9a62fe2cec",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-first-dispatch-published-with-review-request.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "1c3686dbe723ae029dc2841c53caaf5ced66a27ace6f6e7841cf85db688c7501",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-dispatch-before-persistence-recovered.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "c5f3003b6f082a937f9c83271433a7f3281c9929e4b9d62b1f532f290c0c2cef",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-persistence-replayed-terminal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "94c612ef073f3daf0d3f22cc76a085c587d458b137a993dcf4b3848218f120a3",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-before-dispatch-retry-same-frozen-cas.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "4994f72156e5fbda7c4bee7c4c6ee6fe46c28ccabab026a0a5b1e9997930ac3b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-moved-head-ambiguity-reconciliation-required.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "69cff1294a98050b946230348182fe751b2683296e6f669b0b44b4b6839e99a0",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-new-target-ref-must-not-exist.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "5c03a9746d8609f101f1163f10b92c17ebd26c1dd623254c90fac7f747938a27",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-review-request-ambiguity-independent-reconciliation.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "687ebc802eb298d95f509757ab90edcfa2539480032ff659e98f3aa6ccd688bf",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/invariants/scm-publication-effect.v2.invariants.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "5142d5abfce25bfc311fe3af460652e94a6becd0c8e18fcd341c740f93289c60",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/scm-publication-effect.v2.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "80203973f08882db9a672b7a6373a90a7a4994c880dee0a43687d33cc91956ff",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/components/connectors-tools/contracts.md",
+          "change": "changed",
+          "baseline_sha256": "f0ec4d69aecfd72f36f942975813e884bea9375bf04902d42920b8bc3b6ef379",
+          "tree_sha256": "2296bc26155d6519cc357b0fcfb718cb58ce1b43052c90e5481d7509c7274b0f",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "FUTURE",
+          "M0",
+          "M11",
+          "M14",
+          "M3",
+          "M5",
+          "M6",
+          "M9"
+        ],
+        "modules": [
+          "cooperation",
+          "docs-and-comms",
+          "embodied",
+          "mechanism-gates",
+          "network-and-l1",
+          "product-surface-ux-proof",
+          "product-ux",
+          "proof-and-evidence",
+          "runtime-fabric",
+          "runtime-trust-boundary",
+          "supply-and-commerce",
+          "wallet-authority"
+        ],
+        "work_items": [
+          "ecosystem-assurance-and-public-claim-estate",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint",
+          "m11-canonical-embodied-contract-alignment",
+          "m14-cross-plane-correlated-failure-injection",
+          "m3-goal-kernel-context-and-runtime-truth-spine",
+          "m3-pursuit-definition-resolution",
+          "m3-result-lifecycle-negative-retention",
+          "m5-local-agent-pairing",
+          "m5-pairing-identity-and-gateway-scope",
+          "m5-participant-frontier-result-closeout",
+          "m5-portable-exit-independent-clients",
+          "m6-automations-operational-journey",
+          "m6-consequential-action-authority-receipt-unification",
+          "m6-developer-workspace-operational-journey",
+          "m6-reference-shell-disposition-and-depth-ledger",
+          "m9-authority-gateway-equivalence-and-coverage",
+          "m9-developer-console-operational-journey",
+          "m9-selected-profile-aggregate-exit-and-claim-publication",
+          "production-information-flow-and-declassification",
+          "scm-publication-effect-and-route-rebuild",
+          "sdk-cli-adk-odk-builder-journey"
+        ],
+        "conformance_targets": [],
+        "contract_families": [
+          "RuntimeToolContract"
+        ]
+      },
+      "baseline_subject_set_sha256_before": "aacf115dd45caaa6352f8182f422c4ccbb82182e376f90c473d035a38740a5c2",
+      "baseline_subject_set_sha256_after": "d8c787a8e92b9fb3f63c90bf75124e8a094427301056dc9e50b6bb3f063fa167",
+      "sequence": 1
+    },
+    {
+      "accepted_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+      "reviewer_ref": "agent://claude-fable-5/session-5a92602f/post-containment-census-baseline",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest": "/tmp/manifest2.json",
+      "review_manifest_sha256": "03544be2b9e6b9a526bee6e9db983e03043b7722e62e3c62c740c37ea65a2b37",
+      "subject_count": 15,
+      "dispositions": {
+        "successor_required": 15
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/current-canon-defaults.md",
+          "change": "changed",
+          "baseline_sha256": "eabdca556ed63d8fffcdbd2194cace78785497378d28ee8a5867976a74ffb6a1",
+          "tree_sha256": "8ca50a056184538edd8a00ed4fbc251ff2afe1a1cbeb840fc2535eb962254e53",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+          "change": "changed",
+          "baseline_sha256": "6bc0702464127314bae055a3b37aa1ec02411ce89c8ecb0254505dadc9b21a21",
+          "tree_sha256": "95c1a5502c83b1ed63e658d3406119c6ef983a84e3f7196916126947020e6ed9",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/foundations/invariants.md",
+          "change": "changed",
+          "baseline_sha256": "60c28094705b684987d5a353ed07224bc5248d08428a36aeb0c34d6281a98c48",
+          "tree_sha256": "a333e4b653ea3402f6217fe2cfb314f842de8de6a6586eb542178431f377c8f5",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+          "change": "changed",
+          "baseline_sha256": "ff129987655b81beb11baecb208abc7b75341d1999314c33797c053c187aa4f8",
+          "tree_sha256": "ee526b924fb80e4400183e8b8aa2d066ef0f904e222f2da8291b00589da87ad3",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/current-baselines.json",
+          "change": "changed",
+          "baseline_sha256": "3e087d66f92f606e8b24ac386e7397d4d7af339c5cf83cf070e6b458ba3f19bc",
+          "tree_sha256": "16c327068bb2f4b8e121540abf6fc171feae2ac20102d70db93118ecb8f2120e",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/effect-census.json",
+          "change": "changed",
+          "baseline_sha256": "14d74d822756b751ea6f63cd1a14154b6b55fde7059c8ea7b2f33befa8e6cc4c",
+          "tree_sha256": "769499c29a8f0a7c067fd628876014d6c2b6c25ea72a2516491814e1f6eb405e",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+          "change": "changed",
+          "baseline_sha256": "c8fff04a7b73cabe7324867d8357b8a362d3a598e62d582795e5231caa0639cc",
+          "tree_sha256": "c02d040e09cdc96fc79634dce657f4c0319cf86e33ce3c5a81c2ef82365313d7",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/manifest.json",
+          "change": "changed",
+          "baseline_sha256": "15cea125ec6b8a4a676df0ed1b393b8fbac7ffab613819809b71d662dad4ff3a",
+          "tree_sha256": "a9730bac5f77b68d1f8359a421e47507f4484057fe57c9d9383ca4466663e2b1",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+          "change": "changed",
+          "baseline_sha256": "02e92e672bd1114209d7cb64fcb78d133ffee4d4c6cb36044dfb7672a69f1721",
+          "tree_sha256": "53fcc494976158e27217470949414d6dcbf4208ee004589d7f5110881031d9c0",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-control-source.json",
+          "change": "changed",
+          "baseline_sha256": "4060f79a334dedd80a063182e9bf3724233471f2fdfce7ca2c1eab972805d288",
+          "tree_sha256": "680787fd1081fcd6dc848b82e9bf680b12aaed95d16df9b6d12ce1ce2c0e8c3c",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+          "change": "changed",
+          "baseline_sha256": "53b743e33612cd6fbe747da5a0a30570e22ffe6a61a3e30ff808651b9608cc90",
+          "tree_sha256": "376085ebcf2ef81fb6842dd423907c534cee1862b736346939f752706adda8cc",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/release-ladder.json",
+          "change": "changed",
+          "baseline_sha256": "a0dd11554d6b0e3bb8bf2036f9c4e0e534afd5064b53fe27e31fb1feb6202f0e",
+          "tree_sha256": "112ae9b6f5e9deb391e652c8c473d585e0396416abe8b5723c6a37bbe5c2f73c",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+          "change": "changed",
+          "baseline_sha256": "e47a14df1ddc4e501eac6a29198fbb1411a50cdc25f724669b63516158d95c4e",
+          "tree_sha256": "027d7423fcf2f3fddf0bac3b988f60180b96f604cfa8d0bf94dffce7816d6dcd",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
+          "change": "changed",
+          "baseline_sha256": "e90eea224bbd46acbfe03b6c246615a40f9230ca2984caa354766199ae8153cf",
+          "tree_sha256": "8d901a2e9f504069e1e78209ec2321e156d90a3d4f85fe0a8cb7c9b48cc7d2d9",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/selected-profile.json",
+          "change": "changed",
+          "baseline_sha256": "e6705bcb5744042c9ec2cc9c027af9a5cc787357b7a236923c97050d9cdcc43e",
+          "tree_sha256": "72d65daea873842381ea65df70fef63379c17082f4894823feebbaca8a334f23",
+          "disposition": "successor_required"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "FUTURE",
+          "M0",
+          "M1",
+          "M10",
+          "M11",
+          "M14",
+          "M2",
+          "M3",
+          "M4",
+          "M6",
+          "M7",
+          "M9"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "cooperation",
+          "docs-and-comms",
+          "embodied",
+          "mechanism-gates",
+          "network-and-l1",
+          "product-surface-ux-proof",
+          "product-ux",
+          "proof-and-evidence",
+          "runtime-fabric",
+          "runtime-trust-boundary",
+          "supply-and-commerce",
+          "wallet-authority"
+        ],
+        "work_items": [
+          "agentgres-production-readiness-and-branch-effects",
+          "decentralized-profile-admission-and-exit",
+          "ecosystem-assurance-and-public-claim-estate",
+          "hypervisoros-ctee-task-capsule-attestation",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-invariant-registry-census",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint",
+          "m1-dual-genesis-and-read-projection",
+          "m1-protected-migration-dissolution-enrollment",
+          "m1-selected-profile-exit-proof",
+          "m1-system-genesis-product-journey",
+          "m10-attestation-temporal-floor-and-revocation-continuity",
+          "m10-operations-operational-journey",
+          "m10-topology-chaos-and-operator-product-proof",
+          "m10-two-failure-domain-continuity",
+          "m11-canonical-contract-registry-and-legacy-ref-migration",
+          "m11-canonical-embodied-contract-alignment",
+          "m14-cross-plane-correlated-failure-injection",
+          "m2-agentgres-replay-recovery-and-product-topology",
+          "m2-membership-readiness-plane",
+          "m2-node-attestation-identity-secret-readiness",
+          "m2-route-restore-activation-cleanup",
+          "m2-selected-profile-exit-proof",
+          "m2-writer-fence-and-lost-suffix",
+          "m3-goal-kernel-context-and-runtime-truth-spine",
+          "m3-pursuit-definition-resolution",
+          "m3-result-lifecycle-negative-retention",
+          "m3-work-session-automation-product-journey",
+          "m4-outcome-room-system-spine",
+          "m4-room-graph-truth-and-product-projection",
+          "m6-developer-workspace-operational-journey",
+          "m6-home-workspace-operational-journey",
+          "m6-packages-operational-journey",
+          "m6-production-truth-fallback-retirement",
+          "m6-projects-workspace-operational-journey",
+          "m6-reference-shell-disposition-and-depth-ledger",
+          "m6-systems-work-projection-and-mission-alias-migration",
+          "m6-systems-workspace-operational-journey",
+          "m6-work-workspace-operational-journey",
+          "m7-studio-operational-journey",
+          "m9-compact-advanced-object-hash-parity",
+          "m9-environments-operational-journey",
+          "m9-governance-operational-journey",
+          "m9-selected-profile-aggregate-exit-and-claim-publication",
+          "project-discovery-startup-and-session-chain",
+          "sdk-cli-adk-odk-builder-journey",
+          "storage-profile-repair-and-availability"
+        ],
+        "conformance_targets": [],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "d8c787a8e92b9fb3f63c90bf75124e8a094427301056dc9e50b6bb3f063fa167",
+      "baseline_subject_set_sha256_after": "c0155c055b64c6b031abf74436c36c166c579fa48f1df476a239bf8a14daf41c",
+      "sequence": 2
+    },
+    {
+      "accepted_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+      "reviewer_ref": "owner-ratification-2026-07-29",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/dadf90435ca379ff40daaa1b40d8cfca5c6308a97e1825976a3991bc37e83495.json",
+      "review_manifest_path_at_acceptance": "/tmp/ioi-owner-ratification-review-manifest.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "dadf90435ca379ff40daaa1b40d8cfca5c6308a97e1825976a3991bc37e83495",
+      "subject_count": 9,
+      "dispositions": {
+        "successor_required": 9
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/canon-to-code-delta.md",
+          "change": "changed",
+          "baseline_sha256": "eb37948582fe5689152fdd423b3422a6554bb4814f16b1a63494e49f0b4ba59a",
+          "tree_sha256": "0fd714b9517547dd1ffd94f55f1653bc64dd70f29d0382ea83de261338569a40",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/implementation-matrix.md",
+          "change": "changed",
+          "baseline_sha256": "a67c49d333ed0235751a72b5a0096f3583c23e10f837047f78f0270e35e75fdf",
+          "tree_sha256": "11c2dea538e6d65b698cd6e244bf2b0f2ba9d214cb73cc556ecceb156fb502ad",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/daemon-runtime/doctrine.md",
+          "change": "changed",
+          "baseline_sha256": "a8e6e9267bee83698d46dca147a7c558ba8ccf165fb9c3957c19255d4c7d6c55",
+          "tree_sha256": "0bc8bea6f4ee0430cc6c0f9f38ee9b2a6f278819a6f5d4f0264579107467a99f",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+          "change": "changed",
+          "baseline_sha256": "11636564cbc780be257490b18d29fd274bb4436f69e73f6e6bb537fb57271e14",
+          "tree_sha256": "9ebb275eb7f561c886709cbe98216ff372da450ca8b0897e59694abbc8fb7873",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+          "change": "changed",
+          "baseline_sha256": "0a1867424f86e23b59c4f97428ac91967723ab7892a6475df4e23072b1aa9818",
+          "tree_sha256": "72ee8a5603828e6a1a98e4ae28738520c1d60508e8a30c0790d3bae149fe6773",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/wallet-network/doctrine.md",
+          "change": "changed",
+          "baseline_sha256": "23b77987b05e62ef07cf525207b4f31e5cc585cad69726ca68cc8599b86b75ce",
+          "tree_sha256": "67ef0cfc69f0b6b07803db2194a5c13c72f709112ba6f20dbaca7175cf70cb8b",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/foundations/security-privacy-policy-invariants.md",
+          "change": "changed",
+          "baseline_sha256": "de3bb8d91d6932e95821c7d812c3f36cb68728cd8bb79426b51502fd9a5de998",
+          "tree_sha256": "1b420c8e53de55a927bfd79ca66184fb71f6e9f5f7c60fb398a7a0f644c04add",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/decisions/0025-hypervisor-app-primary-attach-after-binding.md",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "4a2fde8f61d9e9f02a4d89bf6a08acf69edda4a68111eb6a2bd0dd86af0793d9",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/decisions/README.md",
+          "change": "changed",
+          "baseline_sha256": "b5a017a068d974c4d6ba40831d613d39762668b6b1bafccae731bcef380dbce9",
+          "tree_sha256": "d5cc99fdb57e255ee35e29bad5f36fceebdf9520aaa03cc5f55b2d4ac1b4b996",
+          "disposition": "successor_required"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "FUTURE",
+          "M0",
+          "M1",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7",
+          "M8",
+          "M9"
+        ],
+        "modules": [
+          "campaign-experiment-method",
+          "cooperation",
+          "docs-and-comms",
+          "embodied",
+          "improvement",
+          "learning-boundary",
+          "mechanism-gates",
+          "network-and-l1",
+          "product-surface-ux-proof",
+          "product-ux",
+          "proof-and-evidence",
+          "runtime-fabric",
+          "runtime-trust-boundary",
+          "supply-and-commerce",
+          "wallet-authority"
+        ],
+        "work_items": [
+          "agentgres-production-readiness-and-branch-effects",
+          "connected-worker-capability-supply-and-hiring",
+          "decentralized-profile-admission-and-exit",
+          "dispute-adjudication-remedy-kernel",
+          "ecosystem-assurance-and-public-claim-estate",
+          "hypervisoros-ctee-task-capsule-attestation",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint",
+          "m1-dual-genesis-and-read-projection",
+          "m1-protected-migration-dissolution-enrollment",
+          "m1-system-genesis-product-journey",
+          "m10-attestation-temporal-floor-and-revocation-continuity",
+          "m10-operations-operational-journey",
+          "m10-topology-chaos-and-operator-product-proof",
+          "m11-canonical-contract-registry-and-legacy-ref-migration",
+          "m11-canonical-embodied-contract-alignment",
+          "m11-embodied-systems-nonlive-operational-journey",
+          "m11-foundry-promotion-safety-case-and-product-journey",
+          "m12-aiip-channel-envelope-profile",
+          "m12-federated-admission-portable-exit-and-bindings",
+          "m12-federation-product-and-operator-journey",
+          "m12-ifc-disclosure-receipt-and-settlement-binding",
+          "m12-terms-discovery-semantic-negotiation",
+          "m13-independent-operation-and-external-worker-product-proof",
+          "m14-cross-plane-correlated-failure-injection",
+          "m14-demand-security-economics",
+          "m14-l1-authorization-decision",
+          "m14-network-service-devnet",
+          "m14-service-family-owner-contract-and-product-surfaces",
+          "m2-agentgres-replay-recovery-and-product-topology",
+          "m2-node-attestation-identity-secret-readiness",
+          "m3-direct-path-and-exit-proof",
+          "m3-goal-kernel-context-and-runtime-truth-spine",
+          "m3-pursuit-definition-resolution",
+          "m3-result-lifecycle-negative-retention",
+          "m3-work-session-automation-product-journey",
+          "m4-room-graph-truth-and-product-projection",
+          "m5-attribution-acceptance-and-challenge-boundary",
+          "m5-local-agent-pairing",
+          "m5-p0-readiness-verifier",
+          "m5-pairing-identity-and-gateway-scope",
+          "m5-participant-frontier-result-closeout",
+          "m5-portable-exit-independent-clients",
+          "m6-applications-workspace-operational-journey",
+          "m6-automations-operational-journey",
+          "m6-catalog-route-alias-migration-accessibility",
+          "m6-consequential-action-authority-receipt-unification",
+          "m6-developer-workspace-operational-journey",
+          "m6-home-workspace-operational-journey",
+          "m6-owner-application-registration-and-shell-state-coverage",
+          "m6-packages-operational-journey",
+          "m6-product-surface-and-typed-workspaces",
+          "m6-production-truth-fallback-retirement",
+          "m6-projects-workspace-operational-journey",
+          "m6-reference-shell-disposition-and-depth-ledger",
+          "m6-surface-compiler-and-source-convergence",
+          "m6-systems-work-projection-and-mission-alias-migration",
+          "m6-systems-workspace-operational-journey",
+          "m6-work-workspace-operational-journey",
+          "m7-data-operational-journey",
+          "m7-data-transformation-provenance-replay",
+          "m7-ontology-action-final-invoker-and-product-proof",
+          "m7-ontology-operational-journey",
+          "m7-studio-operational-journey",
+          "m8-evaluations-operational-journey",
+          "m8-foundry-operational-journey",
+          "m8-improvement-operational-journey",
+          "m8-learning-custody-memory-and-provider-rights",
+          "m9-authority-gateway-equivalence-and-coverage",
+          "m9-compact-advanced-object-hash-parity",
+          "m9-developer-console-operational-journey",
+          "m9-environments-operational-journey",
+          "m9-governance-operational-journey",
+          "m9-hypervisor-app-primary-attach-binding-and-retirement",
+          "m9-lifecycle-evidence-operator-proof",
+          "m9-managed-optionality-overlay",
+          "m9-provenance-operational-journey",
+          "m9-selected-profile-aggregate-exit-and-claim-publication",
+          "m9-sovereign-local-terminal-journey",
+          "m9-terminal-product-state-and-release-supply-chain",
+          "managed-billing-work-credits-and-supplier-reconciliation",
+          "marketplace-neutral-routing-contribution-accounting",
+          "platform-operability-observability-and-incidents",
+          "production-information-flow-and-declassification",
+          "production-receipt-checkpoint-and-offline-proof",
+          "project-discovery-startup-and-session-chain",
+          "sdk-cli-adk-odk-builder-journey"
+        ],
+        "conformance_targets": [],
+        "contract_families": [
+          "HarnessSessionBinding",
+          "HarnessSessionBindingAdmission",
+          "HarnessSessionLaunch",
+          "HarnessSessionReadiness",
+          "HarnessSessionSpawn",
+          "HarnessSessionTerminalAttach",
+          "HypervisorApplicationSurfaceRegistration",
+          "HypervisorAutomationInstallationBinding",
+          "HypervisorAutomationRun",
+          "HypervisorAutomationSpec",
+          "HypervisorProductSurfaceProjection",
+          "HypervisorRouteAliasRegistration",
+          "HypervisorSessionLaunchRecipeAdmission",
+          "HypervisorSurfaceInstallationBinding",
+          "HypervisorSurfaceReleaseRecord",
+          "HypervisorSurfaceServingBinding",
+          "HypervisorSystemInterfaceBinding",
+          "HypervisorWorkFacetProjection",
+          "HypervisorWorkSubjectProjection"
+        ]
+      },
+      "baseline_subject_set_sha256_before": "c0155c055b64c6b031abf74436c36c166c579fa48f1df476a239bf8a14daf41c",
+      "baseline_subject_set_sha256_after": "0e2587c63d75dec28b153ce7cc696d22a426ba15ea2ccf2688e335dc568189b0",
+      "sequence": 3
+    },
+    {
+      "accepted_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+      "reviewer_ref": "owner-ratification-2026-07-29",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/a9b617f68ea2314add69d1df0ace29673fe249aceb5cf5a8d5c1be3f4c01987b.json",
+      "review_manifest_path_at_acceptance": "/tmp/ioi-canon-review.QQD9yC/manifest.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "a9b617f68ea2314add69d1df0ace29673fe249aceb5cf5a8d5c1be3f4c01987b",
+      "subject_count": 4,
+      "dispositions": {
+        "successor_required": 4
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/canon-to-code-delta.md",
+          "change": "changed",
+          "baseline_sha256": "0fd714b9517547dd1ffd94f55f1653bc64dd70f29d0382ea83de261338569a40",
+          "tree_sha256": "64caf7f3b42de6b965bf386f149691349ecb8c8eafd0b660acb298a79f1ca3f7",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/implementation-matrix.md",
+          "change": "changed",
+          "baseline_sha256": "11c2dea538e6d65b698cd6e244bf2b0f2ba9d214cb73cc556ecceb156fb502ad",
+          "tree_sha256": "46079476139d4555184e5172c295b43151d7e6845860741dbe347bf3319bf96b",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+          "change": "changed",
+          "baseline_sha256": "72ee8a5603828e6a1a98e4ae28738520c1d60508e8a30c0790d3bae149fe6773",
+          "tree_sha256": "c238ec61a5039d42a773bfffb2c6ae56a259d00ee84441605bcf5fe677af5418",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/wallet-network/doctrine.md",
+          "change": "changed",
+          "baseline_sha256": "67ef0cfc69f0b6b07803db2194a5c13c72f709112ba6f20dbaca7175cf70cb8b",
+          "tree_sha256": "52ebddca6070a4a20d47fc51d1b272361843289e6924e6438472676786b6d836",
+          "disposition": "successor_required"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "FUTURE",
+          "M0",
+          "M1",
+          "M10",
+          "M12",
+          "M13",
+          "M14",
+          "M3",
+          "M5",
+          "M6",
+          "M7",
+          "M8",
+          "M9"
+        ],
+        "modules": [
+          "campaign-experiment-method",
+          "cooperation",
+          "docs-and-comms",
+          "embodied",
+          "improvement",
+          "learning-boundary",
+          "mechanism-gates",
+          "network-and-l1",
+          "product-surface-ux-proof",
+          "product-ux",
+          "proof-and-evidence",
+          "runtime-fabric",
+          "runtime-trust-boundary",
+          "supply-and-commerce",
+          "wallet-authority"
+        ],
+        "work_items": [
+          "connected-worker-capability-supply-and-hiring",
+          "decentralized-profile-admission-and-exit",
+          "dispute-adjudication-remedy-kernel",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m1-system-genesis-product-journey",
+          "m10-attestation-temporal-floor-and-revocation-continuity",
+          "m12-ifc-disclosure-receipt-and-settlement-binding",
+          "m13-independent-operation-and-external-worker-product-proof",
+          "m14-cross-plane-correlated-failure-injection",
+          "m14-demand-security-economics",
+          "m14-l1-authorization-decision",
+          "m14-network-service-devnet",
+          "m14-service-family-owner-contract-and-product-surfaces",
+          "m5-attribution-acceptance-and-challenge-boundary",
+          "m5-local-agent-pairing",
+          "m5-pairing-identity-and-gateway-scope",
+          "m5-participant-frontier-result-closeout",
+          "m5-portable-exit-independent-clients",
+          "m6-consequential-action-authority-receipt-unification",
+          "m6-packages-operational-journey",
+          "m7-ontology-action-final-invoker-and-product-proof",
+          "m8-improvement-operational-journey",
+          "m8-learning-custody-memory-and-provider-rights",
+          "m9-authority-gateway-equivalence-and-coverage",
+          "m9-developer-console-operational-journey",
+          "m9-governance-operational-journey",
+          "m9-lifecycle-evidence-operator-proof",
+          "m9-managed-optionality-overlay",
+          "m9-provenance-operational-journey",
+          "m9-sovereign-local-terminal-journey",
+          "m9-terminal-product-state-and-release-supply-chain",
+          "managed-billing-work-credits-and-supplier-reconciliation",
+          "marketplace-neutral-routing-contribution-accounting",
+          "production-information-flow-and-declassification",
+          "production-receipt-checkpoint-and-offline-proof"
+        ],
+        "conformance_targets": [],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "0e2587c63d75dec28b153ce7cc696d22a426ba15ea2ccf2688e335dc568189b0",
+      "baseline_subject_set_sha256_after": "52a4ba076e2f0c5aa6dedcd901a358a4ccb1bcca269e8cc021db3caeb330807d",
+      "sequence": 4
+    },
+    {
+      "accepted_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+      "reviewer_ref": "owner-ratification://2026-07-29",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/18415911970161feb2f3929a3efb8a0da1b204295420c9da7b79713f4ea26cea.json",
+      "review_manifest_path_at_acceptance": "/tmp/tmp.lYPeSdPFd4",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "18415911970161feb2f3929a3efb8a0da1b204295420c9da7b79713f4ea26cea",
+      "subject_count": 4,
+      "dispositions": {
+        "unaffected": 4
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/canon-to-code-delta.md",
+          "change": "changed",
+          "baseline_sha256": "64caf7f3b42de6b965bf386f149691349ecb8c8eafd0b660acb298a79f1ca3f7",
+          "tree_sha256": "4d71a89b3ec917a628bbd5922a0e65ea45a2889cc4e127923f2ce1a5e8910f4f",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/implementation-matrix.md",
+          "change": "changed",
+          "baseline_sha256": "46079476139d4555184e5172c295b43151d7e6845860741dbe347bf3319bf96b",
+          "tree_sha256": "ef593f9170c715cac97234ceea0b62a182bcb0d1dda45cb5fae4ad331c48fc3b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+          "change": "changed",
+          "baseline_sha256": "c238ec61a5039d42a773bfffb2c6ae56a259d00ee84441605bcf5fe677af5418",
+          "tree_sha256": "5a77e3506857e4f670a03da32b83af10634a79ed1b64f74ab5006bf6970503ca",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/components/wallet-network/doctrine.md",
+          "change": "changed",
+          "baseline_sha256": "52ebddca6070a4a20d47fc51d1b272361843289e6924e6438472676786b6d836",
+          "tree_sha256": "8b5c6c5ea1eaee29d4fb5488d5b3ae4f136c35a8a2a3647504aa1d39391dd580",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "FUTURE",
+          "M0",
+          "M1",
+          "M10",
+          "M12",
+          "M13",
+          "M14",
+          "M3",
+          "M5",
+          "M6",
+          "M7",
+          "M8",
+          "M9"
+        ],
+        "modules": [
+          "campaign-experiment-method",
+          "cooperation",
+          "docs-and-comms",
+          "embodied",
+          "improvement",
+          "learning-boundary",
+          "mechanism-gates",
+          "network-and-l1",
+          "product-surface-ux-proof",
+          "product-ux",
+          "proof-and-evidence",
+          "runtime-fabric",
+          "runtime-trust-boundary",
+          "supply-and-commerce",
+          "wallet-authority"
+        ],
+        "work_items": [
+          "connected-worker-capability-supply-and-hiring",
+          "decentralized-profile-admission-and-exit",
+          "dispute-adjudication-remedy-kernel",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m1-system-genesis-product-journey",
+          "m10-attestation-temporal-floor-and-revocation-continuity",
+          "m12-ifc-disclosure-receipt-and-settlement-binding",
+          "m13-independent-operation-and-external-worker-product-proof",
+          "m14-cross-plane-correlated-failure-injection",
+          "m14-demand-security-economics",
+          "m14-l1-authorization-decision",
+          "m14-network-service-devnet",
+          "m14-service-family-owner-contract-and-product-surfaces",
+          "m5-attribution-acceptance-and-challenge-boundary",
+          "m5-local-agent-pairing",
+          "m5-pairing-identity-and-gateway-scope",
+          "m5-participant-frontier-result-closeout",
+          "m5-portable-exit-independent-clients",
+          "m6-consequential-action-authority-receipt-unification",
+          "m6-packages-operational-journey",
+          "m7-ontology-action-final-invoker-and-product-proof",
+          "m8-improvement-operational-journey",
+          "m8-learning-custody-memory-and-provider-rights",
+          "m9-authority-gateway-equivalence-and-coverage",
+          "m9-developer-console-operational-journey",
+          "m9-governance-operational-journey",
+          "m9-lifecycle-evidence-operator-proof",
+          "m9-managed-optionality-overlay",
+          "m9-provenance-operational-journey",
+          "m9-sovereign-local-terminal-journey",
+          "m9-terminal-product-state-and-release-supply-chain",
+          "managed-billing-work-credits-and-supplier-reconciliation",
+          "marketplace-neutral-routing-contribution-accounting",
+          "production-information-flow-and-declassification",
+          "production-receipt-checkpoint-and-offline-proof"
+        ],
+        "conformance_targets": [],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "52a4ba076e2f0c5aa6dedcd901a358a4ccb1bcca269e8cc021db3caeb330807d",
+      "baseline_subject_set_sha256_after": "fe90a81ae547dd27c761f75d4e6aa4c157993882681a1665a38e069ead15d8d2",
+      "sequence": 5
+    },
+    {
+      "accepted_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+      "reviewer_ref": "owner://ioi/repository-owner",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/979df874d91640cc46aeeee8e2418fa1830752b0afb2926851d45b521ab8e944.json",
+      "review_manifest_path_at_acceptance": "internal-docs/implementation/program/hypervisor-restructure-canon-review.v1.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "979df874d91640cc46aeeee8e2418fa1830752b0afb2926851d45b521ab8e944",
+      "subject_count": 46,
+      "dispositions": {
+        "successor_required": 46
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/current-canon-defaults.md",
+          "change": "changed",
+          "baseline_sha256": "8ca50a056184538edd8a00ed4fbc251ff2afe1a1cbeb840fc2535eb962254e53",
+          "tree_sha256": "e2f98681aed05d3b03ce69ef57362f285b23cf2b79dad3ce9d4cef0486940ba1",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/execution-horizons.md",
+          "change": "changed",
+          "baseline_sha256": "360c68f0d83abed94ba4e6ab484e04fe178d3e179c3de1b84a17963fb45dce2e",
+          "tree_sha256": "e218434788d7422c3a41164bb40f7d4af6ce9f4d9f59a3333722c65715327db6",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/implementation-matrix.md",
+          "change": "changed",
+          "baseline_sha256": "ef593f9170c715cac97234ceea0b62a182bcb0d1dda45cb5fae4ad331c48fc3b",
+          "tree_sha256": "67cf593642a1834a4c393955d15873d76bdc23fd4b6efcbd75e5c950d0cda92b",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/public-web-estate.md",
+          "change": "changed",
+          "baseline_sha256": "50ceba0331d4815147bacc1bdf837e79dd703dbd85ba5bb95af1c2d8d71239f0",
+          "tree_sha256": "14d9d70df2089f98f9f081bbb66ee7f0695ac0a06ae0dae5ba55ab75e654b353",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+          "change": "changed",
+          "baseline_sha256": "b19e5145fbcf809878ed0097e131dcbdbc87c0329b1ccaab9b42cd17d96be1dc",
+          "tree_sha256": "ac1d5824245e5b8e7190aadfb2ce3fab795ea18d47602925293140829be69a7a",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "8e748410c83a2f35b10a1ffa05bb83f13256c1488429b0b1b730bba7f4cfc97e",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/positive-live.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "27b29c2f0f63e8f56248b4b3f42fa44f2fcf6139e870c7e25965a460efa939ac",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "9d84c4b7663035bead95ce9208c2996a0f200ebf1b77d8da836e27f36688f76f",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "106d9a0735a8320700ecb76ee96241099e224036b5828e116a1c4de3a7991757",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/negative-missing-cleanup.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "62c71746f078f28a361656c1b9821f7623d63fa7b5030ea9184c4974611074f4",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "65e0a78972feacc6ce9707461072d2073c51e4126056fffdd01b25f234f41be8",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "4edbaa96d8629d2a8a05ea979de91c93708c8002cb1d64f8fd629a98200cb74b",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "9e8858ff94ec589d0e0a5c9bb57f1094606374a6ed548bd5324920bb31f2e45d",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-backend-capability-declaration.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "e8bb1bf4a6155f13e0d02edff048cafb0601f1cd62e5135543fc66b6b9efb623",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-virtual-machine-state-payload.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "5374c6a4d84f05684fb0860630df62396aae984ff8b2a9ea214ec3dc9be2a875",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-workload-isolation-binding.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "7a4c878a0664ae0ec2d8d965f81ce809e02adda1aaa17e2b838646de47b32897",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-workload-isolation-requirements.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "009f38134cc33243d781c5161604c4fd73e6136b34192646dcbe41c8a641a80f",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/source-of-truth-map.md",
+          "change": "changed",
+          "baseline_sha256": "8a8e48f7685046e0f66ccff127559c53182e92d18bb2d45df49ec930120ba60d",
+          "tree_sha256": "4eb07950057bc4f77ef7451cbc6a5f5ca6a68d4c5cfe8c8748a42da1d6bb911a",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/start-here.md",
+          "change": "changed",
+          "baseline_sha256": "0503f14fe8de1627e0d9d2a8aa0733550e72e58aabc69ef5c9f878c9cac22c9d",
+          "tree_sha256": "6a5cdf8ac430ccaae61b5a36ea8d105a08b5a2f6b5c2f7fa7da3553ddf9a5a32",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/_meta/vocabulary.md",
+          "change": "changed",
+          "baseline_sha256": "0fea801d78abe228455d9bc52de1f382662c4b3b651c0c60f6369eb66e60fc64",
+          "tree_sha256": "8f2aa900c433d7f7cfa053146d324976d4202d4ee3bc7a851c741fe74e64f857",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/daemon-runtime/api.md",
+          "change": "changed",
+          "baseline_sha256": "bf5b08d78f6ea5b2f3ac0204dafe250d21e3fc4a6c6399d79d6c62fb3c28728b",
+          "tree_sha256": "70671160e6b92a6213c003178639d0de1fbbc661890dcf13479148ddc1e2a6b8",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/daemon-runtime/doctrine.md",
+          "change": "changed",
+          "baseline_sha256": "0bc8bea6f4ee0430cc6c0f9f38ee9b2a6f278819a6f5d4f0264579107467a99f",
+          "tree_sha256": "27a34c7bcf9035fc13607150cfce10b10a3320eaeba0de6fbbf17b8cb46101b1",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+          "change": "changed",
+          "baseline_sha256": "c139f77385bc685f0cdc7be62f623b97041400778c1e27ab9d096a3b163b5550",
+          "tree_sha256": "625e3c2b05b890513fa84c4cac55631b378f29203f935c4fde5b7cd3e8f00243",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/daemon-runtime/platform-operability.md",
+          "change": "changed",
+          "baseline_sha256": "e70943af1d34c7b6c06be156d57f17b21a1ef888cae79c9566b8c644413335a9",
+          "tree_sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/daemon-runtime/runtime-nodes-tee-depin.md",
+          "change": "changed",
+          "baseline_sha256": "93312a8f4c369e71f510d3f3affadd709fd60bd1209bab50065feabfe5afc312",
+          "tree_sha256": "cdedc5fb481477179cf29b93a0f0a437976f8579774bab22557a106f4a71f35c",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+          "change": "changed",
+          "baseline_sha256": "95c1a5502c83b1ed63e658d3406119c6ef983a84e3f7196916126947020e6ed9",
+          "tree_sha256": "c25f5dc4835d643829e79eb1915c89f4f157dafcee1cb400bfd0a644f2910aa6",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+          "change": "changed",
+          "baseline_sha256": "9ebb275eb7f561c886709cbe98216ff372da450ca8b0897e59694abbc8fb7873",
+          "tree_sha256": "ad6a0ebb6e033c05d609f091b5fa688db10bc4b9a6259e1aba7176add08c08bd",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/components/hypervisor/providers-and-environments.md",
+          "change": "changed",
+          "baseline_sha256": "500e807fec7a172a548dc1f750d76d6e6def872015a168ff77913449a7146ca2",
+          "tree_sha256": "cf2f1f6fb8cca834864f50ed3e69b7a6e4376f358bd74dafceacfd2eabbbdad5",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/foundations/invariants.md",
+          "change": "changed",
+          "baseline_sha256": "a333e4b653ea3402f6217fe2cfb314f842de8de6a6586eb542178431f377c8f5",
+          "tree_sha256": "754c322a2dbc2287d02220ca2309c4b6d213cad92814ef7c92cb9b833e94148a",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/foundations/objects/work-execution.md",
+          "change": "changed",
+          "baseline_sha256": "3e4618b6186fc3bd44b5d85bf32d36b0be324bdf781dc210269ef76d3cd71be0",
+          "tree_sha256": "a95e976006d66a2a2dd3fb7eb37fa876408d2c5455fdb5503d4bdc9872712864",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/foundations/security-privacy-policy-invariants.md",
+          "change": "changed",
+          "baseline_sha256": "1b420c8e53de55a927bfd79ca66184fb71f6e9f5f7c60fb398a7a0f644c04add",
+          "tree_sha256": "a6a88ac7cda56eb98482f148e7d95813e3e4c25b415631eb8424aaaf6b329060",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/foundations/term-boundaries.md",
+          "change": "changed",
+          "baseline_sha256": "a3c50aec9542a53d30710a0c30cda282cd87f3833ab5c08ef49ba1610918a062",
+          "tree_sha256": "d31917694bc4a64f4d761166230caea0de75f0220ca7ad71f37c58e9c22ca537",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/foundations/web4-and-ioi-stack.md",
+          "change": "changed",
+          "baseline_sha256": "5559e8b87d22cd330e24e7e5f62499f863a693f147631c728508948600c468d3",
+          "tree_sha256": "6349f8514833d8f4c3841dce316f1dfb70da39eb2fe72eb52eb996f0f85cb5f7",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/README.md",
+          "change": "changed",
+          "baseline_sha256": "b68ca68dd2a0bdcbe5789fb53408f8e2469ae2aa961ac578b834bfe0c0205ab8",
+          "tree_sha256": "c53efb60a5318c58fd703e5f0c891fc0ad05282a4c11e3b909d4b50302eb54f0",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/architecture/whitepaper.tex",
+          "change": "changed",
+          "baseline_sha256": "eaa4a6bb6cd41c06c6eda462ad1602adc795a8057abb7b021949282a5dc2bb8e",
+          "tree_sha256": "5ac56916851a4960f2b5f45f33f8a4767a7dc6f3ab0ce9aaa3d58e35661d86e2",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/conformance/hypervisor-core/hypervisoros-node-root.md",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "fee1583f28634cb1d1c59c9f02259d6a09e5f3646326dd62607dcc6da13b45b7",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/conformance/hypervisor-core/infrastructure-profile.md",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "131818311c4ad0c9b0a36475ce2f54551086127806a7cf732e2b8325bee0617c",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/conformance/hypervisor-core/sovereign-local-completeness.md",
+          "change": "changed",
+          "baseline_sha256": "91074b64317590f3910243c6685c29db2f18a26e90eb339009f21fbb5ccc13f8",
+          "tree_sha256": "8e86bb2b53f7a4aa91e7ecab38a253d5211ac4f95b1b9d854f61d751f7927af0",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/conformance/hypervisor-core/workrun-isolation-matrix.v1.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "d7f9dcca69434d12cbd674119bf99ebc3eaf35a23d714bc605e8724294814706",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/conformance/hypervisor-core/workrun-isolation.md",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "88b6b3b395bb1ecd24fa9c4696a97941c9226094af3a6e9efd8c14810e6c2f4e",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/conformance/hypervisor-core/workstation-profile.md",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "fa3bf18d75c4ae3fe32ca8410fa12360181b0551ee988de036ef012f52d7e25f",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/conformance/README.md",
+          "change": "changed",
+          "baseline_sha256": "64f8428481fd93365f215ed2068cde858eaa40cf85698cedafcb0c55f11ef7e3",
+          "tree_sha256": "12ea121abb0dd9e3be79c8c31a6aaa8bce8f1d0eaa84d60a8c9d145a9a36baa8",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/decisions/0025-hypervisor-app-primary-attach-after-binding.md",
+          "change": "removed",
+          "baseline_sha256": "4a2fde8f61d9e9f02a4d89bf6a08acf69edda4a68111eb6a2bd0dd86af0793d9",
+          "tree_sha256": null,
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/decisions/0026-separate-deployment-resource-relationship-and-autonomy-capabilities.md",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "4fb6bbb7e573bb0f5e99afecdb4edd1bee1abfaac87f32b2e6f0066546ad0a08",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/decisions/0027-require-workload-bound-isolation-for-autonomous-execution.md",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "0ad9ec90e6af5ba63579d9a4a1bd283d3e455ea1e4e87db372cfbe5b9fcf10a7",
+          "disposition": "successor_required"
+        },
+        {
+          "id": "docs/decisions/README.md",
+          "change": "changed",
+          "baseline_sha256": "d5cc99fdb57e255ee35e29bad5f36fceebdf9520aaa03cc5f55b2d4ac1b4b996",
+          "tree_sha256": "553d2de639309a62a46836d9ad6193d1fb571cfee116143c737307b24e4cfc4a",
+          "disposition": "successor_required"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "FUTURE",
+          "M0",
+          "M1",
+          "M10",
+          "M11",
+          "M12",
+          "M14",
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7",
+          "M8",
+          "M9"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "campaign-experiment-method",
+          "cooperation",
+          "docs-and-comms",
+          "embodied",
+          "improvement",
+          "learning-boundary",
+          "mechanism-gates",
+          "network-and-l1",
+          "product-surface-ux-proof",
+          "product-ux",
+          "proof-and-evidence",
+          "runtime-fabric",
+          "runtime-trust-boundary",
+          "supply-and-commerce",
+          "wallet-authority",
+          "workload-isolation-and-virtualization"
+        ],
+        "work_items": [
+          "agentgres-production-readiness-and-branch-effects",
+          "decentralized-profile-admission-and-exit",
+          "ecosystem-assurance-and-public-claim-estate",
+          "hypervisoros-appliance-install-update-recovery",
+          "hypervisoros-appliance-profile-claim-gate",
+          "hypervisoros-ctee-task-capsule-attestation",
+          "hypervisoros-single-node-virtualization-journey",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-invariant-registry-census",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint",
+          "m1-dual-genesis-and-read-projection",
+          "m1-protected-migration-dissolution-enrollment",
+          "m1-selected-profile-exit-proof",
+          "m1-system-genesis-product-journey",
+          "m10-attestation-temporal-floor-and-revocation-continuity",
+          "m10-operations-operational-journey",
+          "m10-topology-chaos-and-operator-product-proof",
+          "m10-two-failure-domain-continuity",
+          "m11-canonical-contract-registry-and-legacy-ref-migration",
+          "m11-canonical-embodied-contract-alignment",
+          "m11-embodied-systems-nonlive-operational-journey",
+          "m11-foundry-promotion-safety-case-and-product-journey",
+          "m11-useful-same-system-distribution",
+          "m12-aiip-channel-envelope-profile",
+          "m12-federated-admission-portable-exit-and-bindings",
+          "m12-federation-product-and-operator-journey",
+          "m12-ifc-disclosure-receipt-and-settlement-binding",
+          "m12-terms-discovery-semantic-negotiation",
+          "m14-cross-plane-correlated-failure-injection",
+          "m14-demand-security-economics",
+          "m14-service-family-owner-contract-and-product-surfaces",
+          "m2-agentgres-replay-recovery-and-product-topology",
+          "m2-membership-readiness-plane",
+          "m2-node-attestation-identity-secret-readiness",
+          "m2-route-restore-activation-cleanup",
+          "m2-selected-profile-exit-proof",
+          "m2-writer-fence-and-lost-suffix",
+          "m3-direct-path-and-exit-proof",
+          "m3-goal-kernel-context-and-runtime-truth-spine",
+          "m3-pursuit-definition-resolution",
+          "m3-result-lifecycle-negative-retention",
+          "m3-work-session-automation-product-journey",
+          "m3-workrun-resource-isolation-contract",
+          "m4-outcome-room-system-spine",
+          "m4-room-graph-truth-and-product-projection",
+          "m5-attribution-acceptance-and-challenge-boundary",
+          "m5-p0-readiness-verifier",
+          "m5-pairing-identity-and-gateway-scope",
+          "m6-applications-workspace-operational-journey",
+          "m6-automations-operational-journey",
+          "m6-catalog-route-alias-migration-accessibility",
+          "m6-consequential-action-authority-receipt-unification",
+          "m6-developer-workspace-operational-journey",
+          "m6-home-workspace-operational-journey",
+          "m6-hypervisor-claim-bundle-control-surface",
+          "m6-owner-application-registration-and-shell-state-coverage",
+          "m6-packages-operational-journey",
+          "m6-product-surface-and-typed-workspaces",
+          "m6-production-truth-fallback-retirement",
+          "m6-projects-workspace-operational-journey",
+          "m6-reference-shell-disposition-and-depth-ledger",
+          "m6-surface-compiler-and-source-convergence",
+          "m6-systems-work-projection-and-mission-alias-migration",
+          "m6-systems-workspace-operational-journey",
+          "m6-work-workspace-operational-journey",
+          "m7-data-operational-journey",
+          "m7-data-transformation-provenance-replay",
+          "m7-ontology-action-final-invoker-and-product-proof",
+          "m7-ontology-operational-journey",
+          "m7-studio-operational-journey",
+          "m8-evaluations-operational-journey",
+          "m8-foundry-operational-journey",
+          "m8-improvement-operational-journey",
+          "m8-learning-custody-memory-and-provider-rights",
+          "m9-authority-gateway-equivalence-and-coverage",
+          "m9-backend-capability-and-coverage-evidence",
+          "m9-compact-advanced-object-hash-parity",
+          "m9-developer-console-operational-journey",
+          "m9-environments-operational-journey",
+          "m9-governance-operational-journey",
+          "m9-infrastructure-estate-operational-journey",
+          "m9-infrastructure-profile-claim-gate",
+          "m9-lifecycle-evidence-operator-proof",
+          "m9-managed-optionality-overlay",
+          "m9-provenance-operational-journey",
+          "m9-secure-workrun-isolation-claim-gate",
+          "m9-selected-profile-aggregate-exit-and-claim-publication",
+          "m9-sovereign-local-terminal-journey",
+          "m9-terminal-product-state-and-release-supply-chain",
+          "m9-workrun-microvm-isolation-and-output-admission",
+          "m9-workstation-profile-claim-gate",
+          "m9-workstation-virtual-machine-operational-journey",
+          "platform-operability-observability-and-incidents",
+          "production-information-flow-and-declassification",
+          "production-receipt-checkpoint-and-offline-proof",
+          "project-discovery-startup-and-session-chain",
+          "sdk-cli-adk-odk-builder-journey",
+          "storage-profile-repair-and-availability"
+        ],
+        "conformance_targets": [
+          "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
+          "docs/conformance/hypervisor-core/sovereign-local-completeness.md"
+        ],
+        "contract_families": [
+          "EnforcementCoverageDeclaration",
+          "HarnessSessionBinding",
+          "HarnessSessionBindingAdmission",
+          "HarnessSessionLaunch",
+          "HarnessSessionReadiness",
+          "HarnessSessionSpawn",
+          "HarnessSessionTerminalAttach",
+          "HypervisorApplicationSurfaceRegistration",
+          "HypervisorAutomationInstallationBinding",
+          "HypervisorAutomationRun",
+          "HypervisorAutomationSpec",
+          "HypervisorChangePlan",
+          "HypervisorDevelopmentEnvironmentRecipe",
+          "HypervisorDevelopmentEnvironmentRecipeResolution",
+          "HypervisorEnvironmentBackup",
+          "HypervisorEnvironmentLifecycleObservation",
+          "HypervisorEnvironmentReadinessGate",
+          "HypervisorEnvironmentRouteBinding",
+          "HypervisorEnvironmentStartupAdmission",
+          "HypervisorEnvironmentStartupExecution",
+          "HypervisorEnvironmentStartupPlan",
+          "HypervisorEnvironmentStartupRefusal",
+          "HypervisorOSBootProfile",
+          "HypervisorOSBootReceipt",
+          "HypervisorOSNode",
+          "HypervisorProductSurfaceProjection",
+          "HypervisorProjectDiscoveryProposal",
+          "HypervisorResourceCleanupObligation",
+          "HypervisorRouteAliasRegistration",
+          "HypervisorSessionLaunchRecipeAdmission",
+          "HypervisorSurfaceInstallationBinding",
+          "HypervisorSurfaceReleaseRecord",
+          "HypervisorSurfaceServingBinding",
+          "HypervisorSystemInterfaceBinding",
+          "HypervisorWorkFacetProjection",
+          "HypervisorWorkItem",
+          "HypervisorWorkQueue",
+          "HypervisorWorkRun",
+          "HypervisorWorkSubjectProjection",
+          "NodeEnforcementProfile",
+          "PlatformPlaneServiceProfile",
+          "TemporalValidityEvaluation",
+          "TemporalVerificationProfile"
+        ]
+      },
+      "baseline_subject_set_sha256_before": "fe90a81ae547dd27c761f75d4e6aa4c157993882681a1665a38e069ead15d8d2",
+      "baseline_subject_set_sha256_after": "6424a7d7a54e60d53fc120bd21ea3f77516f5d9c51aeef1cdd517b750eff1e3f",
+      "sequence": 6
+    },
+    {
+      "accepted_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+      "reviewer_ref": "owner://ioi/repository-owner",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/9f391abb4027694a52d069c2789f2ceea76d21fdbc97048283a9870a960f086d.json",
+      "review_manifest_path_at_acceptance": "/tmp/hypervisor-refinement-review.v1.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "9f391abb4027694a52d069c2789f2ceea76d21fdbc97048283a9870a960f086d",
+      "subject_count": 1,
+      "dispositions": {
+        "unaffected": 1
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/execution-horizons.md",
+          "change": "changed",
+          "baseline_sha256": "e218434788d7422c3a41164bb40f7d4af6ce9f4d9f59a3333722c65715327db6",
+          "tree_sha256": "f3a87fb9251a343111a8369f196029248a3f792d1ae3cbfd1c89f3679b21d1c9",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [],
+        "modules": [],
+        "work_items": [],
+        "conformance_targets": [],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "6424a7d7a54e60d53fc120bd21ea3f77516f5d9c51aeef1cdd517b750eff1e3f",
+      "baseline_subject_set_sha256_after": "b393ef1e640428aec55acb81e485cf067377594ca378565106e6704471628fa6",
+      "sequence": 7
+    },
+    {
+      "accepted_at_commit": "3ae3f68102cc03acf9f4975f683a04965943fa98",
+      "reviewer_ref": "owner://ioi/repository-owner",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/0366a7b0ba24f4cc88f368fefb7c6b6e29dbbed8f92c495d63eb58e97fd84a92.json",
+      "review_manifest_path_at_acceptance": "internal-docs/implementation/evidence/M9/canon-review-manifest-2026-07-30-authority-admission.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "0366a7b0ba24f4cc88f368fefb7c6b6e29dbbed8f92c495d63eb58e97fd84a92",
+      "subject_count": 13,
+      "dispositions": {
+        "unaffected": 12,
+        "blocked": 1
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+          "change": "changed",
+          "baseline_sha256": "ee526b924fb80e4400183e8b8aa2d066ef0f904e222f2da8291b00589da87ad3",
+          "tree_sha256": "792425938e4a37d94793fc893078eff11e6f383af98cbfa4c074164e4aca5c08",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/current-baselines.json",
+          "change": "changed",
+          "baseline_sha256": "16c327068bb2f4b8e121540abf6fc171feae2ac20102d70db93118ecb8f2120e",
+          "tree_sha256": "c98cd8f0f73876e614a6e75478339b5228030192192fc607f6316d187c6b0507",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/effect-census.json",
+          "change": "changed",
+          "baseline_sha256": "769499c29a8f0a7c067fd628876014d6c2b6c25ea72a2516491814e1f6eb405e",
+          "tree_sha256": "49d4b28e57c0d257ee523bc2e3298a425d4f11ab932ca5771af4998621d9b728",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+          "change": "changed",
+          "baseline_sha256": "c02d040e09cdc96fc79634dce657f4c0319cf86e33ce3c5a81c2ef82365313d7",
+          "tree_sha256": "dc8a449ff7f03245b3525d3284937f63f6093b6cc607041fade8b5aa54472f98",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/manifest.json",
+          "change": "changed",
+          "baseline_sha256": "a9730bac5f77b68d1f8359a421e47507f4484057fe57c9d9383ca4466663e2b1",
+          "tree_sha256": "3323c87b392f9ef20996bcc406fb97cf801db241621695ba108915a77d5e2e28",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+          "change": "changed",
+          "baseline_sha256": "53fcc494976158e27217470949414d6dcbf4208ee004589d7f5110881031d9c0",
+          "tree_sha256": "2e4a0cc058202d582a4afe945977f22f43ede89bf91fac547b4818a90e3dee23",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-control-source.json",
+          "change": "changed",
+          "baseline_sha256": "680787fd1081fcd6dc848b82e9bf680b12aaed95d16df9b6d12ce1ce2c0e8c3c",
+          "tree_sha256": "e84493937c40ab97ec1595f296be6223b98ed9f9d152de321ba532fa4cefc9ed",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+          "change": "changed",
+          "baseline_sha256": "376085ebcf2ef81fb6842dd423907c534cee1862b736346939f752706adda8cc",
+          "tree_sha256": "6cebb5407031236469e1e096cc54ed8a70dabb9bb22be3b6afc59fcc9c0ef4dc",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/release-ladder.json",
+          "change": "changed",
+          "baseline_sha256": "112ae9b6f5e9deb391e652c8c473d585e0396416abe8b5723c6a37bbe5c2f73c",
+          "tree_sha256": "e586ed9e716a7aa8dff8741254b579a5a62847c487c34619102c96a9942fd4b6",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+          "change": "changed",
+          "baseline_sha256": "027d7423fcf2f3fddf0bac3b988f60180b96f604cfa8d0bf94dffce7816d6dcd",
+          "tree_sha256": "f426b9cbb8828c10a6ac002bf605aacdb4984c13b8bbc8aafd0086d3cd2bd817",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
+          "change": "changed",
+          "baseline_sha256": "8d901a2e9f504069e1e78209ec2321e156d90a3d4f85fe0a8cb7c9b48cc7d2d9",
+          "tree_sha256": "3195c818d0ec4c983d76c99703a95581c28515de91d3df13ac49d976cc2439be",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/selected-profile.json",
+          "change": "changed",
+          "baseline_sha256": "72d65daea873842381ea65df70fef63379c17082f4894823feebbaca8a334f23",
+          "tree_sha256": "4286613361cc3734897fbc4791b46e6d5b8a776e43f5d6b4e65d930a8b14e5c0",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/runtime-layout-refactor/guardrail-report.json",
+          "change": "changed",
+          "baseline_sha256": "c0a120ed7325879fefc5893bf4193643a3eeaaddea6498834e9d08e9852aae92",
+          "tree_sha256": "c38faf1fdd72f89f1603abcc4962a8a0b7fbef2d456dfc2f3b84bd4b44ca592a",
+          "disposition": "blocked"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "M0"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "mechanism-gates",
+          "proof-and-evidence",
+          "runtime-trust-boundary"
+        ],
+        "work_items": [
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock"
+        ],
+        "conformance_targets": [],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "b393ef1e640428aec55acb81e485cf067377594ca378565106e6704471628fa6",
+      "baseline_subject_set_sha256_after": "6e1b4dc7856fca1db675900348f84d0c95ee0f9a3182f5f8f23830d35939eae0",
+      "sequence": 8
+    },
+    {
+      "accepted_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+      "reviewer_ref": "reviewer://codex/user-authorized-hypervisor-reconciliation-2026-07-30",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/434b44306fa84dcdbebfaa3b33a9fc98a0a5d0835f4e641c147e56c7bdc059ea.json",
+      "review_manifest_path_at_acceptance": "/tmp/ioi-hypervisor-canon-review.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "434b44306fa84dcdbebfaa3b33a9fc98a0a5d0835f4e641c147e56c7bdc059ea",
+      "subject_count": 45,
+      "dispositions": {
+        "unaffected": 45
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/implementation-matrix.md",
+          "change": "changed",
+          "baseline_sha256": "67cf593642a1834a4c393955d15873d76bdc23fd4b6efcbd75e5c950d0cda92b",
+          "tree_sha256": "900c1a570aabb81d583a3ced596b2bbb213c2f79e3bbfcde42a5646e3a11789e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+          "change": "changed",
+          "baseline_sha256": "ac1d5824245e5b8e7190aadfb2ce3fab795ea18d47602925293140829be69a7a",
+          "tree_sha256": "75832e07946c15bfbf289d6fb7ef048f79e117bb1cbf5f702bbbcf577ee6654f",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "99dc94e23976382837a4359171df1129073a37b3bd0182a79ad5a9133fa6a2c1",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "f759384d26558e065a3dcf56c373df91f2ebfacde384bfbf6e1b4b0c0e32a067",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-collection-page-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "379378b1684abbd65692d90b0682fe971605d484f5cd8b0552413272612bf24b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-collection-page-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "f316816c0a90e80e717d2cdee072e8db92355a18c263b9d5ea98779fc8ba3f74",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-collection-query-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "049c85f59650cadd7ccba93a4005ad29ff1c327a80873173c7eef02763e87d5b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-collection-query-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "d2ee444d9a874d0e3feace58a14537a0d73ec70ee58fdbd45667ab8898f4ede5",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-mutation-receipt-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "55ebe23cd3bbe72709fbeae16f35ff903806a7c206df4b8380dfa932d5368878",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-mutation-receipt-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "bc6a65b0472771afae201e98219fb672182d433090d65bb42df4aa0d2baeae4e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-preference-record-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "436bbf12ba47cd9a45c1d6a526da4ca7937041b93b2873e948c98870abc261f4",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-preference-record-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "f98f719320d5cf95d697c3218c1b9deb5cfe5a1e52cf21221f14cfd6c2cb77ff",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-product-surface-projection-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "53639693ebd2c189e76fdc42f94d9c03fb7da128c105d1311ff21a190f3c3147",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-product-surface-projection-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "54a34ff2265254cf948a3f8541df6fe790163ed8718b870c93fcf56fbb997f54",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-route-retirement-refusal-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "bb6536bb96a6cadde1e2ffb76db0fdf4e29910aa18371acf73b3efa6a306215b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-route-retirement-refusal-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "ae38af3d6fc50b06437b60eef18a5184dffcd2c158f9d31a64685f5de284aa43",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-installation-binding-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "19b4863f92e77f565b129b99a9bfc1bf3f514bec050e2990afe02026f6f08a60",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-installation-binding-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "f782b99c1b9886401dd0e53f029e7e5589c3a56c31e605feed508ce13d42074d",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "633c167732a78f6012f3b961a9faafa3dbc67668854006c73c3865b00537a32d",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "cacfe3ab0b889a0c14f672634aaec199d42fd0a7d2a960e017ac84fcc000253d",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "df6042f0b42fd0164600d9cdb74f2664635e23482853e38a700a0202c2feb977",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "b55d5b4267e39e84acc18ed3341e37799954e33b84b9dbfabe8a973f7a2f78fc",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "5f212100bd77d22345fd675be187815be66a94457d7a7915f3aaeb0ef7154513",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "cf752a4c96288986a5c3ce685a2d238051492bc5212bc89f9e055d243d360854",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-application-surface-registration.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "c1f258c1dc860527ece15734299cd195b0881521e1c7c41dda993b3fdd125732",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-collection-page.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "ab98b0b70e7a04717bebd7e6fc598aaef03d93bb7a0975ce0068e2f1f528b150",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-collection-query.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "d182376febb55788edce58df6f0d752d52d470b0857a9c72de2056e169a924c8",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-mutation-receipt.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "2066078f294637cf98f2545b9307b805f7062d14a5fa664ed454ea6d686c036f",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-preference-record.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "249b526ec90221ee759efc54ef2586df13b9b078200e225f97f0f1cf96f1d83e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-product-surface-projection.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "e1fa2320ef8ecf2890cede659bad280bf9e2498c4287cacd15fc58f6134cbafb",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-route-retirement-refusal.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "f24f6003103e2e1d60367559176ce3b8159132f8a31ec0971d4fdbb498848854",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-surface-installation-binding.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "6d734429debb2cd83f5213c50e523d34487eae45ed793c23754f1c8b4c17a702",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-surface-release-record.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "65c2f22eb6bd9b41517cee9b5b0fb9cc83bbe40601ac5835c33d4eac822a18ff",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-surface-serving-binding.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "c0ef56d1a6d98b4802c806f212578488381e73158e317ccb13c0ece11adaca3e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-system-interface-binding.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "43f8d985dd8c682ff9563ad9f6b734572ba572b61c2fa23d1dfe6627de105c1d",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/source-of-truth-map.md",
+          "change": "changed",
+          "baseline_sha256": "4eb07950057bc4f77ef7451cbc6a5f5ca6a68d4c5cfe8c8748a42da1d6bb911a",
+          "tree_sha256": "9ec59538f3801c388165368fdd791c77ebab3adc489c75ad2cb354f0c33b4861",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/vocabulary.md",
+          "change": "changed",
+          "baseline_sha256": "8f2aa900c433d7f7cfa053146d324976d4202d4ee3bc7a851c741fe74e64f857",
+          "tree_sha256": "ec3ce34b6c05df5614af29415139b8dc8e3a3c652af9c959b9faf6ad9c6120bf",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/components/daemon-runtime/api.md",
+          "change": "changed",
+          "baseline_sha256": "70671160e6b92a6213c003178639d0de1fbbc661890dcf13479148ddc1e2a6b8",
+          "tree_sha256": "a761ead62c929a90ff3ce4ff0958869301afe081bec91c0aa9d9ec67661b7d52",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+          "change": "changed",
+          "baseline_sha256": "ad6a0ebb6e033c05d609f091b5fa688db10bc4b9a6259e1aba7176add08c08bd",
+          "tree_sha256": "54fa746965050ee3ad7c3a914c7472ec8a517ea8ef1541dc53fbc87c245cfbaa",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/foundations/canonical-enums.md",
+          "change": "changed",
+          "baseline_sha256": "3757fea0132313e8f9276c73561cb0178b5e4f1997d8d7f0ee5bb05e6fbbaa83",
+          "tree_sha256": "9c94385fbdbb0d36b33cf0ad91aaf22e197454b20c291ff7ebe7bfb9c0f5bad7",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/foundations/common-objects-and-envelopes.md",
+          "change": "changed",
+          "baseline_sha256": "aa899174874164cf066f3264cb480f5a8ae663e3cee542ac67a0c6be2b5c6cb7",
+          "tree_sha256": "d68357d2ae58c0e1485450dac5af22c1148e9f7a71d95b27909d4517f47f5c98",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/whitepaper.tex",
+          "change": "changed",
+          "baseline_sha256": "5ac56916851a4960f2b5f45f33f8a4767a7dc6f3ab0ce9aaa3d58e35661d86e2",
+          "tree_sha256": "6eb35ae20e588140c4b536796b870a6fef8f838ad7fd2ff61d35b0f56068b23d",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/decisions/0028-reconcile-hypervisor-product-surface-contracts-and-cutover.md",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "8590e188e2b8e966ed5051e4d52e28bb0dba2cb2c172faebb2913cb61f909ed6",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/decisions/README.md",
+          "change": "changed",
+          "baseline_sha256": "553d2de639309a62a46836d9ad6193d1fb571cfee116143c737307b24e4cfc4a",
+          "tree_sha256": "de710fbafd5ce0c07666246231a8d887370c14507292b71a225a54a364c2b687",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/runtime-layout-refactor/guardrail-report.json",
+          "change": "changed",
+          "baseline_sha256": "c38faf1fdd72f89f1603abcc4962a8a0b7fbef2d456dfc2f3b84bd4b44ca592a",
+          "tree_sha256": "8533a443f1e2be5a642b525d65520d1fe541f2b9ad4dfa40bafa3dbd79164f0e",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "FUTURE",
+          "M0",
+          "M1",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7",
+          "M8",
+          "M9"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "campaign-experiment-method",
+          "cooperation",
+          "docs-and-comms",
+          "embodied",
+          "improvement",
+          "learning-boundary",
+          "mechanism-gates",
+          "network-and-l1",
+          "product-surface-ux-proof",
+          "product-ux",
+          "proof-and-evidence",
+          "runtime-fabric",
+          "runtime-trust-boundary",
+          "supply-and-commerce",
+          "wallet-authority"
+        ],
+        "work_items": [
+          "agentgres-production-readiness-and-branch-effects",
+          "connected-worker-capability-supply-and-hiring",
+          "decentralized-profile-admission-and-exit",
+          "dispute-adjudication-remedy-kernel",
+          "ecosystem-assurance-and-public-claim-estate",
+          "foundry-evaluations-production-loop",
+          "hypervisoros-ctee-task-capsule-attestation",
+          "live-embodied-promotion",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint",
+          "m1-5-protected-transitions",
+          "m1-5b-generic-protected-transitions",
+          "m1-5c-amendment-execution",
+          "m1-dual-genesis-and-read-projection",
+          "m1-genesis-admission",
+          "m1-governed-initialize-activate",
+          "m1-protected-migration-dissolution-enrollment",
+          "m1-selected-profile-exit-proof",
+          "m1-sequence-zero-materialization",
+          "m1-system-genesis-product-journey",
+          "m10-attestation-temporal-floor-and-revocation-continuity",
+          "m10-operations-operational-journey",
+          "m10-topology-chaos-and-operator-product-proof",
+          "m10-two-failure-domain-continuity",
+          "m11-canonical-contract-registry-and-legacy-ref-migration",
+          "m11-canonical-embodied-contract-alignment",
+          "m11-embodied-nonlive-graph-proof",
+          "m11-embodied-systems-nonlive-operational-journey",
+          "m11-foundry-promotion-safety-case-and-product-journey",
+          "m11-useful-same-system-distribution",
+          "m12-aiip-channel-envelope-profile",
+          "m12-federated-admission-portable-exit-and-bindings",
+          "m12-federation-product-and-operator-journey",
+          "m12-ifc-disclosure-receipt-and-settlement-binding",
+          "m12-terms-discovery-semantic-negotiation",
+          "m13-independent-operation-and-external-worker-product-proof",
+          "m13-sovereignty-trial-preregistration",
+          "m13-two-sovereign-surplus-and-decline-proof",
+          "m14-cross-plane-correlated-failure-injection",
+          "m14-demand-security-economics",
+          "m14-l1-authorization-decision",
+          "m14-network-service-devnet",
+          "m14-service-family-owner-contract-and-product-surfaces",
+          "m2-agentgres-replay-recovery-and-product-topology",
+          "m2-membership-readiness-plane",
+          "m2-node-attestation-identity-secret-readiness",
+          "m2-route-restore-activation-cleanup",
+          "m2-selected-profile-exit-proof",
+          "m2-writer-fence-and-lost-suffix",
+          "m3-direct-path-and-exit-proof",
+          "m3-goal-kernel-context-and-runtime-truth-spine",
+          "m3-pursuit-definition-resolution",
+          "m3-result-lifecycle-negative-retention",
+          "m3-work-session-automation-product-journey",
+          "m4-outcome-room-system-spine",
+          "m4-room-graph-truth-and-product-projection",
+          "m5-attribution-acceptance-and-challenge-boundary",
+          "m5-local-agent-pairing",
+          "m5-p0-readiness-verifier",
+          "m5-pairing-identity-and-gateway-scope",
+          "m5-participant-frontier-result-closeout",
+          "m5-portable-exit-independent-clients",
+          "m6-applications-workspace-operational-journey",
+          "m6-automations-operational-journey",
+          "m6-catalog-route-alias-migration-accessibility",
+          "m6-consequential-action-authority-receipt-unification",
+          "m6-developer-workspace-operational-journey",
+          "m6-home-workspace-operational-journey",
+          "m6-owner-application-registration-and-shell-state-coverage",
+          "m6-packages-operational-journey",
+          "m6-product-surface-and-typed-workspaces",
+          "m6-production-truth-fallback-retirement",
+          "m6-projects-workspace-operational-journey",
+          "m6-reference-shell-disposition-and-depth-ledger",
+          "m6-settings-workspace-operational-journey",
+          "m6-surface-compiler-and-source-convergence",
+          "m6-systems-work-projection-and-mission-alias-migration",
+          "m6-systems-workspace-operational-journey",
+          "m6-work-workspace-operational-journey",
+          "m7-data-operational-journey",
+          "m7-data-transformation-provenance-replay",
+          "m7-ontology-action-final-invoker-and-product-proof",
+          "m7-ontology-operational-journey",
+          "m7-studio-operational-journey",
+          "m8-evaluations-operational-journey",
+          "m8-foundry-operational-journey",
+          "m8-improvement-operational-journey",
+          "m8-learning-boundary-provider-exit",
+          "m8-learning-custody-memory-and-provider-rights",
+          "m8-model-supply-route-substitution-and-selected-exit",
+          "m8-order-zero-improvement-and-direct-path",
+          "m9-authority-gateway-equivalence-and-coverage",
+          "m9-compact-advanced-object-hash-parity",
+          "m9-developer-console-operational-journey",
+          "m9-environments-operational-journey",
+          "m9-governance-operational-journey",
+          "m9-lifecycle-evidence-operator-proof",
+          "m9-managed-optionality-overlay",
+          "m9-provenance-operational-journey",
+          "m9-selected-profile-aggregate-exit-and-claim-publication",
+          "m9-sovereign-local-terminal-journey",
+          "m9-terminal-product-state-and-release-supply-chain",
+          "managed-billing-work-credits-and-supplier-reconciliation",
+          "marketplace-neutral-routing-contribution-accounting",
+          "platform-operability-observability-and-incidents",
+          "production-information-flow-and-declassification",
+          "production-receipt-checkpoint-and-offline-proof",
+          "project-discovery-startup-and-session-chain",
+          "sdk-cli-adk-odk-builder-journey",
+          "storage-profile-repair-and-availability",
+          "worker-training-and-local-marketplace-supply"
+        ],
+        "conformance_targets": [],
+        "contract_families": [
+          "AIIPChannelEnvelope",
+          "AIIPEnvelope",
+          "AcceptanceDecisionEnvelope",
+          "ActiveSkillSetSnapshot",
+          "Attempt",
+          "AuthorityGrantEnvelope",
+          "AuthorityKeySet",
+          "AuthorityRevocationSnapshot",
+          "AuthorityScopeRequestEnvelope",
+          "AutonomousSystemChainEnvelope",
+          "AutonomousSystemConstitution",
+          "AutonomousSystemConstitutionAmendment",
+          "AutonomousSystemDeploymentProfileEnvelope",
+          "AutonomousSystemFailoverProfileEnvelope",
+          "AutonomousSystemGenesis",
+          "AutonomousSystemInitialProfileBundle",
+          "AutonomousSystemManifest",
+          "AutonomousSystemNodeMembershipEnvelope",
+          "AutonomousSystemSequenceZeroMaterialization",
+          "AutonomousSystemSequenceZeroMaterializationReceipt",
+          "AutonomousSystemWriterEpochTransitionEnvelope",
+          "CancellationFanoutPlanEnvelope",
+          "CapabilityDescriptorEnvelope",
+          "CollaborationTerms",
+          "ConsequentialEffectFenceContext",
+          "DataRecipe",
+          "DeclassificationApproval",
+          "DeliveryEnvelope",
+          "DeliveryUpdateEnvelope",
+          "DisputeEnvelope",
+          "DisputeRailBundle",
+          "DisputeResolutionEnvelope",
+          "EmbodiedDeploymentAssuranceCase",
+          "EmbodiedRuntimeGraphManifestEnvelope",
+          "EvaluationEpochEnvelope",
+          "EvaluationExposureLedgerEnvelope",
+          "Finding",
+          "GoalGroundingLoop",
+          "GoalRun",
+          "GoalRunProfile",
+          "HarnessInvocationEnvelope",
+          "HarnessSessionBinding",
+          "HarnessSessionBindingAdmission",
+          "HarnessSessionLaunch",
+          "HarnessSessionReadiness",
+          "HarnessSessionSpawn",
+          "HarnessSessionTerminalAttach",
+          "HypervisorApplicationSurfaceRegistration",
+          "HypervisorAutomationInstallationBinding",
+          "HypervisorAutomationRun",
+          "HypervisorAutomationSpec",
+          "HypervisorProductSurfaceProjection",
+          "HypervisorRouteAliasRegistration",
+          "HypervisorSessionLaunchRecipeAdmission",
+          "HypervisorSurfaceInstallationBinding",
+          "HypervisorSurfaceReleaseRecord",
+          "HypervisorSurfaceServingBinding",
+          "HypervisorSystemInterfaceBinding",
+          "HypervisorWorkFacetProjection",
+          "HypervisorWorkSubjectProjection",
+          "IOINetworkEnrollment",
+          "ImprovementAgendaEnvelope",
+          "ImprovementCampaign",
+          "ImprovementEvidenceClaimEnvelope",
+          "ImprovementGovernanceProfileEnvelope",
+          "InformationFlowLabel",
+          "InstitutionalIntelligenceExportBundleEnvelope",
+          "InstitutionalLearningBoundaryProfileEnvelope",
+          "LearningEvidenceEligibility",
+          "LearningSourceRightsClaimEnvelope",
+          "LifecycleContinuityProfile",
+          "LifecycleTransition",
+          "LocalAgentPairingSessionEnvelope",
+          "LostSuffixRecordEnvelope",
+          "ManagedWorkBillingLedgerBundle",
+          "MultiPartyCollaborationEnvelope",
+          "NativeEmbodiedRuntimeProfile",
+          "NetworkServiceInvocationEnvelope",
+          "OntologyActionContractEnvelope",
+          "OntologyMappingEnvelope",
+          "OracleEvidenceProfile",
+          "OrderingAdmissionFinalityProfile",
+          "OrderingFinalityRecoveryEnvelope",
+          "OutcomeDelta",
+          "OutcomeRoom",
+          "OutcomeRoomDiscoveryEnvelope",
+          "ParticipantStateBundleEnvelope",
+          "PhysicalStreamContract",
+          "PolicyBoundDataViewEnvelope",
+          "ReceiptEnvelope",
+          "RoleTopology",
+          "RoomParticipantLeaseEnvelope",
+          "RoomParticipationRequestEnvelope",
+          "RoutingDecisionEnvelope",
+          "RuntimeAssignment",
+          "SettlementEnvelope",
+          "SettlementIntentEnvelope",
+          "SkillEntry",
+          "SkillManifest",
+          "SpacetimeReservationLease",
+          "TaskAcceptanceEnvelope",
+          "TaskOfferEnvelope",
+          "TransformationRunEnvelope",
+          "UpgradeProposal",
+          "VerifierChallenge",
+          "WorkClaimLeaseEnvelope",
+          "WorkFrontierItemEnvelope",
+          "WorkLifecycleRecordEnvelope",
+          "WorkResult",
+          "WorkflowTemplate"
+        ]
+      },
+      "baseline_subject_set_sha256_before": "6e1b4dc7856fca1db675900348f84d0c95ee0f9a3182f5f8f23830d35939eae0",
+      "baseline_subject_set_sha256_after": "8cb9c60647c51121a92350c564e03cce13bcf728579b7b37ae63bc6e68725e53",
+      "sequence": 9
+    },
+    {
+      "accepted_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+      "reviewer_ref": "reviewer://codex/user-authorized-hypervisor-reconciliation-2026-07-30",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/fe7ed847c2e8020c23a98521710fcae38d6b33698948ae5043f308bbe871d0ab.json",
+      "review_manifest_path_at_acceptance": "/tmp/ioi-hypervisor-canon-review-2.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "fe7ed847c2e8020c23a98521710fcae38d6b33698948ae5043f308bbe871d0ab",
+      "subject_count": 9,
+      "dispositions": {
+        "unaffected": 9
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json",
+          "change": "changed",
+          "baseline_sha256": "5f212100bd77d22345fd675be187815be66a94457d7a7915f3aaeb0ef7154513",
+          "tree_sha256": "7126d3227baada7d5d4c87cf496333b3251fb7962f952b4e67d5e34c73d2f543",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json",
+          "change": "changed",
+          "baseline_sha256": "cf752a4c96288986a5c3ce685a2d238051492bc5212bc89f9e055d243d360854",
+          "tree_sha256": "a942bdf77bd18eccdaba5402f86fb6026d8fbd7d2f91697f54eab4f2bf0d3f5a",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-surface-serving-binding.v1.schema.json",
+          "change": "changed",
+          "baseline_sha256": "c0ef56d1a6d98b4802c806f212578488381e73158e317ccb13c0ece11adaca3e",
+          "tree_sha256": "cf7e998daf21ad5558e70eac5ee9eb189766201d9a89f36188b73bb28472143b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/hypervisor-system-interface-binding.v1.schema.json",
+          "change": "changed",
+          "baseline_sha256": "43f8d985dd8c682ff9563ad9f6b734572ba572b61c2fa23d1dfe6627de105c1d",
+          "tree_sha256": "8c07cdef2bb65eac3054101cba138b9bd3c16fc805297e7f5ea332b02dd0881d",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/source-of-truth-map.md",
+          "change": "changed",
+          "baseline_sha256": "9ec59538f3801c388165368fdd791c77ebab3adc489c75ad2cb354f0c33b4861",
+          "tree_sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/vocabulary.md",
+          "change": "changed",
+          "baseline_sha256": "ec3ce34b6c05df5614af29415139b8dc8e3a3c652af9c959b9faf6ad9c6120bf",
+          "tree_sha256": "63412e40186482344eecc2bb686919be55c078769b7085403bd5375276ca9bf2",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/components/daemon-runtime/embodied-runtime.md",
+          "change": "changed",
+          "baseline_sha256": "40124472b06b68f5202e52e1953f1c47e24a65b9126981c559b2e31e0c7aa8d3",
+          "tree_sha256": "f5a849202b8fe7ed1e9d5f4247fbf5d01eca169fb454541814445228f70c1248",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+          "change": "changed",
+          "baseline_sha256": "54fa746965050ee3ad7c3a914c7472ec8a517ea8ef1541dc53fbc87c245cfbaa",
+          "tree_sha256": "9ac1878598a4b9636bcc601106b08f8d7a524d6a685b9ea12007df4eef870f77",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/foundations/common-objects-and-envelopes.md",
+          "change": "changed",
+          "baseline_sha256": "d68357d2ae58c0e1485450dac5af22c1148e9f7a71d95b27909d4517f47f5c98",
+          "tree_sha256": "e054ec0a7976400cc2578802f7f4340d45f8943baeda3bf1f9eab4023a285134",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "FUTURE",
+          "M0",
+          "M1",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7",
+          "M8",
+          "M9"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "campaign-experiment-method",
+          "cooperation",
+          "docs-and-comms",
+          "embodied",
+          "improvement",
+          "learning-boundary",
+          "mechanism-gates",
+          "network-and-l1",
+          "product-surface-ux-proof",
+          "product-ux",
+          "proof-and-evidence",
+          "runtime-fabric",
+          "runtime-trust-boundary",
+          "supply-and-commerce",
+          "wallet-authority"
+        ],
+        "work_items": [
+          "agentgres-production-readiness-and-branch-effects",
+          "connected-worker-capability-supply-and-hiring",
+          "decentralized-profile-admission-and-exit",
+          "dispute-adjudication-remedy-kernel",
+          "ecosystem-assurance-and-public-claim-estate",
+          "foundry-evaluations-production-loop",
+          "hypervisoros-ctee-task-capsule-attestation",
+          "live-embodied-promotion",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint",
+          "m1-5-protected-transitions",
+          "m1-5b-generic-protected-transitions",
+          "m1-5c-amendment-execution",
+          "m1-dual-genesis-and-read-projection",
+          "m1-genesis-admission",
+          "m1-governed-initialize-activate",
+          "m1-protected-migration-dissolution-enrollment",
+          "m1-selected-profile-exit-proof",
+          "m1-sequence-zero-materialization",
+          "m1-system-genesis-product-journey",
+          "m10-attestation-temporal-floor-and-revocation-continuity",
+          "m10-operations-operational-journey",
+          "m10-topology-chaos-and-operator-product-proof",
+          "m10-two-failure-domain-continuity",
+          "m11-canonical-contract-registry-and-legacy-ref-migration",
+          "m11-canonical-embodied-contract-alignment",
+          "m11-embodied-nonlive-graph-proof",
+          "m11-embodied-systems-nonlive-operational-journey",
+          "m11-foundry-promotion-safety-case-and-product-journey",
+          "m11-selected-profile-exit-proof",
+          "m11-useful-same-system-distribution",
+          "m12-aiip-channel-envelope-profile",
+          "m12-federated-admission-portable-exit-and-bindings",
+          "m12-federation-product-and-operator-journey",
+          "m12-ifc-disclosure-receipt-and-settlement-binding",
+          "m12-terms-discovery-semantic-negotiation",
+          "m13-independent-operation-and-external-worker-product-proof",
+          "m13-sovereignty-trial-preregistration",
+          "m13-two-sovereign-surplus-and-decline-proof",
+          "m14-cross-plane-correlated-failure-injection",
+          "m14-demand-security-economics",
+          "m14-l1-authorization-decision",
+          "m14-network-service-devnet",
+          "m14-service-family-owner-contract-and-product-surfaces",
+          "m2-agentgres-replay-recovery-and-product-topology",
+          "m2-membership-readiness-plane",
+          "m2-node-attestation-identity-secret-readiness",
+          "m2-route-restore-activation-cleanup",
+          "m2-selected-profile-exit-proof",
+          "m2-writer-fence-and-lost-suffix",
+          "m3-goal-kernel-context-and-runtime-truth-spine",
+          "m3-pursuit-definition-resolution",
+          "m3-result-lifecycle-negative-retention",
+          "m3-work-session-automation-product-journey",
+          "m4-outcome-room-system-spine",
+          "m4-room-graph-truth-and-product-projection",
+          "m5-attribution-acceptance-and-challenge-boundary",
+          "m5-local-agent-pairing",
+          "m5-pairing-identity-and-gateway-scope",
+          "m5-participant-frontier-result-closeout",
+          "m5-portable-exit-independent-clients",
+          "m6-applications-workspace-operational-journey",
+          "m6-automations-operational-journey",
+          "m6-catalog-route-alias-migration-accessibility",
+          "m6-consequential-action-authority-receipt-unification",
+          "m6-developer-workspace-operational-journey",
+          "m6-home-workspace-operational-journey",
+          "m6-owner-application-registration-and-shell-state-coverage",
+          "m6-packages-operational-journey",
+          "m6-product-surface-and-typed-workspaces",
+          "m6-production-truth-fallback-retirement",
+          "m6-projects-workspace-operational-journey",
+          "m6-reference-shell-disposition-and-depth-ledger",
+          "m6-settings-workspace-operational-journey",
+          "m6-surface-compiler-and-source-convergence",
+          "m6-systems-work-projection-and-mission-alias-migration",
+          "m6-systems-workspace-operational-journey",
+          "m6-work-workspace-operational-journey",
+          "m7-data-operational-journey",
+          "m7-data-transformation-provenance-replay",
+          "m7-ontology-action-final-invoker-and-product-proof",
+          "m7-ontology-operational-journey",
+          "m7-studio-operational-journey",
+          "m8-evaluations-operational-journey",
+          "m8-foundry-operational-journey",
+          "m8-improvement-operational-journey",
+          "m8-learning-boundary-provider-exit",
+          "m8-learning-custody-memory-and-provider-rights",
+          "m8-model-supply-route-substitution-and-selected-exit",
+          "m8-order-zero-improvement-and-direct-path",
+          "m9-authority-gateway-equivalence-and-coverage",
+          "m9-compact-advanced-object-hash-parity",
+          "m9-developer-console-operational-journey",
+          "m9-environments-operational-journey",
+          "m9-governance-operational-journey",
+          "m9-lifecycle-evidence-operator-proof",
+          "m9-managed-optionality-overlay",
+          "m9-provenance-operational-journey",
+          "m9-selected-profile-aggregate-exit-and-claim-publication",
+          "m9-sovereign-local-terminal-journey",
+          "m9-terminal-product-state-and-release-supply-chain",
+          "managed-billing-work-credits-and-supplier-reconciliation",
+          "marketplace-neutral-routing-contribution-accounting",
+          "platform-operability-observability-and-incidents",
+          "production-information-flow-and-declassification",
+          "production-receipt-checkpoint-and-offline-proof",
+          "project-discovery-startup-and-session-chain",
+          "sdk-cli-adk-odk-builder-journey",
+          "storage-profile-repair-and-availability",
+          "worker-training-and-local-marketplace-supply"
+        ],
+        "conformance_targets": [],
+        "contract_families": [
+          "AIIPChannelEnvelope",
+          "AIIPEnvelope",
+          "AcceptanceDecisionEnvelope",
+          "ActiveSkillSetSnapshot",
+          "Attempt",
+          "AuthorityGrantEnvelope",
+          "AuthorityKeySet",
+          "AuthorityRevocationSnapshot",
+          "AuthorityScopeRequestEnvelope",
+          "AutonomousSystemChainEnvelope",
+          "AutonomousSystemConstitution",
+          "AutonomousSystemConstitutionAmendment",
+          "AutonomousSystemDeploymentProfileEnvelope",
+          "AutonomousSystemFailoverProfileEnvelope",
+          "AutonomousSystemGenesis",
+          "AutonomousSystemInitialProfileBundle",
+          "AutonomousSystemManifest",
+          "AutonomousSystemNodeMembershipEnvelope",
+          "AutonomousSystemSequenceZeroMaterialization",
+          "AutonomousSystemSequenceZeroMaterializationReceipt",
+          "AutonomousSystemWriterEpochTransitionEnvelope",
+          "CancellationFanoutPlanEnvelope",
+          "CapabilityDescriptorEnvelope",
+          "CollaborationTerms",
+          "ConsequentialEffectFenceContext",
+          "DataRecipe",
+          "DeclassificationApproval",
+          "DeliveryEnvelope",
+          "DeliveryUpdateEnvelope",
+          "DisputeEnvelope",
+          "DisputeRailBundle",
+          "DisputeResolutionEnvelope",
+          "EmbodiedDeploymentAssuranceCase",
+          "EmbodiedGraphActivationTransaction",
+          "EmbodiedResourceGroup",
+          "EmbodiedRuntimeGraphManifestEnvelope",
+          "EmbodiedUnitIdentity",
+          "EvaluationEpochEnvelope",
+          "EvaluationExposureLedgerEnvelope",
+          "Finding",
+          "FleetMissionAllocationLease",
+          "GoalGroundingLoop",
+          "GoalRun",
+          "GoalRunProfile",
+          "HarnessInvocationEnvelope",
+          "HarnessSessionBinding",
+          "HarnessSessionBindingAdmission",
+          "HarnessSessionLaunch",
+          "HarnessSessionReadiness",
+          "HarnessSessionSpawn",
+          "HarnessSessionTerminalAttach",
+          "HypervisorApplicationSurfaceRegistration",
+          "HypervisorAutomationInstallationBinding",
+          "HypervisorAutomationRun",
+          "HypervisorAutomationSpec",
+          "HypervisorProductSurfaceProjection",
+          "HypervisorRouteAliasRegistration",
+          "HypervisorSessionLaunchRecipeAdmission",
+          "HypervisorSurfaceInstallationBinding",
+          "HypervisorSurfaceReleaseRecord",
+          "HypervisorSurfaceServingBinding",
+          "HypervisorSystemInterfaceBinding",
+          "HypervisorWorkFacetProjection",
+          "HypervisorWorkSubjectProjection",
+          "IOINetworkEnrollment",
+          "ImprovementAgendaEnvelope",
+          "ImprovementCampaign",
+          "ImprovementEvidenceClaimEnvelope",
+          "ImprovementGovernanceProfileEnvelope",
+          "InformationFlowLabel",
+          "InstitutionalIntelligenceExportBundleEnvelope",
+          "InstitutionalLearningBoundaryProfileEnvelope",
+          "LearningEvidenceEligibility",
+          "LearningSourceRightsClaimEnvelope",
+          "LifecycleContinuityProfile",
+          "LifecycleTransition",
+          "LocalAgentPairingSessionEnvelope",
+          "LocalControlSupervisor",
+          "LostSuffixRecordEnvelope",
+          "ManagedWorkBillingLedgerBundle",
+          "MultiPartyCollaborationEnvelope",
+          "NativeEmbodiedRuntimeProfile",
+          "NetworkServiceInvocationEnvelope",
+          "OntologyActionContractEnvelope",
+          "OntologyMappingEnvelope",
+          "OracleEvidenceProfile",
+          "OrderingAdmissionFinalityProfile",
+          "OrderingFinalityRecoveryEnvelope",
+          "OutcomeDelta",
+          "OutcomeRoom",
+          "OutcomeRoomDiscoveryEnvelope",
+          "ParticipantStateBundleEnvelope",
+          "PhysicalStreamContract",
+          "PolicyBoundDataViewEnvelope",
+          "ReceiptEnvelope",
+          "RoleTopology",
+          "RoomParticipantLeaseEnvelope",
+          "RoomParticipationRequestEnvelope",
+          "RoutingDecisionEnvelope",
+          "RuntimeAssignment",
+          "SettlementEnvelope",
+          "SettlementIntentEnvelope",
+          "SimToRealPromotionGate",
+          "SkillEntry",
+          "SkillManifest",
+          "SpacetimeReservationLease",
+          "TaskAcceptanceEnvelope",
+          "TaskOfferEnvelope",
+          "TransformationRunEnvelope",
+          "UpgradeProposal",
+          "VerifierChallenge",
+          "WorkClaimLeaseEnvelope",
+          "WorkFrontierItemEnvelope",
+          "WorkLifecycleRecordEnvelope",
+          "WorkResult",
+          "WorkflowTemplate"
+        ]
+      },
+      "baseline_subject_set_sha256_before": "8cb9c60647c51121a92350c564e03cce13bcf728579b7b37ae63bc6e68725e53",
+      "baseline_subject_set_sha256_after": "cfac1da22a0e3266fd87308abf9a66a30f7f13f8bfd5dd4ed2fc28a15c8b66b4",
+      "sequence": 10
+    },
+    {
+      "accepted_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+      "reviewer_ref": "reviewer://codex/hypervisor-surface-reconciliation",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/62511e1aa31b675736b1b2dada2123bbaa62eeb7c20fc083b4f8f825b820c75e.json",
+      "review_manifest_path_at_acceptance": "/tmp/hypervisor-m0-canon-review.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "62511e1aa31b675736b1b2dada2123bbaa62eeb7c20fc083b4f8f825b820c75e",
+      "subject_count": 13,
+      "dispositions": {
+        "unaffected": 13
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+          "change": "changed",
+          "baseline_sha256": "792425938e4a37d94793fc893078eff11e6f383af98cbfa4c074164e4aca5c08",
+          "tree_sha256": "a77d8e76bd68b29aa219218fd16213fad305f6bd9b1a3d649ee7ecb5ed58401c",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/current-baselines.json",
+          "change": "changed",
+          "baseline_sha256": "c98cd8f0f73876e614a6e75478339b5228030192192fc607f6316d187c6b0507",
+          "tree_sha256": "378c79e8343d0cdcb456488ceff95771f7c377cb1a7ba8b2684b715d2bacf904",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/effect-census.json",
+          "change": "changed",
+          "baseline_sha256": "49d4b28e57c0d257ee523bc2e3298a425d4f11ab932ca5771af4998621d9b728",
+          "tree_sha256": "c7cd4dfa323b39cd75534e3578365a08c8397119160c4d8e36bd99d2bb0ec7e8",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+          "change": "changed",
+          "baseline_sha256": "dc8a449ff7f03245b3525d3284937f63f6093b6cc607041fade8b5aa54472f98",
+          "tree_sha256": "ade291d41cfbd8d6eb8bbc2e6f9ae1fc1cd747e6ea5b32a39429e7bf095bd40a",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/manifest.json",
+          "change": "changed",
+          "baseline_sha256": "3323c87b392f9ef20996bcc406fb97cf801db241621695ba108915a77d5e2e28",
+          "tree_sha256": "6b1b9727c3c1fb5fcb6a96d58e09c6525bd0fe271158cee63fcfdcaf8bd95a29",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+          "change": "changed",
+          "baseline_sha256": "2e4a0cc058202d582a4afe945977f22f43ede89bf91fac547b4818a90e3dee23",
+          "tree_sha256": "2e5f44ab6e9dd1c0ec8c7a91259522b8e057ccd4c262a3bcd32495ffac674597",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-control-source.json",
+          "change": "changed",
+          "baseline_sha256": "e84493937c40ab97ec1595f296be6223b98ed9f9d152de321ba532fa4cefc9ed",
+          "tree_sha256": "9d129467541d3787500a44e269edbaf6af751374b8d6360b78c2653a13cd088b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+          "change": "changed",
+          "baseline_sha256": "6cebb5407031236469e1e096cc54ed8a70dabb9bb22be3b6afc59fcc9c0ef4dc",
+          "tree_sha256": "7651644188619c3abcf3b48e730454bf37fee235e74f1307be7e12c2e2c937e6",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/release-ladder.json",
+          "change": "changed",
+          "baseline_sha256": "e586ed9e716a7aa8dff8741254b579a5a62847c487c34619102c96a9942fd4b6",
+          "tree_sha256": "dc01a50512df85aaaa6b5980e98d78225fa6340ae8d45a8ccad7618df9c17189",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+          "change": "changed",
+          "baseline_sha256": "f426b9cbb8828c10a6ac002bf605aacdb4984c13b8bbc8aafd0086d3cd2bd817",
+          "tree_sha256": "403022099da5b233afb846eb298bc92a1e4669d8ad2d7e2fc5d05381f2a63283",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
+          "change": "changed",
+          "baseline_sha256": "3195c818d0ec4c983d76c99703a95581c28515de91d3df13ac49d976cc2439be",
+          "tree_sha256": "3ee62c574b2afa44f32770f1579d5ec254eaf7ca142fb46080ad4e0678e319d9",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/selected-profile.json",
+          "change": "changed",
+          "baseline_sha256": "4286613361cc3734897fbc4791b46e6d5b8a776e43f5d6b4e65d930a8b14e5c0",
+          "tree_sha256": "b1b6cb64e5ac058599cdcc4759c836aab4f3a1a13ce59024f5083f30304d265c",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/runtime-layout-refactor/guardrail-report.json",
+          "change": "changed",
+          "baseline_sha256": "8533a443f1e2be5a642b525d65520d1fe541f2b9ad4dfa40bafa3dbd79164f0e",
+          "tree_sha256": "a80011c5d3b3308b24802ac4bcae1469c66ff996fcc848ef85307f1e245e4b0f",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "M0"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "mechanism-gates",
+          "proof-and-evidence",
+          "runtime-trust-boundary"
+        ],
+        "work_items": [
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock"
+        ],
+        "conformance_targets": [
+          "scripts/check-runtime-layout.mjs"
+        ],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "cfac1da22a0e3266fd87308abf9a66a30f7f13f8bfd5dd4ed2fc28a15c8b66b4",
+      "baseline_subject_set_sha256_after": "ecf9075e7258a1c8db93de8a37a70622ca762c97c5fde3234098332e28f5544b",
+      "sequence": 11
+    },
+    {
+      "accepted_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+      "reviewer_ref": "reviewer://codex/hypervisor-surface-reconciliation",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/147eefe3714a84b10b39a227d9d7ea50db285aeb07a8a0f2085856b8e8a3c64c.json",
+      "review_manifest_path_at_acceptance": "/tmp/hypervisor-layout-review.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "147eefe3714a84b10b39a227d9d7ea50db285aeb07a8a0f2085856b8e8a3c64c",
+      "subject_count": 2,
+      "dispositions": {
+        "unaffected": 2
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/evidence/runtime-layout-refactor/guardrail-report.json",
+          "change": "changed",
+          "baseline_sha256": "a80011c5d3b3308b24802ac4bcae1469c66ff996fcc848ef85307f1e245e4b0f",
+          "tree_sha256": "c0a120ed7325879fefc5893bf4193643a3eeaaddea6498834e9d08e9852aae92",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/runtime-layout-refactor/hypervisor-surface-reconciliation.v1.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "76a7339cf031222ef5d0e9f07adb0d209646b17aff2ac7f46b7283975853ed05",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "M0",
+          "M6"
+        ],
+        "modules": [
+          "product-surface-ux-proof",
+          "runtime-trust-boundary"
+        ],
+        "work_items": [
+          "m0-program-control-selected-profile-exit-proof",
+          "m6-production-truth-fallback-retirement",
+          "m6-surface-compiler-and-source-convergence"
+        ],
+        "conformance_targets": [
+          "scripts/check-runtime-layout.mjs"
+        ],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "ecf9075e7258a1c8db93de8a37a70622ca762c97c5fde3234098332e28f5544b",
+      "baseline_subject_set_sha256_after": "64ec384dd80c1c014d9601aa13d39f1332c2b15fc833f4ea1e2d9a7e590d7b35",
+      "sequence": 12
+    },
+    {
+      "accepted_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+      "reviewer_ref": "agent://codex/root",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/c0df1bb07f1446e8b70dda90dd99ae8d68dd12259edc1671f1434f8d2272418b.json",
+      "review_manifest_path_at_acceptance": "/tmp/m3-direct-entry-canon-review.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "c0df1bb07f1446e8b70dda90dd99ae8d68dd12259edc1671f1434f8d2272418b",
+      "subject_count": 7,
+      "dispositions": {
+        "unaffected": 7
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+          "change": "changed",
+          "baseline_sha256": "75832e07946c15bfbf289d6fb7ef048f79e117bb1cbf5f702bbbcf577ee6654f",
+          "tree_sha256": "e801c0320f3f5211882661ce59c20add142aaced1751780ef4b9a22c8a217489",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/negative-direct-with-shared-frontier.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "686d8f4c8e594f750470217f305369f25dbf717af58ca0850380d3f846a80616",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/positive-direct-research.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "3be3f91cb57d605f08aa50cb70169f949b530d2e65254bc288cfa4a2c7bfff97",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/goal-run-admission-path-decision.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "d2dc41ad095ef74f88a55e5c188b340e8879424ab289a8863d4fd174cb488610",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+          "change": "changed",
+          "baseline_sha256": "7b9440bd0c988f76cabfe70cff83bf4a65506090560db7fea7b87a6db1570212",
+          "tree_sha256": "8922d339c9e492a0e1e8ce657264af2b904a48c771d56f8296902ca8c826299f",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/decisions/0029-goalrun-direct-path-admission-and-research-proof-profile.md",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "bc4d94f435dd1e2273bfc0d0014f7880c50288305fab1bcba342ae1258c2d1b3",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/decisions/README.md",
+          "change": "changed",
+          "baseline_sha256": "de710fbafd5ce0c07666246231a8d887370c14507292b71a225a54a364c2b687",
+          "tree_sha256": "e7cefeedd7b10226f399446ea3241a1c92b419599dca791a402f02d44a411f9a",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "FUTURE",
+          "M0",
+          "M10",
+          "M11",
+          "M12",
+          "M14",
+          "M2",
+          "M3",
+          "M5",
+          "M6",
+          "M7",
+          "M9"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "cooperation",
+          "docs-and-comms",
+          "embodied",
+          "mechanism-gates",
+          "network-and-l1",
+          "product-surface-ux-proof",
+          "product-ux",
+          "proof-and-evidence",
+          "runtime-fabric",
+          "runtime-trust-boundary",
+          "supply-and-commerce",
+          "wallet-authority"
+        ],
+        "work_items": [
+          "agentgres-production-readiness-and-branch-effects",
+          "ecosystem-assurance-and-public-claim-estate",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint",
+          "m10-operations-operational-journey",
+          "m10-topology-chaos-and-operator-product-proof",
+          "m11-canonical-contract-registry-and-legacy-ref-migration",
+          "m11-canonical-embodied-contract-alignment",
+          "m12-ifc-disclosure-receipt-and-settlement-binding",
+          "m14-cross-plane-correlated-failure-injection",
+          "m3-direct-path-and-exit-proof",
+          "m3-goal-kernel-context-and-runtime-truth-spine",
+          "m3-pursuit-definition-resolution",
+          "m3-result-lifecycle-negative-retention",
+          "m3-work-session-automation-product-journey",
+          "m5-attribution-acceptance-and-challenge-boundary",
+          "m5-local-agent-pairing",
+          "m5-p0-readiness-verifier",
+          "m5-pairing-identity-and-gateway-scope",
+          "m6-automations-operational-journey",
+          "m6-consequential-action-authority-receipt-unification",
+          "m6-developer-workspace-operational-journey",
+          "m6-home-workspace-operational-journey",
+          "m6-production-truth-fallback-retirement",
+          "m6-projects-workspace-operational-journey",
+          "m6-reference-shell-disposition-and-depth-ledger",
+          "m6-surface-compiler-and-source-convergence",
+          "m6-work-workspace-operational-journey",
+          "m7-data-transformation-provenance-replay",
+          "m7-studio-operational-journey",
+          "m9-authority-gateway-equivalence-and-coverage",
+          "m9-compact-advanced-object-hash-parity",
+          "m9-developer-console-operational-journey",
+          "m9-environments-operational-journey",
+          "m9-lifecycle-evidence-operator-proof",
+          "m9-managed-optionality-overlay",
+          "m9-provenance-operational-journey",
+          "m9-selected-profile-aggregate-exit-and-claim-publication",
+          "m9-sovereign-local-terminal-journey",
+          "m9-terminal-product-state-and-release-supply-chain",
+          "platform-operability-observability-and-incidents",
+          "production-information-flow-and-declassification",
+          "production-receipt-checkpoint-and-offline-proof",
+          "project-discovery-startup-and-session-chain",
+          "sdk-cli-adk-odk-builder-journey"
+        ],
+        "conformance_targets": [],
+        "contract_families": [
+          "AgentHarnessAdapter",
+          "GoalRunAdmissionPathDecision",
+          "HarnessProfile",
+          "HypervisorSessionLaunchRecipe"
+        ]
+      },
+      "baseline_subject_set_sha256_before": "64ec384dd80c1c014d9601aa13d39f1332c2b15fc833f4ea1e2d9a7e590d7b35",
+      "baseline_subject_set_sha256_after": "68f774caafec53ba4f0ed31a2d5a59390f1b880fb53da2af5156dbc150b47ef9",
+      "sequence": 13
+    },
+    {
+      "accepted_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+      "reviewer_ref": "owner://ioi/repository-owner",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/3763a6f0757e0097700a0a38e7b6c80361b0ed7b27c3041eb675c824b86f7b2d.json",
+      "review_manifest_path_at_acceptance": "/tmp/m3-canon-review.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "3763a6f0757e0097700a0a38e7b6c80361b0ed7b27c3041eb675c824b86f7b2d",
+      "subject_count": 73,
+      "dispositions": {
+        "unaffected": 73
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/schemas/active-skill-set-snapshot.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "a357804a88aecfa3ea169affd8271900fd6bf1d9ddf81768f85a4deaec270adf",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/agent-execution-branch.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "acc95ccfb1f3c406300b35da30de6c8a39172e1cca77a4ec690e6a98608783ae",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/agent-harness-adapter.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "7b7b2f2e5f5816cfb33dc73bdf1bfefc37b1beccbb27b95663638e410b880862",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+          "change": "changed",
+          "baseline_sha256": "e801c0320f3f5211882661ce59c20add142aaced1751780ef4b9a22c8a217489",
+          "tree_sha256": "48aa823182961ce5d15aae1163f8eb617e4ab5b7d07a982bf0ad3b49fdada6f2",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/artifact-ref.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "0f6a8649fa3a10039e931a0d24e081405578e5e39be48e780e358aa4a1b65768",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/authority-effect-admission-receipt.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "a65e9f5b99394cb158042447e24951a6b096668efb4b10529c3cc74ddcf7eb23",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/branch-checkpoint.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "bb720210d1bc4a29954bb0c3736f96ca7745751fcefe245df88ced139f5b6dea",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/branch-merge-plan.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "4fa05012c567e383cf1f51e81afb456a6d1a3abe36c6228be7d3e5fc531c213e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/cancellation-fanout-plan.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "f07524d35ddbfcbca4f82072fa1d74616f9acb541d491850b8224ba459d6752c",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/declassification-receipt.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "41cae85a97191664dfb33320d920483d1c5d29a1b11aaefdf61e0f7ea7c03420",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "0dfbdc7565710d5b563be4d2aab379629b8dba0a1c00c4ad1b3dd30b2d8eefca",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "636902cc7c5c6af3b0aee308aef17864082723898f99e3d72d3f464d8a61807d",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "ff11ab4bc4990c4e5591cbcc2dbf29f6495d6961ff30039618addcfe82867ae2",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "1a5c98c99d400c1c5e581687d5e4048bd57cea72e89f1558ed72ea24512a9df1",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "df9ac33d463d66f9630be05c60823afce60f112564bede6a9b646eddd00d6db4",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "a682bb5faceb1820bbbb332f8065bc9e0ced66f594ed1ea1f11c79c0ecf92639",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/artifact-ref-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "533d41d862a2241d9556f73332ba71e565f54fdd81bb24805606277c82756905",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/artifact-ref-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "bb36e06d65dc346447c415f9b930c47cd51ae6a0258299e1491f2c8ba8d12766",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "dd3fefd9342bee0216722226ec3ff2de0eb63709383da9954f2a853bfad2a568",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "fb2aee77b42d2069f3a629bf1736700b67368c7cce634fb91004b900a5f22d9b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "81b96f0b8ddae6416ca2498148fd9a49babb95851942e4657046444f19280035",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "8f998f6d3e9ae4b329666e860d72ec155dd02655416c7965600574018e3821d1",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "b8eea5be3f9c775d5b70e84354b95667e18bc7a621fba64aa24bf9fb059c4687",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "98085fd0d58d925100788aa84d9f329a689f4e9f39eb3e7ffe32a42f5b96b2b0",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/cancellation-fanout-plan-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "7783599881b72d156c72e61fcda8f6c4814b0a6d54efda6aa2333e32d4edf5b5",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/cancellation-fanout-plan-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "bd792dd40bcf15d3c36826cccd3be0aecc2495287029e654b7c681a9b46830f5",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "6dc917f9e9394ed37337ae9e36cc8da8350cef2f5e9f3f93ca0c5a3c3168cd10",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "fee2cc3924d35a21a5a74e3381a010052a5bb27a9b3250c729e49d790c1d8741",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "d5415e069774ee4777637839591e571d963cfca06c5563ef35da6b03f645d6f7",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "34ae4c50012b17b83517e0c2f27cd901179e09d4d84c73a4bedcf1fc0d6fad1c",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "141b288a36fe3ddfec75e381b8946c46b1b29c35ae21a5f8849a499b51afd392",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "59d56eb20799fa0f2340ddbc9891b2dc5c8b7d938cdb57f3e0dc3bd321d4a94b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "e65f542e924b0d477d9eb149535a3c4f64db679c772c7a1f0e5cbc9f4ac25e55",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "b8d2b6aff0bbce4359709ca2fdbdbc95c1705e5a106a88eb1fec9b829df5fa22",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-run-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "d64fdb8c4d57656b2bfa46eafe2d1081db02abb8ba6048e5b8f7dd00c4483e7b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "dffdaf6bb2e744ded1706fe6ed29129e61133651a13dfd0d0b383543551690d1",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/harness-profile-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "783c487b9ba032fb7e88baf97fdb4f59ab54dbbde70d59b3d4b27fbc2cd71590",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/harness-profile-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "15d7242d32f0af222a6d886c219eaac7ff108a8e0a24a089656a3fa30b5ff181",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/information-flow-decision-receipt-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "d6138eb99199a9f2fd1d90da75d8439fa1ab0eb3044b338d2fc3517740d18014",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/information-flow-decision-receipt-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "e4ca43c26f379ff5fb2e84fff5c0e64a3d9814e2f9c05d90d08f461d38647a13",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/operation-log-entry-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "b24f4ef8c0953076a5b5bdfd28f4c07218c8a4823279ef6049ed121dd5632ed1",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/operation-log-entry-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "373e23fc824700a887b5c34de7b15f5e193507ffe3bfa09379ca14f9df62017e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "8c16489ef11aab649a74386c8d9e7c36e23ef266ddeee3cf4b7f0be74460b82f",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "f582eb4da5f89d9102fc5e4bf1091c18cca04c4d3c3a09fa1231d763689feb31",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/projection-definition-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "80eeda2c56b5b649cd484c14987e1f5aa50bfa5f4b8123e7491dbe37066ee15d",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/projection-definition-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "230ac4c5a86ad95e0a2765216291d7e4e7df6d856c0a1f5d41b9fb212e160d6a",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/skill-entry-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "1ca17ac2bc78fc8e2280ec13cadb24c85b7057c6e9f55df1dd3b14bd55a6f35e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/skill-entry-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "6e2e78395a52887bbb222d9d3f27469a4d9baf2e2a5f85306561a6f12b5c1ea1",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/skill-manifest-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "843e14ade8f7a9f8608321e05b2ecab64bb02545ce0bbb9a5c9d74c4a8028ed5",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/skill-manifest-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "9760d0067b0ea9e7ce50dd794b3a21ec3043d29f8234694f719fceba6eb66567",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/staged-effect-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "4a4e00e251738b8bc7488c1b39af2a775da43c2872c059d6509d5650b12ff613",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/staged-effect-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "13ad36e66de1f3946707b7abb211b8a3d78afd389db0b476da1034495864d868",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "3df53afc4fc836df32bc9de3af29032ffca52e061b78ba5f36ab46b50f952f9b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "a8f1cc21c2dfb192d1b54339a1dd65045740fe4f283bfd322471cd6baf2097cc",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/work-result-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "ca05ad7277c544a463d99512962ccc4f13636459a006e968eaa7098418dbb184",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/work-result-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "693be3f824a2216bc874c948d825d46b9441500b460fd3ce0c20f25a95e18649",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/workflow-template-v1/negative-unknown-field.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "9c212f75e728446f133f815b5917986b82c0347e5c3d8eb38fefd688143b9ec9",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/workflow-template-v1/positive-minimal.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "4d2fa1d6ed47c94f5c86b8119e75875621b2864c7768c53c689c6ed3d8761fd1",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/goal-grounding-loop.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "ca45c9309a46d11db5e8dbeeee63b4ec5be82fb31be83f6efd0946dc5cf1b72b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/goal-run-profile-resolution-receipt.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "1cc196f3a02f56f00219690063a39709c4354cb1b1e0b337eb31e4e56e9cdb72",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/goal-run-profile.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "95bae23816c956cae56f75281dd39feff5a16063e6a2da9d1e45ae5d50a2c6fc",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/goal-run.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "d0898f26e8030c55ecd36e9002839d61feed0c4bd701a79d4c535502b7bcbe22",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/harness-profile.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "2fe2ba00dc0af9ed9bb192a4dca1718f7f81888cb1978b8454d25f33cfa76b4b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/information-flow-decision-receipt.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "4477505ef4867c43c3df0211f3f5e805e0b33a712778a80240207ece27b2026c",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/operation-log-entry.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "f0bb873035c375d3c4aeefb3bf7d48628dd12bc9ef0402339209d225a419c2f0",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/outcome-delta.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "2040f3016f864f04e3d6d043726f2a28244142102a26f744119db8103ae74c83",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/projection-definition.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "13930fbfdfd620f85d172a8b05d43eb587f5cd9f310877c6e8ac4fd3d0931a91",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/skill-entry.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "5805e13ab260e7da31860473b83c38615c2e8667a36657e9c31382d0d31f7d1e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/skill-manifest.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "0a52a14d9cd67541cb7e832f5f974ed85219e27333787eecf47ac9292226f515",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/staged-effect.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "93f8e91733c9fbff3a1bf55e1e0b02f57204e35678facf878ef30304f1e655c9",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/work-lifecycle-record.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "d5c754d38aceb1023f1fe8b22277406d5f53a004f6aa5bf725a7a6d25bc2ed62",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/work-result.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "51a60cda2ef2d723be62707cf4cbc63fe496ec16418a2ebf4ca32d1f9d9b3182",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/workflow-template.v1.schema.json",
+          "change": "added",
+          "baseline_sha256": null,
+          "tree_sha256": "cc99eb5aff7da9258071f67be8a33d4e0f39f949276403c41ad9ff449947f056",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "M0",
+          "M11",
+          "M14",
+          "M3",
+          "M6",
+          "M9"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "cooperation",
+          "docs-and-comms",
+          "embodied",
+          "mechanism-gates",
+          "network-and-l1",
+          "product-surface-ux-proof",
+          "product-ux",
+          "proof-and-evidence",
+          "runtime-fabric",
+          "runtime-trust-boundary",
+          "supply-and-commerce",
+          "wallet-authority"
+        ],
+        "work_items": [
+          "agentgres-production-readiness-and-branch-effects",
+          "ecosystem-assurance-and-public-claim-estate",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint",
+          "m11-canonical-embodied-contract-alignment",
+          "m3-direct-path-and-exit-proof",
+          "m3-goal-kernel-context-and-runtime-truth-spine",
+          "m3-pursuit-definition-resolution",
+          "m3-result-lifecycle-negative-retention",
+          "m3-work-session-automation-product-journey",
+          "m6-reference-shell-disposition-and-depth-ledger",
+          "m9-selected-profile-aggregate-exit-and-claim-publication",
+          "production-information-flow-and-declassification",
+          "production-receipt-checkpoint-and-offline-proof",
+          "sdk-cli-adk-odk-builder-journey"
+        ],
+        "conformance_targets": [],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "68f774caafec53ba4f0ed31a2d5a59390f1b880fb53da2af5156dbc150b47ef9",
+      "baseline_subject_set_sha256_after": "a4c070c9a8c0c3a45865ac24759ba3e3a19d8ce199c7b58fcc36446a54a7244c",
+      "sequence": 14
+    },
+    {
+      "accepted_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+      "reviewer_ref": "owner://ioi/repository-owner",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/af2924178a9eeb0d7139621bc903c92ffe884ae9d50065c4fe2c471352a02b1b.json",
+      "review_manifest_path_at_acceptance": "/tmp/m3-canon-review-2.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "af2924178a9eeb0d7139621bc903c92ffe884ae9d50065c4fe2c471352a02b1b",
+      "subject_count": 34,
+      "dispositions": {
+        "unaffected": 34
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/schemas/agent-execution-branch.v1.schema.json",
+          "change": "changed",
+          "baseline_sha256": "acc95ccfb1f3c406300b35da30de6c8a39172e1cca77a4ec690e6a98608783ae",
+          "tree_sha256": "afe57099e71cc788c2d103d23e2465e2be4d4320f4db3b2367612df3843c1fc3",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+          "change": "changed",
+          "baseline_sha256": "48aa823182961ce5d15aae1163f8eb617e4ab5b7d07a982bf0ad3b49fdada6f2",
+          "tree_sha256": "785b7d8ce9e45bd83d1911fb7d96b45f0209075c8e6c9c39e5a45b2b2a81e763",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/branch-checkpoint.v1.schema.json",
+          "change": "changed",
+          "baseline_sha256": "bb720210d1bc4a29954bb0c3736f96ca7745751fcefe245df88ced139f5b6dea",
+          "tree_sha256": "e4bb3c85867d841a6992e1494805c19fbd6e4d4fe06d7df60f2542af7be569af",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/branch-merge-plan.v1.schema.json",
+          "change": "changed",
+          "baseline_sha256": "4fa05012c567e383cf1f51e81afb456a6d1a3abe36c6228be7d3e5fc531c213e",
+          "tree_sha256": "26bf2d63975c804b47ea9f6ce3777cf5c5e091f15b6ce7a0ac8b9c8d1ffb8676",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/negative-unknown-field.json",
+          "change": "changed",
+          "baseline_sha256": "ff11ab4bc4990c4e5591cbcc2dbf29f6495d6961ff30039618addcfe82867ae2",
+          "tree_sha256": "fe199118eee300609233c44b82830fcf1b4d8c569e15693325bc4395df6b430a",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/positive-minimal.json",
+          "change": "changed",
+          "baseline_sha256": "1a5c98c99d400c1c5e581687d5e4048bd57cea72e89f1558ed72ea24512a9df1",
+          "tree_sha256": "3c23a12ccd5d7c8c0f886926542ddcef6833e3d9397bddc220a9bb3689029cc1",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/negative-unknown-field.json",
+          "change": "changed",
+          "baseline_sha256": "81b96f0b8ddae6416ca2498148fd9a49babb95851942e4657046444f19280035",
+          "tree_sha256": "af999cd5318ca7458145a45058cdebec9ca193b6e1436f688077c4f1e072ecfa",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/positive-minimal.json",
+          "change": "changed",
+          "baseline_sha256": "8f998f6d3e9ae4b329666e860d72ec155dd02655416c7965600574018e3821d1",
+          "tree_sha256": "4950b0c9658eb6f601e0b236c6c8e9ff3d00a1589c225ee50aee57f135f948c5",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/negative-unknown-field.json",
+          "change": "changed",
+          "baseline_sha256": "b8eea5be3f9c775d5b70e84354b95667e18bc7a621fba64aa24bf9fb059c4687",
+          "tree_sha256": "97dff7bb632b6c50378fb450c6db80faf32dcc200e4c2d38e4e7902850cc2b5b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/positive-minimal.json",
+          "change": "changed",
+          "baseline_sha256": "98085fd0d58d925100788aa84d9f329a689f4e9f39eb3e7ffe32a42f5b96b2b0",
+          "tree_sha256": "7e85e740f7e04d062af73ab3892646179b23a87041222ecbb3aa2d0425c6e861",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/negative-unknown-field.json",
+          "change": "changed",
+          "baseline_sha256": "d5415e069774ee4777637839591e571d963cfca06c5563ef35da6b03f645d6f7",
+          "tree_sha256": "24d9d4a04f0d3d50fd161b00a6c0e6b40bbd9c329f832bd238d06bf1b8717853",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/positive-minimal.json",
+          "change": "changed",
+          "baseline_sha256": "34ae4c50012b17b83517e0c2f27cd901179e09d4d84c73a4bedcf1fc0d6fad1c",
+          "tree_sha256": "e60e8f5309929e71361d0f8df559cb563db62d184d3c34acae9f5f37890882cb",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json",
+          "change": "changed",
+          "baseline_sha256": "141b288a36fe3ddfec75e381b8946c46b1b29c35ae21a5f8849a499b51afd392",
+          "tree_sha256": "a5b0c32ddce0d1150e304a0ba3186d15bea03beca5b7c40f2ad056821cc3152d",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json",
+          "change": "changed",
+          "baseline_sha256": "59d56eb20799fa0f2340ddbc9891b2dc5c8b7d938cdb57f3e0dc3bd321d4a94b",
+          "tree_sha256": "98e71f22013dbff96f2a55e28622ca7e304214ff974a65ef783e13edac500133",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json",
+          "change": "changed",
+          "baseline_sha256": "e65f542e924b0d477d9eb149535a3c4f64db679c772c7a1f0e5cbc9f4ac25e55",
+          "tree_sha256": "fd7a6422829949b6e0843aa2397a5454fa32da48effa431d70e8de713591726c",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json",
+          "change": "changed",
+          "baseline_sha256": "b8d2b6aff0bbce4359709ca2fdbdbc95c1705e5a106a88eb1fec9b829df5fa22",
+          "tree_sha256": "6c938da1bb22dabe0d5568f81bfc92e58aa8c06fe5e3b781ad9583bcdb8fbd46",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/staged-effect-v1/negative-unknown-field.json",
+          "change": "changed",
+          "baseline_sha256": "4a4e00e251738b8bc7488c1b39af2a775da43c2872c059d6509d5650b12ff613",
+          "tree_sha256": "a1577f6d166129805efc88e5965bcd8cfc46021647f6a0de6268786ed8c47dda",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/staged-effect-v1/positive-minimal.json",
+          "change": "changed",
+          "baseline_sha256": "13ad36e66de1f3946707b7abb211b8a3d78afd389db0b476da1034495864d868",
+          "tree_sha256": "73de35c23cf03c1a10d92f573245d8c8583a5d84f6504605202267487a079199",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/negative-unknown-field.json",
+          "change": "changed",
+          "baseline_sha256": "3df53afc4fc836df32bc9de3af29032ffca52e061b78ba5f36ab46b50f952f9b",
+          "tree_sha256": "632d988243060330e98dc64b16779ecc53b896f5589299eca2cba473a133b7fd",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-minimal.json",
+          "change": "changed",
+          "baseline_sha256": "a8f1cc21c2dfb192d1b54339a1dd65045740fe4f283bfd322471cd6baf2097cc",
+          "tree_sha256": "b65462146dd2d87e735246ab8dd1a4eefbf85f31fbf885ff060c032919adb461",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/staged-effect.v1.schema.json",
+          "change": "changed",
+          "baseline_sha256": "93f8e91733c9fbff3a1bf55e1e0b02f57204e35678facf878ef30304f1e655c9",
+          "tree_sha256": "f1ef30d22bdafb5a30a7fcb150095119244572e9eabe2e485c9c58991ddfc6a8",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/architecture/_meta/schemas/work-lifecycle-record.v1.schema.json",
+          "change": "changed",
+          "baseline_sha256": "d5c754d38aceb1023f1fe8b22277406d5f53a004f6aa5bf725a7a6d25bc2ed62",
+          "tree_sha256": "e255343ae5663906da4f172ec3cbd12601ce7a5285e4120aaed16ae8396c8d97",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+          "change": "changed",
+          "baseline_sha256": "a77d8e76bd68b29aa219218fd16213fad305f6bd9b1a3d649ee7ecb5ed58401c",
+          "tree_sha256": "7174ccddc3f5e519f02f1b7305cefda3e9c9573561a92722f78fc949810760ba",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/current-baselines.json",
+          "change": "changed",
+          "baseline_sha256": "378c79e8343d0cdcb456488ceff95771f7c377cb1a7ba8b2684b715d2bacf904",
+          "tree_sha256": "0bb204c642b75f3ce055672f0136c2b2f540205e30b5ca9996d9c4afe0e5890a",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/effect-census.json",
+          "change": "changed",
+          "baseline_sha256": "c7cd4dfa323b39cd75534e3578365a08c8397119160c4d8e36bd99d2bb0ec7e8",
+          "tree_sha256": "9bfaec81916e74e4196b9436e51d6467e0b5b29d32371a3772c0983ce0a6d34e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+          "change": "changed",
+          "baseline_sha256": "ade291d41cfbd8d6eb8bbc2e6f9ae1fc1cd747e6ea5b32a39429e7bf095bd40a",
+          "tree_sha256": "1c07af34cf621255b71dac78322459e7a1503335cb5d4c286f88e6d8db3afc2d",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/manifest.json",
+          "change": "changed",
+          "baseline_sha256": "6b1b9727c3c1fb5fcb6a96d58e09c6525bd0fe271158cee63fcfdcaf8bd95a29",
+          "tree_sha256": "f7b10248ca25d4fdacc391bba63d13258a7b6ff380e4df3d15afd6a3f681b479",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+          "change": "changed",
+          "baseline_sha256": "2e5f44ab6e9dd1c0ec8c7a91259522b8e057ccd4c262a3bcd32495ffac674597",
+          "tree_sha256": "369ae444bb75fbf7463a11b2b0e1faaa8f1cbb29348f092640c0b3eb922da894",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-control-source.json",
+          "change": "changed",
+          "baseline_sha256": "9d129467541d3787500a44e269edbaf6af751374b8d6360b78c2653a13cd088b",
+          "tree_sha256": "23d63b32442e4ed2641e5aeca7c4be75ece8ee50773c47e59fbe123d9ecf2842",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+          "change": "changed",
+          "baseline_sha256": "7651644188619c3abcf3b48e730454bf37fee235e74f1307be7e12c2e2c937e6",
+          "tree_sha256": "59ac908943fd421236b4b02f803eb4fae9c61fb1b8cec0052ffb9d50fcc23611",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/release-ladder.json",
+          "change": "changed",
+          "baseline_sha256": "dc01a50512df85aaaa6b5980e98d78225fa6340ae8d45a8ccad7618df9c17189",
+          "tree_sha256": "f7c68b54a859bd09c2c52632c5294b30d37c102bad977ff888a5e3822da64705",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+          "change": "changed",
+          "baseline_sha256": "403022099da5b233afb846eb298bc92a1e4669d8ad2d7e2fc5d05381f2a63283",
+          "tree_sha256": "656a0f12c364b40923bbe04b243a5f2b6ac8d9a37108eaea426eb721f3183d06",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
+          "change": "changed",
+          "baseline_sha256": "3ee62c574b2afa44f32770f1579d5ec254eaf7ca142fb46080ad4e0678e319d9",
+          "tree_sha256": "45d08df056bf632e242649a593c42ed9c0c336b3e6987b068fe26c5e31c5f995",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/selected-profile.json",
+          "change": "changed",
+          "baseline_sha256": "b1b6cb64e5ac058599cdcc4759c836aab4f3a1a13ce59024f5083f30304d265c",
+          "tree_sha256": "9aad8840e3898a6a2c9fb399d83bba16ea11816d7b2f34c2f265c55ffc0d1cc8",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "M0",
+          "M11",
+          "M14",
+          "M3",
+          "M6",
+          "M9"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "cooperation",
+          "docs-and-comms",
+          "embodied",
+          "mechanism-gates",
+          "network-and-l1",
+          "product-surface-ux-proof",
+          "product-ux",
+          "proof-and-evidence",
+          "runtime-fabric",
+          "runtime-trust-boundary",
+          "supply-and-commerce",
+          "wallet-authority"
+        ],
+        "work_items": [
+          "agentgres-production-readiness-and-branch-effects",
+          "ecosystem-assurance-and-public-claim-estate",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint",
+          "m11-canonical-embodied-contract-alignment",
+          "m3-direct-path-and-exit-proof",
+          "m3-goal-kernel-context-and-runtime-truth-spine",
+          "m3-pursuit-definition-resolution",
+          "m3-result-lifecycle-negative-retention",
+          "m3-work-session-automation-product-journey",
+          "m6-reference-shell-disposition-and-depth-ledger",
+          "m9-selected-profile-aggregate-exit-and-claim-publication",
+          "sdk-cli-adk-odk-builder-journey"
+        ],
+        "conformance_targets": [],
+        "contract_families": [
+          "AgentExecutionBranch",
+          "BranchCheckpoint",
+          "BranchMergePlan",
+          "GoalGroundingLoop",
+          "GoalRunProfile",
+          "GoalRunProfileResolutionReceipt",
+          "StagedEffect",
+          "WorkLifecycleRecord"
+        ]
+      },
+      "baseline_subject_set_sha256_before": "a4c070c9a8c0c3a45865ac24759ba3e3a19d8ce199c7b58fcc36446a54a7244c",
+      "baseline_subject_set_sha256_after": "5a2d8d6526f458c41e4a266c61aa2ae0a29827ae068ba9ac52c8092309f3f865",
+      "sequence": 15
+    },
+    {
+      "accepted_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+      "reviewer_ref": "reviewer://codex/m3-end-state",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/debfb2687158c56e82529362bd8978623407789a72f7a69c093c39ca5c5027af.json",
+      "review_manifest_path_at_acceptance": "/tmp/m3-canon-review.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "debfb2687158c56e82529362bd8978623407789a72f7a69c093c39ca5c5027af",
+      "subject_count": 12,
+      "dispositions": {
+        "unaffected": 12
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+          "change": "changed",
+          "baseline_sha256": "7174ccddc3f5e519f02f1b7305cefda3e9c9573561a92722f78fc949810760ba",
+          "tree_sha256": "be8a5be37d5ca4dd70e9dd82c41b0d6cc6b192c49451cd056ea4f82cce43d81e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/current-baselines.json",
+          "change": "changed",
+          "baseline_sha256": "0bb204c642b75f3ce055672f0136c2b2f540205e30b5ca9996d9c4afe0e5890a",
+          "tree_sha256": "51490bbac43320d87d74f5221c7cb2a53ffaa4264774a1e9099196f81b6985fb",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/effect-census.json",
+          "change": "changed",
+          "baseline_sha256": "9bfaec81916e74e4196b9436e51d6467e0b5b29d32371a3772c0983ce0a6d34e",
+          "tree_sha256": "df7be179fd6713d862535e887adb6b8ec0e11d196b54042aea641ec3b2a39b75",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+          "change": "changed",
+          "baseline_sha256": "1c07af34cf621255b71dac78322459e7a1503335cb5d4c286f88e6d8db3afc2d",
+          "tree_sha256": "0a24d4f8c83895ebb075bc0accab6085265583de3f3d45bc535440fd23657778",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/manifest.json",
+          "change": "changed",
+          "baseline_sha256": "f7b10248ca25d4fdacc391bba63d13258a7b6ff380e4df3d15afd6a3f681b479",
+          "tree_sha256": "3774223cfc97e6241975628e49d3575040565bc6fa0ce3990fb5a25b5f67bfdb",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+          "change": "changed",
+          "baseline_sha256": "369ae444bb75fbf7463a11b2b0e1faaa8f1cbb29348f092640c0b3eb922da894",
+          "tree_sha256": "48c8af645c412117444053156ac1e70ae18f26b838a1f014efd4fad89342117c",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-control-source.json",
+          "change": "changed",
+          "baseline_sha256": "23d63b32442e4ed2641e5aeca7c4be75ece8ee50773c47e59fbe123d9ecf2842",
+          "tree_sha256": "a6aabfd2e3d02d3a7317ce671fe74dcf26b564d510050d35290657123e763cab",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+          "change": "changed",
+          "baseline_sha256": "59ac908943fd421236b4b02f803eb4fae9c61fb1b8cec0052ffb9d50fcc23611",
+          "tree_sha256": "86e63d6e7cdfe40dfec71fa692c4768eeb639d70652fcfa0756c04e48fa5097a",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/release-ladder.json",
+          "change": "changed",
+          "baseline_sha256": "f7c68b54a859bd09c2c52632c5294b30d37c102bad977ff888a5e3822da64705",
+          "tree_sha256": "ebe62da26e0c063c709b307a558e978a83a22907bd853a2bb9947b5193054c27",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+          "change": "changed",
+          "baseline_sha256": "656a0f12c364b40923bbe04b243a5f2b6ac8d9a37108eaea426eb721f3183d06",
+          "tree_sha256": "3e926beef843906b7d9cb1c83397d4b7c0846848586658cb37239e7ab0f01c9c",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
+          "change": "changed",
+          "baseline_sha256": "45d08df056bf632e242649a593c42ed9c0c336b3e6987b068fe26c5e31c5f995",
+          "tree_sha256": "6213282011950cbc6c3ea06c47a94de190e9220e985c47bca945c7f8a9c3ef96",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/selected-profile.json",
+          "change": "changed",
+          "baseline_sha256": "9aad8840e3898a6a2c9fb399d83bba16ea11816d7b2f34c2f265c55ffc0d1cc8",
+          "tree_sha256": "2cc3e736ee8a6f47549d7c197c88a918157fd46c5fb426dff3837b53f0623cd8",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "M0"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "mechanism-gates",
+          "proof-and-evidence",
+          "runtime-trust-boundary"
+        ],
+        "work_items": [
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock"
+        ],
+        "conformance_targets": [],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "5a2d8d6526f458c41e4a266c61aa2ae0a29827ae068ba9ac52c8092309f3f865",
+      "baseline_subject_set_sha256_after": "e1c9e62e2f0a8ebead50731af49e67e2361c6b82d994766f00178aa91e0dee89",
+      "sequence": 16
+    }
+  ],
+  "rule": "Append-only. One entry per baseline advance. Each entry binds the review manifest by digest, names an accountable reviewer, and enumerates every canon subject whose baseline identity moved, with the disposition its reviewer recorded. An entry claims that drift was reviewed and nothing else: no implementation proof, no stage closure, no status change. Entries are never rewritten or reordered; the sequence is dense."
+}

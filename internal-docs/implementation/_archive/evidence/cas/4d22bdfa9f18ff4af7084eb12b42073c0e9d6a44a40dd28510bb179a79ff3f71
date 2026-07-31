@@ -1,0 +1,103 @@
+# Autopilot Claude Code Substrate Absorption Final Verdict
+
+Verdict: `claude_code_substrate_absorption_parity_proven`
+
+Generated: 2026-05-27T14:47:33.225Z
+
+## Scope
+
+Claude Code substrate absorption parity, not exact terminal-first clone parity. Product-default rows need live proof; terminal/headless/optional rows need explicit product decisions.
+
+## Baselines
+
+- Default harness baseline: `docs/evidence/autopilot-agent-studio-full-default-harness-parity/final-default-harness-parity-verdict.md`
+- Antigravity parity-plus baseline: `docs/evidence/autopilot-antigravity-harness-parity-plus/final-antigravity-harness-parity-plus-verdict.md`
+- Claude Code gap audit: `docs/evidence/claude-code-agent-harness-gap-audit/2026-05-27-gap-manifest.json`
+
+## Final Counts
+
+- Total rows: 12
+- Closed rows: 12
+- Live-pass rows: 1
+- Product-decision rows: 11
+- Open P0/P1 rows: none
+- Scenario pass/fail: 12/0
+
+## Stage Evidence
+
+### Stage 0
+- PASS `stage0-campaign-harness-rubric` -> CC-HARNESS-001, CC-HARNESS-002, CC-HARNESS-003, CC-HARNESS-004, CC-HARNESS-005, CC-HARNESS-006, CC-HARNESS-007, CC-HARNESS-008, CC-HARNESS-009, CC-HARNESS-010, CC-HARNESS-011, CC-HARNESS-012 (docs/evidence/autopilot-claude-code-substrate-absorption-parity/2026-05-27T14-44-18-841Z-claude-code-substrate-absorption-campaign/stage0-stage0-campaign-harness-rubric)
+
+### Stage 1
+- PASS `stage1-streaming-tool-execution` -> CC-HARNESS-001 (docs/evidence/autopilot-claude-code-substrate-absorption-parity/2026-05-27T14-44-18-841Z-claude-code-substrate-absorption-campaign/stage1-stage1-streaming-tool-execution)
+
+### Stage 2
+- PASS `stage2-permission-grammar` -> CC-HARNESS-002 (docs/evidence/autopilot-claude-code-substrate-absorption-parity/2026-05-27T14-44-18-841Z-claude-code-substrate-absorption-campaign/stage2-stage2-permission-grammar)
+
+### Stage 3
+- PASS `stage3-context-analyzer-compaction` -> CC-HARNESS-003 (docs/evidence/autopilot-claude-code-substrate-absorption-parity/2026-05-27T14-44-18-841Z-claude-code-substrate-absorption-campaign/stage3-stage3-context-analyzer-compaction)
+
+### Stage 4
+- PASS `stage4-hook-lifecycle` -> CC-HARNESS-004 (docs/evidence/autopilot-claude-code-substrate-absorption-parity/2026-05-27T14-44-18-841Z-claude-code-substrate-absorption-campaign/stage4-stage4-hook-lifecycle)
+
+### Stage 5
+- PASS `stage5-deferred-mcp-tool-search` -> CC-HARNESS-005 (docs/evidence/autopilot-claude-code-substrate-absorption-parity/2026-05-27T14-44-18-841Z-claude-code-substrate-absorption-campaign/stage5-stage5-deferred-mcp-tool-search)
+
+### Stage 6
+- PASS `stage6-task-team-substrate` -> CC-HARNESS-006 (docs/evidence/autopilot-claude-code-substrate-absorption-parity/2026-05-27T14-44-18-841Z-claude-code-substrate-absorption-campaign/stage6-stage6-task-team-substrate)
+
+### Stage 7
+- PASS `stage7-shell-background-stall` -> CC-HARNESS-007 (docs/evidence/autopilot-claude-code-substrate-absorption-parity/2026-05-27T14-44-18-841Z-claude-code-substrate-absorption-campaign/stage7-stage7-shell-background-stall)
+
+### Stage 8
+- PASS `stage8-skills-plugins-decision` -> CC-HARNESS-008 (docs/evidence/autopilot-claude-code-substrate-absorption-parity/2026-05-27T14-44-18-841Z-claude-code-substrate-absorption-campaign/stage8-stage8-skills-plugins-decision)
+
+### Stage 9
+- PASS `stage9-cli-longtail-decisions` -> CC-HARNESS-009, CC-HARNESS-010, CC-HARNESS-012 (docs/evidence/autopilot-claude-code-substrate-absorption-parity/2026-05-27T14-44-18-841Z-claude-code-substrate-absorption-campaign/stage9-stage9-cli-longtail-decisions)
+
+### Stage 10
+- PASS `stage10-browser-computer-live-gui` -> CC-HARNESS-011 (docs/evidence/autopilot-claude-code-substrate-absorption-parity/2026-05-27T14-44-18-841Z-claude-code-substrate-absorption-campaign/stage10-stage10-browser-computer-live-gui/2026-05-27T14-44-45-249Z)
+
+### Stage 11
+- PASS `stage11-integrated-soak` -> CC-HARNESS-001, CC-HARNESS-002, CC-HARNESS-003, CC-HARNESS-004, CC-HARNESS-005, CC-HARNESS-006, CC-HARNESS-007, CC-HARNESS-008, CC-HARNESS-009, CC-HARNESS-010, CC-HARNESS-011, CC-HARNESS-012 (docs/evidence/autopilot-claude-code-substrate-absorption-parity/2026-05-27T14-44-18-841Z-claude-code-substrate-absorption-campaign/stage11-stage11-integrated-soak)
+
+## Row Verdicts
+
+- `CC-HARNESS-001` P0 supporting_pass_with_product_decision: Runtime tool executor
+- `CC-HARNESS-002` P0 supporting_pass_with_product_decision: Policy runtime / Agent Studio approval menu
+- `CC-HARNESS-003` P0 supporting_pass_with_product_decision: Context analyzer and compaction runtime
+- `CC-HARNESS-004` P0 supporting_pass_with_product_decision: Daemon hook lifecycle
+- `CC-HARNESS-005` P0 supporting_pass_with_product_decision: MCP runtime and deferred tool search
+- `CC-HARNESS-006` P1 supporting_pass_with_product_decision: Subagent delegation manager
+- `CC-HARNESS-007` P1 supporting_pass_with_product_decision: Retained shell runtime
+- `CC-HARNESS-008` P1 rejected_with_product_decision: Runtime extension strategy
+- `CC-HARNESS-009` P1 rejected_with_product_decision: CLI and SDK strategy
+- `CC-HARNESS-010` P1 supporting_pass_with_product_decision: Tool registry strategy
+- `CC-HARNESS-011` P2 live_pass: Managed browser/computer automation UX
+- `CC-HARNESS-012` P2 deferred_optional: Provider/media/external lane strategy
+
+## Product Decisions
+
+- `CC-HARNESS-001`: Campaign closes against absorption scope: product-default rows need live proof; non-product substrate rows may close only with explicit product decisions. Autopilot absorbs Claude-style streaming execution as a daemon-state contract, not as ungoverned client-side eagerness. Read-only/concurrency-safe tools may run in parallel when structured tool-call arguments are complete; mutating/exclusive tools serialize; failing invalidating shell work cancels cancellable siblings. Until provider streams expose complete structured tool-call deltas reliably, the product may keep sequential execution while retaining these scheduler semantics as the runtime contract. Integrated soak uses a realistic disposable code repair plus accumulated scenario verdicts; it is support evidence, not a substitute for required live GUI rows.
+- `CC-HARNESS-002`: Campaign closes against absorption scope: product-default rows need live proof; non-product substrate rows may close only with explicit product decisions. Claude permission concepts map to IOI-native approval modes; dontAsk is rejected in favor of visibly labeled Full access. Integrated soak uses a realistic disposable code repair plus accumulated scenario verdicts; it is support evidence, not a substitute for required live GUI rows.
+- `CC-HARNESS-003`: Campaign closes against absorption scope: product-default rows need live proof; non-product substrate rows may close only with explicit product decisions. Context accounting is absorbed as an operator/runs substrate with artifact-backed compaction, not chat-visible token bookkeeping. Integrated soak uses a realistic disposable code repair plus accumulated scenario verdicts; it is support evidence, not a substitute for required live GUI rows.
+- `CC-HARNESS-004`: Campaign closes against absorption scope: product-default rows need live proof; non-product substrate rows may close only with explicit product decisions. Claude hook coverage maps to IOI-native daemon hook phases with blocking semantics and trace receipts. Integrated soak uses a realistic disposable code repair plus accumulated scenario verdicts; it is support evidence, not a substitute for required live GUI rows.
+- `CC-HARNESS-005`: Campaign closes against absorption scope: product-default rows need live proof; non-product substrate rows may close only with explicit product decisions. Deferred MCP/tool discovery is absorbed as governed tool search with trace-side receipts and Waiting for user auth pauses. Integrated soak uses a realistic disposable code repair plus accumulated scenario verdicts; it is support evidence, not a substitute for required live GUI rows.
+- `CC-HARNESS-006`: Campaign closes against absorption scope: product-default rows need live proof; non-product substrate rows may close only with explicit product decisions. Task/team substrate is absorbed through existing subagent/delegation lanes; terminal-style team CRUD is not product-default. Integrated soak uses a realistic disposable code repair plus accumulated scenario verdicts; it is support evidence, not a substitute for required live GUI rows.
+- `CC-HARNESS-007`: Campaign closes against absorption scope: product-default rows need live proof; non-product substrate rows may close only with explicit product decisions. Shell background/stall ergonomics are absorbed as retained shell states with bounded output artifacts and Waiting for user guidance. Integrated soak uses a realistic disposable code repair plus accumulated scenario verdicts; it is support evidence, not a substitute for required live GUI rows.
+- `CC-HARNESS-008`: Campaign closes against absorption scope: product-default rows need live proof; non-product substrate rows may close only with explicit product decisions. Claude-style runtime skills/plugins/slash commands are rejected as default scope; future promotion requires a trust and context-budget lane. Integrated soak uses a realistic disposable code repair plus accumulated scenario verdicts; it is support evidence, not a substitute for required live GUI rows.
+- `CC-HARNESS-009`: Campaign closes against absorption scope: product-default rows need live proof; non-product substrate rows may close only with explicit product decisions. Terminal-first CLI/SDK surfaces and long-tail Claude tools are explicitly classified; promoted defaults require separate hermetic product proof. Integrated soak uses a realistic disposable code repair plus accumulated scenario verdicts; it is support evidence, not a substitute for required live GUI rows.
+- `CC-HARNESS-010`: Campaign closes against absorption scope: product-default rows need live proof; non-product substrate rows may close only with explicit product decisions. Terminal-first CLI/SDK surfaces and long-tail Claude tools are explicitly classified; promoted defaults require separate hermetic product proof. Integrated soak uses a realistic disposable code repair plus accumulated scenario verdicts; it is support evidence, not a substitute for required live GUI rows.
+- `CC-HARNESS-011`: Campaign closes against absorption scope: product-default rows need live proof; non-product substrate rows may close only with explicit product decisions. Integrated soak uses a realistic disposable code repair plus accumulated scenario verdicts; it is support evidence, not a substitute for required live GUI rows.
+- `CC-HARNESS-012`: Campaign closes against absorption scope: product-default rows need live proof; non-product substrate rows may close only with explicit product decisions. Terminal-first CLI/SDK surfaces and long-tail Claude tools are explicitly classified; promoted defaults require separate hermetic product proof. Integrated soak uses a realistic disposable code repair plus accumulated scenario verdicts; it is support evidence, not a substitute for required live GUI rows.
+
+## Residual Risks
+
+- `CC-HARNESS-001`: Provider-native structured tool-call delta execution remains gated until providers expose complete arguments early enough to avoid duplicate side effects.
+- `CC-HARNESS-008`: Runtime skills/plugins remain a future trust and context-budget lane; operator-side Codex skills are intentionally separate.
+- `CC-HARNESS-009`: Terminal-first SDK parity is outside the IDE default harness claim until a headless product is explicitly scoped.
+- `CC-HARNESS-012`: External provider account/install/media lanes require hermetic fixtures before promotion into default product scope.
+
+## Cleanup
+
+- Every scenario wrote a `process-cleanup-after-*.json` proof. Final manifest rows link their latest cleanup proof.

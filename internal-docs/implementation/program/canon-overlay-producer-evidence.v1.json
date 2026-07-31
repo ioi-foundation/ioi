@@ -1,0 +1,3765 @@
+{
+  "evidence_format": "ioi.program.canon_overlay_producer_evidence.v1",
+  "role": "The git-history producer evidence behind program/canon-overlay-dispositions.v1.json. For every bound overlay member it records which tracked blobs ANYWHERE in this repository's history literally name it — by exact path, by basename, or by the schemaVersion the member's own bytes declare — and, for each such producer, whether it survives in the bound tree and which commit removed it.",
+  "generated_by": "node internal-docs/implementation/tools/derive-overlay-dispositions.mjs --scan",
+  "derived_not_authored": "Every field comes from `git rev-list --all --objects`, `git cat-file --batch`, `git log --diff-filter=D`, and `git show -M`. Nothing is asserted about what a producer did; only that its bytes name this member and what git records about its fate.",
+  "why_this_is_not_self_attribution": "The scan EXCLUDES docs/evidence entirely. Retained evidence citing other retained evidence is a cross-reference, not a producer, and counting it would let the evidence answer the question that is being asked about it.",
+  "bound_git_tree": {
+    "commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "docs_tree_sha": "47f5d24614a685f24ee005b77acf4fe58ea5c3f7",
+    "tracked_subject_count": 770
+  },
+  "binds_manifest": {
+    "path": "program/canon-overlay-manifest.v1.json",
+    "manifest_sha256": "5d87c20a8fb6e7f4e73ff6d591ebc6ef2eef18415e58d40c1f9f3b898539c93f"
+  },
+  "producer_classes": {
+    "producing_script": "A tracked script under scripts/. It emitted the bytes or the schema the bytes declare.",
+    "commissioning_plan": "A tracked plan under .internal/plans/. It commissioned the campaign that produced the bytes and names the artifact by path. Weaker than a producing script and recorded as such.",
+    "other_tracked_reference": "Any other tracked path naming the member — canon, a registry, or the package manifest."
+  },
+  "fate_model": {
+    "rename_rebind": "The removing commit recorded this path as a rename SOURCE, so the producer was REBOUND to a new locator rather than retired. Derived from `git show -M`, never assumed, and the walk continues at the target: a rebind is a step in the chain, never its end.",
+    "retirement": "The removing commit deleted the path outright and recorded no rename source. This is the only thing that TERMINATES a chain in absence.",
+    "present_in_bound_tree": "The chain terminates in a producer that still exists at the bound commit, possibly at a rebound locator. That producer is alive and the evidence is not orphaned.",
+    "unresolved": "The chain neither survives nor reaches an outright delete. It is reported as unresolved and NEVER rounded to retired; a disposition that rests on a producer's fate cannot rest on an unresolved one."
+  },
+  "counts": {
+    "members": 220,
+    "producers": 85,
+    "members_with_a_named_producer": 211,
+    "producers_surviving_in_bound_tree": 29,
+    "producers_terminally_retired": 56,
+    "producers_rebound_at_least_once": 19,
+    "producers_unresolved": 0
+  },
+  "nonclaim": "Naming a producer asserts that its bytes contained this literal and that git records its fate. It asserts nothing about whether the producer was correct, whether the evidence it wrote is true, or whether anything it proved still holds.",
+  "producers": [
+    {
+      "path": ".internal/plans/autopilot-agent-runtime-parity-plus-master-guide.md",
+      "class": "commissioning_plan",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": ".internal/plans/autopilot-agent-runtime-parity-plus-master-guide.md",
+        "terminal_removal": {
+          "commit": "cb5728e8f62f319281d63292a8dc6806772b4577",
+          "commit_short": "cb5728e8f",
+          "subject": "Remove legacy Autopilot campaign plans",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": ".internal/plans/autopilot-agent-studio-full-default-harness-parity-proof-master-guide.md",
+      "class": "commissioning_plan",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": ".internal/plans/autopilot-agent-studio-full-default-harness-parity-proof-master-guide.md",
+        "terminal_removal": {
+          "commit": "cb5728e8f62f319281d63292a8dc6806772b4577",
+          "commit_short": "cb5728e8f",
+          "subject": "Remove legacy Autopilot campaign plans",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": ".internal/plans/autopilot-agent-studio-glass-box-work-lane-master-guide.md",
+      "class": "commissioning_plan",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": ".internal/plans/autopilot-agent-studio-glass-box-work-lane-master-guide.md",
+        "terminal_removal": {
+          "commit": "cb5728e8f62f319281d63292a8dc6806772b4577",
+          "commit_short": "cb5728e8f",
+          "subject": "Remove legacy Autopilot campaign plans",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": ".internal/plans/autopilot-agent-studio-quality-harness-runtime-parity-master-guide.md",
+      "class": "commissioning_plan",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": ".internal/plans/autopilot-agent-studio-quality-harness-runtime-parity-master-guide.md",
+        "terminal_removal": {
+          "commit": "cb5728e8f62f319281d63292a8dc6806772b4577",
+          "commit_short": "cb5728e8f",
+          "subject": "Remove legacy Autopilot campaign plans",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+      "class": "commissioning_plan",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+        "terminal_removal": {
+          "commit": "cb5728e8f62f319281d63292a8dc6806772b4577",
+          "commit_short": "cb5728e8f",
+          "subject": "Remove legacy Autopilot campaign plans",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md",
+      "class": "commissioning_plan",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md",
+        "terminal_removal": {
+          "commit": "cb5728e8f62f319281d63292a8dc6806772b4577",
+          "commit_short": "cb5728e8f",
+          "subject": "Remove legacy Autopilot campaign plans",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+      "class": "commissioning_plan",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+        "terminal_removal": {
+          "commit": "cb5728e8f62f319281d63292a8dc6806772b4577",
+          "commit_short": "cb5728e8f",
+          "subject": "Remove legacy Autopilot campaign plans",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+      "class": "commissioning_plan",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+        "terminal_removal": {
+          "commit": "cb5728e8f62f319281d63292a8dc6806772b4577",
+          "commit_short": "cb5728e8f",
+          "subject": "Remove legacy Autopilot campaign plans",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": ".internal/plans/autopilot-lm-studio-quality-routing-chat-ux-parity-master-guide.md",
+      "class": "commissioning_plan",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": ".internal/plans/autopilot-lm-studio-quality-routing-chat-ux-parity-master-guide.md",
+        "terminal_removal": {
+          "commit": "cb5728e8f62f319281d63292a8dc6806772b4577",
+          "commit_short": "cb5728e8f",
+          "subject": "Remove legacy Autopilot campaign plans",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "apps/autopilot/src/services/workflowCodeGenerationProposal.ts",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
+        "terminal_removal": {
+          "commit": "b5b9718512a39c3882ad881257ca8e2fdb2f54c2",
+          "commit_short": "b5b971851",
+          "subject": "Retire workspace bridge adapter leftovers",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "apps/autopilot/src/services/workflowCodeGenerationProposal.ts",
+            "to": "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
+            "commit": "3331fd29f37ca5f0bd7e5c34433cb19c09c65153",
+            "commit_short": "3331fd29f",
+            "subject": "chore: rename hypervisor app and workbench adapter roots",
+            "author": "papabear",
+            "date": "2026-06-16",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "apps/autopilot/src/windows/ChatShellWindow/components/chatArtifactSurfaceModel.test.ts",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "apps/hypervisor/src/windows/ChatShellWindow/components/chatArtifactSurfaceModel.test.ts",
+        "terminal_removal": {
+          "commit": "97d9f7594156e3702a11f2d857b65a7f949f12ff",
+          "commit_short": "97d9f7594",
+          "subject": "Cut retired Hypervisor chat shell",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "apps/autopilot/src/windows/ChatShellWindow/components/chatArtifactSurfaceModel.test.ts",
+            "to": "apps/hypervisor/src/windows/ChatShellWindow/components/chatArtifactSurfaceModel.test.ts",
+            "commit": "3331fd29f37ca5f0bd7e5c34433cb19c09c65153",
+            "commit_short": "3331fd29f",
+            "subject": "chore: rename hypervisor app and workbench adapter roots",
+            "author": "papabear",
+            "date": "2026-06-16",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "apps/autopilot/src/windows/SpotlightWindow/components/studioArtifactSurfaceModel.test.ts",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "apps/hypervisor/src/windows/ChatShellWindow/components/chatArtifactSurfaceModel.test.ts",
+        "terminal_removal": {
+          "commit": "97d9f7594156e3702a11f2d857b65a7f949f12ff",
+          "commit_short": "97d9f7594",
+          "subject": "Cut retired Hypervisor chat shell",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "apps/autopilot/src/windows/SpotlightWindow/components/studioArtifactSurfaceModel.test.ts",
+            "to": "apps/autopilot/src/windows/SpotlightWindow/components/chatArtifactSurfaceModel.test.ts",
+            "commit": "bbdfecc5d60e57859f459f529ab7dc94c0ec0603",
+            "commit_short": "bbdfecc5d",
+            "subject": "Add shared Chat outcome and artifact contracts",
+            "author": "papabear",
+            "date": "2026-04-21",
+            "kind": "rename_rebind"
+          },
+          {
+            "from": "apps/autopilot/src/windows/SpotlightWindow/components/chatArtifactSurfaceModel.test.ts",
+            "to": "apps/autopilot/src/windows/ChatShellWindow/components/chatArtifactSurfaceModel.test.ts",
+            "commit": "7d3cb11ca2953f03f04d6953198c3edef85bc116",
+            "commit_short": "7d3cb11ca",
+            "subject": "refactor(autopilot): replace Spotlight shell with Code-OSS workspace IDE",
+            "author": "papabear",
+            "date": "2026-04-23",
+            "kind": "rename_rebind"
+          },
+          {
+            "from": "apps/autopilot/src/windows/ChatShellWindow/components/chatArtifactSurfaceModel.test.ts",
+            "to": "apps/hypervisor/src/windows/ChatShellWindow/components/chatArtifactSurfaceModel.test.ts",
+            "commit": "3331fd29f37ca5f0bd7e5c34433cb19c09c65153",
+            "commit_short": "3331fd29f",
+            "subject": "chore: rename hypervisor app and workbench adapter roots",
+            "author": "papabear",
+            "date": "2026-06-16",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "apps/benchmarks/public/generated/benchmark-data.json",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "apps/benchmarks/public/generated/benchmark-data.json",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
+        "terminal_removal": {
+          "commit": "b5b9718512a39c3882ad881257ca8e2fdb2f54c2",
+          "commit_short": "b5b971851",
+          "subject": "Retire workspace bridge adapter leftovers",
+          "author": "papabear",
+          "date": "2026-06-18",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "crates/api/src/chat/tests/payload_validation.rs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "crates/api/src/chat/tests/payload_validation/mod.rs",
+        "terminal_removal": null,
+        "rebind_chain": [
+          {
+            "from": "crates/api/src/chat/tests/payload_validation.rs",
+            "to": "crates/api/src/chat/tests/payload_validation/mod.rs",
+            "commit": "44af5cb00f6707cc521135d8e79ef24380a53e3c",
+            "commit_short": "44af5cb00",
+            "subject": "refactor(runtime): clean-break agent runtime governance and chat artifact naming",
+            "author": "papabear",
+            "date": "2026-04-25",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "crates/api/src/chat/tests/payload_validation/cases/runtime_support.rs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "crates/api/src/chat/tests/payload_validation/cases/runtime_support.rs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "crates/api/src/chat/tests/payload_validation/mod.rs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "crates/api/src/chat/tests/payload_validation/mod.rs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "crates/api/src/studio/tests.rs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "crates/api/src/chat/tests.rs",
+        "terminal_removal": null,
+        "rebind_chain": [
+          {
+            "from": "crates/api/src/studio/tests.rs",
+            "to": "crates/api/src/chat/tests.rs",
+            "commit": "bbdfecc5d60e57859f459f529ab7dc94c0ec0603",
+            "commit_short": "bbdfecc5d",
+            "subject": "Add shared Chat outcome and artifact contracts",
+            "author": "papabear",
+            "date": "2026-04-21",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "crates/api/src/studio/tests/payload_validation.rs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "crates/api/src/chat/tests/payload_validation/mod.rs",
+        "terminal_removal": null,
+        "rebind_chain": [
+          {
+            "from": "crates/api/src/studio/tests/payload_validation.rs",
+            "to": "crates/api/src/chat/tests/payload_validation.rs",
+            "commit": "bbdfecc5d60e57859f459f529ab7dc94c0ec0603",
+            "commit_short": "bbdfecc5d",
+            "subject": "Add shared Chat outcome and artifact contracts",
+            "author": "papabear",
+            "date": "2026-04-21",
+            "kind": "rename_rebind"
+          },
+          {
+            "from": "crates/api/src/chat/tests/payload_validation.rs",
+            "to": "crates/api/src/chat/tests/payload_validation/mod.rs",
+            "commit": "44af5cb00f6707cc521135d8e79ef24380a53e3c",
+            "commit_short": "44af5cb00",
+            "subject": "refactor(runtime): clean-break agent runtime governance and chat artifact naming",
+            "author": "papabear",
+            "date": "2026-04-25",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "crates/services/src/agentic/runtime/kernel/policy.rs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/policy/task_job.rs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "crates/services/src/agentic/runtime/kernel/policy/task_job.rs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "docs/architecture/_archive/change-ledgers/hypervisor-kernel-substrate-slice-ledger.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "docs/architecture/_archive/change-ledgers/hypervisor-kernel-substrate-slice-ledger.md",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "docs/ioi-zero-to-hero-autonomy-prompt.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "internal-docs/prompts/ioi-zero-to-hero-autonomy-prompt.md",
+        "terminal_removal": {
+          "commit": "304a61222229a3e98bf26f9c43626fd0b89eace3",
+          "commit_short": "304a61222",
+          "subject": "Extract runtime usage event helpers",
+          "author": "papabear",
+          "date": "2026-06-03",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "docs/ioi-zero-to-hero-autonomy-prompt.md",
+            "to": "internal-docs/prompts/ioi-zero-to-hero-autonomy-prompt.md",
+            "commit": "b36fc914f24045fe06cd42782b8133e44dddd4b0",
+            "commit_short": "b36fc914f",
+            "subject": "Move internal docs out of public surface",
+            "author": "papabear",
+            "date": "2026-05-15",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "docs/plans/architectural-improvements-broad-master-guide.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "internal-docs/plans/architectural-improvements-broad-master-guide.md",
+        "terminal_removal": {
+          "commit": "8761dc70dc52ae53a4b1fbfce46a10d95c9a6700",
+          "commit_short": "8761dc70d",
+          "subject": "feat(autopilot): complete electron workbench migration",
+          "author": "papabear",
+          "date": "2026-05-21",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "docs/plans/architectural-improvements-broad-master-guide.md",
+            "to": "internal-docs/plans/architectural-improvements-broad-master-guide.md",
+            "commit": "b36fc914f24045fe06cd42782b8133e44dddd4b0",
+            "commit_short": "b36fc914f",
+            "subject": "Move internal docs out of public surface",
+            "author": "papabear",
+            "date": "2026-05-15",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "docs/plans/close-the-parity-gap-with-artifacts.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "docs/plans/close-the-parity-gap-with-artifacts.md",
+        "terminal_removal": {
+          "commit": "d398e0b9014373b3e3d34ad83d4884fbb3af4742",
+          "commit_short": "d398e0b90",
+          "subject": "feat(studio): expand assistant workbench, connector surfaces, and benchmark tooling",
+          "author": "papabear",
+          "date": "2026-04-09",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "docs/plans/ioi-zero-to-hero-agent-systems-rolling-plan.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "docs/plans/ioi-zero-to-hero-agent-systems-rolling-plan.md",
+        "terminal_removal": {
+          "commit": "5285117696ce97aaabf24d9e1fbe1f3e73acd787",
+          "commit_short": "528511769",
+          "subject": "Harden delegation flow and artifact runtime policy",
+          "author": "papabear",
+          "date": "2026-04-03",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md",
+        "terminal_removal": {
+          "commit": "c8204e3ea3816ded968cd24c1fc0419d7a8d647c",
+          "commit_short": "c8204e3ea",
+          "subject": "Remove completed DeepSeek parity guide",
+          "author": "papabear",
+          "date": "2026-05-14",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md",
+        "terminal_removal": {
+          "commit": "c8204e3ea3816ded968cd24c1fc0419d7a8d647c",
+          "commit_short": "c8204e3ea",
+          "subject": "Remove completed DeepSeek parity guide",
+          "author": "papabear",
+          "date": "2026-05-14",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "docs/specs/runtime/lm-studio-model-mounting-master-guide.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "docs/specs/runtime/lm-studio-model-mounting-master-guide.md",
+        "terminal_removal": {
+          "commit": "ddbbce66a3d8d6842c5002592720c760e1e80220",
+          "commit_short": "ddbbce66a",
+          "subject": "prune and refactor docs",
+          "author": "papabear",
+          "date": "2026-05-06",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "internal-docs/plans/agent-runtime-live-superiority-proof-plan.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "internal-docs/plans/agent-runtime-live-superiority-proof-plan.md",
+        "terminal_removal": {
+          "commit": "8761dc70dc52ae53a4b1fbfce46a10d95c9a6700",
+          "commit_short": "8761dc70d",
+          "subject": "feat(autopilot): complete electron workbench migration",
+          "author": "papabear",
+          "date": "2026-05-21",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "internal-docs/plans/architectural-improvements-broad-master-guide.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "internal-docs/plans/architectural-improvements-broad-master-guide.md",
+        "terminal_removal": {
+          "commit": "8761dc70dc52ae53a4b1fbfce46a10d95c9a6700",
+          "commit_short": "8761dc70d",
+          "subject": "feat(autopilot): complete electron workbench migration",
+          "author": "papabear",
+          "date": "2026-05-21",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "internal-docs/plans/openvscode-native-autopilot-contribution-replacement-master-guide.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "internal-docs/plans/openvscode-native-autopilot-contribution-replacement-master-guide.md",
+        "terminal_removal": {
+          "commit": "8761dc70dc52ae53a4b1fbfce46a10d95c9a6700",
+          "commit_short": "8761dc70d",
+          "subject": "feat(autopilot): complete electron workbench migration",
+          "author": "papabear",
+          "date": "2026-05-21",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "internal-docs/prompts/ioi-zero-to-hero-autonomy-prompt.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "internal-docs/prompts/ioi-zero-to-hero-autonomy-prompt.md",
+        "terminal_removal": {
+          "commit": "304a61222229a3e98bf26f9c43626fd0b89eace3",
+          "commit_short": "304a61222",
+          "subject": "Extract runtime usage event helpers",
+          "author": "papabear",
+          "date": "2026-06-03",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "internal-docs/samples/repo-maintenance-autonomous-system-package/README.md",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "internal-docs/samples/repo-maintenance-autonomous-system-package/README.md",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "packages/agent-sdk/src/messages.ts",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "packages/agent-sdk/src/messages.ts",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "packages/agent-sdk/src/substrate-client.ts",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "packages/agent-sdk/src/substrate-client.ts",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "packages/agent-sdk/test/sdk.test.mjs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "packages/agent-sdk/test/sdk.test.mjs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "packages/runtime-daemon/src/index.mjs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "packages/runtime-daemon/src/index.mjs",
+        "terminal_removal": {
+          "commit": "1b68cca12fd1f9acf6b64ca118ca6cbff9a713ca",
+          "commit_short": "1b68cca12",
+          "subject": "Retire the JS runtime daemon (@ioi/runtime-daemon); coverage lives on the Rust daemon",
+          "author": "papabear",
+          "date": "2026-06-23",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "packages/runtime-daemon/src/runtime-record-projections.mjs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "packages/runtime-daemon/src/runtime-record-projections.mjs",
+        "terminal_removal": {
+          "commit": "1d5bc3477ef548e9e741a7b773116359492468db",
+          "commit_short": "1d5bc3477",
+          "subject": "Hard cut runtime task job materialization into Rust",
+          "author": "papabear",
+          "date": "2026-06-16",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "packages/runtime-daemon/src/runtime-run-cancellation.mjs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "packages/runtime-daemon/src/runtime-run-cancellation.mjs",
+        "terminal_removal": {
+          "commit": "1b68cca12fd1f9acf6b64ca118ca6cbff9a713ca",
+          "commit_short": "1b68cca12",
+          "subject": "Retire the JS runtime daemon (@ioi/runtime-daemon); coverage lives on the Rust daemon",
+          "author": "papabear",
+          "date": "2026-06-23",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "packages/runtime-daemon/src/runtime-run-cancellation.test.mjs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "packages/runtime-daemon/src/runtime-run-cancellation.test.mjs",
+        "terminal_removal": {
+          "commit": "1b68cca12fd1f9acf6b64ca118ca6cbff9a713ca",
+          "commit_short": "1b68cca12",
+          "subject": "Retire the JS runtime daemon (@ioi/runtime-daemon); coverage lives on the Rust daemon",
+          "author": "papabear",
+          "date": "2026-06-23",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "packages/runtime-daemon/src/runtime-run-event-helpers.mjs",
+      "class": "other_tracked_reference",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "packages/runtime-daemon/src/runtime-run-event-helpers.mjs",
+        "terminal_removal": {
+          "commit": "1b68cca12fd1f9acf6b64ca118ca6cbff9a713ca",
+          "commit_short": "1b68cca12",
+          "subject": "Retire the JS runtime daemon (@ioi/runtime-daemon); coverage lives on the Rust daemon",
+          "author": "papabear",
+          "date": "2026-06-23",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/build-autopilot-full-default-harness-parity-manifest.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "scripts/build-autopilot-full-default-harness-parity-manifest.mjs",
+            "to": "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs",
+            "commit": "de299af7fcdccd83b0d81c975b3e54107b2bca82",
+            "commit_short": "de299af7f",
+            "subject": "chore: rename active Hypervisor goal runners",
+            "author": "papabear",
+            "date": "2026-06-17",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "scripts/build-autopilot-tool-catalogue-live-ide-manifest.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/build-hypervisor-tool-catalogue-live-manifest.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "scripts/build-autopilot-tool-catalogue-live-ide-manifest.mjs",
+            "to": "scripts/build-hypervisor-tool-catalogue-live-manifest.mjs",
+            "commit": "de299af7fcdccd83b0d81c975b3e54107b2bca82",
+            "commit_short": "de299af7f",
+            "subject": "chore: rename active Hypervisor goal runners",
+            "author": "papabear",
+            "date": "2026-06-17",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/build-hypervisor-tool-catalogue-live-manifest.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/build-hypervisor-tool-catalogue-live-manifest.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/check-execution-surface-leg.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/check-execution-surface-leg.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/check-pre-next-leg-readiness.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "scripts/check-pre-next-leg-readiness.mjs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/check-runtime-layout.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "scripts/check-runtime-layout.mjs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/conformance/hypervisor-conformance.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "scripts/conformance/hypervisor-conformance.mjs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/conformance/runtime-complete-plus.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/conformance/runtime-complete-plus.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/evidence/runtime-complete-plus.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/evidence/runtime-complete-plus.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/hypervisor-app-shell-contract.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/hypervisor-app-shell-contract.mjs",
+        "terminal_removal": {
+          "commit": "8f3ae794c7dbafee3869cc91a48ba143211f1ed5",
+          "commit_short": "8f3ae794c",
+          "subject": "refactor(hypervisor-app): retire the reference-parity React layer (live reference is the UI)",
+          "author": "papabear",
+          "date": "2026-06-24",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/agent-model-matrix.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "scripts/lib/agent-model-matrix.mjs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/agent-runtime-p3-contract.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/lib/agent-runtime-p3-contract.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/architectural-improvements-broad-contract.test.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "scripts/lib/architectural-improvements-broad-contract.test.mjs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/lib/hypervisor-campaign-processes.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs",
+            "to": "scripts/lib/hypervisor-campaign-processes.mjs",
+            "commit": "3c001ee012a11f9e8653767068ee19bb03696b09",
+            "commit_short": "3c001ee01",
+            "subject": "feat: retire autopilot proof helper APIs",
+            "author": "papabear",
+            "date": "2026-06-17",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "scripts/lib/chat-artifact-corpus.test.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "scripts/lib/chat-artifact-corpus.test.mjs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/chat-artifact-release-gates.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "scripts/lib/chat-artifact-release-gates.mjs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/claude-code-substrate/support-proofs.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/lib/claude-code-substrate/support-proofs.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/conversation-artifact-canvas/common.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/lib/conversation-artifact-canvas/common.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/cursor-sdk-parity-contract.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/lib/cursor-sdk-parity-contract.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/cursor-substrate-absorption/common.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/lib/cursor-substrate-absorption/common.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/fixtures/agent-model-matrix-interrupted.json",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "scripts/lib/fixtures/agent-model-matrix-interrupted.json",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/live-runtime-daemon-contract.test.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/lib/live-runtime-daemon-contract.test.mjs",
+        "terminal_removal": {
+          "commit": "1b68cca12fd1f9acf6b64ca118ca6cbff9a713ca",
+          "commit_short": "1b68cca12",
+          "subject": "Retire the JS runtime daemon (@ioi/runtime-daemon); coverage lives on the Rust daemon",
+          "author": "papabear",
+          "date": "2026-06-23",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/rust-daemon-lifecycle-contract.test.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "scripts/lib/rust-daemon-lifecycle-contract.test.mjs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/lib/studio-artifact-corpus.test.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "scripts/lib/chat-artifact-corpus.test.mjs",
+        "terminal_removal": null,
+        "rebind_chain": [
+          {
+            "from": "scripts/lib/studio-artifact-corpus.test.mjs",
+            "to": "scripts/lib/chat-artifact-corpus.test.mjs",
+            "commit": "44af5cb00f6707cc521135d8e79ef24380a53e3c",
+            "commit_short": "44af5cb00",
+            "subject": "refactor(runtime): clean-break agent runtime governance and chat artifact naming",
+            "author": "papabear",
+            "date": "2026-04-25",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "scripts/lib/studio-artifact-release-gates.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "scripts/lib/chat-artifact-release-gates.mjs",
+        "terminal_removal": null,
+        "rebind_chain": [
+          {
+            "from": "scripts/lib/studio-artifact-release-gates.mjs",
+            "to": "scripts/lib/chat-artifact-release-gates.mjs",
+            "commit": "44af5cb00f6707cc521135d8e79ef24380a53e3c",
+            "commit_short": "44af5cb00",
+            "subject": "refactor(runtime): clean-break agent runtime governance and chat artifact naming",
+            "author": "papabear",
+            "date": "2026-04-25",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "scripts/run-agent-model-matrix.test.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": true,
+        "terminal_path": "scripts/run-agent-model-matrix.test.mjs",
+        "terminal_removal": null,
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/run-autopilot-agent-studio-rust-tool-catalogue-live-verification-goal.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/run-hypervisor-agent-rust-tool-catalogue-live-verification-goal.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "scripts/run-autopilot-agent-studio-rust-tool-catalogue-live-verification-goal.mjs",
+            "to": "scripts/run-hypervisor-agent-rust-tool-catalogue-live-verification-goal.mjs",
+            "commit": "de299af7fcdccd83b0d81c975b3e54107b2bca82",
+            "commit_short": "de299af7f",
+            "subject": "chore: rename active Hypervisor goal runners",
+            "author": "papabear",
+            "date": "2026-06-17",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+            "to": "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs",
+            "commit": "de299af7fcdccd83b0d81c975b3e54107b2bca82",
+            "commit_short": "de299af7f",
+            "subject": "chore: rename active Hypervisor goal runners",
+            "author": "papabear",
+            "date": "2026-06-17",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+            "to": "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs",
+            "commit": "de299af7fcdccd83b0d81c975b3e54107b2bca82",
+            "commit_short": "de299af7f",
+            "subject": "chore: rename active Hypervisor goal runners",
+            "author": "papabear",
+            "date": "2026-06-17",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/run-hypervisor-conversation-artifact-embedded-document-canvas-goal.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
+            "to": "scripts/run-hypervisor-conversation-artifact-embedded-document-canvas-goal.mjs",
+            "commit": "de299af7fcdccd83b0d81c975b3e54107b2bca82",
+            "commit_short": "de299af7f",
+            "subject": "chore: rename active Hypervisor goal runners",
+            "author": "papabear",
+            "date": "2026-06-17",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "scripts/run-autopilot-cursor-substrate-absorption-parity-goal.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/run-hypervisor-cursor-substrate-absorption-parity-goal.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "scripts/run-autopilot-cursor-substrate-absorption-parity-goal.mjs",
+            "to": "scripts/run-hypervisor-cursor-substrate-absorption-parity-goal.mjs",
+            "commit": "de299af7fcdccd83b0d81c975b3e54107b2bca82",
+            "commit_short": "de299af7f",
+            "subject": "chore: rename active Hypervisor goal runners",
+            "author": "papabear",
+            "date": "2026-06-17",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "scripts/run-autopilot-headless-runtime-unification-parity-goal.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": [
+          {
+            "from": "scripts/run-autopilot-headless-runtime-unification-parity-goal.mjs",
+            "to": "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs",
+            "commit": "de299af7fcdccd83b0d81c975b3e54107b2bca82",
+            "commit_short": "de299af7f",
+            "subject": "chore: rename active Hypervisor goal runners",
+            "author": "papabear",
+            "date": "2026-06-17",
+            "kind": "rename_rebind"
+          }
+        ]
+      }
+    },
+    {
+      "path": "scripts/run-hypervisor-agent-rust-tool-catalogue-live-verification-goal.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/run-hypervisor-agent-rust-tool-catalogue-live-verification-goal.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/run-hypervisor-conversation-artifact-embedded-document-canvas-goal.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/run-hypervisor-conversation-artifact-embedded-document-canvas-goal.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/run-hypervisor-cursor-substrate-absorption-parity-goal.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/run-hypervisor-cursor-substrate-absorption-parity-goal.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    },
+    {
+      "path": "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs",
+      "class": "producing_script",
+      "fate": {
+        "present_in_bound_tree": false,
+        "terminal_path": "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs",
+        "terminal_removal": {
+          "commit": "ecdd10f5c78dc9a73223ac9255ac05ca564ddddb",
+          "commit_short": "ecdd10f5c",
+          "subject": "feat: retire hypervisor campaign runners",
+          "author": "papabear",
+          "date": "2026-06-17",
+          "kind": "retirement"
+        },
+        "rebind_chain": []
+      }
+    }
+  ],
+  "members": [
+    {
+      "id": "docs/evidence/antigravity-agent-harness-gap-audit/2026-05-27-current-state-gap-audit.md",
+      "declared_schema": null,
+      "named_by_path": [
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/antigravity-agent-harness-gap-audit/2026-05-27-gap-manifest.json",
+      "declared_schema": "ioi.autopilot.antigravity-agent-harness-gap-audit.v1",
+      "named_by_path": [
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+        "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md",
+        "scripts/lib/claude-code-substrate/support-proofs.mjs",
+        "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/agentgres-persistence-proof.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/cancel-resume-trace.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/checklist.json",
+      "declared_schema": "ioi.architectural-improvements-broad.check.v1",
+      "named_by_path": [
+        "docs/specs/runtime/lm-studio-model-mounting-master-guide.md",
+        "scripts/conformance/runtime-complete-plus.mjs",
+        "scripts/lib/architectural-improvements-broad-contract.test.mjs"
+      ],
+      "named_by_basename": [
+        "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+        "crates/services/src/agentic/runtime/kernel/policy.rs",
+        "crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs",
+        "crates/services/src/agentic/runtime/kernel/policy/task_job.rs",
+        "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
+        "docs/architecture/_archive/change-ledgers/hypervisor-kernel-substrate-slice-ledger.md",
+        "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+        "docs/specs/runtime/agent-runtime-deepseek-parity-plus-implementation-log.md",
+        "docs/specs/runtime/agent-runtime-deepseek-parity-plus-master-guide.md",
+        "docs/specs/runtime/lm-studio-model-mounting-master-guide.md",
+        "packages/runtime-daemon/src/index.mjs",
+        "packages/runtime-daemon/src/runtime-record-projections.mjs",
+        "packages/runtime-daemon/src/runtime-run-cancellation.mjs",
+        "packages/runtime-daemon/src/runtime-run-cancellation.test.mjs",
+        "packages/runtime-daemon/src/runtime-run-event-helpers.mjs",
+        "scripts/check-execution-surface-leg.mjs",
+        "scripts/conformance/runtime-complete-plus.mjs",
+        "scripts/lib/agent-runtime-p3-contract.mjs",
+        "scripts/lib/architectural-improvements-broad-contract.test.mjs",
+        "scripts/lib/cursor-sdk-parity-contract.mjs",
+        "scripts/lib/live-runtime-daemon-contract.test.mjs",
+        "scripts/lib/rust-daemon-lifecycle-contract.test.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/check-execution-surface-leg.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/checklist.md",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "apps/autopilot/src/services/workflowCodeGenerationProposal.ts",
+        "apps/autopilot/src/windows/ChatShellWindow/components/chatArtifactSurfaceModel.test.ts",
+        "apps/autopilot/src/windows/SpotlightWindow/components/studioArtifactSurfaceModel.test.ts",
+        "apps/benchmarks/public/generated/benchmark-data.json",
+        "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
+        "crates/api/src/chat/tests/payload_validation.rs",
+        "crates/api/src/chat/tests/payload_validation/cases/runtime_support.rs",
+        "crates/api/src/chat/tests/payload_validation/mod.rs",
+        "crates/api/src/studio/tests.rs",
+        "crates/api/src/studio/tests/payload_validation.rs",
+        "docs/plans/architectural-improvements-broad-master-guide.md",
+        "internal-docs/plans/architectural-improvements-broad-master-guide.md",
+        "internal-docs/plans/openvscode-native-autopilot-contribution-replacement-master-guide.md",
+        "internal-docs/samples/repo-maintenance-autonomous-system-package/README.md",
+        "scripts/check-execution-surface-leg.mjs",
+        "scripts/check-pre-next-leg-readiness.mjs",
+        "scripts/lib/chat-artifact-corpus.test.mjs",
+        "scripts/lib/studio-artifact-corpus.test.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/cli-transcript.md",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/completion-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/cross-surface-compatibility-report.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/check-execution-surface-leg.mjs",
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/daemon-lifecycle-trace.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/evidence-summary.json",
+      "declared_schema": "ioi.architectural-improvements-broad.evidence.v1",
+      "named_by_path": [
+        "scripts/conformance/runtime-complete-plus.mjs"
+      ],
+      "named_by_basename": [
+        "scripts/conformance/runtime-complete-plus.mjs",
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/hook-lifecycle-receipts.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/hosted-selfhosted-blockers.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/live-daemon-conversation.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/mcp-containment-receipts.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/plan-dry-run-learn-trace.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/replay-artifact.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/runtime-catalogs.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/sdk-artifacts.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/sdk-quickstart-transcript.md",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/skill-provenance-trace.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/stream-reconnect-trace.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/subagent-handoff-merge-bundle.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/architectural-improvements-broad/trace-export.json",
+      "declared_schema": "ioi.agent-sdk.trace.v1",
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/evidence/runtime-complete-plus.mjs"
+      ],
+      "named_by_declared_schema": [
+        "packages/agent-sdk/src/messages.ts",
+        "packages/agent-sdk/src/substrate-client.ts",
+        "packages/agent-sdk/test/sdk.test.mjs",
+        "packages/runtime-daemon/src/index.mjs",
+        "packages/runtime-daemon/src/runtime-record-projections.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-runtime-parity-plus/campaign-progress-manifest.json",
+      "declared_schema": "ioi.agent-runtime-parity-plus.progress-manifest.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/contextual-streaming-harness-ux-final-manifest.json",
+      "declared_schema": "ioi.autopilot.contextual-streaming-harness-ux.final-manifest.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/final-contextual-streaming-harness-ux-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-after-stage3-clean-source-gate-pass.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-artifact-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-reasoning-stream-focused.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-stage2-ask-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-stage2-realistic-prompt-rerun-2.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-stage2-realistic-prompt-rerun-3.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-stage2-realistic-prompt-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-stage2-rerun-after-validator-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-stage3-currentness-rerun-after-ask-guard.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-stage3-currentness-rerun-after-fixture-sanitization.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-stage3-currentness-rerun-after-runtime-rebuild.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-stage3-currentness-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-stage3-rerun-after-clean-source-gate.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-stage3-rerun-after-final-answer-source-cleanup.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-before-stage4-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/draft-default-harness-parity-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/build-autopilot-full-default-harness-parity-manifest.mjs",
+        "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/final-default-harness-parity-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+        "scripts/lib/conversation-artifact-canvas/common.mjs",
+        "scripts/lib/cursor-substrate-absorption/common.mjs",
+        "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-autopilot-headless-runtime-unification-parity-goal.mjs",
+        "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-agent-studio-full-default-harness-parity-proof-master-guide.md",
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+        "scripts/build-autopilot-full-default-harness-parity-manifest.mjs",
+        "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs",
+        "scripts/lib/conversation-artifact-canvas/common.mjs",
+        "scripts/lib/cursor-substrate-absorption/common.mjs",
+        "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-autopilot-headless-runtime-unification-parity-goal.mjs",
+        "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/parity-baseline.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        ".internal/plans/autopilot-agent-studio-full-default-harness-parity-proof-master-guide.md",
+        "scripts/build-autopilot-full-default-harness-parity-manifest.mjs",
+        "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-abort-browser-core-tail-after-first-timeout.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-abort-browser-dom-controls-focused-setup-replay-misroute.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-abort-browser-tail-focused-hung-submit.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-abort-retained-shell-followup-failed-run.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-abort-retained-shell-queue-terminalization-gap.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-abort-retained-shell-session-terminate-pty-stuck.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-abort-retained-shell-terminate-missing-tool-trace.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-abort-retained-shell-terminate-no-run-created.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-agent-await-delegate-setup-pass.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-agent-await-focused-failed-lifecycle-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-agent-await-never-prompt-escalate-validation-gap.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-agent-await-rust-followup-pass.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-agent-await-threaded-missing-pause.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-copy-canvas-focused-repair-proof.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-core-tail-queue-followup-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-dom-controls-focused-copy-canvas-failures.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-matrix-fixture-bootstrap-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-matrix-focused-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-matrix-pointer-timeout-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-subagent-focused-browser-only-inspect-run-still-incident-drift.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-subagent-focused-child-bootstrap-run-invalid-incident-tool.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-subagent-focused-contract-evidence-fixed-pass.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-subagent-focused-failed-run.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-subagent-focused-navigate-terminalization-run-contract-unmet.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-subagent-focused-rerun-after-continuation-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-subagent-focused-rerun-after-queue-tool-name-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-tabs-focused-missing-switch-close.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-tabs-focused-queue-output-followup-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-live-viewport-ux-proof.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-memory-focused-live-proof.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-chat-recovery-pass.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-current-surface-still-failed.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-exact-tool-event-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-latest-marker-failed-run.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-parity-root-pass.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-reset-followup-failed-validation.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-reset-included-but-failed.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-reset-timeout-capture.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-terminate-run-created-validation-gap.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-visible-success-rerun-hung-reset.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-screen-controls-focused-direct-visual-tier-still-click-failed.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-screen-controls-focused-driver-capture-click-fallback-failed.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-screen-controls-focused-native-shell-target-visual-tier-failed-clicks.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-screen-controls-focused-pass.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-screen-controls-focused-target-metadata-fix-failed-clicks.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-agent-await-delegate-setup-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-agent-await-focused-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-agent-await-never-prompt-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-agent-await-rust-followup-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-agent-await-threaded-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-copy-canvas-focused-repair-proof.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-core-tail-queue-followup-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-core-tail-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-dom-controls-focused-after-navigation-followup-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-dom-controls-focused-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-matrix-browser-followup-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-matrix-fixture-bootstrap-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-matrix-focused-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-subagent-focused-rerun-after-browser-only-inspect-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-subagent-focused-rerun-after-child-bootstrap-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-subagent-focused-rerun-after-continuation-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-subagent-focused-rerun-after-contract-evidence-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-subagent-focused-rerun-after-navigate-terminalization-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-subagent-focused-rerun-after-queue-tool-name-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-subagent-focused-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-tabs-focused-proof.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-tabs-focused-queue-output-followup-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-browser-tail-focused-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-live-viewport-ux-proof.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-memory-focused-live-proof.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-chat-recovery-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-current-marker-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-exact-tool-event-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-followup-fix-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-latest-current-surface-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-queue-replay-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-queue-terminalization-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-reset-current-marker-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-reset-followup-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-reset-force-reset-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-selector-fix-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-terminate-force-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-thread-slice-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-transcript-contamination-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-retained-shell-visible-success-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-screen-controls-focused-native-shell-target-visual-tier.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-before-screen-controls-focused-target-metadata-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-final-closeout.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/build-autopilot-full-default-harness-parity-manifest.mjs",
+        "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/tool-catalogue-full-default-harness-parity-draft-manifest.json",
+      "declared_schema": "ioi.autopilot.full-default-harness-parity-manifest.v1",
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/build-autopilot-full-default-harness-parity-manifest.mjs",
+        "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/build-autopilot-full-default-harness-parity-manifest.mjs",
+        "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/tool-catalogue-full-default-harness-parity-final-manifest.json",
+      "declared_schema": "ioi.autopilot.full-default-harness-parity-manifest.v1",
+      "named_by_path": [
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-agent-studio-full-default-harness-parity-proof-master-guide.md",
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+        "scripts/build-autopilot-full-default-harness-parity-manifest.mjs",
+        "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/build-autopilot-full-default-harness-parity-manifest.mjs",
+        "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/final-glass-box-work-lane-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [
+        ".internal/plans/autopilot-agent-studio-glass-box-work-lane-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-agent-studio-glass-box-work-lane-master-guide.md"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/glass-box-work-lane-final-manifest.json",
+      "declared_schema": "ioi.autopilot-agent-studio.glass-box-work-lane.final-manifest.v1",
+      "named_by_path": [
+        ".internal/plans/autopilot-agent-runtime-parity-plus-master-guide.md",
+        ".internal/plans/autopilot-agent-studio-glass-box-work-lane-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-agent-runtime-parity-plus-master-guide.md",
+        ".internal/plans/autopilot-agent-studio-glass-box-work-lane-master-guide.md"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-after-failed-glass-box-live.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-after-glass-box-artifact-stream-delta-failure.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-after-glass-box-repo-explore-render-failure.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-after-glass-box-rerun-source-chip-failure.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-after-glass-box-rerun-source-chip-still-missing.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-after-glass-box-source-chip-still-missing-post-extractor-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-after-glass-box-source-chip-still-missing-post-kernel-event-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-after-glass-box-step-budget-failure.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-after-source-chip-proof-failure.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-after-source-chip-proof-rerun-failure.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-after-source-loop-stream-failure.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-before-glass-box-live-after-source-loop-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-before-glass-box-live-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-before-glass-box-live.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-before-glass-box-rerun-after-route-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-before-glass-box-rerun-after-turn-flush-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-before-source-chip-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-before-source-proof-wait-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-before-stream-source-handoff-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-managed-session-card-failure-cleanup.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-pre-glass-box-live-after-kernel-event-work-row-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-pre-glass-box-live-after-live-event-source-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-pre-glass-box-rerun-after-bridge-event-retention.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-pre-glass-box-rerun-after-browser-route-ledger-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-pre-glass-box-rerun-after-minimal-summary-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-pre-glass-box-rerun-after-workbar-projection-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-pre-glass-box-source-chip-rerun.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-pre-live-rerun-after-step-budget-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-pre-live-rerun-cleanup.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-process-cleanup-after-glass-box-source-chip-still-empty-after-duplicate-sync.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-process-cleanup-after-glass-box-source-chip-still-missing.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-process-cleanup-after-glass-box-stream-delta-regression.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-source-chip-failure-after-bridge-event-retention.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-source-chip-failure-after-combined-projection.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-source-chip-rerun-failure-cleanup.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-glass-box-work-lane/process-cleanup-stream-source-handoff-rerun-failure-cleanup.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/final-product-reliability-context-quality-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/product-reliability-context-quality-final-manifest.json",
+      "declared_schema": "ioi.autopilot-agent-studio.product-reliability-context-quality.final-manifest.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/final-quality-harness-runtime-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [
+        ".internal/plans/autopilot-agent-studio-quality-harness-runtime-parity-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-agent-studio-quality-harness-runtime-parity-master-guide.md"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/quality-harness-runtime-final-manifest.json",
+      "declared_schema": "ioi.autopilot.agent-studio-quality-harness-runtime-parity.final-manifest.v1",
+      "named_by_path": [
+        ".internal/plans/autopilot-agent-studio-quality-harness-runtime-parity-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-agent-studio-quality-harness-runtime-parity-master-guide.md"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/runtime-wide-disease-audit-progress.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/runtime-wide-disease-scan-2026-05-30.json",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/process-cleanup-after-runtime-bridge-rebuild.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/process-cleanup-after-stage2-canary-intent-gate.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/process-cleanup-after-toolcat-resolver-scope-rebuild.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/process-cleanup-before-final-fresh-12h-campaign.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/process-cleanup-before-fresh-12h-campaign.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/process-cleanup-before-full-12h-campaign-after-stage2-canary.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/process-cleanup-restart-after-fallback-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/process-cleanup-restart-after-runtime-authority-copy-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/process-cleanup-restart-after-trace-gap.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/tool-catalogue-draft-manifest.latest.json",
+      "declared_schema": "ioi.autopilot.tool-catalogue.live-ide-evidence-manifest.v1",
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/build-autopilot-tool-catalogue-live-ide-manifest.mjs",
+        "scripts/build-hypervisor-tool-catalogue-live-manifest.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/build-autopilot-tool-catalogue-live-ide-manifest.mjs",
+        "scripts/build-hypervisor-tool-catalogue-live-manifest.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/tool-catalogue-final-manifest.latest.json",
+      "declared_schema": "ioi.autopilot.tool-catalogue.live-ide-evidence-manifest.v1",
+      "named_by_path": [
+        ".internal/plans/autopilot-agent-studio-full-default-harness-parity-proof-master-guide.md",
+        "scripts/build-autopilot-full-default-harness-parity-manifest.mjs",
+        "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-agent-studio-full-default-harness-parity-proof-master-guide.md",
+        "scripts/build-autopilot-full-default-harness-parity-manifest.mjs",
+        "scripts/build-autopilot-tool-catalogue-live-ide-manifest.mjs",
+        "scripts/build-hypervisor-full-default-harness-parity-manifest.mjs",
+        "scripts/build-hypervisor-tool-catalogue-live-manifest.mjs",
+        "scripts/run-autopilot-agent-studio-rust-tool-catalogue-live-verification-goal.mjs",
+        "scripts/run-hypervisor-agent-rust-tool-catalogue-live-verification-goal.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/build-autopilot-tool-catalogue-live-ide-manifest.mjs",
+        "scripts/build-hypervisor-tool-catalogue-live-manifest.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-antigravity-harness-parity-plus/antigravity-harness-parity-plus-final-manifest.json",
+      "declared_schema": "ioi.autopilot.antigravity-harness-parity-plus.final-manifest.v1",
+      "named_by_path": [
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+        "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-antigravity-harness-parity-plus/final-antigravity-harness-parity-plus-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+        "scripts/lib/conversation-artifact-canvas/common.mjs",
+        "scripts/lib/cursor-substrate-absorption/common.mjs",
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-autopilot-headless-runtime-unification-parity-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+        "scripts/lib/conversation-artifact-canvas/common.mjs",
+        "scripts/lib/cursor-substrate-absorption/common.mjs",
+        "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-autopilot-headless-runtime-unification-parity-goal.mjs",
+        "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-antigravity-harness-parity-plus/preflight.latest.json",
+      "declared_schema": "ioi.autopilot.antigravity-harness-parity-plus.preflight.v1",
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-antigravity-harness-parity-plus/process-cleanup-manual-after-cleanup-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-antigravity-harness-parity-plus/process-cleanup-manual-after-cockpit-token-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-antigravity-harness-parity-plus/process-cleanup-manual-after-fast-completion-fallback.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-antigravity-harness-parity-plus/process-cleanup-manual-after-runtime-bridge-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-antigravity-harness-parity-plus/process-cleanup-manual-after-selector-fix.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-antigravity-harness-parity-plus/process-cleanup-manual-after-token-scope-error.json",
+      "declared_schema": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-claude-code-substrate-absorption-parity/claude-code-substrate-absorption-final-manifest.json",
+      "declared_schema": "ioi.autopilot.claude-code-substrate-absorption.final-manifest.v1",
+      "named_by_path": [
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md",
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-claude-code-substrate-absorption-parity/final-claude-code-substrate-absorption-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+        "scripts/lib/conversation-artifact-canvas/common.mjs",
+        "scripts/lib/cursor-substrate-absorption/common.mjs",
+        "scripts/run-autopilot-headless-runtime-unification-parity-goal.mjs",
+        "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+        "scripts/lib/conversation-artifact-canvas/common.mjs",
+        "scripts/lib/cursor-substrate-absorption/common.mjs",
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-autopilot-headless-runtime-unification-parity-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-claude-code-substrate-absorption-parity/preflight.latest.json",
+      "declared_schema": "ioi.autopilot.claude-code-substrate-absorption.preflight.v1",
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/conversation-artifact-final-manifest.json",
+      "declared_schema": "ioi.autopilot.conversation-artifact-canvas.final-manifest.v1",
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
+        "scripts/run-hypervisor-conversation-artifact-embedded-document-canvas-goal.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
+        "scripts/run-hypervisor-conversation-artifact-embedded-document-canvas-goal.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/final-conversation-artifact-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
+        "scripts/run-hypervisor-conversation-artifact-embedded-document-canvas-goal.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/preflight-2026-05-27T20-56-35-610Z.json",
+      "declared_schema": "ioi.autopilot.conversation-artifact-canvas.preflight.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
+        "scripts/run-hypervisor-conversation-artifact-embedded-document-canvas-goal.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/preflight-2026-05-27T21-39-36-099Z.json",
+      "declared_schema": "ioi.autopilot.conversation-artifact-canvas.preflight.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
+        "scripts/run-hypervisor-conversation-artifact-embedded-document-canvas-goal.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-cursor-substrate-absorption-parity/cursor-substrate-absorption-final-manifest.json",
+      "declared_schema": "ioi.autopilot.cursor-substrate-absorption.final-manifest.v1",
+      "named_by_path": [
+        ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+        "scripts/run-autopilot-cursor-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-cursor-substrate-absorption-parity-goal.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/run-autopilot-cursor-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-cursor-substrate-absorption-parity-goal.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-cursor-substrate-absorption-parity/final-cursor-substrate-absorption-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [
+        ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+        "scripts/lib/conversation-artifact-canvas/common.mjs"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+        "scripts/lib/conversation-artifact-canvas/common.mjs",
+        "scripts/run-autopilot-cursor-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-cursor-substrate-absorption-parity-goal.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-headless-runtime-unification-parity/final-headless-runtime-unification-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [
+        ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+        "scripts/lib/conversation-artifact-canvas/common.mjs",
+        "scripts/lib/cursor-substrate-absorption/common.mjs"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-cursor-substrate-absorption-parity-master-guide.md",
+        ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+        "scripts/lib/conversation-artifact-canvas/common.mjs",
+        "scripts/lib/cursor-substrate-absorption/common.mjs",
+        "scripts/run-autopilot-headless-runtime-unification-parity-goal.mjs",
+        "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-headless-runtime-unification-parity/headless-runtime-unification-final-manifest.json",
+      "declared_schema": "ioi.autopilot.headless-runtime-unification.final-manifest.v1",
+      "named_by_path": [
+        ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+        "scripts/run-autopilot-headless-runtime-unification-parity-goal.mjs",
+        "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/run-autopilot-headless-runtime-unification-parity-goal.mjs",
+        "scripts/run-hypervisor-headless-runtime-unification-parity-goal.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/final-lm-studio-quality-routing-chat-ux-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [
+        ".internal/plans/autopilot-lm-studio-quality-routing-chat-ux-parity-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-lm-studio-quality-routing-chat-ux-parity-master-guide.md"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-lm-studio-quality-routing-chat-ux-parity/lm-studio-quality-routing-chat-ux-final-manifest.json",
+      "declared_schema": "ioi.lm-studio-quality-routing-chat-ux-final-manifest.v1",
+      "named_by_path": [
+        ".internal/plans/autopilot-lm-studio-quality-routing-chat-ux-parity-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-lm-studio-quality-routing-chat-ux-parity-master-guide.md"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-runtime-same-disease-loop-migration/final-runtime-loop-native-verdict.md",
+      "declared_schema": null,
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/autopilot-runtime-same-disease-loop-migration/runtime-loop-native-final-manifest.json",
+      "declared_schema": "ioi.runtime_loop_native_audit.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/chat-artifact-surface/release-gates.json",
+      "declared_schema": null,
+      "named_by_path": [
+        "apps/benchmarks/public/generated/benchmark-data.json"
+      ],
+      "named_by_basename": [
+        "apps/benchmarks/public/generated/benchmark-data.json",
+        "docs/plans/close-the-parity-gap-with-artifacts.md",
+        "scripts/lib/chat-artifact-release-gates.mjs",
+        "scripts/lib/studio-artifact-release-gates.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/claude-code-agent-harness-gap-audit/2026-05-27-current-state-gap-audit.md",
+      "declared_schema": null,
+      "named_by_path": [
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/claude-code-agent-harness-gap-audit/2026-05-27-gap-manifest.json",
+      "declared_schema": "ioi.autopilot.claude-code-agent-harness-gap-audit.v1",
+      "named_by_path": [
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md",
+        "scripts/lib/claude-code-substrate/support-proofs.mjs",
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs"
+      ],
+      "named_by_basename": [
+        ".internal/plans/autopilot-antigravity-harness-parity-plus-master-guide.md",
+        ".internal/plans/autopilot-claude-code-substrate-absorption-parity-master-guide.md",
+        "scripts/lib/claude-code-substrate/support-proofs.mjs",
+        "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-autopilot-claude-code-substrate-absorption-parity-goal.mjs",
+        "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs",
+        "scripts/run-hypervisor-claude-code-substrate-absorption-parity-goal.mjs"
+      ],
+      "named_by_declared_schema": []
+    },
+    {
+      "id": "docs/evidence/hypervisor-conformance/latest-summary.json",
+      "declared_schema": "ioi.hypervisor.conformance.v1",
+      "named_by_path": [
+        "scripts/conformance/hypervisor-conformance.mjs"
+      ],
+      "named_by_basename": [
+        "apps/benchmarks/public/generated/benchmark-data.json",
+        "docs/ioi-zero-to-hero-autonomy-prompt.md",
+        "docs/plans/ioi-zero-to-hero-agent-systems-rolling-plan.md",
+        "internal-docs/plans/agent-runtime-live-superiority-proof-plan.md",
+        "internal-docs/prompts/ioi-zero-to-hero-autonomy-prompt.md",
+        "scripts/conformance/hypervisor-conformance.mjs",
+        "scripts/lib/agent-model-matrix.mjs",
+        "scripts/lib/fixtures/agent-model-matrix-interrupted.json",
+        "scripts/run-agent-model-matrix.test.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/conformance/hypervisor-conformance.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/runtime-layout-refactor/guardrail-report.json",
+      "declared_schema": "ioi.runtime-layout-refactor.check.v1",
+      "named_by_path": [],
+      "named_by_basename": [
+        "scripts/check-runtime-layout.mjs"
+      ],
+      "named_by_declared_schema": [
+        "scripts/check-runtime-layout.mjs"
+      ]
+    },
+    {
+      "id": "docs/evidence/runtime-layout-refactor/hypervisor-app-shell-contract.json",
+      "declared_schema": "ioi.hypervisor.app_shell_contract.v1",
+      "named_by_path": [],
+      "named_by_basename": [],
+      "named_by_declared_schema": [
+        "scripts/check-runtime-layout.mjs",
+        "scripts/hypervisor-app-shell-contract.mjs"
+      ]
+    }
+  ],
+  "producer_evidence_sha256": "416c0f83f3b7dc83e423033a857956645d65dea6aa8e01e743193c5069220b37"
+}

@@ -1,0 +1,224 @@
+{
+  "schemaVersion": "ioi.autopilot.agent-studio-quality-harness-runtime-parity.final-manifest.v1",
+  "generatedAt": "2026-05-31T10:08:13Z",
+  "target": "agent_studio_quality_harness_runtime_parity_proven",
+  "status": "agent_studio_quality_harness_runtime_parity_proven",
+  "evidenceRoot": "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity",
+  "primaryLiveProof": "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/proof.json",
+  "primaryCleanupProof": "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/process-cleanup-after-run.json",
+  "screenshots": {
+    "pendingWorklog": "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/pending-worklog-live.png",
+    "finalHandoffStreaming": "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/agent-final-handoff-stream-live.png",
+    "assistantResponse": "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/assistant-response.png",
+    "modelSelector": "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/model-selector-mounted-models.png"
+  },
+  "liveProofSummary": {
+    "remainingBlockers": "none",
+    "modelInvocationReceiptCount": 11,
+    "targetStudioOperationalChatAchieved": true,
+    "targetStudioChatUxHardened": true,
+    "targetStudioModelBackedStreamingAchieved": true,
+    "targetStudioAgentReplyAchieved": true,
+    "targetStudioAskModeDirectModelAchieved": true,
+    "fixtureModelResponseRejected": true,
+    "cannedDaemonProjectionRejected": true,
+    "semanticModelResponseObserved": true,
+    "cleanupOk": true
+  },
+  "liveScenarios": [
+    {
+      "id": "agent_current_market_comparison",
+      "classification": "live_pass",
+      "prompt": "Which is a better investment right now, Akash or Filecoin?",
+      "mode": "Agent",
+      "durationMs": 56716,
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/daemon-runtime-traces/artifact_run_runtime_service_db3a19b54fee0945_1780221607195.parsed-trace.json"
+      ],
+      "verdict": "Model-authored final answer accepted through chat__reply after live web/market evidence. No Story/Briefing/run timestamp/confidence/canned fallback strings appeared in product text."
+    },
+    {
+      "id": "ask_currentness_fail_closed",
+      "classification": "live_pass",
+      "prompt": "Which is a better investment right now, Akash or Filecoin?",
+      "mode": "Ask",
+      "durationMs": 325,
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/prompt-timings.live.jsonl"
+      ],
+      "verdict": "Ask stayed direct and did not run the governed tool harness. For a current market prompt it declined stale-memory guessing and asked the user to switch to Agent for retrieval."
+    },
+    {
+      "id": "agent_generic_current_sources_no_market_context_bleed",
+      "classification": "fixed_then_pass",
+      "prompt": "Find current sources for today's top local AI model runtime issue.",
+      "mode": "Agent",
+      "durationMs": 55055,
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/daemon-runtime-traces/artifact_run_runtime_service_d1c20c2ddcc35829_1780221665390.parsed-trace.json"
+      ],
+      "fixes": [
+        "crates/services/src/agentic/runtime/service/decision_loop/cognition/final_reply.rs",
+        "crates/services/src/agentic/runtime/service/decision_loop/cognition/tests.rs"
+      ],
+      "verdict": "Generic currentness no longer imports market quote context merely because the word current appears."
+    }
+  ],
+  "runtimeMigrationRows": [
+    {
+      "id": "stage_5a_same_disease_master_guide_gate",
+      "classification": "fixed_then_pass",
+      "files": [
+        ".internal/plans/autopilot-agent-studio-quality-harness-runtime-parity-master-guide.md"
+      ],
+      "verdict": "Guide now requires a runtime-wide crawl for deterministic answer-shaping remnants after preliminary product parity, with product lanes migrated to model -> tool -> typed result -> model."
+    },
+    {
+      "id": "model_authored_web_finalization",
+      "classification": "fixed_then_pass",
+      "files": [
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs",
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome/support.rs"
+      ],
+      "verdict": "Web pipeline completion now treats old final-output contract checks as observation and accepts the selected model's chat__reply answer instead of replacing it with deterministic web prose."
+    },
+    {
+      "id": "direct_web_synthesis_not_product_exported",
+      "classification": "fixed_then_pass",
+      "files": [
+        "crates/services/src/agentic/runtime/service/queue/support/synthesis/mod.rs",
+        "crates/services/src/agentic/runtime/service/queue/web_pipeline.rs",
+        "crates/services/src/agentic/runtime/service/queue/processing/web_pipeline/mod.rs"
+      ],
+      "verdict": "Legacy deterministic draft/hybrid web renderers are no longer exposed as production product-answer finalizers; remaining code is test/support infrastructure or helper parsing."
+    },
+    {
+      "id": "route_prompt_preservation",
+      "classification": "fixed_then_pass",
+      "files": [
+        "packages/runtime-daemon/src/studio-intent-frame.mjs",
+        "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+        "crates/node/src/bin/ioi-runtime-bridge.rs"
+      ],
+      "verdict": "The selected prompt is preserved into the route frame and web query target instead of collapsing to a generic agent target."
+    },
+    {
+      "id": "terminal_reply_passthrough",
+      "classification": "fixed_then_pass",
+      "files": [
+        "crates/services/src/agentic/runtime/service/tool_execution/command_contract/reply_composition.rs"
+      ],
+      "verdict": "Terminal chat reply composition is now pass-through for model-authored content and records a model_passthrough profile."
+    },
+    {
+      "id": "duplicate_repo_context_worker_no_product_fallback",
+      "classification": "fixed_then_pass",
+      "files": [
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/duplicate.rs"
+      ],
+      "verdict": "Duplicate repo-context worker lane no longer emits a deterministic repo answer; it requires a model-authored reply."
+    },
+    {
+      "id": "typed_failure_feedback_keeps_loop_running",
+      "classification": "fixed_then_pass",
+      "files": [
+        "crates/services/src/agentic/runtime/service/queue/processing/failure.rs",
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/mod.rs",
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/system_fail.rs",
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/apply_post_execution_guards.rs"
+      ],
+      "verdict": "Timeouts, invalid tools, and mailbox failures are fed back as typed observations into the loop instead of becoming canned product terminal replies."
+    },
+    {
+      "id": "product_string_scrub",
+      "classification": "fixed_then_pass",
+      "files": [
+        "packages/runtime-daemon/src/conversation-artifacts.mjs",
+        "packages/runtime-daemon/src/computer-use-sandbox-fixture.mjs",
+        "packages/runtime-daemon/src/computer-use-provider-registry.mjs",
+        "packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs",
+        "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-completion.js"
+      ],
+      "verdict": "Product-visible fixture/deterministic terminology was replaced with test-fixture or stable infrastructure language."
+    },
+    {
+      "id": "refactor_shape",
+      "classification": "supporting_pass_with_product_decision",
+      "files": [
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs",
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome/support.rs",
+        "crates/services/src/agentic/runtime/service/queue/support/pipeline/facts.rs",
+        "crates/services/src/agentic/runtime/service/queue/support/pipeline/facts/semantic.rs",
+        "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+        "packages/runtime-daemon/src/model-mounting.mjs"
+      ],
+      "verdict": "Hot Rust answer/runtime modules touched by the migration were split below 2000 LOC. The extension facade and model mounting registry remain large legacy surfaces with existing static guard coverage and minimal string/config touches in this pass; they are not product answer authorship lanes."
+    },
+    {
+      "id": "runtime_wide_same_disease_audit",
+      "classification": "supporting_pass",
+      "verdict": "Runtime crawl moved answer-shaping remnants out of product finalization and quarantined old deterministic renderers behind test/support paths. Remaining deterministic code is action-boundary infrastructure: enforcement, observation, normalization, policy, receipts, traces, side effects, cleanup, typed-result shaping, and presentation metadata."
+    }
+  ],
+  "verificationCommands": [
+    {
+      "command": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario stage3-currentness-retrieval-gate",
+      "result": "passed",
+      "evidence": "docs/evidence/autopilot-agent-studio-quality-harness-runtime-parity/2026-05-31T09-59-35-904Z/proof.json"
+    },
+    {
+      "command": "cargo test -p ioi-services --lib final_reply_evidence_context -- --nocapture",
+      "result": "passed"
+    },
+    {
+      "command": "cargo test -p ioi-services --lib deferred_chat_reply_is_not_recorded_as_success_idempotence -- --nocapture",
+      "result": "passed"
+    },
+    {
+      "command": "cargo test -p ioi-services --lib terminalized_web_pipeline_contract_error_keeps_low_signal_cause_but_not_bare_success -- --nocapture",
+      "result": "passed"
+    },
+    {
+      "command": "cargo test -p ioi-services --lib append_pending_web_success_from_bundle_preserves_quote_grade_market_rows_for_final_model_turn -- --nocapture",
+      "result": "passed"
+    },
+    {
+      "command": "cargo test -p ioi-services --lib terminal_reply_composer_leaves_model_authored_output_untouched -- --nocapture",
+      "result": "passed"
+    },
+    {
+      "command": "cargo test -p ioi-services --lib duplicate_repo_context_worker_noop_requires_model_authored_reply -- --nocapture",
+      "result": "passed"
+    },
+    {
+      "command": "cargo test -p ioi-node --features local-mode --bin ioi-runtime-bridge bridge_studio_retrieval_frame_preserves_prompt_as_web_query_target -- --nocapture",
+      "result": "passed"
+    },
+    {
+      "command": "node apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs",
+      "result": "passed",
+      "summary": "29/29"
+    }
+  ],
+  "forbiddenProductStringsChecked": [
+    "Story 1",
+    "Story 2",
+    "Briefing for",
+    "What happened:",
+    "Web retrieval summary",
+    "Current source candidates",
+    "source candidates",
+    "Current web findings",
+    "Sources checked",
+    "Run date",
+    "Run timestamp",
+    "Overall confidence",
+    "I found current web sources",
+    "canned fallback",
+    "deterministic"
+  ],
+  "remainingBlockers": []
+}

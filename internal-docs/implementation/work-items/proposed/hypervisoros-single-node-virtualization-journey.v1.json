@@ -1,0 +1,87 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "hypervisoros-single-node-virtualization-journey",
+  "stage_id": "FUTURE",
+  "record_role": "conditional_future",
+  "status": "proposed",
+  "objective": "Prove one supported node-root host resource and machine lifecycle with current attestation/enforcement, recovery, and cleanup; HYPERVISOROS_SINGLE_NODE_VIRTUALIZATION_JOURNEY_EXIT=0.",
+  "falsifiable_claim": "A node image cannot complete the selected ordinary machine lifecycle under daemon-root admission.",
+  "canon_owners": [
+    "docs/architecture/components/daemon-runtime/hypervisoros.md",
+    "docs/conformance/hypervisor-core/hypervisoros-node-root.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "e3da99bcc3d1029a80951b7e622a5e0f3ba9e2ae48091e5599d418a6efda31e5",
+    "owners": [
+      {
+        "path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+        "sha256": "625e3c2b05b890513fa84c4cac55631b378f29203f935c4fde5b7cd3e8f00243"
+      },
+      {
+        "path": "docs/conformance/hypervisor-core/hypervisoros-node-root.md",
+        "sha256": "fee1583f28634cb1d1c59c9f02259d6a09e5f3646326dd62607dcc6da13b45b7"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [
+    "hypervisoros-appliance-install-update-recovery",
+    "m9-backend-capability-and-coverage-evidence",
+    "m9-workstation-virtual-machine-operational-journey"
+  ],
+  "required_work": [
+    "Run the selected node-root machine journey on supported physical hardware."
+  ],
+  "in_scope": [
+    "single host"
+  ],
+  "out_of_scope": [
+    "cluster HA",
+    "datacenter replacement"
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [
+    "node-root machine lifecycle invokers"
+  ],
+  "applicable_pg_ids": [
+    "PG-4C.4",
+    "PG-4C.6"
+  ],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "One physical node completes the selected lifecycle."
+  ],
+  "adversarial_or_fault_proof": [
+    "Boot, storage, network, VMM, update, and recovery faults retain exact state."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "external_gates": [
+    {
+      "gate_id": "hypervisoros-hardware-profile",
+      "owner": "accountable product owner",
+      "condition": "One supported hardware profile and measured-boot producer are selected.",
+      "status": "unmet"
+    }
+  ],
+  "evidence_index": {
+    "literal_exit": "HYPERVISOROS_SINGLE_NODE_VIRTUALIZATION_JOURNEY_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/FUTURE/hypervisoros-single-node-virtualization-journey.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "Single-node proof does not imply clustered replacement."
+  ],
+  "rollback_or_stop_rule": "Remain inactive until its external gates and dependencies close.",
+  "source_provenance": "Owner-ratified conditional future record, 2026-07-29."
+}

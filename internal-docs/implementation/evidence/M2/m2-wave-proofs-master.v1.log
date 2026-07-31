@@ -1,0 +1,13 @@
+M2_PROOF_SWEEP_START 2026-07-28T14:54:31Z commit=decf9ffc27847106894e8d90d83eb78dc206f8b3 tree=master+census-closure
+test result: ok. 348 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 187.16s
+
+test result: ok. 374 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 49.67s
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.70s
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+M2_PROOF_SWEEP_END 2026-07-28T14:59:07Z
+M2_PROOF_SWEEP_EXIT=0

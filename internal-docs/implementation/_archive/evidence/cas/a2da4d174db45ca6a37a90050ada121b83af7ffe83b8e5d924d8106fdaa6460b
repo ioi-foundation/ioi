@@ -1,0 +1,137 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-adjacent-canon-doc-class-and-placement-disposition",
+  "stage_id": "M0",
+  "record_role": "private_verifier",
+  "status": "verified",
+  "objective": "Produce the bounded plan and evidence bundle that forces a canonical placement ruling for every canon subject outside docs/architecture/ and docs/conformance/ — docs/security/, docs/crypto/, docs/commitment/, docs/specs/, docs/templates/ — so each subject gains exactly one document class, one canonical owner or an explicit disclaimer, and the two-axis status front matter that docs/architecture/_meta/doc-classes.md already requires of every canon file; M0_ADJACENT_CANON_PLACEMENT_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if any subject under docs/security/, docs/crypto/, docs/commitment/, docs/specs/, or docs/templates/ still resolves to zero document classes, zero canonical owners, or absent doctrine/implementation status after the ruling, or if the record changes any subject's status, adopts any of those documents as doctrine by its own authority, or narrows the subject set to make a gap disappear.",
+  "canon_owners": [
+    "docs/architecture/_meta/doc-classes.md",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/start-here.md",
+    "docs/decisions/README.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "81342124f154da33fad79439026ea74ab3f1d9e943cfd591889df57bbe4c711c",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/doc-classes.md",
+        "sha256": "ae6e33352eaffbb5183dc10f6235718cd98a4b6c5efa0eb15c339608b9253e0c"
+      },
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022"
+      },
+      {
+        "path": "docs/architecture/_meta/start-here.md",
+        "sha256": "6a5cdf8ac430ccaae61b5a36ea8d105a08b5a2f6b5c2f7fa7da3553ddf9a5a32"
+      },
+      {
+        "path": "docs/decisions/README.md",
+        "sha256": "e7cefeedd7b10226f399446ea3241a1c92b419599dca791a402f02d44a411f9a"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [
+    "m0-canon-owner-coverage-and-orphan-verifier"
+  ],
+  "in_scope": [
+    "`META`; the private adjacent-canon disposition projection: one row per subject under docs/security/, docs/crypto/, docs/commitment/, docs/specs/, docs/templates/ carrying path, content digest, proposed document class, proposed canonical owner or explicit disclaimer, current status-axis presence, and inbound-link census.",
+    "Record, without resolving them by fiat, the six obligation-bearing subjects this pass could not place: docs/security/pii_review_contract.md, docs/security/cim_assist_determinism.md, docs/security/post_quantum.md, docs/crypto/Falcon.md, docs/commitment/tree/iavl/README.md, docs/commitment/tree/mhnsw/README.md.",
+    "Route each proposed placement to the named canon owner for an explicit accept/disclaim ruling and retain the ruling as evidence.",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Writing, editing, or adopting architecture doctrine on behalf of any canon owner; this record collects rulings, it does not make them.",
+    "Implementing, verifying, or claiming any behavior described by the placed documents, including the PII review contract, the CIM assist determinism contract, the post-quantum handshake and IdentityHub rotation ladder, and the IAVL canonical hashing rules.",
+    "Deleting, archiving, or relocating any file, and treating archive-as-owner.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Enumerate the subject set from the filesystem through tools/lib/canon-universe.mjs rather than any hand-written literal, and freeze the enumeration with per-file digests.",
+    "For each subject, record the current document class (none, in every case measured), the current canonical owner (none, in every case measured), and whether the doctrine/implementation status axis required by doc-classes.md is present.",
+    "Open one explicit ruling request per subject against the named canon owner and retain the returned accept/disclaim decision verbatim.",
+    "Extend the docs gate scope question into the record: state that scripts/check-architecture-docs.mjs is bound to docs/architecture only, so no gate currently validates these directories, and require the owners' ruling to say which gate will.",
+    "Retain an evidence index and require the exact content-bound M0_ADJACENT_CANON_PLACEMENT_EXIT=0; never infer success from a task or process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [],
+  "ordered_product_operator_journey": [],
+  "positive_proof": [
+    "Every subject under the five directories resolves to exactly one document class and exactly one canonical owner or an explicit, retained disclaimer from a named owner.",
+    "Re-running the enumeration from the filesystem reproduces the same subject set and digests, and the disposition projection is regenerated with no hand-written subject literal.",
+    "The retained evidence file contains exactly one line equal to M0_ADJACENT_CANON_PLACEMENT_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": [
+    "Adding a new file under docs/security/, docs/crypto/, docs/commitment/, docs/specs/, or docs/templates/ must make the check fail as unplaced, with no generator constant or expected-count edit available as a workaround.",
+    "A subject assigned two classes, two owners, or zero owners must fail closed rather than pick one.",
+    "A ruling that adopts a document as doctrine without adding the doctrine/implementation status axis must fail.",
+    "Deleting or relocating a subject must not be an accepted way to close the gap; the check must fail on a missing digest rather than pass on an absent file.",
+    "A stale owner digest, or an archive path presented as an owner, must fail closed."
+  ],
+  "compatibility_and_migration": [
+    "docs/specs/verifiable_bounded_agency.md is already a superseded compatibility pointer to docs/architecture/foundations/verifiable-bounded-agency.md; its inbound links must keep resolving after any ruling.",
+    "docs/commitment/README.md is a zero-byte placeholder already classified non_build_doctrine and must not be treated as an index owner."
+  ],
+  "metrics_and_frozen_thresholds": [
+    "subjects under the five directories with zero document classes: threshold 0, frozen before observation",
+    "subjects under the five directories with zero canonical owners and no explicit disclaimer: threshold 0, frozen before observation",
+    "canon subjects validated by no docs gate: threshold 0, frozen before observation"
+  ],
+  "evidence_index": {
+    "literal_exit": "M0_ADJACENT_CANON_PLACEMENT_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/evidence/m0-adjacent-canon-doc-class-and-placement-disposition.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M0/m0-adjacent-canon-doc-class-and-placement-disposition.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "internal-docs/implementation/tools/check-adjacent-canon-placement.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the verifier/tool this record owns"
+    },
+    {
+      "path": "internal-docs/implementation/tools/lib/canon-universe.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the verifier/tool this record owns"
+    }
+  ],
+  "evidence_refs": [
+    "internal-docs/implementation/generated/adjacent-canon-placement.v1.json"
+  ],
+  "remaining_nonclaims": [
+    "Placement is not adoption: a document gaining a class and an owner does not make its described mechanism implemented, verified, or claimed.",
+    "This record proves nothing about the consensus-critical PII, CIM assist, post-quantum, or IAVL contracts other than who must answer for them.",
+    "No stage, claim level, or product surface advances because coverage improved.",
+    "Creating this record implements no behaviour, activates no work, closes no gate, and changes no stage."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on an unknown owner, a refused ruling, a missing status axis, or a stale canon digest. If a canon owner declines to accept or disclaim a subject, leave that subject recorded as unresolved_canon_gap in program/canon-map.v1.json and never substitute an estate-side placement. Roll back only through the affected owner's explicit successor path; never change status by prose.",
+  "source_provenance": "Proposed 2026-07-25 while closing gap family 3 of the canon-map coverage pass, from the read-through of all 14 assigned subjects plus docs/architecture/_meta/doc-classes.md and docs/architecture/_meta/source-of-truth-map.md. No existing record can own the subject: m0-canon-owner-coverage-and-orphan-verifier detects zero-owner canon but cannot rule on placement, and m0-source-disposition-and-single-sequencer-verifier is scoped to private program sources, not the public canon tree. Authored 2026-07-25 by the implementation-system refactor to close an honest architecture-coverage gap at ba7513bac458cc6bfa398d3a814d65b963c6a287. Status is proposed: no implementation evidence exists.",
+  "private_artifacts": [
+    {
+      "name": "AdjacentCanonPlacement",
+      "path": "internal-docs/implementation/generated/adjacent-canon-placement.v1.json"
+    }
+  ],
+  "last_status_transaction": {
+    "from": "active",
+    "to": "verified",
+    "at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+    "certification_result_sha256": "bd91f9a57f0bb582d094f3afed5d1937758371f23b49f51e146ea9d0ed877fba",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

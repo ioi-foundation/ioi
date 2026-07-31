@@ -1,0 +1,165 @@
+---
+module_id: stage-m6
+module_class: stage
+title: Honest Product Workspaces And Application Catalog
+sequencer: program/sequence.v1.json
+status_owner: work-item records
+stage_ids: [M6]
+canon_owners:
+  - docs/architecture/components/hypervisor/core-clients-surfaces.md
+  - docs/architecture/foundations/canonical-enums.md
+  - docs/architecture/foundations/common-objects-and-envelopes.md
+  - docs/architecture/foundations/governed-autonomous-systems.md
+  - docs/architecture/foundations/invariants.md
+  - docs/architecture/components/daemon-runtime/api.md
+  - docs/architecture/components/daemon-runtime/doctrine.md
+  - docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md
+  - docs/architecture/components/daemon-runtime/platform-operability.md
+  - docs/architecture/components/daemon-runtime/default-harness-profile.md
+  - docs/architecture/components/connectors-tools/contracts.md
+  - docs/architecture/components/connectors-tools/doctrine.md
+  - docs/architecture/components/wallet-network/api-authority-scopes.md
+  - docs/architecture/foundations/security-privacy-policy-invariants.md
+  - docs/architecture/foundations/verifiable-bounded-agency.md
+  - docs/architecture/components/hypervisor/providers-and-environments.md
+  - docs/decisions/0013-hypervisor-core-clients-surfaces-and-adapters.md
+  - docs/decisions/0016-hypervisor-systems-work-and-application-taxonomy.md
+  - docs/decisions/0014-hypervisor-ide-of-ides-and-session-estate.md
+  - docs/decisions/0017-goal-pursuit-workflow-skill-and-harness-taxonomy.md
+  - docs/decisions/0028-reconcile-hypervisor-product-surface-contracts-and-cutover.md
+---
+
+# M6 — Honest Product Workspaces And Application Catalog
+
+Make the product topology reflect canonical objects without moving truth or authority into the shell.
+
+## Why this is next
+
+`sequence.v1.json` places M6 at canonical build step 6 with `depends_on: ["M5"]`, and M5 chains
+M4 → M3. Those stages produce the generic pursuit/result seam, the OutcomeRoom System spine, and the
+participant/frontier reads a product surface can honestly project. M6 adds the normalized
+surface-definition split, the daemon-admitted catalog compiler, and typed Systems/Work views over
+those reads; static shadow compilation may run earlier, permanent migration may not.
+
+## Canon owners
+
+| Canon owner | Obligation this stage must satisfy |
+| --- | --- |
+| [`components/hypervisor/core-clients-surfaces.md`](../../../docs/architecture/components/hypervisor/core-clients-surfaces.md) | Definition/release/installation/System-interface/serving split, canonical-context resolvers, request-scoped policy-filtered projection, Settings placement, Packages-vs-Marketplace boundary, Work subject/facet projections |
+| [`foundations/canonical-enums.md`](../../../docs/architecture/foundations/canonical-enums.md) | Enumerated surface class, availability, launchability, and disabled-reason vocabularies the compiler emits |
+| [`foundations/common-objects-and-envelopes.md`](../../../docs/architecture/foundations/common-objects-and-envelopes.md), [`governed-autonomous-systems.md`](../../../docs/architecture/foundations/governed-autonomous-systems.md) | `GoalRun`, `OutcomeRoom`, `WorkLifecycleRecordEnvelope`, `ReceiptEnvelope`, `AuthorityGrantEnvelope`, `AutonomousSystemManifest` shapes, plus System identity/constitution/lifecycle/topology/membership, rendered without being owned |
+| [`foundations/invariants.md`](../../../docs/architecture/foundations/invariants.md) | Shell/client never becomes a truth or authority owner |
+| [`components/daemon-runtime/api.md`](../../../docs/architecture/components/daemon-runtime/api.md), [`doctrine.md`](../../../docs/architecture/components/daemon-runtime/doctrine.md), [`events-receipts-delivery-bundles.md`](../../../docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md) | Catalog compilation and consequential actions daemon-admitted; receipt/event linkage behind every consequential control; clients stay protocol clients |
+| [`components/daemon-runtime/platform-operability.md`](../../../docs/architecture/components/daemon-runtime/platform-operability.md), [`default-harness-profile.md`](../../../docs/architecture/components/daemon-runtime/default-harness-profile.md) | Honest unavailable/degraded/recovery and daemon-loss states; session/harness chain the Developer Workspace journey projects |
+| [`components/connectors-tools/contracts.md`](../../../docs/architecture/components/connectors-tools/contracts.md), [`doctrine.md`](../../../docs/architecture/components/connectors-tools/doctrine.md), [`components/hypervisor/providers-and-environments.md`](../../../docs/architecture/components/hypervisor/providers-and-environments.md) | `RuntimeToolContract` ownership breadcrumb for every tool and extension projection; environment/project startup and cleanup subjects the Projects journey renders |
+| [`components/wallet-network/api-authority-scopes.md`](../../../docs/architecture/components/wallet-network/api-authority-scopes.md), [`foundations/security-privacy-policy-invariants.md`](../../../docs/architecture/foundations/security-privacy-policy-invariants.md), [`foundations/verifiable-bounded-agency.md`](../../../docs/architecture/foundations/verifiable-bounded-agency.md) | Scope revalidated at the final invoker; tenant/context/private-subject non-disclosure; bounded-agency framing for generated interface packages |
+| [ADR 0013](../../../docs/decisions/0013-hypervisor-core-clients-surfaces-and-adapters.md), [ADR 0016](../../../docs/decisions/0016-hypervisor-systems-work-and-application-taxonomy.md), [ADR 0014](../../../docs/decisions/0014-hypervisor-ide-of-ides-and-session-estate.md), [ADR 0017](../../../docs/decisions/0017-goal-pursuit-workflow-skill-and-harness-taxonomy.md) (all Accepted) | Client/adapter boundary the shell may not cross; Systems/Work/application taxonomy and Mission retirement; Developer Workspace and session-estate framing; typed goal/workflow/skill/harness subjects the Work views expose |
+
+Modules pulled per `sequence.v1.json` `pulled_modules`: `product-ux` (`modules/product-ux.md`,
+legacy `WP-UX`) and `product-surface-ux-proof` (`modules/product-surface-ux-proof.md`, legacy
+`stage-guides/m6/product-surface-and-ux-proof.md`). `runtime-fabric` also lists `M6` in its
+`applies_to_stages`; the sequencer, not this file, resolves that binding.
+
+## In scope
+
+- `M6.1` complete the normalized product-surface definition/release/installation/System-interface/serving record split.
+- `M6.2` make the catalog compiler daemon-admitted, request-scoped, policy-filtered, tenant-safe, and context-safe.
+- `M6.3` make Systems render identity, constitution, lifecycle, package, desired/observed topology, work, authority, evidence, improvement, and interfaces without owning them.
+- `M6.4` make Work render typed GoalRun, OutcomeRoom, AutomationRun, Session, WorkItem, WorkRun, queue, review, incident, and history subjects.
+- `M6.5` stop new generic Mission writes and resolve legacy records to one typed backing subject through reviewable alias/migration receipts.
+- `M6.6` keep Governance as decision surface, Operations as admitted infrastructure/member action surface, and Provenance as evidence projection.
+- `M6.7` make Packages own local package lifecycle while Marketplace remains optional discovery/commerce.
+- `M6.8` preserve direct Session, Project, Automation, and stand-alone GoalRun creation without forced System genesis.
+- `M6.9` close the post-taxonomy `UX-00` seed-coverage ledger against the current application topology.
+- `M6.10` migrate canonical routes/navigation only after typed aliases preserve query, hash, embed, return path, Project, System, and subject context.
+- `M6.11` treat generated React or other domain applications as replaceable System-interface packages and projections; neither one UI instance nor multiple UI replicas becomes the System, its runtime truth, or its failover/coordination layer.
+- `M6.12` deliver Settings as the sixth core workspace at `/settings`, project every pane from its canonical owner, persist preferences through daemon/Agentgres optimistic revision checks, and keep transient UI state local.
+- `M6.13` delete legacy route handlers and return the typed `410` retirement refusal; contextual route resolution must never become compatibility aliasing.
+- Own `sdk-cli-adk-odk-builder-journey` for supported interface and maturity-labeled builder parity; the docs module supplies runnable documentation but does not become a second sequence.
+- Require the existing M6 aggregate to join the builder record; runnable interface evidence does not grant client-side authority.
+- Own the operational-journey records for Home, Systems, Projects, Applications, Work, Automations, Packages, and Developer Workspace, whose selected backend prerequisites are M1–M5, and join those eight records in the aggregate; pull all five core workspaces, twelve owner applications, two substrate applications, conditional Embodied Systems registration, and extension/tool projections.
+
+## Out of scope
+
+- Operational depth for any registered surface beyond this stage's own journeys; that belongs to the later-stage owner record and aggregate named in the approved work-item map.
+- Local ontology and action semantics (M7); the terminal internal/external product journeys that close the P1–P3 claim levels (M9); the Operations operational journey (M10); and live Embodied Systems depth (M11) — M6 carries conditional Embodied Systems *registration* only.
+- Backend read models themselves — M1–M5 own them, M6 projects them; and making Marketplace mandatory or letting commerce gate local package lifecycle.
+- Treating route, registry, screenshot, seed, or pixel parity as product membership or as depth.
+- Creating or editing a record here does not implement behavior, activate work, close a literal exit, or change a stage.
+
+## Work items
+
+| `m6-hypervisor-claim-bundle-control-surface` | implementation_cut | Project Workstation, Infrastructure, Autonomous Systems, and conditional HypervisorOS through canonical registrations and honest states. |
+
+| Work item id | Role | What it owns |
+| --- | --- | --- |
+| `m6-product-surface-and-typed-workspaces` | **aggregate_exit** | Stage aggregate over the seventeen children; `M6_PRODUCT_SURFACE_AND_TYPED_WORKSPACES_EXIT=0` |
+| `m6-surface-compiler-and-source-convergence` | implementation_cut | Compiler + captured-to-source serve migration; `M6_SURFACE_COMPILER_SOURCE_CONVERGENCE_EXIT=0` |
+| `m6-systems-work-projection-and-mission-alias-migration` | implementation_cut | Typed projection/context contracts + Mission route/alias migration; `M6_SYSTEMS_WORK_PROJECTION_ALIAS_EXIT=0` |
+| `m6-catalog-route-alias-migration-accessibility` | implementation_cut | Stable historical id: canonical-route/context-resolver cutover plus desktop/narrow/embed/keyboard/focus/screen-reader migration; no compatibility aliases; `M6_CATALOG_ROUTE_ALIAS_ACCESSIBILITY_EXIT=0` |
+| `m6-consequential-action-authority-receipt-unification` | implementation_cut | Route-complete migration/equivalence plan; `M6_ACTION_AUTHORITY_RECEIPT_UNIFICATION_EXIT=0`; carries `PG-2.2` |
+| `m6-production-truth-fallback-retirement` | implementation_cut | Per-endpoint fixture-fallback retirement and daemon-loss runner; `M6_PRODUCTION_TRUTH_FALLBACK_RETIREMENT_EXIT=0` |
+| `m6-reference-shell-disposition-and-depth-ledger` | implementation_cut | Generated current-source disposition/depth ledger; `M6_REFERENCE_SHELL_DEPTH_LEDGER_EXIT=0` |
+| `m6-home-workspace-operational-journey` | implementation_cut | Home empty/active/denied/degraded/recovery journey; `M6_HOME_WORKSPACE_JOURNEY_EXIT=0` |
+| `m6-settings-workspace-operational-journey` | implementation_cut | Settings owner-backed panes, durable preferences, optimistic conflicts, receipts, local-state nonclaim, and cutover; `M6_SETTINGS_WORKSPACE_JOURNEY_EXIT=0` |
+| `m6-systems-workspace-operational-journey` | implementation_cut | Systems list/detail/propose/recover journey; `M6_SYSTEMS_WORKSPACE_JOURNEY_EXIT=0` |
+| `m6-projects-workspace-operational-journey` | implementation_cut | Projects discover/select/create/fail/cleanup journey; `M6_PROJECTS_WORKSPACE_JOURNEY_EXIT=0` |
+| `m6-applications-workspace-operational-journey` | implementation_cut | Catalog/search/detail/open/unavailable/alias journey; `M6_APPLICATIONS_WORKSPACE_JOURNEY_EXIT=0` |
+| `m6-work-workspace-operational-journey` | implementation_cut | Work list/detail/cancel/archive/recover/proof journey and Mission migration; `M6_WORK_WORKSPACE_JOURNEY_EXIT=0` |
+| `m6-automations-operational-journey` | implementation_cut | Create/edit/run/pause/cancel/recover/monitor journey; `M6_AUTOMATIONS_OPERATIONAL_JOURNEY_EXIT=0` |
+| `m6-packages-operational-journey` | implementation_cut | Browse/inspect/admit/install/publish/rollback journey with Marketplace mode; `M6_PACKAGES_OPERATIONAL_JOURNEY_EXIT=0` |
+| `m6-developer-workspace-operational-journey` | implementation_cut | Open repo→session/work→edit/run/cancel/recover journey and Workbench alias migration; `M6_DEVELOPER_WORKSPACE_JOURNEY_EXIT=0` |
+| `sdk-cli-adk-odk-builder-journey` | implementation_cut | Runnable builder/docs parity plan; `BUILDER_INTERFACE_JOURNEY_EXIT=0`; carries `PG-1.2` |
+| `m6-owner-application-registration-and-shell-state-coverage` | private_verifier | Honest shell-state and ownership map; `M6_APPLICATION_REGISTRATION_SHELL_STATE_EXIT=0` |
+
+## Code surfaces likely affected
+
+- `apps/hypervisor/src/data/productSurface.ts`, `apps/hypervisor/src/shell/`, and `apps/hypervisor/src/surfaces/` — source-owned compiler client, shell, shared states, and operational journeys
+- `apps/hypervisor/scripts/test-product-surface-contract.mjs` and `apps/hypervisor/scripts/check-source-neutral.mjs`
+- `crates/node/src/bin/hypervisor_daemon_routes/hypervisor_core_taxonomy.json` and `lifecycle_routes.rs` — v2 taxonomy, product compiler, preferences, collections, and typed retirement refusals
+- `crates/node/src/` (daemon admission and route family), `crates/api/src/`, `crates/types/src/`, `crates/types/src/app/generated/architecture_contracts.rs`, `packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts`
+- `docs/architecture/_meta/schemas/architecture-contract-registry.v1.json`, plus surface/work-projection schema and fixture files under `docs/architecture/_meta/schemas/` (to be created)
+- `scripts/check-architecture-contracts.mjs`, `scripts/generate-architecture-contracts.mjs`, `scripts/conformance/hypervisor-conformance.mjs`, plus per-child private verifiers under `apps/hypervisor/scripts/` (to be created)
+
+## Focused checks during development
+
+- `npm run check:architecture-contract-bar` — registry generation, `npm run check:architecture-contracts`, projection tests, docs integrity, Rust contract tests
+- `npm run hypervisor-conformance:app` and `npm run hypervisor-conformance:negative`
+- `node apps/hypervisor/scripts/build-app-parity-matrix.mjs` and `node apps/hypervisor/scripts/build-operational-depth-atlas.mjs` (audit-evidence regeneration, never a depth claim)
+- `npm run check:work-items`, `npm run check:architecture-docs`, `npm run check:pre-next-leg`
+
+## Exit proof
+
+Bound to the aggregate work item `m6-product-surface-and-typed-workspaces` (`sequence.v1.json`
+`exit_gate.kind: aggregate_exit`). The stage may be declared complete only when all of the following
+hold and retained evidence contains exactly one literal `M6_PRODUCT_SURFACE_AND_TYPED_WORKSPACES_EXIT=0`:
+
+- shell, catalog, command palette, contextual launch, and API projections compile from one registered source;
+- no draft, recalled, disabled, unavailable, foreign-tenant, or unbound surface becomes launchable;
+- every tool has one owner breadcrumb;
+- no surface is promoted by screenshot, capture, pixel parity, or copied taxonomy;
+- Systems and Work expose honest empty, denied, unavailable, degraded, recovery, and completed states;
+- product-usability thresholds in the selected cohort are frozen and met;
+- separate bounded records close for the normalized compiler; source/serve convergence; production fixture-fallback retirement; shell/alias migration and accessibility; Systems and Work; consequential-action authority/receipt convergence; current-source surface disposition; and honest registration/routing/loading/empty/denied/unavailable/degraded states for every pulled core/owner/substrate surface;
+- a closed projection maps each admitted surface to the exact later-stage operational-journey owner listed in the approved work-item map.
+
+## Blocks advancement
+
+- The M5 aggregate `m5-selected-profile-exit-proof` and the verifier `m5-p0-readiness-verifier` are unmet, or the cross-stage dependencies `m0-canon-owner-coverage-and-orphan-verifier` (M0), `project-discovery-startup-and-session-chain` (M2), and `m3-direct-path-and-exit-proof` (M3) are unmet.
+- Any of the seventeen children is not `verified`; every child disposition is `unconditional_active`, so none may be waived.
+- `PG-1.2` (builder journey) or `PG-2.2` (consequential-action authority) is unmapped or unmet, or any canon gap below remains unresolved by its named owner, since R-CONTRACT cannot bind an unregistered contract family.
+- Frozen metric thresholds are breached: nonzero unauthorized/wrong-final-invoker calls, nonzero duplicate or status-inferred effects, nonzero unresolved owner/dependency mappings, or any consequential product control lacking owner, final-invoker, authority, receipt, and negative-path disposition.
+
+## Nonclaims
+
+- Operational depth for every registered surface. Route presence, registration, reference capture, pixel parity, or an M6 shell-state exit cannot establish operational depth; it is proved only by the applicable later-stage owner record and aggregate.
+- Screenshot or registry parity does not establish product membership; no operational-depth claim is made for unbuilt owners, and no stage closes by declaration.
+- Neither one UI instance nor multiple UI replicas becomes the System, its runtime truth, or its failover/coordination layer.
+- Runnable builder/interface evidence does not grant client-side authority, and runnable documentation does not become a second sequence.
+
+## Canon-gap disposition
+
+- ADR 0028 settles Settings placement, routes, pane ownership, durable/local state, compiler authority, capability-depth ownership, canonical-context resolution, typed retirement refusals, query bounds, notifications/timers, canvas layout, source-app authority, and the program ownership of `UX-00`, cohorts, thresholds, and surface-to-journey bindings.
+- The six normalized surface families are registered with positive and negative fixtures and generated TypeScript/Rust projections. Work subject/facet families remain with their already named typed-domain owners and are not duplicated by this reconciliation.
+- `UX-00`, cohort selection, and usability thresholds are program/evidence controls, not missing architecture objects. They must be frozen in the applicable work-item evidence before observation.
+- `docs/architecture/_meta/public-web-estate.md` exists and is mapped by the source-of-truth map; its prior missing-file finding is stale.

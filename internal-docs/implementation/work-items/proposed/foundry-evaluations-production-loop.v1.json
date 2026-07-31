@@ -1,0 +1,446 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "foundry-evaluations-production-loop",
+  "stage_id": "M8",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Approved plan-level gap closure: foundry-evaluations-production-loop"
+  ],
+  "status": "proposed",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Real job/evaluation/promotion loop; FOUNDRY_EVALUATIONS_PRODUCTION_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if Training/evaluation leakage, mutable epoch, non-independent judgment, promotion without bundle.",
+  "selected_profile": "One enterprise-owned learning boundary, provider-exit trial, and finite order-zero improvement Campaign.",
+  "canon_owners": [
+    "docs/architecture/components/daemon-runtime/improvement-governance-gates.md",
+    "docs/architecture/components/daemon-runtime/portable-memory-vault.md",
+    "docs/architecture/components/hypervisor/evaluations.md",
+    "docs/architecture/components/hypervisor/foundry.md",
+    "docs/architecture/components/hypervisor/improvement.md",
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    "docs/architecture/foundations/bounded-recursive-improvement.md",
+    "docs/architecture/foundations/institutional-learning-boundary.md",
+    "docs/architecture/foundations/objects/bounded-improvement.md",
+    "docs/architecture/foundations/objects/collaborative-pursuit.md",
+    "docs/architecture/foundations/objects/institutional-learning.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "c2dd57050c543f22f14b006b502df57415713c27",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "20376767e6d04bbcac65195a46a95beb3e691fe6249793dcec73b432b4e94ee5",
+    "owners": [
+      {
+        "path": "docs/architecture/components/daemon-runtime/improvement-governance-gates.md",
+        "sha256": "a071c4b314ffabb6041c1d494710732c9e2d42da1d09b8e1fd3b2b89319c526c"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/portable-memory-vault.md",
+        "sha256": "5f6ada9a0cf0286370ec2e3b2d2e5220681f582548dd7708823be13adcc8b9f5"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/evaluations.md",
+        "sha256": "f6d309aefe1302c9acb79a2862754a4f3cdc31a1f371a879af4068c148c0299e"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/foundry.md",
+        "sha256": "fc2d43821b7ec0cdfad79f4bafa9415679be1f81b67cd766686791b3c1c7a549"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/improvement.md",
+        "sha256": "042d0cdfab7bbc05c785728f5cd6ba9d5b81d6ab86877a4163c1b74d05e903d3"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "sha256": "b74d82cbea0a03b96ce5f52c1d1da998451121ea480d7ee797846cc40109204d"
+      },
+      {
+        "path": "docs/architecture/foundations/bounded-recursive-improvement.md",
+        "sha256": "b8ce77f010f6aebbf7e4282522257dd3a93c8a8bf92fa0fe4f927916b9b04966"
+      },
+      {
+        "path": "docs/architecture/foundations/institutional-learning-boundary.md",
+        "sha256": "b2b2980b017c3259e616470044179c60878947aad9bc4d3427f8e4b7f5fa3d3c"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/bounded-improvement.md",
+        "sha256": "0dff454af6e42083e4e267995200ce6fcc523af6086891869a6e2e7dbf7c059c"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+        "sha256": "7ca2e2b3b73f50c6e89db9bb98bcfc794a4fabda782dd1bb42a5723beb844893"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/institutional-learning.md",
+        "sha256": "d4d2b4f4441c208ca89fe8c2b6f00dc976bb5e593f0b38eda3af18f24b4176bf"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "FoundryJobRequest",
+      "owner_path": "docs/architecture/components/hypervisor/foundry.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "FoundryTrial",
+      "owner_path": "docs/architecture/components/hypervisor/foundry.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "FoundryCheckpointArtifact",
+      "owner_path": "docs/architecture/components/hypervisor/foundry.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "FoundryExecutableEvalSuite",
+      "owner_path": "docs/architecture/components/hypervisor/foundry.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "FoundryEvalWorld",
+      "owner_path": "docs/architecture/components/hypervisor/foundry.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "FoundryEvalTrajectoryRun",
+      "owner_path": "docs/architecture/components/hypervisor/foundry.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "FoundryTrajectoryScorecard",
+      "owner_path": "docs/architecture/components/hypervisor/foundry.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "FoundryPromotionBundle",
+      "owner_path": "docs/architecture/components/hypervisor/foundry.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "EvaluationEpochEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/bounded-improvement.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/hypervisor/evaluations.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "EvaluationExposureLedgerEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/bounded-improvement.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/hypervisor/evaluations.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "VerifierChallenge",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "docs/architecture/components/hypervisor/evaluations.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "Finding",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "docs/architecture/components/hypervisor/evaluations.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "InstitutionalLearningBoundaryProfileEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/institutional-learning.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/institutional-learning-boundary.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:foundry-evaluations-production-loop",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/foundry-evaluations-production-loop.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:FOUNDRY_EVALUATIONS_PRODUCTION_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:EvalSuite",
+      "artifact_class": "private_evaluation_suite_definition_gap",
+      "candidate_name": "EvalSuite",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:EvalRun",
+      "artifact_class": "private_evaluation_run_definition_gap",
+      "candidate_name": "EvalRun",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "pending-contract-definition:FoundrySpec",
+      "artifact_class": "private_pending_contract_definition_gap",
+      "candidate_name": "FoundrySpec",
+      "decision_owner": "docs/architecture/_meta/source-of-truth-map.md",
+      "required_exit": "FOUNDRY_SPEC_CONTRACT_RECONCILIATION_EXIT=0",
+      "reason": "Common-object and Foundry field shapes require an owner reconciliation before implementation admission.",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "pending-contract-definition:FoundryRunPlan",
+      "artifact_class": "private_pending_contract_definition_gap",
+      "candidate_name": "FoundryRunPlan",
+      "decision_owner": "docs/architecture/_meta/source-of-truth-map.md",
+      "required_exit": "FOUNDRY_RUN_PLAN_CONTRACT_RECONCILIATION_EXIT=0",
+      "reason": "Common-object and Foundry field shapes require an owner reconciliation before implementation admission.",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "m7-semantic-definition-action-plane",
+    "m8-learning-custody-memory-and-provider-rights"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`FOUNDRY`, `EVALUATIONS`, `LEARNING`, `IMPROVEMENT`; training/tuning/evaluation run (exact type pending owner definition)/judgment/scorecard/exposure/artifact/promotion bundle",
+    "Real job/evaluation/promotion loop; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Training/evaluation leakage, mutable epoch, non-independent judgment, promotion without bundle",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `FOUNDRY`, `EVALUATIONS`, `LEARNING`, `IMPROVEMENT`; training/tuning/evaluation run (exact type pending owner definition)/judgment/scorecard/exposure/artifact/promotion bundle.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Real job/evaluation/promotion loop; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Training/evaluation leakage, mutable epoch, non-independent judgment, promotion without bundle.",
+    "Retain an evidence index and require the exact content-bound FOUNDRY_EVALUATIONS_PRODUCTION_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "learning egress, Foundry run, or target-owner promotion proposal",
+      "final_invoker": "egress PEP, Foundry executor, or ordinary target-owner governance invoker",
+      "authority_source": "source/route rights plus local/domain policy and applicable authority",
+      "receipt_or_evidence": "egress/run/proposal receipt; no self-promotion receipt",
+      "negative_behavior": "deny forbidden route, mutable epoch, evaluator conflict, exhausted budget, or unowned promotion"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded foundry-evaluations-production-loop journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to FOUNDRY_EVALUATIONS_PRODUCTION_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for Training/evaluation leakage, mutable epoch, non-independent judgment, promotion without bundle; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for foundry-evaluations-production-loop; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Training/evaluation leakage, mutable epoch, non-independent judgment, promotion without bundle; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact FOUNDRY_EVALUATIONS_PRODUCTION_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m8.self_promotion_or_mutable_evaluation_effects",
+      "metric": "self-promotion or mutable-evaluation effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "M8 learning and improvement floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "FOUNDRY_EVALUATIONS_PRODUCTION_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M8/foundry-evaluations-production-loop.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Training/evaluation leakage, mutable epoch, non-independent judgment, promotion without bundle. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Real job/evaluation/promotion loop; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal FOUNDRY_EVALUATIONS_PRODUCTION_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": "2026-07-22"
+}

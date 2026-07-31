@@ -1,0 +1,468 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "sdk-cli-adk-odk-builder-journey",
+  "stage_id": "M6",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Approved plan-level gap closure: sdk-cli-adk-odk-builder-journey"
+  ],
+  "status": "proposed",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Runnable builder/docs parity plan; BUILDER_INTERFACE_JOURNEY_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if Stale snippets, unsupported maturity claim, client authority, web-only proof.",
+  "selected_profile": "The canonical five-workspace Hypervisor shell and contract-pulled application registration over real M1–M5 reads.",
+  "canon_owners": [
+    "docs/architecture/_meta/current-canon-defaults.md",
+    "docs/architecture/_meta/public-web-estate.md",
+    "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/start-here.md",
+    "docs/architecture/components/connectors-tools/contracts.md",
+    "docs/architecture/components/connectors-tools/doctrine.md",
+    "docs/architecture/components/daemon-runtime/api.md",
+    "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+    "docs/architecture/components/daemon-runtime/doctrine.md",
+    "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/foundations/domain-ontologies-and-data-recipes.md",
+    "docs/decisions/README.md",
+    "docs/architecture/foundations/objects/evidence-and-delivery.md",
+    "docs/decisions/0028-reconcile-hypervisor-product-surface-contracts-and-cutover.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "c2dd57050c543f22f14b006b502df57415713c27",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "6abc31668eb05ec4e598c3d51e249783791c6e61b4cf2af7fb99790e7cd66996",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/current-canon-defaults.md",
+        "sha256": "e2f98681aed05d3b03ce69ef57362f285b23cf2b79dad3ce9d4cef0486940ba1"
+      },
+      {
+        "path": "docs/architecture/_meta/public-web-estate.md",
+        "sha256": "14d9d70df2089f98f9f081bbb66ee7f0695ac0a06ae0dae5ba55ab75e654b353"
+      },
+      {
+        "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+        "sha256": "9470f12113b349df7b23af7443c6696f1f8049df37c29207d5d3683d4af433cf"
+      },
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022"
+      },
+      {
+        "path": "docs/architecture/_meta/start-here.md",
+        "sha256": "6a5cdf8ac430ccaae61b5a36ea8d105a08b5a2f6b5c2f7fa7da3553ddf9a5a32"
+      },
+      {
+        "path": "docs/architecture/components/connectors-tools/contracts.md",
+        "sha256": "2296bc26155d6519cc357b0fcfb718cb58ce1b43052c90e5481d7509c7274b0f"
+      },
+      {
+        "path": "docs/architecture/components/connectors-tools/doctrine.md",
+        "sha256": "28915ebbf084413b6af4a94c014a8f9436e84056c7c1e8be23969b51fb24cd31"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/api.md",
+        "sha256": "cd4e99e3403d69e23024c350e36afb3709ca408ac27bba6a4971ea411459d31d"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+        "sha256": "8922d339c9e492a0e1e8ce657264af2b904a48c771d56f8296902ca8c826299f"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/doctrine.md",
+        "sha256": "27a34c7bcf9035fc13607150cfce10b10a3320eaeba0de6fbbf17b8cb46101b1"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+        "sha256": "92ce02d9c14a0fc5dfdf99b338e94f584d638b6202e9bbdac0227bc3068fab20"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+        "sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "7d567da3bcfd38f990db58a5b8d5b5e3c8b1c678cc8bc5245a512bfc207fbe91"
+      },
+      {
+        "path": "docs/architecture/foundations/domain-ontologies-and-data-recipes.md",
+        "sha256": "f071f53c0654fe1d77966af3df60e0c36d780a58f9941dc2ef13ce4295c25746"
+      },
+      {
+        "path": "docs/decisions/README.md",
+        "sha256": "e7cefeedd7b10226f399446ea3241a1c92b419599dca791a402f02d44a411f9a"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+        "sha256": "fc222a6a52751c148ea82498e19a7d2a98e6c96cbd57bfce308efc1703454bd3"
+      },
+      {
+        "path": "docs/decisions/0028-reconcile-hypervisor-product-surface-contracts-and-cutover.md",
+        "sha256": "220a1eba6cd79012bd3cd01dabcb6d4b5ca66cffabd671b01f8b77c3f931d92f"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "HypervisorApplicationSurfaceRegistration",
+      "owner_path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "schema://ioi/components/hypervisor/application-surface-registration/v1",
+      "contract_ids": [
+        "schema://ioi/components/hypervisor/application-surface-registration/v1"
+      ],
+      "schema_versions": [
+        "ioi.hypervisor.application_surface_registration.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "HypervisorProductSurfaceProjection",
+      "owner_path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "schema://ioi/components/hypervisor/product-surface-projection/v1",
+      "contract_ids": [
+        "schema://ioi/components/hypervisor/product-surface-projection/v1"
+      ],
+      "schema_versions": [
+        "ioi.hypervisor.product_surface_projection.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "HypervisorContextRouteResolver",
+      "owner_path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "RuntimeToolContract",
+      "owner_path": "docs/architecture/components/connectors-tools/contracts.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#runtimetoolcontract",
+      "contract_ids": [
+        "schema://ioi/components/connectors-tools/runtime-tool-contract/v1"
+      ],
+      "schema_versions": [
+        "ioi.components.connectors-tools.runtime-tool-contract.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "HarnessProfile",
+      "owner_path": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AgentHarnessAdapter",
+      "owner_path": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "OntologyActionContractEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/semantic-plane.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/domain-ontologies-and-data-recipes.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ReceiptEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#receiptenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-envelope/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-envelope.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:sdk-cli-adk-odk-builder-journey",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/sdk-cli-adk-odk-builder-journey.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:BUILDER_INTERFACE_JOURNEY_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:BuilderInterfaceSupportMatrix",
+      "artifact_class": "private_builder_interface_support_projection",
+      "candidate_name": "BuilderInterfaceSupportMatrix",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "m5-p0-readiness-verifier",
+    "m6-surface-compiler-and-source-convergence"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`SURFACES`, `DAEMON`, `CONNECTORS`, `SEMANTIC`, `META`; supported App/Web/CLI/headless/SDK/ADK/ODK interface/version/maturity families",
+    "Runnable builder/docs parity plan; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Stale snippets, unsupported maturity claim, client authority, web-only proof",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `SURFACES`, `DAEMON`, `CONNECTORS`, `SEMANTIC`, `META`; supported App/Web/CLI/headless/SDK/ADK/ODK interface/version/maturity families.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Runnable builder/docs parity plan; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Stale snippets, unsupported maturity claim, client authority, web-only proof.",
+    "Retain an evidence index and require the exact content-bound BUILDER_INTERFACE_JOURNEY_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "consequential product control",
+      "final_invoker": "the owning daemon/domain final invoker named by the compiled action descriptor",
+      "authority_source": "local/domain policy and applicable wallet grant or sealed intent",
+      "receipt_or_evidence": "owner operation plus effect ReceiptEnvelope",
+      "negative_behavior": "disabled/denied/unavailable state and zero invoker calls; no fixture fallback"
+    }
+  ],
+  "applicable_pg_ids": [
+    "PG-1.2"
+  ],
+  "pg_gate_states": [
+    {
+      "pg_id": "PG-1.2",
+      "applicability": "required_now",
+      "closure_stage_id": "M6",
+      "profile_selection": "selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    }
+  ],
+  "positive_proof": [
+    "The selected profile completes the bounded sdk-cli-adk-odk-builder-journey journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to BUILDER_INTERFACE_JOURNEY_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for Stale snippets, unsupported maturity claim, client authority, web-only proof; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for sdk-cli-adk-odk-builder-journey; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Stale snippets, unsupported maturity claim, client authority, web-only proof; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact BUILDER_INTERFACE_JOURNEY_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [
+    {
+      "order": 1,
+      "transition_id": "discover_contract",
+      "required_behavior": "The sdk-cli-adk-odk-builder-journey product/operator path exposes discover contract through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 2,
+      "transition_id": "scaffold",
+      "required_behavior": "The sdk-cli-adk-odk-builder-journey product/operator path exposes scaffold through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 3,
+      "transition_id": "validate",
+      "required_behavior": "The sdk-cli-adk-odk-builder-journey product/operator path exposes validate through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 4,
+      "transition_id": "preview",
+      "required_behavior": "The sdk-cli-adk-odk-builder-journey product/operator path exposes preview through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 5,
+      "transition_id": "invoke_through_owner",
+      "required_behavior": "The sdk-cli-adk-odk-builder-journey product/operator path exposes invoke through owner through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 6,
+      "transition_id": "inspect_receipt",
+      "required_behavior": "The sdk-cli-adk-odk-builder-journey product/operator path exposes inspect receipt through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 7,
+      "transition_id": "upgrade_or_rollback",
+      "required_behavior": "The sdk-cli-adk-odk-builder-journey product/operator path exposes upgrade or rollback through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    }
+  ],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m6.consequential_controls_without_owner_authority_receipt_disposition",
+      "metric": "consequential product controls without owner, final-invoker, authority, receipt, and negative-path disposition",
+      "threshold": 0,
+      "unit": "controls",
+      "threshold_source": "M6 product-surface floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "journey.sdk-cli-adk-odk-builder-journey.ordered_transition_coverage",
+      "metric": "ordered product/operator transition coverage for sdk-cli-adk-odk-builder-journey",
+      "threshold": "100_percent_in_declared_order",
+      "unit": "7 declared transitions",
+      "threshold_source": "reviewed action-plan/stage journey mapping",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "BUILDER_INTERFACE_JOURNEY_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M6/sdk-cli-adk-odk-builder-journey.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/scripts/surface-registry.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Stale snippets, unsupported maturity claim, client authority, web-only proof. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Runnable builder/docs parity plan; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal BUILDER_INTERFACE_JOURNEY_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": "2026-07-22"
+}

@@ -1,0 +1,85 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m9-backend-capability-and-coverage-evidence",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "status": "proposed",
+  "objective": "Produce hermetic live/simulated/declared backend discovery, exact supported/unsupported operations, selected identity, current enforcement coverage, and fail-closed drift; M9_BACKEND_CAPABILITY_AND_COVERAGE_EVIDENCE_EXIT=0.",
+  "falsifiable_claim": "A backend name, installed binary, route, or adapter assertion is accepted as live capability or realized enforcement.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/providers-and-environments.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "d881571b91c693a4849571c894c1840e7ad80f761ed7f154cbc2bfbc2434e133",
+    "owners": [
+      {
+        "path": "docs/architecture/components/hypervisor/providers-and-environments.md",
+        "sha256": "cf2f1f6fb8cca834864f50ed3e69b7a6e4376f358bd74dafceacfd2eabbbdad5"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "HypervisorBackendCapabilityDeclaration",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": [
+        "schema://ioi/components/hypervisor/backend-capability-declaration/v1"
+      ]
+    }
+  ],
+  "dependency_work_item_ids": [
+    "enforcement-coverage-evidence-and-binding",
+    "m3-authorized-issuer-and-atomic-authority-consumption"
+  ],
+  "required_work": [
+    "Discover exact operations and bind current evidence to selected backend."
+  ],
+  "in_scope": [
+    "evidence modes",
+    "unsupported refusal",
+    "drift/currentness"
+  ],
+  "out_of_scope": [
+    "general VM UX",
+    "hardware attestation by assertion"
+  ],
+  "implementation_actions": [
+    "Replace compiled availability and free-form backend fallback with evidence-qualified selection."
+  ],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [
+    "PG-4C.1"
+  ],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "Each selected backend executes the exact claimed operation set or returns typed unsupported."
+  ],
+  "adversarial_or_fault_proof": [
+    "Unknown, stale, substituted, declared-only, and simulated-only evidence cannot close a live operation."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "M9_BACKEND_CAPABILITY_AND_COVERAGE_EVIDENCE_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m9-backend-capability-and-coverage-evidence.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    "crates/node/src/bin/hypervisor_daemon_routes/microvm.rs",
+    "scripts/verify-hypervisor-platform-foundation.mjs"
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "Capability evidence is not authority and not workload realization."
+  ],
+  "rollback_or_stop_rule": "Refuse the operation on missing or drifted evidence.",
+  "source_provenance": "Owner-ratified governed-compute restructuring, 2026-07-29."
+}

@@ -1,0 +1,398 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "hypervisoros-ctee-task-capsule-attestation",
+  "stage_id": "FUTURE",
+  "record_role": "conditional_future",
+  "required_work": [
+    "Approved plan-level gap closure: hypervisoros-ctee-task-capsule-attestation"
+  ],
+  "status": "proposed",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Measured-substrate/operator plan; HYPERVISOROS_CTEE_CAPSULE_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if Forged measurement, rollback image, custody escape, expired lease, no hardware claim from simulation.",
+  "selected_profile": "The selected single-node sovereign-local terminal product journey; managed authority is an optional separate overlay.",
+  "canon_owners": [
+    "docs/architecture/components/daemon-runtime/hypervisoros.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
+    "docs/architecture/components/daemon-runtime/private-workspace-ctee.md",
+    "docs/architecture/components/daemon-runtime/runtime-nodes-tee-depin.md",
+    "docs/architecture/components/daemon-runtime/task-capsule-protocol.md",
+    "docs/architecture/components/hypervisor/byo-provider-plane.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
+    "docs/architecture/foundations/security-privacy-policy-invariants.md",
+    "docs/architecture/foundations/verifiable-bounded-agency.md",
+    "docs/architecture/foundations/objects/goal-run-execution.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "2db77b3769c8c5d4fc3110596034f6e4e0483dc12e4e3dc80432fbe9e1ec0143",
+    "owners": [
+      {
+        "path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+        "sha256": "625e3c2b05b890513fa84c4cac55631b378f29203f935c4fde5b7cd3e8f00243"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+        "sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/private-workspace-ctee.md",
+        "sha256": "4eb541c11dea7db68d69e52ddd7dc2f04740fcae71797a68873bc49f3842d879"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/runtime-nodes-tee-depin.md",
+        "sha256": "cdedc5fb481477179cf29b93a0f0a437976f8579774bab22557a106f4a71f35c"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/task-capsule-protocol.md",
+        "sha256": "8181e646dbb5a0f4c0e7647bf51dd0d7781f40171d6f4c5c0e181c0d45308b58"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+        "sha256": "c25f5dc4835d643829e79eb1915c89f4f157dafcee1cb400bfd0a644f2910aa6"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/providers-and-environments.md",
+        "sha256": "cf2f1f6fb8cca834864f50ed3e69b7a6e4376f358bd74dafceacfd2eabbbdad5"
+      },
+      {
+        "path": "docs/architecture/foundations/security-privacy-policy-invariants.md",
+        "sha256": "a6a88ac7cda56eb98482f148e7d95813e3e4c25b415631eb8424aaaf6b329060"
+      },
+      {
+        "path": "docs/architecture/foundations/verifiable-bounded-agency.md",
+        "sha256": "51a657cb3c0547598dc1dafc97341c10bbad45478bcc0da511a3184939ee8ce7"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/goal-run-execution.md",
+        "sha256": "51bdd6e7c0f2fd5aefad2a1c49f7f9d8d1fba7bcb50f4a6a73ed66b9c7dbcad3"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "EnforcementCoverageDeclaration",
+      "owner_path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/hypervisoros.md#node-enforcement-profile",
+      "contract_ids": [
+        "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"
+      ],
+      "schema_versions": [
+        "ioi.components.daemon-runtime.enforcement-coverage-declaration.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "TaskCapsule",
+      "owner_path": "docs/architecture/components/daemon-runtime/task-capsule-protocol.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "HypervisorOSNode",
+      "owner_path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "HypervisorOSBootProfile",
+      "owner_path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "HypervisorOSBootReceipt",
+      "owner_path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "NodeEnforcementProfile",
+      "owner_path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "InformationFlowLabel",
+      "owner_path": "docs/architecture/foundations/objects/goal-run-execution.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/security-privacy-policy-invariants.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#informationflowlabel-and-declassificationapproval",
+      "contract_ids": [
+        "schema://ioi/foundations/information-flow-label/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.information-flow-label.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "TemporalVerificationProfile",
+      "owner_path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:hypervisoros-ctee-task-capsule-attestation",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/hypervisoros-ctee-task-capsule-attestation.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:HYPERVISOROS_CTEE_CAPSULE_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "pending-contract-definition:NodeAttestationEvidence",
+      "artifact_class": "private_pending_contract_definition_gap",
+      "candidate_name": "NodeAttestationEvidence",
+      "decision_owner": "docs/architecture/components/daemon-runtime/runtime-nodes-tee-depin.md",
+      "required_exit": "NODE_ATTESTATION_EVIDENCE_CONTRACT_EXIT=0",
+      "reason": "Attestation assurance is canonical, but this generic candidate has no named object shape.",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "m8-model-supply-route-substitution-and-selected-exit",
+    "hypervisoros-appliance-install-update-recovery"
+  ],
+  "external_gates": [
+    {
+      "gate_id": "applicable-pg-profile-gates",
+      "owner": "internal-docs/implementation/modules/mechanism-gates.md",
+      "activation_condition": "Every applicable gate is selected and evidenced in the owning work-item records; planning creates no closure."
+    }
+  ],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`MEASURED`, `SECURITY`, `ENVIRONMENTS`; image/boot/update/measurement/attestation/custody/capsule/lease/re-attestation",
+    "Measured-substrate/operator plan; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Forged measurement, rollback image, custody escape, expired lease, no hardware claim from simulation",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `MEASURED`, `SECURITY`, `ENVIRONMENTS`; image/boot/update/measurement/attestation/custody/capsule/lease/re-attestation.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Measured-substrate/operator plan; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Forged measurement, rollback image, custody escape, expired lease, no hardware claim from simulation.",
+    "Retain an evidence index and require the exact content-bound HYPERVISOROS_CTEE_CAPSULE_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "selected exact repository or lifecycle effect",
+      "final_invoker": "daemon-recomputed final repository/environment/lifecycle invoker",
+      "authority_source": "sovereign-local exact authority or separately proven managed wallet grant",
+      "receipt_or_evidence": "effect-bound ReceiptEnvelope and offline proof index",
+      "negative_behavior": "zero invoker calls for substitution, expiry, revocation, deposed writer, stale head, or unknown completion"
+    }
+  ],
+  "applicable_pg_ids": [
+    "PG-6C.1",
+    "PG-6C.2",
+    "PG-6C.3"
+  ],
+  "pg_gate_states": [
+    {
+      "pg_id": "PG-6C.1",
+      "applicability": "conditional",
+      "closure_stage_id": "FUTURE",
+      "profile_selection": "not_selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    },
+    {
+      "pg_id": "PG-6C.2",
+      "applicability": "conditional",
+      "closure_stage_id": "FUTURE",
+      "profile_selection": "not_selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    },
+    {
+      "pg_id": "PG-6C.3",
+      "applicability": "conditional",
+      "closure_stage_id": "FUTURE",
+      "profile_selection": "not_selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    }
+  ],
+  "positive_proof": [
+    "The selected profile completes the bounded hypervisoros-ctee-task-capsule-attestation journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to HYPERVISOROS_CTEE_CAPSULE_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for Forged measurement, rollback image, custody escape, expired lease, no hardware claim from simulation; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for hypervisoros-ctee-task-capsule-attestation; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Forged measurement, rollback image, custody escape, expired lease, no hardware claim from simulation; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact HYPERVISOROS_CTEE_CAPSULE_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m9.fixture_or_projection_substituted_terminal_successes",
+      "metric": "fixture, shell, or projection states substituted for terminal owner success",
+      "threshold": 0,
+      "unit": "success claims",
+      "threshold_source": "M9 terminal-product floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "HYPERVISOROS_CTEE_CAPSULE_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/hypervisoros-ctee-task-capsule-attestation.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/src/main.tsx",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Forged measurement, rollback image, custody escape, expired lease, no hardware claim from simulation. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Measured-substrate/operator plan; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal HYPERVISOROS_CTEE_CAPSULE_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": "2026-07-22"
+}

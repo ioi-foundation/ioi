@@ -1,0 +1,241 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-closure-successor-aggregate",
+  "stage_id": "M9",
+  "record_role": "aggregate_exit",
+  "required_work": [
+    "Join the successor proofs owed against the verified M0 closures that open holds qualify, and be the single successor reference those holds resolve to."
+  ],
+  "status": "evidence_ready",
+  "objective": "Be the one record an open canon-acceptance hold can point at, and join the subordinate successor proofs beneath it without ever collapsing them. Sixteen holds qualify twenty-three verified closures as verified_historical_with_open_successor, and the hold model could name only ONE successor per hold — so a hold whose predecessors need several distinct proofs had no way to say so, and the only two shapes available were a duplicated hold or a collapsed proof contract. Both are refused. This aggregate names the subordinate proofs, declares which qualified predecessor each one re-proves, declares the one predecessor it re-proves DIRECTLY rather than through a subordinate beneath it, names anything still owed, and derives no child's status from itself. M0_CLOSURE_SUCCESSOR_AGGREGATE_EXIT=0.",
+  "falsifiable_claim": "Every verified closure qualified by osh-0001 is covered by exactly one named subordinate successor or is enumerated as outstanding, no subordinate is named here that is not joined as a child, and this aggregate cannot be closed while any subordinate is unproven or any qualified predecessor is uncovered.",
+  "selected_profile": "The verified M0 closures that open canon-acceptance holds qualify, and the successor proofs owed against them.",
+  "canon_owners": [
+    "docs/architecture/_meta/current-canon-defaults.md",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/start-here.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "84072fe741f152b8bd129b138547fee10b8252937a7e4d88c1c9f567806e9314",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/current-canon-defaults.md",
+        "sha256": "8ca50a056184538edd8a00ed4fbc251ff2afe1a1cbeb840fc2535eb962254e53"
+      },
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "8a8e48f7685046e0f66ccff127559c53182e92d18bb2d45df49ec930120ba60d"
+      },
+      {
+        "path": "docs/architecture/_meta/start-here.md",
+        "sha256": "0503f14fe8de1627e0d9d2a8aa0733550e72e58aabc69ef5c9f878c9cac22c9d"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m0-closure-successor-aggregate",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m0-closure-successor-aggregate.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "open-successor-hold-ledger",
+      "artifact_class": "private_append_only_hold_ledger",
+      "path": "internal-docs/implementation/_archive/holds/open-successor-holds.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": [
+    "THE HOLD MODEL WAS CORRECTED, NOT DUPLICATED AND NOT COLLAPSED. required_successor could name exactly one work item. osh-0001 qualifies seven verified closures needing distinct proofs, so the singular field forced a choice between opening a second hold for the same disposition, which would double-count the requirement, and merging two proof contracts into one, which would mean neither is proven on its own terms. A successor_graph block was added instead: it names the aggregate root, the subordinate proofs with the qualified predecessor each re-proves, and the predecessors still outstanding. Hold count for this ruling is UNCHANGED at sixteen.",
+    "THE GRAPH IS ENFORCED, NOT ASSERTED. tools/check-open-successor-holds.mjs refuses a graph whose root disagrees with required_successor.work_item_id, a subordinate that is not a real record, a subordinate the aggregate does not actually join as a child, a qualified predecessor with no disposition in the graph, and a discharge attempted while any subordinate is unproven or any predecessor is outstanding. A hold cannot be closed by pointing at an aggregate that has not joined its own subordinates.",
+    "ORDERED LAST BY THE OWNER. An aggregate written before its subordinates is a promise; written after them it is an enumeration. Every subordinate named here existed before this record was authored.",
+    "DEMONSTRATION PENDING. This aggregate is proposed, every subordinate is proposed, and the `verified` transition that would discharge any hold is a HELD ACTION. All sixteen holds remain OPEN and the audit remains red on them.",
+    "THE GRAPH IS NOW COMPLETE, AND COMPLETE IS NOT DISCHARGED. On 2026-07-29 the owner ordered the two remaining subordinates — m0-literal-exit-evidence-contract-successor and m0-work-item-contract-completeness-and-owner-lint-successor — and ruled that m0-program-control-selected-profile-exit-proof maps DIRECTLY to this aggregate with no aggregate beneath the aggregate. All seven closures osh-0001 qualifies are now covered and outstanding_predecessors is empty. Every subordinate is proposed, this aggregate is proposed, and the `verified` transition is a HELD ACTION.",
+    "DIRECT RE-PROOF IS ENFORCED, NOT ASSERTED. The successor-graph model gained a third list, directly_re_proven_by_aggregate, because expressing a direct re-proof as a subordinate would have forced this record to join ITSELF as its own child. tools/check-open-successor-holds.mjs refuses a direct entry that names a closure the hold does not qualify, one with no stated reason, and one this record does not itself declare in directly_re_proves — so the claim lives where the proof will, not only in the ledger.",
+    "THREE HOLDS NOW RESOLVE TO THIS RECORD. osh-0001 by graph, and osh-0007 and osh-0010 by direct re-proof of the same predecessor over two artifacts of the same generated set. osh-0008 also binds here by derivation: manifest.json is the integrity lock OVER the other eight generated artifacts, whose successors are apportioned across four different records, and this aggregate is the only record that joins them."
+  ],
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "aggregate_child_ids": [
+    "m0-canonical-enum-member-census-successor",
+    "m0-canonical-estate-and-baseline-binding-successor",
+    "m0-literal-exit-evidence-contract-successor",
+    "m0-selected-profile-baseline-and-claim-lock-successor",
+    "m0-source-disposition-and-single-sequencer-successor",
+    "m0-unsigned-review-anchor-successor",
+    "m0-work-item-contract-completeness-and-owner-lint-successor",
+    "route-final-invoker-census-corrective-successor"
+  ],
+  "aggregate_child_dispositions": [
+    {
+      "work_item_id": "m0-canonical-estate-and-baseline-binding-successor",
+      "disposition": "subordinate_successor_named",
+      "re_proves_predecessor": "m0-canon-owner-coverage-and-orphan-verifier",
+      "why": "Canon-owner coverage and orphan detection are only as honest as the subject universe they run over. This subordinate re-grounds that universe on an exact git tree plus an explicit overlay manifest, and classifies the 220 subjects the predecessor's universe absorbed from the ambient filesystem."
+    },
+    {
+      "work_item_id": "m0-source-disposition-and-single-sequencer-successor",
+      "disposition": "subordinate_successor_named",
+      "re_proves_predecessor": "m0-source-disposition-and-single-sequencer-verifier",
+      "why": "The ledger's population moved 121 to 123 and three canonical-owner digests moved. This subordinate enumerates and attributes every difference and freezes both inputs."
+    },
+    {
+      "work_item_id": "m0-canonical-enum-member-census-successor",
+      "disposition": "subordinate_successor_named",
+      "re_proves_predecessor": "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+      "why": "The census no longer reproduces, and part of the difference is a real coverage change hiding behind unchanged headline totals. This subordinate types the difference so a locator move can never be reported as coverage."
+    },
+    {
+      "work_item_id": "m0-selected-profile-baseline-and-claim-lock-successor",
+      "disposition": "subordinate_successor_named",
+      "re_proves_predecessor": "m0-selected-profile-baseline-evidence-and-claim-lock",
+      "why": "All four lock sources moved. This subordinate re-derives the lock from current evidence and proves the re-derivation moves no threshold, no nonclaim, and no claim."
+    },
+    {
+      "work_item_id": "m0-unsigned-review-anchor-successor",
+      "disposition": "subordinate_successor_named",
+      "re_proves_predecessor": "m0-unsigned-review-anchor",
+      "held_by": "osh-0013",
+      "why": "The anchor chain grew and the predecessor's retained log now names a digest the artifact no longer carries. This subordinate re-binds at the head and names the growing-artifact contract defect rather than repeating it."
+    },
+    {
+      "work_item_id": "route-final-invoker-census-corrective-successor",
+      "disposition": "subordinate_successor_named",
+      "re_proves_predecessor": "route-final-invoker-census-successor-after-publication-rebuild",
+      "held_by": "osh-0016",
+      "why": "The corrective successor osh-0016 requires: a machine-only conforming literal log kept separate from narrative, a typed delta over the closed four-kind vocabulary, and a requirement statement that matches reality — zero retirements, one surviving identity whose locator re-bound."
+    },
+    {
+      "work_item_id": "m0-literal-exit-evidence-contract-successor",
+      "disposition": "subordinate_successor_named",
+      "re_proves_predecessor": "m0-literal-exit-evidence-contract",
+      "held_by": [
+        "osh-0001",
+        "osh-0011"
+      ],
+      "why": "The unowned defect beneath the predecessor is FIXED — tools/transition.mjs now asks tools/lib/literal-exit.mjs, so the gate and the bar read one validator. A closed hole is not a reproduced contract, and the subordinate is scoped to the contract: single validator, gate and bar agreeing on a common input set including mutual refusals, and complete by-name reporting of the retained-log population with its shape/binding failure classes."
+    },
+    {
+      "work_item_id": "m0-work-item-contract-completeness-and-owner-lint-successor",
+      "disposition": "subordinate_successor_named",
+      "re_proves_predecessor": "m0-work-item-contract-completeness-and-owner-lint",
+      "held_by": [
+        "osh-0001"
+      ],
+      "why": "The reason this predecessor was outstanding — its checker sitting outside the bar list as a deferred non-bar — was resolved on 2026-07-29 when the owner admitted tools/check-work-item-contract.mjs to BARS in place of the shape bar. That is a bar-list change, and it created a NEW obligation the subordinate owns: proving the swap lost no coverage, including the directory-collision case where the two enumerations order differently."
+    }
+  ],
+  "aggregate_verification_binding": "This aggregate DERIVES NO CHILD'S STATUS and manufactures none. Each subordinate's status is owned by its own status authority. The aggregate may reach verified only when every named subordinate is verified AND the outstanding list below is empty; until then it is unclosable by construction, which is what stops a hold being discharged by an aggregate that joined nothing.",
+  "in_scope": [
+    "Being the single successor reference an open canon-acceptance hold resolves to, so a hold need never be duplicated to express more than one owed proof.",
+    "Naming each subordinate successor with the qualified predecessor it re-proves, so no two proof contracts are collapsed into one.",
+    "Enumerating every qualified predecessor with no subordinate yet, as OUTSTANDING and by name.",
+    "The refusal that makes the graph real: this aggregate cannot close while any subordinate is unproven or any qualified predecessor is uncovered."
+  ],
+  "out_of_scope": [
+    "Proving anything a subordinate proves. Each subordinate proves itself; joining is not proving.",
+    "Adding a child to M0, M1, or M2. Those stages are certified and gain no children; every successor here is a new record on an open stage.",
+    "Re-certifying any stage, or promoting stage state. This aggregate is not a stage exit.",
+    "Rewriting, refreshing, or amending any predecessor closure or its artifacts.",
+    "Discharging any hold. A hold closes when its named successor is ADMITTED, which is a held action."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "outstanding_subordinate_successors": [
+    {
+      "qualified_predecessor": "m0-invariant-registry-census",
+      "held_by": [
+        "osh-0003"
+      ],
+      "state": "authored_elsewhere_not_a_child_here",
+      "why": "invariant-census --check is RED: the retained census does not reproduce and ends at INV-37 while canon carries INV-38.",
+      "note": "m0-invariant-registry-census-successor was AUTHORED on 2026-07-29 by owner order, as a PARTIAL successor ordered under osh-0003. It is deliberately NOT joined here: osh-0001 does not qualify this closure, and osh-0003's successor is deliberately UNNAMED because it qualifies eleven closures of which ten — four M1 and six M2 — are still unmapped."
+    }
+  ],
+  "positive_proof": [
+    "Every qualified predecessor of osh-0001 carries either a named subordinate successor or an outstanding entry; every named subordinate is joined as a child of this record and exists on disk; the hold's successor_graph root equals its required_successor; and the retained literal appears exactly once."
+  ],
+  "adversarial_or_fault_proof": [
+    "Predeclared refusals, enforced by tools/check-open-successor-holds.mjs and self-tested on every run: a successor_graph whose root disagrees with required_successor.work_item_id; a graph naming a subordinate that is not a real record; a graph naming a subordinate the aggregate record does not join as a child; a qualified predecessor with no disposition in the graph at all; a discharge attempted while a subordinate is unverified; a discharge attempted while any predecessor is still outstanding; and an aggregate that names no children.",
+    "Two retained baselines. First, the model defect: before this correction the ledger could express only one successor per hold, so a hold needing several proofs could be discharged by naming one. Second, the two shapes explicitly refused — a duplicated hold, which would double-count one disposition, and a collapsed proof contract, which would let one proof stand in for two."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "M0_CLOSURE_SUCCESSOR_AGGREGATE_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/_archive/holds/open-successor-holds.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m0-closure-successor-aggregate.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "graph_authored_and_enforced_admission_withheld_under_certification_hold",
+    "historical_status_preserved": true,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "internal-docs/implementation/tools/check-open-successor-holds.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the bar that enforces the corrected graph; its refusals are self-tested on every run and its passing is not the proof carrier"
+    },
+    {
+      "path": "internal-docs/implementation/tools/lib/holds.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the shared hold model the correction extends; presence is not proof of this work item"
+    }
+  ],
+  "evidence_refs": [
+    "internal-docs/implementation/_archive/holds/open-successor-holds.v1.json"
+  ],
+  "remaining_nonclaims": [
+    "Joining is not proving. This aggregate asserts nothing that any subordinate has not proven on its own evidence.",
+    "A complete graph is not a discharged hold. Every hold this aggregate is named on stays OPEN until its successor is admitted, and admission is held.",
+    "Naming three outstanding predecessors is not a plan to close them. It records that they are owed and unwritten.",
+    "This aggregate is not a stage exit. It closes no stage, promotes no stage state, and grants no claim.",
+    "M0, M1, and M2 remain certified and gain no children. Every record joined here is a new record on an open stage."
+  ],
+  "rollback_or_stop_rule": "Stop if the graph can only be completed by collapsing two proof contracts into one subordinate, or by opening a second hold over a disposition that already holds. Both were considered and both are refused: collapsing means neither contract is proven on its own terms, and duplicating means one disposition is counted twice. If the model still cannot express what is owed, correct the model again — never the enumeration.",
+  "exit_criteria": [
+    "Every qualified predecessor carries a named subordinate or an outstanding entry; every named subordinate is verified on its own evidence and joined as a child here; the outstanding list is empty; every predeclared refusal fires by name; and the retained literal appears exactly once.",
+    "Only then may a hold naming this aggregate transition to successor_admitted, and only after the certification hold releases."
+  ],
+  "pr": null,
+  "source_provenance": "Authored 2026-07-29 under an owner-directed repair pass while _archive/holds/certification-hold.v1.json is OPEN, as step 8 and deliberately LAST in the owner's revised M0 order. The owner's instruction was explicit: add two subordinate proofs beneath this aggregate, do not duplicate the hold, do not collapse the two proof contracts, and correct the hold model if it cannot express the graph. The model could not, so it was corrected. Amended 2026-07-29 in the same owner-directed pass: two subordinates joined, the direct re-proof declared and enforced, and outstanding_predecessors emptied.",
+  "last_status_transaction": {
+    "from": "proposed",
+    "to": "evidence_ready",
+    "at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "certification_result_sha256": null,
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  },
+  "directly_re_proves": [
+    "m0-program-control-selected-profile-exit-proof"
+  ],
+  "directly_re_proves_dispositions": [
+    {
+      "predecessor": "m0-program-control-selected-profile-exit-proof",
+      "held_by": [
+        "osh-0001",
+        "osh-0007",
+        "osh-0010"
+      ],
+      "why": "Its retained log pins docs/evidence/m0-program-control/m0-exit-report.json at c8fff04a while the artifact carries c02d040e, and the same generator, scripts/lib/m0-program-control-model.mjs, emits program-control-source.json, held identically by osh-0010. A subordinate for it would have to re-prove the M0 program-control evidence SET — which is exactly what this aggregate joins. The owner ruled it DIRECTLY to the aggregate: no aggregate beneath the aggregate.",
+      "what_the_aggregate_must_therefore_prove": "That the nine artifacts scripts/lib/m0-program-control-model.mjs generates as one set re-derive and re-bind together, and that every retained log pinning one of them names a digest the artifact currently carries — or names, by artifact, why it does not. This is an obligation ON the aggregate, not a claim it already carries."
+    }
+  ]
+}

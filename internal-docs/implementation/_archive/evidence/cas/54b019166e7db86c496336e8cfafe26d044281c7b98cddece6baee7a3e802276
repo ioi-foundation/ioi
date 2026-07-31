@@ -1,0 +1,1453 @@
+{
+  "evidence_format": "ioi.program.state.v1",
+  "projection_role": "Derived session orientation. Not a sequencer and not a status owner.",
+  "generator": {
+    "path": "internal-docs/implementation/tools/generate-now.mjs",
+    "write_command": "node internal-docs/implementation/tools/generate-now.mjs --write",
+    "check_command": "node internal-docs/implementation/tools/generate-now.mjs --check"
+  },
+  "provenance": {
+    "checkout_commit": "3ae3f68102cc03acf9f4975f683a04965943fa98",
+    "checkout_ref": "owner-ratification-authority-and-hypervisor-floor",
+    "master_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "checkout_is_ancestor_of_master": false,
+    "sequence_sha256": "8963d53584bfdcbb79ceb38967208d3242735e22677cca9b3e2789cdd6614404"
+  },
+  "current_stage": "M3",
+  "open_stages": [
+    "M3",
+    "M10"
+  ],
+  "next_cut": {
+    "work_item_id": "m3-goal-kernel-context-and-runtime-truth-spine",
+    "status": "proposed",
+    "status_authority": "private_record",
+    "status_authority_ref": "internal-docs/implementation/work-items/proposed/m3-goal-kernel-context-and-runtime-truth-spine.v1.json",
+    "dependencies_satisfied": true,
+    "record_ref": "internal-docs/implementation/work-items/proposed/m3-goal-kernel-context-and-runtime-truth-spine.v1.json"
+  },
+  "stages": [
+    {
+      "id": "M0",
+      "title": "Program Control And Claim Lock",
+      "depends_on": [],
+      "module": "stages/m0.md",
+      "state": "verified",
+      "state_reason": "aggregate exit record is verified",
+      "record_count": 11,
+      "status_counts": {
+        "verified_historical_with_open_successor": 10,
+        "verified": 1
+      },
+      "held_records": [
+        "m0-adjacent-canon-doc-class-and-placement-disposition",
+        "m0-canon-owner-coverage-and-orphan-verifier",
+        "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+        "m0-invariant-registry-census",
+        "m0-literal-exit-evidence-contract",
+        "m0-program-control-selected-profile-exit-proof",
+        "m0-route-final-invoker-pg-census-maintenance",
+        "m0-selected-profile-baseline-evidence-and-claim-lock",
+        "m0-source-disposition-and-single-sequencer-verifier",
+        "m0-work-item-contract-completeness-and-owner-lint"
+      ],
+      "aggregate_held_by": [
+        "osh-0025",
+        "osh-0030",
+        "osh-0033",
+        "osh-0034",
+        "osh-0047",
+        "osh-0048",
+        "osh-0075"
+      ],
+      "exit_gate": {
+        "aggregate_work_item_id": "m0-program-control-selected-profile-exit-proof",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M1",
+      "title": "Bounded-System Constitutional Core",
+      "depends_on": [
+        "M0"
+      ],
+      "module": "stages/m1.md",
+      "state": "verified",
+      "state_reason": "aggregate exit record is verified",
+      "record_count": 10,
+      "status_counts": {
+        "verified": 6,
+        "verified_historical_with_open_successor": 4
+      },
+      "held_records": [
+        "m1-dual-genesis-and-read-projection",
+        "m1-protected-migration-dissolution-enrollment",
+        "m1-selected-profile-exit-proof",
+        "m1-system-genesis-product-journey"
+      ],
+      "aggregate_held_by": [
+        "osh-0058"
+      ],
+      "exit_gate": {
+        "aggregate_work_item_id": "m1-selected-profile-exit-proof",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M2",
+      "title": "Deployment, Membership, Fencing, And Transition Truth",
+      "depends_on": [
+        "M1"
+      ],
+      "module": "stages/m2.md",
+      "state": "verified",
+      "state_reason": "aggregate exit record is verified",
+      "record_count": 8,
+      "status_counts": {
+        "verified_historical_with_open_successor": 8
+      },
+      "held_records": [
+        "m2-agentgres-replay-recovery-and-product-topology",
+        "m2-membership-readiness-plane",
+        "m2-node-attestation-identity-secret-readiness",
+        "m2-route-restore-activation-cleanup",
+        "m2-selected-profile-exit-proof",
+        "m2-writer-fence-and-lost-suffix",
+        "project-discovery-startup-and-session-chain",
+        "storage-profile-repair-and-availability"
+      ],
+      "aggregate_held_by": [
+        "osh-0055",
+        "osh-0057",
+        "osh-0058"
+      ],
+      "exit_gate": {
+        "aggregate_work_item_id": "m2-selected-profile-exit-proof",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M3",
+      "title": "Generic Pursuit And Result Seam",
+      "depends_on": [
+        "M1",
+        "M2"
+      ],
+      "module": "stages/m3.md",
+      "state": "active",
+      "state_reason": "records have advanced past proposed",
+      "record_count": 11,
+      "status_counts": {
+        "verified_historical_with_open_successor": 2,
+        "proposed": 9
+      },
+      "held_records": [
+        "m3-affected-route-authority-census-and-fence",
+        "m3-authorized-issuer-and-atomic-authority-consumption"
+      ],
+      "aggregate_held_by": [],
+      "exit_gate": {
+        "aggregate_work_item_id": "m3-direct-path-and-exit-proof",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M4",
+      "title": "OutcomeRoom As The Flagship Bounded DAS",
+      "depends_on": [
+        "M3"
+      ],
+      "module": "stages/m4.md",
+      "state": "pending",
+      "state_reason": "every record is still proposed",
+      "record_count": 2,
+      "status_counts": {
+        "proposed": 2
+      },
+      "held_records": [],
+      "aggregate_held_by": [],
+      "exit_gate": {
+        "aggregate_work_item_id": "m4-outcome-room-system-spine",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M5",
+      "title": "Participants, Local Agents, And Shared Frontier",
+      "depends_on": [
+        "M4"
+      ],
+      "module": "stages/m5.md",
+      "state": "pending",
+      "state_reason": "every record is still proposed",
+      "record_count": 7,
+      "status_counts": {
+        "proposed": 7
+      },
+      "held_records": [],
+      "aggregate_held_by": [],
+      "exit_gate": {
+        "aggregate_work_item_id": "m5-selected-profile-exit-proof",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M6",
+      "title": "Honest Product Workspaces And Application Catalog",
+      "depends_on": [
+        "M5"
+      ],
+      "module": "stages/m6.md",
+      "state": "pending",
+      "state_reason": "every record is still proposed",
+      "record_count": 18,
+      "status_counts": {
+        "proposed": 18
+      },
+      "held_records": [],
+      "aggregate_held_by": [],
+      "exit_gate": {
+        "aggregate_work_item_id": "m6-product-surface-and-typed-workspaces",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M7",
+      "title": "Local Ontology And Action Semantics",
+      "depends_on": [
+        "M6"
+      ],
+      "module": "stages/m7.md",
+      "state": "pending",
+      "state_reason": "every record is still proposed",
+      "record_count": 6,
+      "status_counts": {
+        "proposed": 6
+      },
+      "held_records": [],
+      "aggregate_held_by": [],
+      "exit_gate": {
+        "aggregate_work_item_id": "m7-semantic-definition-action-plane",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M8",
+      "title": "Enterprise Learning And Bounded Improvement",
+      "depends_on": [
+        "M7"
+      ],
+      "module": "stages/m8.md",
+      "state": "pending",
+      "state_reason": "every record is still proposed",
+      "record_count": 13,
+      "status_counts": {
+        "proposed": 13
+      },
+      "held_records": [],
+      "aggregate_held_by": [],
+      "exit_gate": {
+        "aggregate_work_item_id": "m8-model-supply-route-substitution-and-selected-exit",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M9",
+      "title": "Single-Node Undeniable Product Proof",
+      "depends_on": [
+        "M8"
+      ],
+      "module": "stages/m9.md",
+      "state": "verified",
+      "state_reason": "aggregate exit record is verified",
+      "record_count": 53,
+      "status_counts": {
+        "verified_historical_with_open_successor": 18,
+        "proposed": 35
+      },
+      "held_records": [
+        "m0-canonical-enum-member-census-successor",
+        "m0-canonical-estate-and-baseline-binding-successor",
+        "m0-closure-successor-aggregate",
+        "m0-invariant-registry-census-successor",
+        "m0-literal-exit-evidence-contract-successor",
+        "m0-overlay-member-custody-and-disposition-successor",
+        "m0-owner-ratification-derived-census-successor",
+        "m0-retired-campaign-claim-successor",
+        "m0-selected-profile-baseline-and-claim-lock-successor",
+        "m0-source-disposition-and-single-sequencer-successor",
+        "m0-unsigned-review-anchor-successor",
+        "m0-work-item-contract-completeness-and-owner-lint-successor",
+        "m2-isolation-containment-enforcement-successor",
+        "m2-provider-isolation-closure-successor-aggregate",
+        "m2-provider-teardown-truth-successor",
+        "route-final-invoker-census-corrective-successor",
+        "route-final-invoker-census-successor-after-publication-rebuild",
+        "scm-publication-effect-and-route-rebuild"
+      ],
+      "aggregate_held_by": [],
+      "exit_gate": {
+        "aggregate_work_item_id": "m9-selected-profile-aggregate-exit-and-claim-publication",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M10",
+      "title": "Two-Failure-Domain Continuity",
+      "depends_on": [
+        "M9"
+      ],
+      "module": "stages/m10.md",
+      "state": "pending",
+      "state_reason": "every record is still proposed",
+      "record_count": 4,
+      "status_counts": {
+        "proposed": 4
+      },
+      "held_records": [],
+      "aggregate_held_by": [],
+      "exit_gate": {
+        "aggregate_work_item_id": "m10-two-failure-domain-continuity",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M11",
+      "title": "Useful Same-System Distributed Work And Embodied Pre-Live Proof",
+      "depends_on": [
+        "M10"
+      ],
+      "module": "stages/m11.md",
+      "state": "pending",
+      "state_reason": "every record is still proposed",
+      "record_count": 6,
+      "status_counts": {
+        "proposed": 6
+      },
+      "held_records": [],
+      "aggregate_held_by": [],
+      "exit_gate": {
+        "aggregate_work_item_id": "m11-selected-profile-exit-proof",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M12",
+      "title": "AIIP Federation Contract",
+      "depends_on": [
+        "M11",
+        "M5",
+        "M7"
+      ],
+      "module": "stages/m12.md",
+      "state": "pending",
+      "state_reason": "every record is still proposed",
+      "record_count": 7,
+      "status_counts": {
+        "proposed": 7
+      },
+      "held_records": [],
+      "aggregate_held_by": [],
+      "exit_gate": {
+        "aggregate_work_item_id": "m12-selected-profile-exit-proof",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M13",
+      "title": "Two-Sovereign Internet-Of-Intelligence Proof",
+      "depends_on": [
+        "M12"
+      ],
+      "module": "stages/m13.md",
+      "state": "pending",
+      "state_reason": "every record is still proposed",
+      "record_count": 4,
+      "status_counts": {
+        "proposed": 4
+      },
+      "held_records": [],
+      "aggregate_held_by": [],
+      "exit_gate": {
+        "aggregate_work_item_id": "m13-selected-profile-aggregate-exit",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "M14",
+      "title": "Connected/Secured Services And Demand-Gated L1",
+      "depends_on": [
+        "M13"
+      ],
+      "module": "stages/m14.md",
+      "state": "pending",
+      "state_reason": "every record is still proposed",
+      "record_count": 8,
+      "status_counts": {
+        "proposed": 8
+      },
+      "held_records": [],
+      "aggregate_held_by": [],
+      "exit_gate": {
+        "aggregate_work_item_id": "m14-selected-profile-aggregate-exit",
+        "kind": "aggregate_exit"
+      }
+    },
+    {
+      "id": "FUTURE",
+      "title": "Conditional Future Work",
+      "depends_on": [],
+      "module": "stages/future.md",
+      "state": "pending",
+      "state_reason": "every record is still proposed",
+      "record_count": 9,
+      "status_counts": {
+        "proposed": 9
+      },
+      "held_records": [],
+      "aggregate_held_by": [],
+      "exit_gate": null
+    }
+  ],
+  "status_authority_divergences": [],
+  "open_successor_holds": {
+    "ledger_ref": "internal-docs/implementation/_archive/holds/open-successor-holds.v1.json",
+    "projection_rule": "A verified record named as a predecessor by an open hold projects as verified_historical_with_open_successor. This projection is not permitted to display it as unqualified verified, and the status_counts above are computed on the projected status for the same reason.",
+    "open_count": 48,
+    "open": [
+      {
+        "hold_id": "osh-0019",
+        "subject": "docs/architecture/components/daemon-runtime/doctrine.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 3,
+        "required_successor": "m9-hypervisor-app-primary-attach-binding-and-retirement",
+        "predecessor_records": [
+          "m0-route-final-invoker-pg-census-maintenance",
+          "project-discovery-startup-and-session-chain"
+        ]
+      },
+      {
+        "hold_id": "osh-0020",
+        "subject": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 3,
+        "required_successor": "m9-hypervisor-app-primary-attach-binding-and-retirement",
+        "predecessor_records": [
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m1-dual-genesis-and-read-projection",
+          "m1-system-genesis-product-journey",
+          "m2-agentgres-replay-recovery-and-product-topology",
+          "project-discovery-startup-and-session-chain",
+          "scm-publication-effect-and-route-rebuild"
+        ]
+      },
+      {
+        "hold_id": "osh-0025",
+        "subject": "docs/decisions/README.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 3,
+        "required_successor": "m9-hypervisor-app-primary-attach-binding-and-retirement",
+        "predecessor_records": [
+          "m0-adjacent-canon-doc-class-and-placement-disposition",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-selected-profile-baseline-and-claim-lock-successor",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-successor",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint"
+        ]
+      },
+      {
+        "hold_id": "osh-0030",
+        "subject": "docs/architecture/_meta/current-canon-defaults.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-canonical-enum-member-census-successor",
+          "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+          "m0-canonical-estate-and-baseline-binding-successor",
+          "m0-closure-successor-aggregate",
+          "m0-invariant-registry-census-successor",
+          "m0-literal-exit-evidence-contract",
+          "m0-literal-exit-evidence-contract-successor",
+          "m0-overlay-member-custody-and-disposition-successor",
+          "m0-owner-ratification-derived-census-successor",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-retired-campaign-claim-successor",
+          "m0-selected-profile-baseline-and-claim-lock-successor",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-successor",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-unsigned-review-anchor-successor",
+          "m0-work-item-contract-completeness-and-owner-lint",
+          "m0-work-item-contract-completeness-and-owner-lint-successor",
+          "m2-provider-isolation-closure-successor-aggregate"
+        ]
+      },
+      {
+        "hold_id": "osh-0031",
+        "subject": "docs/architecture/_meta/execution-horizons.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0032",
+        "subject": "docs/architecture/_meta/implementation-matrix.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0033",
+        "subject": "docs/architecture/_meta/public-web-estate.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-and-claim-lock-successor",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-successor",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint"
+        ]
+      },
+      {
+        "hold_id": "osh-0034",
+        "subject": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-selected-profile-baseline-and-claim-lock-successor",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-successor",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint"
+        ]
+      },
+      {
+        "hold_id": "osh-0035",
+        "subject": "docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/negative-unknown-field.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0036",
+        "subject": "docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/positive-live.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0037",
+        "subject": "docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0038",
+        "subject": "docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0039",
+        "subject": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/negative-missing-cleanup.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0040",
+        "subject": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0041",
+        "subject": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0042",
+        "subject": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0043",
+        "subject": "docs/architecture/_meta/schemas/hypervisor-backend-capability-declaration.v1.schema.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0044",
+        "subject": "docs/architecture/_meta/schemas/hypervisor-virtual-machine-state-payload.v1.schema.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0045",
+        "subject": "docs/architecture/_meta/schemas/hypervisor-workload-isolation-binding.v1.schema.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0046",
+        "subject": "docs/architecture/_meta/schemas/hypervisor-workload-isolation-requirements.v1.schema.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0047",
+        "subject": "docs/architecture/_meta/source-of-truth-map.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m0-adjacent-canon-doc-class-and-placement-disposition",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-canonical-enum-member-census-successor",
+          "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+          "m0-canonical-estate-and-baseline-binding-successor",
+          "m0-closure-successor-aggregate",
+          "m0-invariant-registry-census",
+          "m0-invariant-registry-census-successor",
+          "m0-literal-exit-evidence-contract",
+          "m0-literal-exit-evidence-contract-successor",
+          "m0-overlay-member-custody-and-disposition-successor",
+          "m0-owner-ratification-derived-census-successor",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-retired-campaign-claim-successor",
+          "m0-selected-profile-baseline-and-claim-lock-successor",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-successor",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-unsigned-review-anchor-successor",
+          "m0-work-item-contract-completeness-and-owner-lint",
+          "m0-work-item-contract-completeness-and-owner-lint-successor",
+          "route-final-invoker-census-corrective-successor",
+          "route-final-invoker-census-successor-after-publication-rebuild"
+        ]
+      },
+      {
+        "hold_id": "osh-0048",
+        "subject": "docs/architecture/_meta/start-here.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m0-adjacent-canon-doc-class-and-placement-disposition",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-canonical-estate-and-baseline-binding-successor",
+          "m0-closure-successor-aggregate",
+          "m0-literal-exit-evidence-contract",
+          "m0-overlay-member-custody-and-disposition-successor",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-retired-campaign-claim-successor",
+          "m0-selected-profile-baseline-and-claim-lock-successor",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-successor",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint"
+        ]
+      },
+      {
+        "hold_id": "osh-0049",
+        "subject": "docs/architecture/_meta/vocabulary.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0050",
+        "subject": "docs/architecture/components/daemon-runtime/api.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m0-route-final-invoker-pg-census-maintenance",
+          "project-discovery-startup-and-session-chain",
+          "route-final-invoker-census-corrective-successor",
+          "route-final-invoker-census-successor-after-publication-rebuild"
+        ]
+      },
+      {
+        "hold_id": "osh-0051",
+        "subject": "docs/architecture/components/daemon-runtime/doctrine.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m0-route-final-invoker-pg-census-maintenance",
+          "project-discovery-startup-and-session-chain"
+        ]
+      },
+      {
+        "hold_id": "osh-0052",
+        "subject": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m2-membership-readiness-plane",
+          "m2-node-attestation-identity-secret-readiness",
+          "m2-route-restore-activation-cleanup",
+          "m2-writer-fence-and-lost-suffix"
+        ]
+      },
+      {
+        "hold_id": "osh-0053",
+        "subject": "docs/architecture/components/daemon-runtime/platform-operability.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m2-node-attestation-identity-secret-readiness",
+          "m2-writer-fence-and-lost-suffix",
+          "project-discovery-startup-and-session-chain"
+        ]
+      },
+      {
+        "hold_id": "osh-0054",
+        "subject": "docs/architecture/components/daemon-runtime/runtime-nodes-tee-depin.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m2-membership-readiness-plane",
+          "m2-node-attestation-identity-secret-readiness",
+          "m2-route-restore-activation-cleanup",
+          "m2-writer-fence-and-lost-suffix"
+        ]
+      },
+      {
+        "hold_id": "osh-0055",
+        "subject": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m2-agentgres-replay-recovery-and-product-topology",
+          "m2-isolation-containment-enforcement-successor",
+          "m2-membership-readiness-plane",
+          "m2-provider-isolation-closure-successor-aggregate",
+          "m2-provider-teardown-truth-successor",
+          "m2-route-restore-activation-cleanup",
+          "m2-selected-profile-exit-proof",
+          "m2-writer-fence-and-lost-suffix",
+          "project-discovery-startup-and-session-chain",
+          "storage-profile-repair-and-availability"
+        ]
+      },
+      {
+        "hold_id": "osh-0056",
+        "subject": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m1-dual-genesis-and-read-projection",
+          "m1-system-genesis-product-journey",
+          "m2-agentgres-replay-recovery-and-product-topology",
+          "project-discovery-startup-and-session-chain",
+          "scm-publication-effect-and-route-rebuild"
+        ]
+      },
+      {
+        "hold_id": "osh-0057",
+        "subject": "docs/architecture/components/hypervisor/providers-and-environments.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m2-agentgres-replay-recovery-and-product-topology",
+          "m2-isolation-containment-enforcement-successor",
+          "m2-membership-readiness-plane",
+          "m2-provider-isolation-closure-successor-aggregate",
+          "m2-provider-teardown-truth-successor",
+          "m2-route-restore-activation-cleanup",
+          "m2-selected-profile-exit-proof",
+          "m2-writer-fence-and-lost-suffix",
+          "project-discovery-startup-and-session-chain",
+          "storage-profile-repair-and-availability"
+        ]
+      },
+      {
+        "hold_id": "osh-0058",
+        "subject": "docs/architecture/foundations/invariants.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m0-invariant-registry-census",
+          "m0-invariant-registry-census-successor",
+          "m1-dual-genesis-and-read-projection",
+          "m1-protected-migration-dissolution-enrollment",
+          "m1-selected-profile-exit-proof",
+          "m1-system-genesis-product-journey",
+          "m2-agentgres-replay-recovery-and-product-topology",
+          "m2-isolation-containment-enforcement-successor",
+          "m2-membership-readiness-plane",
+          "m2-node-attestation-identity-secret-readiness",
+          "m2-provider-isolation-closure-successor-aggregate",
+          "m2-route-restore-activation-cleanup",
+          "m2-selected-profile-exit-proof",
+          "m2-writer-fence-and-lost-suffix"
+        ]
+      },
+      {
+        "hold_id": "osh-0059",
+        "subject": "docs/architecture/foundations/objects/work-execution.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0060",
+        "subject": "docs/architecture/foundations/security-privacy-policy-invariants.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m0-invariant-registry-census",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m1-dual-genesis-and-read-projection",
+          "m1-protected-migration-dissolution-enrollment",
+          "m2-node-attestation-identity-secret-readiness",
+          "m3-affected-route-authority-census-and-fence",
+          "m3-authorized-issuer-and-atomic-authority-consumption"
+        ]
+      },
+      {
+        "hold_id": "osh-0061",
+        "subject": "docs/architecture/foundations/term-boundaries.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0062",
+        "subject": "docs/architecture/foundations/web4-and-ioi-stack.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0063",
+        "subject": "docs/architecture/README.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0064",
+        "subject": "docs/architecture/whitepaper.tex",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0065",
+        "subject": "docs/conformance/hypervisor-core/hypervisoros-node-root.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0066",
+        "subject": "docs/conformance/hypervisor-core/infrastructure-profile.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0067",
+        "subject": "docs/conformance/hypervisor-core/sovereign-local-completeness.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0068",
+        "subject": "docs/conformance/hypervisor-core/workrun-isolation-matrix.v1.json",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0069",
+        "subject": "docs/conformance/hypervisor-core/workrun-isolation.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0070",
+        "subject": "docs/conformance/hypervisor-core/workstation-profile.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0071",
+        "subject": "docs/conformance/README.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0073",
+        "subject": "docs/decisions/0026-separate-deployment-resource-relationship-and-autonomy-capabilities.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0074",
+        "subject": "docs/decisions/0027-require-workload-bound-isolation-for-autonomous-execution.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": []
+      },
+      {
+        "hold_id": "osh-0075",
+        "subject": "docs/decisions/README.md",
+        "source_kind": "canon_acceptance_disposition",
+        "acceptance_sequence": 6,
+        "required_successor": "m9-compute-substrate-canon-successor",
+        "predecessor_records": [
+          "m0-adjacent-canon-doc-class-and-placement-disposition",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-selected-profile-baseline-and-claim-lock-successor",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-successor",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint"
+        ]
+      }
+    ],
+    "qualified_records": [
+      {
+        "work_item_id": "m0-adjacent-canon-doc-class-and-placement-disposition",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0025",
+          "osh-0047",
+          "osh-0048",
+          "osh-0075"
+        ]
+      },
+      {
+        "work_item_id": "m0-canon-owner-coverage-and-orphan-verifier",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0025",
+          "osh-0030",
+          "osh-0033",
+          "osh-0034",
+          "osh-0047",
+          "osh-0048",
+          "osh-0075"
+        ]
+      },
+      {
+        "work_item_id": "m0-canonical-enum-member-census-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0030",
+          "osh-0047"
+        ]
+      },
+      {
+        "work_item_id": "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0030",
+          "osh-0047"
+        ]
+      },
+      {
+        "work_item_id": "m0-canonical-estate-and-baseline-binding-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0030",
+          "osh-0047",
+          "osh-0048"
+        ]
+      },
+      {
+        "work_item_id": "m0-closure-successor-aggregate",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0030",
+          "osh-0047",
+          "osh-0048"
+        ]
+      },
+      {
+        "work_item_id": "m0-invariant-registry-census",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0047",
+          "osh-0058",
+          "osh-0060"
+        ]
+      },
+      {
+        "work_item_id": "m0-invariant-registry-census-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0030",
+          "osh-0047",
+          "osh-0058"
+        ]
+      },
+      {
+        "work_item_id": "m0-literal-exit-evidence-contract",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0025",
+          "osh-0030",
+          "osh-0033",
+          "osh-0034",
+          "osh-0047",
+          "osh-0048",
+          "osh-0075"
+        ]
+      },
+      {
+        "work_item_id": "m0-literal-exit-evidence-contract-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0030",
+          "osh-0047"
+        ]
+      },
+      {
+        "work_item_id": "m0-overlay-member-custody-and-disposition-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0030",
+          "osh-0047",
+          "osh-0048"
+        ]
+      },
+      {
+        "work_item_id": "m0-owner-ratification-derived-census-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0030",
+          "osh-0047"
+        ]
+      },
+      {
+        "work_item_id": "m0-program-control-selected-profile-exit-proof",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0025",
+          "osh-0030",
+          "osh-0033",
+          "osh-0034",
+          "osh-0047",
+          "osh-0048",
+          "osh-0075"
+        ]
+      },
+      {
+        "work_item_id": "m0-retired-campaign-claim-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0030",
+          "osh-0047",
+          "osh-0048"
+        ]
+      },
+      {
+        "work_item_id": "m0-route-final-invoker-pg-census-maintenance",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0019",
+          "osh-0020",
+          "osh-0033",
+          "osh-0050",
+          "osh-0051",
+          "osh-0053",
+          "osh-0056",
+          "osh-0060"
+        ]
+      },
+      {
+        "work_item_id": "m0-selected-profile-baseline-and-claim-lock-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0025",
+          "osh-0030",
+          "osh-0033",
+          "osh-0034",
+          "osh-0047",
+          "osh-0048",
+          "osh-0075"
+        ]
+      },
+      {
+        "work_item_id": "m0-selected-profile-baseline-evidence-and-claim-lock",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0025",
+          "osh-0030",
+          "osh-0033",
+          "osh-0034",
+          "osh-0047",
+          "osh-0048",
+          "osh-0075"
+        ]
+      },
+      {
+        "work_item_id": "m0-source-disposition-and-single-sequencer-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0025",
+          "osh-0030",
+          "osh-0033",
+          "osh-0034",
+          "osh-0047",
+          "osh-0048",
+          "osh-0075"
+        ]
+      },
+      {
+        "work_item_id": "m0-source-disposition-and-single-sequencer-verifier",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0025",
+          "osh-0030",
+          "osh-0033",
+          "osh-0034",
+          "osh-0047",
+          "osh-0048",
+          "osh-0075"
+        ]
+      },
+      {
+        "work_item_id": "m0-unsigned-review-anchor-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0030",
+          "osh-0047"
+        ]
+      },
+      {
+        "work_item_id": "m0-work-item-contract-completeness-and-owner-lint",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0025",
+          "osh-0030",
+          "osh-0033",
+          "osh-0034",
+          "osh-0047",
+          "osh-0048",
+          "osh-0075"
+        ]
+      },
+      {
+        "work_item_id": "m0-work-item-contract-completeness-and-owner-lint-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0030",
+          "osh-0047"
+        ]
+      },
+      {
+        "work_item_id": "m1-dual-genesis-and-read-projection",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0020",
+          "osh-0056",
+          "osh-0058",
+          "osh-0060"
+        ]
+      },
+      {
+        "work_item_id": "m1-protected-migration-dissolution-enrollment",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0058",
+          "osh-0060"
+        ]
+      },
+      {
+        "work_item_id": "m1-selected-profile-exit-proof",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0058"
+        ]
+      },
+      {
+        "work_item_id": "m1-system-genesis-product-journey",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0020",
+          "osh-0056",
+          "osh-0058"
+        ]
+      },
+      {
+        "work_item_id": "m2-agentgres-replay-recovery-and-product-topology",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0020",
+          "osh-0055",
+          "osh-0056",
+          "osh-0057",
+          "osh-0058"
+        ]
+      },
+      {
+        "work_item_id": "m2-isolation-containment-enforcement-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0055",
+          "osh-0057",
+          "osh-0058"
+        ]
+      },
+      {
+        "work_item_id": "m2-membership-readiness-plane",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0052",
+          "osh-0054",
+          "osh-0055",
+          "osh-0057",
+          "osh-0058"
+        ]
+      },
+      {
+        "work_item_id": "m2-node-attestation-identity-secret-readiness",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0052",
+          "osh-0053",
+          "osh-0054",
+          "osh-0058",
+          "osh-0060"
+        ]
+      },
+      {
+        "work_item_id": "m2-provider-isolation-closure-successor-aggregate",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0030",
+          "osh-0055",
+          "osh-0057",
+          "osh-0058"
+        ]
+      },
+      {
+        "work_item_id": "m2-provider-teardown-truth-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0055",
+          "osh-0057"
+        ]
+      },
+      {
+        "work_item_id": "m2-route-restore-activation-cleanup",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0052",
+          "osh-0054",
+          "osh-0055",
+          "osh-0057",
+          "osh-0058"
+        ]
+      },
+      {
+        "work_item_id": "m2-selected-profile-exit-proof",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0055",
+          "osh-0057",
+          "osh-0058"
+        ]
+      },
+      {
+        "work_item_id": "m2-writer-fence-and-lost-suffix",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0052",
+          "osh-0053",
+          "osh-0054",
+          "osh-0055",
+          "osh-0057",
+          "osh-0058"
+        ]
+      },
+      {
+        "work_item_id": "m3-affected-route-authority-census-and-fence",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0060"
+        ]
+      },
+      {
+        "work_item_id": "m3-authorized-issuer-and-atomic-authority-consumption",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0060"
+        ]
+      },
+      {
+        "work_item_id": "project-discovery-startup-and-session-chain",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0019",
+          "osh-0020",
+          "osh-0050",
+          "osh-0051",
+          "osh-0053",
+          "osh-0055",
+          "osh-0056",
+          "osh-0057"
+        ]
+      },
+      {
+        "work_item_id": "route-final-invoker-census-corrective-successor",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0047",
+          "osh-0050"
+        ]
+      },
+      {
+        "work_item_id": "route-final-invoker-census-successor-after-publication-rebuild",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0047",
+          "osh-0050"
+        ]
+      },
+      {
+        "work_item_id": "scm-publication-effect-and-route-rebuild",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0020",
+          "osh-0056"
+        ]
+      },
+      {
+        "work_item_id": "storage-profile-repair-and-availability",
+        "status_authority_status": "verified",
+        "projected_status": "verified_historical_with_open_successor",
+        "held_by": [
+          "osh-0055",
+          "osh-0057"
+        ]
+      }
+    ]
+  },
+  "nonclaims": [
+    "This projection changes no status and closes no work item, stage, or gate.",
+    "A stage marked verified here reflects its aggregate record's declared status authority, not an independent proof.",
+    "A record projected as verified_historical_with_open_successor was proven against the canon revision it was proven against; its successor is owed and unwritten. The qualification withholds nothing that was proven and grants nothing that was not.",
+    "Provenance that is not an ancestor of master means this projection is bound to work that has not landed."
+  ]
+}

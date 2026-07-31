@@ -1,0 +1,762 @@
+{
+  "format": "ioi.program.sequence.v1",
+  "role": "Sole sequencing source for the private implementation estate. Owns stage identity, the ordered dependency graph, stage exit gates, reusable-module bindings, mandatory rails, and the release/claim ladder.",
+  "does_not_own": [
+    "architecture doctrine or canonical object meaning (docs/architecture and accepted ADRs own that)",
+    "durable cut status (the owning work-item record owns that)",
+    "current orientation (NOW.md and generated/program-state.v1.json project it)",
+    "proof-gate definitions (modules/mechanism-gates.md owns those)"
+  ],
+  "insertion_rule": "Stage, module, rail, and claim-level identifiers are stable strings. Order is derived by topological sort over depends_on, never by array position or by renumbering. A new stage, substage, obligation, or gate is added by appending one entry and naming its depends_on edges; no existing identifier changes.",
+  "stages": [
+    {
+      "id": "M0",
+      "title": "Program Control And Claim Lock",
+      "canonical_build_step": 0,
+      "depends_on": [],
+      "module": "stages/m0.md",
+      "objective": "Freeze what may be claimed, prove the program-control model, and lock the claim ladder before any product stage advances.",
+      "exit_gate": {
+        "aggregate_work_item_id": "m0-program-control-selected-profile-exit-proof",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "mechanism-gates",
+        "proof-and-evidence",
+        "runtime-trust-boundary"
+      ],
+      "closes_claim_levels": [],
+      "nonclaims": [
+        "Program control is workflow evidence and grants no product authority."
+      ]
+    },
+    {
+      "id": "M1",
+      "title": "Bounded-System Constitutional Core",
+      "canonical_build_step": 1,
+      "depends_on": [
+        "M0"
+      ],
+      "module": "stages/m1.md",
+      "objective": "Let one immutable package instantiate a real bounded System with a protected constitutional and lifecycle identity.",
+      "exit_gate": {
+        "aggregate_work_item_id": "m1-selected-profile-exit-proof",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "mechanism-gates",
+        "proof-and-evidence",
+        "runtime-fabric",
+        "wallet-authority"
+      ],
+      "closes_claim_levels": [],
+      "nonclaims": [
+        "multi-node continuity",
+        "public consensus",
+        "IOI Network assurance",
+        "general correctness"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Deployment, Membership, Fencing, And Transition Truth",
+      "canonical_build_step": 2,
+      "depends_on": [
+        "M1"
+      ],
+      "module": "stages/m2.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m2-selected-profile-exit-proof",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "mechanism-gates",
+        "proof-and-evidence",
+        "runtime-fabric",
+        "wallet-authority"
+      ],
+      "closes_claim_levels": []
+    },
+    {
+      "id": "M3",
+      "title": "Generic Pursuit And Result Seam",
+      "canonical_build_step": 3,
+      "depends_on": [
+        "M1",
+        "M2"
+      ],
+      "module": "stages/m3.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m3-direct-path-and-exit-proof",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "mechanism-gates",
+        "proof-and-evidence",
+        "runtime-fabric",
+        "workload-isolation-and-virtualization"
+      ],
+      "closes_claim_levels": [
+        "P0"
+      ],
+      "differential_lanes": [
+        {
+          "lane_id": "m3-direct-non-system",
+          "title": "Direct non-System M3 entry lane",
+          "bypassed_stage_dependencies": [
+            "M1",
+            "M2"
+          ],
+          "allowed_work_item_ids": [
+            "m3-pursuit-definition-resolution"
+          ],
+          "scope": "Schema admission, executable admission-path selection, and immutable pursuit-definition resolution for one bounded direct non-System GoalRun.",
+          "nonclaims": [
+            "The M3 stage is not open or complete merely because this lane is permitted.",
+            "System-bound GoalRun work still requires current unqualified M1 and M2 exits.",
+            "This lane does not close P0, admit collective pursuit, or satisfy the M3 aggregate exit."
+          ]
+        }
+      ],
+      "notes": "Direct non-System work may proceed on the M3 direct path without a verified M1-M2 System binding; the System-bound path may not."
+    },
+    {
+      "id": "M4",
+      "title": "OutcomeRoom As The Flagship Bounded DAS",
+      "canonical_build_step": 4,
+      "depends_on": [
+        "M3"
+      ],
+      "module": "stages/m4.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m4-outcome-room-system-spine",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "mechanism-gates",
+        "product-ux",
+        "runtime-fabric"
+      ],
+      "closes_claim_levels": [
+        "P0"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Participants, Local Agents, And Shared Frontier",
+      "canonical_build_step": 5,
+      "depends_on": [
+        "M4"
+      ],
+      "module": "stages/m5.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m5-selected-profile-exit-proof",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "mechanism-gates",
+        "product-ux",
+        "proof-and-evidence",
+        "wallet-authority"
+      ],
+      "closes_claim_levels": [
+        "P0"
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "Honest Product Workspaces And Application Catalog",
+      "canonical_build_step": 6,
+      "depends_on": [
+        "M5"
+      ],
+      "module": "stages/m6.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m6-product-surface-and-typed-workspaces",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "mechanism-gates",
+        "product-surface-ux-proof",
+        "product-ux",
+        "workload-isolation-and-virtualization"
+      ],
+      "closes_claim_levels": [],
+      "notes": "Prerequisite is real M1-M5 read models. Static shadow compilation may continue earlier but may not be presented as product truth."
+    },
+    {
+      "id": "M7",
+      "title": "Local Ontology And Action Semantics",
+      "canonical_build_step": 7,
+      "depends_on": [
+        "M6"
+      ],
+      "module": "stages/m7.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m7-semantic-definition-action-plane",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "mechanism-gates",
+        "product-ux",
+        "runtime-fabric"
+      ],
+      "closes_claim_levels": []
+    },
+    {
+      "id": "M8",
+      "title": "Enterprise Learning And Bounded Improvement",
+      "canonical_build_step": 8,
+      "depends_on": [
+        "M7"
+      ],
+      "module": "stages/m8.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m8-model-supply-route-substitution-and-selected-exit",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "campaign-experiment-method",
+        "improvement",
+        "learning-boundary",
+        "mechanism-gates",
+        "research-discipline",
+        "supply-and-commerce"
+      ],
+      "closes_claim_levels": []
+    },
+    {
+      "id": "M9",
+      "title": "Single-Node Undeniable Product Proof",
+      "canonical_build_step": 9,
+      "depends_on": [
+        "M8"
+      ],
+      "module": "stages/m9.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m9-selected-profile-aggregate-exit-and-claim-publication",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "authority-gateway-coverage",
+        "docs-and-comms",
+        "mechanism-gates",
+        "product-ux",
+        "proof-and-evidence",
+        "research-discipline",
+        "runtime-fabric",
+        "runtime-trust-boundary",
+        "wallet-authority",
+        "workload-isolation-and-virtualization"
+      ],
+      "closes_claim_levels": [
+        "P1"
+      ],
+      "notes": "M9 requires terminal Rust ownership for every route used by the selected product proof."
+    },
+    {
+      "id": "M10",
+      "title": "Two-Failure-Domain Continuity",
+      "canonical_build_step": 10,
+      "depends_on": [
+        "M9"
+      ],
+      "module": "stages/m10.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m10-two-failure-domain-continuity",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "mechanism-gates",
+        "proof-and-evidence",
+        "runtime-fabric",
+        "workload-isolation-and-virtualization"
+      ],
+      "closes_claim_levels": []
+    },
+    {
+      "id": "M11",
+      "title": "Useful Same-System Distributed Work And Embodied Pre-Live Proof",
+      "canonical_build_step": 11,
+      "depends_on": [
+        "M10"
+      ],
+      "module": "stages/m11.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m11-selected-profile-exit-proof",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "embodied",
+        "mechanism-gates",
+        "proof-and-evidence"
+      ],
+      "closes_claim_levels": [
+        "P4"
+      ],
+      "external_gates": [
+        "relevant embodied/safety contract freeze"
+      ]
+    },
+    {
+      "id": "M12",
+      "title": "AIIP Federation Contract",
+      "canonical_build_step": 12,
+      "depends_on": [
+        "M11",
+        "M5",
+        "M7"
+      ],
+      "module": "stages/m12.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m12-selected-profile-exit-proof",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "cooperation",
+        "mechanism-gates",
+        "proof-and-evidence",
+        "wallet-authority"
+      ],
+      "closes_claim_levels": []
+    },
+    {
+      "id": "M13",
+      "title": "Two-Sovereign Internet-Of-Intelligence Proof",
+      "canonical_build_step": 13,
+      "depends_on": [
+        "M12"
+      ],
+      "module": "stages/m13.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m13-selected-profile-aggregate-exit",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "cooperation",
+        "mechanism-gates",
+        "proof-and-evidence",
+        "research-discipline"
+      ],
+      "closes_claim_levels": [
+        "P5"
+      ],
+      "external_gates": [
+        "independently operated Systems"
+      ]
+    },
+    {
+      "id": "M14",
+      "title": "Connected/Secured Services And Demand-Gated L1",
+      "canonical_build_step": 14,
+      "depends_on": [
+        "M13"
+      ],
+      "module": "stages/m14.md",
+      "exit_gate": {
+        "aggregate_work_item_id": "m14-selected-profile-aggregate-exit",
+        "kind": "aggregate_exit"
+      },
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "cooperation",
+        "mechanism-gates",
+        "network-and-l1",
+        "research-discipline",
+        "supply-and-commerce"
+      ],
+      "closes_claim_levels": [
+        "P7"
+      ],
+      "external_gates": [
+        "repeated M13 evidence",
+        "later enterprise/embodied profile demand",
+        "measured external demand sufficient to authorize optional L1"
+      ]
+    },
+    {
+      "id": "FUTURE",
+      "title": "Conditional Future Work",
+      "canonical_build_step": null,
+      "depends_on": [],
+      "module": "stages/future.md",
+      "objective": "Hold canonically required work whose activation depends on a named external condition rather than on a stage predecessor.",
+      "exit_gate": null,
+      "pulled_modules": [
+        "adversarial-proof-matrix",
+        "embodied",
+        "network-and-l1",
+        "workload-isolation-and-virtualization"
+      ],
+      "closes_claim_levels": [
+        "P6"
+      ],
+      "activation_rule": "A FUTURE record activates only when its named external condition is satisfied and the sequence graph gains an explicit depends_on edge for it. It is never scheduled by elapsed time."
+    }
+  ],
+  "modules": [
+    {
+      "id": "runtime-fabric",
+      "path": "modules/runtime-fabric.md",
+      "title": "One governed execution fabric",
+      "legacy_id": "WP-RUNTIME",
+      "applies_to_stages": [
+        "M1",
+        "M2",
+        "M3",
+        "M4",
+        "M6",
+        "M7",
+        "M9",
+        "M10"
+      ]
+    },
+    {
+      "id": "proof-and-evidence",
+      "path": "modules/proof-and-evidence.md",
+      "title": "Portable evidence and compositional assurance",
+      "legacy_id": "WP-PROOF",
+      "applies_to_stages": [
+        "M0",
+        "M1",
+        "M2",
+        "M3",
+        "M5",
+        "M9",
+        "M10",
+        "M11",
+        "M12",
+        "M13",
+        "M14"
+      ]
+    },
+    {
+      "id": "wallet-authority",
+      "path": "modules/wallet-authority.md",
+      "title": "Familiar identity to exact machine authority",
+      "legacy_id": "WP-WALLET",
+      "applies_to_stages": [
+        "M1",
+        "M2",
+        "M5",
+        "M9",
+        "M12"
+      ]
+    },
+    {
+      "id": "product-ux",
+      "path": "modules/product-ux.md",
+      "title": "Product compression and application depth",
+      "legacy_id": "WP-UX",
+      "applies_to_stages": [
+        "M4",
+        "M5",
+        "M6",
+        "M7",
+        "M9"
+      ]
+    },
+    {
+      "id": "learning-boundary",
+      "path": "modules/learning-boundary.md",
+      "title": "Enterprise-owned learning and provider exit",
+      "legacy_id": "WP-ELP",
+      "applies_to_stages": [
+        "M8"
+      ]
+    },
+    {
+      "id": "supply-and-commerce",
+      "path": "modules/supply-and-commerce.md",
+      "title": "Model-neutral supply and commercial truth",
+      "legacy_id": "WP-SUPPLY",
+      "applies_to_stages": [
+        "M8",
+        "M14"
+      ]
+    },
+    {
+      "id": "improvement",
+      "path": "modules/improvement.md",
+      "title": "Bounded improvement",
+      "legacy_id": "WP-IMPROVE",
+      "applies_to_stages": [
+        "M8"
+      ]
+    },
+    {
+      "id": "embodied",
+      "path": "modules/embodied.md",
+      "title": "Native embodied stack",
+      "legacy_id": "WP-EMBODIED",
+      "applies_to_stages": [
+        "M11",
+        "FUTURE"
+      ]
+    },
+    {
+      "id": "cooperation",
+      "path": "modules/cooperation.md",
+      "title": "Conditional sovereign cooperation",
+      "legacy_id": "WP-COOP",
+      "applies_to_stages": [
+        "M12",
+        "M13",
+        "M14"
+      ]
+    },
+    {
+      "id": "network-and-l1",
+      "path": "modules/network-and-l1.md",
+      "title": "Network services and optional L1",
+      "legacy_id": "WP-NET",
+      "applies_to_stages": [
+        "M14",
+        "FUTURE"
+      ]
+    },
+    {
+      "id": "docs-and-comms",
+      "path": "modules/docs-and-comms.md",
+      "title": "Public builder and product communication",
+      "legacy_id": "WP-DOCS",
+      "applies_to_stages": [
+        "M9",
+        "M14"
+      ]
+    },
+    {
+      "id": "mechanism-gates",
+      "path": "modules/mechanism-gates.md",
+      "title": "Status-free PG-* mechanism gate registry",
+      "legacy_id": "proof-gates/mechanism-gate-registry.md",
+      "applies_to_stages": [
+        "M0",
+        "M1",
+        "M2",
+        "M3",
+        "M4",
+        "M5",
+        "M6",
+        "M7",
+        "M8",
+        "M9",
+        "M10",
+        "M11",
+        "M12",
+        "M13",
+        "M14"
+      ],
+      "scope_note": "Restored to the applicability the module declared before relocation. An independent review found it had been narrowed from ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12', 'M13', 'M14'] to ['M0', 'M9'] with no manifest entry \u2014 a silent scope narrowing the brief forbids."
+    },
+    {
+      "id": "runtime-trust-boundary",
+      "path": "modules/runtime-trust-boundary.md",
+      "title": "Runtime trust-boundary and PEP method",
+      "legacy_id": "stage-guides/m0/runtime-trust-boundary.md",
+      "applies_to_stages": [
+        "M0",
+        "M9"
+      ],
+      "scope_note": "Restored to the applicability the module declared before relocation. An independent review found it had been narrowed from ['M0', 'M9'] to ['M0'] with no manifest entry \u2014 a silent scope narrowing the brief forbids."
+    },
+    {
+      "id": "product-surface-ux-proof",
+      "path": "modules/product-surface-ux-proof.md",
+      "title": "Surface compiler and UX-proof method",
+      "legacy_id": "stage-guides/m6/product-surface-and-ux-proof.md",
+      "applies_to_stages": [
+        "M6"
+      ]
+    },
+    {
+      "id": "campaign-experiment-method",
+      "path": "modules/campaign-experiment-method.md",
+      "title": "Campaign experiment, evaluator, and fault method",
+      "legacy_id": "stage-guides/m8/campaign-experiment-method.md",
+      "applies_to_stages": [
+        "M8"
+      ]
+    },
+    {
+      "id": "adversarial-proof-matrix",
+      "path": "modules/adversarial-proof-matrix.md",
+      "title": "Adversarial proof matrix",
+      "legacy_id": "master guide section 12",
+      "applies_to_stages": [
+        "M0",
+        "M1",
+        "M2",
+        "M3",
+        "M4",
+        "M5",
+        "M6",
+        "M7",
+        "M8",
+        "M9",
+        "M10",
+        "M11",
+        "M12",
+        "M13",
+        "M14",
+        "FUTURE"
+      ]
+    },
+    {
+      "id": "authority-gateway-coverage",
+      "path": "modules/authority-gateway-coverage.md",
+      "title": "Authority Gateway attach and coverage-declaration method",
+      "legacy_id": "master guide M9 gateway attach proof",
+      "applies_to_stages": [
+        "M9"
+      ]
+    },
+    {
+      "id": "research-discipline",
+      "path": "modules/research-discipline.md",
+      "title": "Relative-comparison research discipline",
+      "legacy_id": "master guide section 13.5",
+      "applies_to_stages": [
+        "M8",
+        "M9",
+        "M13",
+        "M14"
+      ]
+    },
+    {
+      "id": "workload-isolation-and-virtualization",
+      "path": "modules/workload-isolation-and-virtualization.md",
+      "title": "Workload isolation and conventional virtualization proof method",
+      "legacy_id": null,
+      "applies_to_stages": [
+        "M3",
+        "M6",
+        "M9",
+        "M10",
+        "FUTURE"
+      ]
+    }
+  ],
+  "rails": [
+    {
+      "id": "R-CONTRACT",
+      "requirement": "Owner-approved schema/invariants, registry metadata, generated Rust/TypeScript projections, compatibility rules, and adversarial fixtures."
+    },
+    {
+      "id": "R-RUNTIME",
+      "requirement": "One Rust-owned daemon/Core admission and execution path; clients, harnesses, MCP, apps, and adapters remain protocol clients."
+    },
+    {
+      "id": "R-TRUTH",
+      "requirement": "Agentgres operation, exact head/root, artifact/receipt linkage, replay/recovery, projection, and offline evidence where claimed."
+    },
+    {
+      "id": "R-AUTH",
+      "requirement": "Current policy/authority, revocation, information flow, budget, writer fence, effect recovery, idempotency, and final-invoker revalidation."
+    },
+    {
+      "id": "R-PRODUCT",
+      "requirement": "Policy-filtered typed views over real state, including empty, denied, unavailable, degraded, recovery, and completed states."
+    },
+    {
+      "id": "R-OPS",
+      "requirement": "Fault posture, metrics, cost evidence, assurance stage, applicable PG-* gates, migration, rollback, and retained nonclaims."
+    }
+  ],
+  "claim_ladder": [
+    {
+      "id": "P0",
+      "title": "walking skeleton",
+      "honest_minimum_claim": "One fixture traverses selected owner boundaries; not production-ready.",
+      "primary_closing_stages": [
+        "M3",
+        "M4",
+        "M5"
+      ]
+    },
+    {
+      "id": "P1",
+      "title": "internal product proof",
+      "honest_minimum_claim": "Terminal M9 journey works with adversarial evidence in an IOI-controlled environment.",
+      "primary_closing_stages": [
+        "M9"
+      ],
+      "closing_work_item_id": "m9-selected-profile-aggregate-exit-and-claim-publication"
+    },
+    {
+      "id": "P2",
+      "title": "external design-partner proof",
+      "honest_minimum_claim": "Independent users complete the journey on their data with disclosed support and limits.",
+      "primary_closing_stages": [
+        "M9"
+      ],
+      "closing_work_item_id": "p2-external-design-partner-profile-gate"
+    },
+    {
+      "id": "P3",
+      "title": "production-integrated profile",
+      "honest_minimum_claim": "Applicable required_now and selected conditional gates close; SRE/recovery thresholds pass.",
+      "primary_closing_stages": [
+        "M9"
+      ],
+      "closing_work_item_id": "p3-production-integrated-profile-gate"
+    },
+    {
+      "id": "P4",
+      "title": "distributed L0 proof",
+      "honest_minimum_claim": "One logical System preserves continuity and performs useful work across admitted nodes.",
+      "primary_closing_stages": [
+        "M10",
+        "M11"
+      ]
+    },
+    {
+      "id": "P5",
+      "title": "sovereign cooperation proof",
+      "honest_minimum_claim": "Independently governed Systems demonstrate useful positive-surplus work and portable exit.",
+      "primary_closing_stages": [
+        "M13"
+      ]
+    },
+    {
+      "id": "P6",
+      "title": "embodied deployment proof",
+      "honest_minimum_claim": "Selected live hardware profile passes Physical Action Safety, Embodied Runtime, and production gates.",
+      "primary_closing_stages": [
+        "FUTURE"
+      ]
+    },
+    {
+      "id": "P7",
+      "title": "public network demand proof",
+      "honest_minimum_claim": "Connected/secured services show recurring external demand and sustainable security economics.",
+      "primary_closing_stages": [
+        "M14"
+      ]
+    }
+  ],
+  "claim_ladder_rule": "The ladder is evidence-monotonic, not permanently monotonic. A failed reverification, incident, revoked source, compromised key, changed dependency, or lost assurance input narrows the current claim immediately.",
+  "stage_states": {
+    "pending": "Prerequisites or activation decision not yet satisfied.",
+    "active": "At least one admitted work item is executing.",
+    "evidence_ready": "Positive path exists; adversarial and release evidence is under review.",
+    "verified": "The stage exit proof and required rails close.",
+    "blocked": "A named external decision, authority, dependency, or environment prevents progress.",
+    "superseded": "Canon changed the stage; evidence is retained and this file is revised."
+  },
+  "stage_state_rule": "Only proof changes a stage to verified. Stage state is derived from the owning aggregate_exit work-item record, never asserted here."
+}

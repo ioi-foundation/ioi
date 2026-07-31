@@ -1,0 +1,571 @@
+{
+  "schemaVersion": "ioi.autopilot.headless-runtime-unification.final-manifest.v1",
+  "generatedAt": "2026-05-27T16:00:39.209Z",
+  "verdict": "headless_runtime_unification_parity_proven",
+  "guide": ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+  "playbook": ".internal/playbooks/substrate-absorption-rubric-playbook.md",
+  "evidenceRoot": "docs/evidence/autopilot-headless-runtime-unification-parity",
+  "campaignDir": "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign",
+  "baselines": [
+    {
+      "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/final-default-harness-parity-verdict.md",
+      "exists": true
+    },
+    {
+      "path": "docs/evidence/autopilot-antigravity-harness-parity-plus/final-antigravity-harness-parity-plus-verdict.md",
+      "exists": true
+    },
+    {
+      "path": "docs/evidence/autopilot-claude-code-substrate-absorption-parity/final-claude-code-substrate-absorption-verdict.md",
+      "exists": true
+    },
+    {
+      "path": ".internal/plans/autopilot-headless-runtime-unification-parity-master-guide.md",
+      "exists": true
+    },
+    {
+      "path": ".internal/playbooks/substrate-absorption-rubric-playbook.md",
+      "exists": true
+    }
+  ],
+  "stages": [
+    {
+      "id": "stage0-ownership-matrix",
+      "title": "Ownership matrix and source audit",
+      "rowIds": [
+        "HRU-001",
+        "HRU-002",
+        "HRU-003",
+        "HRU-004",
+        "HRU-005",
+        "HRU-006",
+        "HRU-007",
+        "HRU-008",
+        "HRU-009",
+        "HRU-010",
+        "HRU-011",
+        "HRU-012",
+        "HRU-013",
+        "HRU-014",
+        "HRU-015",
+        "HRU-016",
+        "HRU-017"
+      ],
+      "evidenceKind": "support",
+      "outputDir": "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix",
+      "passed": true
+    },
+    {
+      "id": "stage1-headless-daemon-contract",
+      "title": "Live headless daemon contract proof",
+      "rowIds": [
+        "HRU-001",
+        "HRU-003",
+        "HRU-004",
+        "HRU-005",
+        "HRU-006",
+        "HRU-008",
+        "HRU-010",
+        "HRU-011",
+        "HRU-012",
+        "HRU-013",
+        "HRU-017"
+      ],
+      "evidenceKind": "headless",
+      "outputDir": "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/01-stage1-headless-daemon-contract",
+      "passed": true
+    },
+    {
+      "id": "stage2-sdk-client-contract",
+      "title": "SDK shared client adapter proof",
+      "rowIds": [
+        "HRU-001",
+        "HRU-003",
+        "HRU-004",
+        "HRU-006",
+        "HRU-010",
+        "HRU-011",
+        "HRU-012",
+        "HRU-014",
+        "HRU-017"
+      ],
+      "evidenceKind": "sdk",
+      "outputDir": "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/02-stage2-sdk-client-contract",
+      "passed": true
+    },
+    {
+      "id": "stage3-cli-tui-client-contract",
+      "title": "CLI and TUI daemon client proof",
+      "rowIds": [
+        "HRU-001",
+        "HRU-003",
+        "HRU-004",
+        "HRU-006",
+        "HRU-011",
+        "HRU-012",
+        "HRU-015",
+        "HRU-016",
+        "HRU-017"
+      ],
+      "evidenceKind": "cross_client",
+      "outputDir": "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/03-stage3-cli-tui-client-contract",
+      "passed": true
+    },
+    {
+      "id": "stage4-rust-retained-shell-headless",
+      "title": "Headless Rust retained shell proof",
+      "rowIds": [
+        "HRU-009",
+        "HRU-017"
+      ],
+      "evidenceKind": "headless",
+      "outputDir": "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/04-stage4-rust-retained-shell-headless",
+      "passed": true
+    },
+    {
+      "id": "stage5-gui-stage62-live-ask-agent-boundary",
+      "title": "Focused GUI Ask/Agent boundary and permission selector proof",
+      "rowIds": [
+        "HRU-002",
+        "HRU-005",
+        "HRU-013",
+        "HRU-017"
+      ],
+      "evidenceKind": "live_gui",
+      "outputDir": "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/05-stage5-gui-stage62-live-ask-agent-boundary",
+      "passed": true
+    },
+    {
+      "id": "stage5-gui-toolcat-stage4-retained-shell-threaded-controls",
+      "title": "Focused GUI retained shell lifecycle proof",
+      "rowIds": [
+        "HRU-009",
+        "HRU-017"
+      ],
+      "evidenceKind": "live_gui",
+      "outputDir": "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/06-stage5-gui-toolcat-stage4-retained-shell-threaded-controls",
+      "passed": true
+    },
+    {
+      "id": "stage5-gui-browser-computer-live-viewport-ux-focused",
+      "title": "Focused GUI browser/computer managed viewport proof",
+      "rowIds": [
+        "HRU-011",
+        "HRU-017"
+      ],
+      "evidenceKind": "live_gui",
+      "outputDir": "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/07-stage5-gui-browser-computer-live-viewport-ux-focused",
+      "passed": true
+    },
+    {
+      "id": "stage6-final-cleanup",
+      "title": "Final cleanup and process audit",
+      "rowIds": [
+        "HRU-001",
+        "HRU-002",
+        "HRU-003",
+        "HRU-004",
+        "HRU-005",
+        "HRU-006",
+        "HRU-007",
+        "HRU-008",
+        "HRU-009",
+        "HRU-010",
+        "HRU-011",
+        "HRU-012",
+        "HRU-013",
+        "HRU-014",
+        "HRU-015",
+        "HRU-016",
+        "HRU-017"
+      ],
+      "evidenceKind": "cleanup",
+      "outputDir": "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup",
+      "passed": true
+    }
+  ],
+  "rows": [
+    {
+      "id": "HRU-001",
+      "priority": "P0",
+      "capability": "Agent turn contract",
+      "owner": "Runtime daemon / Agent SDK / CLI / TUI / Agent Studio",
+      "ownership": "daemon_owned",
+      "status": "cross_client_pass",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "tui",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/01-stage1-headless-daemon-contract/headless-api-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/02-stage2-sdk-client-contract/sdk-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/03-stage3-cli-tui-client-contract/cli-tui-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Agent turn contract is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-002",
+      "priority": "P0",
+      "capability": "Ask vs Agent separation",
+      "owner": "Runtime daemon routing and Agent Studio client adapter",
+      "ownership": "shared_client_adapter",
+      "status": "cross_client_pass",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "tui",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/05-stage5-gui-stage62-live-ask-agent-boundary/2026-05-27T15-57-59-491Z/proof.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Ask vs Agent separation is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-003",
+      "priority": "P0",
+      "capability": "Tool execution and file mutation",
+      "owner": "Runtime daemon coding tool pack",
+      "ownership": "daemon_owned",
+      "status": "cross_client_pass",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "tui",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/01-stage1-headless-daemon-contract/headless-api-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/02-stage2-sdk-client-contract/sdk-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/03-stage3-cli-tui-client-contract/cli-tui-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Tool execution and file mutation is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-004",
+      "priority": "P0",
+      "capability": "Runtime events, traces, receipts, replay",
+      "owner": "Runtime daemon evidence runtime",
+      "ownership": "daemon_owned",
+      "status": "cross_client_pass",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "tui",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/01-stage1-headless-daemon-contract/headless-api-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/02-stage2-sdk-client-contract/sdk-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/03-stage3-cli-tui-client-contract/cli-tui-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Runtime events, traces, receipts, replay is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-005",
+      "priority": "P0",
+      "capability": "Policy modes and approvals",
+      "owner": "Runtime daemon policy runtime and Agent Studio approval menu",
+      "ownership": "daemon_owned",
+      "status": "cross_client_pass",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "tui",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/01-stage1-headless-daemon-contract/headless-api-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/05-stage5-gui-stage62-live-ask-agent-boundary/2026-05-27T15-57-59-491Z/proof.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Policy modes and approvals is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-006",
+      "priority": "P0",
+      "capability": "Context analyzer and compaction",
+      "owner": "Runtime daemon context runtime",
+      "ownership": "daemon_owned",
+      "status": "cross_client_pass",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "tui",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/01-stage1-headless-daemon-contract/headless-api-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/02-stage2-sdk-client-contract/sdk-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/03-stage3-cli-tui-client-contract/cli-tui-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Context analyzer and compaction is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-007",
+      "priority": "P1",
+      "capability": "Hook lifecycle",
+      "owner": "Runtime daemon hook projection / product decision",
+      "ownership": "daemon_owned",
+      "status": "supporting_pass_with_product_decision",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "tui",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Hook lifecycle is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-008",
+      "priority": "P0",
+      "capability": "Delegation, subagents, and tasks",
+      "owner": "Runtime daemon subagent/task manager",
+      "ownership": "daemon_owned",
+      "status": "cross_client_pass",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "tui",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/01-stage1-headless-daemon-contract/headless-api-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Delegation, subagents, and tasks is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-009",
+      "priority": "P0",
+      "capability": "Retained shell lifecycle",
+      "owner": "Headless Rust runtime system executor",
+      "ownership": "daemon_owned",
+      "status": "headless_pass",
+      "clients": [
+        "headless_rust_runtime",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/04-stage4-rust-retained-shell-headless/command-result.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/06-stage5-gui-toolcat-stage4-retained-shell-threaded-controls/2026-05-27T15-58-35-977Z/proof.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Retained shell lifecycle is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-010",
+      "priority": "P0",
+      "capability": "MCP and deferred tool discovery",
+      "owner": "Runtime daemon MCP manager",
+      "ownership": "daemon_owned",
+      "status": "cross_client_pass",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "tui",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/01-stage1-headless-daemon-contract/headless-api-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/02-stage2-sdk-client-contract/sdk-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "MCP and deferred tool discovery is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-011",
+      "priority": "P0",
+      "capability": "Browser/computer managed sessions",
+      "owner": "Runtime daemon computer-use projection and Agent Studio viewport UX",
+      "ownership": "daemon_owned",
+      "status": "live_pass",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/01-stage1-headless-daemon-contract/headless-api-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/02-stage2-sdk-client-contract/sdk-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/03-stage3-cli-tui-client-contract/cli-tui-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/07-stage5-gui-browser-computer-live-viewport-ux-focused/2026-05-27T15-59-22-547Z/proof.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Browser/computer managed sessions is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-012",
+      "priority": "P0",
+      "capability": "Stop, cancel, recover",
+      "owner": "Runtime daemon operator controls",
+      "ownership": "daemon_owned",
+      "status": "cross_client_pass",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "tui",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/01-stage1-headless-daemon-contract/headless-api-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/02-stage2-sdk-client-contract/sdk-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/03-stage3-cli-tui-client-contract/cli-tui-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Stop, cancel, recover is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-013",
+      "priority": "P0",
+      "capability": "Latency and simple-turn timing",
+      "owner": "Runtime daemon / Agent Studio client adapter",
+      "ownership": "shared_client_adapter",
+      "status": "cross_client_pass",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "tui",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/01-stage1-headless-daemon-contract/headless-api-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/05-stage5-gui-stage62-live-ask-agent-boundary/2026-05-27T15-57-59-491Z/proof.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Latency and simple-turn timing is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-014",
+      "priority": "P0",
+      "capability": "SDK shared client adapter",
+      "owner": "Agent SDK",
+      "ownership": "shared_client_adapter",
+      "status": "headless_pass",
+      "clients": [
+        "sdk"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/02-stage2-sdk-client-contract/sdk-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "SDK shared client adapter is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-015",
+      "priority": "P0",
+      "capability": "CLI client adapter",
+      "owner": "CLI",
+      "ownership": "shared_client_adapter",
+      "status": "cross_client_pass",
+      "clients": [
+        "cli"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/03-stage3-cli-tui-client-contract/cli-tui-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "CLI client adapter is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-016",
+      "priority": "P0",
+      "capability": "TUI client adapter",
+      "owner": "TUI",
+      "ownership": "shared_client_adapter",
+      "status": "cross_client_pass",
+      "clients": [
+        "tui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/03-stage3-cli-tui-client-contract/cli-tui-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "TUI client adapter is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    },
+    {
+      "id": "HRU-017",
+      "priority": "P0",
+      "capability": "Cross-client golden scenarios",
+      "owner": "Runtime daemon plus SDK/CLI/TUI/GUI clients",
+      "ownership": "daemon_owned",
+      "status": "cross_client_pass",
+      "clients": [
+        "daemon",
+        "sdk",
+        "cli",
+        "tui",
+        "gui"
+      ],
+      "evidence": [
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/00-stage0-ownership-matrix/stage-verdict.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/01-stage1-headless-daemon-contract/headless-api-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/02-stage2-sdk-client-contract/sdk-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/03-stage3-cli-tui-client-contract/cli-tui-transcript.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/04-stage4-rust-retained-shell-headless/command-result.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/05-stage5-gui-stage62-live-ask-agent-boundary/2026-05-27T15-57-59-491Z/proof.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/06-stage5-gui-toolcat-stage4-retained-shell-threaded-controls/2026-05-27T15-58-35-977Z/proof.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/07-stage5-gui-browser-computer-live-viewport-ux-focused/2026-05-27T15-59-22-547Z/proof.json",
+        "docs/evidence/autopilot-headless-runtime-unification-parity/2026-05-27T15-57-50-750Z-headless-runtime-unification-campaign/08-stage6-final-cleanup/stage-verdict.json"
+      ],
+      "proof_summary": "Cross-client golden scenarios is proven against the headless runtime unification campaign evidence.",
+      "remaining_work": []
+    }
+  ],
+  "p0Failures": [],
+  "stageFailures": []
+}

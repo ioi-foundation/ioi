@@ -1,0 +1,240 @@
+{
+  "schemaVersion": "ioi.autopilot-agent-studio.product-reliability-context-quality.final-manifest.v1",
+  "targetEndState": "agent_studio_product_reliability_context_quality_hardening_proven",
+  "verdict": "proven",
+  "generatedAt": "2026-05-30T04:35:00Z",
+  "evidenceRoot": "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening",
+  "summary": {
+    "p0OpenGaps": 0,
+    "fixtureLeaks": 0,
+    "silentRouteDowngrades": 0,
+    "noFinalHandoffFailures": 0,
+    "deterministicProductSummaries": 0,
+    "ownerlessBlockers": 0
+  },
+  "rows": [
+    {
+      "stage": "stage0_campaign_seed_and_baseline",
+      "classification": "live_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-29T14-42-32-784Z/proof.json"
+      ],
+      "notes": "Baseline conversation artifact and chat shell proof captured before the hardening fixes."
+    },
+    {
+      "stage": "stage1_product_reliability_defect_inventory",
+      "classification": "fixed_then_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-29T15-20-16-352Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-29T15-34-24-515Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-29T15-36-13-157Z/proof.json"
+      ],
+      "notes": "Product defects were reproduced through Agent Studio and moved into focused lane proofs rather than prose-only tracking."
+    },
+    {
+      "stage": "stage2_model_routing_and_health_truth",
+      "classification": "fixed_then_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T02-17-21-746Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T02-25-56-934Z/proof.json",
+        "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs",
+        "packages/runtime-daemon/src/studio-intent-frame.test.mjs"
+      ],
+      "notes": "Ask/Agent boundary, fixture denial, product model filtering, and route truth remain daemon-owned or shared-contract-owned."
+    },
+    {
+      "stage": "stage3_context_planner_hardening",
+      "classification": "fixed_then_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T02-13-29-270Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T02-24-28-763Z/proof.json",
+        "crates/api/src/chat/intent_signals.rs",
+        "packages/runtime-daemon/src/studio-intent-frame.mjs"
+      ],
+      "notes": "Current/source-sensitive prompts route to governed retrieval. Repo questions route to user-like workspace search/read. Simple conversational prompts remain direct."
+    },
+    {
+      "stage": "stage3_current_investment_price_admissibility",
+      "classification": "fixed_then_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T02-13-29-270Z/proof.json",
+        "crates/services/src/agentic/runtime/service/queue/support/pipeline/facts.rs",
+        "crates/services/src/agentic/runtime/service/queue/processing/web_pipeline/search/planning.rs",
+        "crates/services/src/agentic/web/contract.rs"
+      ],
+      "notes": "The stale AKT price defect was a source-admissibility bug. Current investment comparisons now require fresh quote-grade data for both compared assets and fail closed when retrieval cannot supply it."
+    },
+    {
+      "stage": "stage4_final_handoff_reliability",
+      "classification": "fixed_then_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T04-29-23-823Z/proof.json",
+        "apps/autopilot/openvscode-extension/ioi-workbench/studio/agent-final-handoff-stream.js",
+        "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs"
+      ],
+      "notes": "Agent turns project clean final handoffs; no successful turn is left as a trace-only completion."
+    },
+    {
+      "stage": "stage5_artifact_completion_contract",
+      "classification": "fixed_then_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-29T15-51-12-332Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T02-25-56-934Z/proof.json",
+        "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs"
+      ],
+      "notes": "Website/artifact prompts produce real product artifacts or clean recoverable errors; canned fixture shells are blocked."
+    },
+    {
+      "stage": "stage6_streaming_transcript_polish_regression",
+      "classification": "fixed_then_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T03-12-26-309Z/proof.json",
+        "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs"
+      ],
+      "notes": "Product transcript keeps concrete tool rows, rendered Markdown, collapsed work summaries, and clean answers; raw trace payloads stay out of chat."
+    },
+    {
+      "stage": "stage7_golden_product_scenario_matrix",
+      "classification": "live_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T03-20-51-804Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T03-39-50-744Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T04-02-04-514Z/proof.json"
+      ],
+      "notes": "Approval gates, workspace boundary denials, symlink denials, and governed blocked results were exercised through the GUI."
+    },
+    {
+      "stage": "stage8_latency_and_timeout_discipline",
+      "classification": "supporting_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T02-17-21-746Z/prompt-timings.live.jsonl",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T04-29-23-823Z/prompt-timings.live.jsonl"
+      ],
+      "notes": "Simple/direct paths stay cheap; model-backed retrieval and plan recap timings are recorded with phase-level timing."
+    },
+    {
+      "stage": "stage9_refactor_and_modularization_checkpoint",
+      "classification": "fixed_then_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T03-49-52-247Z/proof.json",
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/success_path.rs",
+        "crates/services/src/agentic/runtime/service/decision_loop/cognition/mod.rs"
+      ],
+      "notes": "Refactors stayed scoped: runtime bridge intent handling, file-read compaction, final prompt context, Studio markdown/stream projection, and web retrieval admissibility have focused tests."
+    },
+    {
+      "stage": "stage10_user_like_repository_fixture_suite",
+      "classification": "live_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T02-24-28-763Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T04-02-04-514Z/proof.json"
+      ],
+      "notes": "Workspace search/read targets disposable user-like repositories and enforces workspace/symlink boundaries."
+    },
+    {
+      "stage": "stage11_evidence_tracing_and_cleanup",
+      "classification": "fixed_then_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T04-29-23-823Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T04-29-23-823Z/process-cleanup-after-run.json"
+      ],
+      "notes": "Late-plan recap now preserves bounded Markdown outline and late-section excerpts; cleanup proof is present for the live run."
+    },
+    {
+      "stage": "stage12_integrated_soak",
+      "classification": "supporting_pass",
+      "evidence": [
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-29T14-42-32-784Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T02-13-29-270Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T02-24-28-763Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T02-25-56-934Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T03-12-26-309Z/proof.json",
+        "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T04-29-23-823Z/proof.json"
+      ],
+      "notes": "Mixed scenario evidence covers Ask direct, Agent repo overview, Agent artifact, current retrieval, shell/test, policy denial, and late cleanup/soak recap without stale model or fixture leakage."
+    }
+  ],
+  "verification": [
+    {
+      "command": "cargo fmt --check",
+      "status": "pass"
+    },
+    {
+      "command": "cargo test -p ioi-api chat::intent_signals::tests -- --nocapture",
+      "status": "pass"
+    },
+    {
+      "command": "cargo test -p ioi-node --bin ioi-runtime-bridge --features local-mode bridge_prompt_intent -- --nocapture",
+      "status": "pass"
+    },
+    {
+      "command": "cargo test -p ioi-node --bin ioi-runtime-bridge --features local-mode bridge_prompt_runtime_action -- --nocapture",
+      "status": "pass"
+    },
+    {
+      "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode",
+      "status": "pass"
+    },
+    {
+      "command": "cargo test -p ioi-services --lib enrich_summary_preserves_terse_message_without_product_timestamp_for_non_timer_commands -- --nocapture",
+      "status": "pass"
+    },
+    {
+      "command": "cargo test -p ioi-services --lib file_read_policy_rejects_paths_outside_workspace_boundary -- --nocapture",
+      "status": "pass"
+    },
+    {
+      "command": "cargo test -p ioi-services --lib file_read_history_preserves_tail_context_for_large_documents -- --nocapture",
+      "status": "pass"
+    },
+    {
+      "command": "cargo test -p ioi-services --lib file_read_history_preserves_late_markdown_outline_for_long_plans -- --nocapture",
+      "status": "pass"
+    },
+    {
+      "command": "cargo test -p ioi-services --lib recent_events_budget_preserves_late_plan_outline_for_final_reply -- --nocapture",
+      "status": "pass"
+    },
+    {
+      "command": "node packages/runtime-daemon/src/studio-intent-frame.test.mjs",
+      "status": "pass"
+    },
+    {
+      "command": "node --check packages/runtime-daemon/src/studio-intent-frame.mjs",
+      "status": "pass"
+    },
+    {
+      "command": "node --check scripts/run-autopilot-agent-studio-live-gui-validation.mjs",
+      "status": "pass"
+    },
+    {
+      "command": "node --check scripts/lib/agent-studio-live-gui-validation/prompt-submit.mjs",
+      "status": "pass"
+    },
+    {
+      "command": "node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs",
+      "status": "pass"
+    },
+    {
+      "command": "node --check apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+      "status": "pass"
+    },
+    {
+      "command": "node --check apps/autopilot/openvscode-extension/ioi-workbench/studio/model-completion.js",
+      "status": "pass"
+    },
+    {
+      "command": "node --check apps/autopilot/openvscode-extension/ioi-workbench/studio/agent-final-handoff-stream.js",
+      "status": "pass"
+    },
+    {
+      "command": "node apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs",
+      "status": "pass"
+    }
+  ],
+  "cleanupProof": {
+    "latestLiveRun": "docs/evidence/autopilot-agent-studio-product-reliability-context-quality-hardening/2026-05-30T04-29-23-823Z/process-cleanup-after-run.json",
+    "pgrepCheck": "No matching Autopilot/runtime/model-worker process remained beyond the pgrep command itself."
+  },
+  "remainingBlockers": []
+}

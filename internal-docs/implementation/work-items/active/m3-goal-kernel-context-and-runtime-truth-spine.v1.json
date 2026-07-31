@@ -1,0 +1,420 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m3-goal-kernel-context-and-runtime-truth-spine",
+  "stage_id": "M3",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Approved plan-level gap closure: m3-goal-kernel-context-and-runtime-truth-spine"
+  ],
+  "status": "verified",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Runtime truth/action/final-invoker plan; M3_GOAL_KERNEL_CONTEXT_RUNTIME_TRUTH_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if Client/harness/MCP truth injection, stale context, duplicate effect, receipt mismatch.",
+  "selected_profile": "Generic direct and System-bound GoalRun pursuit with replaceable Sessions, workers, models, and harnesses.",
+  "canon_owners": [
+    "docs/architecture/components/agentgres/api-object-model.md",
+    "docs/architecture/components/agentgres/artifact-ref-plane.md",
+    "docs/architecture/components/agentgres/doctrine.md",
+    "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+    "docs/architecture/components/agentgres/projection-system-reference.md",
+    "docs/architecture/components/connectors-tools/contracts.md",
+    "docs/architecture/components/connectors-tools/doctrine.md",
+    "docs/architecture/components/daemon-runtime/api.md",
+    "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+    "docs/architecture/components/daemon-runtime/doctrine.md",
+    "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md",
+    "docs/architecture/foundations/invariants.md",
+    "docs/architecture/foundations/security-privacy-policy-invariants.md",
+    "docs/architecture/foundations/verifiable-bounded-agency.md",
+    "docs/architecture/foundations/objects/evidence-and-delivery.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "d3904fae0820fa2180e111339d07fce2307d05b9",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "d1b154a8275aa7c62047531435a619ab1ebf4bb6c896b72af8dac60111afbae8",
+    "owners": [
+      {
+        "path": "docs/architecture/components/agentgres/api-object-model.md",
+        "sha256": "a79905a481217eef9f8eefd9a4b9d7cb026b7a62183096072824f83422575fd7"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/artifact-ref-plane.md",
+        "sha256": "8bdf076fba386f3b62a4fceccf55d9aaed8150a8aff127230d49edb6d5c00b92"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/doctrine.md",
+        "sha256": "4a8b06374f7b0a415eaab12841347c3e7d1e1acde2084dd8be23b4f1f838370b"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+        "sha256": "fdc0f94961a2d3f7cf29a766f29a37dc291b28248bb9109da685ada643fe1e6c"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/projection-system-reference.md",
+        "sha256": "036fff0ebff79633bd4418b50208554f81adc5876dd978888ff75b24b8edce47"
+      },
+      {
+        "path": "docs/architecture/components/connectors-tools/contracts.md",
+        "sha256": "2296bc26155d6519cc357b0fcfb718cb58ce1b43052c90e5481d7509c7274b0f"
+      },
+      {
+        "path": "docs/architecture/components/connectors-tools/doctrine.md",
+        "sha256": "28915ebbf084413b6af4a94c014a8f9436e84056c7c1e8be23969b51fb24cd31"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/api.md",
+        "sha256": "cd4e99e3403d69e23024c350e36afb3709ca408ac27bba6a4971ea411459d31d"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+        "sha256": "8922d339c9e492a0e1e8ce657264af2b904a48c771d56f8296902ca8c826299f"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/doctrine.md",
+        "sha256": "27a34c7bcf9035fc13607150cfce10b10a3320eaeba0de6fbbf17b8cb46101b1"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+        "sha256": "1e318e51a9ce2b9ae5b3323e7d891c6519a204b9b69cec36e0f4d83bf122be98"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+        "sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "f65af24abe2b05c2174cfba292c4f21d793aec50e81cb8a6f9688ba490544f4b"
+      },
+      {
+        "path": "docs/architecture/foundations/governed-autonomous-systems.md",
+        "sha256": "172d5522c76a48860c9449c893fc4aea72d8647c8d76ad42aff785b21d1c2746"
+      },
+      {
+        "path": "docs/architecture/foundations/invariants.md",
+        "sha256": "754c322a2dbc2287d02220ca2309c4b6d213cad92814ef7c92cb9b833e94148a"
+      },
+      {
+        "path": "docs/architecture/foundations/security-privacy-policy-invariants.md",
+        "sha256": "a6a88ac7cda56eb98482f148e7d95813e3e4c25b415631eb8424aaaf6b329060"
+      },
+      {
+        "path": "docs/architecture/foundations/verifiable-bounded-agency.md",
+        "sha256": "51a657cb3c0547598dc1dafc97341c10bbad45478bcc0da511a3184939ee8ce7"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+        "sha256": "fc222a6a52751c148ea82498e19a7d2a98e6c96cbd57bfce308efc1703454bd3"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "GoalRun",
+      "owner_path": "docs/architecture/foundations/objects/goal-run-execution.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalrunenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/goal-run/v1"
+      ],
+      "schema_versions": [
+        "ioi.goal-run.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "GoalRunProfile",
+      "owner_path": "docs/architecture/foundations/objects/goal-pursuit.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-pursuit.md#goalrunprofileenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/goal-run-profile/v1"
+      ],
+      "schema_versions": [
+        "ioi.goal-run-profile.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkLifecycleRecord",
+      "owner_path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#worklifecyclerecordenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/work-lifecycle-record/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.work-lifecycle-record.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkflowTemplate",
+      "owner_path": "docs/architecture/foundations/objects/reusable-work-definitions.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/hypervisor/core-clients-surfaces.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/reusable-work-definitions.md#workflowtemplateenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/workflow-template/v1"
+      ],
+      "schema_versions": [
+        "ioi.workflow-template.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "RuntimeToolContract",
+      "owner_path": "docs/architecture/components/connectors-tools/contracts.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#runtimetoolcontract",
+      "contract_ids": [
+        "schema://ioi/components/connectors-tools/runtime-tool-contract/v1"
+      ],
+      "schema_versions": [
+        "ioi.components.connectors-tools.runtime-tool-contract.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ReceiptEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#receiptenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-envelope/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-envelope.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "OperationLogEntry",
+      "owner_path": "docs/architecture/components/agentgres/api-object-model.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/agentgres/doctrine.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/components/agentgres/api-object-model.md#operation-shape",
+      "contract_ids": [
+        "schema://ioi/components/agentgres/operation-log-entry/v1"
+      ],
+      "schema_versions": [
+        "ioi.agentgres.operation-log-entry.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m3-goal-kernel-context-and-runtime-truth-spine",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/active/m3-goal-kernel-context-and-runtime-truth-spine.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M3_GOAL_KERNEL_CONTEXT_RUNTIME_TRUTH_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "M3 implementation is present at the declared code anchors, registered contract fixtures and generated projections validate, the isolated daemon journey proves direct admission/result retention/restart reconstruction, and the focused Rust suite retains denial, stale-head, tamper, omission, revocation, label-loss, and exact-head evidence.",
+  "dependency_work_item_ids": [
+    "m3-authorized-issuer-and-atomic-authority-consumption",
+    "m2-selected-profile-exit-proof"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`SYSTEM`, `DAEMON`, `AGENTGRES`, `CONNECTORS`, `SECURITY`; GoalRun/Kernel, ContextCell/Lease/Handoff, Session/WorkRun, Invocation/Result/Receipt",
+    "Runtime truth/action/final-invoker plan; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Client/harness/MCP truth injection, stale context, duplicate effect, receipt mismatch",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `SYSTEM`, `DAEMON`, `AGENTGRES`, `CONNECTORS`, `SECURITY`; GoalRun/Kernel, ContextCell/Lease/Handoff, Session/WorkRun, Invocation/Result/Receipt.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Runtime truth/action/final-invoker plan; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Client/harness/MCP truth injection, stale context, duplicate effect, receipt mismatch.",
+    "Retain an evidence index and require the exact content-bound M3_GOAL_KERNEL_CONTEXT_RUNTIME_TRUTH_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "runtime work/tool invocation or lifecycle transition",
+      "final_invoker": "daemon RuntimeToolContract/work-lifecycle final invoker",
+      "authority_source": "local/domain policy and applicable grant; harness/MCP transports grant nothing",
+      "receipt_or_evidence": "invocation/result operation and ReceiptEnvelope",
+      "negative_behavior": "deny stale context, widened lease, duplicate idempotency key, or cancelled ancestor"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded m3-goal-kernel-context-and-runtime-truth-spine journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M3_GOAL_KERNEL_CONTEXT_RUNTIME_TRUTH_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for Client/harness/MCP truth injection, stale context, duplicate effect, receipt mismatch; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m3-goal-kernel-context-and-runtime-truth-spine; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Client/harness/MCP truth injection, stale context, duplicate effect, receipt mismatch; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M3_GOAL_KERNEL_CONTEXT_RUNTIME_TRUTH_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m3.direct_path_substitution_failures",
+      "metric": "selected direct-path substitutions that change authority, truth, or accepted effect",
+      "threshold": 0,
+      "unit": "substitutions",
+      "threshold_source": "M3 direct-path preservation floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M3_GOAL_KERNEL_CONTEXT_RUNTIME_TRUTH_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/evidence/m3-goal-kernel-context-and-runtime-truth-spine.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M3/m3-goal-kernel-context-and-runtime-truth-spine.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_goal_pursuit.rs",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/goal-run.v1.schema.json",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-m3-goalrun-plane.mjs",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "No collective pursuit, OutcomeRoom acceptance authority, P0 readiness, independent-party operation, public production claim, or later-stage closure is inferred from this M3 selected-profile proof."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Client/harness/MCP truth injection, stale context, duplicate effect, receipt mismatch. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Runtime truth/action/final-invoker plan; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M3_GOAL_KERNEL_CONTEXT_RUNTIME_TRUTH_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": {
+    "from": "active",
+    "to": "verified",
+    "at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "certification_result_sha256": "5fb4daac7529574d55803555bc3167444fa04f9bd955113260b53430ab86ee6a",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

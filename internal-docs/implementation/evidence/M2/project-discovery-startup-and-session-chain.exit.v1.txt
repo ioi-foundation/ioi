@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=project-discovery-startup-and-session-chain
+ARTIFACT=internal-docs/implementation/evidence/M2/m2-wave-proofs-master.v1.log
+ARTIFACT_SHA256=58c13a8c371072bb863c139fd7079440b3f4ac06eadab78fa18b8a83d0443dc9
+PROJECT_STARTUP_SESSION_CHAIN_EXIT=0
+NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

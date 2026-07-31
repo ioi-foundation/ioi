@@ -1,0 +1,1152 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-program-control-selected-profile-exit-proof",
+  "stage_id": "M0",
+  "record_role": "aggregate_exit",
+  "required_work": [
+    "Approved plan-level gap closure: m0-program-control-selected-profile-exit-proof"
+  ],
+  "status": "verified",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Closed M0 evidence manifest; M0_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if Reject missing/duplicate M0 obligation, stale owner/route/method census, competing sequencer, task-code success or capability claim.",
+  "selected_profile": "Private program-control and selected-profile planning; no product effect or capability claim.",
+  "canon_owners": [
+    "docs/architecture/_meta/current-canon-defaults.md",
+    "docs/architecture/_meta/public-web-estate.md",
+    "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/start-here.md",
+    "docs/decisions/README.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "d3904fae0820fa2180e111339d07fce2307d05b9",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "ed7734f7ca8981ae1af4212773e59d9f659c941e1b82ecece6c56f6c13398795",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/current-canon-defaults.md",
+        "sha256": "e2f98681aed05d3b03ce69ef57362f285b23cf2b79dad3ce9d4cef0486940ba1"
+      },
+      {
+        "path": "docs/architecture/_meta/public-web-estate.md",
+        "sha256": "14d9d70df2089f98f9f081bbb66ee7f0695ac0a06ae0dae5ba55ab75e654b353"
+      },
+      {
+        "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+        "sha256": "6b547ee695a03df407816a4530938b5cb75fb6f24730c8d3822d669ad0aae6dd"
+      },
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022"
+      },
+      {
+        "path": "docs/architecture/_meta/start-here.md",
+        "sha256": "6a5cdf8ac430ccaae61b5a36ea8d105a08b5a2f6b5c2f7fa7da3553ddf9a5a32"
+      },
+      {
+        "path": "docs/decisions/README.md",
+        "sha256": "e7cefeedd7b10226f399446ea3241a1c92b419599dca791a402f02d44a411f9a"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m0-program-control-selected-profile-exit-proof",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/active/m0-program-control-selected-profile-exit-proof.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M0_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:M0ProgramControlEvidence",
+      "artifact_class": "private_m0_aggregate_evidence_join",
+      "candidate_name": "M0ProgramControlEvidence",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "m0-adjacent-canon-doc-class-and-placement-disposition",
+    "m0-canon-owner-coverage-and-orphan-verifier",
+    "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+    "m0-invariant-registry-census",
+    "m0-literal-exit-evidence-contract",
+    "m0-route-final-invoker-pg-census-maintenance",
+    "m0-selected-profile-baseline-evidence-and-claim-lock",
+    "m0-source-disposition-and-single-sequencer-verifier",
+    "m0-unsigned-review-anchor",
+    "m0-work-item-contract-completeness-and-owner-lint"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [
+    "m0-adjacent-canon-doc-class-and-placement-disposition",
+    "m0-canon-owner-coverage-and-orphan-verifier",
+    "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+    "m0-invariant-registry-census",
+    "m0-literal-exit-evidence-contract",
+    "m0-route-final-invoker-pg-census-maintenance",
+    "m0-selected-profile-baseline-evidence-and-claim-lock",
+    "m0-source-disposition-and-single-sequencer-verifier",
+    "m0-unsigned-review-anchor",
+    "m0-work-item-contract-completeness-and-owner-lint"
+  ],
+  "aggregate_child_dispositions": [
+    {
+      "child_work_item_id": "m0-adjacent-canon-doc-class-and-placement-disposition",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification. Bound 2026-07-26: the 2026-07-25 stage-membership records join the exit aggregate so certify-stage enforces them; the earlier seven-child binding silently excluded stage members."
+    },
+    {
+      "child_work_item_id": "m0-canon-owner-coverage-and-orphan-verifier",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification. Bound 2026-07-26: the 2026-07-25 stage-membership records join the exit aggregate so certify-stage enforces them; the earlier seven-child binding silently excluded stage members."
+    },
+    {
+      "child_work_item_id": "m0-invariant-registry-census",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification. Bound 2026-07-26: the 2026-07-25 stage-membership records join the exit aggregate so certify-stage enforces them; the earlier seven-child binding silently excluded stage members."
+    },
+    {
+      "child_work_item_id": "m0-literal-exit-evidence-contract",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m0-route-final-invoker-pg-census-maintenance",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m0-selected-profile-baseline-evidence-and-claim-lock",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m0-source-disposition-and-single-sequencer-verifier",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m0-unsigned-review-anchor",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m0-work-item-contract-completeness-and-owner-lint",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    }
+  ],
+  "aggregate_verification_binding": {
+    "schema_version": "ioi.program.aggregate-verification-binding.v1",
+    "child_dispositions": [
+      {
+        "child_work_item_id": "m0-adjacent-canon-doc-class-and-placement-disposition",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification. Bound 2026-07-26: the 2026-07-25 stage-membership records join the exit aggregate so certify-stage enforces them; the earlier seven-child binding silently excluded stage members."
+      },
+      {
+        "child_work_item_id": "m0-canon-owner-coverage-and-orphan-verifier",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification. Bound 2026-07-26: the 2026-07-25 stage-membership records join the exit aggregate so certify-stage enforces them; the earlier seven-child binding silently excluded stage members."
+      },
+      {
+        "child_work_item_id": "m0-invariant-registry-census",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification. Bound 2026-07-26: the 2026-07-25 stage-membership records join the exit aggregate so certify-stage enforces them; the earlier seven-child binding silently excluded stage members."
+      },
+      {
+        "child_work_item_id": "m0-literal-exit-evidence-contract",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m0-route-final-invoker-pg-census-maintenance",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m0-selected-profile-baseline-evidence-and-claim-lock",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m0-source-disposition-and-single-sequencer-verifier",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m0-unsigned-review-anchor",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m0-work-item-contract-completeness-and-owner-lint",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      }
+    ],
+    "child_bindings": [
+      {
+        "work_item_id": "m0-adjacent-canon-doc-class-and-placement-disposition",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "dbb831e78f3bd8dcb52fcf4a4810d679bd8012d3aaf225e6148033e209ff763e",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_ADJACENT_CANON_PLACEMENT_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-adjacent-canon-doc-class-and-placement-disposition.exit.v1.txt",
+              "sha256": "e8caab513b3bfa486d1a6ebacd4960d2bdc154072970705c14c544dcd422c3bd"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "e8caab513b3bfa486d1a6ebacd4960d2bdc154072970705c14c544dcd422c3bd"
+        }
+      },
+      {
+        "work_item_id": "m0-canon-owner-coverage-and-orphan-verifier",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "d9790084d2d5c65291b66503abf12a4872fca85ae03f051c8dbf78ee2713e881",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_CANON_OWNER_COVERAGE_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-canon-owner-coverage-and-orphan-verifier.exit.v1.txt",
+              "sha256": "7a0fce44ec87613498cdafa46a5cc2f58feb71cc994a19cce15152379595df04"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "7a0fce44ec87613498cdafa46a5cc2f58feb71cc994a19cce15152379595df04"
+        }
+      },
+      {
+        "work_item_id": "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "577b2017401191b282bd5e61cc749930cea6b601f459f628b0e414f4aded77e1",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_CANONICAL_ENUM_BINDING_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-canonical-enum-member-set-binding-and-legacy-string-census.exit.v1.txt",
+              "sha256": "9c748d6d9dfe0fd0e0bcc3910eacfbc95e22d6940cb1b54c40e360f72c9b5f4a"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "9c748d6d9dfe0fd0e0bcc3910eacfbc95e22d6940cb1b54c40e360f72c9b5f4a"
+        }
+      },
+      {
+        "work_item_id": "m0-invariant-registry-census",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "3afe1c49e65f174df58eb480bc0be8369efccaaf7d202ad424d66e8d199f92ad",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_INVARIANT_REGISTRY_CENSUS_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-invariant-registry-census.exit.v1.txt",
+              "sha256": "120bb15aeeff6d05b99bbeef7b94bc139b077e2f9590278c64c3a5e549081e48"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "120bb15aeeff6d05b99bbeef7b94bc139b077e2f9590278c64c3a5e549081e48"
+        }
+      },
+      {
+        "work_item_id": "m0-literal-exit-evidence-contract",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "89ac7383368690d72ade8ff7854a7397c158187c1848048a1bc3f3bf762a572c",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_LITERAL_EXIT_EVIDENCE_CONTRACT_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-literal-exit-evidence-contract.exit.v1.txt",
+              "sha256": "135c55b7ce3984dfbe4b677cf88dff844da37500e2718665dec2ff02e6998451"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "135c55b7ce3984dfbe4b677cf88dff844da37500e2718665dec2ff02e6998451"
+        }
+      },
+      {
+        "work_item_id": "m0-route-final-invoker-pg-census-maintenance",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "eedfa100b954a588c6c6a45575f67bf81cf388cafe9567b0a546ec44a86f85b9",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_ROUTE_FINAL_INVOKER_PG_CENSUS_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-route-final-invoker-pg-census-maintenance.exit.v1.txt",
+              "sha256": "31ed8edd0bd34d7dd349a2db6085c187c2fca0ac52bf5e7409778216691b09e0"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "31ed8edd0bd34d7dd349a2db6085c187c2fca0ac52bf5e7409778216691b09e0"
+        }
+      },
+      {
+        "work_item_id": "m0-selected-profile-baseline-evidence-and-claim-lock",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "cd0b3c3bfc992234c2f20bda874294875a083f199faf52fcbd8857723844a653",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_SELECTED_PROFILE_BASELINE_CLAIM_LOCK_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-selected-profile-baseline-evidence-and-claim-lock.exit.v1.txt",
+              "sha256": "95456f7843017719d64109820caab7716ec246362c699a53f5ef0e04ab2d209f"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "95456f7843017719d64109820caab7716ec246362c699a53f5ef0e04ab2d209f"
+        }
+      },
+      {
+        "work_item_id": "m0-source-disposition-and-single-sequencer-verifier",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "65803efade38a309eb115a401b82cc65fdca242e16745a67b1735bb2ffe10cf9",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_SOURCE_DISPOSITION_SINGLE_SEQUENCER_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-source-disposition-and-single-sequencer-verifier.exit.v1.txt",
+              "sha256": "c70876b03aa254a5cd797b4f534710831de30b6d081e39dcd09a80e552b4511a"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "c70876b03aa254a5cd797b4f534710831de30b6d081e39dcd09a80e552b4511a"
+        }
+      },
+      {
+        "work_item_id": "m0-unsigned-review-anchor",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "3850c24c94e2f04cea04279c9ba0ec13b191a9989cc123f04789207914b3dfd7",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_UNSIGNED_REVIEW_ANCHOR_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-unsigned-review-anchor.exit.v1.txt",
+              "sha256": "d2dab85562e3295014e306227bf0db49675061de62d68128c61be414c7a05c0e"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "d2dab85562e3295014e306227bf0db49675061de62d68128c61be414c7a05c0e"
+        }
+      },
+      {
+        "work_item_id": "m0-work-item-contract-completeness-and-owner-lint",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "3a27089e040e67c8dff8671819d38f921168c467e926fd73cb7a3d0c00bdb7ed",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_WORK_ITEM_CONTRACT_COMPLETENESS_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-work-item-contract-completeness-and-owner-lint.exit.v1.txt",
+              "sha256": "55ff67db6de55ea4a3041aa779100b4aacee8030c71ad1089dd4ef651c900c31"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "55ff67db6de55ea4a3041aa779100b4aacee8030c71ad1089dd4ef651c900c31"
+        }
+      }
+    ],
+    "dependency_bindings": [
+      {
+        "work_item_id": "m0-adjacent-canon-doc-class-and-placement-disposition",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "dbb831e78f3bd8dcb52fcf4a4810d679bd8012d3aaf225e6148033e209ff763e",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_ADJACENT_CANON_PLACEMENT_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-adjacent-canon-doc-class-and-placement-disposition.exit.v1.txt",
+              "sha256": "e8caab513b3bfa486d1a6ebacd4960d2bdc154072970705c14c544dcd422c3bd"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "e8caab513b3bfa486d1a6ebacd4960d2bdc154072970705c14c544dcd422c3bd"
+        }
+      },
+      {
+        "work_item_id": "m0-canon-owner-coverage-and-orphan-verifier",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "d9790084d2d5c65291b66503abf12a4872fca85ae03f051c8dbf78ee2713e881",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_CANON_OWNER_COVERAGE_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-canon-owner-coverage-and-orphan-verifier.exit.v1.txt",
+              "sha256": "7a0fce44ec87613498cdafa46a5cc2f58feb71cc994a19cce15152379595df04"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "7a0fce44ec87613498cdafa46a5cc2f58feb71cc994a19cce15152379595df04"
+        }
+      },
+      {
+        "work_item_id": "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "577b2017401191b282bd5e61cc749930cea6b601f459f628b0e414f4aded77e1",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_CANONICAL_ENUM_BINDING_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-canonical-enum-member-set-binding-and-legacy-string-census.exit.v1.txt",
+              "sha256": "9c748d6d9dfe0fd0e0bcc3910eacfbc95e22d6940cb1b54c40e360f72c9b5f4a"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "9c748d6d9dfe0fd0e0bcc3910eacfbc95e22d6940cb1b54c40e360f72c9b5f4a"
+        }
+      },
+      {
+        "work_item_id": "m0-invariant-registry-census",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "3afe1c49e65f174df58eb480bc0be8369efccaaf7d202ad424d66e8d199f92ad",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_INVARIANT_REGISTRY_CENSUS_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-invariant-registry-census.exit.v1.txt",
+              "sha256": "120bb15aeeff6d05b99bbeef7b94bc139b077e2f9590278c64c3a5e549081e48"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "120bb15aeeff6d05b99bbeef7b94bc139b077e2f9590278c64c3a5e549081e48"
+        }
+      },
+      {
+        "work_item_id": "m0-literal-exit-evidence-contract",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "89ac7383368690d72ade8ff7854a7397c158187c1848048a1bc3f3bf762a572c",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_LITERAL_EXIT_EVIDENCE_CONTRACT_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-literal-exit-evidence-contract.exit.v1.txt",
+              "sha256": "135c55b7ce3984dfbe4b677cf88dff844da37500e2718665dec2ff02e6998451"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "135c55b7ce3984dfbe4b677cf88dff844da37500e2718665dec2ff02e6998451"
+        }
+      },
+      {
+        "work_item_id": "m0-route-final-invoker-pg-census-maintenance",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "eedfa100b954a588c6c6a45575f67bf81cf388cafe9567b0a546ec44a86f85b9",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_ROUTE_FINAL_INVOKER_PG_CENSUS_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-route-final-invoker-pg-census-maintenance.exit.v1.txt",
+              "sha256": "31ed8edd0bd34d7dd349a2db6085c187c2fca0ac52bf5e7409778216691b09e0"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "31ed8edd0bd34d7dd349a2db6085c187c2fca0ac52bf5e7409778216691b09e0"
+        }
+      },
+      {
+        "work_item_id": "m0-selected-profile-baseline-evidence-and-claim-lock",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "cd0b3c3bfc992234c2f20bda874294875a083f199faf52fcbd8857723844a653",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_SELECTED_PROFILE_BASELINE_CLAIM_LOCK_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-selected-profile-baseline-evidence-and-claim-lock.exit.v1.txt",
+              "sha256": "95456f7843017719d64109820caab7716ec246362c699a53f5ef0e04ab2d209f"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "95456f7843017719d64109820caab7716ec246362c699a53f5ef0e04ab2d209f"
+        }
+      },
+      {
+        "work_item_id": "m0-source-disposition-and-single-sequencer-verifier",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "65803efade38a309eb115a401b82cc65fdca242e16745a67b1735bb2ffe10cf9",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_SOURCE_DISPOSITION_SINGLE_SEQUENCER_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-source-disposition-and-single-sequencer-verifier.exit.v1.txt",
+              "sha256": "c70876b03aa254a5cd797b4f534710831de30b6d081e39dcd09a80e552b4511a"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "c70876b03aa254a5cd797b4f534710831de30b6d081e39dcd09a80e552b4511a"
+        }
+      },
+      {
+        "work_item_id": "m0-unsigned-review-anchor",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "3850c24c94e2f04cea04279c9ba0ec13b191a9989cc123f04789207914b3dfd7",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_UNSIGNED_REVIEW_ANCHOR_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-unsigned-review-anchor.exit.v1.txt",
+              "sha256": "d2dab85562e3295014e306227bf0db49675061de62d68128c61be414c7a05c0e"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "d2dab85562e3295014e306227bf0db49675061de62d68128c61be414c7a05c0e"
+        }
+      },
+      {
+        "work_item_id": "m0-work-item-contract-completeness-and-owner-lint",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "3a27089e040e67c8dff8671819d38f921168c467e926fd73cb7a3d0c00bdb7ed",
+        "status_at_binding": "verified",
+        "evidence_binding": {
+          "expected_literal": "M0_WORK_ITEM_CONTRACT_COMPLETENESS_EXIT=0",
+          "evidence_files": [
+            {
+              "path": "internal-docs/implementation/evidence/M0/m0-work-item-contract-completeness-and-owner-lint.exit.v1.txt",
+              "sha256": "55ff67db6de55ea4a3041aa779100b4aacee8030c71ad1089dd4ef651c900c31"
+            }
+          ],
+          "exact_literal_line_count": 1,
+          "literal_valid": true,
+          "evidence_bundle_sha256": "55ff67db6de55ea4a3041aa779100b4aacee8030c71ad1089dd4ef651c900c31"
+        }
+      }
+    ],
+    "aggregate_evidence_binding": {
+      "expected_literal": "M0_EXIT=0",
+      "evidence_files": [
+        {
+          "path": "internal-docs/implementation/evidence/M0/m0-program-control-selected-profile-exit-proof.exit.v1.txt",
+          "sha256": "560c0aadc728e520938d615621a42708539d8b2297587ff53d2ee8d95e9a390a"
+        }
+      ],
+      "exact_literal_line_count": 1,
+      "literal_valid": true,
+      "evidence_bundle_sha256": "560c0aadc728e520938d615621a42708539d8b2297587ff53d2ee8d95e9a390a"
+    },
+    "binding_payload_sha256": "936a92ee2f4fe31b2095037dc64cbe4603a60dac8d2a149f1d2c2bbd52d3a7b8",
+    "nonclaim": "This exact-digest binding is a private closure precondition. It does not promote a child, dependency, proof gate, aggregate, work item, or stage and cannot substitute for literal-valid retained evidence."
+  },
+  "in_scope": [
+    "`PROGRAM`, `META`; private M0.1–M0.9 child/evidence/nonclaim join",
+    "Closed M0 evidence manifest; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Reject missing/duplicate M0 obligation, stale owner/route/method census, competing sequencer, task-code success or capability claim",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `PROGRAM`, `META`; private M0.1–M0.9 child/evidence/nonclaim join.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Closed M0 evidence manifest; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Reject missing/duplicate M0 obligation, stale owner/route/method census, competing sequencer, task-code success or capability claim.",
+    "Retain an evidence index and require the exact content-bound M0_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "private plan/check projection write",
+      "final_invoker": "private deterministic writer only",
+      "authority_source": "none; workflow evidence never authorizes product effects",
+      "receipt_or_evidence": "unsigned checker report and source manifest",
+      "negative_behavior": "refuse mutation on unknown source, owner, status, or exit evidence"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "proof_gate_census": {
+    "role": "oversight_projection_only_not_closure_authority",
+    "registry_ref": "internal-docs/implementation/modules/mechanism-gates.md",
+    "dispositions": [
+      {
+        "pg_id": "PG-0.1",
+        "closure_owner_work_item_id": "m8-order-zero-improvement-and-direct-path",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-0.2",
+        "closure_owner_work_item_id": "m8-order-zero-improvement-and-direct-path",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-0.3",
+        "closure_owner_work_item_id": "m11-canonical-contract-registry-and-legacy-ref-migration",
+        "applicability": "later"
+      },
+      {
+        "pg_id": "PG-1.1",
+        "closure_owner_work_item_id": "m11-canonical-contract-registry-and-legacy-ref-migration",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-1.2",
+        "closure_owner_work_item_id": "sdk-cli-adk-odk-builder-journey",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-1.3",
+        "closure_owner_work_item_id": "m9-terminal-product-state-and-release-supply-chain",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-2.1",
+        "closure_owner_work_item_id": "m9-managed-optionality-overlay",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-2.2",
+        "closure_owner_work_item_id": "m6-consequential-action-authority-receipt-unification",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-2.3",
+        "closure_owner_work_item_id": "production-receipt-checkpoint-and-offline-proof",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-2.4",
+        "closure_owner_work_item_id": "production-receipt-checkpoint-and-offline-proof",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-2.5",
+        "closure_owner_work_item_id": "m12-aiip-channel-envelope-profile",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-2.6",
+        "closure_owner_work_item_id": "m14-l1-authorization-decision",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-3.1",
+        "closure_owner_work_item_id": "production-information-flow-and-declassification",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-3.2",
+        "closure_owner_work_item_id": "m9-authority-gateway-equivalence-and-coverage",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-3.3",
+        "closure_owner_work_item_id": "production-information-flow-and-declassification",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-3.4",
+        "closure_owner_work_item_id": "production-information-flow-and-declassification",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-3.5",
+        "closure_owner_work_item_id": "m4-room-graph-truth-and-product-projection",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-3.6",
+        "closure_owner_work_item_id": "m8-learning-boundary-provider-exit",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4A.1",
+        "closure_owner_work_item_id": "m2-membership-readiness-plane",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4A.2",
+        "closure_owner_work_item_id": "m10-attestation-temporal-floor-and-revocation-continuity",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-4A.3",
+        "closure_owner_work_item_id": "m2-writer-fence-and-lost-suffix",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4A.4",
+        "closure_owner_work_item_id": "m2-writer-fence-and-lost-suffix",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4A.5",
+        "closure_owner_work_item_id": "m10-topology-chaos-and-operator-product-proof",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4A.6",
+        "closure_owner_work_item_id": "m10-topology-chaos-and-operator-product-proof",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4B.1",
+        "closure_owner_work_item_id": "m3-result-lifecycle-negative-retention",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4B.2",
+        "closure_owner_work_item_id": "m3-result-lifecycle-negative-retention",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4B.3",
+        "closure_owner_work_item_id": "agentgres-production-readiness-and-branch-effects",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4B.4",
+        "closure_owner_work_item_id": "m3-result-lifecycle-negative-retention",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4B.5",
+        "closure_owner_work_item_id": "m3-result-lifecycle-negative-retention",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4B.6",
+        "closure_owner_work_item_id": "m3-result-lifecycle-negative-retention",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4C.1",
+        "closure_owner_work_item_id": "m9-workrun-microvm-isolation-and-output-admission",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4C.2",
+        "closure_owner_work_item_id": "m9-workrun-microvm-isolation-and-output-admission",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4C.3",
+        "closure_owner_work_item_id": "m9-workrun-microvm-isolation-and-output-admission",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-4C.4",
+        "closure_owner_work_item_id": "m9-workstation-virtual-machine-operational-journey",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-4C.5",
+        "closure_owner_work_item_id": "m9-infrastructure-estate-operational-journey",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-4C.6",
+        "closure_owner_work_item_id": "m9-workrun-microvm-isolation-and-output-admission",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-5.1",
+        "closure_owner_work_item_id": "m11-embodied-nonlive-graph-proof",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-5.2",
+        "closure_owner_work_item_id": "live-embodied-promotion",
+        "applicability": "later"
+      },
+      {
+        "pg_id": "PG-5.3",
+        "closure_owner_work_item_id": "live-embodied-promotion",
+        "applicability": "later"
+      },
+      {
+        "pg_id": "PG-5.4",
+        "closure_owner_work_item_id": "live-embodied-promotion",
+        "applicability": "later"
+      },
+      {
+        "pg_id": "PG-5.5",
+        "closure_owner_work_item_id": "live-embodied-promotion",
+        "applicability": "later"
+      },
+      {
+        "pg_id": "PG-6A.1",
+        "closure_owner_work_item_id": "managed-billing-work-credits-and-supplier-reconciliation",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-6A.2",
+        "closure_owner_work_item_id": "m14-service-family-owner-contract-and-product-surfaces",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-6A.3",
+        "closure_owner_work_item_id": "m14-service-family-owner-contract-and-product-surfaces",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-6A.4",
+        "closure_owner_work_item_id": "managed-billing-work-credits-and-supplier-reconciliation",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-6B.1",
+        "closure_owner_work_item_id": "dispute-adjudication-remedy-kernel",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-6B.2",
+        "closure_owner_work_item_id": "dispute-adjudication-remedy-kernel",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-6B.3",
+        "closure_owner_work_item_id": "m14-service-family-owner-contract-and-product-surfaces",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-6B.4",
+        "closure_owner_work_item_id": "dispute-adjudication-remedy-kernel",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-6B.5",
+        "closure_owner_work_item_id": "dispute-adjudication-remedy-kernel",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-6C.1",
+        "closure_owner_work_item_id": "hypervisoros-ctee-task-capsule-attestation",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-6C.2",
+        "closure_owner_work_item_id": "hypervisoros-ctee-task-capsule-attestation",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-6C.3",
+        "closure_owner_work_item_id": "hypervisoros-ctee-task-capsule-attestation",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-6D.1",
+        "closure_owner_work_item_id": "ecosystem-assurance-and-public-claim-estate",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-6D.2",
+        "closure_owner_work_item_id": "ecosystem-assurance-and-public-claim-estate",
+        "applicability": "conditional"
+      },
+      {
+        "pg_id": "PG-6D.3",
+        "closure_owner_work_item_id": "ecosystem-assurance-and-public-claim-estate",
+        "applicability": "out_of_scope"
+      },
+      {
+        "pg_id": "PG-7.1",
+        "closure_owner_work_item_id": "platform-operability-observability-and-incidents",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-7.2",
+        "closure_owner_work_item_id": "platform-operability-observability-and-incidents",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-7.3",
+        "closure_owner_work_item_id": "m10-attestation-temporal-floor-and-revocation-continuity",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-7.4",
+        "closure_owner_work_item_id": "production-receipt-checkpoint-and-offline-proof",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-7.5",
+        "closure_owner_work_item_id": "m9-terminal-product-state-and-release-supply-chain",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-7.6",
+        "closure_owner_work_item_id": "managed-billing-work-credits-and-supplier-reconciliation",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-7.7",
+        "closure_owner_work_item_id": "platform-operability-observability-and-incidents",
+        "applicability": "required_now"
+      },
+      {
+        "pg_id": "PG-7.8",
+        "closure_owner_work_item_id": "platform-operability-observability-and-incidents",
+        "applicability": "required_now"
+      }
+    ],
+    "nonclaim": "The M0 aggregate projects all gate dispositions but owns and closes none of them."
+  },
+  "positive_proof": [
+    "The selected profile completes the bounded m0-program-control-selected-profile-exit-proof journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M0_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for Reject missing/duplicate M0 obligation, stale owner/route/method census, competing sequencer, task-code success or capability claim; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m0-program-control-selected-profile-exit-proof; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Reject missing/duplicate M0 obligation, stale owner/route/method census, competing sequencer, task-code success or capability claim; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M0_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m0.unowned_or_second_sequencer_facts",
+      "metric": "unowned facts or second-sequencer facts",
+      "threshold": 0,
+      "unit": "facts",
+      "threshold_source": "M0 program-control floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M0_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/evidence/m0-program-control-selected-profile-exit-proof.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M0/m0-program-control-selected-profile-exit-proof.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "scripts/check-architecture-docs.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Reject missing/duplicate M0 obligation, stale owner/route/method census, competing sequencer, task-code success or capability claim. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Closed M0 evidence manifest; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M0_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": {
+    "from": "active",
+    "to": "verified",
+    "at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+    "certification_result_sha256": "1504d66840892061f460eb01b6941daad5873a231db35f7a2736979f6996c4c8",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

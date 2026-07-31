@@ -1,0 +1,393 @@
+{
+  "format": "ioi.program.invariant_census.v1",
+  "role": "Generated ownership-bookkeeping census. Proves which estate objects cite each registry invariant; proves nothing about code enforcement. UNOWNED is an honest gap, never silently covered.",
+  "registry": {
+    "path": "docs/architecture/foundations/invariants.md",
+    "sha256": "754c322a2dbc2287d02220ca2309c4b6d213cad92814ef7c92cb9b833e94148a"
+  },
+  "invariant_count": 38,
+  "unowned_count": 26,
+  "invariants": [
+    {
+      "id": "INV-1",
+      "owned": true,
+      "cited_by": {
+        "work_items": [
+          "work-items/active/m0-invariant-registry-census.v1.json"
+        ],
+        "stages": [
+          "stages/m0.md"
+        ],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-2",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-3",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-4",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-5",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-6",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-7",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-8",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-9",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-10",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-11",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-12",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-13",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-14",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-15",
+      "owned": true,
+      "cited_by": {
+        "work_items": [],
+        "stages": [
+          "stages/m4.md"
+        ],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-16",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-17",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-18",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-19",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-20",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-21",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-22",
+      "owned": true,
+      "cited_by": {
+        "work_items": [],
+        "stages": [
+          "stages/m10.md"
+        ],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-23",
+      "owned": true,
+      "cited_by": {
+        "work_items": [],
+        "stages": [
+          "stages/m10.md"
+        ],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-24",
+      "owned": true,
+      "cited_by": {
+        "work_items": [],
+        "stages": [
+          "stages/m10.md"
+        ],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-25",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-26",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-27",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-28",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-29",
+      "owned": true,
+      "cited_by": {
+        "work_items": [],
+        "stages": [
+          "stages/m10.md"
+        ],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-30",
+      "owned": true,
+      "cited_by": {
+        "work_items": [],
+        "stages": [
+          "stages/m12.md"
+        ],
+        "modules": [
+          "modules/cooperation.md"
+        ]
+      }
+    },
+    {
+      "id": "INV-31",
+      "owned": true,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": [
+          "modules/cooperation.md"
+        ]
+      }
+    },
+    {
+      "id": "INV-32",
+      "owned": true,
+      "cited_by": {
+        "work_items": [],
+        "stages": [
+          "stages/m12.md",
+          "stages/m13.md"
+        ],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-33",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-34",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-35",
+      "owned": false,
+      "cited_by": {
+        "work_items": [],
+        "stages": [],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-36",
+      "owned": true,
+      "cited_by": {
+        "work_items": [],
+        "stages": [
+          "stages/m10.md"
+        ],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-37",
+      "owned": true,
+      "cited_by": {
+        "work_items": [
+          "work-items/active/m0-closure-successor-aggregate.v1.json",
+          "work-items/active/m0-invariant-registry-census-successor.v1.json",
+          "work-items/active/m0-invariant-registry-census.v1.json"
+        ],
+        "stages": [
+          "stages/m0.md",
+          "stages/m9.md"
+        ],
+        "modules": []
+      }
+    },
+    {
+      "id": "INV-38",
+      "owned": true,
+      "cited_by": {
+        "work_items": [
+          "work-items/active/m0-closure-successor-aggregate.v1.json",
+          "work-items/active/m0-invariant-registry-census-successor.v1.json",
+          "work-items/active/m2-isolation-containment-enforcement-successor.v1.json",
+          "work-items/active/m2-provider-isolation-closure-successor-aggregate.v1.json"
+        ],
+        "stages": [
+          "stages/m9.md"
+        ],
+        "modules": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,596 @@
+{
+  "schemaVersion": "ioi.runtime-layout-refactor.check.v1",
+  "generatedAt": "2026-07-29T00:03:57.313Z",
+  "status": "passed",
+  "report": [
+    {
+      "id": "focused-hypervisor-checks",
+      "status": "passed",
+      "evidence": [
+        "package.json"
+      ],
+      "message": "root package scripts must expose focused Hypervisor checks and keep adapter-local composer builds retired"
+    },
+    {
+      "id": "compact-app-harness-contract",
+      "status": "passed",
+      "evidence": [
+        "scripts/lib/hypervisor-app-harness-contract.mjs"
+      ],
+      "message": "keep the compact app harness contract as the app-harness authority"
+    },
+    {
+      "id": "active-hypervisor-env-family-renamed",
+      "status": "passed",
+      "evidence": [
+        "scripts/validate-model-mounting-closeout.mjs",
+        "scripts/lib/hypervisor-app-harness-contract.mjs",
+        "scripts/lib/hypervisor-app-harness-contract.test.mjs",
+        "apps/hypervisor/scripts/dev_start_intent_probe.py",
+        "apps/hypervisor/scripts/dev_reuse_session_probe.py",
+        "apps/hypervisor/scripts/desktop_prompt_probe.py",
+        "apps/hypervisor/scripts/dry-run-desktop.sh",
+        "packages/hypervisor-workbench/src/WorkflowComposer/support.tsx",
+        "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
+        "crates/api/src/chat.rs",
+        "crates/node/src/bin/ioi-local.rs",
+        "crates/types/src/app/runtime_contracts.rs",
+        "crates/types/src/app/harness/activation.rs",
+        "crates/types/src/app/harness/tests.rs",
+        "crates/services/src/agentic/runtime/service/output/direct_inline.rs",
+        "crates/services/src/agentic/runtime/service/tool_execution/processing/repair/core.rs",
+        "crates/services/src/agentic/runtime/service/decision_loop/cognition/inference.rs",
+        "crates/services/src/agentic/runtime/service/decision_loop/cognition/inference/tests.rs"
+      ],
+      "message": "Active Hypervisor harness/dev environment names must use Hypervisor prefixes; retired AUTOPILOT_* env shims must not return."
+    },
+    {
+      "id": "workflow-composer-harness-globals-hypervisor-named",
+      "status": "passed",
+      "evidence": [
+        "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+        "packages/hypervisor-workbench/src/WorkflowComposer/support.tsx"
+      ],
+      "message": "Workflow Composer harness globals and env flags must use Hypervisor names, not retired Autopilot names."
+    },
+    {
+      "id": "hypervisor-client-runtime-command-names",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/src/services/HypervisorClientRuntime.ts"
+      ],
+      "message": "Hypervisor client runtime must emit Hypervisor-named host events and commands, not retired Autopilot bridge names."
+    },
+    {
+      "id": "hypervisor-retired-client-header-absent",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
+        "apps/hypervisor/src/windows/shared/hostWindowDrag.ts",
+        "docs/architecture/_meta/implementation-matrix.md",
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "apps/hypervisor/src/main.tsx",
+        "apps/hypervisor/scripts/serve-product-ui.mjs",
+        "apps/hypervisor/scripts/ioi-api-adapter.mjs"
+      ],
+      "message": "Hypervisor shell and secondary canon docs must not reintroduce a hidden client header or host drag helper above the IOI-reference left rail."
+    },
+    {
+      "id": "hypervisor-dev-start-probe-no-dual-product-log-prefix",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/scripts/dev_start_intent_probe.py"
+      ],
+      "message": "Active Hypervisor dev-start probes must not accept retired Autopilot log prefixes as a compatibility shim."
+    },
+    {
+      "id": "hypervisor-app-no-retired-chat-shell-window",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/src/windows/ChatShellWindow",
+        "apps/hypervisor/src/services/chatShellNavigation.ts",
+        "apps/hypervisor/src/services/chatSessionNavigation.ts",
+        "apps/hypervisor/src/services/artifactHubNavigation.ts",
+        "apps/hypervisor/src/services/artifactNavigation.ts",
+        "apps/hypervisor/src/services/chatShellLaunchState.ts",
+        "apps/hypervisor/src/services/chatShellPendingLaunchNavigation.ts"
+      ],
+      "message": "Hypervisor App must not retain the retired alternate chat/artifact shell; Home, Sessions, Projects, Receipts, and Authority own those routes."
+    },
+    {
+      "id": "hypervisor-generated-contract-path",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/src/generated/hypervisor-contracts",
+        "apps/hypervisor/src/types/generated.ts",
+        "apps/hypervisor/src/types/events.ts",
+        "apps/hypervisor/src/types/artifacts.ts",
+        "apps/hypervisor/src/types/notifications.ts",
+        "apps/hypervisor/src/types/atlas.ts"
+      ],
+      "message": "Hypervisor frontend type wrappers must import generated Hypervisor contracts, not the retired generated/autopilot-contracts path."
+    },
+    {
+      "id": "tracked-runtime-boundary-map",
+      "status": "passed",
+      "evidence": [
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/vocabulary.md"
+      ],
+      "message": "tracked canon must identify runtime/client boundaries and adapter targets without depending on ignored implementation maps"
+    },
+    {
+      "id": "hypervisor-canon-folds-fleet-into-provider-environment-views",
+      "status": "passed",
+      "evidence": [
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/vocabulary.md",
+        "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "docs/architecture/components/hypervisor/providers-and-environments.md"
+      ],
+      "message": "tracked canon must fold retired Fleet posture into the Environments substrate application and session/project/provider views"
+    },
+    {
+      "id": "ioi-reference-local-verifier-script",
+      "status": "passed",
+      "evidence": [
+        "package.json"
+      ],
+      "message": "IOI reference verifier can remain a root local script, but tracked layout conformance must not read ignored local mirror guides."
+    },
+    {
+      "id": "tracked-editor-surface-drift-guard",
+      "status": "passed",
+      "evidence": [
+        "README.md",
+        "apps/hypervisor/README.md",
+        "packages/hypervisor-adapter-targets/README.md"
+      ],
+      "message": "tracked docs must describe code-editor adapters as mediated targets, not direct editor product surfaces."
+    },
+    {
+      "id": "hypervisor-reference-shell-no-auxiliary-chat-overlay",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+        "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
+        "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/trace-and-welcome.css",
+        "apps/hypervisor/src/windows/shared/shellShortcuts.ts"
+      ],
+      "message": "Hypervisor reference shell must not keep the retired auxiliary chat overlay path."
+    },
+    {
+      "id": "hypervisor-shell-light-reference-boot",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/index.html"
+      ],
+      "message": "Hypervisor pre-mount boot fallback must use the light IOI reference posture instead of a dark IDE-era card."
+    },
+    {
+      "id": "repo-facing-hypervisor-client-map",
+      "status": "passed",
+      "evidence": [
+        "README.md"
+      ],
+      "message": "README must present Hypervisor App/Web, Workbench, and adapter targets instead of retired Hypervisor IDE or packages/agent-ide language."
+    },
+    {
+      "id": "active-product-copy-hypervisor-taxonomy",
+      "status": "passed",
+      "evidence": [
+        "apps/developers-ioi-ai/src/content/docs.tsx",
+        "scripts/launch-hypervisor-code-editor-adapter-host.mjs"
+      ],
+      "message": "Active product docs and model preload identifiers must use Hypervisor client/Workbench taxonomy, not Autopilot IDE or Tauri product language."
+    },
+    {
+      "id": "install-resolver-current-product-hypervisor-named",
+      "status": "passed",
+      "evidence": [
+        "crates/services/src/agentic/runtime/resolver/software_install/product_metadata.rs"
+      ],
+      "message": "Current-product install resolution must default to Hypervisor names and must not retain Autopilot aliases."
+    },
+    {
+      "id": "rust-product-fixtures-hypervisor-named",
+      "status": "passed",
+      "evidence": [
+        "crates/services/src/agentic/runtime/service/decision_loop/cognition/final_reply_product_handoff.rs",
+        "crates/services/src/agentic/runtime/service/decision_loop/cognition/tests_parts/root/final_reply_evidence.rs",
+        "crates/services/src/agentic/runtime/execution/screen/semantics/tests.rs",
+        "crates/services/src/agentic/runtime/execution/screen/tests.rs"
+      ],
+      "message": "Active Rust product fixtures and final-reply handoff canaries must use Hypervisor-era labels, not Autopilot labels."
+    },
+    {
+      "id": "code-editor-adapter-host-scope-stays-editor-only",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/README.md"
+      ],
+      "message": "Code editor adapter host docs must stay limited to code-editor targets; terminal, VM, hosted workspace, and provider posture belong to sessions/environments."
+    },
+    {
+      "id": "code-editor-adapter-extension-only",
+      "status": "passed",
+      "evidence": [
+        "packages/hypervisor-adapter-targets/code-editors/vscode-extension/package.json",
+        "packages/hypervisor-adapter-targets/code-editors/vscode-extension/extension.js",
+        "packages/hypervisor-adapter-targets/code-editors/vscode-extension/transport/context-transport.js",
+        "packages/hypervisor-adapter-targets/code-editors/vscode-extension/editor-context/context-publisher.js",
+        "packages/hypervisor-adapter-targets/code-editors/vscode-extension/editor-context/context-snapshot.js"
+      ],
+      "message": "The editor-host extension must stay a code-editor adapter only; Hypervisor product routes, terminal/tasks/provider controls, and daemon model-mount state belong to Hypervisor sessions and the daemon."
+    },
+    {
+      "id": "code-editor-adapter-fork-sync-target-only",
+      "status": "passed",
+      "evidence": [
+        ".gitignore",
+        "packages/hypervisor-adapter-targets/README.md",
+        "packages/hypervisor-adapter-targets/editor-targets.manifest.json",
+        "scripts/lib/hypervisor-code-editor-adapter-host-paths.mjs"
+      ],
+      "message": "Ignored VS Code fork/build trees must stay sync targets copied from the canonical code editor adapter source, not duplicate tracked JS truth paths."
+    },
+    {
+      "id": "workflow-runtime-checkpoint-identities-hypervisor-named",
+      "status": "passed",
+      "evidence": [
+        "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts"
+      ],
+      "message": "Workflow runtime checkpoint identities must use Hypervisor namespaces, not retired Autopilot checkpoint names."
+    },
+    {
+      "id": "active-test-fixtures-hypervisor-named",
+      "status": "passed",
+      "evidence": [
+        "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.test.ts"
+      ],
+      "message": "Active workflow fixture inputs must use Hypervisor labels unless they are explicit negative assertions."
+    },
+    {
+      "id": "agent-model-matrix-session-scope-named",
+      "status": "passed",
+      "evidence": [
+        "scripts/run-agent-model-matrix.mjs",
+        "scripts/lib/agent-model-matrix.mjs",
+        "apps/benchmarks/src"
+      ],
+      "message": "Agent/model benchmark execution scopes must use session_shared rather than the retired Fleet shared-scope label."
+    },
+    {
+      "id": "active-model-mount-identities-hypervisor-named",
+      "status": "passed",
+      "evidence": [
+        "crates/node/src/bin/hypervisor-daemon.rs",
+        "crates/services/src/agentic/runtime/kernel/model_mount",
+        "apps/hypervisor/src/surfaces/Models/ModelMountsSurfaceView.tsx"
+      ],
+      "message": "Active native-local model mount providers, backends, endpoints, auth audiences, catalog fixtures, and stream evidence refs must use Hypervisor identities (Rust substrate owned)."
+    },
+    {
+      "id": "hypervisor-environment-ops-model",
+      "status": "passed",
+      "evidence": [
+        "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "docs/architecture/components/hypervisor/providers-and-environments.md"
+      ],
+      "message": "Tracked canon must model environment lifecycle, access/log leases, SCM auth, services, tasks, ports, and restore refs as Hypervisor-native objects without vendor-specific references."
+    },
+    {
+      "id": "hypervisor-environment-ops-canon",
+      "status": "passed",
+      "evidence": [
+        "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "docs/architecture/components/hypervisor/providers-and-environments.md",
+        "docs/architecture/components/hypervisor/fleet.md",
+        "docs/architecture/components/daemon-runtime/api.md",
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/implementation-matrix.md",
+        "docs/architecture/_meta/vocabulary.md"
+      ],
+      "message": "Canon docs must model Hypervisor environment lifecycle, access/log leases, SCM auth, services, tasks, ports, and restore refs without vendor-specific references."
+    },
+    {
+      "id": "hypervisor-private-workspace-mount-admission",
+      "status": "passed",
+      "evidence": [
+        "docs/architecture/components/daemon-runtime/api.md"
+      ],
+      "message": "Private workspace mount admission must keep protected workspace plaintext out of provider-root custody by default, require cTEE/TEE/local/customer handles for private heads, and make unsafe plaintext mounts wallet-declassified and receipt-backed."
+    },
+    {
+      "id": "hypervisor-conformance-command-contract",
+      "status": "passed",
+      "evidence": [
+        "package.json",
+        "scripts/conformance/hypervisor-conformance.mjs"
+      ],
+      "message": "The canon-named hypervisor-conformance command family must exist and delegate to the current docs, ABI, bridge, receipt, app, compositor, wallet, candidate, and negative guards."
+    },
+    {
+      "id": "architecture-contract-bar-wiring",
+      "status": "passed",
+      "evidence": [
+        "package.json",
+        "scripts/conformance/hypervisor-conformance.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "message": "The complete generated, schema, projection, architecture/conformance documentation-integrity, Rust contract, readiness, and runtime-layout bar must remain wired into pre-next-leg readiness, conformance, and CI."
+    },
+    {
+      "id": "hypervisor-shell-no-generic-surface-placeholders",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+        "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css"
+      ],
+      "message": "Hypervisor App surfaces must render explicit IOI-reference bodies instead of generic placeholder fallback screens."
+    },
+    {
+      "id": "retired-autopilot-workflow-canvas-fixtures-absent",
+      "status": "passed",
+      "evidence": [
+        "test.workflow",
+        "scripts/lib/prompt-parser.ts",
+        "scripts/custom-hypervisor-agenda.mjs"
+      ],
+      "message": "Retired Autopilot workflow-canvas fixtures and agenda scripts must stay deleted; current workflow/compositor proof paths live under Hypervisor surfaces and daemon gates."
+    },
+    {
+      "id": "retired-direct-openvscode-desktop-probes-absent",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/scripts/desktop_chat_codebase_probe.py",
+        "apps/hypervisor/scripts/desktop_workspace_probe.py",
+        "apps/hypervisor/scripts/desktop_home_menu_bar_bridge_probe.py",
+        "apps/hypervisor/scripts/desktop_openvscode_bridge_routing_probe.py",
+        "apps/hypervisor/scripts/desktop_openvscode_direct_probe.py",
+        "apps/hypervisor/scripts/desktop_openvscode_fullscreen_first_load_probe.py",
+        "apps/hypervisor/scripts/desktop_openvscode_hot_lifecycle_probe.py",
+        "apps/hypervisor/scripts/desktop_openvscode_onboarding_pass.py"
+      ],
+      "message": "Retired direct-OpenVSCode desktop probes must stay deleted; editor behavior is verified through Hypervisor code editor adapter preferences and shell contracts."
+    },
+    {
+      "id": "retired-home-onboarding-surfaces-absent",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/scripts/desktop_home_onboarding_probe.py",
+        "apps/hypervisor/scripts/desktop_home_zero_state_probe.py",
+        "apps/hypervisor/scripts/home_onboarding_condition_matrix.ts",
+        "apps/hypervisor/src/surfaces/Home/HomeWalkthroughDocument.tsx",
+        "apps/hypervisor/src/surfaces/Home/homeOnboardingModel.ts"
+      ],
+      "message": "Retired Home onboarding walkthrough sources/probes must stay deleted; Home is the IOI-reference prompt shell."
+    },
+    {
+      "id": "retired-direct-workspace-surfaces-absent",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
+        "apps/hypervisor/src/services/directWorkspaceWorkbenchHost.ts",
+        "apps/hypervisor/src/services/directWorkspaceSessionHost.ts",
+        "apps/hypervisor/src/services/openVsCodeWorkbenchHost.ts",
+        "apps/hypervisor/src/services/openVsCodeWorkbenchSession.ts",
+        "apps/hypervisor/src/services/workspaceDirectWebview.ts"
+      ],
+      "message": "Retired direct workspace webview hosts must stay deleted; Workbench resolves through the current project workspace session."
+    },
+    {
+      "id": "hypervisor-approved-operation-admission",
+      "status": "passed",
+      "evidence": [
+        "docs/architecture/components/daemon-runtime/api.md",
+        "crates/node/src/bin/hypervisor-daemon.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_hypervisor_approved_operation_admission.rs"
+      ],
+      "message": "Approved Hypervisor operation admission must bind daemon-authored proposals to the owning provider-neutral authority decision, mandatory scoped grant, optional paired lease, and Agentgres evidence before emitting a daemon-owned execution plan; the live wallet-specific v1 precursor must remain mounted and explicitly partial."
+    },
+    {
+      "id": "hypervisor-approved-operation-dispatch",
+      "status": "passed",
+      "evidence": [
+        "docs/architecture/components/daemon-runtime/api.md"
+      ],
+      "message": "Approved Hypervisor operation dispatch must consume daemon-owned execution plans through mounted executors only, mount the default daemon executor registry, fail closed without the mounted executor ref, and return execution receipts plus state-root refs instead of allowing client-local side effects."
+    },
+    {
+      "id": "hypervisor-core-taxonomy-projection",
+      "status": "passed",
+      "evidence": [
+        "docs/architecture/components/daemon-runtime/api.md",
+        "crates/node/src/bin/hypervisor-daemon.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/hypervisor_core_taxonomy.json"
+      ],
+      "message": "Hypervisor Core taxonomy must distinguish the transitional daemon-visible v1 projection from the fail-closed v2 target while keeping clients, application surfaces, adapter targets, AgentHarnessAdapters, and retired Fleet posture distinct."
+    },
+    {
+      "id": "contract-family-modules",
+      "status": "passed",
+      "evidence": [
+        "crates/types/src/app/runtime",
+        "crates/types/src/app/mod.rs"
+      ],
+      "message": "runtime contract families must have concern-oriented module paths"
+    },
+    {
+      "id": "step-ownership-map",
+      "status": "passed",
+      "evidence": [
+        "crates/services/src/agentic/runtime/service/README.md",
+        "crates/services/src/agentic/runtime/service/decision_loop/README.md"
+      ],
+      "message": "runtime service must have explicit lane ownership boundaries"
+    },
+    {
+      "id": "step-physical-split",
+      "status": "passed",
+      "evidence": [
+        "crates/services/src/agentic/runtime/service"
+      ],
+      "message": "runtime service implementation must be physically split into named lanes with no service::step imports"
+    },
+    {
+      "id": "builtin-tool-family-names",
+      "status": "passed",
+      "evidence": [
+        "crates/services/src/agentic/runtime/tools/builtins/app_launching.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/browser.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/clipboard.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/filesystem_chat.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/http_fetch.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/media.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/memory.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/meta_failure.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/model_memory.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/model_registry.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/native.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/os_control.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/screen.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/scrolling.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/semantic_click.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/shell_continuity.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/system.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/system_tier13.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/tests.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/typing.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/ui_inspection.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/web_retrieval.rs",
+        "crates/services/src/agentic/runtime/tools/builtins/workflow_monitor.rs"
+      ],
+      "message": "built-in production tool files must use tool-family names"
+    },
+    {
+      "id": "proofs-isolated",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/src-tauri/src",
+        "apps/hypervisor/src/services/TauriRuntime.ts",
+        "apps/hypervisor/scripts/dev-desktop.sh",
+        "ide",
+        "packages/agent-ide",
+        "apps/hypervisor/src/windows/AutopilotShellWindow",
+        "internal-docs/legacy/autopilot-tauri-src"
+      ],
+      "message": "Active Tauri Rust/launchers, root ide/, packages/agent-ide, old AutopilotShellWindow, and legacy Tauri archive paths must stay retired from active app paths."
+    },
+    {
+      "id": "hypervisor-app-launcher-names",
+      "status": "passed",
+      "evidence": [
+        "package.json",
+        []
+      ],
+      "message": "Active launch/probe scripts must keep Hypervisor App and code editor adapter-host commands separate; retired desktop/app aliases must not return."
+    },
+    {
+      "id": "desktop-probes-no-retired-tauri-workspace",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/scripts/desktop_prompt_probe.py",
+        "apps/hypervisor/scripts/dev_reuse_session_probe.py",
+        "apps/hypervisor/scripts/dev_start_intent_probe.py"
+      ],
+      "message": "Active Hypervisor desktop probes must use temporary/current workspaces, not the retired Tauri app path."
+    },
+    {
+      "id": "desktop-probes-no-tauri-product-language",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/scripts/desktop_prompt_probe.py",
+        "apps/hypervisor/scripts/dev_reuse_session_probe.py",
+        "apps/hypervisor/scripts/dev_start_intent_probe.py"
+      ],
+      "message": "Active Hypervisor desktop probes must target Hypervisor/App/Web/Code editor adapter hosts, not describe a Tauri app."
+    },
+    {
+      "id": "desktop-probes-no-ide-product-marker",
+      "status": "passed",
+      "evidence": [
+        "apps/hypervisor/scripts/desktop_prompt_probe.py",
+        "apps/hypervisor/scripts/dev_reuse_session_probe.py",
+        "apps/hypervisor/scripts/dev_start_intent_probe.py"
+      ],
+      "message": "Active Hypervisor desktop probes must target Code editor adapter hosts, not the retired Workspace IDE marker."
+    },
+    {
+      "id": "sdk-no-gui-harness-imports",
+      "status": "passed",
+      "evidence": [
+        "packages/agent-sdk/src"
+      ],
+      "message": "SDK must not import GUI, harness, benchmark, or script internals"
+    },
+    {
+      "id": "projection-adapter-names",
+      "status": "passed",
+      "evidence": [
+        "packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts",
+        "apps/hypervisor/src-tauri/src/runtime_projection.rs"
+      ],
+      "message": "client projection adapters must not be named as canonical execution substrates, and Tauri Rust projection must stay retired"
+    },
+    {
+      "id": "workbench-projection-boundary",
+      "status": "passed",
+      "evidence": [
+        "packages/hypervisor-workbench/src/runtime"
+      ],
+      "message": "hypervisor-workbench runtime helpers must remain non-canonical projections"
+    },
+    {
+      "id": "capability-tiers",
+      "status": "passed",
+      "evidence": [
+        "crates/types/src/app/runtime_contracts.rs",
+        "crates/services/src/agentic/runtime/tools/contracts.rs"
+      ],
+      "message": "primitive capabilities and authority scopes must stay separated"
+    },
+    {
+      "id": "action-schema-drift",
+      "status": "passed",
+      "evidence": [
+        "docs/architecture/_meta/schemas/runtime-action-schema.json",
+        "packages/hypervisor-workbench/src/runtime/generated/action-schema.ts",
+        "crates/types/src/app/generated/runtime_action_schema.rs"
+      ],
+      "message": "generated action schema projections must match shared runtime-action-schema.json"
+    },
+    {
+      "id": "public-swarm-boundary",
+      "status": "passed",
+      "evidence": [
+        "crates/types/src/app/chat.rs",
+        "apps/hypervisor/src",
+        "crates/services/src/agentic/runtime"
+      ],
+      "message": "active public runtime vocabulary must use adaptive work graph terminology; retired SWARM: decoding must stay absent"
+    },
+    {
+      "id": "retired-ioi-swarm-product",
+      "status": "passed",
+      "evidence": [
+        "ioi-swarm",
+        "docs/ioi-swarm-release.md",
+        "pyrightconfig.json"
+      ],
+      "message": "retired ioi-swarm product package and release surface must not return"
+    },
+    {
+      "id": "debt-ledger-closed",
+      "status": "passed",
+      "evidence": [
+        "docs/evidence/runtime-layout-refactor/remaining-debt.md"
+      ],
+      "message": "runtime-layout debt ledger must be closed before claiming completion when generated evidence is present"
+    }
+  ],
+  "failures": []
+}

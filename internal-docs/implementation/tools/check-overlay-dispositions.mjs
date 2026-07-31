@@ -1,0 +1,1380 @@
+#!/usr/bin/env node
+// Overlay-member DISPOSITION contract bar.
+//
+//   node tools/check-overlay-dispositions.mjs [--json]
+//
+// WHY A SIBLING BAR AND NOT AN EXTENSION OF check-canonical-estate
+//
+// check-canonical-estate.mjs answers "are these bytes what the manifest says
+// they are" — identity, aliasing, immutability, and what a baseline may bind.
+// Its owning record, m0-canonical-estate-and-baseline-binding-successor, puts
+// "relocating, deleting, or curating any of the 220 overlay members" explicitly
+// OUT OF SCOPE: they are bound, not judged. Adding a judging duty inside a
+// record that declared it out of scope would make that record's boundary a
+// comment. And the two questions are genuinely independent:
+//
+//   BINDING     is there a PRODUCER of record for this evidence, in the tree
+//               a baseline binds?              (canon-overlay-bindings.v1.json)
+//   DISPOSITION has someone accepted ACCOUNTABILITY for it, on stated terms?
+//                                              (canon-overlay-dispositions.v1.json)
+//
+// Collapsing them is precisely how the first derivation failed: it let the
+// index answer its own question and "resolved" 194 members to the baseline
+// candidate that enumerates all 990 by construction. Keeping them apart means
+// the binding layer's honest UNATTRIBUTED stays honest — and it still does,
+// today, for all 194 — while a separate, separately-checked layer says who
+// holds the bytes and why. The precedent in this directory is
+// check-source-dispositions.mjs: a derived ledger plus its own bar.
+//
+// PREDECLARED REJECTIONS, each exercised against synthetic bad input on every
+// run, in the house style — a bar whose refusals never fire is indistinguishable
+// from an empty function:
+//
+//   ledger-missing                the ledger is absent or misformatted
+//   ledger-drift                  it does not reproduce its own self-digest
+//   producer-evidence-drift       it cites a producer-evidence digest that moved
+//   binding-drift                 it cites a bindings digest that moved
+//   disposition-uncovered         a bound overlay member with no entry
+//   disposition-orphan            an entry for something that is not a member
+//   disposition-ambiguous         a member carrying zero or two dispositions
+//   disposition-vocabulary        a disposition outside the closed set
+//   disposition-fields            a disposition missing what its type requires
+//   attribution-wildcard          an owner that names everything
+//   attribution-baseline-self-reference   the index attributing to itself
+//   attribution-directory-default a directory standing in for accountability
+//   attribution-cas-membership    "preserved in CAS" offered as attribution
+//   successor-record-absent       a named successor record that does not exist
+//   successor-stage-certified     a successor hung off a certified stage
+//   successor-not-proposed        a successor already past phase-one `evidence_ready` under the hold
+//   custodian-record-absent       a custodian that is not a record on disk
+//   retired-inbound-live          a retirement while something still cites it
+//   retired-successor-absent      a retirement with no successor or rationale
+//   retired-rebind-as-retirement  a rename recorded as the end of an identity
+//   family-rule-unowned           a family rule with no owner or rationale
+//   family-rule-nondeterministic  a rule whose member list is not what it enumerates
+//   family-rule-exception-hidden  a refused candidate not exposed individually
+//   decision-source-missing       a disposition that will not say whether it was derived or decided
+//   decision-source-vocabulary    a decision source outside the closed pair
+//   owner-ruling-reported-as-derived  a ruled member presented as historically inferred
+//   derived-reported-as-owner-ruling  a member claiming a ruling that does not bind it
+//   owner-ruling-digest-mismatch  a ruling applied to bytes it does not bind
+//   owner-ruling-as-family-rule   a ruling expressed as a rule instead of individual decisions
+//   owner-ruling-uncovered        a recorded decision the ledger does not reflect
+//   owner-ruling-restriction-absent   a ruled entry carrying no evidentiary restriction
+//   owner-ruling-restriction-weakened a restriction missing a prohibited use or its lift condition
+//   owner-ruling-ledger-drift     the ledger cites an owner-ruling digest that moved
+//
+// DERIVED IS NOT DECIDED, AND THE MISLABEL IS REFUSED IN BOTH DIRECTIONS.
+//
+// A derived ledger that absorbs an owner decision launders a judgement into a
+// derivation: the entry then reads exactly like the ones git can reproduce, and
+// nothing anywhere says a person chose it. The reverse is worse — a member
+// claiming an owner ruling that does not exist borrows an authority nobody
+// exercised. So `decision_source` is mandatory on every disposition, the two
+// values are mutually exclusive, and each is checked against the owner-ruling
+// ledger rather than against itself. A ruled member must also carry
+// `family_rule: null` and must be enumerated by NO family rule: a ruling stated
+// as a predicate over a directory or a programme is one inference, not nine
+// individual decisions.
+//
+// WHAT THIS BAR DOES NOT DO
+//
+// It does not admit the successor baseline, wire anything into canon-impact,
+// edit the frozen overlay manifest, or turn `unattributed` into success. An
+// unattributed member is a WITHHELD verification: it is reported by name as a
+// SKIP, classified certification-relevant, and it keeps the audit red.
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+import {
+  ESTATE_ROOT,
+  finding,
+  progress,
+  readJson,
+  report,
+  sha256Text,
+} from "./lib/estate.mjs";
+
+const LEDGER_REL = "program/canon-overlay-dispositions.v1.json";
+const PRODUCERS_REL = "program/canon-overlay-producer-evidence.v1.json";
+const BINDINGS_REL = "program/canon-overlay-bindings.v1.json";
+const OVERLAY_REL = "program/canon-overlay-manifest.v1.json";
+const SUCCESSOR_MANIFEST_REL = "program/canon-overlay-manifest.successor.candidate.v2.json";
+const OWNER_RULINGS_REL = "_archive/attestations/owner-rulings.v1.json";
+const CERTIFICATION_HOLD_REL = "_archive/holds/certification-hold.v1.json";
+
+const LEDGER_FORMAT = "ioi.program.canon_overlay_dispositions.v1";
+const OWNER_RULINGS_FORMAT = "ioi.program.owner_rulings.v1";
+
+// The closed pair. `derived` and `explicit_owner_ruling` are the only two ways a
+// disposition can come to exist, and an entry that will not say which is an
+// entry whose provenance nobody can check.
+export const DECISION_SOURCES = new Set(["derived", "explicit_owner_ruling"]);
+
+// Every prohibited use the owner ruling named. Dropping one silently would
+// widen what nine unverified historical artifacts are allowed to establish,
+// which is the exact harm the restriction exists to prevent.
+export const REQUIRED_PROHIBITED_USES = [
+  "current_product_behaviour",
+  "architecture_conformance",
+  "stage_closure",
+  "compliance",
+  "performance",
+  "release_claim",
+];
+
+export const CLOSED_SET = new Set([
+  "assigned_existing_owner",
+  "assigned_new_successor",
+  "retained_nonclaim_evidence",
+  "retired",
+]);
+
+// `unattributed` is deliberately OUTSIDE the closed set. It is not a disposition
+// and may never be counted as one.
+const WITHHELD = "unattributed";
+
+const SELF_ENUMERATION_PATHS = [
+  OVERLAY_REL,
+  // A successor version of the enumeration is still the enumeration. It carries
+  // all 220 identities forward by construction, so it may no more be an owner
+  // than the manifest it succeeds.
+  SUCCESSOR_MANIFEST_REL,
+  BINDINGS_REL,
+  PRODUCERS_REL,
+  LEDGER_REL,
+  "program/canon-baseline-successor.candidate.v1.json",
+  "program/skip-taxonomy.v1.json",
+  "generated/",
+];
+
+export function selfDigest(doc, key) {
+  const body = { ...doc };
+  delete body[key];
+  return sha256Text(JSON.stringify(body, null, 2));
+}
+
+// --- the four refusals that are NOT attribution ---------------------------
+
+const WILDCARD = /(^\s*$)|(^\*$)|(^any$)|(^all$)|[*?[\]]/iu;
+
+export function evaluateAttributionShape(entry) {
+  const out = [];
+  const refs = [];
+  const push = (value, field) => {
+    if (value === null || value === undefined) return;
+    if (Array.isArray(value)) {
+      for (const v of value) push(v, field);
+      return;
+    }
+    if (typeof value === "string") refs.push({ field, value });
+  };
+  push(entry.owner?.refs, "owner.refs");
+  push(entry.custodian?.work_item_id, "custodian.work_item_id");
+  push(entry.custodian?.record_path, "custodian.record_path");
+  push(entry.successor?.work_item_id, "successor.work_item_id");
+  push(entry.successor?.record_path, "successor.record_path");
+  push(entry.successor?.ref, "successor.ref");
+  push(entry.tombstone?.recorded_in, "tombstone.recorded_in");
+
+  const programme = entry.evidence_programme ?? null;
+  const parent = typeof entry.id === "string"
+    ? entry.id.slice(0, entry.id.lastIndexOf("/") + 1)
+    : null;
+
+  for (const { field, value } of refs) {
+    if (WILDCARD.test(value)) {
+      out.push(
+        finding(
+          "error",
+          "attribution-wildcard",
+          `${entry.id}: ${field} = "${value}". An owner that names everything names nobody.`,
+        ),
+      );
+    }
+    const estateRel = value.startsWith("internal-docs/implementation/")
+      ? value.slice("internal-docs/implementation/".length)
+      : value;
+    if (
+      SELF_ENUMERATION_PATHS.some((p) =>
+        p.endsWith("/") ? estateRel.startsWith(p) : estateRel === p
+      ) && field !== "tombstone.recorded_in"
+    ) {
+      out.push(
+        finding(
+          "error",
+          "attribution-baseline-self-reference",
+          `${entry.id}: ${field} = "${value}" is one of the enumerations that lists this subject BY CONSTRUCTION. A census that answers its own question attributes nothing.`,
+        ),
+      );
+    }
+    if (value.endsWith("/") || (parent && value === parent) || value === programme) {
+      out.push(
+        finding(
+          "error",
+          "attribution-directory-default",
+          `${entry.id}: ${field} = "${value}" is the directory or programme the member already sits in. A filing convention is not accountability.`,
+        ),
+      );
+    }
+    if (value.startsWith("cas://") || /^_archive\/evidence\/cas/u.test(estateRel)) {
+      out.push(
+        finding(
+          "error",
+          "attribution-cas-membership",
+          `${entry.id}: ${field} = "${value}". Content addressing proves byte identity and retention ONLY — not provenance quality, not claim validity, not review, not ownership, not coverage.`,
+        ),
+      );
+    }
+  }
+
+  if (entry.basis === "cas_membership" || entry.basis === "preserved_in_cas") {
+    out.push(
+      finding(
+        "error",
+        "attribution-cas-membership",
+        `${entry.id}: basis "${entry.basis}" offers retention as attribution.`,
+      ),
+    );
+  }
+  return out;
+}
+
+// --- derived versus decided ------------------------------------------------
+//
+// The two mislabels are different failures and both are refused.
+//
+//   owner-ruling-reported-as-derived   The ledger binds this path and digest to
+//       an owner decision, and the entry presents itself as something a
+//       predicate produced. That is a judgement wearing a derivation's clothes:
+//       a reader auditing the derivation would find no predicate that yields it
+//       and would have no way to learn that none was ever claimed.
+//
+//   derived-reported-as-owner-ruling   The entry claims a ruling the ledger does
+//       not bind at that exact path and digest. That borrows an authority nobody
+//       exercised, and it is the cheaper of the two forgeries to commit.
+//
+// Neither is decidable from the entry alone, so both are decided against the
+// owner-ruling ledger.
+export function evaluateDecisionSource(entry, rulingFor) {
+  const out = [];
+  const source = entry.decision_source ?? null;
+  const hit = rulingFor(entry.id);
+
+  if (source === null || source === undefined) {
+    out.push(
+      finding(
+        "error",
+        "decision-source-missing",
+        `${entry.id}: the disposition does not say whether it was derived or decided. A ledger that will not distinguish a predicate's output from a person's judgement makes every entry in it unauditable.`,
+      ),
+    );
+    return out;
+  }
+  if (!DECISION_SOURCES.has(source)) {
+    out.push(
+      finding(
+        "error",
+        "decision-source-vocabulary",
+        `${entry.id}: decision_source "${source}" is outside the closed pair (${[...DECISION_SOURCES].join(", ")}).`,
+      ),
+    );
+    return out;
+  }
+
+  if (hit && source === "derived") {
+    out.push(
+      finding(
+        "error",
+        "owner-ruling-reported-as-derived",
+        `${entry.id}: ${OWNER_RULINGS_REL} binds this path to owner decision ${hit.decision_id}, and the entry reports decision_source "derived". An owner decision presented as a historical inference is a judgement wearing a derivation's clothes.`,
+      ),
+    );
+  }
+  if (!hit && source === "explicit_owner_ruling") {
+    out.push(
+      finding(
+        "error",
+        "derived-reported-as-owner-ruling",
+        `${entry.id}: the entry reports decision_source "explicit_owner_ruling" and ${OWNER_RULINGS_REL} binds no decision to this path at this digest. A disposition may not borrow an authority nobody exercised.`,
+      ),
+    );
+  }
+
+  if (source !== "explicit_owner_ruling") return out;
+  if (!hit) return out;
+
+  const claimed = entry.owner_ruling ?? {};
+  if (claimed.bound_sha256 !== entry.sha256 || claimed.bound_sha256 !== hit.bound_sha256) {
+    out.push(
+      finding(
+        "error",
+        "owner-ruling-digest-mismatch",
+        `${entry.id}: the entry carries digest ${entry.sha256}, claims the ruling bound ${claimed.bound_sha256}, and the ruling binds ${hit.bound_sha256}. A decision about specific bytes does not transfer to different bytes.`,
+      ),
+    );
+  }
+  if (claimed.bound_path !== entry.id) {
+    out.push(
+      finding(
+        "error",
+        "owner-ruling-digest-mismatch",
+        `${entry.id}: the entry cites a ruling bound to path "${claimed.bound_path}". A decision is one path and one digest; a decision cited from another subject's entry decides nothing here.`,
+      ),
+    );
+  }
+  if (claimed.decision_id !== hit.decision_id) {
+    out.push(
+      finding(
+        "error",
+        "derived-reported-as-owner-ruling",
+        `${entry.id}: cites decision ${claimed.decision_id} and the ledger binds ${hit.decision_id} to this path.`,
+      ),
+    );
+  }
+  // A RULING IS INDIVIDUAL DECISIONS, NEVER A RULE. The moment a ruled member
+  // carries a family rule, nine decisions have collapsed into one predicate that
+  // eight of the nine subjects never received.
+  if (entry.family_rule !== null && entry.family_rule !== undefined) {
+    out.push(
+      finding(
+        "error",
+        "owner-ruling-as-family-rule",
+        `${entry.id}: an owner-ruled member carries family_rule "${entry.family_rule}". A ruling is individual decisions bound to individual path/digest pairs; expressed as a rule it becomes one inference the other ruled subjects never received.`,
+      ),
+    );
+  }
+
+  const restriction = entry.evidentiary_restriction ?? null;
+  if (!restriction) {
+    out.push(
+      finding(
+        "error",
+        "owner-ruling-restriction-absent",
+        `${entry.id}: an owner-ruled member carries no evidentiary_restriction. These artifacts describe themselves as final and proven; custody without a machine-readable restriction is custody that reads as endorsement.`,
+      ),
+    );
+  } else {
+    const prohibited = new Set(restriction.prohibited_uses ?? []);
+    const missing = REQUIRED_PROHIBITED_USES.filter((u) => !prohibited.has(u));
+    if (missing.length > 0) {
+      out.push(
+        finding(
+          "error",
+          "owner-ruling-restriction-weakened",
+          `${entry.id}: the evidentiary restriction no longer prohibits ${missing.join(", ")}. Dropping a prohibited use silently widens what an unverified historical artifact may establish.`,
+        ),
+      );
+    }
+    if (!restriction.lifted_only_by) {
+      out.push(
+        finding(
+          "error",
+          "owner-ruling-restriction-weakened",
+          `${entry.id}: the evidentiary restriction states no lift condition. A restriction that does not say what would lift it is a restriction anything can be argued to have lifted.`,
+        ),
+      );
+    }
+  }
+  return out;
+}
+
+// --- per-type required fields ---------------------------------------------
+
+export function evaluateEntry(entry, { recordExists, stageOpen, recordStatus, rulingFor, admissionAllowed = false }) {
+  const out = [];
+  const d = entry.disposition;
+  const lookup = rulingFor ?? (() => null);
+
+  if (d !== WITHHELD && !CLOSED_SET.has(d)) {
+    out.push(
+      finding(
+        "error",
+        "disposition-vocabulary",
+        `${entry.id}: disposition "${d}" is outside the closed set (${[...CLOSED_SET].join(", ")}) and is not the withheld marker "${WITHHELD}".`,
+      ),
+    );
+    return out;
+  }
+
+  if (d === WITHHELD) {
+    if (!entry.why_derivation_failed) {
+      out.push(
+        finding(
+          "error",
+          "disposition-fields",
+          `${entry.id}: withheld attribution with no stated reason. "Unattributed" without a reason is a shrug wearing a vocabulary.`,
+        ),
+      );
+    }
+    return out;
+  }
+
+  out.push(...evaluateDecisionSource(entry, lookup));
+  out.push(...evaluateAttributionShape(entry));
+
+  if (d === "assigned_existing_owner") {
+    const refs = entry.owner?.refs ?? [];
+    if (refs.length === 0) {
+      out.push(
+        finding(
+          "error",
+          "disposition-fields",
+          `${entry.id}: assigned_existing_owner with no owner.refs. An assignment to nobody is not an assignment.`,
+        ),
+      );
+    }
+  }
+
+  if (d === "assigned_new_successor") {
+    const s = entry.successor ?? {};
+    if (!s.work_item_id) {
+      out.push(
+        finding("error", "disposition-fields", `${entry.id}: assigned_new_successor names no work item.`),
+      );
+    } else if (!recordExists(s.work_item_id)) {
+      out.push(
+        finding(
+          "error",
+          "successor-record-absent",
+          `${entry.id}: successor ${s.work_item_id} has no record on disk. A named successor that does not exist is a promise, not a disposition.`,
+        ),
+      );
+    } else {
+      if (!stageOpen(s.work_item_id)) {
+        out.push(
+          finding(
+            "error",
+            "successor-stage-certified",
+            `${entry.id}: successor ${s.work_item_id} sits on a stage whose exit is already verified. A certified stage gains no children.`,
+          ),
+        );
+      }
+      const successorStatus = recordStatus(s.work_item_id);
+      const allowedStatuses = admissionAllowed
+        ? ["verified"]
+        : ["proposed", "evidence_ready"];
+      if (!allowedStatuses.includes(successorStatus)) {
+        out.push(
+          finding(
+            "error",
+            "successor-not-proposed",
+            `${entry.id}: successor ${s.work_item_id} is "${successorStatus}"; expected ${allowedStatuses.join(" or ")} for the certification-hold phase.`,
+          ),
+        );
+      }
+    }
+  }
+
+  if (d === "retained_nonclaim_evidence") {
+    const c = entry.custodian ?? {};
+    if (!c.work_item_id) {
+      out.push(
+        finding(
+          "error",
+          "disposition-fields",
+          `${entry.id}: retained_nonclaim_evidence with no custodian. Retention without a name on it is a shrug.`,
+        ),
+      );
+    } else if (!recordExists(c.work_item_id)) {
+      out.push(
+        finding(
+          "error",
+          "custodian-record-absent",
+          `${entry.id}: custodian ${c.work_item_id} has no record on disk.`,
+        ),
+      );
+    }
+    if (!entry.retention?.rule) {
+      out.push(
+        finding("error", "disposition-fields", `${entry.id}: retained_nonclaim_evidence with no explicit retention rule.`),
+      );
+    }
+    if (!entry.retention?.review_trigger) {
+      out.push(
+        finding(
+          "error",
+          "disposition-fields",
+          `${entry.id}: retention with no review trigger. A retention nobody ever revisits is an indefinite default, not a decision.`,
+        ),
+      );
+    }
+    if (entry.grounds_no_claim !== true) {
+      out.push(
+        finding(
+          "error",
+          "disposition-fields",
+          `${entry.id}: retained_nonclaim_evidence must state grounds_no_claim: true. That statement IS the disposition.`,
+        ),
+      );
+    }
+  }
+
+  if (d === "retired") {
+    if (
+      !entry.tombstone?.recorded_in ||
+      (entry.tombstone?.producer_removal_commits ?? []).length === 0
+    ) {
+      out.push(
+        finding(
+          "error",
+          "disposition-fields",
+          `${entry.id}: retired with no tombstone carrying a TERMINAL producer removal. Silent disappearance retires nothing, and a rename is a rebind, not a retirement.`,
+        ),
+      );
+    }
+    // A rename recorded as a retirement is the specific defect the accepted
+    // source-level correction at the bound commit names. It is refused here so
+    // a locator change can never be read as the end of an identity.
+    for (const commit of entry.tombstone?.producer_removal_commits ?? []) {
+      if (commit.kind !== "retirement") {
+        out.push(
+          finding(
+            "error",
+            "retired-rebind-as-retirement",
+            `${entry.id}: tombstone lists ${commit.commit_short ?? commit.commit} as a producer REMOVAL while its derived kind is "${commit.kind}". A rebind changes a locator; it does not end an identity.`,
+          ),
+        );
+      }
+    }
+    const proof = entry.inbound_reference_proof;
+    if (!proof || !proof.scopes || typeof proof.total !== "number") {
+      out.push(
+        finding(
+          "error",
+          "disposition-fields",
+          `${entry.id}: retired with no inbound-reference proof.`,
+        ),
+      );
+    } else {
+      const scopes = ["bound_git_tree", "canonical_estate", "retained_evidence"];
+      const missing = scopes.filter((s) => !Array.isArray(proof.scopes[s]));
+      if (missing.length > 0) {
+        out.push(
+          finding(
+            "error",
+            "disposition-fields",
+            `${entry.id}: inbound-reference proof does not cover ${missing.join(", ")}. A proof over some of the places something could be cited proves nothing about the rest.`,
+          ),
+        );
+      }
+      if (proof.total > 0) {
+        out.push(
+          finding(
+            "error",
+            "retired-inbound-live",
+            `${entry.id}: retired while ${proof.total} live inbound citation(s) remain. Something that is still cited is load-bearing, not retired.`,
+          ),
+        );
+      }
+    }
+    if (!entry.successor?.ref && !entry.rationale) {
+      out.push(
+        finding(
+          "error",
+          "retired-successor-absent",
+          `${entry.id}: retired with neither a successor nor a stated rationale.`,
+        ),
+      );
+    }
+  }
+  return out;
+}
+
+// --- ledger-wide coverage and the family-rule contract --------------------
+
+// Index the owner-ruling ledger by path. Digest equality is NOT applied here:
+// the point of the index is to answer "did the owner decide anything about this
+// path", and a decision bound to a digest the member no longer carries is
+// exactly the case `owner-ruling-digest-mismatch` must be able to see.
+export function indexRulings(doc) {
+  const byPath = new Map();
+  for (const ruling of doc?.rulings ?? []) {
+    for (const decision of ruling.decisions ?? []) {
+      if (!decision.bound_path) continue;
+      byPath.set(decision.bound_path, decision);
+    }
+  }
+  return byPath;
+}
+
+export function evaluateOwnerRulings({ ledger, rulingDoc, rulingDigest }) {
+  const out = [];
+  if (!rulingDoc) return out;
+  if (rulingDoc.evidence_format !== OWNER_RULINGS_FORMAT) {
+    out.push(
+      finding(
+        "error",
+        "owner-ruling-ledger-drift",
+        `${OWNER_RULINGS_REL} declares format "${rulingDoc.evidence_format}"; expected "${OWNER_RULINGS_FORMAT}".`,
+      ),
+    );
+    return out;
+  }
+  if (rulingDigest !== null && rulingDoc.owner_rulings_sha256 !== rulingDigest) {
+    out.push(
+      finding(
+        "error",
+        "owner-ruling-ledger-drift",
+        `${OWNER_RULINGS_REL} does not reproduce its own self-digest; a hand-edited ruling fails closed.`,
+      ),
+    );
+  }
+  if (ledger?.binds?.owner_rulings?.owner_rulings_sha256 !== rulingDoc.owner_rulings_sha256) {
+    out.push(
+      finding(
+        "error",
+        "owner-ruling-ledger-drift",
+        `${LEDGER_REL} cites owner rulings ${ledger?.binds?.owner_rulings?.owner_rulings_sha256} and the ruling ledger digests ${rulingDoc.owner_rulings_sha256}. Dispositions resting on a ruling must rest on the ruling that exists.`,
+      ),
+    );
+  }
+
+  // A DECISION THE LEDGER DOES NOT REFLECT IS A DECISION NOBODY EXECUTED. The
+  // owner ruled; if the derived ledger quietly still says `unattributed`, the
+  // ruling has become a note.
+  const entryById = new Map((ledger?.entries ?? []).map((e) => [e.id, e]));
+  for (const decision of indexRulings(rulingDoc).values()) {
+    const entry = entryById.get(decision.bound_path);
+    if (!entry) {
+      out.push(
+        finding(
+          "error",
+          "owner-ruling-uncovered",
+          `${decision.decision_id}: the owner decided ${decision.bound_path} and the disposition ledger carries no entry for it at all.`,
+        ),
+      );
+      continue;
+    }
+    if (entry.disposition !== decision.disposition) {
+      out.push(
+        finding(
+          "error",
+          "owner-ruling-uncovered",
+          `${decision.decision_id}: the owner ruled ${decision.bound_path} to "${decision.disposition}" and the ledger carries "${entry.disposition}". A ruling the ledger does not reflect is a note, not a decision.`,
+        ),
+      );
+    }
+  }
+  return out;
+}
+
+export function evaluateLedger({ ledger, memberIds, bindingsDigest, producerDigest, ruledPaths = new Set() }) {
+  const out = [];
+  if (!ledger || ledger.evidence_format !== LEDGER_FORMAT) {
+    out.push(
+      finding(
+        "error",
+        "ledger-missing",
+        `${LEDGER_REL} is missing or misformatted. Without it every bound overlay member is an unattributed certification blocker and nothing says so by name.`,
+      ),
+    );
+    return out;
+  }
+  if (ledger.dispositions_sha256 !== selfDigest(ledger, "dispositions_sha256")) {
+    out.push(
+      finding(
+        "error",
+        "ledger-drift",
+        `${LEDGER_REL} does not reproduce its own self-digest; a hand edit fails closed.`,
+      ),
+    );
+  }
+  if (
+    producerDigest !== null &&
+    ledger.binds?.producer_evidence?.producer_evidence_sha256 !== producerDigest
+  ) {
+    out.push(
+      finding(
+        "error",
+        "producer-evidence-drift",
+        `${LEDGER_REL} cites producer evidence ${ledger.binds?.producer_evidence?.producer_evidence_sha256} but the retained input digests ${producerDigest}. Every disposition below rests on that input.`,
+      ),
+    );
+  }
+  if (bindingsDigest !== null && ledger.binds?.bindings?.bindings_sha256 !== bindingsDigest) {
+    out.push(
+      finding(
+        "error",
+        "binding-drift",
+        `${LEDGER_REL} cites bindings ${ledger.binds?.bindings?.bindings_sha256} but the binding layer digests ${bindingsDigest}.`,
+      ),
+    );
+  }
+
+  const seen = new Map();
+  for (const entry of ledger.entries ?? []) {
+    seen.set(entry.id, (seen.get(entry.id) ?? 0) + 1);
+    if (!memberIds.has(entry.id)) {
+      out.push(
+        finding(
+          "error",
+          "disposition-orphan",
+          `${entry.id} carries a disposition but is not a bound overlay member.`,
+        ),
+      );
+    }
+  }
+  for (const [id, n] of seen) {
+    if (n > 1) {
+      out.push(
+        finding(
+          "error",
+          "disposition-ambiguous",
+          `${id} carries ${n} dispositions. Exactly one is the contract; two is a disagreement nobody resolved.`,
+        ),
+      );
+    }
+  }
+  for (const id of memberIds) {
+    if (!seen.has(id)) {
+      out.push(
+        finding(
+          "error",
+          "disposition-uncovered",
+          `${id} is a bound overlay member with no disposition. Enumeration is not attribution.`,
+        ),
+      );
+    }
+  }
+
+  // The family-rule contract.
+  const claimed = new Map();
+  for (const rule of ledger.family_rules ?? []) {
+    if (!rule.owner || !rule.rationale) {
+      out.push(
+        finding(
+          "error",
+          "family-rule-unowned",
+          `family rule ${rule.rule_id} carries no owner or no rationale. A grouping without either is prose, not a rule.`,
+        ),
+      );
+    }
+    if ((rule.members ?? []).length !== rule.member_count) {
+      out.push(
+        finding(
+          "error",
+          "family-rule-nondeterministic",
+          `family rule ${rule.rule_id} claims ${rule.member_count} member(s) and enumerates ${(rule.members ?? []).length}. A rule that cannot enumerate its own members is not a rule.`,
+        ),
+      );
+    }
+    if ((rule.exceptions ?? []).length !== rule.exception_count) {
+      out.push(
+        finding(
+          "error",
+          "family-rule-exception-hidden",
+          `family rule ${rule.rule_id} counts ${rule.exception_count} exception(s) and exposes ${(rule.exceptions ?? []).length}. An exception the rule refused and did not name is a member quietly lost.`,
+        ),
+      );
+    }
+    for (const ex of rule.exceptions ?? []) {
+      if (!ex.id || !ex.why) {
+        out.push(
+          finding(
+            "error",
+            "family-rule-exception-hidden",
+            `family rule ${rule.rule_id} exposes an exception with no id or no reason.`,
+          ),
+        );
+      }
+    }
+    for (const id of rule.members ?? []) {
+      if (claimed.has(id)) {
+        out.push(
+          finding(
+            "error",
+            "disposition-ambiguous",
+            `${id} is claimed by family rules ${claimed.get(id)} and ${rule.rule_id}. Rules are first-match-wins; two claims mean the order stopped deciding.`,
+          ),
+        );
+      }
+      // A ruled member reached through a predicate is a ruling that has been
+      // turned back into an inference. The rule may not claim it, count it, or
+      // list it as an exception.
+      if (ruledPaths.has(id)) {
+        out.push(
+          finding(
+            "error",
+            "owner-ruling-as-family-rule",
+            `${id} is bound by an explicit owner ruling and family rule ${rule.rule_id} enumerates it. Nine individual decisions may not be restated as one predicate.`,
+          ),
+        );
+      }
+      claimed.set(id, rule.rule_id);
+    }
+    for (const ex of rule.exceptions ?? []) {
+      if (ex.id && ruledPaths.has(ex.id)) {
+        out.push(
+          finding(
+            "error",
+            "owner-ruling-as-family-rule",
+            `${ex.id} is bound by an explicit owner ruling and family rule ${rule.rule_id} lists it as a candidate it refused. A ruled member never enters the rule ordering at all.`,
+          ),
+        );
+      }
+    }
+  }
+  for (const entry of ledger.entries ?? []) {
+    if (entry.disposition === WITHHELD) continue;
+    // An owner-ruled entry is deliberately outside the family ordering. Its
+    // family_rule is null and no rule enumerates it, which is asserted above
+    // and by owner-ruling-as-family-rule rather than here.
+    if (entry.decision_source === "explicit_owner_ruling") continue;
+    if (claimed.get(entry.id) !== entry.family_rule) {
+      out.push(
+        finding(
+          "error",
+          "family-rule-nondeterministic",
+          `${entry.id} says it was dispositioned by ${entry.family_rule}, but that rule does not enumerate it.`,
+        ),
+      );
+    }
+  }
+  return out;
+}
+
+// --- fail-closed self-test ------------------------------------------------
+
+let SELF_TEST_CASE_COUNT = 0;
+
+function selfTest() {
+  const out = [];
+  const memberIds = new Set(["docs/evidence/p/a.json", "docs/evidence/p/b.json"]);
+  // The synthetic owner ruling: ONE decision, bound to one path and one digest.
+  const RULED_PATH = "docs/evidence/p/ruled.json";
+  const RULED_SHA = "a".repeat(64);
+  const ruledDecision = {
+    decision_id: "owr-test-d01",
+    bound_path: RULED_PATH,
+    bound_sha256: RULED_SHA,
+    disposition: "retained_nonclaim_evidence",
+    custodian_work_item_id: "good-custodian",
+  };
+  const rulingDoc = {
+    evidence_format: OWNER_RULINGS_FORMAT,
+    rulings: [{ ruling_id: "owr-test", ruling_ref: "owner-ruling://test", decisions: [ruledDecision] }],
+  };
+  const rulingFor = (id) => (id === RULED_PATH ? ruledDecision : null);
+  const goodRestriction = {
+    restriction_id: "historical-artifact-content-not-admitted-claim",
+    permitted_uses: ["investigation_support"],
+    prohibited_uses: [...REQUIRED_PROHIBITED_USES],
+    lifted_only_by: "a separately verified successor",
+  };
+  const goodRuled = {
+    id: RULED_PATH,
+    sha256: RULED_SHA,
+    evidence_programme: "p",
+    disposition: "retained_nonclaim_evidence",
+    decision_source: "explicit_owner_ruling",
+    family_rule: null,
+    owner_ruling: {
+      ruling_id: "owr-test",
+      decision_id: "owr-test-d01",
+      bound_path: RULED_PATH,
+      bound_sha256: RULED_SHA,
+    },
+    custodian: { work_item_id: "good-custodian" },
+    retention: { rule: "retained in place", review_trigger: "when the custody record closes", expiry: null },
+    grounds_no_claim: true,
+    evidentiary_restriction: goodRestriction,
+  };
+  const facts = {
+    recordExists: (id) => id === "good-successor" || id === "good-custodian",
+    stageOpen: (id) => id === "good-successor" || id === "good-custodian",
+    recordStatus: () => "proposed",
+    rulingFor,
+  };
+  const goodOwner = {
+    id: "docs/evidence/p/a.json",
+    evidence_programme: "p",
+    disposition: "assigned_existing_owner",
+    decision_source: "derived",
+    family_rule: "FR-01",
+    owner: { kind: "existing_owner", refs: ["scripts/lib/x-contract.test.mjs"] },
+  };
+  const goodCustody = {
+    id: "docs/evidence/p/a.json",
+    evidence_programme: "p",
+    disposition: "retained_nonclaim_evidence",
+    decision_source: "derived",
+    family_rule: "FR-03",
+    custodian: { work_item_id: "good-custodian", record_path: "internal-docs/implementation/work-items/proposed/good-custodian.v1.json" },
+    retention: { rule: "retained in place", review_trigger: "when the custody record closes", expiry: null },
+    grounds_no_claim: true,
+  };
+  const goodSuccessor = {
+    id: "docs/evidence/p/a.json",
+    evidence_programme: "p",
+    disposition: "assigned_new_successor",
+    decision_source: "derived",
+    family_rule: "FR-04",
+    successor: { work_item_id: "good-successor", record_path: "internal-docs/implementation/work-items/proposed/good-successor.v1.json" },
+  };
+  const goodRetired = {
+    id: "docs/evidence/p/a.json",
+    evidence_programme: "p",
+    disposition: "retired",
+    decision_source: "derived",
+    family_rule: "FR-02",
+    tombstone: {
+      recorded_in: `internal-docs/implementation/${LEDGER_REL}`,
+      producer_removal_commits: [{ commit: "c", commit_short: "c", kind: "retirement" }],
+      producer_rebind_commits: [],
+    },
+    inbound_reference_proof: {
+      total: 0,
+      scopes: { bound_git_tree: [], canonical_estate: [], retained_evidence: [] },
+    },
+    successor: { ref: "docs/evidence/p/b.json" },
+    rationale: "superseded",
+    custodian: { work_item_id: "good-custodian" },
+  };
+  const goodLedgerBody = {
+    evidence_format: LEDGER_FORMAT,
+    binds: {
+      bindings: { bindings_sha256: "bb" },
+      producer_evidence: { producer_evidence_sha256: "pp" },
+    },
+    family_rules: [
+      {
+        rule_id: "FR-01",
+        owner: "o",
+        rationale: "r",
+        member_count: 1,
+        members: ["docs/evidence/p/a.json"],
+        exception_count: 0,
+        exceptions: [],
+      },
+    ],
+    entries: [goodOwner, { id: "docs/evidence/p/b.json", disposition: WITHHELD, why_derivation_failed: "nothing names it" }],
+  };
+  const goodLedger = { ...goodLedgerBody, dispositions_sha256: selfDigest(goodLedgerBody, "dispositions_sha256") };
+  const ledgerArgs = { memberIds, bindingsDigest: "bb", producerDigest: "pp" };
+  const ruledLedgerArgs = { ...ledgerArgs, ruledPaths: new Set([RULED_PATH]) };
+  const withLedger = (mutate) => {
+    const body = mutate(structuredClone(goodLedgerBody));
+    return { ...body, dispositions_sha256: selfDigest(body, "dispositions_sha256") };
+  };
+
+  const cases = [
+    ["ledger-missing", () => evaluateLedger({ ...ledgerArgs, ledger: null })],
+    ["ledger-drift", () =>
+      evaluateLedger({ ...ledgerArgs, ledger: { ...goodLedger, dispositions_sha256: "deadbeef" } })],
+    ["producer-evidence-drift", () =>
+      evaluateLedger({ ...ledgerArgs, ledger: goodLedger, producerDigest: "moved" })],
+    ["binding-drift", () =>
+      evaluateLedger({ ...ledgerArgs, ledger: goodLedger, bindingsDigest: "moved" })],
+    ["disposition-uncovered", () =>
+      evaluateLedger({
+        ...ledgerArgs,
+        memberIds: new Set([...memberIds, "docs/evidence/p/c.json"]),
+        ledger: goodLedger,
+      })],
+    ["disposition-orphan", () =>
+      evaluateLedger({
+        ...ledgerArgs,
+        ledger: withLedger((l) => {
+          l.entries.push({ id: "docs/evidence/p/not-a-member.json", disposition: WITHHELD, why_derivation_failed: "x" });
+          return l;
+        }),
+      })],
+    ["disposition-ambiguous", () =>
+      evaluateLedger({
+        ...ledgerArgs,
+        ledger: withLedger((l) => {
+          l.entries.push(structuredClone(goodOwner));
+          return l;
+        }),
+      })],
+    ["family-rule-unowned", () =>
+      evaluateLedger({
+        ...ledgerArgs,
+        ledger: withLedger((l) => {
+          delete l.family_rules[0].rationale;
+          return l;
+        }),
+      })],
+    ["family-rule-nondeterministic", () =>
+      evaluateLedger({
+        ...ledgerArgs,
+        ledger: withLedger((l) => {
+          l.family_rules[0].member_count = 7;
+          return l;
+        }),
+      })],
+    ["family-rule-nondeterministic", () =>
+      evaluateLedger({
+        ...ledgerArgs,
+        ledger: withLedger((l) => {
+          l.family_rules[0].members = [];
+          l.family_rules[0].member_count = 0;
+          return l;
+        }),
+      })],
+    ["family-rule-exception-hidden", () =>
+      evaluateLedger({
+        ...ledgerArgs,
+        ledger: withLedger((l) => {
+          l.family_rules[0].exception_count = 2;
+          return l;
+        }),
+      })],
+    ["family-rule-exception-hidden", () =>
+      evaluateLedger({
+        ...ledgerArgs,
+        ledger: withLedger((l) => {
+          l.family_rules[0].exceptions = [{ id: "docs/evidence/p/b.json" }];
+          l.family_rules[0].exception_count = 1;
+          return l;
+        }),
+      })],
+    ["disposition-vocabulary", () =>
+      evaluateEntry({ id: "x", disposition: "seems-fine" }, facts)],
+    ["disposition-fields", () =>
+      evaluateEntry({ id: "x", disposition: WITHHELD }, facts)],
+    ["disposition-fields", () =>
+      evaluateEntry({ ...goodOwner, owner: { kind: "existing_owner", refs: [] } }, facts)],
+    ["disposition-fields", () =>
+      evaluateEntry({ ...goodCustody, retention: { review_trigger: "t" } }, facts)],
+    ["disposition-fields", () =>
+      evaluateEntry({ ...goodCustody, retention: { rule: "r" } }, facts)],
+    ["disposition-fields", () =>
+      evaluateEntry({ ...goodCustody, grounds_no_claim: false }, facts)],
+    ["disposition-fields", () =>
+      evaluateEntry(
+        { ...goodRetired, tombstone: { recorded_in: "x", producer_removal_commits: [] } },
+        facts,
+      )],
+    ["retired-rebind-as-retirement", () =>
+      evaluateEntry(
+        {
+          ...goodRetired,
+          tombstone: {
+            recorded_in: `internal-docs/implementation/${LEDGER_REL}`,
+            producer_removal_commits: [{ commit: "c", commit_short: "c", kind: "rename_rebind" }],
+            producer_rebind_commits: [],
+          },
+        },
+        facts,
+      )],
+    ["disposition-fields", () =>
+      evaluateEntry({ ...goodRetired, inbound_reference_proof: undefined }, facts)],
+    ["disposition-fields", () =>
+      evaluateEntry(
+        {
+          ...goodRetired,
+          inbound_reference_proof: { total: 0, scopes: { bound_git_tree: [] } },
+        },
+        facts,
+      )],
+    ["custodian-record-absent", () =>
+      evaluateEntry({ ...goodCustody, custodian: { work_item_id: "ghost" } }, facts)],
+    ["successor-record-absent", () =>
+      evaluateEntry({ ...goodSuccessor, successor: { work_item_id: "ghost" } }, facts)],
+    ["successor-stage-certified", () =>
+      evaluateEntry({ ...goodSuccessor }, {
+        ...facts,
+        stageOpen: () => false,
+      })],
+    ["successor-not-proposed", () =>
+      evaluateEntry({ ...goodSuccessor }, { ...facts, recordStatus: () => "verified" })],
+    ["retired-inbound-live", () =>
+      evaluateEntry(
+        {
+          ...goodRetired,
+          inbound_reference_proof: {
+            total: 1,
+            scopes: { bound_git_tree: [], canonical_estate: [], retained_evidence: ["docs/evidence/p/b.json"] },
+          },
+        },
+        facts,
+      )],
+    ["retired-successor-absent", () =>
+      evaluateEntry({ ...goodRetired, successor: {}, rationale: null }, facts)],
+    ["attribution-wildcard", () =>
+      evaluateEntry({ ...goodOwner, owner: { refs: ["*"] } }, facts)],
+    ["attribution-wildcard", () =>
+      evaluateEntry({ ...goodOwner, owner: { refs: ["scripts/**/*.mjs"] } }, facts)],
+    ["attribution-baseline-self-reference", () =>
+      evaluateEntry(
+        { ...goodOwner, owner: { refs: ["program/canon-baseline-successor.candidate.v1.json"] } },
+        facts,
+      )],
+    ["attribution-baseline-self-reference", () =>
+      evaluateEntry({ ...goodOwner, owner: { refs: [OVERLAY_REL] } }, facts)],
+    ["attribution-directory-default", () =>
+      evaluateEntry({ ...goodOwner, owner: { refs: ["docs/evidence/p/"] } }, facts)],
+    ["attribution-directory-default", () =>
+      evaluateEntry({ ...goodOwner, owner: { refs: ["p"] } }, facts)],
+    ["attribution-cas-membership", () =>
+      evaluateEntry({ ...goodOwner, owner: { refs: ["cas://sha256/aa"] } }, facts)],
+    ["attribution-cas-membership", () =>
+      evaluateEntry({ ...goodCustody, basis: "preserved_in_cas" }, facts)],
+
+    // --- derived versus decided, both directions -----------------------------
+    ["decision-source-missing", () => {
+      const e = { ...goodCustody };
+      delete e.decision_source;
+      return evaluateEntry(e, facts);
+    }],
+    ["decision-source-vocabulary", () =>
+      evaluateEntry({ ...goodCustody, decision_source: "seems-derived" }, facts)],
+    // The ledger binds this path to a decision and the entry calls itself derived.
+    ["owner-ruling-reported-as-derived", () =>
+      evaluateEntry({ ...goodRuled, decision_source: "derived", family_rule: "FR-03" }, facts)],
+    // The entry claims a ruling for a path the ledger binds nothing to.
+    ["derived-reported-as-owner-ruling", () =>
+      evaluateEntry({ ...goodCustody, decision_source: "explicit_owner_ruling" }, facts)],
+    // The entry claims the ruling but carries different bytes than it decided.
+    ["owner-ruling-digest-mismatch", () =>
+      evaluateEntry({ ...goodRuled, sha256: "b".repeat(64) }, facts)],
+    // The entry cites a decision bound to another subject.
+    ["owner-ruling-digest-mismatch", () =>
+      evaluateEntry(
+        { ...goodRuled, owner_ruling: { ...goodRuled.owner_ruling, bound_path: "docs/evidence/p/other.json" } },
+        facts,
+      )],
+    ["derived-reported-as-owner-ruling", () =>
+      evaluateEntry(
+        { ...goodRuled, owner_ruling: { ...goodRuled.owner_ruling, decision_id: "owr-test-d99" } },
+        facts,
+      )],
+    // Nine decisions restated as one predicate, at the entry.
+    ["owner-ruling-as-family-rule", () =>
+      evaluateEntry({ ...goodRuled, family_rule: "FR-06" }, facts)],
+    // ... and at the rule, which is where the collapse actually happens.
+    ["owner-ruling-as-family-rule", () =>
+      evaluateLedger({
+        ...ruledLedgerArgs,
+        ledger: withLedger((l) => {
+          l.family_rules[0].members.push(RULED_PATH);
+          l.family_rules[0].member_count = 2;
+          return l;
+        }),
+      })],
+    ["owner-ruling-as-family-rule", () =>
+      evaluateLedger({
+        ...ruledLedgerArgs,
+        ledger: withLedger((l) => {
+          l.family_rules[0].exceptions = [{ id: RULED_PATH, why: "refused" }];
+          l.family_rules[0].exception_count = 1;
+          return l;
+        }),
+      })],
+    ["owner-ruling-restriction-absent", () => {
+      const e = { ...goodRuled };
+      delete e.evidentiary_restriction;
+      return evaluateEntry(e, facts);
+    }],
+    ["owner-ruling-restriction-weakened", () =>
+      evaluateEntry(
+        {
+          ...goodRuled,
+          evidentiary_restriction: {
+            ...goodRestriction,
+            prohibited_uses: REQUIRED_PROHIBITED_USES.filter((u) => u !== "stage_closure"),
+          },
+        },
+        facts,
+      )],
+    ["owner-ruling-restriction-weakened", () =>
+      evaluateEntry(
+        { ...goodRuled, evidentiary_restriction: { ...goodRestriction, lifted_only_by: null } },
+        facts,
+      )],
+    ["owner-ruling-ledger-drift", () =>
+      evaluateOwnerRulings({
+        ledger: goodLedger,
+        rulingDoc: { ...rulingDoc, evidence_format: "other" },
+        rulingDigest: null,
+      })],
+    ["owner-ruling-ledger-drift", () =>
+      evaluateOwnerRulings({
+        ledger: { ...goodLedger, binds: { owner_rulings: { owner_rulings_sha256: "rr" } } },
+        rulingDoc: { ...rulingDoc, owner_rulings_sha256: "rr" },
+        rulingDigest: "moved",
+      })],
+    ["owner-ruling-ledger-drift", () =>
+      evaluateOwnerRulings({
+        ledger: { ...goodLedger, binds: { owner_rulings: { owner_rulings_sha256: "stale" } } },
+        rulingDoc: { ...rulingDoc, owner_rulings_sha256: "rr" },
+        rulingDigest: "rr",
+      })],
+    // The owner decided; the ledger never carried the decision out.
+    ["owner-ruling-uncovered", () =>
+      evaluateOwnerRulings({
+        ledger: { ...goodLedger, binds: { owner_rulings: { owner_rulings_sha256: "rr" } }, entries: [] },
+        rulingDoc: { ...rulingDoc, owner_rulings_sha256: "rr" },
+        rulingDigest: "rr",
+      })],
+    ["owner-ruling-uncovered", () =>
+      evaluateOwnerRulings({
+        ledger: {
+          ...goodLedger,
+          binds: { owner_rulings: { owner_rulings_sha256: "rr" } },
+          entries: [{ id: RULED_PATH, disposition: WITHHELD, why_derivation_failed: "nothing names it" }],
+        },
+        rulingDoc: { ...rulingDoc, owner_rulings_sha256: "rr" },
+        rulingDigest: "rr",
+      })],
+  ];
+
+  SELF_TEST_CASE_COUNT = cases.length;
+
+  for (const [expected, run] of cases) {
+    const checks = run().map((f) => f.check);
+    if (!checks.includes(expected)) {
+      out.push(
+        finding(
+          "error",
+          "self-test",
+          `the ${expected} rejection did not fire against its synthetic bad input; this bar has lost its teeth (got: ${[...new Set(checks)].join(", ") || "nothing"})`,
+        ),
+      );
+    }
+  }
+
+  const clean = [
+    ...evaluateLedger({ ...ledgerArgs, ledger: goodLedger }),
+    ...evaluateLedger({ ...ruledLedgerArgs, ledger: goodLedger }),
+    ...evaluateEntry(goodOwner, facts),
+    ...evaluateEntry(goodCustody, facts),
+    ...evaluateEntry(goodSuccessor, facts),
+    ...evaluateEntry(goodRetired, facts),
+    ...evaluateEntry(goodRuled, facts),
+    ...evaluateEntry({ id: "x", disposition: WITHHELD, why_derivation_failed: "nothing names it" }, facts),
+    ...evaluateEntry(goodSuccessor, { ...facts, recordStatus: () => "verified", admissionAllowed: true }),
+    ...evaluateOwnerRulings({
+      ledger: { ...goodLedger, binds: { owner_rulings: { owner_rulings_sha256: "rr" } }, entries: [goodRuled] },
+      rulingDoc: { ...rulingDoc, owner_rulings_sha256: "rr" },
+      rulingDigest: "rr",
+    }),
+  ];
+  if (clean.length > 0) {
+    out.push(
+      finding(
+        "error",
+        "self-test",
+        `well-formed input was rejected: ${clean.map((f) => f.check).join(", ")}. A bar that refuses the good case refuses nothing meaningfully.`,
+      ),
+    );
+  }
+  return out;
+}
+
+// --- estate facts ---------------------------------------------------------
+
+function recordIndex() {
+  const index = new Map();
+  for (const dir of ["active", "proposed"]) {
+    const root = path.join(ESTATE_ROOT, "work-items", dir);
+    if (!fs.existsSync(root)) continue;
+    for (const file of fs.readdirSync(root)) {
+      if (!file.endsWith(".v1.json")) continue;
+      const id = file.slice(0, -".v1.json".length);
+      try {
+        index.set(id, readJson(path.join(root, file)));
+      } catch {
+        // A malformed record is the work-item bar's finding, not this one's.
+      }
+    }
+  }
+  return index;
+}
+
+function openStages(records) {
+  const open = new Set();
+  const sequenceAbs = path.join(ESTATE_ROOT, "program", "sequence.v1.json");
+  if (!fs.existsSync(sequenceAbs)) return open;
+  for (const stage of readJson(sequenceAbs).stages ?? []) {
+    const aggregate = stage.exit_gate?.aggregate_work_item_id;
+    if (!aggregate) continue;
+    const record = records.get(aggregate);
+    if (!record || record.status !== "verified") open.add(stage.id);
+  }
+  return open;
+}
+
+function main() {
+  const findings = selfTest();
+
+  const ledgerAbs = path.join(ESTATE_ROOT, LEDGER_REL);
+  const ledger = fs.existsSync(ledgerAbs) ? readJson(ledgerAbs) : null;
+
+  const bindingsAbs = path.join(ESTATE_ROOT, BINDINGS_REL);
+  const bindings = fs.existsSync(bindingsAbs) ? readJson(bindingsAbs) : null;
+  const memberIds = new Set((bindings?.bindings ?? []).map((b) => b.id));
+
+  const producersAbs = path.join(ESTATE_ROOT, PRODUCERS_REL);
+  const producers = fs.existsSync(producersAbs) ? readJson(producersAbs) : null;
+
+  const rulingsAbs = path.join(ESTATE_ROOT, OWNER_RULINGS_REL);
+  const rulingDoc = fs.existsSync(rulingsAbs) ? readJson(rulingsAbs) : null;
+  const ruledByPath = indexRulings(rulingDoc);
+
+  findings.push(
+    ...evaluateLedger({
+      ledger,
+      memberIds,
+      bindingsDigest: bindings?.bindings_sha256 ?? null,
+      producerDigest: producers?.producer_evidence_sha256 ?? null,
+      ruledPaths: new Set(ruledByPath.keys()),
+    }),
+  );
+  findings.push(
+    ...evaluateOwnerRulings({
+      ledger,
+      rulingDoc,
+      rulingDigest: rulingDoc === null ? null : selfDigest(rulingDoc, "owner_rulings_sha256"),
+    }),
+  );
+
+  const records = recordIndex();
+  const open = openStages(records);
+  const holdAbs = path.join(ESTATE_ROOT, CERTIFICATION_HOLD_REL);
+  const admissionAllowed = fs.existsSync(holdAbs) && readJson(holdAbs).state === "CLOSED";
+  const facts = {
+    recordExists: (id) => records.has(id),
+    stageOpen: (id) => open.has(records.get(id)?.stage_id),
+    recordStatus: (id) => records.get(id)?.status ?? null,
+    rulingFor: (id) => ruledByPath.get(id) ?? null,
+    admissionAllowed,
+  };
+
+  const withheld = [];
+  for (const entry of ledger?.entries ?? []) {
+    findings.push(...evaluateEntry(entry, facts));
+    if (entry.disposition === WITHHELD) withheld.push(entry);
+  }
+
+  // A withheld attribution is a WITHHELD VERIFICATION. It is reported by name,
+  // one SKIP per member, and it is classified certification-relevant in
+  // program/skip-taxonomy.v1.json. It is never quietly folded into a count.
+  for (const entry of withheld) {
+    findings.push(
+      finding(
+        "skip",
+        "disposition-withheld",
+        `${entry.id}: NO disposition is derivable. ${entry.why_derivation_failed} Attribution is withheld, not absent; this member remains a certification blocker.`,
+      ),
+    );
+  }
+
+  const counts = ledger?.counts?.by_disposition ?? {};
+  const sources = ledger?.counts?.by_decision_source ?? {};
+  progress(
+    `overlay members ${memberIds.size}; dispositioned ${
+      (counts.assigned_existing_owner ?? 0) + (counts.assigned_new_successor ?? 0) +
+      (counts.retained_nonclaim_evidence ?? 0) + (counts.retired ?? 0)
+    } (existing-owner ${counts.assigned_existing_owner ?? 0}, new-successor ${counts.assigned_new_successor ?? 0}, retained-nonclaim ${counts.retained_nonclaim_evidence ?? 0}, retired ${counts.retired ?? 0}); UNATTRIBUTED ${counts.unattributed ?? 0}; decision source ${sources.derived ?? 0} derived / ${sources.explicit_owner_ruling ?? 0} explicit owner ruling (${ruledByPath.size} decision(s) recorded); ${
+      (ledger?.family_rules ?? []).length
+    } family rule(s); ${SELF_TEST_CASE_COUNT} predeclared rejections self-tested`,
+  );
+  process.exit(
+    report("check-overlay-dispositions", findings, { json: process.argv.includes("--json") }),
+  );
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) main();

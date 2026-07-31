@@ -1,0 +1,97 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m2-isolation-containment-enforcement-successor",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "status": "evidence_ready",
+  "objective": "Re-prove the containment properties introduced by the accepted INV-38 and provider-plane canon changes without rewriting any M1 or M2 predecessor closure. M2_ISOLATION_CONTAINMENT_ENFORCEMENT_SUCCESSOR_EXIT=0.",
+  "falsifiable_claim": "Every host-execution, cache, export, restore, and environment-class path affected by containment either supplies verified isolation evidence or refuses before effect; no default or fallback path may manufacture an isolation claim.",
+  "canon_owners": [
+    "docs/architecture/foundations/invariants.md",
+    "docs/architecture/components/hypervisor/byo-provider-plane.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "aggregate_sha256": "d6540891cf62e61174e06ed78a48cb76af692fd195d44601ee78fafaef710105",
+    "owners": [
+      {
+        "path": "docs/architecture/foundations/invariants.md",
+        "sha256": "a333e4b653ea3402f6217fe2cfb314f842de8de6a6586eb542178431f377c8f5"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+        "sha256": "95c1a5502c83b1ed63e658d3406119c6ef983a84e3f7196916126947020e6ed9"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/providers-and-environments.md",
+        "sha256": "500e807fec7a172a548dc1f750d76d6e6def872015a168ff77913449a7146ca2"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [
+    "m0-invariant-registry-census-successor"
+  ],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "INV-38 implementation coverage and the non-self-referential EnvironmentClass availability derivation.",
+    "Default-off containment gates, host-fallback refusal, scoped caches, export and restore containment, and isolation evidence at the final decision point.",
+    "Local adversarial branches that prove denial without cloud credentials."
+  ],
+  "out_of_scope": [
+    "Claiming that a VM proves containment",
+    "Re-certifying M1 or M2",
+    "Enabling P2 effects"
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The containment verifier derives the affected paths from code and canon, exercises the admitted branch, and reports every unavailable branch explicitly."
+  ],
+  "adversarial_or_fault_proof": [
+    "Refuse host fallback, unverified isolation, cross-scope cache access, and self-referential EnvironmentClass availability; prove each rejection by name."
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/emergency_containment.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "shared pure containment decisions"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "environment admission and refusal consumers"
+    }
+  ],
+  "compatibility_and_migration": [],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "evidence_refs": [],
+  "evidence_index": {
+    "literal_exit": "M2_ISOLATION_CONTAINMENT_ENFORCEMENT_SUCCESSOR_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m2-isolation-containment-enforcement-successor.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "remaining_nonclaims": [
+    "A passing source-local proof establishes the tested containment decisions, not resistance to a hostile kernel, VMM, proxy, or physical host."
+  ],
+  "rollback_or_stop_rule": "Stop on any affected path that can reach an effect with unverified isolation, an ambient credential, a shared host mount, or a self-declared EnvironmentClass availability value.",
+  "source_provenance": "Owner-ordered containment successor authored 2026-07-29 under the open certification hold; predecessor bytes and statuses remain untouched.",
+  "last_status_transaction": {
+    "from": "proposed",
+    "to": "evidence_ready",
+    "at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "certification_result_sha256": null,
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

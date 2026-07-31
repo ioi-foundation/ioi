@@ -1,0 +1,392 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-route-final-invoker-pg-census-maintenance",
+  "stage_id": "M0",
+  "record_role": "private_verifier",
+  "required_work": [
+    "Approved plan-level gap closure: m0-route-final-invoker-pg-census-maintenance"
+  ],
+  "status": "verified",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Closed census + bypass/retirement diff; M0_ROUTE_FINAL_INVOKER_PG_CENSUS_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if Unknown route, effect without invoker, task exit without literal, UI authority inference.",
+  "selected_profile": "Private program-control and selected-profile planning; no product effect or capability claim.",
+  "canon_owners": [
+    "docs/architecture/components/connectors-tools/contracts.md",
+    "docs/architecture/components/connectors-tools/doctrine.md",
+    "docs/architecture/components/daemon-runtime/api.md",
+    "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+    "docs/architecture/components/daemon-runtime/doctrine.md",
+    "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/wallet-network/api-authority-scopes.md",
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/components/wallet-network/product-exchange-risk.md",
+    "docs/architecture/foundations/security-privacy-policy-invariants.md",
+    "docs/architecture/foundations/verifiable-bounded-agency.md",
+    "docs/architecture/foundations/objects/authority-and-access.md",
+    "docs/architecture/foundations/objects/evidence-and-delivery.md",
+    "docs/architecture/foundations/objects/goal-run-execution.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "63fdcf4e2de39a011e1458eb28ddc88b8108f52cbb418d3f7d015e0955126359",
+    "owners": [
+      {
+        "path": "docs/architecture/components/connectors-tools/contracts.md",
+        "sha256": "2296bc26155d6519cc357b0fcfb718cb58ce1b43052c90e5481d7509c7274b0f"
+      },
+      {
+        "path": "docs/architecture/components/connectors-tools/doctrine.md",
+        "sha256": "28915ebbf084413b6af4a94c014a8f9436e84056c7c1e8be23969b51fb24cd31"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/api.md",
+        "sha256": "a761ead62c929a90ff3ce4ff0958869301afe081bec91c0aa9d9ec67661b7d52"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+        "sha256": "8922d339c9e492a0e1e8ce657264af2b904a48c771d56f8296902ca8c826299f"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/doctrine.md",
+        "sha256": "27a34c7bcf9035fc13607150cfce10b10a3320eaeba0de6fbbf17b8cb46101b1"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+        "sha256": "1e318e51a9ce2b9ae5b3323e7d891c6519a204b9b69cec36e0f4d83bf122be98"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+        "sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "9ac1878598a4b9636bcc601106b08f8d7a524d6a685b9ea12007df4eef870f77"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "sha256": "5a77e3506857e4f670a03da32b83af10634a79ed1b64f74ab5006bf6970503ca"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/doctrine.md",
+        "sha256": "8b5c6c5ea1eaee29d4fb5488d5b3ae4f136c35a8a2a3647504aa1d39391dd580"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/product-exchange-risk.md",
+        "sha256": "e5e658ec32802e6f6857835f5f8b57e8ceab25919ef9ea24a00c3ea8aec9bb15"
+      },
+      {
+        "path": "docs/architecture/foundations/security-privacy-policy-invariants.md",
+        "sha256": "a6a88ac7cda56eb98482f148e7d95813e3e4c25b415631eb8424aaaf6b329060"
+      },
+      {
+        "path": "docs/architecture/foundations/verifiable-bounded-agency.md",
+        "sha256": "51a657cb3c0547598dc1dafc97341c10bbad45478bcc0da511a3184939ee8ce7"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/authority-and-access.md",
+        "sha256": "204fa490cb9f39fb2d37965fdacc82db189981763565a0280129d60f42b7b4b1"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+        "sha256": "fc222a6a52751c148ea82498e19a7d2a98e6c96cbd57bfce308efc1703454bd3"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/goal-run-execution.md",
+        "sha256": "51bdd6e7c0f2fd5aefad2a1c49f7f9d8d1fba7bcb50f4a6a73ed66b9c7dbcad3"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "RuntimeToolContract",
+      "owner_path": "docs/architecture/components/connectors-tools/contracts.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#runtimetoolcontract",
+      "contract_ids": [
+        "schema://ioi/components/connectors-tools/runtime-tool-contract/v1"
+      ],
+      "schema_versions": [
+        "ioi.components.connectors-tools.runtime-tool-contract.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ReceiptEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#receiptenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-envelope/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-envelope.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AuthorityGrantEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/authority-and-access.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "docs/architecture/components/wallet-network/doctrine.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authoritygrantenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/authority-grant-envelope/v1",
+        "schema://ioi/foundations/authority-grant-envelope/v2"
+      ],
+      "schema_versions": [
+        "ioi.foundations.authority-grant-envelope.v1",
+        "ioi.foundations.authority-grant-envelope.v2"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "InformationFlowLabel",
+      "owner_path": "docs/architecture/foundations/objects/goal-run-execution.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/security-privacy-policy-invariants.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#informationflowlabel-and-declassificationapproval",
+      "contract_ids": [
+        "schema://ioi/foundations/information-flow-label/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.information-flow-label.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "DeclassificationApproval",
+      "owner_path": "docs/architecture/foundations/objects/goal-run-execution.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/security-privacy-policy-invariants.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#informationflowlabel-and-declassificationapproval",
+      "contract_ids": [
+        "schema://ioi/foundations/declassification-approval/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.declassification-approval.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m0-route-final-invoker-pg-census-maintenance",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/active/m0-route-final-invoker-pg-census-maintenance.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M0_ROUTE_FINAL_INVOKER_PG_CENSUS_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:RouteFinalInvokerPGCensus",
+      "artifact_class": "private_route_final_invoker_pg_census",
+      "candidate_name": "RouteFinalInvokerPGCensus",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "name": "RouteCensusMaintenance",
+      "path": "internal-docs/implementation/generated/route-census-maintenance.v1.json"
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "m0-canon-owner-coverage-and-orphan-verifier"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`DAEMON`, `SURFACES`, `CONNECTORS`, `SECURITY`, `WALLET`; route/PEP/final-invoker/PG census artifacts",
+    "Closed census + bypass/retirement diff; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Unknown route, effect without invoker, task exit without literal, UI authority inference",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `DAEMON`, `SURFACES`, `CONNECTORS`, `SECURITY`, `WALLET`; route/PEP/final-invoker/PG census artifacts.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Closed census + bypass/retirement diff; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Unknown route, effect without invoker, task exit without literal, UI authority inference.",
+    "Retain an evidence index and require the exact content-bound M0_ROUTE_FINAL_INVOKER_PG_CENSUS_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "private plan/check projection write",
+      "final_invoker": "private deterministic writer only",
+      "authority_source": "none; workflow evidence never authorizes product effects",
+      "receipt_or_evidence": "unsigned checker report and source manifest",
+      "negative_behavior": "refuse mutation on unknown source, owner, status, or exit evidence"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded m0-route-final-invoker-pg-census-maintenance journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M0_ROUTE_FINAL_INVOKER_PG_CENSUS_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for Unknown route, effect without invoker, task exit without literal, UI authority inference; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m0-route-final-invoker-pg-census-maintenance; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Unknown route, effect without invoker, task exit without literal, UI authority inference; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M0_ROUTE_FINAL_INVOKER_PG_CENSUS_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m0.unowned_or_second_sequencer_facts",
+      "metric": "unowned facts or second-sequencer facts",
+      "threshold": 0,
+      "unit": "facts",
+      "threshold_source": "M0 program-control floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M0_ROUTE_FINAL_INVOKER_PG_CENSUS_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/evidence/m0-route-final-invoker-pg-census-maintenance.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M0/m0-route-final-invoker-pg-census-maintenance.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "internal-docs/implementation/tools/check-route-census-maintenance.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the verifier/tool this record owns"
+    },
+    {
+      "path": "scripts/m0-program-control.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the verifier/tool this record owns"
+    }
+  ],
+  "evidence_refs": [
+    "docs/evidence/m0-program-control/effect-census.json",
+    "docs/evidence/m0-program-control/reviewed-entry-lock.json",
+    "docs/evidence/m0-program-control/pg-gate-map.json",
+    "docs/evidence/m0-program-control/m0-exit-report.json",
+    "internal-docs/implementation/generated/route-census-maintenance.v1.json"
+  ],
+  "remaining_nonclaims": [
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Unknown route, effect without invoker, task exit without literal, UI authority inference. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Closed census + bypass/retirement diff; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M0_ROUTE_FINAL_INVOKER_PG_CENSUS_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": {
+    "from": "active",
+    "to": "verified",
+    "at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+    "certification_result_sha256": "c059e014c744328a592928273ad9c988239ee12eec1a07210f9dd5d86955ebf2",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

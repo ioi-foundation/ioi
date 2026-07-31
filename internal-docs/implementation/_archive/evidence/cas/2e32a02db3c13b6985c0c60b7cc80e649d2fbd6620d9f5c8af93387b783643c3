@@ -1,0 +1,1623 @@
+{
+  "schemaVersion": "ioi.autopilot.full-default-harness-parity-manifest.v1",
+  "status": "final",
+  "generatedAt": "2026-05-27T03:08:20.397Z",
+  "evidenceRoot": "docs/evidence/autopilot-agent-studio-full-default-harness-parity",
+  "baselineManifest": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/tool-catalogue-final-manifest.latest.json",
+  "baselineVerdict": "catalogue_verification_has_concrete_failures_or_product_ux_debt",
+  "baselineCounts": {
+    "live_pass": 47,
+    "approval_gate_pass": 3,
+    "concrete_failure": 27,
+    "fixed_then_pass": 15,
+    "external_blocker_pass": 12
+  },
+  "counts": {
+    "closed": 29,
+    "outside_default_harness_claim": 12
+  },
+  "verdict": "full_default_harness_parity_proven",
+  "finalCleanupProof": {
+    "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-final-closeout.json",
+    "ok": true,
+    "timestamp": "2026-05-27T03:07:29.656Z"
+  },
+  "rows": [
+    {
+      "rowId": "agent__await",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "agent__await now completes through the live Agent Studio GUI. The native fixture delegates first when no child id exists, the repo-aware fixture honors the current query marker over prompt-history markers, and Rust finalization queues the requested agent__await follow-up using the real child_session_id_hex returned by agent__delegate.",
+      "owner": "Rust agent lifecycle / native fixture finalization",
+      "closureStrategy": "Keep child session id parsing and TOOLCAT_SINGLE_TOOL agent__await follow-up coverage in Rust and daemon fixture tests, then retain the Stage 1 lifecycle proof as the live GUI regression.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage1-lifecycle-controls",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "node --test packages/runtime-daemon/src/model-mounting/native-fixture-repo-aware.test.mjs packages/runtime-daemon/src/model-mounting/native-fixture-tool-catalogue.test.mjs"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib child_session_id_parser_reads_plain_and_escaped_payloads --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_agent_await_setup_queues_requested_await_row_from_delegate_output --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T21-56-02-619Z/daemon-runtime-trace-summary.json",
+          "observedTool": "agent__await"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-agent-await-rust-followup-pass.json"
+        },
+        {
+          "scenarioId": "toolcat-stage1-lifecycle-controls",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T23-08-12-137Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage1-lifecycle-controls",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T21-56-02-619Z"
+        }
+      ],
+      "nextProofStep": "Closed by parity-root live GUI proof; retain coverage while advancing remaining runtime and UX blockers."
+    },
+    {
+      "rowId": "shell__status",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "Retained shell status is no longer an executor-routing failure. The top-level Rust executor routes SysExecStatus to the System domain, the focused unit test passes, and the live Agent Studio GUI trace completed shell__status against a real shell__start command id.",
+      "owner": "Rust tool executor / terminal driver",
+      "closureStrategy": "Keep the retained shell status route in the executor regression suite and rerun the live retained-shell scenario after the remaining terminate/latency blockers are fixed.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib tool_executor_routes_retained_shell_controls_to_system_domain --quiet"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z/daemon-runtime-trace-summary.json",
+          "observedTool": "shell__status"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z/process-cleanup-parity-stage4-retained-shell-threaded.json"
+        },
+        {
+          "scenarioId": "toolcat-stage4-shell-software",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T02-07-05-794Z"
+        },
+        {
+          "scenarioId": "toolcat-stage4-shell-software",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T01-19-28-008Z"
+        },
+        {
+          "scenarioId": "toolcat-stage4-retained-shell-threaded-controls",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z"
+        }
+      ],
+      "nextProofStep": "Rerun the retained-shell live sequence after terminate dispatch is fixed; status should remain green without setup replay."
+    },
+    {
+      "rowId": "shell__input",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "Retained shell input is no longer an executor-routing failure. The top-level Rust executor routes SysExecInput to the System domain, the focused unit test passes, and the live Agent Studio GUI trace completed shell__input against a real shell__start command id.",
+      "owner": "Rust tool executor / terminal driver",
+      "closureStrategy": "Keep the retained shell input route in the executor regression suite and rerun the live retained-shell scenario after the remaining terminate/latency blockers are fixed.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib tool_executor_routes_retained_shell_controls_to_system_domain --quiet"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z/daemon-runtime-trace-summary.json",
+          "observedTool": "shell__input"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z/process-cleanup-parity-stage4-retained-shell-threaded.json"
+        },
+        {
+          "scenarioId": "toolcat-stage4-shell-software",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T02-07-05-794Z"
+        },
+        {
+          "scenarioId": "toolcat-stage4-shell-software",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T01-19-28-008Z"
+        },
+        {
+          "scenarioId": "toolcat-stage4-retained-shell-threaded-controls",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z"
+        }
+      ],
+      "nextProofStep": "Rerun the retained-shell live sequence after terminate dispatch is fixed; input should remain green without setup replay."
+    },
+    {
+      "rowId": "shell__terminate",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "Retained shell terminate now reaches the Rust runtime through the live Agent Studio GUI. The parity-root focused proof completed shell__terminate against the retained shell thread, emitted a clean chat reply, and reported no tool failures.",
+      "owner": "Rust terminal driver / Agent Studio native fixture finalization",
+      "closureStrategy": "Keep the retained shell terminate route, forced PTY cleanup, and chat-reply recovery in focused regression coverage.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage4-retained-shell-threaded-controls",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-drivers terminal::tests::retained_session_terminate_forces_stubborn_command_without_hanging --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_chat_reply_target_recovers_from_stale_non_chat_tool --quiet"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T21-27-08-117Z/daemon-runtime-trace-summary.json",
+          "observedTool": "shell__terminate"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-parity-root-pass.json"
+        },
+        {
+          "kind": "prompt_failure",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z/prompt-failure-03.json",
+          "expectedTool": "shell__terminate"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z/daemon-runtime-trace-summary.json",
+          "observedToolAbsent": "shell__terminate"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z/process-cleanup-parity-stage4-retained-shell-threaded.json"
+        },
+        {
+          "scenarioId": "toolcat-stage4-shell-software",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T02-07-05-794Z"
+        },
+        {
+          "scenarioId": "toolcat-stage4-shell-software",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T01-19-28-008Z"
+        },
+        {
+          "scenarioId": "toolcat-stage4-retained-shell-threaded-controls",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z"
+        },
+        {
+          "scenarioId": "toolcat-stage4-retained-shell-threaded-controls",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T21-27-08-117Z"
+        }
+      ],
+      "nextProofStep": "Closed by parity-root live GUI proof; retain coverage while advancing browser/session, screen, memory, and live viewport blockers."
+    },
+    {
+      "rowId": "browser__inspect_canvas",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "browser__inspect_canvas now completes through the live Agent Studio GUI after BrowserInspect queue actions preserve explicit __ioi_tool_name metadata instead of collapsing to plain browser__inspect.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep explicit browser row identity preservation in queue/finalization tests and retain the focused copy/canvas GUI proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-copy-canvas-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib queue_preserves_explicit_browser_inspect_canvas_tool_name --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib queue_tool_to_action_request_preserves_browser_inspect_tool_name_metadata --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-45-29-848Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__inspect_canvas"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-copy-canvas-focused-repair-proof.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-copy-canvas-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-45-29-848Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused copy/canvas live GUI proof; continue with tab/session, screen, memory, and browser/computer live viewport rows."
+    },
+    {
+      "rowId": "browser__list_options",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "This browser row now completes through the live Agent Studio GUI after Rust finalization preserves the requested TOOLCAT browser row after fixture navigation instead of replaying setup navigation. The focused DOM-controls run observed the row-specific tool name and chat__reply with no runtime tool failure for this row.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep the deterministic post-navigation browser row mapping in Rust finalization/queue tests and retain the focused live GUI row proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-dom-controls-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_dom_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_input_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__list_options"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-dom-controls-focused-copy-canvas-failures.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-dom-controls-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused DOM-controls live GUI proof; keep coverage while advancing to tab/session, screen, memory, and live viewport rows."
+    },
+    {
+      "rowId": "browser__subagent",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "browser__subagent now completes through the live Agent Studio GUI after delegated browser subagent workers bootstrap with a browser-only resolved intent, seed URL-grounded navigation before inspection, preserve the explicit browser__subagent row identity, and return a clean chat__reply with no tool failures.",
+      "owner": "Rust browser runtime / child agent routing",
+      "closureStrategy": "Admit the browser child-agent tool bundle and prove child output returns to the parent.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-10-52-058Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__subagent"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-subagent-focused-contract-evidence-fixed-pass.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-subagent-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-10-52-058Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__click",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "This browser row now completes through the live Agent Studio GUI after Rust finalization preserves the requested TOOLCAT browser row after fixture navigation instead of replaying setup navigation. The focused DOM-controls run observed the row-specific tool name and chat__reply with no runtime tool failure for this row.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep the deterministic post-navigation browser row mapping in Rust finalization/queue tests and retain the focused live GUI row proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-dom-controls-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_dom_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_input_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__click"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-dom-controls-focused-copy-canvas-failures.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-dom-controls-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused DOM-controls live GUI proof; keep coverage while advancing to tab/session, screen, memory, and live viewport rows."
+    },
+    {
+      "rowId": "browser__hover",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "This browser row now completes through the live Agent Studio GUI after Rust finalization preserves the requested TOOLCAT browser row after fixture navigation instead of replaying setup navigation. The focused DOM-controls run observed the row-specific tool name and chat__reply with no runtime tool failure for this row.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep the deterministic post-navigation browser row mapping in Rust finalization/queue tests and retain the focused live GUI row proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-dom-controls-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_dom_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_input_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__hover"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-dom-controls-focused-copy-canvas-failures.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-dom-controls-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused DOM-controls live GUI proof; keep coverage while advancing to tab/session, screen, memory, and live viewport rows."
+    },
+    {
+      "rowId": "browser__click_at",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "browser__click_at now completes through the live Agent Studio GUI after the browser setup ladder refreshes the semantic target with browser__inspect and queues the coordinate click through the Rust/default harness path. The focused core-tail proof observed browser__navigate, browser__inspect, browser__click_at, chat__reply, and computer-use verification events with no tool failures.",
+      "owner": "Rust browser runtime / queue setup continuation",
+      "closureStrategy": "Keep the browser inspect-to-coordinate-click continuation in Rust coverage and retain the focused core-tail GUI proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-core-tail",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_coordinate_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib queue_tool_to_action_request_preserves_browser_tool_name_metadata --quiet"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T00-07-12-317Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__click_at"
+        },
+        {
+          "kind": "computer_use_trace",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T00-07-12-317Z/daemon-runtime-traces/artifact_run_runtime_service_3c0bdfb1214fd844_1779840622644_computer_use.parsed-trace.json"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-core-tail-queue-followup-rerun.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-core-tail",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T00-07-12-317Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused core-tail live GUI proof; continue with browser__subagent and the remaining browser/session rows."
+    },
+    {
+      "rowId": "browser__type",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "This browser row now completes through the live Agent Studio GUI after Rust finalization preserves the requested TOOLCAT browser row after fixture navigation instead of replaying setup navigation. The focused DOM-controls run observed the row-specific tool name and chat__reply with no runtime tool failure for this row.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep the deterministic post-navigation browser row mapping in Rust finalization/queue tests and retain the focused live GUI row proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-dom-controls-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_dom_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_input_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__type"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-dom-controls-focused-copy-canvas-failures.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-dom-controls-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused DOM-controls live GUI proof; keep coverage while advancing to tab/session, screen, memory, and live viewport rows."
+    },
+    {
+      "rowId": "browser__select",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "This browser row now completes through the live Agent Studio GUI after Rust finalization preserves the requested TOOLCAT browser row after fixture navigation instead of replaying setup navigation. The focused DOM-controls run observed the row-specific tool name and chat__reply with no runtime tool failure for this row.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep the deterministic post-navigation browser row mapping in Rust finalization/queue tests and retain the focused live GUI row proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-dom-controls-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_dom_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_input_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__select"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-dom-controls-focused-copy-canvas-failures.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-dom-controls-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused DOM-controls live GUI proof; keep coverage while advancing to tab/session, screen, memory, and live viewport rows."
+    },
+    {
+      "rowId": "browser__press_key",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "This browser row now completes through the live Agent Studio GUI after Rust finalization preserves the requested TOOLCAT browser row after fixture navigation instead of replaying setup navigation. The focused DOM-controls run observed the row-specific tool name and chat__reply with no runtime tool failure for this row.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep the deterministic post-navigation browser row mapping in Rust finalization/queue tests and retain the focused live GUI row proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-dom-controls-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_dom_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_input_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__press_key"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-dom-controls-focused-copy-canvas-failures.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-dom-controls-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused DOM-controls live GUI proof; keep coverage while advancing to tab/session, screen, memory, and live viewport rows."
+    },
+    {
+      "rowId": "browser__copy",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "browser__copy now completes through the live Agent Studio GUI after the queued browser setup path advances from browser__select to browser__copy and preserves the row identity through chat__reply.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep explicit browser row identity preservation in queue/finalization tests and retain the focused copy/canvas GUI proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-copy-canvas-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib queue_preserves_explicit_browser_inspect_canvas_tool_name --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib queue_tool_to_action_request_preserves_browser_inspect_tool_name_metadata --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-45-29-848Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__copy"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-copy-canvas-focused-repair-proof.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-copy-canvas-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-45-29-848Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused copy/canvas live GUI proof; continue with tab/session, screen, memory, and browser/computer live viewport rows."
+    },
+    {
+      "rowId": "browser__paste",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "browser__paste now completes through the live Agent Studio GUI after the native fixture seeds the clipboard and Rust queue/finalization logic advances from browser__navigate to clipboard__copy to browser__paste to chat__reply. The focused core-tail proof completed the row with no tool failures and a clean product-facing answer.",
+      "owner": "Rust browser runtime / native fixture queue continuation",
+      "closureStrategy": "Keep clipboard seeding and queued browser paste continuation in daemon and Rust coverage, then retain the focused core-tail GUI proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-core-tail",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "node --test packages/runtime-daemon/src/model-mounting/native-fixture-tool-catalogue.test.mjs packages/runtime-daemon/src/model-mounting/native-fixture-repo-aware.test.mjs"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_paste_advances_through_clipboard_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_paste_after_clipboard_copy --quiet"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T00-07-12-317Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__paste"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-core-tail-queue-followup-rerun.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-core-tail",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T00-07-12-317Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused core-tail live GUI proof; continue with browser__subagent and the remaining browser/session rows."
+    },
+    {
+      "rowId": "browser__wait",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "This browser row now completes through the live Agent Studio GUI after Rust finalization preserves the requested TOOLCAT browser row after fixture navigation instead of replaying setup navigation. The focused DOM-controls run observed the row-specific tool name and chat__reply with no runtime tool failure for this row.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep the deterministic post-navigation browser row mapping in Rust finalization/queue tests and retain the focused live GUI row proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-dom-controls-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_dom_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_input_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__wait"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-dom-controls-focused-copy-canvas-failures.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-dom-controls-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused DOM-controls live GUI proof; keep coverage while advancing to tab/session, screen, memory, and live viewport rows."
+    },
+    {
+      "rowId": "browser__upload",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "This browser row now completes through the live Agent Studio GUI after Rust finalization preserves the requested TOOLCAT browser row after fixture navigation instead of replaying setup navigation. The focused DOM-controls run observed the row-specific tool name and chat__reply with no runtime tool failure for this row.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep the deterministic post-navigation browser row mapping in Rust finalization/queue tests and retain the focused live GUI row proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-dom-controls-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_dom_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_input_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__upload"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-dom-controls-focused-copy-canvas-failures.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-dom-controls-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused DOM-controls live GUI proof; keep coverage while advancing to tab/session, screen, memory, and live viewport rows."
+    },
+    {
+      "rowId": "browser__select_option",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "This browser row now completes through the live Agent Studio GUI after Rust finalization preserves the requested TOOLCAT browser row after fixture navigation instead of replaying setup navigation. The focused DOM-controls run observed the row-specific tool name and chat__reply with no runtime tool failure for this row.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep the deterministic post-navigation browser row mapping in Rust finalization/queue tests and retain the focused live GUI row proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-dom-controls-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_dom_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_input_rows_advance_after_navigation_setup --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__select_option"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-dom-controls-focused-copy-canvas-failures.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-dom-controls-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T01-28-50-011Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused DOM-controls live GUI proof; keep coverage while advancing to tab/session, screen, memory, and live viewport rows."
+    },
+    {
+      "rowId": "browser__switch_tab",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "browser__switch_tab now completes through the live Agent Studio GUI after the queued browser list-tabs follow-up parses the returned tab id and enqueues BrowserTabSwitch instead of looping back into browser__list_tabs.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep queue-output follow-up parsing covered by focused unit tests and retain the focused tabs GUI proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-tabs-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_tabs_after_list_tabs_output --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_tab_controls_use_list_tabs_output --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-06-29-879Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__switch_tab"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-tabs-focused-queue-output-followup-fix.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-tabs-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-06-29-879Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused tabs live GUI proof; continue with screen, memory, provider decision, and browser/computer live viewport rows."
+    },
+    {
+      "rowId": "browser__close_tab",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "browser__close_tab now completes through the live Agent Studio GUI after the queued browser list-tabs follow-up parses the returned tab id and enqueues BrowserTabClose instead of looping back into browser__list_tabs.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Keep queue-output follow-up parsing covered by focused unit tests and retain the focused tabs GUI proof as the regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-tabs-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_tabs_after_list_tabs_output --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_queue_followup_continues_browser_dom_after_navigation --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib toolcat_single_tool_browser_tab_controls_use_list_tabs_output --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-06-29-879Z/daemon-runtime-trace-summary.json",
+          "observedTool": "browser__close_tab"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-browser-tabs-focused-queue-output-followup-fix.json"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-tabs-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-06-29-879Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused tabs live GUI proof; continue with screen, memory, provider decision, and browser/computer live viewport rows."
+    },
+    {
+      "rowId": "screen__click",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "screen__click now completes through the live Agent Studio GUI after semantic click targeting falls back to the same driver capture tree used by screen__find, and static post-click verification is preserved as context instead of incorrectly failing a successful desktop input primitive.",
+      "owner": "Desktop UI driver / semantic screen click execution",
+      "closureStrategy": "Keep driver-capture click fallback and static-click success behavior covered by focused Rust tests, with the focused screen-controls GUI proof as the live regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage6-screen-controls-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib gui_click_element_falls_back_to_driver_capture_tree --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib static_screen_click_verification_keeps_successful_input_result --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "node --test packages/runtime-daemon/src/model-mounting/native-fixture-tool-catalogue.test.mjs"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-39-23-692Z/daemon-runtime-trace-summary.json",
+          "observedTool": "screen__click"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-screen-controls-focused-pass.json"
+        },
+        {
+          "scenarioId": "toolcat-stage6-desktop-clipboard",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T01-56-28-617Z"
+        },
+        {
+          "scenarioId": "toolcat-stage6-screen-controls-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-39-23-692Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused live GUI proof; continue with memory, provider decision, and browser/computer live viewport rows."
+    },
+    {
+      "rowId": "screen__click_at",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "screen__click_at now completes through the live Agent Studio GUI after coordinate screen clicks are routed into VisualForeground on both queued and direct tool execution paths.",
+      "owner": "Desktop UI driver / direct action routing",
+      "closureStrategy": "Keep direct-path and queue-path VisualForeground override tests, with the focused screen-controls GUI proof as the live regression lane.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage6-screen-controls-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib coordinate_screen_clicks_start_in_visual_foreground --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-39-23-692Z/daemon-runtime-trace-summary.json",
+          "observedTool": "screen__click_at"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-screen-controls-focused-pass.json"
+        },
+        {
+          "scenarioId": "toolcat-stage6-desktop-clipboard",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T01-56-28-617Z"
+        },
+        {
+          "scenarioId": "toolcat-stage6-screen-controls-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-39-23-692Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused live GUI proof; continue with memory, provider decision, and browser/computer live viewport rows."
+    },
+    {
+      "rowId": "screen__scroll",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "screen__scroll now completes through the live Agent Studio GUI after TOOLCAT fixture metadata no longer forces browser window focus for desktop screen rows.",
+      "owner": "Desktop UI driver / focus targeting",
+      "closureStrategy": "Keep the focused screen-controls GUI proof as the regression lane and preserve the metadata-filtering unit test.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage6-screen-controls-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib infer_interaction_target_ignores_toolcat_fixture_metadata --quiet"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-39-23-692Z/daemon-runtime-trace-summary.json",
+          "observedTool": "screen__scroll"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-screen-controls-focused-pass.json"
+        },
+        {
+          "scenarioId": "toolcat-stage6-desktop-clipboard",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T01-56-28-617Z"
+        },
+        {
+          "scenarioId": "toolcat-stage6-screen-controls-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-39-23-692Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused live GUI proof; continue with memory, provider decision, and browser/computer live viewport rows."
+    },
+    {
+      "rowId": "memory__search",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "memory__search now completes through the live Agent Studio GUI after hybrid retrieval falls back to lexical search when local embedding is unavailable, includes the core-memory audit scope, and admits exact lexical audit hits with an explicit 70% confidence.",
+      "owner": "Runtime memory retrieval / archival audit search",
+      "closureStrategy": "Keep the lexical fallback unit test and focused memory GUI proof as the regression lane for core-memory search without requiring an embedding provider.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage8-memory-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib retrieve_context_hybrid_falls_back_to_lexical_core_audit_search --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "cargo test -p ioi-services --lib retrieve_context_hybrid_roundtrips_through_memory_runtime_archival_search --quiet"
+        },
+        {
+          "kind": "test",
+          "command": "node --test packages/runtime-daemon/src/model-mounting/native-fixture-tool-catalogue.test.mjs"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-51-23-154Z/daemon-runtime-trace-summary.json",
+          "observedTool": "memory__search"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-memory-focused-live-proof.json"
+        },
+        {
+          "scenarioId": "toolcat-stage8-memory-commerce-monitor",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T23-47-58-884Z"
+        },
+        {
+          "scenarioId": "toolcat-stage8-memory-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-51-23-154Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused live GUI proof; continue with browser/computer live viewport UX and provider default-vs-optional decision rows."
+    },
+    {
+      "rowId": "memory__read",
+      "rowType": "tool",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "memory__read now completes through the live Agent Studio GUI after the single-tool fixture seeds memory, runs memory__search, parses the returned archival inspect ID, and passes that live frame_id into memory__read instead of the invalid placeholder ID.",
+      "owner": "Native fixture orchestration / runtime memory inspect",
+      "closureStrategy": "Keep the fixture ID parsing test and focused memory GUI proof as the regression lane for search-to-read memory chaining.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage8-memory-focused",
+      "evidence": [
+        {
+          "kind": "test",
+          "command": "node --test packages/runtime-daemon/src/model-mounting/native-fixture-tool-catalogue.test.mjs",
+          "assertion": "memory read fixture consumes the latest memory search inspect id"
+        },
+        {
+          "kind": "test",
+          "command": "node --test packages/runtime-daemon/src/model-mounting/native-fixture-tool-catalogue.test.mjs",
+          "assertion": "memory search/read single-tool rows seed memory before retrieval"
+        },
+        {
+          "kind": "build",
+          "command": "cargo build -p ioi-node --bin ioi-runtime-bridge --features local-mode"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-51-23-154Z/daemon-runtime-trace-summary.json",
+          "observedTool": "memory__read",
+          "observedOutputContains": "\"frame_id\":1000000000016"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-memory-focused-live-proof.json"
+        },
+        {
+          "scenarioId": "toolcat-stage8-memory-commerce-monitor",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T23-47-58-884Z"
+        },
+        {
+          "scenarioId": "toolcat-stage8-memory-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T02-51-23-154Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused live GUI proof; continue with browser/computer live viewport UX and provider default-vs-optional decision rows."
+    },
+    {
+      "rowId": "browser_computer.compact_live_viewport",
+      "rowType": "product_ux",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "Browser/computer automation now renders through the live Agent Studio GUI as managed session artifacts: a compact live session card, an expandable observe view, visible automation status, takeover controls, and trace-side receipts instead of raw TOOLCAT markers in the product chat transcript.",
+      "owner": "Agent Studio run view / Tracing UX",
+      "closureStrategy": "Keep the managed-session UI static test and focused live GUI viewport scenario as the regression lane for browser/computer automation presentation.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario browser-computer-live-viewport-ux-focused",
+      "evidence": [
+        {
+          "kind": "syntax",
+          "command": "node --check apps/autopilot/openvscode-extension/ioi-workbench/extension.js"
+        },
+        {
+          "kind": "syntax",
+          "command": "node --check scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs"
+        },
+        {
+          "kind": "syntax",
+          "command": "node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs"
+        },
+        {
+          "kind": "test",
+          "command": "node --test apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs",
+          "assertion": "Agent Studio renders browser and computer automation as managed live sessions"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z/daemon-runtime-trace-summary.json",
+          "observedTools": [
+            "browser__navigate",
+            "browser__inspect",
+            "browser__click_at",
+            "chat__reply"
+          ],
+          "observedComputerUseEvents": [
+            "computer_use_action_proposed",
+            "computer_use_action_executed",
+            "computer_use_observation",
+            "computer_use_verification"
+          ],
+          "promptDurationMs": 24935
+        },
+        {
+          "kind": "screenshot",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z/managed-session-compact.png"
+        },
+        {
+          "kind": "screenshot",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z/managed-session-expanded-observe.png"
+        },
+        {
+          "kind": "screenshot",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z/managed-session-take-over.png"
+        },
+        {
+          "kind": "screenshot",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z/managed-session-returned-to-agent.png"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-live-viewport-ux-proof.json"
+        },
+        {
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "browser-computer-live-viewport-ux-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused live GUI proof; preserve as a product UX regression lane for future browser/computer session work."
+    },
+    {
+      "rowId": "browser_computer.sandbox_local_desktop_labeling",
+      "rowType": "product_ux",
+      "status": "closed",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "fixed_then_pass",
+      "reason": "The live GUI proof now exposes managed automation labels for Sandbox browser, Local browser, and Desktop, and the session card records observe, take over, and return-to-agent control states for browser/computer automation.",
+      "owner": "Agent Studio run view / Tracing UX",
+      "closureStrategy": "Keep label assertions in the focused live GUI proof so sandbox/local/desktop provenance stays visible without leaking trace receipts into chat.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario browser-computer-live-viewport-ux-focused",
+      "evidence": [
+        {
+          "kind": "managed_session_viewport_proof",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z/daemon-runtime-trace-summary.json",
+          "cardCount": 2,
+          "labels": [
+            "Sandbox browser",
+            "Local browser",
+            "Desktop"
+          ],
+          "hasRequiredLabels": true,
+          "managedLiveViewportObserved": true,
+          "managedSessionLabelsObserved": true,
+          "finalControlState": "return_agent"
+        },
+        {
+          "kind": "screenshot",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z/managed-session-expanded-observe.png"
+        },
+        {
+          "kind": "screenshot",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z/managed-session-take-over.png"
+        },
+        {
+          "kind": "screenshot",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z/managed-session-returned-to-agent.png"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-live-viewport-ux-proof.json"
+        },
+        {
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        },
+        {
+          "scenarioId": "browser-computer-live-viewport-ux-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z"
+        }
+      ],
+      "nextProofStep": "Closed by focused live GUI proof; future proof should add a manual-only Waiting for user fixture when login, CAPTCHA, payment, or file picker flows are promoted into default scope."
+    },
+    {
+      "rowId": "model__embeddings",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "UnknownProviderError ERROR_CLASS=UnknownProviderError model__embeddings Host function error: Embedding provider error 404 Not Found: {\"error\":{\"code\":\"not_found\",\"message\":\"Model not found: nomic-embed-text\",\"retryable\":false,\"requestId\":\"req_7632b4f8-90fc-4c22-a988-e775b9a46141\",\"details\":{\"modelId\":\"nomic-embed-text\"}}}",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage2-read-local-model",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T21-04-58-411Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "model__rerank",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable model__rerank Host function error: Operation 'rerank' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage2-read-local-model",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T21-04-58-411Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__extract_transcript",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "DiscoveryMissing ERROR_CLASS=DiscoveryMissing media transcript discovery found no admissible provider candidates for requested_language=en url=http://127.0.0.1:45427/media/transcript.txt",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__extract_evidence",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "DiscoveryMissing ERROR_CLASS=DiscoveryMissing media multimodal discovery found no admissible transcript, timeline, or visual providers for url=http://127.0.0.1:45427/media/transcript.txt",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__vision_read",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable media__vision_read Host function error: Operation 'vision_read' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__transcribe_audio",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable media__transcribe_audio Host function error: Operation 'transcription' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__generate_image",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable media__generate_image Host function error: Operation 'image_generation' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__edit_image",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable media__edit_image Host function error: Operation 'image_edit' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__generate_video",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable media__generate_video Host function error: Operation 'video_generation' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__synthesize_speech",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable media__synthesize_speech Host function error: Operation 'speech_synthesis' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "connector__toolcat__noop",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "UnsupportedTool ERROR_CLASS=UnsupportedTool No adapter admitted tool 'connector__toolcat__noop'",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage8-memory-commerce-monitor",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T23-47-58-884Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "computer_use.request_lease",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "Provider-specific computer-use lease acquisition is not a default Agent Studio chat tool. Default harness parity is proven through governed browser/screen tools, canonical computer-use trace events, and the managed live session UX. The unsupported request_lease row remains an optional provider or adapter-extension contract rather than default harness scope.",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep request_lease outside the default harness parity claim unless product promotes provider-specific lease acquisition into the default Agent Studio tool surface.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage10-computer-use-provider",
+      "evidence": [
+        {
+          "kind": "baseline_external_blocker",
+          "scenarioId": "toolcat-stage10-computer-use-provider",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T20-36-16-911Z",
+          "failureClass": "UnsupportedTool"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z/daemon-runtime-trace-summary.json",
+          "observedComputerUseEvents": [
+            "computer_use_action_proposed",
+            "computer_use_action_executed",
+            "computer_use_commit_gate",
+            "computer_use_observation",
+            "computer_use_verification"
+          ]
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-live-viewport-ux-proof.json"
+        },
+        {
+          "scenarioId": "toolcat-stage10-computer-use-provider",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T20-36-16-911Z"
+        },
+        {
+          "scenarioId": "browser-computer-live-viewport-ux-focused",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-27T03-03-42-276Z"
+        }
+      ],
+      "nextProofStep": "Retain the optional provider decision; implement a hermetic lease adapter only if product later makes provider-specific lease acquisition part of default Agent Studio."
+    },
+    {
+      "rowId": "retained_shell.live_control_sequence_latency",
+      "rowType": "runtime_ux",
+      "status": "closed",
+      "baselineClassification": "new",
+      "currentClassification": "fixed_then_pass",
+      "owner": "Agent Studio scenario driver / native fixture state / Rust decision loop",
+      "closureStrategy": "Keep the focused retained-shell threaded proof as the latency regression for retained shell controls.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage4-retained-shell-threaded-controls",
+      "evidence": [
+        {
+          "kind": "timings",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T21-27-08-117Z/prompt-timings.live.jsonl"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-parity-root-pass.json"
+        },
+        {
+          "kind": "timings",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z/prompt-timings.live.jsonl"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z/daemon-runtime-trace-summary.json"
+        },
+        {
+          "scenarioId": "toolcat-stage4-retained-shell-threaded-controls",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-06-59-347Z"
+        },
+        {
+          "scenarioId": "toolcat-stage4-retained-shell-threaded-controls",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T21-27-08-117Z"
+        }
+      ],
+      "reason": "The retained-shell lifecycle proof completed all simple turns under the 30 second product bar.",
+      "nextProofStep": "Closed by parity-root live GUI proof; keep timing checks active for future retained-shell regressions."
+    },
+    {
+      "rowId": "retained_shell.chain_marker_dispatch",
+      "rowType": "runtime_ux",
+      "status": "closed",
+      "baselineClassification": "new",
+      "currentClassification": "fixed_then_pass",
+      "owner": "Agent Studio scenario driver / native fixture state / Rust decision loop",
+      "closureStrategy": "Retain the purpose-built retained-shell threaded proof and avoid relying on the obsolete chain-marker dispatch lane for parity closure.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage4-retained-shell-threaded-controls",
+      "evidence": [
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T21-27-08-117Z/daemon-runtime-trace-summary.json"
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/process-cleanup-after-retained-shell-parity-root-pass.json"
+        },
+        {
+          "kind": "failure",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-00-05-563Z/failure-error.json"
+        },
+        {
+          "kind": "trace_summary",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-00-05-563Z/daemon-runtime-trace-summary.json",
+          "traceCount": 0
+        },
+        {
+          "kind": "cleanup",
+          "path": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-00-05-563Z/process-cleanup-parity-stage4-retained-shell-focused.json"
+        },
+        {
+          "scenarioId": "toolcat-stage4-retained-shell-controls",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T04-00-05-563Z"
+        },
+        {
+          "scenarioId": "toolcat-stage4-retained-shell-threaded-controls",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-full-default-harness-parity/2026-05-26T21-27-08-117Z"
+        }
+      ],
+      "reason": "The old brittle chain-marker gate is superseded by the purpose-built retained-shell threaded proof, which produced shell start/status/input/terminate/reset traces and clean chat answers.",
+      "nextProofStep": "Closed by replacement proof; retain threaded controls as the maintained parity lane."
+    }
+  ]
+}

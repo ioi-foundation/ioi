@@ -1,0 +1,117 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m9-selected-profile-aggregate-exit-and-claim-publication",
+  "stage_id": "M9",
+  "record_role": "aggregate_exit",
+  "status": "proposed",
+  "objective": "Certify only the selected P1 internal product proof by joining its exact terminal journey, current backend/isolation, authority/effect, truth/recovery, offline proof, and claim-verifier children; M9_SELECTED_PROFILE_AGGREGATE_EXIT_AND_CLAIM_PUBLICATION_EXIT=0.",
+  "falsifiable_claim": "The M9 exit closes P2/P3, requires an unselected App/Workstation/Infrastructure/HypervisorOS profile, or omits an exact P1 authority, isolation, effect, recovery, or claim child.",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "7f316f8570bf5aa97eac1844bd75a973eaaedc49c30705f0761bfadf6341c10b",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/execution-horizons.md",
+        "sha256": "f3a87fb9251a343111a8369f196029248a3f792d1ae3cbfd1c89f3679b21d1c9"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/providers-and-environments.md",
+        "sha256": "cf2f1f6fb8cca834864f50ed3e69b7a6e4376f358bd74dafceacfd2eabbbdad5"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [
+    "agentgres-production-readiness-and-branch-effects",
+    "m3-authorized-issuer-and-atomic-authority-consumption",
+    "m9-authority-gateway-equivalence-and-coverage",
+    "m9-backend-capability-and-coverage-evidence",
+    "m9-compact-advanced-object-hash-parity",
+    "m9-developer-console-operational-journey",
+    "m9-environments-operational-journey",
+    "m9-governance-operational-journey",
+    "m9-lifecycle-evidence-operator-proof",
+    "m9-provenance-operational-journey",
+    "m9-secure-workrun-isolation-claim-gate",
+    "m9-sovereign-local-terminal-journey",
+    "m9-terminal-product-state-and-release-supply-chain",
+    "m9-workrun-microvm-isolation-and-output-admission",
+    "platform-operability-observability-and-incidents",
+    "production-information-flow-and-declassification",
+    "production-receipt-checkpoint-and-offline-proof",
+    "scm-publication-effect-and-route-rebuild"
+  ],
+  "aggregate_child_ids": [
+    "agentgres-production-readiness-and-branch-effects",
+    "m3-authorized-issuer-and-atomic-authority-consumption",
+    "m9-authority-gateway-equivalence-and-coverage",
+    "m9-backend-capability-and-coverage-evidence",
+    "m9-compact-advanced-object-hash-parity",
+    "m9-developer-console-operational-journey",
+    "m9-environments-operational-journey",
+    "m9-governance-operational-journey",
+    "m9-lifecycle-evidence-operator-proof",
+    "m9-provenance-operational-journey",
+    "m9-secure-workrun-isolation-claim-gate",
+    "m9-sovereign-local-terminal-journey",
+    "m9-terminal-product-state-and-release-supply-chain",
+    "m9-workrun-microvm-isolation-and-output-admission",
+    "platform-operability-observability-and-incidents",
+    "production-information-flow-and-declassification",
+    "production-receipt-checkpoint-and-offline-proof",
+    "scm-publication-effect-and-route-rebuild"
+  ],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "required_work": [
+    "Join the exact selected P1 children and certify retained evidence without widening the claim rung."
+  ],
+  "in_scope": [
+    "P1 internal product proof"
+  ],
+  "out_of_scope": [
+    "P2",
+    "P3",
+    "Hypervisor App primary attach",
+    "Workstation",
+    "Infrastructure",
+    "HypervisorOS"
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "All exact P1 children are verified at one content-bound release."
+  ],
+  "adversarial_or_fault_proof": [
+    "Missing, stale, nonunique, differently scoped, or unselected child evidence blocks aggregate certification."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [
+    "P2 and P3 retain separate closing records; existing claim text/order is unchanged."
+  ],
+  "evidence_index": {
+    "literal_exit": "M9_SELECTED_PROFILE_AGGREGATE_EXIT_AND_CLAIM_PUBLICATION_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m9-selected-profile-aggregate-exit-and-claim-publication.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "P1 is not external design-partner or production-integrated proof."
+  ],
+  "rollback_or_stop_rule": "Reopen P1 on any selected child or claim-evidence regression.",
+  "source_provenance": "Owner-ratified executable claim-rung separation, 2026-07-29."
+}

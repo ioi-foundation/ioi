@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m4-outcome-room-system-spine
+ARTIFACT=internal-docs/implementation/evidence/M4/m4-selected-profile-evidence.v1.json
+ARTIFACT_SHA256=6e5fbc03b2dc416eac3f135eac59a8c8868f3430bd1ac70103c8204f9e4c116a
+M4_OUTCOME_ROOM_SYSTEM_SPINE_EXIT=0
+NONCLAIM=Closes only the hosted M4 aggregate when admitted by exact stage certification; it does not close P0, M5, M6, M9, release, federation, external participation, settlement, or wallet authority.

@@ -1,0 +1,135 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "route-final-invoker-census-successor-after-publication-rebuild",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Successor to the certified M0 route/final-invoker census, required because a later merge deleted a route the certified census names."
+  ],
+  "status": "verified",
+  "objective": "Re-derive the closed route and final-invoker census over current master and restore coherence between the census, the reviewed-entry lock, and the anchors, after the source-control publication rebuild deleted a route the certified census still names. Distinguish locator rebinds from genuine route deletions so a moved line is never recorded as a retirement. ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0.",
+  "falsifiable_claim": "The closed route/final-invoker census, the reviewed-entry lock, and the anchors cohere over current master, and no census entry names a route that no longer exists.",
+  "selected_profile": "The selected single-node deployment whose externally reachable routes and final invokers are closed and censused.",
+  "canon_owners": [
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/components/daemon-runtime/api.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "d3904fae0820fa2180e111339d07fce2307d05b9",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "539f5dfb628189af902a9b187e020697ab867869685113dd60a142e1b05d8a6b",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/api.md",
+        "sha256": "cd4e99e3403d69e23024c350e36afb3709ca408ac27bba6a4971ea411459d31d"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [],
+  "current_implementation_evidence": [
+    "SUCCESSOR, NOT A REWRITE (owner standing rule: never rewrite a verified closure to absorb a semantic change). The predecessor m0-route-final-invoker-pg-census-maintenance is VERIFIED and CERTIFIED under stage M0 and is left untouched; its closure stands for what it proved at the time it was proven.",
+    "WHY THIS SUCCESSOR EXISTS, verified firsthand at master cb2684b0d: docs/evidence/m0-program-control/effect-census.json carries 4 references to lifecycle_routes.rs#handle_scm_publish and ZERO references to crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs. PR #127 deleted that handler and moved publication to the new file. tools/check-route-census-maintenance.mjs FAILS today: 'census, lock, and anchors do not cohere'.",
+    "This corrects an assertion made during the same session that no certified claim was invalidated by the canon and code changes. That assertion was WRONG, and the canon review ledger (_archive/attestations/canon-review-ledger.v1.json) refutes it with this record as the headline case."
+  ],
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "Re-derive the closed census, reviewed-entry lock, and anchors over current master so all three cohere.",
+    "Retire the deleted publication handler through the bypass diff rather than by silent deletion, so the retirement is itself evidence.",
+    "Admit crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs and its routes into the census with their final-invoker claims at the honest claim state.",
+    "Distinguish a locator rebind (same identity, moved line or hash) from a genuine route deletion, and record each as its own kind so a formatting pass can never read as a retirement."
+  ],
+  "out_of_scope": [
+    "Editing, reopening, or restating the predecessor's verified closure.",
+    "Re-certifying stage M0; this record does not reopen a certified stage.",
+    "Widening the census beyond routes and final invokers."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "check-route-census-maintenance passes over current master with the deleted handler retired through the bypass diff and the successor route admitted."
+  ],
+  "adversarial_or_fault_proof": [
+    "Predeclared: a deleted route that remains in the census must fail closed rather than be dropped silently; a route present in code but absent from the census must fail closed; a locator rebind must NOT be recordable as a retirement, and a retirement must NOT be recordable as a rebind; a census that coheres only because an entry was removed without a bypass-diff retirement must fail.",
+    "The current failing state is the baseline: 4 stale references to a deleted handler and zero references to its replacement, with the maintenance check failing."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/evidence/route-final-invoker-census-successor-after-publication-rebuild.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/route-final-invoker-census-successor-after-publication-rebuild.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": true,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs",
+      "present_when": "merged",
+      "evidence_scope": "the successor route file the census must admit; presence is not proof of this work item"
+    },
+    {
+      "path": "internal-docs/implementation/tools/check-route-census-maintenance.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the maintenance check that currently fails; its passing over current master is this record's positive proof"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This record does not reopen, weaken, or restate the predecessor's certified closure; the predecessor proved what it proved when it proved it.",
+    "Restoring census coherence is not a claim that the publication plane is correct; that is the publication record's obligation.",
+    "A passing census proves closure and coherence, never that any final-invoker claim is order-proven."
+  ],
+  "rollback_or_stop_rule": "Stop if coherence can only be reached by deleting a census entry without recording its retirement through the bypass diff; silent removal would destroy the evidence this census exists to hold.",
+  "exit_criteria": [
+    "The census, lock, and anchors cohere over current master; the deleted handler is retired through the bypass diff; the successor route is admitted; rebinds and retirements are distinguishable; and the retained literal appears exactly once."
+  ],
+  "pr": null,
+  "source_provenance": "Authored 2026-07-29 after the canon review ledger refuted the claim that no certified claim was invalidated. The predecessor m0-route-final-invoker-pg-census-maintenance remains verified and untouched under the owner's standing rule that a verified closure is never rewritten to absorb a later semantic change.",
+  "last_status_transaction": {
+    "from": "active",
+    "to": "verified",
+    "at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "certification_result_sha256": "22b1775fb7d95f00f6bd0a4601187c7ddd81c64f01ba954a40c491caa3b27177",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  },
+  "verification_correction": {
+    "evidence_format": "ioi.program.verification_correction.v1",
+    "state": "WITHDRAWN",
+    "withdrawn_on": "2026-07-29",
+    "withdrawn_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "withdrawn_by": "owner ruling 5",
+    "projection_directive": "Projections MUST stop counting this record as a satisfied closure. Until a corrective successor is admitted, project it as verified_historical_with_open_successor, never as unqualified verified.",
+    "why": [
+      "The exit artifact this record was verified against is FREE-FORM PROSE, not ioi.program.literal_exit.v1. check-literal-exit-contract fails; the verification ceremony accepted an artifact the literal-log contract does not admit, because tools/transition.mjs does not invoke the shared literal-log validator.",
+      "The record's own required_work demands the deleted handler be 'retired', while its own retained evidence correctly reports ZERO retired route identities: the route survived and only its locator re-bound. The record's requirement contradicts its own evidence, so the requirement - not the evidence - was wrong."
+    ],
+    "explicitly_not_done": "This record and its evidence are NOT rewritten. The malformed artifact and the contradictory requirement are retained exactly as they were, because they are the evidence of what went wrong.",
+    "corrective_successor_requirements": [
+      "A machine-only literal log conforming to ioi.program.literal_exit.v1, kept SEPARATE from richer narrative evidence.",
+      "A typed delta over the census using exactly: admitted_identity | retired_identity | locator_rebind | judgment_change.",
+      "A requirement statement that matches reality: zero retirements occurred; the route survived a locator rebind."
+    ]
+  }
+}

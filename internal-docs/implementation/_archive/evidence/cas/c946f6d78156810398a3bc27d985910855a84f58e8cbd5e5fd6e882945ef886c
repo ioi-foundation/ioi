@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-retired-campaign-claim-successor
+ARTIFACT=internal-docs/implementation/program/canon-overlay-dispositions.v1.json
+ARTIFACT_SHA256=6b8facf1f21dd310703a56d7521f92231851fb80596829aa88f81b2fcef26590
+M0_RETIRED_CAMPAIGN_CLAIM_SUCCESSOR_EXIT=0
+NONCLAIM=This binds the two explicit retirement tombstones and resurrection rule; it does not delete retained bytes or make retirement irreversible.

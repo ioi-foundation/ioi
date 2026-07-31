@@ -1,0 +1,10 @@
+{
+  "literal_exit": {
+    "expected": "SCM_PUBLICATION_EFFECT_AND_ROUTE_REBUILD_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M9/scm-publication-effect-and-route-rebuild.exit.v1.txt",
+    "artifact_sha256": "9c8048d4b6667cbee7c47d0cad615f6fa0ba77961f9d1421b43a70e0abec3da4"
+  },
+  "adversarial_or_fault_proof": [
+    "The retained 22-test v2 operation suite covers Prepared-before-dispatch, exact target-head compare-and-swap, separately receipted final invokers, terminal replay, remote-equals-intended recovery, uncertain dispatch reconciliation, and refusal of substitution or stale state."
+  ]
+}

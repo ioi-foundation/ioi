@@ -1,0 +1,61 @@
+{
+  "format": "ioi.program.known_gaps.v1",
+  "role": "Explicit, dated, reviewed waivers for findings that are genuinely open rather than defects of the checker. A waiver downgrades a finding to a warning and restates why it is open and what closes it. It never suppresses or hides it.",
+  "rule": "Every entry names the check, the exact subjects, why the gap exists, and the condition that closes it. A finding with no entry here is an error. Adding an entry is a review decision, not a convenience.",
+  "reviewed_at_commit": "ba7513bac458cc6bfa398d3a814d65b963c6a287",
+  "gaps": [
+    {
+      "id": "GAP-PUBLIC-WEB-ESTATE",
+      "check": "canon-owner-missing",
+      "subjects": [
+        "docs/architecture/_meta/public-web-estate.md"
+      ],
+      "why_open": "Eleven work-item records cite docs/architecture/_meta/public-web-estate.md as a canon owner. The file exists only on the unmerged branch feat/estate-camera-pipeline (commits 4867803b4, 59432a4aa, fea825174) and is absent from origin/master ba7513bac. The citation is retained rather than deleted, because deleting it would silently narrow eleven records' declared canon scope.",
+      "impact": "Any public-claim obligation those records inherit from that owner is unverifiable in a merged checkout. The previous coverage projection additionally named this file as the SOLE owner of its public-claim-boundary obligation, so that obligation had a dangling owner.",
+      "closes_when": "the public-web-estate canon owner lands on master, or the eleven records are re-pointed at a merged owner",
+      "owning_canon_decision": "docs/architecture/_meta/source-of-truth-map.md",
+      "recorded_on": "2026-07-25",
+      "status": "closed",
+      "closed_on": "2026-07-26",
+      "closure": "docs/architecture/_meta/public-web-estate.md created on program/m0-closure as the canonical owner of the explicitly-public surface class, with a subject row in source-of-truth-map.md. All eleven citing records now resolve."
+    },
+    {
+      "id": "GAP-M0-UNSIGNED-REVIEW-ANCHOR-OWNERS",
+      "check": "work-item-shape",
+      "subjects": [
+        "m0-unsigned-review-anchor: missing or empty \"canon_owners\""
+      ],
+      "why_open": "m0-unsigned-review-anchor is verified in both the merged tracked record and its private mirror, but declares no canon owners. It is a workflow-control record (an unsigned review hash-chain anchor) rather than a canon-bearing implementation cut, so it has no natural canon owner. The shape bar still reports it, because a verified record with no declared owner cannot be re-reviewed when canon changes.",
+      "impact": "This record is invisible to canon-impact review routing.",
+      "closes_when": "the record declares the canon owner that governs review-epoch anchoring, or record_role gains a workflow_control value that is exempt by definition",
+      "owning_canon_decision": "docs/architecture/_meta/work-items/README.md",
+      "recorded_on": "2026-07-25"
+    },
+    {
+      "id": "GAP-M1-LITERAL-ARTIFACTS-UNRETAINED",
+      "check": "literal-artifact",
+      "subjects": [
+        "m1-genesis-admission",
+        "m1-governed-initialize-activate",
+        "m1-sequence-zero-materialization"
+      ],
+      "why_open": "Three verified M1 records declare an evidence_index.literal_exit and an expected_output_path under internal-docs/implementation/evidence/M1/, but no such artifact has ever existed in this estate — the pre-refactor estate held only evidence/m0-exit.v1.txt and the live-crawl JSON. Their proof was produced by the merged PR's run and was never retained privately. Surfaced by a literal-exit bar that an independent review found had been dead code, because it read a top-level literal_exit field that no record carries.",
+      "impact": "certify-stage M1 cannot content-bind those three literals. Their merged tracked records remain their status authority; this does not change or challenge that status, but it does mean the private estate cannot independently re-derive the M1 exit.",
+      "closes_when": "the three exit artifacts are retained under internal-docs/implementation/evidence/M1/, or the records re-point expected_output_paths at a retained artifact that exists",
+      "owning_canon_decision": "docs/architecture/_meta/work-items/README.md",
+      "recorded_on": "2026-07-25"
+    },
+    {
+      "id": "GAP-ENFORCEMENT-COVERAGE-CONTRACT-UNREGISTERED",
+      "check": "unresolved-contract-family",
+      "subjects": [
+        "EnforcementCoverageDeclaration"
+      ],
+      "why_open": "Six records (m2-membership-readiness-plane, m9-authority-gateway-equivalence-and-coverage, m9-environments-operational-journey, m10-attestation-temporal-floor-and-revocation-continuity, m14-cross-plane-correlated-failure-injection, hypervisoros-ctee-task-capsule-attestation) declare the EnforcementCoverageDeclaration family with registry resolution against schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1, and nothing is registered on master: the previously claimed substrate survives only in a pre-refactor audit archive (established 2026-07-26, PR #108; canon-to-code-delta row corrected).",
+      "impact": "The registry_resolution claim in those six records is unsatisfiable until the contract is (re)registered. The citation is retained rather than deleted because deleting it would silently narrow declared contract scope.",
+      "closes_when": "the M2 membership-readiness cut (re)registers schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1 with schema, invariants, fixtures, and generated projections",
+      "owning_canon_decision": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+      "recorded_on": "2026-07-26"
+    }
+  ]
+}

@@ -1,0 +1,639 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m14-selected-profile-aggregate-exit",
+  "stage_id": "M14",
+  "record_role": "aggregate_exit",
+  "required_work": [
+    "Approved plan-level gap closure: m14-selected-profile-aggregate-exit"
+  ],
+  "status": "proposed",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Aggregate and claim manifest; M14_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if Valid no-L1 must pass; no demand/mainnet/native-asset claim from devnet or plan; legal stops retained.",
+  "selected_profile": "Demand-gated connected/secured service planning with an explicit valid no-L1 branch and no mainnet/native-asset claim.",
+  "canon_owners": [
+    "docs/architecture/domains/sas/service-endpoints.md",
+    "docs/architecture/domains/sas/service-marketplace.md",
+    "docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+    "docs/architecture/foundations/ioi-l1-contract-interfaces.md",
+    "docs/architecture/foundations/ioi-l1-mainnet.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-25",
+    "captured_at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "72e42a0caf70e12c9e92aaa3d52243181db8c7388642ebc008621a34e99af189",
+    "owners": [
+      {
+        "path": "docs/architecture/domains/sas/service-endpoints.md",
+        "sha256": "b73af6facbf70f0a0494a1c844fe9183583ca5b28b2cd92e0103babd850c022d"
+      },
+      {
+        "path": "docs/architecture/domains/sas/service-marketplace.md",
+        "sha256": "898c2bcd1484abff8e1b1ef48f7d4fbb0f9c9d36d1e5d750878a31f12574bc32"
+      },
+      {
+        "path": "docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+        "sha256": "472b8fddd179ae75bd69db7481cc2d02a9e45964fb13aa3cd6ef25d4b0ebd23e"
+      },
+      {
+        "path": "docs/architecture/foundations/ioi-l1-contract-interfaces.md",
+        "sha256": "0e7dc0c20a139dd57806ee250808b653d36468a15b3546da43ec48534fdcd95f"
+      },
+      {
+        "path": "docs/architecture/foundations/ioi-l1-mainnet.md",
+        "sha256": "103434f865842b607f58592a5612f12fe69ba679d4512e78e6b77a03d753e535"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m14-selected-profile-aggregate-exit",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m14-selected-profile-aggregate-exit.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M14_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:M14SelectedProfileEvidence",
+      "artifact_class": "private_m14_aggregate_evidence_join",
+      "candidate_name": "M14SelectedProfileEvidence",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:ValidNoL1Decision",
+      "artifact_class": "private_valid_no_l1_decision_join",
+      "candidate_name": "ValidNoL1Decision",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "connected-worker-capability-supply-and-hiring",
+    "ecosystem-assurance-and-public-claim-estate",
+    "m14-demand-security-economics",
+    "m14-l1-authorization-decision",
+    "m14-network-service-devnet",
+    "m14-service-family-owner-contract-and-product-surfaces"
+  ],
+  "external_gates": [
+    {
+      "gate_id": "applicable-pg-profile-gates",
+      "owner": "internal-docs/implementation/modules/mechanism-gates.md",
+      "activation_condition": "Every applicable gate is selected and evidenced in the owning work-item records; planning creates no closure."
+    },
+    {
+      "gate_id": "commercial-legal-assurance-demand-approval",
+      "owner": "docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+      "activation_condition": "Repeated M13 evidence and explicit legal, commercial, assurance, demand, security, and economics decisions exist."
+    }
+  ],
+  "aggregate_child_ids": [
+    "connected-worker-capability-supply-and-hiring",
+    "decentralized-profile-admission-and-exit",
+    "ecosystem-assurance-and-public-claim-estate",
+    "m14-demand-security-economics",
+    "m14-l1-authorization-decision",
+    "m14-network-service-devnet",
+    "m14-service-family-owner-contract-and-product-surfaces"
+  ],
+  "aggregate_child_dispositions": [
+    {
+      "child_work_item_id": "connected-worker-capability-supply-and-hiring",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "decentralized-profile-admission-and-exit",
+      "selection_state": "conditional_not_selected",
+      "activation_gate_id": "selected-decentralized-profile",
+      "selection_authority": "internal-docs/implementation/program/sequence.v1.json",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child remains in the complete aggregate census but is inactive until its explicit sequencer-owned activation gate is selected; nonselection creates no closure claim."
+    },
+    {
+      "child_work_item_id": "ecosystem-assurance-and-public-claim-estate",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m14-demand-security-economics",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m14-l1-authorization-decision",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m14-network-service-devnet",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m14-service-family-owner-contract-and-product-surfaces",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    }
+  ],
+  "aggregate_verification_binding": {
+    "schema_version": "ioi.program.aggregate-verification-binding.v1",
+    "child_dispositions": [
+      {
+        "child_work_item_id": "connected-worker-capability-supply-and-hiring",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "decentralized-profile-admission-and-exit",
+        "selection_state": "conditional_not_selected",
+        "activation_gate_id": "selected-decentralized-profile",
+        "selection_authority": "internal-docs/implementation/program/sequence.v1.json",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child remains in the complete aggregate census but is inactive until its explicit sequencer-owned activation gate is selected; nonselection creates no closure claim."
+      },
+      {
+        "child_work_item_id": "ecosystem-assurance-and-public-claim-estate",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m14-demand-security-economics",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m14-l1-authorization-decision",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m14-network-service-devnet",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m14-service-family-owner-contract-and-product-surfaces",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      }
+    ],
+    "child_bindings": [
+      {
+        "work_item_id": "connected-worker-capability-supply-and-hiring",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "32a75879d231b67b3af0902131715b0d162faec80089043583bc4295bd2223ee",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "CONNECTED_WORKER_CAPABILITY_SUPPLY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "de7a45c55c1bb14a15512bf32b953d25aa8279cd51c1e7e8d2e91e15a4c871e3"
+        }
+      },
+      {
+        "work_item_id": "decentralized-profile-admission-and-exit",
+        "relation": "aggregate_child",
+        "selection_state": "conditional_not_selected",
+        "record_sha256": "6e1f339026d15361be1759bcd7d8f4fcc28cf8c8f08aa48a1a729296014ca291",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "DECENTRALIZED_PROFILE_ADMISSION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "b5f5fc2fa0ba2e8607a4393b1ea6a0e6522aaa705844c7ec1d13bf92e3e22cee"
+        }
+      },
+      {
+        "work_item_id": "ecosystem-assurance-and-public-claim-estate",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "3a08e1807f95f34879365b5c32269ad70591aafb28d0b48a735a7e84680081d8",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "ECOSYSTEM_ASSURANCE_PUBLIC_CLAIMS_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "71d2e39a873ef4292188d68e29e15965fb0c168168e090e6de3b8ca1bda1301f"
+        }
+      },
+      {
+        "work_item_id": "m14-demand-security-economics",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "ba861be875971467e1712b091d2435a311ae53e20d24dea3a6ea052341649b8a",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M14_DEMAND_SECURITY_ECONOMICS_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "a7f881d1d6ebb15f284122e0eefaac82ae6244f99610b4f75b6ec87cdb9207c4"
+        }
+      },
+      {
+        "work_item_id": "m14-l1-authorization-decision",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "4d4b248e8e46fc9e20ef126db5b8b3e495ad31f937366e7900fba83457b04514",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M14_L1_AUTHORIZATION_DECISION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "164899503655adf0bf775443c5a123bfaf3f66f9d091e6c1b6a72a02466611fd"
+        }
+      },
+      {
+        "work_item_id": "m14-network-service-devnet",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "a5a147b5b8e21965e5f0ef9d1f8a5e1716895f17703d0d2eecaad2153dcdb364",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M14_NETWORK_SERVICE_DEVNET_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "94901d99b5d51c9ad232a6d9c7b554e3bd3d76fee61aaaf0a390a0215ae3965c"
+        }
+      },
+      {
+        "work_item_id": "m14-service-family-owner-contract-and-product-surfaces",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "106a699da10134aa853ddd5c62e82cb9d1ab402625c623163914756f8d525d7e",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M14_SERVICE_FAMILY_PRODUCT_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "e9622900481d7c1ede993ce953d2c4794df70296bcf2b19fa6543fa5e7de33f7"
+        }
+      }
+    ],
+    "dependency_bindings": [
+      {
+        "work_item_id": "connected-worker-capability-supply-and-hiring",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "32a75879d231b67b3af0902131715b0d162faec80089043583bc4295bd2223ee",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "CONNECTED_WORKER_CAPABILITY_SUPPLY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "de7a45c55c1bb14a15512bf32b953d25aa8279cd51c1e7e8d2e91e15a4c871e3"
+        }
+      },
+      {
+        "work_item_id": "ecosystem-assurance-and-public-claim-estate",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "3a08e1807f95f34879365b5c32269ad70591aafb28d0b48a735a7e84680081d8",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "ECOSYSTEM_ASSURANCE_PUBLIC_CLAIMS_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "71d2e39a873ef4292188d68e29e15965fb0c168168e090e6de3b8ca1bda1301f"
+        }
+      },
+      {
+        "work_item_id": "m14-demand-security-economics",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "ba861be875971467e1712b091d2435a311ae53e20d24dea3a6ea052341649b8a",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M14_DEMAND_SECURITY_ECONOMICS_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "a7f881d1d6ebb15f284122e0eefaac82ae6244f99610b4f75b6ec87cdb9207c4"
+        }
+      },
+      {
+        "work_item_id": "m14-l1-authorization-decision",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "4d4b248e8e46fc9e20ef126db5b8b3e495ad31f937366e7900fba83457b04514",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M14_L1_AUTHORIZATION_DECISION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "164899503655adf0bf775443c5a123bfaf3f66f9d091e6c1b6a72a02466611fd"
+        }
+      },
+      {
+        "work_item_id": "m14-network-service-devnet",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "a5a147b5b8e21965e5f0ef9d1f8a5e1716895f17703d0d2eecaad2153dcdb364",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M14_NETWORK_SERVICE_DEVNET_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "94901d99b5d51c9ad232a6d9c7b554e3bd3d76fee61aaaf0a390a0215ae3965c"
+        }
+      },
+      {
+        "work_item_id": "m14-service-family-owner-contract-and-product-surfaces",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "106a699da10134aa853ddd5c62e82cb9d1ab402625c623163914756f8d525d7e",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M14_SERVICE_FAMILY_PRODUCT_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "e9622900481d7c1ede993ce953d2c4794df70296bcf2b19fa6543fa5e7de33f7"
+        }
+      }
+    ],
+    "aggregate_evidence_binding": {
+      "expected_literal": "M14_EXIT=0",
+      "evidence_files": [],
+      "exact_literal_line_count": 0,
+      "literal_valid": false,
+      "evidence_bundle_sha256": "f1d0505bc85abe18cc004a462835de6bffdb26a69ef034662330e2b0edda913f"
+    },
+    "binding_payload_sha256": "3b5556bcab5326a4bf773fd69ce9aed6ea5d27694433af92a41196770f1fcb59",
+    "nonclaim": "This exact-digest binding is a private closure precondition. It does not promote a child, dependency, proof gate, aggregate, work item, or stage and cannot substitute for literal-valid retained evidence."
+  },
+  "in_scope": [
+    "`PROGRAM`, `SERVICES`, `L1`, `ASSURANCE`; private demand/security/decision/aggregate evidence families",
+    "Aggregate and claim manifest; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Valid no-L1 must pass; no demand/mainnet/native-asset claim from devnet or plan; legal stops retained",
+    "The valid no-L1 branch remains available; planning proves no demand, mainnet, native asset, or recurring external cohort.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `PROGRAM`, `SERVICES`, `L1`, `ASSURANCE`; private demand/security/decision/aggregate evidence families.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Aggregate and claim manifest; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Valid no-L1 must pass; no demand/mainnet/native-asset claim from devnet or plan; legal stops retained.",
+    "Retain an evidence index and require the exact content-bound M14_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "selected connected service, settlement, enrollment, suspension, or exit effect",
+      "final_invoker": "selected service/settlement owner final invoker after all gates",
+      "authority_source": "explicit enrollment plus local/domain and applicable portable/high-risk authority",
+      "receipt_or_evidence": "service/payment/dispute/exit receipt",
+      "negative_behavior": "deny implicit enrollment, unmet demand/security/legal gate, unresolved dispute, or unselected L1"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded m14-selected-profile-aggregate-exit journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M14_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for Valid no-L1 must pass; no demand/mainnet/native-asset claim from devnet or plan; legal stops retained; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m14-selected-profile-aggregate-exit; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Valid no-L1 must pass; no demand/mainnet/native-asset claim from devnet or plan; legal stops retained; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M14_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.unrelated_external_organizations",
+      "metric": "unrelated external organizations with recurring paid or risk-bearing demand",
+      "threshold": ">=3",
+      "unit": "organizations",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.public_service_families",
+      "metric": "public service families carrying recurring paid or risk-bearing demand",
+      "threshold": ">=2",
+      "unit": "service families",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.sustained_declared_period",
+      "metric": "recurring demand observation over a preregistered sustained declared period",
+      "threshold": "one_nonzero_preregistered_sustained_period",
+      "unit": "declared period",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.willingness_to_pay_or_bear_risk",
+      "metric": "counted external demand backed by payment or explicit risk bearing",
+      "threshold": "100_percent_of_counted_demand",
+      "unit": "demand observations",
+      "threshold_source": "M14.3 and exit proof",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.independent_service_supply",
+      "metric": "selected service families with independent operator supply commitment",
+      "threshold": "100_percent_of_selected_service_families",
+      "unit": "selected service families",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.attack_cost_and_security_budget_coverage",
+      "metric": "modeled fees and bonded value covering selected attack, security, and availability budget",
+      "threshold": ">=100_percent_of_budget",
+      "unit": "modeled value",
+      "threshold_source": "M14.3 and exit proof",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.frozen_safety_margin",
+      "metric": "frozen margin above selected security and availability budget",
+      "threshold": ">0",
+      "unit": "preregistered margin",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.zero_appreciation_viability",
+      "metric": "connected/secured-service value with token-price appreciation set to zero",
+      "threshold": "value_persists_at_appreciation=0",
+      "unit": "scenario",
+      "threshold_source": "M14.4",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.no_l1_compatible_alternative",
+      "metric": "valid no-L1 branch unless sovereign L1 beats the mature compatible alternative",
+      "threshold": "no_l1_remains_valid_until_l1_strictly_beats_compatible_alternative",
+      "unit": "selected settlement posture",
+      "threshold_source": "M14.5 and no-L1 rule",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M14_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M14/m14-selected-profile-aggregate-exit.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/types/src/app/generated/architecture_contracts.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "The valid no-L1 branch remains available; planning proves no demand, mainnet, native asset, or recurring external cohort.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Valid no-L1 must pass; no demand/mainnet/native-asset claim from devnet or plan; legal stops retained. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Aggregate and claim manifest; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M14_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": "2026-07-22"
+}

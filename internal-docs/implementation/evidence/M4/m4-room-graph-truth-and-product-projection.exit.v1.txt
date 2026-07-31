@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m4-room-graph-truth-and-product-projection
+ARTIFACT=internal-docs/implementation/evidence/M4/m4-room-graph-truth-and-product-projection.evidence.v1.json
+ARTIFACT_SHA256=f0194c0996e1782677e291bacc6ab276ed8ac685afcb149fe785a510899fd40b
+M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0
+NONCLAIM=Closes only the M4 implementation cut at the selected hosted profile; it does not close the aggregate, M4 stage, P0, M5, M6, M9, release, federation, external participation, or wallet authority.

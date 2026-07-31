@@ -1,0 +1,38 @@
+{
+  "schema_version": "ioi.program.pre-existing-tracked-changes.v1",
+  "captured_at": "2026-07-22",
+  "branch": "feat/estate-camera-pipeline",
+  "commit": "a894b25054cdb45f27deb3163793773d6449dd2b",
+  "git_diff_binary_sha256": "899f2c078452aece91a5d2e734cce3608c70f6b48e587f2b380cd1ad0b4ad48e",
+  "paths": [
+    {
+      "path": "docs/architecture/_meta/canon-to-code-delta.md",
+      "working_tree_sha256": "a02f6c306cb28f287664dc6e1a2053242883bb129e2862207e9451a86d512ca1"
+    },
+    {
+      "path": "docs/architecture/_meta/current-canon-defaults.md",
+      "working_tree_sha256": "d233d4511d5dd53f23751c38c4b228c598e88e058a8d750f736fc4daf64ea375"
+    },
+    {
+      "path": "docs/architecture/_meta/implementation-matrix.md",
+      "working_tree_sha256": "641ddf87e22f6ffe42a04367b56d45cc577dc6a17f2553c1774b16c5340dab24"
+    },
+    {
+      "path": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+      "working_tree_sha256": "1e8fb85aa49e3a3dd1474a85ced2342de778b457ef506dd3e78b61dfb800391a"
+    },
+    {
+      "path": "docs/architecture/foundations/common-objects-and-envelopes.md",
+      "working_tree_sha256": "3364fbc4270a16823c76edb1679609c958f30c9c2a6f9a24c7326092681f484b"
+    },
+    {
+      "path": "docs/architecture/foundations/invariants.md",
+      "working_tree_sha256": "a2553f11c82ac10f8ee91c62b272db709716c8599338ef9a92549cd6ddd57fa2"
+    },
+    {
+      "path": "docs/conformance/hypervisor-core/work-lifecycle.md",
+      "working_tree_sha256": "3c45caaaffe2b9cdb14df4c1dc1811b53f341c191d414213a3f54de344c805fa"
+    }
+  ],
+  "nonclaim": "These changes predate the private implementation-directory transaction and are neither authored nor validated by it."
+}

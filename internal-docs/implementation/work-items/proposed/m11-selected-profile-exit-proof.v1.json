@@ -1,0 +1,466 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m11-selected-profile-exit-proof",
+  "stage_id": "M11",
+  "record_role": "aggregate_exit",
+  "required_work": [
+    "M11 aggregate exit"
+  ],
+  "status": "proposed",
+  "objective": "Plan the selected-profile aggregate M11 verifier over useful same-System distributed work and the embodied non-live promotion proof.",
+  "falsifiable_claim": "The selected M11 profile proves useful complementary work under unchanged authority and one-writer locally vetoable embodied behavior at the declared non-live stages, or fails without advancing the stage prerequisite.",
+  "selected_profile": "Useful same-System distribution plus simulation/SIL/HIL/shadow embodied proof; no live actuator or E1+ claim.",
+  "canon_owners": [
+    "docs/architecture/components/daemon-runtime/embodied-runtime.md",
+    "docs/architecture/foundations/physical-action-safety.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "c3333c04c9be8e13e8bc600324ead155e32c8483faf37a6ad5be56ecae32eda8",
+    "owners": [
+      {
+        "path": "docs/architecture/components/daemon-runtime/embodied-runtime.md",
+        "sha256": "f5a849202b8fe7ed1e9d5f4247fbf5d01eca169fb454541814445228f70c1248"
+      },
+      {
+        "path": "docs/architecture/foundations/physical-action-safety.md",
+        "sha256": "cb1b38262a01be0d60e2d8333c20cd788fb005a1dcc7ed14f0018cfcebcbce2c"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m11-selected-profile-exit-proof",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m11-selected-profile-exit-proof.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M11_SELECTED_PROFILE_EXIT_PROOF_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:M11NonLiveSelectedProfileEvidence",
+      "artifact_class": "private_m11_nonlive_aggregate_evidence_join",
+      "candidate_name": "M11NonLiveSelectedProfileEvidence",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Pre-migration record status is preserved as proposed. Existing anchors and refs prove only their original named scope. Missing checkout refs: none. Newly populated schema, proof-shape, journey, metric, gate, and exit-contract fields are planning metadata and are not covered by the historical status. This migration adds no runtime or stage claim.",
+  "dependency_work_item_ids": [
+    "m11-canonical-embodied-contract-alignment",
+    "m11-embodied-nonlive-graph-proof",
+    "m11-foundry-promotion-safety-case-and-product-journey",
+    "m11-useful-same-system-distribution"
+  ],
+  "external_gates": [
+    {
+      "gate_id": "applicable-pg-profile-gates",
+      "owner": "internal-docs/implementation/modules/mechanism-gates.md",
+      "activation_condition": "Every applicable gate is selected and evidenced in the owning work-item records; planning creates no closure."
+    }
+  ],
+  "aggregate_child_ids": [
+    "m11-canonical-embodied-contract-alignment",
+    "m11-embodied-nonlive-graph-proof",
+    "m11-embodied-systems-nonlive-operational-journey",
+    "m11-foundry-promotion-safety-case-and-product-journey",
+    "m11-useful-same-system-distribution"
+  ],
+  "aggregate_child_dispositions": [
+    {
+      "child_work_item_id": "m11-canonical-embodied-contract-alignment",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m11-embodied-nonlive-graph-proof",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m11-embodied-systems-nonlive-operational-journey",
+      "selection_state": "conditional_not_selected",
+      "activation_gate_id": "conditional-embodied-registration",
+      "selection_authority": "internal-docs/implementation/program/sequence.v1.json",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child remains in the complete aggregate census but is inactive until its explicit sequencer-owned activation gate is selected; nonselection creates no closure claim."
+    },
+    {
+      "child_work_item_id": "m11-foundry-promotion-safety-case-and-product-journey",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m11-useful-same-system-distribution",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    }
+  ],
+  "aggregate_verification_binding": {
+    "schema_version": "ioi.program.aggregate-verification-binding.v1",
+    "child_dispositions": [
+      {
+        "child_work_item_id": "m11-canonical-embodied-contract-alignment",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m11-embodied-nonlive-graph-proof",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m11-embodied-systems-nonlive-operational-journey",
+        "selection_state": "conditional_not_selected",
+        "activation_gate_id": "conditional-embodied-registration",
+        "selection_authority": "internal-docs/implementation/program/sequence.v1.json",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child remains in the complete aggregate census but is inactive until its explicit sequencer-owned activation gate is selected; nonselection creates no closure claim."
+      },
+      {
+        "child_work_item_id": "m11-foundry-promotion-safety-case-and-product-journey",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m11-useful-same-system-distribution",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      }
+    ],
+    "child_bindings": [
+      {
+        "work_item_id": "m11-canonical-embodied-contract-alignment",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "a90bea6caeb56942b5bf6ea07dfae19908e277dac26eb9b00f432acf298ac0d6",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M11_EMBODIED_CONTRACT_ALIGNMENT_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "5a5f1c8d2930649a2a1be07478222decd7ba41750fa35f696475b7d2da9157fe"
+        }
+      },
+      {
+        "work_item_id": "m11-embodied-nonlive-graph-proof",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "eb3383fdecb2bb507448b679bfe8afa48f0b762cb47ded577ce018476bd63464",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M11_EMBODIED_NONLIVE_GRAPH_PROOF_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "bab585f760ba4c1f59b7b8aaaf428c50d22b163037028c4417e2302ef8e7c0ee"
+        }
+      },
+      {
+        "work_item_id": "m11-embodied-systems-nonlive-operational-journey",
+        "relation": "aggregate_child",
+        "selection_state": "conditional_not_selected",
+        "record_sha256": "2d8eeb290b318b2e68ad5a0e8371cd35620834105565efb19456de350fba42c4",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M11_EMBODIED_SYSTEMS_NONLIVE_JOURNEY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "3a8113a00ea3193a72980a06c433b76ebc6b6fef44feb626d33d2845d85d5d86"
+        }
+      },
+      {
+        "work_item_id": "m11-foundry-promotion-safety-case-and-product-journey",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "fbef4f745c1355103b39c6ad2f27a37e6b6631e683c940ce622680a20c61eb91",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M11_FOUNDRY_PROMOTION_SAFETY_PRODUCT_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "85837d4bfa6fe4617300a4d4c21b5956c5d4b1217412e37d744c55fe0af4c261"
+        }
+      },
+      {
+        "work_item_id": "m11-useful-same-system-distribution",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "92d281cc6b61aa2ef6dc830651197f92b9d0e698a526b9c14e64b2cec3ba356e",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M11_USEFUL_SAME_SYSTEM_DISTRIBUTION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "e47d6b8878664e265eb726d304138cfbb6fba55ff5e82fb0b0a062e976bfedb9"
+        }
+      }
+    ],
+    "dependency_bindings": [
+      {
+        "work_item_id": "m11-canonical-embodied-contract-alignment",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "a90bea6caeb56942b5bf6ea07dfae19908e277dac26eb9b00f432acf298ac0d6",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M11_EMBODIED_CONTRACT_ALIGNMENT_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "5a5f1c8d2930649a2a1be07478222decd7ba41750fa35f696475b7d2da9157fe"
+        }
+      },
+      {
+        "work_item_id": "m11-embodied-nonlive-graph-proof",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "eb3383fdecb2bb507448b679bfe8afa48f0b762cb47ded577ce018476bd63464",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M11_EMBODIED_NONLIVE_GRAPH_PROOF_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "bab585f760ba4c1f59b7b8aaaf428c50d22b163037028c4417e2302ef8e7c0ee"
+        }
+      },
+      {
+        "work_item_id": "m11-foundry-promotion-safety-case-and-product-journey",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "fbef4f745c1355103b39c6ad2f27a37e6b6631e683c940ce622680a20c61eb91",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M11_FOUNDRY_PROMOTION_SAFETY_PRODUCT_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "85837d4bfa6fe4617300a4d4c21b5956c5d4b1217412e37d744c55fe0af4c261"
+        }
+      },
+      {
+        "work_item_id": "m11-useful-same-system-distribution",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "92d281cc6b61aa2ef6dc830651197f92b9d0e698a526b9c14e64b2cec3ba356e",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M11_USEFUL_SAME_SYSTEM_DISTRIBUTION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "e47d6b8878664e265eb726d304138cfbb6fba55ff5e82fb0b0a062e976bfedb9"
+        }
+      }
+    ],
+    "aggregate_evidence_binding": {
+      "expected_literal": "M11_SELECTED_PROFILE_EXIT_PROOF_EXIT=0",
+      "evidence_files": [],
+      "exact_literal_line_count": 0,
+      "literal_valid": false,
+      "evidence_bundle_sha256": "87006d8454173d451f5c15809b68991edddb923463de097ec5851b99a495af1d"
+    },
+    "binding_payload_sha256": "b4109885251d5af70b2bf47f888f48a776d4a45e81e1ef255fc40e4b46f45ec7",
+    "nonclaim": "This exact-digest binding is a private closure precondition. It does not promote a child, dependency, proof gate, aggregate, work item, or stage and cannot substitute for literal-valid retained evidence."
+  },
+  "in_scope": [
+    "`PROGRAM`, `PHYSICAL`; private child/evidence/nonlive join",
+    "Closed M11 non-live evidence manifest; existing literal M11 exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Reject missing pulled child, actuator/E1+ inference, missing supervisor/safety case or task-code success",
+    "All physical evidence remains labeled at its actual non-live promotion stage.",
+    "No live physical mission, generic certification, cross-System federation, M12 verification, or stage closure claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `PROGRAM`, `PHYSICAL`; private child/evidence/nonlive join.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Closed M11 non-live evidence manifest; existing literal M11 exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Reject missing pulled child, actuator/E1+ inference, missing supervisor/safety case or task-code success.",
+    "Retain an evidence index and require the exact content-bound M11_SELECTED_PROFILE_EXIT_PROOF_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "distributed assignment or non-live embodied action proposal",
+      "final_invoker": "daemon assignment invoker or LocalControlSupervisor simulation/SIL/HIL/shadow boundary",
+      "authority_source": "System governance and safety policy; placement/model/cloud grants nothing",
+      "receipt_or_evidence": "assignment or non-live stage receipt",
+      "negative_behavior": "deny stale allocation/two writers/unsafe input; invoke no live actuator"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded m11-selected-profile-exit-proof journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M11_SELECTED_PROFILE_EXIT_PROOF_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Run the aggregate distributed-work and embodied non-live matrices with membership, placement, lease, coordinator, partition, duplicate-effect, graph, writer, supervisor, takeover, rejoin, remote-veto, and promotion-label substitutions.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m11-selected-profile-exit-proof; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Reject missing pulled child, actuator/E1+ inference, missing supervisor/safety case or task-code success; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M11_SELECTED_PROFILE_EXIT_PROOF_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m11.live_actuator_calls",
+      "metric": "live actuator calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "M11 non-live boundary",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m11.accepted_distributed_effects_without_single_writer_proof",
+      "metric": "accepted distributed effects without one-writer/fencing proof",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "M11 distribution floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M11_SELECTED_PROFILE_EXIT_PROOF_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M11/m11-selected-profile-exit-proof.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_physical_action_intent_admission.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "All physical evidence remains labeled at its actual non-live promotion stage.",
+    "No live physical mission, generic certification, cross-System federation, M12 verification, or stage closure claim.",
+    "Node count or placement grants no authority, consensus, sovereign independence, or federation.",
+    "Simulation/SIL/HIL/shadow or a planned record proves no live actuator path or E1+ claim.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Reject missing pulled child, actuator/E1+ inference, missing supervisor/safety case or task-code success. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Closed M11 non-live evidence manifest; existing literal M11 exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M11_SELECTED_PROFILE_EXIT_PROOF_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Plan-level proposal derived from internal-docs/implementation/m0-m14-plan-gap-audit.md at origin/master 69592149186cb29383a397ad0aa3ad6f5ab4ab7b; status transaction 2026-07-22. Enriched under approved SA-2/SA-7/SA-9 private migration on 2026-07-22; status preserved.",
+  "last_status_transaction": "2026-07-22"
+}

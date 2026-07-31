@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-invariant-registry-census
+ARTIFACT=internal-docs/implementation/generated/invariant-census.v1.json
+ARTIFACT_SHA256=43c1ac0c419fb7d0c1d5f04cf2aa205e5c2c96bc8910caccf63a8f328e378710
+M0_INVARIANT_REGISTRY_CENSUS_EXIT=0
+NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

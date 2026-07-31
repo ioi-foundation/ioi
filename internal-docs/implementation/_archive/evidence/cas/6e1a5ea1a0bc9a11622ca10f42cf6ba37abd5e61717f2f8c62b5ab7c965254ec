@@ -1,0 +1,1420 @@
+{
+  "format": "ioi.program.source_dispositions.v1",
+  "role": "Machine-readable source-disposition ledger (M0.5 durable form). One entry per classified program source: role, digest or tombstone, inbound links. Derived from program/guide-registry.v1.json plus the _archive tree; never authority and never status truth.",
+  "entry_count": 125,
+  "entries": [
+    {
+      "path": ".agents/workflow-code-proposals",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/plans/THROUGHPUT_SCALING_PLAN.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "14ef8bd413b289db3d248cb9a6f5758a29203a88da4f63dd9652570d40bde8c9",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2022"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/plans/agent-tool-vocabulary-v2.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "e44f7c4f6fef1051e5b2828139ff5b1f5c5afb2350f9f693cc5647a0a8613e7d",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2023"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/plans/architectural-improvements-broad-master-guide.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "c1bb8020878cbb1b6c178a72a1fb9e9bb54ce26a215ad50aced528870e7c02e5",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2024",
+        ".internal/plans/architectural-improvements-broad.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/plans/architectural-improvements-broad.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "0782a81d1ef9c0a47b5457619aa12b2bae81ee3356871ce28740794a92c6ce2a",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2025",
+        ".internal/plans/architectural-improvements-broad-master-guide.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/plans/benchmark-combination-matrix-plan.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "1f0260b9b99076f75664ae8bc2018515ea40a233af15c39c7e097a80cc0a4ebf",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2026",
+        "internal-docs/specs/benchmarks-scorecard-ux.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/plans/computer-use-external-eval-ingestion-master-guide.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "0a6a88991c7a841d03c68f86683fbfea4f53aec20d87b5ab6a93ab163a93d923",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2027"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/plans/developers-ioi-ai-ship-shape-master-guide.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "1e714a07b91c73a8fb563d70333ac0e62ae2c8f0675a462ed422fc074cc385cb",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2028",
+        "apps/developers-ioi-ai/src/content/docs.tsx"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/plans/fqf-wiki-master-guide-plan.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "14503dc0e0ffb9817c6321890d505619549bc5f31dce9339e4986758413b7a7b",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2029,2096"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/plans/isolated-computer-providers-master-guide.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "55636366ea80eb6abbc783a2638c7ac7447caabec8ff6696b7211499b6810a7b",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2030,2098"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/plans/policy-platform-execution-master-guide.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "b4b8160e43bec108f340b9882f90721956ea3fc90bca4207281b711b651942be",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2031"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/plans/private-screenshot-preview-policy-master-guide.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "de2ae333ee8f9aa53b14a8444809cd71bb83b23de3db8db8b0cbb2cc354df478",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2032"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/playbooks/git-commit-hygiene-playbook.md",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": "d3ab48c4b59de8808b0ae750a2f9ce0b4c27cddefaae1bf4f90bdaa18a095200",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2061 (directory-level row)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": ".internal/playbooks/substrate-absorption-rubric-playbook.md",
+      "role": "product-local-operational-doc",
+      "disposition": "reclassify-header-only",
+      "sha256": "54ed6ce5168521090abc3920c4e908dc5c5a8ee44f83f619d632c22074fe377c",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2061 (directory-level row)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": "8305fb433bbc29f3b0bc865a5446446d5d7214f8b43b91f67b09e140fb9260ad",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "README.md",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": "072095c4cf84b86d0ccc62223fab5d31ab9c5a270a9ab2d7881fde1edf0a9c31",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "apps/aiagent-xyz/README.md",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": "6a0e8c947797a70fccdbea8f7871277d48d5f9d3bd051d447e518f41a2fd59b6",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "apps/benchmarks/README.md",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": "028ca470e214cdc3504bb871cd7b340c73f0e44a79bd7544233a78e144ec6ca3",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/specs/benchmarks-scorecard-ux.md",
+        ".internal/plans/benchmark-combination-matrix-plan.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "apps/developers-ioi-ai/README.md",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": "c574fea89c897fa47d3d7624c6f621a3b41a378acdedcc7b7a747933f0f4de2e",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "apps/hypervisor-web/README.md",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": "88c8e510147871b19bb5aa926eed682b19d82683d152910bf1207406ff91ae69",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "apps/hypervisor-web/docs/rework-spec.md",
+      "role": "active-implementation-guidance",
+      "disposition": "report-only",
+      "sha256": null,
+      "tombstone": {
+        "recorded_in": "internal-docs/implementation/source-dispositions.v1.json",
+        "note": "A rework specification for the public web estate. It exists only on the unmerged branch feat/estate-camera-pipeline and is the user's in-flight work product. Classified and reported so it is not invisible; NOT edited, because its disposition is the branch owner's decision, not this refactor's. DELETED: retired during the web-estate rework; tombstone retained in the source-disposition ledger 2026-07-26."
+      },
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "apps/hypervisor/AGENTS.md",
+      "role": "historical-evidence",
+      "disposition": "reclassify-header-applied",
+      "sha256": "47d86c66b28b3c647cc8e740dd396d545aebf372d7a16d53d9f571228c9cfe5e",
+      "tombstone": null,
+      "inbound_refs": [
+        "apps/hypervisor/README.md",
+        "crates/services/src/agentic/runtime/service/visual_loop/perception.rs",
+        "crates/types/src/app/agentic/knowledge.rs",
+        "internal-docs/implementation/audits/2026-07-22-architecture-coverage.md",
+        "internal-docs/prompts/hypervisor-current-ux/hypervisor-current-ux-summary.json"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "apps/hypervisor/README.md",
+      "role": "product-local-operational-doc",
+      "disposition": "reclassify-header-only",
+      "sha256": "285b30a2a673c0a065bd961980523719d7a34aee9b68ea544c5248916b61611e",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "apps/hypervisor/docs/design-system.md",
+      "role": "product-local-operational-doc",
+      "disposition": "reclassify-header-applied",
+      "sha256": "30ce8d216a0d59107f7b8bb48029027b53f47608e7836ed5af17702a86d60870",
+      "tombstone": null,
+      "inbound_refs": [
+        "apps/hypervisor/AGENTS.md:3",
+        "apps/hypervisor/README.md:16"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "apps/hypervisor/docs/product-ui-api-integration.md",
+      "role": "historical-evidence",
+      "disposition": "reclassify-header-applied",
+      "sha256": "cf6b26e5a0b08f834e752c2055cd4ad9c02e084b35af167674724d955f58ac1f",
+      "tombstone": null,
+      "inbound_refs": [
+        "apps/hypervisor/docs/design-system.md",
+        "apps/hypervisor/scripts/ioi-api-adapter.mjs",
+        "internal-docs/implementation/audits/2026-07-22-architecture-coverage.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "apps/hypervisor/pixel-certifications/README.md",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": "b1fe4c5336d700b9dbb112d07850128368acb518aa40cfe837aaf6a5407007a4",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/audits/2026-07-22-architecture-coverage.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "apps/hypervisor/ux-seeds/README.md",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": "bf9aa5079fbcc4236be0db319970280c0ab99ebb016a2743a517f8f401327b39",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "codebase_snapshot.md",
+      "role": "historical-evidence",
+      "disposition": "delete",
+      "sha256": "f4c7dc1bc0264531079fcfebf05c25933da790cf8f6b8047cf0e9ac10be5a378",
+      "tombstone": null,
+      "inbound_refs": [
+        "tools/codebase_snapshot.sh",
+        "tools/codebase_snapshot2.sh"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "crates",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/README.md",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": "c53efb60a5318c58fd703e5f0c891fc0ad05282a4c11e3b909d4b50302eb54f0",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/START_HERE.md",
+        "docs/architecture/_meta/*.md",
+        "many"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/START_HERE.md",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": "7d6b352e36177b29d88f1bab9b9e9d303a1c324d9c85d048a5c44df43624ddd4",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/README.md",
+        "docs/architecture/_meta/start-here.md",
+        "docs/architecture/_meta/source-of-truth-map.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_archive/README.md",
+      "role": "already-archived",
+      "disposition": "leave-as-is",
+      "sha256": "c83254b73acc58cfe49f32e0ef47a806679b9271cf79bdade7cbc20b28addd12",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/README.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_archive/change-ledgers/hypervisor-kernel-substrate-migration-cut-log.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "9824893fab704e3292514fe068b6782c0a4cce4b3a593fba706d5bcf674f478c",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+        "scripts/check-architecture-docs.mjs"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_archive/change-ledgers/hypervisor-kernel-substrate-slice-ledger.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "6812e01556262cb73791b9be5764f60acbd6bfbe175770f89750985fc675e6ef",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+        "scripts/check-architecture-docs.mjs"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_archive/change-ledgers/implementation-matrix-sprint-lane-log.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "dbd41ef2cff23fbcea878a4358b1384c04c0d857f72843d073e54c1b47c10633",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/_meta/implementation-matrix.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_archive/implementation-logs/byo-provider-plane-adapter-build-log.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "fc5509dff67be911e2f0e2b7a501d4c0f70284cf81aa045279a808ceb62827e5",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/components/hypervisor/byo-provider-plane.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_archive/implementation-logs/decentralized-cloud-implemented-contract-log.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "d7066fc9382347c807f07b886dd49d1bca892e8acff8d9c5a018731961261781",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/domains/decentralized/cloud.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_archive/specs/agentgres-v2-reference.md",
+      "role": "already-archived",
+      "disposition": "leave-as-is",
+      "sha256": "187217b645fa0295e3ec285c1de4a662d80ed5effec6cf3e645da1bde4729317",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/components/agentgres/doctrine.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_archive/specs/aiagent-worker-marketplace-product-context.md",
+      "role": "already-archived",
+      "disposition": "leave-as-is",
+      "sha256": "fa69bd3631717f9aafbb9cb09c5525e0f903e7b2c9e5016466da9d724cf02828",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/domains/aiagent/worker-marketplace.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_archive/specs/ioi-cli-v1-1-product-spec.md",
+      "role": "already-archived",
+      "disposition": "leave-as-is",
+      "sha256": "22f845fafb2c79a9d914e3a4ad0dfb07fb4bd84154b7fa6fd862674f487df57f",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/components/daemon-runtime/doctrine.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_archive/specs/sas-service-marketplace-product-context.md",
+      "role": "already-archived",
+      "disposition": "leave-as-is",
+      "sha256": "b9bf5ab853ddde97e62922371f4a1a310deead5cecf570b559f96053c7588459",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/domains/sas/service-marketplace.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_archive/specs/wallet-network-product-context-v3-2.md",
+      "role": "already-archived",
+      "disposition": "leave-as-is",
+      "sha256": "c13e38dbf4fec3632edcfc25b4c53f9561deedbe59b23f8cfb521b63994a84c3",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/components/wallet-network/doctrine.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_archive/specs/wallet-protocol-sdk-packaging-plan.md",
+      "role": "already-archived",
+      "disposition": "leave-as-is",
+      "sha256": "b07f16a1b169dfecabce86e4dcdafb80580de9600c07bec878e5a0606ad808a1",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/_meta/wallet-protocol-sdk-packaging-plan.md",
+        "docs/architecture/_meta/implementation-matrix.md",
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/refactor-baseline.md",
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2075"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/canon-readability-audit.md",
+      "role": "historical-evidence",
+      "disposition": "report-only",
+      "sha256": "a79a8cb01cb264e61eb5ef0f7febd98d1e00747dae5185707068bb2db4b66587",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/refactor-baseline.md",
+        "internal-docs/implementation/audits/2026-07-22-architecture-coverage.md",
+        "internal-docs/implementation/audits/history/2026-07-16-canon-sota-improvement-review.md",
+        "internal-docs/implementation/generated/architecture-coverage.v1.json",
+        "internal-docs/implementation/tools/generate-architecture-coverage.mjs"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/canon-to-code-delta.md",
+      "role": "architecture-canon",
+      "disposition": "reclassify-header-only",
+      "sha256": "4d71a89b3ec917a628bbd5922a0e65ea45a2889cc4e127923f2ce1a5e8910f4f",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/_meta/implementation-matrix.md",
+        "docs/architecture/_meta/execution-horizons.md:597,691",
+        "docs/architecture/_meta/doc-classes.md",
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+        "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+        "apps/hypervisor/application-operational-depth.json",
+        "apps/hypervisor/scripts/build-operational-depth-atlas.mjs"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/current-canon-defaults.md",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": "e2f98681aed05d3b03ce69ef57362f285b23cf2b79dad3ce9d4cef0486940ba1",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/README.md",
+        "docs/architecture/START_HERE.md",
+        "docs/architecture/_meta/start-here.md",
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/canon-readability-audit.md:32,45",
+        "docs/architecture/_meta/refactor-baseline.md",
+        "docs/architecture/foundations/invariants.md",
+        "docs/decisions/0016-hypervisor-systems-work-and-application-taxonomy.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/doc-classes.md",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": "ae6e33352eaffbb5183dc10f6235718cd98a4b6c5efa0eb15c339608b9253e0c",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/README.md",
+        "docs/architecture/_meta/execution-horizons.md:20,689",
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/refactor-baseline.md",
+        "docs/architecture/_meta/wallet-protocol-sdk-packaging-plan.md",
+        "scripts/check-architecture-docs.mjs",
+        "internal-docs/implementation/audits/2026-07-22-architecture-coverage.md",
+        "internal-docs/implementation/generated/architecture-coverage.v1.json"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/execution-horizons.md",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": "f3a87fb9251a343111a8369f196029248a3f792d1ae3cbfd1c89f3679b21d1c9",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/README.md",
+        "docs/architecture/START_HERE.md",
+        "docs/architecture/_meta/start-here.md",
+        "docs/architecture/_meta/canon-to-code-delta.md:93-94,133",
+        "docs/architecture/_meta/doc-classes.md",
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/refactor-baseline.md",
+        "docs/conformance/hypervisor-core/sovereign-local-completeness.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "role": "already-archived",
+      "disposition": "archive-in-place",
+      "sha256": "2457147de833c352104855b82f78aa43030ff9c74fe9ac308c184444df870409",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/_meta/implementation-matrix.md",
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/refactor-baseline.md",
+        "docs/architecture/_archive/change-ledgers/hypervisor-kernel-substrate-migration-cut-log.md",
+        "scripts/check-architecture-docs.mjs",
+        "scripts/lib/architecture-docs-integrity.mjs",
+        "scripts/test-architecture-docs-integrity.mjs",
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2074"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "role": "already-archived",
+      "disposition": "archive-in-place",
+      "sha256": "58474817f196b492f5b2f7713ac5b37a9404bd9d439a049429ed084f710273de",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/_meta/implementation-matrix.md",
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+        "docs/architecture/_meta/refactor-baseline.md",
+        "docs/architecture/_archive/change-ledgers/hypervisor-kernel-substrate-slice-ledger.md",
+        "scripts/check-architecture-docs.mjs",
+        "scripts/lib/architecture-docs-integrity.mjs",
+        "scripts/test-architecture-docs-integrity.mjs"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/implementation-matrix.md",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": "900c1a570aabb81d583a3ced596b2bbb213c2f79e3bbfcde42a5646e3a11789e",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/README.md",
+        "docs/architecture/START_HERE.md",
+        "docs/architecture/_meta/start-here.md",
+        "docs/architecture/_meta/canon-to-code-delta.md",
+        "docs/architecture/_meta/execution-horizons.md:690",
+        "docs/architecture/_meta/current-canon-defaults.md",
+        "docs/architecture/_meta/doc-classes.md",
+        "docs/architecture/_meta/source-of-truth-map.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/refactor-baseline.md",
+      "role": "historical-evidence",
+      "disposition": "archive-in-place",
+      "sha256": "8a03765b2969e9ab0024045071cd84727cccd7a756585681220cf08a0d1d19ab",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/audits/2026-07-22-architecture-coverage.md",
+        "internal-docs/implementation/audits/history/2026-07-16-canon-sota-improvement-review.md",
+        "internal-docs/implementation/_archive/originals/2026-07-16-canon-sota-improvement-review.pre-link-repair.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/source-of-truth-map.md",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/README.md",
+        "docs/architecture/START_HERE.md",
+        "docs/architecture/_meta/start-here.md",
+        "docs/architecture/_meta/canon-to-code-delta.md",
+        "docs/architecture/_meta/current-canon-defaults.md",
+        "docs/architecture/_meta/doc-classes.md",
+        "docs/architecture/_meta/canon-readability-audit.md:46",
+        "docs/architecture/_meta/refactor-baseline.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/start-here.md",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": "6a5cdf8ac430ccaae61b5a36ea8d105a08b5a2f6b5c2f7fa7da3553ddf9a5a32",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/README.md",
+        "docs/architecture/START_HERE.md",
+        "docs/architecture/_meta/current-canon-defaults.md:26",
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/canon-readability-audit.md:31,44,92",
+        "docs/architecture/_meta/refactor-baseline.md",
+        "internal-docs/implementation/audits/2026-07-22-architecture-coverage.md",
+        "internal-docs/implementation/work-items/*.v1.json (11 records cite it)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/vocabulary.md",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": "63412e40186482344eecc2bb686919be55c078769b7085403bd5375276ca9bf2",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/README.md",
+        "docs/architecture/_meta/start-here.md",
+        "docs/architecture/_meta/implementation-matrix.md",
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/canon-readability-audit.md:47",
+        "docs/architecture/_meta/refactor-baseline.md",
+        "docs/architecture/components/connectors-tools/doctrine.md",
+        "docs/architecture/components/hypervisor/core-clients-surfaces.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/wallet-protocol-sdk-packaging-plan.md",
+      "role": "already-archived",
+      "disposition": "leave-as-is",
+      "sha256": "f420b92c356dd722b60c1e40804136aba4b9c02682550ad08f5ce4db527707ea",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/_meta/implementation-matrix.md",
+        "docs/architecture/_meta/source-of-truth-map.md",
+        "docs/architecture/_meta/refactor-baseline.md",
+        "docs/architecture/_archive/specs/wallet-protocol-sdk-packaging-plan.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/architecture/_meta/work-items",
+      "role": "tracked-status-record",
+      "disposition": "leave-as-is",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/_meta/implementation-matrix.md:362 (\"Status truth lives in [`_meta/work-items/`](./work-items/README.md)\" + names all 7 record ids)",
+        "docs/architecture/_meta/implementation-matrix.md:385-386",
+        "package.json:77 (\"check:work-items\": \"node scripts/check-work-items.mjs\")",
+        "scripts/check-work-items.mjs:2,11,42-51",
+        "scripts/check-pre-next-leg.mjs:53-55",
+        "scripts/test-pre-next-leg-gates.mjs:48",
+        "internal-docs/implementation/work-items/logs/m1-5-protected-transitions.md",
+        "internal-docs/implementation/audits/reconciliation/2026-07-22-reconciliation-review.md"
+      ],
+      "status_authority": true
+    },
+    {
+      "path": "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": "fdc0f94961a2d3f7cf29a766f29a37dc291b28248bb9109da685ada643fe1e6c",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/components/agentgres/doctrine.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/conformance/README.md",
+      "role": "conformance-spec",
+      "disposition": "leave-as-is",
+      "sha256": "12ea121abb0dd9e3be79c8c31a6aaa8bce8f1d0eaa84d60a8c9d145a9a36baa8",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/README.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/decisions",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/README.md",
+        "docs/architecture/_meta/source-of-truth-map.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/evidence/m0-program-control/README.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "188a2010a07275f34424b2fff31049926a0cf7c127ec852515b884c97824f71b",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/evidence/m0-program-control/manifest.json",
+        "docs/evidence/m0-program-control/program-evidence-index.json",
+        "internal-docs/implementation/work-items/m0-program-control-selected-profile-exit-proof.v1.json",
+        "internal-docs/implementation/work-items/m0-unsigned-review-anchor.v1.json"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/security/post_quantum.md",
+      "role": "architecture-canon",
+      "disposition": "reclassify-header-only",
+      "sha256": "105ad656e4d45267f63dcd7e876f7a02385cf1a6ab9f3f33977d778cc111c571",
+      "tombstone": null,
+      "inbound_refs": [
+        "SECURITY.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/specs/verifiable_bounded_agency.md",
+      "role": "already-archived",
+      "disposition": "leave-as-is",
+      "sha256": "4bdbe70c0b455a0c1443b36fd3a114b06d9b21292e7e642e534c6860021ce6a6",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/foundations/verifiable-bounded-agency.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "docs/templates",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "examples",
+      "role": "vendored-third-party",
+      "disposition": "leave-as-is",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/reverse-engineering/cursor/cursor-substrate-map.md (cites examples/cursor)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/README.md",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": "04172ee438e8bc76b68b0488976de4ae19d5c205c6850fcb2178ed29da5ff3d8",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/architecture/_meta/changelog",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/_meta/source-of-truth-map.md (reciprocal)",
+        "docs/architecture/_meta/vocabulary.md (reciprocal)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/architecture/internet-of-intelligence-target-architecture-synthesis.md",
+      "role": "architecture-canon",
+      "disposition": "leave-as-is",
+      "sha256": "98d00915ad45044dc57ee97df52e1a532ba44d1a26df9783e7b17e380593995e",
+      "tombstone": null,
+      "inbound_refs": [
+        "docs/architecture/_meta/implementation-matrix.md (referenced BY this file, not to it)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/architecture/protocols/aft/OPERATIONAL_POLICY.md",
+      "role": "conformance-spec",
+      "disposition": "leave-as-is",
+      "sha256": "96aea40a78549a4d588cddb0815224816d1f14ed8af15c7e19bc8cb9567faab4",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/architecture/protocols/aft/README.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/architecture/protocols/aft/RUNBOOKS.md",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": "995d9d28b382dc1861267072ab3614faccd28b49e218031602d6801850c5ba4d",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/architecture/protocols/aft/README.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/architecture/protocols/ai-url/manifest-schemas.md",
+      "role": "conformance-spec",
+      "disposition": "leave-as-is",
+      "sha256": "af96de217ff0dba161f2e08ccda2356370b3e876cc92e30d94b9549181b68a2e",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/architecture/protocols/ai-url/registry-and-manifests.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/architecture/protocols/ai-url/registry-and-manifests.md",
+      "role": "conformance-spec",
+      "disposition": "leave-as-is",
+      "sha256": "e2387801c6e4354efdc2915f61fcfbe2e08037bf0a341eca1aadcab0f59580fa",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/architecture/protocols/ai-url/manifest-schemas.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/audits/2026-07-30-hypervisor-surface-end-state-audit/README.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "d52093fc8add5e8ddad99a3e74eee62ef31f37c7fed0a471a16a6ceaafe4b1e1",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/audits/workflow-composer-live-agent-building-ux-frictions.md",
+      "role": "historical-evidence",
+      "disposition": "reclassify-header-only",
+      "sha256": "5ec8bb9fd7d822e7776eaea79e894bf31f137f4fd6e8fc0aacac31c450d551bd",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/attestations/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/audits/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/completed/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/deprecated/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/evidence/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/generated-pre-refactor/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/guides/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/holds/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/manifests/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/maps/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/migrations/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/originals/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/plans/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/pre-correction-reviews/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/pre-link-repair/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/pre-unification-baseline/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/reconciliation-tools/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/release-candidates/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/superseded-guides/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/tools-pre-refactor/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/implementation/_archive/work-item-logs/",
+      "role": "archived-terminal-record",
+      "disposition": "retained-history",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/prompts/architecture-relative-comparison/goal-prompt.md",
+      "role": "prompt-template",
+      "disposition": "leave-as-is",
+      "sha256": "acb3833a42c92e9bdfebe4fdb9cd6c5d26f7a5058ba6b0096e63e7d2160774e3",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/prompts/architecture-relative-comparison/runs/index.md",
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2041",
+        "internal-docs/implementation/audits/history/2026-07-16-canon-sota-improvement-review.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/prompts/architecture-relative-comparison/runs/2026-07-28-productization-canon-program-action-plan.md",
+      "role": "historical-evidence",
+      "disposition": "retained-history",
+      "sha256": "92d4bd67a36dc5778450b523fe6a9d5e6223010fb41e49599be96172740c0ad9",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/prompts/autonomous-systems-suite/00-master-prompt.md",
+      "role": "prompt-template",
+      "disposition": "leave-as-is",
+      "sha256": "8d26524f4f20653798f63bb4b985e78679d6c53f76982c7f2e2e3b85cd131c25",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2042 (estate row)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/prompts/autonomous-systems-suite/01-remaining-gaps-prompt.md",
+      "role": "prompt-template",
+      "disposition": "leave-as-is",
+      "sha256": "3b0d18817ff799eb502af5668b1a401e00b9947b3f01a4e4c9960739fd3be83c",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2042 (estate row)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/prompts/autonomous-systems-suite/suite-guide.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "3914e2b884cdf891c15c8664e1e899da72669d42dacb1fd3ab52f019f46385ce",
+      "tombstone": null,
+      "inbound_refs": [
+        "apps/hypervisor/scripts/serve-product-ui.mjs",
+        "apps/hypervisor/scripts/augmentation/30-shell.js",
+        "internal-docs/prompts/autonomous-systems-suite/01-remaining-gaps-prompt.md",
+        "internal-docs/prompts/hypervisor-application-surface-plans/extended-discovery/** (many)",
+        "internal-docs/reverse-engineering/palantir/local-composition-application-crosswalk.md",
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2042"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/prompts/background-agents-master-audit.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "d6b6a9dea78fe5b72f8be276fd629ef6c3f081f90095e9021f8a6ca282aaf4d7",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2045"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/prompts/hypervisor-application-surface-plans/index.md",
+      "role": "already-archived",
+      "disposition": "leave-as-is",
+      "sha256": "640074b264c6f4beb246837c79c8b04ff3f147eb95bdbe09fbc59b06cb9aae60",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2043 (estate row)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/prompts/hypervisor-application-surface-plans/shell-ownership-program.md",
+      "role": "already-archived",
+      "disposition": "reclassify-header-only",
+      "sha256": "72272dac40290ef427ef00da04d921f991c75a281efabe485d922fc1721fd3ab",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2043 (estate row)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/prompts/hypervisor-application-surface-plans/ux-graft-master-guide.md",
+      "role": "already-archived",
+      "disposition": "leave-as-is",
+      "sha256": "6e582ace59a0d5a102eacdd60a281e34e7c00439e09abf11e22e854e06cd9b16",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/prompts/hypervisor-application-surface-plans/index.md",
+        "internal-docs/prompts/autonomous-systems-suite/00-master-prompt.md",
+        "internal-docs/prompts/autonomous-systems-suite/suite-guide.md",
+        "docs/architecture/_meta/doc-classes.md (indirect)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/prompts/hypervisor-pressure-tests",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2044"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/prompts/ioi-zero-to-hero-autonomy-prompt.md",
+      "role": "prompt-template",
+      "disposition": "demoted-header-added",
+      "sha256": "7ed9dc8a92e7f3ffd085a09bebe0e10568801e65821a382db6abfd1694a2f35f",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2052 (§14.3 disposition row)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/prompts/palantir-full-crawl",
+      "role": "reverse-engineering-material",
+      "disposition": "leave-as-is",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/reverse-engineering/antigravity/clean-room/MASTER_GUIDE.md",
+      "role": "reverse-engineering-material",
+      "disposition": "demoted-header-added",
+      "sha256": "e33477f01343a9f622d43d1128b0e5f741c2810857343b1139c846008246cc7d",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/reverse-engineering/antigravity/ux/antigravity-workbench-ux-reconciliation.md",
+      "role": "reverse-engineering-material",
+      "disposition": "reclassify-header-only",
+      "sha256": "d60140122c09c0e0af817c9d1756ab35da9857dacc48200c4840f5de09e2e747",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/reverse-engineering/autonomous_mirror_blueprint.md",
+      "role": "reverse-engineering-material",
+      "disposition": "demoted-header-added",
+      "sha256": "a4b17ed2618b8a98abbbfa4f5250fe348e582af497a4cc7efb66cdff9505ba29",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/reverse-engineering/autonomous_reverse_engineering_blueprint.md",
+      "role": "reverse-engineering-material",
+      "disposition": "demoted-header-added",
+      "sha256": "22367db6632d9b1009e4c9b516a661f12e527e1c62985651dd4543dc04d2a561",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/reverse-engineering/cursor/cursor-autopilot-delta-audit.md",
+      "role": "reverse-engineering-material",
+      "disposition": "leave-as-is",
+      "sha256": "bdbd2879dcbbbd88a5edc2f99194364597953fe7ec7c9be7f920f9692269ddfc",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/reverse-engineering/cursor/cursor-substrate-map.md",
+      "role": "reverse-engineering-material",
+      "disposition": "leave-as-is",
+      "sha256": "8d29c4d4ddb93256896b0fc1c876460e651eef28e1996a8dcee82e966442ca32",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/reverse-engineering/palantir/local-composition-application-crosswalk.md",
+      "role": "reverse-engineering-material",
+      "disposition": "reclassify-header-only",
+      "sha256": "4a776b2b8b4cf3e8ea682a60b8bb27023a1b37a3221748965c71ab26f4467ba1",
+      "tombstone": null,
+      "inbound_refs": [
+        "apps/hypervisor/harvest-app-parity-matrix.json",
+        "apps/hypervisor/scripts/build-app-parity-matrix.mjs",
+        "internal-docs/prompts/autonomous-systems-suite/00-master-prompt.md",
+        "internal-docs/implementation/audits/2026-07-22-architecture-coverage.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/reverse-engineering/palantir/reference-ux-port-game-plan.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "d7c7d3d49a6780cc5eb2edc5532da8c20051ff3cb06ce257dc961197ee5c1d73",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2053"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/samples/repo-maintenance-autonomous-system-package/gui-run-checklist.md",
+      "role": "product-local-operational-doc",
+      "disposition": "reclassify-header-only",
+      "sha256": "70f3ad3effac9e1a540083e8fefaf8dafe17227606c834d2abcf8627f12f3e87",
+      "tombstone": null,
+      "inbound_refs": [
+        "internal-docs/samples/repo-maintenance-autonomous-system-package/README.md"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/specs/benchmarks-scorecard-ux.md",
+      "role": "product-local-operational-doc",
+      "disposition": "reclassify-header-applied",
+      "sha256": "101f87812b885fe2e2041f837db796ff257e20d759f83e655dd45e0be3f6bbb5",
+      "tombstone": null,
+      "inbound_refs": [
+        ".internal/plans/benchmark-combination-matrix-plan.md (Companion documents block)"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/specs/runtime/authority-vs-projection.md",
+      "role": "architecture-canon",
+      "disposition": "reclassify-header-only",
+      "sha256": "24148405a39ab64935a7d298ee3dda735ddd064e029db46fc143d10ca138c6bd",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/specs/runtime/sota-runtime-invariants.md",
+      "role": "product-local-operational-doc",
+      "disposition": "reclassify-header-applied",
+      "sha256": "a10fe88485af5510be0523e8c1f78986b3fcd12a50d3a072d48dfaaf50700422",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "internal-docs/specs/runtime/tool-authoring-checklist.md",
+      "role": "product-local-operational-doc",
+      "disposition": "reclassify-header-applied",
+      "sha256": "b70cb941ffe015e241f4369d7354c80531fcf63203bb487d315be9ea6fb6539c",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "packages/design-system/README.md",
+      "role": "product-local-operational-doc",
+      "disposition": "leave-as-is",
+      "sha256": "85c2e1681361ceba3946284e77527f2ab2d5ac662653900c5f37ef163bfd73cd",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "third_party/cargo-patches/xcap-0.0.14",
+      "role": "vendored-third-party",
+      "disposition": "leave-as-is",
+      "sha256": null,
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "tools/README.md",
+      "role": "product-local-operational-doc",
+      "disposition": "archive-in-place",
+      "sha256": "d29cee9998d82a74120a385bc3c9b797a1f7b6d7ca95078bbfc4f63f13945859",
+      "tombstone": null,
+      "inbound_refs": [],
+      "status_authority": false
+    },
+    {
+      "path": "tools/roadmap.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "98b27e8a123c88881b5c21efe6941d1bdb7a6f6f092653cb7e1c95cadfd258c4",
+      "tombstone": null,
+      "inbound_refs": [
+        "tools/roadmap_context.md",
+        "crates/cli/tests/capabilities_suite/harness.rs",
+        "crates/cli/tests/capabilities_suite/harness/project_fixtures/local_file_fixtures.rs",
+        "crates/cli/tests/capabilities_suite/queries/back_up_my_desktop_and_documents_folders_to_an_external_drive.rs",
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2059"
+      ],
+      "status_authority": false
+    },
+    {
+      "path": "tools/roadmap_context.md",
+      "role": "historical-evidence",
+      "disposition": "leave-as-is",
+      "sha256": "90ca2e57eb981c396914c7a6cabd5482ba849fcb32a6964cffb711d209d35d7e",
+      "tombstone": null,
+      "inbound_refs": [
+        "tools/roadmap.md",
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md:2060"
+      ],
+      "status_authority": false
+    }
+  ]
+}

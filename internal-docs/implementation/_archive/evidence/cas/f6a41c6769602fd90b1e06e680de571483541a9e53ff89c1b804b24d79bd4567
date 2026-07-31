@@ -1,0 +1,13 @@
+{
+  "literal_exit": {
+    "expected": "M0_OVERLAY_MEMBER_CUSTODY_AND_DISPOSITION_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M9/m0-overlay-member-custody-and-disposition-successor.exit.v1.txt",
+    "artifact_sha256": "2a6f5f6c94320561c295f0f97e3431c4786423ef785253b3541e90727172d369"
+  },
+  "adversarial_or_fault_proof": [
+    "check-overlay-dispositions fires 54 named rejections against missing, ambiguous, self-referential, wildcard, directory-default, falsely derived, silently retired, and silently resurrected ownership inputs."
+  ],
+  "positive_proof": [
+    "The live census reconciles all 220 members as 26 existing-owner, 26 named-successor, 166 retained-nonclaim, and 2 retired dispositions, with 211 derived and 9 individually owner-ruled decisions and zero unattributed members."
+  ]
+}

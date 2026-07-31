@@ -1,0 +1,734 @@
+{
+  "generatedAt": "2026-05-27T03:08:20.397Z",
+  "baselineManifest": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/tool-catalogue-final-manifest.latest.json",
+  "rows": [
+    {
+      "rowId": "agent__await",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "UnexpectedState ERROR_CLASS=UnexpectedState Child session '0000000000000000000000000000000000000000000000000000000000000000' not found.",
+      "owner": "Rust agent lifecycle / subagent manager",
+      "closureStrategy": "Create a real child session, preserve the child id, await that id through live Agent Studio, and verify parent/child trace linkage.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage1-lifecycle-controls",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage1-lifecycle-controls",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T23-08-12-137Z"
+        },
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "shell__status",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Retained shell rerun supplies a real shell__start command id, but the live Rust executor does not handle the retained status control path.",
+      "owner": "Rust tool executor / terminal driver",
+      "closureStrategy": "Route retained shell controls through the System executor, then prove status/input/terminate against a disposable retained command.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage4-shell-software",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T02-07-05-794Z"
+        },
+        {
+          "scenarioId": "toolcat-stage4-shell-software",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T01-19-28-008Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "shell__input",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Retained shell rerun supplies a real shell__start command id, but the live Rust executor does not handle the retained input control path.",
+      "owner": "Rust tool executor / terminal driver",
+      "closureStrategy": "Route retained shell controls through the System executor, then prove status/input/terminate against a disposable retained command.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage4-shell-software",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T02-07-05-794Z"
+        },
+        {
+          "scenarioId": "toolcat-stage4-shell-software",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T01-19-28-008Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "shell__terminate",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Retained shell rerun supplies a real shell__start command id, but the live Rust executor does not handle the retained terminate control path.",
+      "owner": "Rust tool executor / terminal driver",
+      "closureStrategy": "Route retained shell controls through the System executor, then prove status/input/terminate against a disposable retained command.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage4-retained-shell-threaded-controls",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage4-shell-software",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T02-07-05-794Z"
+        },
+        {
+          "scenarioId": "toolcat-stage4-shell-software",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T01-19-28-008Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__inspect_canvas",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Browser canvas summary failed: selector '#toolcat-canvas' not found",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__list_options",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Browser dropdown options failed: Driver internal error: browser__list_options failed: select_not_found",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__subagent",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "UnexpectedState ERROR_CLASS=UnexpectedState Child agent failed: Resolver selected workspace_ops scope but neither filesystem nor Google connector tooling is available.",
+      "owner": "Rust browser runtime / child agent routing",
+      "closureStrategy": "Admit the browser child-agent tool bundle and prove child output returns to the parent.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__click",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "TargetNotFound ERROR_CLASS=TargetNotFound Selector '#toolcat-input' does not exist on the current page.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__hover",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Browser hover failed: resolve hover selector '#toolcat-button': Driver internal error: Element '#toolcat-button' not found in document or open shadow roots",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__click_at",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "TargetNotFound ERROR_CLASS=TargetNotFound Element 'grp_blue_square_canvas' not found in current browser view. Run `browser__inspect` again and retry with a fresh ID.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__type",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Browser type failed: Driver internal error: Failed to focus selector '#toolcat-input'",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__select",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Browser select text failed: target not found",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__press_key",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Browser key press failed: Driver internal error: Failed to focus selector '#toolcat-input'",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__copy",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "NoEffectAfterAction ERROR_CLASS=NoEffectAfterAction Browser copy selection has no selected text: {\"selection\":{\"collapsed\":true,\"end_offset\":0,\"focused\":false,\"found\":false,\"selected_text\":\"\",\"start_offset\":0,\"target_kind\":\"none\",\"text_length\":0}}",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__paste",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Browser paste clipboard failed: Host function error: Clipboard read failed: The clipboard contents were not available in the requested format or the clipboard is empty.",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__wait",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "TimeoutOrHang ERROR_CLASS=TimeoutOrHang Browser wait condition 'text_present' not met within 3000ms",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__upload",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Browser upload failed: Driver internal error: File input selector '#toolcat-file' was not found",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__select_option",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Browser dropdown select failed: Driver internal error: browser__select_option failed: select_not_found",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__switch_tab",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Browser tab switch failed: Driver internal error: Tab 'toolcat-disposable-tab' not found",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser__close_tab",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Browser tab close failed: Driver internal error: Tab 'toolcat-disposable-tab' not found",
+      "owner": "Rust browser runtime / hermetic browser session fixture",
+      "closureStrategy": "Use a managed hermetic browser session with stable fixture state instead of per-row hidden setup turns.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage5-browser-matrix",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "screen__click",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "FocusMismatch ERROR_CLASS=FocusMismatch Unable to focus target window 'browser'.",
+      "owner": "Desktop UI driver / focus targeting",
+      "closureStrategy": "Use deterministic target window/session ids so focus-sensitive screen actions can operate on the disposable target.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage6-desktop-clipboard",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage6-desktop-clipboard",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T01-56-28-617Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "screen__click_at",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "FocusMismatch ERROR_CLASS=FocusMismatch Unable to focus target window 'browser'.",
+      "owner": "Desktop UI driver / focus targeting",
+      "closureStrategy": "Use deterministic target window/session ids so focus-sensitive screen actions can operate on the disposable target.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage6-desktop-clipboard",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage6-desktop-clipboard",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T01-56-28-617Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "screen__scroll",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "FocusMismatch ERROR_CLASS=FocusMismatch Unable to focus target window 'browser'.",
+      "owner": "Desktop UI driver / focus targeting",
+      "closureStrategy": "Use deterministic target window/session ids so focus-sensitive screen actions can operate on the disposable target.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage6-desktop-clipboard",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage6-desktop-clipboard",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T01-56-28-617Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "memory__search",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "UnexpectedState ERROR_CLASS=UnexpectedState memory__search retrieval verification failed.",
+      "owner": "Runtime memory service",
+      "closureStrategy": "Seed deterministic memory corpus ids and run search/read in the same namespace and ownership context.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage8-memory-commerce-monitor",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage8-memory-commerce-monitor",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T23-47-58-884Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "memory__read",
+      "rowType": "tool",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "TargetNotFound ERROR_CLASS=TargetNotFound memory__read only supports archival IDs returned by memory__search.",
+      "owner": "Runtime memory service",
+      "closureStrategy": "Seed deterministic memory corpus ids and run search/read in the same namespace and ownership context.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage8-memory-commerce-monitor",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage8-memory-commerce-monitor",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T23-47-58-884Z"
+        }
+      ],
+      "nextProofStep": "Run a focused live IDE GUI proof after the responsible fix lands."
+    },
+    {
+      "rowId": "browser_computer.compact_live_viewport",
+      "rowType": "product_ux",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "Browser/computer automation still appears as standalone or trace-only automation rather than a managed compact live viewport with expand/observe/takeover controls.",
+      "owner": "Agent Studio run view / Tracing UX",
+      "closureStrategy": "Render managed browser/computer session artifacts with compact preview, expanded observe view, labels, takeover controls, and Waiting for user state.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Capture compact and expanded live session screenshots through the real GUI."
+    },
+    {
+      "rowId": "browser_computer.sandbox_local_desktop_labeling",
+      "rowType": "product_ux",
+      "status": "open",
+      "baselineClassification": "concrete_failure",
+      "currentClassification": "concrete_failure",
+      "reason": "The long-term UX labels Sandbox browser, Local browser, and Desktop, but the current live GUI evidence does not yet render that managed session label.",
+      "owner": "Agent Studio run view / Tracing UX",
+      "closureStrategy": "Render managed browser/computer session artifacts with compact preview, expanded observe view, labels, takeover controls, and Waiting for user state.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage5-browser-matrix",
+      "evidence": [
+        {
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-26T00-06-08-096Z"
+        }
+      ],
+      "nextProofStep": "Capture compact and expanded live session screenshots through the real GUI."
+    },
+    {
+      "rowId": "model__embeddings",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "UnknownProviderError ERROR_CLASS=UnknownProviderError model__embeddings Host function error: Embedding provider error 404 Not Found: {\"error\":{\"code\":\"not_found\",\"message\":\"Model not found: nomic-embed-text\",\"retryable\":false,\"requestId\":\"req_7632b4f8-90fc-4c22-a988-e775b9a46141\",\"details\":{\"modelId\":\"nomic-embed-text\"}}}",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage2-read-local-model",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T21-04-58-411Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "model__rerank",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable model__rerank Host function error: Operation 'rerank' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage2-read-local-model",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T21-04-58-411Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__extract_transcript",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "DiscoveryMissing ERROR_CLASS=DiscoveryMissing media transcript discovery found no admissible provider candidates for requested_language=en url=http://127.0.0.1:45427/media/transcript.txt",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__extract_evidence",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "DiscoveryMissing ERROR_CLASS=DiscoveryMissing media multimodal discovery found no admissible transcript, timeline, or visual providers for url=http://127.0.0.1:45427/media/transcript.txt",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__vision_read",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable media__vision_read Host function error: Operation 'vision_read' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__transcribe_audio",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable media__transcribe_audio Host function error: Operation 'transcription' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__generate_image",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable media__generate_image Host function error: Operation 'image_generation' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__edit_image",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable media__edit_image Host function error: Operation 'image_edit' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__generate_video",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable media__generate_video Host function error: Operation 'video_generation' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "media__synthesize_speech",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "ProviderUnavailable ERROR_CLASS=ProviderUnavailable media__synthesize_speech Host function error: Operation 'speech_synthesis' not supported by this runtime",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage9-media",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T19-48-06-506Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "connector__toolcat__noop",
+      "rowType": "provider",
+      "status": "outside_default_harness_claim",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "optional_provider_external_blocker",
+      "reason": "UnsupportedTool ERROR_CLASS=UnsupportedTool No adapter admitted tool 'connector__toolcat__noop'",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Keep outside the default harness parity claim; verify fail-closed copy and trace-side detail.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage12-final-regression",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage8-memory-commerce-monitor",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T23-47-58-884Z"
+        }
+      ],
+      "nextProofStep": "Retain as optional provider blocker in the final verdict with explicit contract note."
+    },
+    {
+      "rowId": "computer_use.request_lease",
+      "rowType": "provider",
+      "status": "open",
+      "baselineClassification": "external_blocker_pass",
+      "currentClassification": "external_blocker_pass",
+      "providerDecision": "requires_default_harness_decision",
+      "reason": "UnsupportedTool ERROR_CLASS=UnsupportedTool No adapter admitted tool 'computer_use.request_lease'",
+      "owner": "Provider contract / harness availability",
+      "closureStrategy": "Decide whether this is default harness scope; if yes, wire a hermetic adapter and live-prove it.",
+      "reproduction": "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario toolcat-stage10-computer-use-provider",
+      "evidence": [
+        {
+          "scenarioId": "toolcat-stage10-computer-use-provider",
+          "evidenceDir": "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification/2026-05-25T20-36-16-911Z"
+        }
+      ],
+      "nextProofStep": "Record default-vs-optional decision, then prove with hermetic adapter or exclude explicitly."
+    }
+  ]
+}

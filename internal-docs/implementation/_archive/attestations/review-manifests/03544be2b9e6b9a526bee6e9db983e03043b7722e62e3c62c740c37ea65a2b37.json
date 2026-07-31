@@ -1,0 +1,224 @@
+{
+  "evidence_format": "ioi.program.canon_review_manifest.v1",
+  "manifest_role": "Content-bound enumeration of every canon subject pending baseline review, with the disposition and written reasoning of one accountable reviewer. Presenting this manifest to --accept advances the baseline. It closes no work item, certifies no stage, and changes no status.",
+  "claim": "canon_drift_reviewed_only",
+  "reviewer_ref": "agent://claude-fable-5/session-5a92602f/post-containment-census-baseline",
+  "emitted_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+  "instructions": [
+    "Fill reviewer_ref, and per subject a disposition (unaffected | successor_required | blocked) and a review_note that argues it from what actually changed.",
+    "`unaffected` must be ARGUED. Say why this subject's change does not reach the stages, modules, and work items named in review_required below. An unargued `unaffected` is a mechanical accept with extra steps.",
+    "Never rewrite a verified closure to absorb a semantic change: disposition it `successor_required` and open a successor record that states what must now be proven.",
+    "Do not edit the ids or digests. They bind this manifest to one exact revision, and --accept refuses if they drift."
+  ],
+  "review_required": {
+    "stages": [
+      "FUTURE",
+      "M0",
+      "M1",
+      "M10",
+      "M11",
+      "M14",
+      "M2",
+      "M3",
+      "M4",
+      "M6",
+      "M7",
+      "M9"
+    ],
+    "modules": [
+      "adversarial-proof-matrix",
+      "cooperation",
+      "docs-and-comms",
+      "embodied",
+      "mechanism-gates",
+      "network-and-l1",
+      "product-surface-ux-proof",
+      "product-ux",
+      "proof-and-evidence",
+      "runtime-fabric",
+      "runtime-trust-boundary",
+      "supply-and-commerce",
+      "wallet-authority"
+    ],
+    "work_items": [
+      "agentgres-production-readiness-and-branch-effects",
+      "decentralized-profile-admission-and-exit",
+      "ecosystem-assurance-and-public-claim-estate",
+      "hypervisoros-ctee-task-capsule-attestation",
+      "m0-canon-owner-coverage-and-orphan-verifier",
+      "m0-invariant-registry-census",
+      "m0-literal-exit-evidence-contract",
+      "m0-program-control-selected-profile-exit-proof",
+      "m0-route-final-invoker-pg-census-maintenance",
+      "m0-selected-profile-baseline-evidence-and-claim-lock",
+      "m0-source-disposition-and-single-sequencer-verifier",
+      "m0-work-item-contract-completeness-and-owner-lint",
+      "m1-dual-genesis-and-read-projection",
+      "m1-protected-migration-dissolution-enrollment",
+      "m1-selected-profile-exit-proof",
+      "m1-system-genesis-product-journey",
+      "m10-attestation-temporal-floor-and-revocation-continuity",
+      "m10-operations-operational-journey",
+      "m10-topology-chaos-and-operator-product-proof",
+      "m10-two-failure-domain-continuity",
+      "m11-canonical-contract-registry-and-legacy-ref-migration",
+      "m11-canonical-embodied-contract-alignment",
+      "m14-cross-plane-correlated-failure-injection",
+      "m2-agentgres-replay-recovery-and-product-topology",
+      "m2-membership-readiness-plane",
+      "m2-node-attestation-identity-secret-readiness",
+      "m2-route-restore-activation-cleanup",
+      "m2-selected-profile-exit-proof",
+      "m2-writer-fence-and-lost-suffix",
+      "m3-goal-kernel-context-and-runtime-truth-spine",
+      "m3-pursuit-definition-resolution",
+      "m3-result-lifecycle-negative-retention",
+      "m3-work-session-automation-product-journey",
+      "m4-outcome-room-system-spine",
+      "m4-room-graph-truth-and-product-projection",
+      "m6-developer-workspace-operational-journey",
+      "m6-home-workspace-operational-journey",
+      "m6-packages-operational-journey",
+      "m6-production-truth-fallback-retirement",
+      "m6-projects-workspace-operational-journey",
+      "m6-reference-shell-disposition-and-depth-ledger",
+      "m6-systems-work-projection-and-mission-alias-migration",
+      "m6-systems-workspace-operational-journey",
+      "m6-work-workspace-operational-journey",
+      "m7-studio-operational-journey",
+      "m9-compact-advanced-object-hash-parity",
+      "m9-environments-operational-journey",
+      "m9-governance-operational-journey",
+      "m9-selected-profile-aggregate-exit-and-claim-publication",
+      "project-discovery-startup-and-session-chain",
+      "sdk-cli-adk-odk-builder-journey",
+      "storage-profile-repair-and-availability"
+    ],
+    "conformance_targets": [],
+    "contract_families": []
+  },
+  "subject_count": 15,
+  "subject_set_sha256": "327473a4e8da8a0b8b23f91a024ee3be457b24f53c9f8efb8359e90e726e503f",
+  "subjects": [
+    {
+      "id": "docs/architecture/_meta/current-canon-defaults.md",
+      "change": "changed",
+      "baseline_sha256": "eabdca556ed63d8fffcdbd2194cace78785497378d28ee8a5867976a74ffb6a1",
+      "tree_sha256": "8ca50a056184538edd8a00ed4fbc251ff2afe1a1cbeb840fc2535eb962254e53",
+      "disposition": "successor_required",
+      "review_note": "Canon changed by the emergency containment (PR #129). Flagged successor_required rather than waved through: this owner now declares a containment property for which no retained, gated proof is bound. The containment's own tests pass, but a declaration in canon needs its own retained evidence before any record may rely on it. A successor must bind that proof or narrow the declaration."
+    },
+    {
+      "id": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+      "change": "changed",
+      "baseline_sha256": "6bc0702464127314bae055a3b37aa1ec02411ce89c8ecb0254505dadc9b21a21",
+      "tree_sha256": "95c1a5502c83b1ed63e658d3406119c6ef983a84e3f7196916126947020e6ed9",
+      "disposition": "successor_required",
+      "review_note": "Canon changed by the emergency containment (PR #129). Flagged successor_required rather than waved through: this owner now declares a containment property for which no retained, gated proof is bound. The containment's own tests pass, but a declaration in canon needs its own retained evidence before any record may rely on it. A successor must bind that proof or narrow the declaration."
+    },
+    {
+      "id": "docs/architecture/foundations/invariants.md",
+      "change": "changed",
+      "baseline_sha256": "60c28094705b684987d5a353ed07224bc5248d08428a36aeb0c34d6281a98c48",
+      "tree_sha256": "a333e4b653ea3402f6217fe2cfb314f842de8de6a6586eb542178431f377c8f5",
+      "disposition": "successor_required",
+      "review_note": "Canon changed by the emergency containment (PR #129). Flagged successor_required rather than waved through: this owner now declares a containment property for which no retained, gated proof is bound. The containment's own tests pass, but a declaration in canon needs its own retained evidence before any record may rely on it. A successor must bind that proof or narrow the declaration."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+      "change": "changed",
+      "baseline_sha256": "ff129987655b81beb11baecb208abc7b75341d1999314c33797c053c187aa4f8",
+      "tree_sha256": "ee526b924fb80e4400183e8b8aa2d066ef0f904e222f2da8291b00589da87ad3",
+      "disposition": "successor_required",
+      "review_note": "Regenerated M0 program-control evidence from the route-census successor (PR #130): 4 routes admitted, 0 retired, 1,327 locator rebinds, anchor sequence 23 binding sequence 22's entry hash. A successor IS required for the certified predecessor m0-route-final-invoker-pg-census-maintenance and it ALREADY EXISTS - route-final-invoker-census-successor-after-publication-rebuild, authored at M9, with its declared exit artifact written carrying ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0. The predecessor's closure is left untouched per the standing rule. Outstanding: that successor's status transition. check:pre-next-leg is 60/60 with PNL_EXIT=0 over this evidence."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/current-baselines.json",
+      "change": "changed",
+      "baseline_sha256": "3e087d66f92f606e8b24ac386e7397d4d7af339c5cf83cf070e6b458ba3f19bc",
+      "tree_sha256": "16c327068bb2f4b8e121540abf6fc171feae2ac20102d70db93118ecb8f2120e",
+      "disposition": "successor_required",
+      "review_note": "Regenerated M0 program-control evidence from the route-census successor (PR #130): 4 routes admitted, 0 retired, 1,327 locator rebinds, anchor sequence 23 binding sequence 22's entry hash. A successor IS required for the certified predecessor m0-route-final-invoker-pg-census-maintenance and it ALREADY EXISTS - route-final-invoker-census-successor-after-publication-rebuild, authored at M9, with its declared exit artifact written carrying ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0. The predecessor's closure is left untouched per the standing rule. Outstanding: that successor's status transition. check:pre-next-leg is 60/60 with PNL_EXIT=0 over this evidence."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/effect-census.json",
+      "change": "changed",
+      "baseline_sha256": "14d74d822756b751ea6f63cd1a14154b6b55fde7059c8ea7b2f33befa8e6cc4c",
+      "tree_sha256": "769499c29a8f0a7c067fd628876014d6c2b6c25ea72a2516491814e1f6eb405e",
+      "disposition": "successor_required",
+      "review_note": "Regenerated M0 program-control evidence from the route-census successor (PR #130): 4 routes admitted, 0 retired, 1,327 locator rebinds, anchor sequence 23 binding sequence 22's entry hash. A successor IS required for the certified predecessor m0-route-final-invoker-pg-census-maintenance and it ALREADY EXISTS - route-final-invoker-census-successor-after-publication-rebuild, authored at M9, with its declared exit artifact written carrying ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0. The predecessor's closure is left untouched per the standing rule. Outstanding: that successor's status transition. check:pre-next-leg is 60/60 with PNL_EXIT=0 over this evidence."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+      "change": "changed",
+      "baseline_sha256": "c8fff04a7b73cabe7324867d8357b8a362d3a598e62d582795e5231caa0639cc",
+      "tree_sha256": "c02d040e09cdc96fc79634dce657f4c0319cf86e33ce3c5a81c2ef82365313d7",
+      "disposition": "successor_required",
+      "review_note": "Regenerated M0 program-control evidence from the route-census successor (PR #130): 4 routes admitted, 0 retired, 1,327 locator rebinds, anchor sequence 23 binding sequence 22's entry hash. A successor IS required for the certified predecessor m0-route-final-invoker-pg-census-maintenance and it ALREADY EXISTS - route-final-invoker-census-successor-after-publication-rebuild, authored at M9, with its declared exit artifact written carrying ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0. The predecessor's closure is left untouched per the standing rule. Outstanding: that successor's status transition. check:pre-next-leg is 60/60 with PNL_EXIT=0 over this evidence."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/manifest.json",
+      "change": "changed",
+      "baseline_sha256": "15cea125ec6b8a4a676df0ed1b393b8fbac7ffab613819809b71d662dad4ff3a",
+      "tree_sha256": "a9730bac5f77b68d1f8359a421e47507f4484057fe57c9d9383ca4466663e2b1",
+      "disposition": "successor_required",
+      "review_note": "Regenerated M0 program-control evidence from the route-census successor (PR #130): 4 routes admitted, 0 retired, 1,327 locator rebinds, anchor sequence 23 binding sequence 22's entry hash. A successor IS required for the certified predecessor m0-route-final-invoker-pg-census-maintenance and it ALREADY EXISTS - route-final-invoker-census-successor-after-publication-rebuild, authored at M9, with its declared exit artifact written carrying ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0. The predecessor's closure is left untouched per the standing rule. Outstanding: that successor's status transition. check:pre-next-leg is 60/60 with PNL_EXIT=0 over this evidence."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+      "change": "changed",
+      "baseline_sha256": "02e92e672bd1114209d7cb64fcb78d133ffee4d4c6cb36044dfb7672a69f1721",
+      "tree_sha256": "53fcc494976158e27217470949414d6dcbf4208ee004589d7f5110881031d9c0",
+      "disposition": "successor_required",
+      "review_note": "Regenerated M0 program-control evidence from the route-census successor (PR #130): 4 routes admitted, 0 retired, 1,327 locator rebinds, anchor sequence 23 binding sequence 22's entry hash. A successor IS required for the certified predecessor m0-route-final-invoker-pg-census-maintenance and it ALREADY EXISTS - route-final-invoker-census-successor-after-publication-rebuild, authored at M9, with its declared exit artifact written carrying ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0. The predecessor's closure is left untouched per the standing rule. Outstanding: that successor's status transition. check:pre-next-leg is 60/60 with PNL_EXIT=0 over this evidence."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/program-control-source.json",
+      "change": "changed",
+      "baseline_sha256": "4060f79a334dedd80a063182e9bf3724233471f2fdfce7ca2c1eab972805d288",
+      "tree_sha256": "680787fd1081fcd6dc848b82e9bf680b12aaed95d16df9b6d12ce1ce2c0e8c3c",
+      "disposition": "successor_required",
+      "review_note": "Regenerated M0 program-control evidence from the route-census successor (PR #130): 4 routes admitted, 0 retired, 1,327 locator rebinds, anchor sequence 23 binding sequence 22's entry hash. A successor IS required for the certified predecessor m0-route-final-invoker-pg-census-maintenance and it ALREADY EXISTS - route-final-invoker-census-successor-after-publication-rebuild, authored at M9, with its declared exit artifact written carrying ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0. The predecessor's closure is left untouched per the standing rule. Outstanding: that successor's status transition. check:pre-next-leg is 60/60 with PNL_EXIT=0 over this evidence."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+      "change": "changed",
+      "baseline_sha256": "53b743e33612cd6fbe747da5a0a30570e22ffe6a61a3e30ff808651b9608cc90",
+      "tree_sha256": "376085ebcf2ef81fb6842dd423907c534cee1862b736346939f752706adda8cc",
+      "disposition": "successor_required",
+      "review_note": "Regenerated M0 program-control evidence from the route-census successor (PR #130): 4 routes admitted, 0 retired, 1,327 locator rebinds, anchor sequence 23 binding sequence 22's entry hash. A successor IS required for the certified predecessor m0-route-final-invoker-pg-census-maintenance and it ALREADY EXISTS - route-final-invoker-census-successor-after-publication-rebuild, authored at M9, with its declared exit artifact written carrying ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0. The predecessor's closure is left untouched per the standing rule. Outstanding: that successor's status transition. check:pre-next-leg is 60/60 with PNL_EXIT=0 over this evidence."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/release-ladder.json",
+      "change": "changed",
+      "baseline_sha256": "a0dd11554d6b0e3bb8bf2036f9c4e0e534afd5064b53fe27e31fb1feb6202f0e",
+      "tree_sha256": "112ae9b6f5e9deb391e652c8c473d585e0396416abe8b5723c6a37bbe5c2f73c",
+      "disposition": "successor_required",
+      "review_note": "Regenerated M0 program-control evidence from the route-census successor (PR #130): 4 routes admitted, 0 retired, 1,327 locator rebinds, anchor sequence 23 binding sequence 22's entry hash. A successor IS required for the certified predecessor m0-route-final-invoker-pg-census-maintenance and it ALREADY EXISTS - route-final-invoker-census-successor-after-publication-rebuild, authored at M9, with its declared exit artifact written carrying ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0. The predecessor's closure is left untouched per the standing rule. Outstanding: that successor's status transition. check:pre-next-leg is 60/60 with PNL_EXIT=0 over this evidence."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+      "change": "changed",
+      "baseline_sha256": "e47a14df1ddc4e501eac6a29198fbb1411a50cdc25f724669b63516158d95c4e",
+      "tree_sha256": "027d7423fcf2f3fddf0bac3b988f60180b96f604cfa8d0bf94dffce7816d6dcd",
+      "disposition": "successor_required",
+      "review_note": "Regenerated M0 program-control evidence from the route-census successor (PR #130): 4 routes admitted, 0 retired, 1,327 locator rebinds, anchor sequence 23 binding sequence 22's entry hash. A successor IS required for the certified predecessor m0-route-final-invoker-pg-census-maintenance and it ALREADY EXISTS - route-final-invoker-census-successor-after-publication-rebuild, authored at M9, with its declared exit artifact written carrying ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0. The predecessor's closure is left untouched per the standing rule. Outstanding: that successor's status transition. check:pre-next-leg is 60/60 with PNL_EXIT=0 over this evidence."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
+      "change": "changed",
+      "baseline_sha256": "e90eea224bbd46acbfe03b6c246615a40f9230ca2984caa354766199ae8153cf",
+      "tree_sha256": "8d901a2e9f504069e1e78209ec2321e156d90a3d4f85fe0a8cb7c9b48cc7d2d9",
+      "disposition": "successor_required",
+      "review_note": "Regenerated M0 program-control evidence from the route-census successor (PR #130): 4 routes admitted, 0 retired, 1,327 locator rebinds, anchor sequence 23 binding sequence 22's entry hash. A successor IS required for the certified predecessor m0-route-final-invoker-pg-census-maintenance and it ALREADY EXISTS - route-final-invoker-census-successor-after-publication-rebuild, authored at M9, with its declared exit artifact written carrying ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0. The predecessor's closure is left untouched per the standing rule. Outstanding: that successor's status transition. check:pre-next-leg is 60/60 with PNL_EXIT=0 over this evidence."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/selected-profile.json",
+      "change": "changed",
+      "baseline_sha256": "e6705bcb5744042c9ec2cc9c027af9a5cc787357b7a236923c97050d9cdcc43e",
+      "tree_sha256": "72d65daea873842381ea65df70fef63379c17082f4894823feebbaca8a334f23",
+      "disposition": "successor_required",
+      "review_note": "Regenerated M0 program-control evidence from the route-census successor (PR #130): 4 routes admitted, 0 retired, 1,327 locator rebinds, anchor sequence 23 binding sequence 22's entry hash. A successor IS required for the certified predecessor m0-route-final-invoker-pg-census-maintenance and it ALREADY EXISTS - route-final-invoker-census-successor-after-publication-rebuild, authored at M9, with its declared exit artifact written carrying ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0. The predecessor's closure is left untouched per the standing rule. Outstanding: that successor's status transition. check:pre-next-leg is 60/60 with PNL_EXIT=0 over this evidence."
+    }
+  ]
+}

@@ -1,0 +1,182 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "mcp-receipt-effect-truth-pre-wiring",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Remove the receipt-implies-effect pattern from three dormant kernel modules before any of them is wired."
+  ],
+  "status": "proposed",
+  "objective": "Remove the receipt-implies-effect pattern from three dormant kernel modules before any of them is wired to a route. Each encodes an effect claim that no execution outcome supports: one hardcodes success and fabricates a result reference without ever contacting the operator, with a unit test pinning that as intended; one synthesizes a materialized tool result with no backend call; one defaults an absent outcome to success, which then drives the protocol is-error flag and a materialized status. Make every effect-claiming field derive from a present execution outcome value — replace the defaulted status with a typed refusal, and gate the executed, materialized, and not-an-error assertions so they are only expressible when a driver or operator result is actually in hand. MCP_RECEIPT_EFFECT_TRUTH_PRE_WIRING_EXIT=0.",
+  "falsifiable_claim": "Three dormant kernel modules encode 'a receipt implies the effect' as their intended behavior, pinned by passing unit tests, so wiring any of them without change ships an effect claim no execution supports on day one. This is a pre-wiring defect, not a live one: no shipped route reports an executed effect for a receipt-only action today.",
+  "selected_profile": "The selected single-node deployment's runtime kernel: three tool- and workspace-admission modules that are compiled and unit-tested but reachable from no route.",
+  "canon_owners": [
+    "docs/architecture/components/connectors-tools/contracts.md",
+    "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+    "docs/architecture/foundations/objects/evidence-and-delivery.md",
+    "docs/conformance/hypervisor-core/effect-execution.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "03c6ec4f77f09614ec92b4f0e8aba96a24fff1795a6d4c26d3f70b42049c8c42",
+    "owners": [
+      {
+        "path": "docs/architecture/components/connectors-tools/contracts.md",
+        "sha256": "2296bc26155d6519cc357b0fcfb718cb58ce1b43052c90e5481d7509c7274b0f"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+        "sha256": "8922d339c9e492a0e1e8ce657264af2b904a48c771d56f8296902ca8c826299f"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+        "sha256": "fc222a6a52751c148ea82498e19a7d2a98e6c96cbd57bfce308efc1703454bd3"
+      },
+      {
+        "path": "docs/conformance/hypervisor-core/effect-execution.md",
+        "sha256": "ef12bd2526ec04bd3647854398c1935d336fff7c96c65feba12794631d2453b1"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "RuntimeToolContract",
+      "owner_path": "docs/architecture/components/connectors-tools/contracts.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#runtimetoolcontract",
+      "contract_ids": [
+        "schema://ioi/components/connectors-tools/runtime-tool-contract/v1"
+      ],
+      "schema_versions": [
+        "ioi.components.connectors-tools.runtime-tool-contract.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ReceiptEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#receiptenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-envelope/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-envelope.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:mcp-receipt-effect-truth-pre-wiring",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/mcp-receipt-effect-truth-pre-wiring.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "product-truth-verification:2026-07-28-leg0-v1",
+      "artifact_class": "private_noncanonical_defect_baseline_verification",
+      "path": "internal-docs/prompts/architecture-relative-comparison/runs/2026-07-28-leg0-v1-product-truth-verification.md",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:MCP_RECEIPT_EFFECT_TRUTH_PRE_WIRING_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": null,
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "Module 1, hardcoded success with a fabricated result reference. crates/services/src/agentic/runtime/kernel/governed_receipt.rs:96-101 returns action_executed: true alongside an admitted status; behind it, the workspace-admission module at crates/services/src/agentic/runtime/kernel/ctee.rs:78-107 validates the invocation and then synthesizes the result, with kernel/ctee.rs:210-211 hardcoding a success status and a fabricated execution result reference derived from the invocation id, and a state root that is only a digest of the request. No operator is contacted anywhere on this path, and the unit test at governed_receipt.rs:366 pins action_executed == true as intended behavior. The test must be rewritten to pin the refusal, not the fabrication.",
+    "Module 2, a synthesized materialized tool result. crates/services/src/agentic/runtime/kernel/model_mount/mcp_workflow.rs:462-492 builds a tool-result payload carrying a materialized status, a text content block shaped exactly like a real tool result, and is_error: false, with a result-materialized flag at :440 and a contract-bound backend status at :549. No backend call occurs in this module; the contract-bound wording at :498 names a binding, not an outcome, yet it sits in the same object as the not-an-error assertion.",
+    "Module 3, absent outcome defaults to success — the sharpest instance. crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:456-458 reads a status from the invocation or payload and falls back to a hardcoded completed. That defaulted string then drives the protocol error flag at :518 and the live-result status at :596, alongside an unconditional result-materialized flag at :586. An invocation carrying no outcome at all is projected to a client as a successful materialized tool result: absence of evidence is converted into evidence of success. Replace the default with a typed refusal.",
+    "Retain the reachability finding as part of the record rather than as a footnote: all four defective entry points have zero callers, no route in the daemon binary registers these surfaces, and a repo-wide search for their invocation names outside the kernel directory returns nothing. These are dormant library surfaces with unit tests, not shipped behavior.",
+    "Gate the fix at the wiring boundary: no route may bind any of these three modules until every effect-claiming field on its path derives from a present execution outcome."
+  ],
+  "out_of_scope": [
+    "The wired tool-execution paths, which are honest today and must stay unchanged: the live driver refuses without a workload spec, refuses a wrong runtime target, evaluates the capability lease, enforces containment, and only then calls the transport; the live backend's executed status is constructed after the awaited driver call and short-circuits on driver error; and the connector execution route's executed status is reached only after a real request against the declared endpoint, a pre-output receipt that must persist first, and an all-or-nothing set registration with rollback.",
+    "Wiring these modules to routes. This cut makes them safe to wire; it does not wire them, and closing it grants no route, surface, or capability.",
+    "Building the operator and backend integrations the modules currently synthesize around. Their absence is exactly why the honest outcome here is a refusal rather than a synthesized success.",
+    "Any change to what a receipt asserts. A receipt evidences admission and what was recorded; it never becomes evidence of an unobserved external effect."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "Every effect-claiming field in the three modules — executed, materialized, not-an-error, result reference, state root — is expressible only when a driver or operator outcome value is present, and each module refuses by name when it is absent."
+  ],
+  "adversarial_or_fault_proof": [
+    "Predeclared branches, each of which must refuse by name: an invocation carrying no status at all, which must refuse rather than default to completed; an invocation carrying an unrecognized status; an admission request with no operator reachable, which must refuse rather than assert the action executed; a request for a result reference when no execution produced one; a state root computed from the request rather than from any post-execution state; a tool-result payload constructed with no backend call; a not-an-error assertion made without an outcome value; a contract-binding fact presented in the same object as an execution outcome; a route attempting to bind any of the three modules while any effect-claiming field can still be produced without an outcome.",
+    "The defect this cut repairs is retained as its baseline, verified in code at commit 106e2ac797d0949fa463a27680a6255745ea730b and recorded at internal-docs/prompts/architecture-relative-comparison/runs/2026-07-28-leg0-v1-product-truth-verification.md, together with the reachability finding that makes it a pre-wiring obligation rather than a live repair. The existing unit test pinning the fabricated executed flag is itself an adversarial subject: a test that pins a lie is a defect, and its replacement must pin the refusal."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "MCP_RECEIPT_EFFECT_TRUTH_PRE_WIRING_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/mcp-receipt-effect-truth-pre-wiring.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/governed_receipt.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the hardcoded executed assertion at :96-101 and the unit test at :366 that pins it as intended; dormant module, defect baseline, not proof of this work item"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/ctee.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the synthesized module result at :183-243, its hardcoded success and fabricated result reference at :210-211, and the request-derived state root; dormant module, defect baseline, not proof of this work item"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/model_mount/mcp_workflow.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the synthesized materialized tool result at :462-492 with the materialized flag at :440 and the contract-bound backend status at :549; dormant module, defect baseline, not proof of this work item"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the defaulted status at :456-458 and the error flag, materialized flag, and result status it drives at :518, :586, :596; dormant module, defect baseline, not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "No shipped route reports an executed effect for a receipt-only action today. Every wired tool path calls the real transport and reports only what the driver returned, so this record repairs no live lie and must never be read as conceding one.",
+    "The obligation is to fix these three modules before wiring, not to repair shipped behavior. If any of them is wired without change, the defect ships on day one; that conditional is the entire claim.",
+    "Closing this cut makes the modules safe to wire. It does not wire them, does not make the underlying operator or backend integrations exist, and grants no route, surface, or capability.",
+    "The reachability finding is bound to the verified commit. A later change that introduces a caller re-opens the live question and is not covered by this record."
+  ],
+  "rollback_or_stop_rule": "Stop if any effect-claiming field cannot be made conditional on a present outcome value without inventing the operator or backend integration the module currently synthesizes around. In that case the honest outcome is a typed refusal and a named gap, never a narrower synthesis: a module that cannot report an outcome must report that it cannot, and must not be wired. Never close this cut by deleting the assertion while leaving a caller-visible field that still reads as success, and never by relaxing the replacement test back to pinning the fabricated flag.",
+  "exit_criteria": [
+    "Every effect-claiming field in all three modules is expressible only from a present execution outcome, the defaulted status is replaced by a typed refusal, and the unit test that pinned the fabricated executed flag pins the refusal instead.",
+    "Every predeclared adversarial branch refuses by name, the honest wired paths are demonstrably unchanged, and the retained literal MCP_RECEIPT_EFFECT_TRUTH_PRE_WIRING_EXIT=0 appears exactly once."
+  ],
+  "pr": null,
+  "source_provenance": "Authored 2026-07-29 from a read-only product-truth verification pass that returned a PARTIAL verdict on the original suspicion: the pattern was confirmed in three kernel modules, every wired path was refuted as honest, and all defective entry points were found to have zero callers. That pass recommended admitting this subject only as a pre-wiring record with the reachability finding stated in the record itself, because the claim as originally worded would be false as a product statement today. Every file:line cited here was re-verified at commit 106e2ac797d0949fa463a27680a6255745ea730b. The verification artifact is retained at internal-docs/prompts/architecture-relative-comparison/runs/2026-07-28-leg0-v1-product-truth-verification.md and is non-canonical.",
+  "last_status_transaction": "2026-07-29"
+}

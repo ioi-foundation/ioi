@@ -1,0 +1,85 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "p3-production-integrated-profile-gate",
+  "stage_id": "M9",
+  "record_role": "aggregate_exit",
+  "status": "proposed",
+  "objective": "Certify P3 independently by joining P2 with the exact selected production SRE, recovery, security, current-capability, and claim-evidence records; P3_PRODUCTION_INTEGRATED_PROFILE_GATE_EXIT=0.",
+  "falsifiable_claim": "P3 is inferred from P1/P2 or certified from prose placeholders rather than selected required-now records and retained production evidence.",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "9e1d160ab27cda9d06bb885f48eaa32836827261aa9526b4a33eb54ad00898ac",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/execution-horizons.md",
+        "sha256": "f3a87fb9251a343111a8369f196029248a3f792d1ae3cbfd1c89f3679b21d1c9"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [
+    "p2-external-design-partner-profile-gate",
+    "m9-backend-capability-and-coverage-evidence",
+    "m9-lifecycle-evidence-operator-proof",
+    "m9-terminal-product-state-and-release-supply-chain"
+  ],
+  "aggregate_child_ids": [
+    "p2-external-design-partner-profile-gate",
+    "m9-backend-capability-and-coverage-evidence",
+    "m9-lifecycle-evidence-operator-proof",
+    "m9-terminal-product-state-and-release-supply-chain"
+  ],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "required_work": [
+    "Freeze and join the exact selected production integration gates before certification."
+  ],
+  "in_scope": [
+    "P3 only"
+  ],
+  "out_of_scope": [
+    "all conditional future profiles by default"
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected production profile passes its frozen SRE, recovery, security, and claim-evidence thresholds."
+  ],
+  "adversarial_or_fault_proof": [
+    "Missing selected gate, stale currentness, recovery failure, or claim drift blocks certification."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "external_gates": [
+    {
+      "gate_id": "selected-production-thresholds",
+      "owner": "accountable production owner",
+      "condition": "Exact SRE/security/recovery thresholds and cohort are frozen before observation.",
+      "status": "unmet"
+    }
+  ],
+  "evidence_index": {
+    "literal_exit": "P3_PRODUCTION_INTEGRATED_PROFILE_GATE_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/p3-production-integrated-profile-gate.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "P3 does not activate every conditional profile."
+  ],
+  "rollback_or_stop_rule": "Reopen P3 on any selected production gate regression.",
+  "source_provenance": "Owner-ratified executable rung separation, 2026-07-29."
+}

@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m1-protected-migration-dissolution-enrollment
+ARTIFACT=internal-docs/implementation/evidence/M1/named-continuity-journey-run18.v1.log
+ARTIFACT_SHA256=b4e9fa8946e1123cb0f81e87d80a163a988beecf74cc0598dfc5c2bedd582216
+M1_PROTECTED_MIGRATION_DISSOLUTION_ENROLLMENT_EXIT=0
+NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

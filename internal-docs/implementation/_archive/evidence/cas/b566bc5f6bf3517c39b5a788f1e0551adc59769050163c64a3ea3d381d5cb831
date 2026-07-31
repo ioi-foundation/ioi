@@ -1,0 +1,61 @@
+{
+  "evidence_format": "ioi.program.m3_selected_profile_e2e_join.v1",
+  "stage_id": "M3",
+  "aggregate_work_item_id": "m3-direct-path-and-exit-proof",
+  "joined_evidence": [
+    {
+      "path": "internal-docs/implementation/evidence/M3/m3-selected-profile-e2e.v1.json",
+      "sha256": "b98970054aa2778bfeab8378985d4a6237a6d27ea5781dc7ddb133c9497b0fe7",
+      "scope": "direct GoalRun, pursuit definitions, generic results, lifecycle, IFC, receipts, Agentgres, owned ported-seed product projections, and fresh-port anti-substitution proof"
+    },
+    {
+      "path": "internal-docs/implementation/evidence/M3/m3-workrun-resource-isolation-contract.v1.json",
+      "sha256": "0301e33cd85571b436f7245008b0c03fb581057af07b745f0dd6c362d9886fa2",
+      "scope": "compiled WorkRun isolation requirements and immutable runtime-binding admission and preservation"
+    }
+  ],
+  "aggregate_children": [
+    "agentgres-production-readiness-and-branch-effects",
+    "m3-affected-route-authority-census-and-fence",
+    "m3-authorized-issuer-and-atomic-authority-consumption",
+    "m3-goal-kernel-context-and-runtime-truth-spine",
+    "m3-pursuit-definition-resolution",
+    "m3-result-lifecycle-negative-retention",
+    "m3-workrun-resource-isolation-contract",
+    "m3-work-session-automation-product-journey",
+    "production-information-flow-and-declassification",
+    "production-receipt-checkpoint-and-offline-proof"
+  ],
+  "checks": [
+    {
+      "command": "cargo test -p ioi-services runtime_goal_pursuit --lib",
+      "exit_code": 0,
+      "result": "18 passed"
+    },
+    {
+      "command": "cargo test -p ioi-node containment_tests --bin hypervisor-daemon",
+      "exit_code": 0,
+      "result": "20 passed"
+    },
+    {
+      "command": "node internal-docs/implementation/tools/certify-stage.mjs M3 --no-run",
+      "exit_code": 0,
+      "result": "to be re-derived after this join is content-bound; this field records the required command, not its authority"
+    }
+  ],
+  "positive_proof": [
+    "All ten unconditional M3 children carry verified status and one content-bound literal each.",
+    "The direct non-System GoalRun path and reusable pursuit/result/mechanism spine are rebound to selected-profile evidence generated after final PR 132 repair commit 88ab49f5a80a756ffe48193b260b30122a25b4fc.",
+    "The formerly omitted WorkRun isolation cut now binds registered compiled-requirements and immutable-binding contracts into pre-effect route admission and lifecycle preservation."
+  ],
+  "adversarial_or_fault_proof": [
+    "The joined evidence covers mutable definition, invalid result, stale lifecycle head, unreconciled cancellation, IFC/declassification denial, receipt tamper/omission/revocation, Agentgres split head, missing isolation contract, stronger-floor fallback, environment mismatch, downgrade, cross-run replay, and binding tamper.",
+    "No client, harness, profile, tool, projection, or contract object originates accepted truth or grants authority."
+  ],
+  "nonclaims": [
+    "M3 verification does not close P0, M4, collective pursuit, OutcomeRoom, Campaign, App-primary, independent-party, microVM, HypervisorOS, cross-tenant, or production-release claims.",
+    "M3 verification does not claim M6 app-by-app compiler cutover or retirement of the shared ported application seed.",
+    "WorkRun binding proof is not an escape-resistance or live-containment claim.",
+    "The Internet of Intelligence/Web4 category, Hypervisor topology, primitive ownership, Work ownership, and GoalRun placement are unchanged."
+  ]
+}

@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-work-item-contract-completeness-and-owner-lint-successor
+ARTIFACT=internal-docs/implementation/tools/check-work-item-contract.mjs
+ARTIFACT_SHA256=e3500e92e6d794d285fa10672d24f1e0928c2fc68ea5f9fde71c00e926c4430b
+M0_WORK_ITEM_CONTRACT_COMPLETENESS_AND_OWNER_LINT_SUCCESSOR_EXIT=0
+NONCLAIM=This proves the registered work-item contract bar covers the current record population; it does not waive the retained unsigned-anchor owner warning.

@@ -1,0 +1,1466 @@
+#!/usr/bin/env node
+// Canonical-estate identity, byte-aliasing, immutable evidence, and
+// baseline-binding bar.
+//
+//   node tools/check-canonical-estate.mjs [--json]
+//
+// WHY IT EXISTS
+//
+// Two defects made the same shape of mistake possible.
+//
+//   1. NO IDENTIFIED CANONICAL ESTATE. This directory tree is gitignored, so it
+//      exists only as working-directory bytes. Every worktree that copied it
+//      held something indistinguishable from the original, and the workaround
+//      used to share bytes between them was a HARD LINK — which aliases one
+//      inode into two trees, so a write through the alias mutates the canonical
+//      estate with no git status, no event, and no ledger entry. That workaround
+//      is recorded in program/canonical-estate.v1.json as PROHIBITED, and this
+//      bar is what makes the prohibition real: a hard-linked file inside the
+//      digest scope fails closed.
+//
+//   2. A BASELINE BOUND TO THE AMBIENT FILESYSTEM. The accepted 990-subject canon
+//      baseline took 770 subjects from the git tree and 220 from host-local
+//      ignored bytes that appear in no commit on any ref, then described them in
+//      a SKIP as "unmerged branch canon". Canon identity is now (exact git tree)
+//      + (explicit durable overlay manifest). A declared overlay member missing
+//      from disk is an OVERLAY DEFECT, never a canon deletion: missing ignored
+//      bytes are not deletions.
+//
+// RETIREMENT MODEL (corrected 2026-07-29 under owner ruling). The rule here used
+// to say retirement required "an explicit tombstone appended to the manifest's
+// retired_members". That directed an edit into a body this same bar freezes, so
+// the two rules could not both be obeyed. The model is now:
+//
+//   Retirement is recorded in the disposition/tombstone ledger and carried into
+//   the next immutable manifest version. A frozen manifest is never edited.
+//
+// The frozen manifest's `retired_members: []` is TRUE — it is the state at that
+// digest, not an omission — and tools/check-successor-manifest.mjs owns the
+// succession that carries retirements forward.
+//
+// Every rejection below is exercised against synthetic bad input on every run,
+// in the house style: a bar whose refusals never fire is indistinguishable from
+// an empty function.
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+import { execFileSync } from "node:child_process";
+import {
+  boundary,
+  ESTATE_ROOT,
+  finding,
+  listEstateFiles,
+  progress,
+  readJson,
+  REPO_ROOT,
+  report,
+  sha256File,
+  sha256Text,
+} from "./lib/estate.mjs";
+
+const DECLARATION_REL = "program/canonical-estate.v1.json";
+const OVERLAY_REL = "program/canon-overlay-manifest.v1.json";
+const CANDIDATE_REL = "program/canon-baseline-successor.candidate.v1.json";
+const ADMITTED_BASELINE_REL = "program/canon-baseline-successor.v1.json";
+const ADMITTED_OVERLAY_REL = "program/canon-overlay-manifest.v2.json";
+const CERTIFICATION_HOLD_REL = "_archive/holds/certification-hold.v1.json";
+const BINDINGS_REL = "program/canon-overlay-bindings.v1.json";
+const DISPOSITIONS_REL = "program/canon-overlay-dispositions.v1.json";
+const FREEZE_REL = "_archive/manifests/estate-freeze.v1.json";
+const ROLE_MARKER = "estate-role.v1.json";
+const CAS_REL = "_archive/evidence/cas";
+const PROMOTIONS_REL = "_archive/attestations/estate-promotions.v1.json";
+const ESTATE_GENERATION_REL = "program/estate-generation.v1.json";
+
+const DECLARATION_FORMAT = "ioi.program.canonical_estate.v1";
+const OVERLAY_FORMAT = "ioi.program.canon_overlay_manifest.v1";
+const BINDINGS_FORMAT = "ioi.program.canon_overlay_bindings.v1";
+const FREEZE_FORMAT = "ioi.program.estate_freeze.v1";
+const ROLE_FORMAT = "ioi.program.estate_role.v1";
+const PROMOTIONS_FORMAT = "ioi.program.estate_promotions.v1";
+
+const REFERENCE_ROLES = new Set(["reference_readonly", "private_staging"]);
+
+// --- the manifest's own self-digest rule, in one place -------------------
+export function overlayDigest(manifest) {
+  const body = { ...manifest };
+  delete body.manifest_sha256;
+  return sha256Text(JSON.stringify(body, null, 2));
+}
+
+export function bindingsDigest(bindings) {
+  const body = { ...bindings };
+  delete body.bindings_sha256;
+  return sha256Text(JSON.stringify(body, null, 2));
+}
+
+// --- pure rejection cores, so the self-test can feed synthetic inputs ------
+
+export function evaluateIdentity({ declaration, estateRealpath, roleMarker }) {
+  const out = [];
+  if (declaration?.format !== DECLARATION_FORMAT) {
+    out.push(
+      finding(
+        "error",
+        "estate-declaration",
+        `canonical-estate declaration missing or misformatted at ${DECLARATION_REL}; without it no copy of this tree can be told from the original`,
+      ),
+    );
+    return out;
+  }
+  const declared = path.join(
+    declaration.canonical?.repo_root_realpath ?? "",
+    declaration.canonical?.estate_relative_path ?? "",
+  );
+  if (declared !== estateRealpath) {
+    // Not the canonical estate. It MUST then declare itself a reference.
+    if (!roleMarker) {
+      out.push(
+        finding(
+          "error",
+          "estate-role-undeclared",
+          `this estate runs at ${estateRealpath} but the declaration names ${declared} as canonical, and no ${ROLE_MARKER} declares this copy a reference. An undeclared copy is indistinguishable from the canonical estate and may not author records, evidence, ledger appends, or projections.`,
+        ),
+      );
+    } else if (roleMarker.format !== ROLE_FORMAT) {
+      out.push(
+        finding("error", "estate-role-undeclared", `${ROLE_MARKER} declares format "${roleMarker.format}"; expected "${ROLE_FORMAT}"`),
+      );
+    } else if (!REFERENCE_ROLES.has(roleMarker.role)) {
+      out.push(
+        finding(
+          "error",
+          "estate-role-undeclared",
+          `${ROLE_MARKER} declares role "${roleMarker.role}"; a non-canonical copy is ${[...REFERENCE_ROLES].join(" or ")}, never a second canonical estate`,
+        ),
+      );
+    } else if (roleMarker.canonical_estate_id !== declaration.estate_id) {
+      out.push(
+        finding(
+          "error",
+          "estate-role-undeclared",
+          `${ROLE_MARKER} points at canonical_estate_id "${roleMarker.canonical_estate_id}" but this tree carries "${declaration.estate_id}"`,
+        ),
+      );
+    }
+  }
+  return out;
+}
+
+export function evaluateOverlay({ manifest, statOf }) {
+  const out = [];
+  if (manifest?.evidence_format !== OVERLAY_FORMAT) {
+    out.push(
+      finding("error", "overlay-manifest", `overlay manifest missing or misformatted at ${OVERLAY_REL}; a baseline with no explicit overlay binds the ambient filesystem`),
+    );
+    return out;
+  }
+  if (overlayDigest(manifest) !== manifest.manifest_sha256) {
+    out.push(
+      finding("error", "overlay-manifest-drift", "overlay manifest does not reproduce its own self-digest; a hand edit fails closed"),
+    );
+  }
+  const vocabulary = new Set(Object.keys(manifest.member_classification_vocabulary ?? {}));
+  if ((manifest.members ?? []).length !== manifest.member_count) {
+    out.push(
+      finding("error", "overlay-manifest-drift", `overlay manifest declares member_count ${manifest.member_count} and carries ${(manifest.members ?? []).length}`),
+    );
+  }
+  for (const member of manifest.members ?? []) {
+    if (!vocabulary.has(member.classification)) {
+      out.push(
+        finding("error", "overlay-classification", `${member.id}: classification "${member.classification}" is outside the manifest's closed vocabulary`),
+      );
+    }
+    const stat = statOf(member.id);
+    if (stat === null) {
+      // THE RULE THIS BAR EXISTS FOR: an absent overlay member is an overlay
+      // defect, and is never reported as a canon deletion.
+      out.push(
+        finding(
+          "error",
+          "overlay-member-absent",
+          `declared durable overlay member is absent from disk: ${member.id}. This is an OVERLAY DEFECT, not a canon deletion: it retires no identity, advances no baseline, and closes nothing. Retirement is recorded in the disposition/tombstone ledger and carried into the next immutable manifest version; a frozen manifest is never edited.`,
+        ),
+      );
+    } else if (stat.sha256 !== member.sha256) {
+      out.push(
+        finding("error", "overlay-member-drift", `overlay member bytes moved since the freeze: ${member.id}`),
+      );
+    }
+  }
+  for (const retired of manifest.retired_members ?? []) {
+    if (!retired.tombstone || !retired.successor_disposition) {
+      out.push(
+        finding("error", "overlay-retirement-unsourced", `${retired.id ?? "(unnamed)"}: retirement carries no tombstone and successor disposition`),
+      );
+    }
+  }
+  return out;
+}
+
+export function evaluateFreeze({ freeze, digestOf }) {
+  const out = [];
+  if (freeze === null) return out;
+  if (freeze.evidence_format !== FREEZE_FORMAT) {
+    out.push(finding("error", "freeze-manifest", `freeze manifest misformatted at ${FREEZE_REL}`));
+    return out;
+  }
+  for (const subject of freeze.frozen_subjects ?? []) {
+    if (subject.superseded_by) continue;
+    const actual = digestOf(subject);
+    if (actual === null) {
+      out.push(
+        finding("error", "freeze-subject-absent", `frozen subject is absent: ${subject.id}`),
+      );
+    } else if (actual !== subject.sha256) {
+      out.push(
+        finding(
+          "error",
+          "freeze-drift",
+          `frozen subject moved after its freeze: ${subject.id} (frozen ${subject.sha256.slice(0, 12)}, actual ${actual.slice(0, 12)}). A freeze is discharged by a superseding freeze entry, never by editing the frozen body.`,
+        ),
+      );
+    }
+  }
+  return out;
+}
+
+// THE BINDING LAYER. The overlay manifest ENUMERATES the host-local durable
+// evidence a baseline must bind explicitly; program/canon-overlay-bindings.v1.json
+// BINDS each enumerated member with the axes an enumeration cannot carry —
+// content address, provenance, owner, retention. Deduplication by digest is
+// allowed here; OMISSION IS NOT, which is why every rejection below is about a
+// member that is enumerated and not bound, bound and not retained, or bound
+// under a value outside a declared vocabulary.
+export function evaluateOverlayBindings({
+  manifest,
+  bindings,
+  casHas,
+  accountabilityById = new Map(),
+}) {
+  const out = [];
+  if (bindings === null) {
+    out.push(
+      finding(
+        "error",
+        "overlay-bindings-missing",
+        `${BINDINGS_REL} is absent. The overlay enumerates 220 host-local subjects; without a binding layer they carry a digest and nothing else — no content address, no provenance, no owner, no retention — and a baseline binding them would bind a list, not evidence.`,
+      ),
+    );
+    return out;
+  }
+  if (bindings.evidence_format !== BINDINGS_FORMAT) {
+    out.push(
+      finding("error", "overlay-bindings-missing", `${BINDINGS_REL} declares format "${bindings.evidence_format}"; expected "${BINDINGS_FORMAT}"`),
+    );
+    return out;
+  }
+  if (bindingsDigest(bindings) !== bindings.bindings_sha256) {
+    out.push(
+      finding("error", "overlay-bindings-drift", "the binding layer does not reproduce its own self-digest; a hand edit fails closed"),
+    );
+  }
+  if (bindings.binds_manifest?.manifest_sha256 !== manifest?.manifest_sha256) {
+    out.push(
+      finding(
+        "error",
+        "overlay-bindings-drift",
+        `the binding layer binds manifest digest ${bindings.binds_manifest?.manifest_sha256} and the manifest carries ${manifest?.manifest_sha256}; a binding layer over a different enumeration binds nothing`,
+      ),
+    );
+  }
+
+  const ownerVocabulary = new Set(Object.keys(bindings.owner_attribution_vocabulary ?? {}));
+  const retentionVocabulary = new Set(Object.keys(bindings.retention_vocabulary ?? {}));
+  const bound = new Map();
+  for (const b of bindings.bindings ?? []) bound.set(b.id, b);
+
+  for (const member of manifest?.members ?? []) {
+    const b = bound.get(member.id);
+    if (!b) {
+      out.push(
+        finding(
+          "error",
+          "overlay-binding-omitted",
+          `enumerated overlay member carries no binding: ${member.id}. Deduplication by digest is allowed; OMISSION IS NOT.`,
+        ),
+      );
+      continue;
+    }
+    if (b.sha256 !== member.sha256) {
+      out.push(
+        finding("error", "overlay-binding-digest-mismatch", `${member.id}: bound at ${b.sha256}, enumerated at ${member.sha256}`),
+      );
+    }
+    if (b.classification !== member.classification) {
+      out.push(
+        finding(
+          "error",
+          "overlay-binding-reclassified",
+          `${member.id}: the binding layer carries classification "${b.classification}" and the frozen enumeration carries "${member.classification}". A binding layer carries a classification forward; it never re-decides one.`,
+        ),
+      );
+    }
+    if (b.content_address !== `cas://sha256/${member.sha256}`) {
+      out.push(
+        finding("error", "overlay-binding-address", `${member.id}: content address ${b.content_address} does not address its own digest`),
+      );
+    } else if (!casHas(member.sha256)) {
+      out.push(
+        finding(
+          "error",
+          "overlay-binding-unretained",
+          `${member.id}: bound to ${b.content_address} and no such object is retained. An address that resolves to nothing is a citation, not custody.`,
+        ),
+      );
+    }
+    if (!ownerVocabulary.has(b.owner?.attribution)) {
+      out.push(
+        finding("error", "overlay-binding-vocabulary", `${member.id}: owner attribution "${b.owner?.attribution}" is outside the declared vocabulary`),
+      );
+    }
+    if (!retentionVocabulary.has(b.retention?.class)) {
+      out.push(
+        finding("error", "overlay-binding-vocabulary", `${member.id}: retention class "${b.retention?.class}" is outside the declared vocabulary`),
+      );
+    }
+    if (b.digest_reverified !== true) {
+      out.push(
+        finding("error", "overlay-binding-unverified", `${member.id}: the binding did not re-verify the digest against the bytes on disk`),
+      );
+    }
+  }
+
+  const enumerated = new Set((manifest?.members ?? []).map((m) => m.id));
+  for (const b of bindings.bindings ?? []) {
+    if (!enumerated.has(b.id)) {
+      out.push(
+        finding("error", "overlay-binding-orphan", `${b.id} is bound and is not an enumerated overlay member; the binding layer may not add subjects`),
+      );
+    }
+  }
+
+  // The binding layer intentionally preserves whether an ORIGINAL PRODUCER is
+  // derivable from the bound tree. The separate disposition layer owns the
+  // ACCOUNTABILITY decision. Before that layer existed this loop equated an
+  // unavailable producer with withheld accountability and kept reporting 16
+  // programme skips after all 220 members had an accountable disposition.
+  // Preserve the producer fact; withhold certification only when the distinct
+  // accountability question is still unresolved.
+  const unattributedByProgramme = new Map();
+  for (const b of bindings.bindings ?? []) {
+    if (b.owner?.attribution !== "unattributed") continue;
+    const accountability = accountabilityById.get(b.id);
+    if (accountability && accountability.disposition !== "unattributed") {
+      continue;
+    }
+    const programme = b.provenance?.evidence_programme ?? "(unknown)";
+    unattributedByProgramme.set(
+      programme,
+      (unattributedByProgramme.get(programme) ?? 0) + 1,
+    );
+  }
+  for (const [programme, count] of [...unattributedByProgramme].sort()) {
+    out.push(
+      finding(
+        "skip",
+        "overlay-owner-unattributed",
+        `${count} bound overlay member(s) under docs/evidence/${programme}/ have neither a derivable producer nor a resolved accountability disposition. The bytes are enumerated, digest-verified, content-addressed and retained; accountability is withheld. SKIP is not success and grants no coverage.`,
+      ),
+    );
+  }
+  return out;
+}
+
+export function evaluateBaselineBinding({ candidate, overlayManifest, admissionAllowed = false }) {
+  const out = [];
+  if (candidate === null) return out;
+  const stateValid = admissionAllowed
+    ? candidate.consumed_by_no_tool === false && candidate.state === "admitted"
+    : candidate.consumed_by_no_tool === true && candidate.state === "candidate_not_admitted";
+  if (!stateValid) {
+    out.push(
+      finding(
+        "error",
+        "baseline-candidate-live",
+        admissionAllowed
+          ? "after certification-hold closure the successor baseline must be admitted and consumed by canon-impact"
+          : "the successor baseline candidate no longer declares itself unadmitted and unconsumed; wiring it into canon-impact is a baseline advance and is a held action",
+      ),
+    );
+  }
+  if (!candidate.bound_git_tree?.commit || !candidate.bound_git_tree?.docs_tree_sha) {
+    out.push(
+      finding("error", "baseline-binding", "successor baseline candidate binds no exact git tree; a baseline that names no tree binds the ambient filesystem"),
+    );
+  }
+  if (candidate.overlay?.manifest_sha256 !== overlayManifest?.manifest_sha256) {
+    out.push(
+      finding("error", "baseline-binding", "successor baseline candidate cites an overlay manifest digest that does not match the frozen manifest"),
+    );
+  }
+  return out;
+}
+
+// A DECLARED REFERENCE IS NOT A READ-ONLY REFERENCE UNTIL THE FILESYSTEM AGREES.
+//
+// A marker file saying `reference_readonly` is a promise. A copy whose bytes
+// carry a write bit is a WRITABLE MIRROR: a tool run inside it, or a stray
+// editor, authors into something indistinguishable from the canonical estate
+// and nothing anywhere records that it happened. The marker states the role;
+// the mode bits are what make the role true.
+export function evaluateReferenceCopy({
+  copyRel,
+  marker,
+  canonicalEstateId,
+  writableFiles,
+  fileCount,
+  stagingInsideEstate,
+}) {
+  const out = [];
+  if (!marker) {
+    out.push(
+      finding(
+        "error",
+        "reference-role-undeclared",
+        `estate copy carries no ${ROLE_MARKER}: ${copyRel}. A copy that does not declare itself a reference is indistinguishable from the canonical estate, and a tool run inside it would author against the wrong tree.`,
+      ),
+    );
+    return out;
+  }
+  if (marker.format !== ROLE_FORMAT || !REFERENCE_ROLES.has(marker.role)) {
+    out.push(
+      finding("error", "reference-role-undeclared", `${copyRel}/${ROLE_MARKER} declares role "${marker.role}" (format "${marker.format}"); a copy is ${[...REFERENCE_ROLES].join(" or ")}`),
+    );
+    return out;
+  }
+  if (marker.canonical_estate_id !== canonicalEstateId) {
+    out.push(
+      finding("error", "reference-role-undeclared", `${copyRel}/${ROLE_MARKER} names canonical_estate_id "${marker.canonical_estate_id}"; this estate is "${canonicalEstateId}"`),
+    );
+  }
+  if (!marker.private_staging_dir) {
+    out.push(
+      finding("error", "reference-role-undeclared", `${copyRel}/${ROLE_MARKER} declares no private_staging_dir; a reference with nowhere to stage will be written to`),
+    );
+  } else if (stagingInsideEstate) {
+    out.push(
+      finding(
+        "error",
+        "staging-inside-canonical-estate",
+        `${copyRel}/${ROLE_MARKER} declares private staging at ${marker.private_staging_dir}, which is INSIDE the canonical estate root. Staging held inside the estate is one boundary-file edit away from being scanned as authoritative content, and nothing about that edit would look like a promotion. Private staging lives outside the estate and enters it only through a recorded promotion event.`,
+      ),
+    );
+  }
+  if (writableFiles.length > 0) {
+    out.push(
+      finding(
+        "error",
+        "reference-copy-writable",
+        `${copyRel} declares role "${marker.role}" and ${writableFiles.length} of its ${fileCount} file(s) carry a write bit (e.g. ${writableFiles.slice(0, 3).join(", ")}). A writable mirror is a second canonical estate that has not admitted it yet: the declaration is not the control, the mode bits are.`,
+      ),
+    );
+  }
+  return out;
+}
+
+// PRIVATE STAGING HAS NO AUTHORITY UNTIL IT IS PROMOTED, AND A PROMOTION IS AN
+// EVENT WITH DIGESTS, NOT A COPY COMMAND.
+//
+// Without this ledger the only trace of staged bytes becoming authoritative
+// bytes is that the authoritative bytes changed — which is exactly the state
+// this estate cannot detect, because it is gitignored and has no diff of its
+// own. Every promotion names what came in, what it became, who accepted it, and
+// why; and the latest resulting digest is re-checked against the bytes that are
+// there now. A relocation binds the first body at the successor path; an
+// ordinary later promotion may advance that successor without rewriting the
+// relocation event.
+export function evaluatePromotionLedger({ ledger, currentDigestOf, casHas }) {
+  const out = [];
+  if (ledger === null) {
+    out.push(
+      finding(
+        "error",
+        "promotion-ledger-missing",
+        `${PROMOTIONS_REL} is absent. With no promotion ledger, staged bytes can become authoritative bytes with no event, no reviewer, and no digest — which is indistinguishable from the estate having always said that.`,
+      ),
+    );
+    return out;
+  }
+  if (ledger.evidence_format !== PROMOTIONS_FORMAT) {
+    out.push(
+      finding("error", "promotion-ledger-missing", `${PROMOTIONS_REL} declares format "${ledger.evidence_format}"; expected "${PROMOTIONS_FORMAT}"`),
+    );
+    return out;
+  }
+  const events = ledger.promotions ?? [];
+  const latestByTarget = new Map();
+  let previousSequence = 0;
+  for (const event of events) {
+    const id = event.promotion_id ?? "(unnamed)";
+    if (typeof event.sequence !== "number" || event.sequence !== previousSequence + 1) {
+      out.push(
+        finding(
+          "error",
+          "promotion-sequence-broken",
+          `${id}: sequence ${event.sequence} does not follow ${previousSequence}. The ledger is append-only and dense; a gap is a removed event and a repeat is a rewritten one.`,
+        ),
+      );
+    }
+    previousSequence = typeof event.sequence === "number" ? event.sequence : previousSequence;
+    const relocation = event.event_kind === "relocation";
+    const required = relocation
+      ? ["promotion_id", "at", "target_path", "source_path", "source_sha256", "prior_target_sha256", "successor_target_path", "successor_sha256", "reviewer_ref", "reason"]
+      : ["promotion_id", "at", "target_path", "source_path", "source_sha256", "resulting_sha256", "reviewer_ref", "reason"];
+    const missing = required.filter((k) => !event[k]);
+    if (missing.length > 0) {
+      out.push(
+        finding(
+          "error",
+          "promotion-event-unsourced",
+          `${id}: promotion event is missing ${missing.join(", ")}. A promotion that cannot say what came in, what it became, and who accepted it is a file copy wearing a ledger entry.`,
+        ),
+      );
+      continue;
+    }
+    const retainedDigests = relocation
+      ? [event.prior_target_sha256, event.successor_sha256]
+      : [event.resulting_sha256];
+    for (const digest of retainedDigests) if (!casHas(digest)) {
+      out.push(
+        finding(
+          "error",
+          "promotion-body-unretained",
+          `${id}: ${relocation ? "relocation" : "promotion"} body ${digest} is not retained in ${CAS_REL}. A recorded mutation whose bytes were not retained cannot be reproduced or disputed.`,
+        ),
+      );
+    }
+    latestByTarget.set(event.target_path, event);
+  }
+  for (const [target, event] of latestByTarget) {
+    const actual = currentDigestOf(target);
+    if (event.event_kind === "relocation") {
+      const successor = currentDigestOf(event.successor_target_path);
+      const laterSuccessorEvent = latestByTarget.get(event.successor_target_path);
+      const successorWasAdvanced =
+        laterSuccessorEvent &&
+        laterSuccessorEvent.sequence > event.sequence &&
+        laterSuccessorEvent.event_kind !== "relocation" &&
+        successor === laterSuccessorEvent.resulting_sha256;
+      if (actual !== null) {
+        out.push(
+          finding("error", "promotion-result-drift", `${event.promotion_id}: relocated predecessor target still exists: ${target}`),
+        );
+      }
+      if (successor !== event.successor_sha256 && !successorWasAdvanced) {
+        out.push(
+          finding(
+            "error",
+            "promotion-result-drift",
+            `${event.promotion_id}: relocation successor ${event.successor_target_path} carries ${successor ?? "absent"}, expected ${event.successor_sha256}`,
+          ),
+        );
+      }
+    } else if (actual === null) {
+      out.push(
+        finding("error", "promotion-target-absent", `${event.promotion_id}: promoted target is absent: ${target}`),
+      );
+    } else if (actual !== event.resulting_sha256) {
+      out.push(
+        finding(
+          "error",
+          "promotion-result-drift",
+          `${target} was last promoted to ${event.resulting_sha256.slice(0, 12)} by ${event.promotion_id} and now carries ${actual.slice(0, 12)}. Authoritative bytes moved after their promotion with no later promotion event: that is exactly the unrecorded mutation the ledger exists to make impossible.`,
+        ),
+      );
+    }
+  }
+  return out;
+}
+
+// AUTHORITATIVE TOOL CUSTODY. Promotion events are the normal authority for
+// gitignored tool bytes. A bounded historical exception is required for tools
+// that predate the promotion ledger: only an exact tool path+digest frozen in
+// one pinned generation may use it. The generation is historical custody, not
+// review or proof, and can never admit a tool created after that generation.
+export function evaluateAuthoritativeToolCustody({
+  disposition,
+  generation,
+  generationSha256,
+  promotions,
+  currentTools,
+}) {
+  const out = [];
+  const pin = disposition?.generation_pin;
+  const pinValid =
+    disposition?.scope === "tools/**/*.mjs" &&
+    disposition?.legacy_source === "immutable_inputs" &&
+    pin?.path === ESTATE_GENERATION_REL &&
+    typeof pin?.sha256 === "string" &&
+    generationSha256 === pin.sha256 &&
+    generation?.generation_id === pin.generation_id &&
+    generation?.promotion_prefix?.through_sequence ===
+      pin.promotion_prefix?.through_sequence &&
+    generation?.promotion_prefix?.head_promotion_id ===
+      pin.promotion_prefix?.head_promotion_id;
+  if (!pinValid) {
+    out.push(finding(
+      "error",
+      "authoritative-tool-legacy-pin",
+      "the never-promoted tool exception is absent or does not bind the exact estate generation digest, generation id, promotion sequence/head, scope, and immutable_inputs source; historical custody cannot be inferred from a moving generation",
+    ));
+  }
+
+  const toolMap = currentTools instanceof Map
+    ? currentTools
+    : new Map(Object.entries(currentTools ?? {}));
+  const legacy = new Map(
+    Object.entries(generation?.immutable_inputs ?? {}).filter(([relative]) =>
+      relative.startsWith("tools/") && relative.endsWith(".mjs")
+    ),
+  );
+  const promoted = new Set();
+  for (const event of promotions ?? []) {
+    if (event.target_path?.startsWith("tools/") && event.target_path.endsWith(".mjs")) {
+      promoted.add(event.target_path);
+    }
+    if (
+      event.successor_target_path?.startsWith("tools/") &&
+      event.successor_target_path.endsWith(".mjs")
+    ) {
+      promoted.add(event.successor_target_path);
+    }
+  }
+
+  for (const [relative, actual] of [...toolMap].sort()) {
+    if (promoted.has(relative)) continue;
+    const historical = legacy.get(relative);
+    if (!historical) {
+      out.push(finding(
+        "error",
+        "authoritative-tool-unpromoted",
+        `${relative} has no promotion event and no exact path+digest in the pinned historical generation; a never-promoted executable tool has no authoritative custody`,
+      ));
+    } else if (!pinValid || actual !== historical) {
+      out.push(finding(
+        "error",
+        "authoritative-tool-legacy-drift",
+        `${relative} is allowed only as the exact pinned legacy body ${historical}; current bytes are ${actual}. Historical custody is not permission to mutate without promotion.`,
+      ));
+    }
+  }
+  for (const relative of [...legacy.keys()].sort()) {
+    if (!toolMap.has(relative) && !promoted.has(relative)) {
+      out.push(finding(
+        "error",
+        "authoritative-tool-legacy-missing",
+        `${relative} is an unpromoted tool in the pinned historical generation and is now absent without a promotion/relocation disposition`,
+      ));
+    }
+  }
+  return out;
+}
+
+// --- filesystem duties ----------------------------------------------------
+
+// The hard-link scope is the declared digest scope PLUS `_archive/`.
+//
+// `_archive/` holds the attestation ledgers, the holds, the freeze manifest and
+// the content-addressed evidence store — the bytes whose immutability the whole
+// estate leans on — and it was outside every inode check. The prohibition said
+// "no canonical or evidence byte may be aliased"; the enforcement covered the
+// canonical half only.
+function hardlinkScopeEntries() {
+  return [...boundary().digest_scope, "_archive/"];
+}
+
+function digestScopeFiles(entries = hardlinkScopeEntries()) {
+  const out = [];
+  for (const entry of entries) {
+    const abs = path.join(ESTATE_ROOT, entry);
+    if (!fs.existsSync(abs)) continue;
+    if (fs.statSync(abs).isFile()) {
+      out.push({ rel: entry, abs });
+      continue;
+    }
+    const stack = [abs];
+    while (stack.length > 0) {
+      const dir = stack.pop();
+      for (const child of fs.readdirSync(dir, { withFileTypes: true })) {
+        const childAbs = path.join(dir, child.name);
+        if (child.isDirectory()) stack.push(childAbs);
+        else if (child.isFile()) {
+          out.push({ rel: path.relative(ESTATE_ROOT, childAbs), abs: childAbs });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function hardlinkFindings() {
+  const out = [];
+  for (const file of digestScopeFiles()) {
+    let stat;
+    try {
+      stat = fs.lstatSync(file.abs);
+    } catch {
+      continue;
+    }
+    if (stat.nlink > 1) {
+      out.push(
+        finding(
+          "error",
+          "hardlink-alias",
+          `${file.rel} has ${stat.nlink} hard links. A shared inode lets another working tree mutate the canonical estate with no git status, no event, and no ledger entry. Share by read-only reference and content address, never by aliasing bytes.`,
+        ),
+      );
+    }
+  }
+  return out;
+}
+
+// EVERY PLACE A COPY OF THIS TREE CAN EXIST, DERIVED.
+//
+// The previous discovery looked in exactly two directories — <estate>/worktrees
+// and <repo>/worktrees — and found ONE copy. `git worktree list` finds FIVE:
+// this repository has worktrees at sibling paths, at an unrelated refactor path,
+// and one nested inside the estate itself. Four of the five carried no role
+// marker and were therefore indistinguishable from the canonical estate. A
+// hand-listed set of places to look is a coverage claim nobody checks, so the
+// set is now derived from git plus any roots the declaration adds.
+function estateCopies(declaration) {
+  const found = new Map();
+  const canonical = fs.realpathSync(ESTATE_ROOT);
+  const consider = (root) => {
+    const copy = path.join(root, "internal-docs", "implementation");
+    if (!fs.existsSync(copy) || !fs.statSync(copy).isDirectory()) return;
+    let real;
+    try {
+      real = fs.realpathSync(copy);
+    } catch {
+      return;
+    }
+    if (real === canonical) return;
+    found.set(real, copy);
+  };
+  try {
+    const out = execFileSync("git", ["worktree", "list", "--porcelain"], {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    for (const line of out.split("\n")) {
+      if (line.startsWith("worktree ")) consider(line.slice("worktree ".length).trim());
+    }
+  } catch {
+    // No git, or not a work tree. The declared roots below still apply.
+  }
+  for (const root of declaration?.reference_copies?.additional_search_roots ?? []) {
+    if (!fs.existsSync(root)) continue;
+    consider(root);
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+      if (entry.isDirectory()) consider(path.join(root, entry.name));
+    }
+  }
+  return [...found.values()].sort();
+}
+
+// Mode bits, not intentions. A file is writable if ANY write bit is set: a copy
+// left group-writable is writable by whatever else runs as that group.
+function writableFilesUnder(root, limit = 5000) {
+  const writable = [];
+  let count = 0;
+  const stack = [root];
+  while (stack.length > 0 && count < limit) {
+    const dir = stack.pop();
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(abs);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      count += 1;
+      try {
+        if ((fs.lstatSync(abs).mode & 0o222) !== 0) {
+          writable.push(path.relative(root, abs));
+        }
+      } catch {
+        continue;
+      }
+    }
+  }
+  return { writable, count };
+}
+
+// SAME INODE, TWO TREES. nlink > 1 says a file is aliased; this says WHERE.
+// Naming the pair is the difference between "something is aliased" and "this
+// copy can write into the canonical estate through this path".
+function inodeCollisions(copies) {
+  const out = [];
+  const canonical = new Map();
+  for (const file of digestScopeFiles()) {
+    let stat;
+    try {
+      stat = fs.lstatSync(file.abs);
+    } catch {
+      continue;
+    }
+    if (stat.nlink > 1) canonical.set(`${stat.dev}:${stat.ino}`, file.rel);
+  }
+  if (canonical.size === 0) return out;
+  for (const copy of copies) {
+    const estateDirs = ["program", "stages", "modules", "work-items", "evidence", "tools", "_archive"];
+    for (const sub of estateDirs) {
+      const start = path.join(copy, sub);
+      if (!fs.existsSync(start)) continue;
+      const stack = [start];
+      while (stack.length > 0) {
+        const dir = stack.pop();
+        let entries;
+        try {
+          entries = fs.readdirSync(dir, { withFileTypes: true });
+        } catch {
+          continue;
+        }
+        for (const entry of entries) {
+          const abs = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            stack.push(abs);
+            continue;
+          }
+          if (!entry.isFile()) continue;
+          let stat;
+          try {
+            stat = fs.lstatSync(abs);
+          } catch {
+            continue;
+          }
+          const key = `${stat.dev}:${stat.ino}`;
+          const canonicalRel = canonical.get(key);
+          if (canonicalRel) {
+            out.push(
+              finding(
+                "error",
+                "hardlink-alias",
+                `${path.relative(REPO_ROOT, abs)} and ${canonicalRel} ARE THE SAME INODE. Writing through the copy mutates the canonical estate with no git status, no event and no ledger entry. Share by read-only reference and content address, never by aliasing bytes.`,
+              ),
+            );
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function referenceCopyFindings(declaration) {
+  const out = [];
+  const canonicalRoot = fs.realpathSync(ESTATE_ROOT);
+  const copies = estateCopies(declaration);
+  for (const copy of copies) {
+    const markerPath = path.join(copy, ROLE_MARKER);
+    const rel = path.relative(REPO_ROOT, copy);
+    let marker = null;
+    if (fs.existsSync(markerPath)) {
+      try {
+        marker = readJson(markerPath);
+      } catch {
+        out.push(finding("error", "reference-role-undeclared", `${rel}/${ROLE_MARKER} is not readable JSON`));
+        continue;
+      }
+    }
+    const { writable, count } = writableFilesUnder(copy);
+    let stagingInsideEstate = false;
+    if (marker?.private_staging_dir) {
+      const staging = path.resolve(marker.private_staging_dir);
+      stagingInsideEstate = staging === canonicalRoot ||
+        staging.startsWith(`${canonicalRoot}${path.sep}`);
+    }
+    out.push(
+      ...evaluateReferenceCopy({
+        copyRel: rel,
+        marker,
+        canonicalEstateId: declaration?.estate_id,
+        writableFiles: writable,
+        fileCount: count,
+        stagingInsideEstate,
+      }),
+    );
+  }
+  out.push(...inodeCollisions(copies));
+  return { findings: out, copies };
+}
+
+// Returns findings plus the object count. The count is reported on the summary
+// line, never as a SKIP: a SKIP means a verification was WITHHELD, and nothing
+// is withheld here.
+function casFindings() {
+  const out = [];
+  const root = path.join(ESTATE_ROOT, CAS_REL);
+  if (!fs.existsSync(root)) return { findings: out, objects: 0 };
+  let objects = 0;
+  for (const entry of fs.readdirSync(root, { withFileTypes: true }).sort()) {
+    if (!entry.isFile()) continue;
+    objects += 1;
+    const name = entry.name.replace(/\.json$/u, "");
+    const actual = sha256File(path.join(root, entry.name));
+    if (name !== actual) {
+      out.push(
+        finding(
+          "error",
+          "cas-object-mismatch",
+          `${CAS_REL}/${entry.name} is not addressed by its own bytes (actual ${actual}). A content-addressed object whose name lies is mutable evidence wearing an immutable label.`,
+        ),
+      );
+    }
+  }
+  return { findings: out, objects };
+}
+
+// --- fail-closed self-test ------------------------------------------------
+
+// Set by selfTest() so the summary line can never claim a rejection count the
+// case table does not carry. A hand-typed count is a claim nobody checks.
+let SELF_TEST_CASE_COUNT = 0;
+
+function selfTest() {
+  const out = [];
+  const declaration = {
+    format: DECLARATION_FORMAT,
+    estate_id: "estate://self-test/1",
+    canonical: { repo_root_realpath: "/canonical", estate_relative_path: "estate" },
+  };
+  const goodManifest = (() => {
+    const body = {
+      evidence_format: OVERLAY_FORMAT,
+      member_classification_vocabulary: { host_local_durable_evidence: "x" },
+      retired_members: [],
+      member_count: 1,
+      members: [{ id: "docs/evidence/x.json", sha256: "aa", classification: "host_local_durable_evidence" }],
+    };
+    return { ...body, manifest_sha256: overlayDigest(body) };
+  })();
+  const statOf = () => ({ sha256: "aa" });
+  const goodBindings = (() => {
+    const body = {
+      evidence_format: BINDINGS_FORMAT,
+      binds_manifest: { manifest_sha256: goodManifest.manifest_sha256 },
+      owner_attribution_vocabulary: { unattributed: "x" },
+      retention_vocabulary: { retain_durable_pending_disposition: "x" },
+      bindings: [
+        {
+          id: "docs/evidence/x.json",
+          sha256: "aa",
+          classification: "host_local_durable_evidence",
+          content_address: "cas://sha256/aa",
+          digest_reverified: true,
+          provenance: { evidence_programme: "x" },
+          owner: { attribution: "unattributed" },
+          retention: { class: "retain_durable_pending_disposition" },
+        },
+      ],
+    };
+    return { ...body, bindings_sha256: bindingsDigest(body) };
+  })();
+  const goodPromotion = {
+    promotion_id: "prm-0001",
+    sequence: 1,
+    at: "2026-07-29T00:00:00Z",
+    target_path: "program/x.json",
+    source_path: "/elsewhere/staging/x.json",
+    source_sha256: "b".repeat(64),
+    resulting_sha256: "b".repeat(64),
+    reviewer_ref: "agent://x",
+    reason: "self-test fixture",
+  };
+  const goodToolDisposition = {
+    scope: "tools/**/*.mjs",
+    legacy_source: "immutable_inputs",
+    generation_pin: {
+      path: ESTATE_GENERATION_REL,
+      sha256: "e".repeat(64),
+      generation_id: "fixture-generation",
+      promotion_prefix: {
+        through_sequence: 7,
+        head_promotion_id: "prm-0007",
+      },
+    },
+  };
+  const goodToolGeneration = {
+    generation_id: "fixture-generation",
+    promotion_prefix: {
+      through_sequence: 7,
+      head_promotion_id: "prm-0007",
+    },
+    immutable_inputs: {
+      "tools/legacy.mjs": "a".repeat(64),
+    },
+  };
+  const goodToolPromotions = [{ target_path: "tools/promoted.mjs" }];
+  const goodCurrentTools = new Map([
+    ["tools/legacy.mjs", "a".repeat(64)],
+    ["tools/promoted.mjs", "b".repeat(64)],
+  ]);
+
+  const cases = [
+    ["estate-declaration", () => evaluateIdentity({ declaration: { format: "other" }, estateRealpath: "/canonical/estate", roleMarker: null })],
+    ["estate-role-undeclared", () => evaluateIdentity({ declaration, estateRealpath: "/elsewhere/estate", roleMarker: null })],
+    ["estate-role-undeclared", () =>
+      evaluateIdentity({
+        declaration,
+        estateRealpath: "/elsewhere/estate",
+        roleMarker: { format: ROLE_FORMAT, role: "canonical", canonical_estate_id: "estate://self-test/1" },
+      })],
+    ["overlay-manifest", () => evaluateOverlay({ manifest: { evidence_format: "other" }, statOf })],
+    ["overlay-manifest-drift", () => evaluateOverlay({ manifest: { ...goodManifest, manifest_sha256: "deadbeef" }, statOf })],
+    ["overlay-classification", () =>
+      evaluateOverlay({
+        manifest: { ...goodManifest, members: [{ ...goodManifest.members[0], classification: "vibes" }] },
+        statOf,
+      })],
+    ["overlay-member-absent", () => evaluateOverlay({ manifest: goodManifest, statOf: () => null })],
+    ["overlay-member-drift", () => evaluateOverlay({ manifest: goodManifest, statOf: () => ({ sha256: "bb" }) })],
+    ["overlay-retirement-unsourced", () =>
+      evaluateOverlay({ manifest: { ...goodManifest, retired_members: [{ id: "docs/evidence/y.json" }] }, statOf })],
+    ["freeze-drift", () =>
+      evaluateFreeze({
+        freeze: { evidence_format: FREEZE_FORMAT, frozen_subjects: [{ id: "a", sha256: "a".repeat(64) }] },
+        digestOf: () => "b".repeat(64),
+      })],
+    ["freeze-subject-absent", () =>
+      evaluateFreeze({
+        freeze: { evidence_format: FREEZE_FORMAT, frozen_subjects: [{ id: "a", sha256: "a".repeat(64) }] },
+        digestOf: () => null,
+      })],
+    ["baseline-candidate-live", () =>
+      evaluateBaselineBinding({
+        candidate: { state: "admitted", consumed_by_no_tool: false, bound_git_tree: { commit: "c", docs_tree_sha: "t" }, overlay: { manifest_sha256: "m" } },
+        overlayManifest: { manifest_sha256: "m" },
+      })],
+    ["baseline-binding", () =>
+      evaluateBaselineBinding({
+        candidate: { state: "candidate_not_admitted", consumed_by_no_tool: true, bound_git_tree: {}, overlay: { manifest_sha256: "m" } },
+        overlayManifest: { manifest_sha256: "m" },
+      })],
+    // --- the binding layer over the overlay enumeration
+    ["overlay-bindings-missing", () =>
+      evaluateOverlayBindings({ manifest: goodManifest, bindings: null, casHas: () => true })],
+    ["overlay-bindings-drift", () =>
+      evaluateOverlayBindings({
+        manifest: goodManifest,
+        bindings: { ...goodBindings, bindings_sha256: "deadbeef" },
+        casHas: () => true,
+      })],
+    ["overlay-binding-omitted", () =>
+      evaluateOverlayBindings({
+        manifest: goodManifest,
+        bindings: { ...goodBindings, bindings: [] },
+        casHas: () => true,
+      })],
+    ["overlay-binding-unretained", () =>
+      evaluateOverlayBindings({ manifest: goodManifest, bindings: goodBindings, casHas: () => false })],
+    ["overlay-binding-reclassified", () =>
+      evaluateOverlayBindings({
+        manifest: goodManifest,
+        bindings: {
+          ...goodBindings,
+          bindings: [{ ...goodBindings.bindings[0], classification: "transient_run_artifact" }],
+        },
+        casHas: () => true,
+      })],
+    ["overlay-binding-vocabulary", () =>
+      evaluateOverlayBindings({
+        manifest: goodManifest,
+        bindings: {
+          ...goodBindings,
+          bindings: [{ ...goodBindings.bindings[0], retention: { class: "whenever" } }],
+        },
+        casHas: () => true,
+      })],
+    ["overlay-binding-orphan", () =>
+      evaluateOverlayBindings({
+        manifest: goodManifest,
+        bindings: {
+          ...goodBindings,
+          bindings: [...goodBindings.bindings, { ...goodBindings.bindings[0], id: "docs/evidence/not-a-member.json" }],
+        },
+        casHas: () => true,
+      })],
+    // --- a declared reference that is not actually a reference
+    ["reference-role-undeclared", () =>
+      evaluateReferenceCopy({ copyRel: "c", marker: null, canonicalEstateId: "e", writableFiles: [], fileCount: 0, stagingInsideEstate: false })],
+    ["reference-copy-writable", () =>
+      evaluateReferenceCopy({
+        copyRel: "c",
+        marker: { format: ROLE_FORMAT, role: "reference_readonly", canonical_estate_id: "e", private_staging_dir: "/elsewhere" },
+        canonicalEstateId: "e",
+        writableFiles: ["work-items/x.v1.json"],
+        fileCount: 1,
+        stagingInsideEstate: false,
+      })],
+    ["staging-inside-canonical-estate", () =>
+      evaluateReferenceCopy({
+        copyRel: "c",
+        marker: { format: ROLE_FORMAT, role: "reference_readonly", canonical_estate_id: "e", private_staging_dir: "/canonical/estate/staging" },
+        canonicalEstateId: "e",
+        writableFiles: [],
+        fileCount: 0,
+        stagingInsideEstate: true,
+      })],
+    // --- promotion: private staging has no authority until an event says so
+    ["promotion-ledger-missing", () =>
+      evaluatePromotionLedger({ ledger: null, currentDigestOf: () => null, casHas: () => true })],
+    ["promotion-event-unsourced", () =>
+      evaluatePromotionLedger({
+        ledger: { evidence_format: PROMOTIONS_FORMAT, promotions: [{ promotion_id: "p1", sequence: 1, target_path: "program/x.json" }] },
+        currentDigestOf: () => "a".repeat(64),
+        casHas: () => true,
+      })],
+    ["promotion-sequence-broken", () =>
+      evaluatePromotionLedger({
+        ledger: { evidence_format: PROMOTIONS_FORMAT, promotions: [{ ...goodPromotion, sequence: 7 }] },
+        currentDigestOf: () => goodPromotion.resulting_sha256,
+        casHas: () => true,
+      })],
+    ["promotion-body-unretained", () =>
+      evaluatePromotionLedger({
+        ledger: { evidence_format: PROMOTIONS_FORMAT, promotions: [goodPromotion] },
+        currentDigestOf: () => goodPromotion.resulting_sha256,
+        casHas: () => false,
+      })],
+    ["promotion-result-drift", () =>
+      evaluatePromotionLedger({
+        ledger: { evidence_format: PROMOTIONS_FORMAT, promotions: [goodPromotion] },
+        currentDigestOf: () => "c".repeat(64),
+        casHas: () => true,
+      })],
+    ["promotion-target-absent", () =>
+      evaluatePromotionLedger({
+        ledger: { evidence_format: PROMOTIONS_FORMAT, promotions: [goodPromotion] },
+        currentDigestOf: () => null,
+        casHas: () => true,
+      })],
+    ["promotion-result-drift", () =>
+      evaluatePromotionLedger({
+        ledger: {
+          evidence_format: PROMOTIONS_FORMAT,
+          promotions: [{
+            ...goodPromotion,
+            event_kind: "relocation",
+            resulting_sha256: null,
+            prior_target_sha256: goodPromotion.resulting_sha256,
+            successor_target_path: "program/y.json",
+            successor_sha256: "c".repeat(64),
+          }],
+        },
+        currentDigestOf: (target) => target === "program/y.json" ? "d".repeat(64) : null,
+        casHas: () => true,
+      })],
+    ["authoritative-tool-legacy-pin", () =>
+      evaluateAuthoritativeToolCustody({
+        disposition: {
+          ...goodToolDisposition,
+          generation_pin: { ...goodToolDisposition.generation_pin, sha256: "f".repeat(64) },
+        },
+        generation: goodToolGeneration,
+        generationSha256: "e".repeat(64),
+        promotions: goodToolPromotions,
+        currentTools: goodCurrentTools,
+      })],
+    ["authoritative-tool-unpromoted", () =>
+      evaluateAuthoritativeToolCustody({
+        disposition: goodToolDisposition,
+        generation: goodToolGeneration,
+        generationSha256: "e".repeat(64),
+        promotions: goodToolPromotions,
+        currentTools: new Map([...goodCurrentTools, ["tools/new.mjs", "c".repeat(64)]]),
+      })],
+    ["authoritative-tool-legacy-drift", () =>
+      evaluateAuthoritativeToolCustody({
+        disposition: goodToolDisposition,
+        generation: goodToolGeneration,
+        generationSha256: "e".repeat(64),
+        promotions: goodToolPromotions,
+        currentTools: new Map([
+          ["tools/legacy.mjs", "d".repeat(64)],
+          ["tools/promoted.mjs", "b".repeat(64)],
+        ]),
+      })],
+    ["authoritative-tool-legacy-missing", () =>
+      evaluateAuthoritativeToolCustody({
+        disposition: goodToolDisposition,
+        generation: goodToolGeneration,
+        generationSha256: "e".repeat(64),
+        promotions: goodToolPromotions,
+        currentTools: new Map([["tools/promoted.mjs", "b".repeat(64)]]),
+      })],
+  ];
+
+  SELF_TEST_CASE_COUNT = cases.length;
+
+  for (const [expected, run] of cases) {
+    const checks = run().map((f) => f.check);
+    if (!checks.includes(expected)) {
+      out.push(
+        finding(
+          "error",
+          "self-test",
+          `the ${expected} rejection did not fire against its synthetic bad input; this bar has lost its teeth (got: ${[...new Set(checks)].join(", ") || "nothing"})`,
+        ),
+      );
+    }
+  }
+
+  // The positive case: well-formed inputs produce nothing.
+  const clean = [
+    ...evaluateIdentity({ declaration, estateRealpath: "/canonical/estate", roleMarker: null }),
+    ...evaluateOverlay({ manifest: goodManifest, statOf }),
+    ...evaluateFreeze({ freeze: { evidence_format: FREEZE_FORMAT, frozen_subjects: [{ id: "a", sha256: "a".repeat(64) }] }, digestOf: () => "a".repeat(64) }),
+    ...evaluateBaselineBinding({
+      candidate: { state: "candidate_not_admitted", consumed_by_no_tool: true, bound_git_tree: { commit: "c", docs_tree_sha: "t" }, overlay: { manifest_sha256: "m" } },
+      overlayManifest: { manifest_sha256: "m" },
+    }),
+    ...evaluateBaselineBinding({
+      candidate: { state: "admitted", consumed_by_no_tool: false, bound_git_tree: { commit: "c", docs_tree_sha: "t" }, overlay: { manifest_sha256: "m" } },
+      overlayManifest: { manifest_sha256: "m" },
+      admissionAllowed: true,
+    }),
+    ...evaluateOverlayBindings({ manifest: goodManifest, bindings: goodBindings, casHas: () => true })
+      .filter((f) => f.level === "error"),
+    ...evaluateReferenceCopy({
+      copyRel: "c",
+      marker: { format: ROLE_FORMAT, role: "reference_readonly", canonical_estate_id: "e", private_staging_dir: "/elsewhere" },
+      canonicalEstateId: "e",
+      writableFiles: [],
+      fileCount: 3,
+      stagingInsideEstate: false,
+    }),
+    ...evaluatePromotionLedger({
+      ledger: { evidence_format: PROMOTIONS_FORMAT, promotions: [goodPromotion] },
+      currentDigestOf: () => goodPromotion.resulting_sha256,
+      casHas: () => true,
+    }),
+    ...evaluatePromotionLedger({
+      ledger: {
+        evidence_format: PROMOTIONS_FORMAT,
+        promotions: [{
+          ...goodPromotion,
+          event_kind: "relocation",
+          resulting_sha256: null,
+          prior_target_sha256: goodPromotion.resulting_sha256,
+          successor_target_path: "program/y.json",
+          successor_sha256: "c".repeat(64),
+        }],
+      },
+      currentDigestOf: (target) => target === "program/y.json" ? "c".repeat(64) : null,
+      casHas: () => true,
+    }),
+    ...evaluatePromotionLedger({
+      ledger: {
+        evidence_format: PROMOTIONS_FORMAT,
+        promotions: [{
+          ...goodPromotion,
+          event_kind: "relocation",
+          resulting_sha256: null,
+          prior_target_sha256: goodPromotion.resulting_sha256,
+          successor_target_path: "program/y.json",
+          successor_sha256: "c".repeat(64),
+        }, {
+          ...goodPromotion,
+          promotion_id: "p2",
+          sequence: 2,
+          target_path: "program/y.json",
+          prior_target_sha256: "c".repeat(64),
+          source_sha256: "d".repeat(64),
+          resulting_sha256: "d".repeat(64),
+        }],
+      },
+      currentDigestOf: (target) => target === "program/y.json" ? "d".repeat(64) : null,
+      casHas: () => true,
+    }),
+    ...evaluateAuthoritativeToolCustody({
+      disposition: goodToolDisposition,
+      generation: goodToolGeneration,
+      generationSha256: "e".repeat(64),
+      promotions: goodToolPromotions,
+      currentTools: goodCurrentTools,
+    }),
+  ];
+  if (clean.length > 0) {
+    out.push(
+      finding("error", "self-test", `well-formed input was rejected: ${clean.map((f) => f.check).join(", ")}. A bar that refuses the good case refuses nothing meaningfully.`),
+    );
+  }
+
+  const unresolvedAccountability = evaluateOverlayBindings({
+    manifest: goodManifest,
+    bindings: goodBindings,
+    casHas: () => true,
+  });
+  if (!unresolvedAccountability.some((f) => f.check === "overlay-owner-unattributed" && f.level === "skip")) {
+    out.push(
+      finding(
+        "error",
+        "self-test",
+        "an unattributed producer with no accountability disposition did not withhold certification",
+      ),
+    );
+  }
+  const resolvedAccountability = evaluateOverlayBindings({
+    manifest: goodManifest,
+    bindings: goodBindings,
+    casHas: () => true,
+    accountabilityById: new Map([
+      ["docs/evidence/x.json", { id: "docs/evidence/x.json", disposition: "retained_nonclaim" }],
+    ]),
+  });
+  if (resolvedAccountability.some((f) => f.check === "overlay-owner-unattributed")) {
+    out.push(
+      finding(
+        "error",
+        "self-test",
+        "resolved accountability was incorrectly treated as unresolved merely because the original producer remains unattributed",
+      ),
+    );
+  }
+  return out;
+}
+
+function main() {
+  const findings = selfTest();
+
+  const declarationAbs = path.join(ESTATE_ROOT, DECLARATION_REL);
+  const declaration = fs.existsSync(declarationAbs) ? readJson(declarationAbs) : null;
+  const markerAbs = path.join(ESTATE_ROOT, ROLE_MARKER);
+  const roleMarker = fs.existsSync(markerAbs) ? readJson(markerAbs) : null;
+
+  findings.push(
+    ...evaluateIdentity({
+      declaration,
+      estateRealpath: fs.realpathSync(ESTATE_ROOT),
+      roleMarker,
+    }),
+  );
+  const references = referenceCopyFindings(declaration);
+  findings.push(...references.findings);
+  findings.push(...hardlinkFindings());
+
+  const promotionsAbs = path.join(ESTATE_ROOT, PROMOTIONS_REL);
+  const promotionLedger = fs.existsSync(promotionsAbs)
+    ? readJson(promotionsAbs)
+    : null;
+  findings.push(
+    ...evaluatePromotionLedger({
+      ledger: promotionLedger,
+      currentDigestOf: (rel) => {
+        const abs = path.join(ESTATE_ROOT, rel);
+        return fs.existsSync(abs) ? sha256File(abs) : null;
+      },
+      casHas: (digest) =>
+        fs.existsSync(path.join(ESTATE_ROOT, CAS_REL, digest)),
+    }),
+  );
+  const generationAbs = path.join(ESTATE_ROOT, ESTATE_GENERATION_REL);
+  const generation = fs.existsSync(generationAbs) ? readJson(generationAbs) : null;
+  findings.push(...evaluateAuthoritativeToolCustody({
+    disposition:
+      declaration?.promotion_events?.legacy_authoritative_tool_disposition,
+    generation,
+    generationSha256: fs.existsSync(generationAbs)
+      ? sha256File(generationAbs)
+      : null,
+    promotions: promotionLedger?.promotions ?? [],
+    currentTools: new Map(
+      listEstateFiles("tools")
+        .filter((relative) => relative.endsWith(".mjs"))
+        .map((relative) => [relative, sha256File(path.join(ESTATE_ROOT, relative))]),
+    ),
+  }));
+
+  const overlayAbs = path.join(ESTATE_ROOT, OVERLAY_REL);
+  const manifest = fs.existsSync(overlayAbs) ? readJson(overlayAbs) : null;
+  findings.push(
+    ...evaluateOverlay({
+      manifest,
+      statOf: (rel) => {
+        const abs = path.join(REPO_ROOT, rel);
+        return fs.existsSync(abs) ? { sha256: sha256File(abs) } : null;
+      },
+    }),
+  );
+
+  const bindingsAbs = path.join(ESTATE_ROOT, BINDINGS_REL);
+  const dispositionsAbs = path.join(ESTATE_ROOT, DISPOSITIONS_REL);
+  const accountabilityById = new Map(
+    fs.existsSync(dispositionsAbs)
+      ? (readJson(dispositionsAbs).entries ?? []).map((entry) => [entry.id, entry])
+      : [],
+  );
+  const casRoot = path.join(ESTATE_ROOT, CAS_REL);
+  findings.push(
+    ...evaluateOverlayBindings({
+      manifest,
+      bindings: fs.existsSync(bindingsAbs) ? readJson(bindingsAbs) : null,
+      casHas: (digest) => fs.existsSync(path.join(casRoot, digest)),
+      accountabilityById,
+    }),
+  );
+
+  const holdAbs = path.join(ESTATE_ROOT, CERTIFICATION_HOLD_REL);
+  const admissionAllowed = fs.existsSync(holdAbs) && readJson(holdAbs).state === "CLOSED";
+  const candidateAbs = path.join(
+    ESTATE_ROOT,
+    admissionAllowed ? ADMITTED_BASELINE_REL : CANDIDATE_REL,
+  );
+  const baselineOverlayAbs = path.join(
+    ESTATE_ROOT,
+    admissionAllowed ? ADMITTED_OVERLAY_REL : OVERLAY_REL,
+  );
+  findings.push(
+    ...evaluateBaselineBinding({
+      candidate: fs.existsSync(candidateAbs) ? readJson(candidateAbs) : null,
+      overlayManifest: fs.existsSync(baselineOverlayAbs) ? readJson(baselineOverlayAbs) : null,
+      admissionAllowed,
+    }),
+  );
+
+  const freezeAbs = path.join(ESTATE_ROOT, FREEZE_REL);
+  findings.push(
+    ...evaluateFreeze({
+      freeze: fs.existsSync(freezeAbs) ? readJson(freezeAbs) : null,
+      digestOf: (subject) => {
+        if (subject.kind === "directory_root_set") {
+          const abs = path.join(REPO_ROOT, subject.id);
+          if (!fs.existsSync(abs)) return null;
+          const names = fs
+            .readdirSync(abs, { withFileTypes: true })
+            .filter((e) => e.isDirectory())
+            .map((e) => e.name)
+            .sort();
+          return sha256Text(JSON.stringify(names));
+        }
+        const abs = path.join(REPO_ROOT, subject.id);
+        return fs.existsSync(abs) ? sha256File(abs) : null;
+      },
+    }),
+  );
+
+  const cas = casFindings();
+  findings.push(...cas.findings);
+
+  progress(
+    `canonical estate ${declaration?.estate_id ?? "(undeclared)"}; ${references.copies.length} estate copy/copies discovered via git worktrees; overlay members ${manifest?.member_count ?? 0}; ${cas.objects} content-addressed evidence object(s); ${SELF_TEST_CASE_COUNT} predeclared rejections self-tested`,
+  );
+  process.exit(report("check-canonical-estate", findings, { json: process.argv.includes("--json") }));
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) main();
