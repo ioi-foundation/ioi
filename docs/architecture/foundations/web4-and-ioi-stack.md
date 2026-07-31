@@ -401,13 +401,18 @@ A canonical Web4 application should have:
     instantiates each persistent room through genesis as a bounded DAS over one
     or more GoalRuns, with participant leases, claimable
     frontier items, durable positive and negative attempts, findings, resources,
-    verifier challenges, contribution lineage, and declared admission.
+    verifier challenges, contribution lineage, and declared admission. Its
+    mutations use the resulting System's Agentgres-backed operation and receipt
+    chain; the room package owns no parallel admission, sequence, state-root, or
+    receipt-root spine.
 21. **Sovereign room truth** — every collaborative room declares hosted or
     federated admission, while each domain retains local operational truth and
     private context.
 22. **Complexity collapse** — direct local work remains first-class; room,
     ontology breadth, marketplace, federation, and L1 machinery appear only
-    where the actual work boundary needs them.
+    where the actual work boundary needs them. Shared-graph compare-and-swap is
+    expressed through Agentgres expected heads and the enclosing System's
+    predecessor condition rather than a room-specific concurrency primitive.
 23. **Constitutional and lifecycle bounds** — purpose, prohibitions, authority
     and effect ceilings, protected amendment, oracle/evidence, succession,
     migration, dissolution, and decommission exist before durable autonomy.

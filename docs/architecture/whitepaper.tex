@@ -1591,13 +1591,13 @@ machinery merely because the substrate supports it.
 \begin{center}
 \needspace{20\baselineskip}
 \begin{tikzpicture}[scale=1,transform shape,node distance=5mm and 9mm]
-\node[ioibox,text width=92mm] (room) {\textbf{OutcomeRoom (optional durable DAS)}\\\footnotesize shared objective, terms, participant leases, frontier, claims, admission};
+\node[ioibox,text width=92mm] (room) {\textbf{OutcomeRoom (optional durable DAS)}\\\footnotesize shared objective, terms, participant leases, frontier, claims, typed bindings};
 \node[ioiplain,below left=8mm and -17mm of room,text width=40mm] (g1) {\textbf{GoalRun A}\\\footnotesize its own bounded Goal Kernel loop};
 \node[ioiplain,below right=8mm and -17mm of room,text width=40mm] (g2) {\textbf{GoalRun B..N}\\\footnotesize each has its own bounded loop};
 \coordinate (goalruns) at ($(g1.south)!0.5!(g2.south)$);
 \node[ioibox,below=8mm of goalruns,text width=92mm] (daemon) {\textbf{Per-GoalRun Goal Kernel pursuit loop}\\\footnotesize orient $\rightarrow$ plan $\rightarrow$ act $\rightarrow$ observe $\rightarrow$ verify\\daemon-mediated HarnessInvocations / workers; repair / continue / close};
 \node[ioiplain,below=of daemon,text width=92mm] (result) {\textbf{WorkResult / OutcomeDelta}\\\footnotesize proposed result; never self-admitting};
-\node[ioibox,below=of result,text width=92mm] (admit) {\textbf{Verification + declared owner / room admission}\\\footnotesize admit, reject, challenge, or request repair};
+\node[ioibox,below=of result,text width=92mm] (admit) {\textbf{Verification + Agentgres / System admission}\\\footnotesize admit, reject, challenge, or request repair};
 \node[ioiplain,below=of admit,text width=58mm] (solo) {\textbf{Standalone GoalRun}\\\footnotesize its own bounded loop; bypasses room machinery};
 \draw[ioiflow](room)--node[ioilabel,left]{participant + work-claim leases}(g1);
 \draw[ioiflow](room)--node[ioilabel,right]{participant + work-claim leases}(g2);
@@ -1610,21 +1610,22 @@ machinery merely because the substrate supports it.
 \end{tikzpicture}
 \end{center}
 
-Every consequential room child uses the \textbf{RoomAdmittedObjectBase} proof
-spine: exact participant lease or room-system issuer, expected room revision and
-predecessor transition commitment, payload/operation commitment, admission
-policy and decision, monotonic sequence, admission proof, and resulting
-revision, transition commitment, state root, and receipt root. This makes
-untrusted local-agent proposals useful without making them trusted room truth.
+Every consequential room child carries a non-authoritative
+\textbf{RoomScopedObjectBinding}: the enclosing room System, room object,
+issuer or proposer, payload root, and timestamps. Its mutation is an ordinary
+Agentgres operation under the bounded System, where expected heads and System
+predecessor continuity provide compare-and-swap, and where policy, decision,
+sequence, admission proof, state root, and receipt root remain canonical. A
+room object may reference that evidence but cannot mint or own a parallel
+admission chain. This makes untrusted local-agent proposals useful without
+making them trusted room truth.
 
-Every persistent OutcomeRoom declares one shared-state ordering and admission
-topology. Under \texttt{hosted\_admission}, one named governed domain orders
-and admits room-level frontier, attempt, finding, evaluation, and decision
-updates. Under \texttt{federated\_admission}, a versioned policy names the
-participating domains, ordering or merge rules, quorum or adjudicator
-requirements, conflict behavior, failover, recovery, and policy-version
-transitions. Both modes preserve each party's local operational truth and
-private context. A board, chat, inbox, digest, leaderboard, or replay is a
+Every persistent OutcomeRoom is instantiated through genesis as a bounded
+System and therefore has one canonical System/Agentgres operation chain. The
+hosted profile orders frontier, attempt, finding, evaluation, and decision
+updates through that chain. A future cross-System federated profile requires a
+separate owner ruling and must not be inferred by recreating room-local roots
+or receipts. A board, chat, inbox, digest, leaderboard, or replay is a
 projection over admitted objects, never a universal mutable database or
 authority source.
 

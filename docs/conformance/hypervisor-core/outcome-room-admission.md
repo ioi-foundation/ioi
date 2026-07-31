@@ -1,13 +1,12 @@
 # OutcomeRoom hosted-admission conformance
 
-Status: `active_invariant` for the selected hosted M4 profile only. Registered
-schemas and fixtures, owner-plane Rust tests, a count-pinned 98-assertion
-fresh-process aggregate, and the fail-closed 140-assertion OutcomeRoom wrapper
-make the hosted room/System, admission, projection, refusal, and recovery cases
-below executable gates. The current M5 lifecycle profile remains target
-behavior. This document admits no M4 stage, product, independent-party,
-federation, settlement, P0, or release claim; retained proof and status remain
-owned by the implementation program.
+Status: `target_invariant`. ADR 0030 invalidated the selected hosted M4
+implementation's room-owned admission/receipt/root spine. Existing tests and
+retained evidence remain implementation history, but they cannot close the
+restated package/genesis/System plus Agentgres-composition contract. The M5
+lifecycle profile remains on hold. This document admits no M4 stage, product,
+independent-party, federation, settlement, P0, or release claim; retained proof
+and status remain owned by the implementation program.
 
 Canonical inputs:
 [`collaborative-pursuit.md`](../../architecture/foundations/objects/collaborative-pursuit.md),
@@ -15,15 +14,15 @@ Canonical inputs:
 [`api-object-model.md`](../../architecture/components/agentgres/api-object-model.md),
 and [`api.md`](../../architecture/components/daemon-runtime/api.md).
 
-Last audited: 2026-07-30.
+Last audited: 2026-07-31.
 
 ## Scope
 
 This suite owns two explicitly separated profiles. The selected M4 profile owns
 hosted OutcomeRoom package/genesis/System binding, reciprocal room/GoalRun
-membership, `RoomAdmittedObjectBase` for the minimum room `WorkResult` and
-`OutcomeDelta` children, derived graph and discussion projections, crash/replay,
-and export non-leakage. The M5 profile owns live participation-request,
+membership, ordinary Agentgres operation admission for the minimum room
+`WorkResult` and `OutcomeDelta` payloads, derived graph and discussion
+projections, crash/replay, and export non-leakage. The M5 profile owns live participation-request,
 participant-lease, offer, frontier, claim, attempt, finding, and challenge
 admission plus the challenge interlock. Provisional v2 schemas are registered
 for frontier, claim, Attempt, Finding, VerifierChallenge, and the distinct
@@ -33,15 +32,15 @@ Every M5 lifecycle remains honest-empty in M4; schema admission does not make a
 lifecycle profile runnable. Federated admission, external participant
 portability, settlement, and public acceptance remain separate targets.
 
-Every positive case validates the registered v2 room-depth contract for the
-object being admitted and, for a mutable room child, the registered
-`RoomAdmittedObjectBase` v2 contract. Predecessor v1 schemas and fixtures are
-historical source-disposition artifacts only: M4 admits no public compatibility
-route, the canonical family returns typed `410` retirement refusals, and v1
-records cannot establish the M4 room-admission proof. Passing JSON shape alone is insufficient:
-the runtime case must prove exact heads, owner-plane resolution, admission
-receipt, resulting room revision, transition commitment, state root, and
-receipt root.
+Every positive case validates the registered typed object contract and its
+non-authoritative `RoomScopedObjectBinding`. Passing JSON shape alone is
+insufficient: the runtime must resolve the binding through the owner plane and
+prove one Agentgres operation with the exact expected head or heads, resolved
+policy and authority, canonical receipt refs, and resulting head/root. When the
+room System serializes the mutation, the same proof binds the enclosing
+bounded-System predecessor and resulting transition. No room-generated
+decision, sequence, transition, receipt, state root, or receipt root may satisfy
+the case.
 
 ## Required cases
 
@@ -52,18 +51,20 @@ System, constitution, active profiles, host domain, ordering policy, and
 Agentgres state refs resolve to the same logical room. Substitute, absent, or
 stale coordinates refuse without a room transition.
 
-### ORA-2 — Child admission is compare-and-swap
+### ORA-2 — Child admission uses Agentgres compare-and-swap
 
-Every admitted child binds the exact room revision and predecessor commitment.
-In the M4 profile this is executable for daemon-derived `WorkResult` and
-owner-proposed `OutcomeDelta`: wrong room/System, caller-owned field or verdict,
-stale head, missing payload root, missing decision, missing receipt,
-non-monotonic sequence, or mismatched resulting roots refuses before shared
-truth changes. Room creation additionally refuses changed bytes at its
-deterministic request identity. Unknown-issuer and expired-participant-lease
-cases, plus the equivalent live admission matrix for participant, frontier,
-claim, attempt, finding, and challenge, belong to the M5 profile and cannot be
-credited to M4.
+Every admitted child binds the exact Agentgres object head or heads and, where
+the room System requires a total transition order, its exact predecessor
+commitment. In the M4 profile this applies to daemon-derived `WorkResult` and
+owner-proposed `OutcomeDelta`: wrong room/System binding, unresolved issuer,
+caller-asserted policy or verdict, stale head, missing payload root, missing
+canonical operation receipt, or mismatched resulting canonical head/root
+refuses before shared truth changes. A derived `expected_room_revision` may be
+accepted as a request token only when the daemon resolves it to those exact
+canonical preconditions. Room creation additionally refuses changed bytes at
+its deterministic request identity. Unknown-issuer and expired-participant-
+lease cases, plus the equivalent live matrix for participant, frontier, claim,
+attempt, finding, and challenge, belong to M5 and cannot be credited to M4.
 
 ### ORA-3 — GoalRun membership is reciprocal and atomic
 
@@ -146,24 +147,27 @@ graph and discussion source commitments.
 - Hosted graph positive, denial, stale-head, cross-room, result/delta lineage,
   crash/replay, honest-empty M5 families, and export non-leakage:
   `node apps/hypervisor/scripts/verify-hypervisor-outcome-room-plane.mjs`.
-- Fresh bounded-System package/genesis/System compilation, constitutional and
-  Agentgres admission, reciprocal membership, result lineage, recovery, replay,
-  and selected ported-shell projection:
-  `node apps/hypervisor/scripts/verify-m4-outcome-room-system-spine.mjs`.
+- The former M4 aggregate and wrapper are migration diagnostics only until a
+  successor verifier proves package/genesis/System composition, Agentgres
+  expected-head admission, reciprocal membership, result lineage, recovery,
+  replay, and the selected product projection without a room-owned spine.
 - Ported client partial-plane and no-invented-row behavior:
   `node apps/hypervisor/scripts/verify-hypervisor-surface-modules.mjs`.
-- The selected profile remains an `active_invariant` only while the wrapper and
-  each count-pinned constituent are green with no skipped, blocked, or dark
-  assertions. A red gate blocks new evidence. Even a green gate is not a
-  retained M4 literal and cannot transition the work item or stage by itself.
+- The selected profile cannot return to `active_invariant` until the successor
+  contract and verifier are admitted. Passing legacy count-pinned assertions
+  cannot substitute for that successor.
 
 ## Nonclaims and stop rules
 
 - Stop on any proposed direct graph/message projection write, client-owned room
   truth, unilateral backlink repair, or status-derived acceptance.
 - Stop if a schema is registered without positive and negative fixtures or if a
-  runtime path accepts an object without validating both its family contract
-  and `RoomAdmittedObjectBase`.
+  runtime path accepts an object without validating its family contract,
+  `RoomScopedObjectBinding`, Agentgres preconditions, and enclosing-System
+  transition requirements.
+- Stop on any room-owned admission policy/decision/receipt, sequence, revision,
+  transition commitment, state root, receipt root, or custom CAS plane used as
+  canonical truth.
 - Stop if hosted proof is presented as federation, portable exit, external
   participant, settlement, independent verification, product, or release proof.
 - Stop if registered M5 lifecycle schemas or honest-empty projections are cited

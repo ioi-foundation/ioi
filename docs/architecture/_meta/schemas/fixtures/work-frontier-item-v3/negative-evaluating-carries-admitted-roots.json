@@ -1,0 +1,33 @@
+{
+  "schema_version": "ioi.foundations.work-frontier-item.v3",
+  "frontier_item_id": "frontier://demo/1",
+  "room_binding": {
+    "schema_version": "ioi.foundations.room-scoped-object-binding.v1",
+    "room_system_id": "system://room/demo",
+    "outcome_room_ref": "outcome-room://demo",
+    "proposed_or_issued_by_ref": "participant-lease://demo/worker",
+    "payload_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "created_at": "2026-07-30T12:00:00Z",
+    "updated_at": "2026-07-30T12:00:01Z",
+    "admission_status": "evaluating"
+  },
+  "item_kind": "verification_need",
+  "objective": "Verify the bounded room result.",
+  "dependency_refs": [],
+  "related_attempt_and_finding_refs": [],
+  "required_capability_refs": [
+    "capability://verification"
+  ],
+  "required_context_resource_authority_and_evidence_refs": [
+    "scope:room.verify"
+  ],
+  "expected_value": 1,
+  "uncertainty": 0.25,
+  "priority": 10,
+  "duplication_policy": "independent_replication_required",
+  "claimability": "open",
+  "max_concurrency": 2,
+  "expires_at": null,
+  "stop_condition_ref": "policy://room/demo/stop",
+  "status": "open"
+}

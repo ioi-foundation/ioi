@@ -43,7 +43,7 @@ WorkResultEnvelope:
     invocation://... | work-claim://... | attempt://...
   goal_run_ref: goal://... | null
   outcome_room_ref: outcome-room://... | null
-  room_admission: RoomAdmittedObjectBase | null
+  room_binding: RoomScopedObjectBinding | null
   produced_by_ref: system://... | participant-lease://... | worker://... | service://... | org://... | domain://...
   submitted_by_ref: system://... | participant-lease://... | worker://... | service://... | org://... | domain://...
   operator_and_affiliation_refs: []
@@ -133,7 +133,7 @@ OutcomeDeltaEnvelope:
     goal://... | automation-run://... | work_run://... | run://... |
     invocation://... | work-claim://... | attempt://...
   outcome_room_ref: outcome-room://... | null
-  room_admission: RoomAdmittedObjectBase | null
+  room_binding: RoomScopedObjectBinding | null
   proposed_by_ref:
     work-result://... | attempt://... | finding://... | participant-lease://...
   target_ref:
@@ -170,7 +170,7 @@ artifact, context, receipt, or runtime boundary; these fields carry exact refs
 so downstream effect admission can resolve and join them.
 
 For `Attempt`, `Finding`, `VerifierChallenge`, `WorkResult`, and `OutcomeDelta`,
-`outcome_room_ref != null` requires a non-null `room_admission` whose
+`outcome_room_ref != null` requires a non-null `room_binding` whose
 `proposed_or_issued_by_ref` is the current room participant lease (or the room
 system for a system-authored transition). Direct actor refs are permitted only
 for non-room work subjects. Room-scoped `WorkResult.produced_by_ref` and

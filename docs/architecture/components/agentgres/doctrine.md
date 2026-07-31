@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./api-object-model.md), and Postgres bridge/readiness guarantees live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-31.
 Doctrine status: canonical
 Implementation status: partial (the runtime state store and multiple daemon object planes are live; thread forks, run replay, counterfactual what-if replay, and workspace snapshot/restore custody are implementation precedents. `ReceiptCheckpoint`/`ReceiptProofBundle` schemas, fixtures, invariants, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. The current hosted v2 OutcomeRoom slice admits one bounded-System-backed room, reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with payload/label custody and reconstructable projections. Current v2 participation, frontier/claim, offer/matching, Attempt/Finding, and VerifierChallenge lifecycles are not started; mounted v1 predecessor planes remain historical executable/source disposition and are fenced from v2 rooms. Per-System writer-transition/fencing control, room discovery, portable exit, federation, acceptance/verdict/settlement, branch/staged-effect object families, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
 Implementation refs:
@@ -36,11 +36,13 @@ Agentgres does not run on IOI L1. It runs inside application-domain kernel deplo
 
 For collaborative pursuit, Agentgres remains per-domain truth. An
 `OutcomeRoom` may project a shared work frontier across one or more Agentgres
-domains, but there is no implicitly global mutable Agentgres graph. Every room
-declares either one hosted admission domain or a versioned federated admission
-policy with ordering, merge, quorum/adjudication, conflict, and failover
-semantics. Each participant keeps private context and local operations in its
-home domain; AIIP carries signed permitted refs and updates between domains.
+domains, but there is no implicitly global mutable Agentgres graph. A hosted
+room is admitted through its enclosing bounded System's ordinary Agentgres
+operation path. It owns no parallel policy/decision/receipt sequence, state
+root, or receipt root. Every later federated profile must declare its ordering,
+merge, quorum/adjudication, conflict, and failover semantics explicitly. Each
+participant keeps private context and local operations in its home domain; AIIP
+carries signed permitted refs and updates between domains.
 
 ## Core Doctrine
 
@@ -61,6 +63,10 @@ Database doctrine:
 Postgres bridge doctrine:
 
 > **Agentgres may expose Postgres-compatible projections and SQL-facing bridges, but its source of truth is operation-backed state, not mutable relational rows.**
+
+Composition doctrine:
+
+> **An application object may reference Agentgres decisions, operations, receipts, heads, and roots as evidence; it may not mint or own a parallel admission chain. Compare-and-swap is expressed by Agentgres expected-head conditions and, for a bounded System, its predecessor transition condition.**
 
 State/payload doctrine:
 

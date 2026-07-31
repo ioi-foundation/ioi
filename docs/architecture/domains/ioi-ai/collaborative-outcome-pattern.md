@@ -9,16 +9,15 @@ Supersedes: product prose that treats multi-model goal pursuit as a separate
 Hypervisor product, room UI, fixed swarm, public leaderboard, or benchmark-only
 workflow.
 Superseded by: none.
-Last alignment pass: 2026-07-12.
+Last alignment pass: 2026-07-31.
 Doctrine status: canonical
 Implementation status: partial (the M3 direct GoalRun/WorkResult seam exists.
-The current hosted v2 M4 slice admits one bounded-System-backed OutcomeRoom,
-reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with
-payload/label custody plus an owner-filtered proof projection in the restored
-ported shell. Current v2 participation, frontier/claim, offer, Attempt/Finding,
-and VerifierChallenge lifecycles are not started and project honest-empty sets;
-mounted v1 predecessor routes remain historical executable/source disposition
-and are generation-fenced from v2 rooms. Collaboration-terms negotiation,
+The current hosted M4 implementation demonstrates package/genesis binding,
+reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph, but
+its room-owned admission, transition, receipt, and root spine is migration input
+under ADR 0030 and cannot close the restated M4 contract. Participation,
+frontier/claim, offer, Attempt/Finding, and VerifierChallenge lifecycles remain
+on hold. Collaboration-terms negotiation,
 federated and cross-domain admission, local-agent pairing,
 acceptance/verdict/settlement, product-level attempt comparison, and the
 complete visible ioi.ai Goal Space client remain planned.)
@@ -52,12 +51,12 @@ attempt strategies, or independent contributors, ioi.ai may materialize an
 `CollaborativeWorkGraph` over Hypervisor. Genesis binds that durable room's
 stable `system_id`, constitution, active profiles, and cryptographic origin. The room is the
 shared objective, participation, frontier, claim, attempt, finding, challenge,
-admission, and replay profile. It is not a new runtime or a globally mutable
+policy, and replay profile. It is not a new runtime, admission plane, or globally mutable
 database. Hypervisor executes bounded work; authority providers and
 local/domain governance authorize as required; wallet.network supplies portable
 delegated/high-risk authority; each Agentgres domain retains admitted
-operational truth; and a declared room admission topology governs shared-room
-state.
+operational truth; and the room System's declared ordering/admission profile
+governs shared-room state through ordinary Agentgres operations.
 
 Collective pursuit is conditional, not the default. A room should materialize
 only when specialization, parallel exploration, independent verification,
@@ -691,7 +690,7 @@ without the normal governance and daemon gates.
 ## Collaborative Work Graph And Shared-State Admission
 
 An OutcomeRoom composes existing owner objects; it does not create a peer
-runtime. Its minimum shared-frontier lifecycle is:
+runtime or admission spine. Its minimum shared-frontier lifecycle is:
 
 ```text
 RoomParticipantLease
@@ -731,18 +730,22 @@ Contribution lineage may credit execution, derivation, debugging, review,
 independent replication, integrity reporting, resource provision, negative
 information, curation, and synthesis—not only the winning output or top score.
 
-Every room declares one shared-state admission topology:
+Every room declares one shared-state coordination topology over its canonical
+System/Agentgres admission:
 
-1. **Hosted admission:** one named governed domain orders and admits room-level
-   frontier, attempt, finding, evaluation, and decision updates. This is the
-   first implementation target.
+1. **Hosted admission:** one named governed System/domain orders room-level
+   frontier, attempt, finding, evaluation, and decision operations through its
+   ordinary Agentgres-backed transition chain. This is the first implementation
+   target.
 2. **Federated admission:** a versioned policy names participating domains,
    ordering/merge rules, quorum or adjudicator requirements, conflict handling,
    and failover. This is a later AIIP profile.
 
 Each party retains local operational truth and private context. AIIP carries
-signed, sequenced, idempotent permitted refs and updates; the room host or
-declared federation policy admits shared-room state.
+signed, sequenced, idempotent permitted refs and updates; the room host admits
+hosted shared state through its System operation path. A later federated profile
+must define its cross-System ordering explicitly and may not be inferred from
+the retired hosted-room spine.
 `MultiPartyCollaborationEnvelope` owns cross-party visibility, allowed refs,
 restricted views, authority, revocation, proof, license/export, and settlement
 context. A message board, inbox, digest, leaderboard, and replay remain

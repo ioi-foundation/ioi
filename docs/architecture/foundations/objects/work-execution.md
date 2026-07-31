@@ -418,7 +418,7 @@ WorkRunEnvelope:
   task_offer_and_acceptance_refs:
     - packet://...
   work_claim_ref: work-claim://... | null
-  room_admission: RoomAdmittedObjectBase | null
+  room_binding: RoomScopedObjectBinding | null
   attempt_ref: attempt://... | null
   runtime_id: runtime://...
   runtime_assignment_ref: runtime-assignment://... | null

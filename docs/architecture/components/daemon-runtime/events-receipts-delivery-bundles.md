@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-30.
+Last alignment pass: 2026-07-31.
 Doctrine status: canonical
 Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, `PhysicalActionExecutionReceipt` v1, and `GoalRunActivationReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, `TemporalVerificationProfile`/`TemporalValidityEvaluation` contracts, exact-action review/effect-admission receipt profiles, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipt profiles, full OutcomeRoom/collective-pursuit receipt production, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
 Last implementation audit: 2026-07-30
@@ -3204,18 +3204,20 @@ host or federated admission policy admits the relevant state change.
     "artifact://candidate-12"
   ],
   "verifier_rule_version_ref": "rubric://research-v3",
-  "expected_room_revision": 41,
-  "resulting_room_revision": 42,
-  "sequence": 42,
-  "expected_predecessor_commitment_ref": "commitment://outcome-room/research-123/41",
+  "expected_agentgres_heads": {
+    "frontier://question-7": "sha256:..."
+  },
+  "accepted_agentgres_sequence": 42,
+  "resulting_agentgres_heads": {
+    "frontier://question-7": "sha256:..."
+  },
   "operation_or_batch_commitment": "sha256:...",
-  "admission_decision_ref": "decision://room-admission/42",
-  "admission_proof_ref": "evidence://... | receipt://...",
-  "resulting_transition_commitment_ref": "commitment://outcome-room/research-123/42",
-  "predecessor_room_state_root": "sha256:...",
-  "resulting_room_state_root": "sha256:...",
-  "resulting_receipt_root": "sha256:...",
-  "agentgres_operation_refs": ["agentgres://operation/..."],
+  "policy_decision_ref": "decision://agentgres/42",
+  "agentgres_operation_ref": "agentgres://operation/...",
+  "agentgres_receipt_refs": ["receipt://agentgres/..."],
+  "bounded_system_predecessor_transition_ref": "commitment://system/research-123/41",
+  "bounded_system_transition_ref": "commitment://system/research-123/42",
+  "bounded_system_transition_receipt_ref": "receipt://system/research-123/42",
   "status": "proposed | admitted | challenged | superseded | rejected | revoked"
 }
 ```
@@ -3292,13 +3294,15 @@ and negative attempts, which findings were admitted or contradicted, verifier
 rule changes, affected re-verification, spend, authority, contribution lineage,
 and why the room changed direction.
 
-Every room-child receipt implements the `RoomAdmittedObjectBase` proof spine:
-exact participant lease or room-system issuer, expected room revision and
-predecessor transition commitment, payload/operation commitment, admission
-policy and decision, monotonic sequence, admission proof, resulting room
-revision, transition commitment, state root, and receipt root. Dependency refs
-to a worker, model, runtime, organization, or provider never replace the
-participant lease that accepted the room obligation.
+Every room-child receipt is the canonical receipt of the enclosing System's
+Agentgres operation. The typed payload contributes `RoomScopedObjectBinding`:
+exact room System, OutcomeRoom, participant lease or room-System issuer, and
+payload root. Agentgres owns expected-head comparison, resolved policy and
+decision, accepted sequence/head, and receipt refs; the bounded-System
+transition owns predecessor continuity, transition commitment, state root, and
+receipt root. No room-specific receipt family may duplicate those facts as a
+parallel chain. Dependency refs to a worker, model, runtime, organization, or
+provider never replace the participant lease that accepted the room obligation.
 
 ## Direct Improvement Gate Receipts
 

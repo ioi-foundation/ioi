@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/verifier-challenge/v3",
+  "title": "VerifierChallenge",
+  "x-ioi-schema-version": "ioi.foundations.verifier-challenge.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verifier_challenge_id",
+    "outcome_room_ref",
+    "room_binding",
+    "challenger_ref",
+    "challenged_ref",
+    "challenge_kind",
+    "challenge_evidence_refs",
+    "adjudicator_policy_ref",
+    "prior_rule_version_ref",
+    "proposed_rule_version_ref",
+    "affected_attempt_refs",
+    "reverification_required",
+    "adjudication_ref",
+    "status"
+  ],
+  "$defs": {
+    "roomBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "room_system_id",
+        "outcome_room_ref",
+        "proposed_or_issued_by_ref",
+        "payload_root",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.foundations.room-scoped-object-binding.v1"
+        },
+        "room_system_id": {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,500}$"
+        },
+        "outcome_room_ref": {
+          "type": "string",
+          "pattern": "^outcome-room://[^\\s]{1,500}$"
+        },
+        "proposed_or_issued_by_ref": {
+          "type": "string",
+          "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+        },
+        "payload_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.verifier-challenge.v3"
+    },
+    "verifier_challenge_id": {
+      "type": "string",
+      "pattern": "^verifier-challenge://[^\\s]{1,500}$"
+    },
+    "outcome_room_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^outcome-room://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "room_binding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/roomBinding"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "challenger_ref": {
+      "type": "string",
+      "pattern": "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$"
+    },
+    "challenged_ref": {
+      "type": "string",
+      "pattern": "^(?:attempt|finding|verifier-path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$"
+    },
+    "challenge_kind": {
+      "enum": [
+        "metric",
+        "rule",
+        "verifier",
+        "evidence",
+        "eligibility",
+        "result",
+        "exploit",
+        "independence",
+        "collusion",
+        "mapping"
+      ]
+    },
+    "challenge_evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
+      }
+    },
+    "adjudicator_policy_ref": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,500}$"
+    },
+    "prior_rule_version_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:rubric|verifier-path)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proposed_rule_version_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:rubric|verifier-path)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "affected_attempt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^attempt://[^\\s]{1,500}$"
+      }
+    },
+    "reverification_required": {
+      "type": "boolean"
+    },
+    "adjudication_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:decision|dispute)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "admitted",
+        "investigating",
+        "upheld",
+        "rejected",
+        "rule_changed",
+        "reverifying",
+        "resolved",
+        "withdrawn"
+      ]
+    }
+  }
+}

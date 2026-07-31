@@ -6,9 +6,9 @@ streaming, run lifecycle, OutcomeRoom/GoalRun execution APIs, structured errors,
 and client-vs-runtime ownership.
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-07-31.
 Doctrine status: reference
-Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate. The current M4 v2 OutcomeRoom slice has a read-only discussion projection plus exact WorkResult artifact-to-byte custody and label resolution, but generalized artifact/discussion resolution and production-wide propagation/enforcement remain planned. The shared work-lifecycle integrity/replay kernel, local append store, projection repair, cancellation planner, archive/snapshot writer, and status route are target-only; generalized GoalRunProfile resolution, local-agent pairing, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are also target-only; source of truth is the daemon route registry)
+Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate. The current M4 v2 OutcomeRoom slice has a read-only discussion projection plus exact WorkResult artifact-to-byte custody and label resolution, but its room-owned transition/receipt/root spine is nonconforming migration input under ADR 0030. The v3 typed room-binding and ordinary Agentgres/System admission successor is target-only, as are generalized artifact/discussion resolution and production-wide propagation/enforcement. The shared work-lifecycle integrity/replay kernel, local append store, projection repair, cancellation planner, archive/snapshot writer, and status route are target-only; generalized GoalRunProfile resolution, local-agent pairing, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are also target-only; source of truth is the daemon route registry)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
 Last implementation audit: 2026-07-30
@@ -3358,7 +3358,7 @@ System truth refuses before any room record, receipt, or transition is written.
 The hosted service/domain may operate many such room systems; the service is not
 their logical or authority owner.
 
-The selected hosted M4 route profile admits no more than 50 current v2 room
+The selected hosted successor profile admits no more than 50 current room
 records. Each room objective is bounded to 4,096 characters, each repeated room
 semantic ref set to 64 unique entries, the sequence-complete
 `admission_and_replay_refs` set to 128 entries, and the admitted room sequence
@@ -3388,15 +3388,16 @@ participant leases, after set deduplication). The runtime bounds these source
 censuses before projection use and returns typed unavailable on excess; it does
 not allocate a successful partial projection.
 
-The daemon-private WorkResult/OutcomeDelta room-admission seam returns the
-admitted object plus a bounded owner-convergence summary, never duplicate full
-GoalRun, HarnessInvocation, or parent-WorkResult bodies. The summary carries the
-exact owner contract/ref, admitted-object projection root, room ref and
-resulting revision/transition/state head, room-admission receipt ref/root, and
-the applicable GoalRun, invocation/run, or parent-WorkResult refs. Callers that
-need the converged owner bodies re-read them from their canonical owner routes
-after success. A successful WorkResult admission returns exactly `ok` and this
-`admission` envelope; an OutcomeDelta admission also returns the explicit
+The daemon-private WorkResult/OutcomeDelta room-scoped seam returns the typed
+object plus a bounded owner-convergence summary, never duplicate full GoalRun,
+HarnessInvocation, or parent-WorkResult bodies. The summary carries the exact
+owner contract/ref, room ref, canonical Agentgres operation/head/receipt refs,
+the enclosing bounded-System transition ref, and the applicable GoalRun,
+invocation/run, or parent-WorkResult refs. It does not copy a room-owned
+revision, transition, state root, or receipt root. Callers that need the
+converged owner bodies re-read them from their canonical owner routes after
+success. A successful WorkResult admission returns exactly `ok` and this
+canonical admission projection; an OutcomeDelta admission also returns the explicit
 `effect_executed: false` and `acceptance_granted: false` nonclaims. The daemon
 serializes and checks this exact final HTTP response before
 writing an intent, runtime dependency, Agentgres admission, room projection, or
@@ -3404,13 +3405,13 @@ owner backlink; an oversized response therefore refuses without side effects.
 
 Room create/update routes never mint free-form mutable aggregates. Every
 frontier item, offer, claim, attempt, finding, challenge, result, delta, lease,
-budget transition, and state export compiles into a typed admission proposal
-carrying schema/kind, exact participant lease or room-system issuer, expected
-room revision and predecessor commitment, payload root, policy, and decision.
-The admitted response returns the admission receipt, monotonic sequence,
-resulting revision, transition commitment, state root, and receipt root. The
-object-specific routes above are conveniences over this one
-`RoomAdmittedObjectBase` transition contract, not bypasses around it.
+budget transition, and state export compiles into a typed payload carrying a
+`RoomScopedObjectBinding`. The daemon resolves issuer, current policy,
+authority, expected Agentgres head or heads, and the enclosing room System's
+predecessor condition. The accepted operation and bounded-System transition
+own the canonical decision, sequence, resulting head/commitment, receipt refs,
+state root, and receipt root. Object-specific routes are conveniences over
+that one canonical admission path; they never mint a room-level spine.
 
 Discovery list/query accepts policy-qualified filters such as
 `category_ref`, `semantic_profile_ref`, `capability_ref`,

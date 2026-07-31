@@ -1,0 +1,25 @@
+{
+  "schema_version": "ioi.foundations.verifier-challenge.v3",
+  "verifier_challenge_id": "verifier-challenge://alpha/one",
+  "outcome_room_ref": "outcome-room://alpha",
+  "room_binding": {
+    "schema_version": "ioi.foundations.room-scoped-object-binding.v1",
+    "room_system_id": "system://room-beta",
+    "outcome_room_ref": "outcome-room://beta",
+    "proposed_or_issued_by_ref": "participant-lease://alpha/verifier",
+    "payload_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "created_at": "2026-07-30T12:00:00Z",
+    "updated_at": null
+  },
+  "challenger_ref": "participant-lease://alpha/verifier",
+  "challenged_ref": "finding://alpha/one",
+  "challenge_kind": "evidence",
+  "challenge_evidence_refs": [],
+  "adjudicator_policy_ref": "policy://alpha/adjudication",
+  "prior_rule_version_ref": null,
+  "proposed_rule_version_ref": null,
+  "affected_attempt_refs": [],
+  "reverification_required": false,
+  "adjudication_ref": null,
+  "status": "proposed"
+}

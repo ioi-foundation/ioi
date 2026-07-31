@@ -1,0 +1,369 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/work-claim-lease/v3",
+  "title": "WorkClaimLease",
+  "x-ioi-schema-version": "ioi.foundations.work-claim-lease.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_claim_id",
+    "outcome_room_ref",
+    "room_binding",
+    "frontier_item_ref",
+    "claimant_ref",
+    "claimant_participant_lease_ref",
+    "eligibility_match_receipt_ref",
+    "task_offer_ref",
+    "task_acceptance_ref",
+    "routing_decision_ref",
+    "collaboration_terms_ref",
+    "collaboration_terms_root",
+    "terms_acceptance_ref",
+    "contribution_policy_ref",
+    "quote_ref",
+    "budget_reservation_ref",
+    "settlement_profile_ref",
+    "bounded_scope_ref",
+    "context_lease_refs",
+    "authority_resource_compute_data_budget_and_tool_lease_refs",
+    "duplicate_work_policy",
+    "issued_at",
+    "expires_at",
+    "heartbeat_ref",
+    "renewal_count",
+    "release_or_reassignment_reason",
+    "status"
+  ],
+  "$defs": {
+    "roomBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "room_system_id",
+        "outcome_room_ref",
+        "proposed_or_issued_by_ref",
+        "payload_root",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.foundations.room-scoped-object-binding.v1"
+        },
+        "room_system_id": {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,500}$"
+        },
+        "outcome_room_ref": {
+          "type": "string",
+          "pattern": "^outcome-room://[^\\s]{1,500}$"
+        },
+        "proposed_or_issued_by_ref": {
+          "type": "string",
+          "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+        },
+        "payload_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.work-claim-lease.v3"
+    },
+    "work_claim_id": {
+      "type": "string",
+      "pattern": "^work-claim://[^\\s]{1,500}$"
+    },
+    "outcome_room_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^outcome-room://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "room_binding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/roomBinding"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "frontier_item_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^frontier://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "claimant_ref": {
+      "type": "string",
+      "pattern": "^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$"
+    },
+    "claimant_participant_lease_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^participant-lease://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "eligibility_match_receipt_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "task_offer_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^packet://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "task_acceptance_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^packet://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "routing_decision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^routing-decision://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "collaboration_terms_ref": {
+      "type": "string",
+      "pattern": "^terms://[^\\s]{1,500}$"
+    },
+    "collaboration_terms_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "terms_acceptance_ref": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,500}$"
+    },
+    "contribution_policy_ref": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,500}$"
+    },
+    "quote_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^quote://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "budget_reservation_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:budget|spend|allocation)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "settlement_profile_ref": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,500}$"
+    },
+    "bounded_scope_ref": {
+      "type": "string",
+      "pattern": "^(?:task|task-brief|policy)://[^\\s]{1,500}$"
+    },
+    "context_lease_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^context-lease://[^\\s]{1,500}$"
+      }
+    },
+    "authority_resource_compute_data_budget_and_tool_lease_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$"
+      }
+    },
+    "duplicate_work_policy": {
+      "enum": [
+        "exclusive",
+        "allowed",
+        "independent_replication",
+        "adversarial_replication"
+      ]
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "heartbeat_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:heartbeat|receipt)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "renewal_count": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "release_or_reassignment_reason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "active",
+        "waiting",
+        "released",
+        "expired",
+        "reassigned",
+        "completed",
+        "quarantined",
+        "revoked"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome_room_ref": {
+            "type": "string"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "room_binding": {
+            "$ref": "#/$defs/roomBinding"
+          },
+          "frontier_item_ref": {
+            "type": "string"
+          },
+          "claimant_participant_lease_ref": {
+            "type": "string"
+          },
+          "eligibility_match_receipt_ref": {
+            "type": "string"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "room_binding": {
+            "type": "null"
+          },
+          "claimant_participant_lease_ref": {
+            "type": "null"
+          },
+          "eligibility_match_receipt_ref": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "active"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "authority_resource_compute_data_budget_and_tool_lease_refs": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,111 @@
+{
+  "$id": "invariant://ioi/foundations/finding/frozen-room-coordinates/v3",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/finding/v3",
+  "rules": [
+    {
+      "rule_id": "finding.room.matches_admission",
+      "description": "Finding and admission bind the same room; both are null for direct work.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.room_binding",
+        "field": "outcome_room_ref",
+        "expected_path": "$.outcome_room_ref"
+      }
+    },
+    {
+      "rule_id": "finding.attempt.matches_bound_attempt",
+      "description": "A hosted Finding freezes its exact Attempt; a non-room Finding has no bound coordinate object.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates",
+        "paths": [
+          "$.attempt_ref",
+          "$.bound_coordinates.attempt.record_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "finding.result.matches_bound_result",
+      "description": "A hosted Finding freezes its exact WorkResult.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates",
+        "paths": [
+          "$.work_result_ref",
+          "$.bound_coordinates.work_result.record_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "finding.participant.matches_bound_lease",
+      "description": "A hosted Finding freezes its historical participant lease.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.bound_coordinates",
+        "paths": [
+          "$.participant_ref",
+          "$.bound_coordinates.participant_lease.record_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "finding.admission_issuer.matches_participant_or_room_system",
+      "description": "Participant-authored admission binds the frozen participant lease; a host-governed transition binds the exact room system.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "optional_fields_equal",
+            "optional_object_path": "$.room_binding",
+            "paths": [
+              "$.room_binding.proposed_or_issued_by_ref",
+              "$.participant_ref"
+            ]
+          },
+          {
+            "operator": "optional_fields_equal",
+            "optional_object_path": "$.room_binding",
+            "paths": [
+              "$.room_binding.proposed_or_issued_by_ref",
+              "$.room_binding.room_system_id"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "finding.proposer.resolves_through_bound_lease_or_room_system",
+      "description": "The proposer is the historical lease, its frozen principal, or the exact room system.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "optional_fields_equal",
+            "optional_object_path": "$.bound_coordinates",
+            "paths": [
+              "$.proposed_by_ref",
+              "$.bound_coordinates.participant_lease.record_ref"
+            ]
+          },
+          {
+            "operator": "optional_fields_equal",
+            "optional_object_path": "$.bound_coordinates",
+            "paths": [
+              "$.proposed_by_ref",
+              "$.bound_coordinates.participant_lease.principal_ref"
+            ]
+          },
+          {
+            "operator": "optional_fields_equal",
+            "optional_object_path": "$.room_binding",
+            "paths": [
+              "$.proposed_by_ref",
+              "$.room_binding.room_system_id"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
