@@ -258,7 +258,17 @@ function qualifiedHistoricalPredecessors() {
   const ids = new Set();
   for (const hold of ledger.holds ?? []) {
     if (hold.projection_qualification !== "verified_historical_with_open_successor") continue;
-    for (const id of hold.predecessor_records ?? []) ids.add(id);
+    // A predecessor released by an owner-ruled coverage disposition is not
+    // qualified by this hold; only the effective set counts here.
+    const released = new Set(
+      (hold.predecessor_coverage_dispositions ?? [])
+        .filter((d) => d?.coverage === "released")
+        .map((d) => d?.predecessor)
+        .filter(Boolean),
+    );
+    for (const id of hold.predecessor_records ?? []) {
+      if (!released.has(id)) ids.add(id);
+    }
   }
   return ids;
 }

@@ -22,10 +22,12 @@ import {
   writeJsonDeterministic,
 } from "./lib/estate.mjs";
 import {
+  effectivePredecessors,
   isOpen,
   LEDGER_REL as HOLD_LEDGER_REL,
   QUALIFIED_STATUS,
   readHoldLedger,
+  releasedPredecessors,
 } from "./lib/holds.mjs";
 
 const STATUS_ORDER = [
@@ -129,7 +131,13 @@ export function buildProjection() {
   const openHoldList = (holdLedger.holds ?? []).filter(isOpen);
   const qualifiedBy = new Map();
   for (const hold of openHoldList) {
-    for (const id of hold.predecessor_records ?? []) {
+    // effectivePredecessors, never the raw derived list: a predecessor
+    // released by an owner-ruled coverage disposition is no longer qualified
+    // by this hold. This projection once kept a private copy of that rule and
+    // silently disagreed with every refusal consumer (2026-08-01: the M5
+    // event-subscription successor projected blocked on a released
+    // predecessor and next_cut named the wrong opening cut).
+    for (const id of effectivePredecessors(hold)) {
       if (!qualifiedBy.has(id)) qualifiedBy.set(id, []);
       qualifiedBy.get(id).push(hold.hold_id);
     }
@@ -348,7 +356,8 @@ export function buildProjection() {
         source_kind: h.source?.kind ?? null,
         acceptance_sequence: h.source?.acceptance_sequence ?? null,
         required_successor: h.required_successor?.work_item_id ?? null,
-        predecessor_records: h.predecessor_records ?? [],
+        predecessor_records: effectivePredecessors(h),
+        released_predecessor_records: [...releasedPredecessors(h)].sort(),
       })),
       qualified_records: qualifiedRecords,
     },
