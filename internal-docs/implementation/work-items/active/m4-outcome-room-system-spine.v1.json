@@ -59,52 +59,72 @@
     {
       "name": "AutonomousSystemManifest",
       "registry_resolution": "architecture_contract_registry",
-      "contract_ids": ["schema://ioi/foundations/autonomous-system-manifest/v1"]
+      "contract_ids": [
+        "schema://ioi/foundations/autonomous-system-manifest/v1"
+      ]
     },
     {
       "name": "AutonomousSystemInitialProfileBundle",
       "registry_resolution": "architecture_contract_registry",
-      "contract_ids": ["schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1"]
+      "contract_ids": [
+        "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1"
+      ]
     },
     {
       "name": "AutonomousSystemGenesis",
       "registry_resolution": "architecture_contract_registry",
-      "contract_ids": ["schema://ioi/foundations/autonomous-system-genesis/v1"]
+      "contract_ids": [
+        "schema://ioi/foundations/autonomous-system-genesis/v1"
+      ]
     },
     {
       "name": "AutonomousSystemSequenceZeroMaterialization",
       "registry_resolution": "architecture_contract_registry",
-      "contract_ids": ["schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"]
+      "contract_ids": [
+        "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"
+      ]
     },
     {
       "name": "AutonomousSystemSequenceZeroMaterializationReceipt",
       "registry_resolution": "architecture_contract_registry",
-      "contract_ids": ["schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"]
+      "contract_ids": [
+        "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"
+      ]
     },
     {
       "name": "AutonomousSystemConstitution",
       "registry_resolution": "architecture_contract_registry",
-      "contract_ids": ["schema://ioi/foundations/autonomous-system-constitution/v1"]
+      "contract_ids": [
+        "schema://ioi/foundations/autonomous-system-constitution/v1"
+      ]
     },
     {
       "name": "AutonomousSystemOperationLog",
       "registry_resolution": "architecture_contract_registry",
-      "contract_ids": ["schema://ioi/foundations/autonomous-system-operation-log/v2"]
+      "contract_ids": [
+        "schema://ioi/foundations/autonomous-system-operation-log/v2"
+      ]
     },
     {
       "name": "AutonomousSystemChain",
       "registry_resolution": "architecture_contract_registry",
-      "contract_ids": ["schema://ioi/foundations/autonomous-system-chain/v1"]
+      "contract_ids": [
+        "schema://ioi/foundations/autonomous-system-chain/v1"
+      ]
     },
     {
       "name": "OperationLogEntry",
       "registry_resolution": "architecture_contract_registry",
-      "contract_ids": ["schema://ioi/components/agentgres/operation-log-entry/v1"]
+      "contract_ids": [
+        "schema://ioi/components/agentgres/operation-log-entry/v1"
+      ]
     },
     {
       "name": "ArtifactRef",
       "registry_resolution": "architecture_contract_registry",
-      "contract_ids": ["schema://ioi/components/agentgres/artifact-ref/v1"]
+      "contract_ids": [
+        "schema://ioi/components/agentgres/artifact-ref/v1"
+      ]
     }
   ],
   "private_artifacts": [
@@ -118,17 +138,19 @@
     {
       "artifact_id": "future-exit-contract:M4_OUTCOME_ROOM_SYSTEM_SPINE_EXIT=0",
       "artifact_class": "private_future_literal_exit_contract",
+      "path": "internal-docs/implementation/evidence/M4/m4-outcome-room-system-spine.exit.v1.txt",
       "product_authority": false,
       "architecture_canon": false,
-      "note": "Not yet produced. The expected retention path stays declared in evidence_index.expected_output_paths; the obsolete pre-ADR-0030 literal formerly at that path is preserved byte-exact under the archived historical bundle below and is not evidence."
+      "note": "Produced from the finished fresh-process 98/98 run at 932e7bf49 after independent review. The obsolete pre-ADR-0030 literal is preserved byte-exact under the archived historical bundle below and is not evidence."
     },
     {
       "artifact_id": "private-artifact:M4SelectedProfileEvidence",
       "artifact_class": "private_m4_aggregate_evidence_join",
       "candidate_name": "M4SelectedProfileEvidence",
+      "path": "internal-docs/implementation/evidence/M4/m4-selected-profile-evidence.v1.json",
       "product_authority": false,
       "architecture_canon": false,
-      "note": "Not yet produced for the restated aggregate. The pre-ADR-0030 join (proved at 287449463) is preserved byte-exact under the archived historical bundle below and is not evidence."
+      "note": "Regenerated for the restated aggregate from the 932e7bf49 run; carries the unbacked_scheme_disclosure required by review. The pre-ADR-0030 join (proved at 287449463) is preserved byte-exact under the archived historical bundle below and is not evidence."
     },
     {
       "artifact_id": "historical-evidence:m4-outcome-room-system-spine-pre-adr-0030",
@@ -173,7 +195,7 @@
         "work_item_id": "m4-room-graph-truth-and-product-projection",
         "relation": "aggregate_child",
         "selection_state": "unconditional_active",
-        "record_sha256": "444b1df6c0bf240534765853cb4ddfa0f79f007c1808fea16b34796489be444f",
+        "record_sha256": "0c873dec3780485e680b0c440b1246e980515d9b06307b9d3cea5ca94576bb7f",
         "status_at_binding": "verified",
         "evidence_binding": {
           "expected_literal": "M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0",
@@ -202,7 +224,7 @@
         "work_item_id": "m4-room-graph-truth-and-product-projection",
         "relation": "unconditional_dependency",
         "selection_state": null,
-        "record_sha256": "444b1df6c0bf240534765853cb4ddfa0f79f007c1808fea16b34796489be444f",
+        "record_sha256": "0c873dec3780485e680b0c440b1246e980515d9b06307b9d3cea5ca94576bb7f",
         "status_at_binding": "verified",
         "evidence_binding": {
           "expected_literal": "M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0",
@@ -232,15 +254,15 @@
         {
           "path": "internal-docs/implementation/evidence/M4/m4-outcome-room-system-spine.exit.v1.txt",
           "exists": true,
-          "sha256": "900e9d569947ba74054a5754f348ab335d74e8d05def7d20ce697f4ab7528569",
+          "sha256": "2582c3ee69d1ead11ce498d55f99960c6f96d6286c4d1b308e031034f3ff607a",
           "exact_literal_line_count": 1
         }
       ],
       "exact_literal_line_count": 1,
       "literal_valid": true,
-      "evidence_bundle_sha256": "32cdea03d4d90dcad8149ca7a4a8e8ddb65f74dd2107824a6edb12c5622497b5"
+      "evidence_bundle_sha256": "d612672ab2ce3384e401fea87b0d0f8a0bdc4bf13879b8788bec29a8f01f613b"
     },
-    "binding_payload_sha256": "e0f06e77e7153143fd54cf812eb4cefd2f79d4d80e4f214fae04bf052bae1b6d",
+    "binding_payload_sha256": "5107155ae58c122c145465e3c46ca10f83aae1d30cfc67f68a59c94aadf5769e",
     "nonclaim": "This exact-digest binding is a private closure precondition. It does not promote a child, dependency, proof gate, aggregate, work item, or stage and cannot substitute for literal-valid retained evidence."
   },
   "in_scope": [
