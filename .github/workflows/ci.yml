@@ -11,6 +11,78 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # The M4 stage proof as a DISTINCT NAMED job (owner directive 2026-08-01).
+  # Why it exists: verify-m4-goalrun-activation-plane.mjs was unrunnable at
+  # HEAD since 77117ecd6 — crashing on a fixture that commit deliberately
+  # deleted — and nothing detected it, because no stage verifier ran in CI.
+  # Green CI that never runs the stage proof is the false-green shape this
+  # program keeps paying for. Requirements enforced here: isolated
+  # fresh-process state (the verifier builds and pins its own daemon and
+  # spawns its own planes), exact 98/98 assertion-count enforcement from the
+  # log bytes, raw log retention, a real timeout, pinned-binary line
+  # assertion, and NEVER acceptance on the process exit code alone.
+  # Mark this job REQUIRED in branch protection (admin action).
+  m4_stage_proof:
+    name: M4 stage proof (98-assertion aggregate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install native deps for kernel build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            cmake \
+            libdbus-1-dev \
+            protobuf-compiler \
+            libxcb1-dev \
+            libxdo-dev
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.93.1
+          override: true
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-m4proof-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run the M4 aggregate verifier on an isolated fresh plane
+        run: |
+          set -o pipefail
+          node apps/hypervisor/scripts/verify-m4-outcome-room-system-spine.mjs 2>&1 | tee m4-aggregate.log
+
+      - name: Enforce the exact count and pinned binary from log bytes (no exit-code-only acceptance)
+        run: |
+          grep -qx '98/98 passed' m4-aggregate.log
+          grep -Eq '^M4_DAEMON_BINARY_SHA256=sha256:[0-9a-f]{64}$' m4-aggregate.log
+          grep -q 'M4 outcome-room system spine: PASS' m4-aggregate.log
+
+      - name: Retain the raw proof log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m4-aggregate-proof-log
+          path: m4-aggregate.log
+
   build_and_test:
     name: Build and Test
     runs-on: ubuntu-latest
