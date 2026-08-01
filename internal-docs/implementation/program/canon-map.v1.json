@@ -10493,6 +10493,44 @@
       "reason": "Proposed owner ruling actively sequenced in the reopened M4 cut: rooms compose through System genesis and Agentgres admission, SystemScopedObjectBinding carries non-authoritative association, and no room-owned CAS, receipt, or state-root spine is admitted."
     },
     {
+      "id": "docs/decisions/0031-goalrun-execution-composes-thread-orchestration.md",
+      "kind": "adr",
+      "classification": "actively_sequenced",
+      "stages": [
+        "M5"
+      ],
+      "modules": [
+        "adversarial-proof-matrix",
+        "product-ux",
+        "proof-and-evidence",
+        "runtime-fabric",
+        "runtime-trust-boundary"
+      ],
+      "work_items": [
+        "m5-goalrun-thread-orchestration-seam"
+      ],
+      "contract_families": [
+        "GoalRun",
+        "RuntimeThreadEventAdmission",
+        "RuntimeThreadForkControl",
+        "RuntimeManagedSessionControl",
+        "HypervisorSessionLaunchRecipeAdmission",
+        "HarnessSessionBindingAdmission"
+      ],
+      "conformance_targets": [],
+      "code_anchors": [
+        "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_goal_pursuit.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_thread_fork_control.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_managed_session_control.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_harness_session_binding_admission.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_hypervisor_session_launch_recipe_admission.rs"
+      ],
+      "proof_gates": [],
+      "reason": "Accepted final pre-M4-literal correction: GoalRun remains ioi.ai application pursuit state, while executing GoalRuns and harness-to-harness delegation compose the five named daemon/kernel orchestration owners in a distinct first M5 cut."
+    },
+    {
       "id": "docs/decisions/README.md",
       "kind": "adr_index",
       "classification": "non_build_doctrine",

@@ -24,11 +24,23 @@ module here reuses. Doctrine and lifecycle semantics for these objects are owned
 by [`../../components/daemon-runtime/default-harness-profile.md`](../../components/daemon-runtime/default-harness-profile.md);
 this module does not restate them.
 
+Per [ADR 0031](../../../decisions/0031-goalrun-execution-composes-thread-orchestration.md),
+application-domain pursuit semantics do not create an application-owned
+execution spine. A GoalRun may select a topology, plan, role, attempt, verifier,
+or course correction. When that choice actually executes, delegates, manages a
+Session, or launches a harness, the resulting state must be the daemon-owned
+`RuntimeThreadEvent`, `RuntimeThreadForkControl`,
+`RuntimeManagedSessionControl`, `HypervisorSessionLaunchRecipeAdmission`, and
+`HarnessSessionBindingAdmission` chain. GoalRun retains exact refs and projects
+continuity; it does not mint parallel thread, fork, session, launch, binding,
+receipt, or replay truth. A draft, grounding, waiting, or otherwise non-executing
+GoalRun may still have zero Sessions.
+
 ## GoalRunEnvelope
 
 Durable state for goal-shaped work. `ioi.ai` and Hypervisor Sessions may expose
 different product surfaces, but they should converge on the same GoalRun
-primitive when intent must survive compaction, delegation, verification, or
+application object when intent must survive compaction, delegation, verification, or
 long-session continuation.
 
 The GoalRun is not a chat transcript and not a harness-specific memory file. It

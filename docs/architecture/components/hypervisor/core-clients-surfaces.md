@@ -3259,6 +3259,15 @@ Session may exist without a GoalRun. An AutomationRun may finish without a
 GoalRun and, when no managed execution occurs, without a Session. An
 OutcomeRoom can outlive every participating Session.
 
+Execution composition does not collapse these identities. When a GoalRun
+actually executes, delegates, controls a managed Session, or launches a harness,
+its product view must resolve the exact daemon-owned thread-event, thread-fork,
+managed-session, session-launch-recipe, and harness-session-binding records.
+GoalRun and OutcomeRoom views may project those refs and derived status; they do
+not own a parallel execution graph. Harness-to-harness coordination is therefore
+a bounded Core/daemon request over these primitives, not direct peer authority
+or application-local runtime truth (ADR 0031).
+
 For a persistent collective outcome, Work / Room detail is graph-first:
 
 ```text

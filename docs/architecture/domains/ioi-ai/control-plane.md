@@ -120,6 +120,16 @@ backing object is an immutable `GoalRunProfile` revision. Admission resolves
 that revision into a bounded `GoalRun`; Goal Space does not turn Recipe into a
 generic object family or retain live pursuit state in the profile.
 
+GoalRun is application-domain pursuit truth, not a second execution plane. A
+GoalRun may choose roles, attempts, verifier paths, topology, and course
+corrections, but every actual execution leg must resolve through Hypervisor's
+daemon-owned thread event, fork, managed-session, session-launch-recipe, and
+harness-session-binding primitives. Goal Space projects their exact refs and
+receipts; it does not mint its own event stream, fork graph, Session lifecycle,
+or harness launch/binding truth. This preserves zero-Session GoalRuns while
+making harness-to-harness coordination an explicit bounded daemon request
+rather than ambient application authority (ADR 0031).
+
 It may:
 
 - collect a user's goal, constraints, preferences, and account context;

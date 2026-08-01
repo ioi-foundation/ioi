@@ -139,6 +139,19 @@ telemetry, receipts, and Agentgres bindings. Product controls such as Agent,
 Mode, Model, Reasoning, Speed, and HarnessProfile selection compile into daemon contracts rather
 than creating client-local loops.
 
+GoalRun orchestration rule:
+
+> **GoalRun is application pursuit state; thread, fork, managed-session, and
+> harness-launch execution is daemon-owned.**
+
+When a GoalRun plan executes, it must consume the canonical runtime thread-event,
+thread-fork, managed-session, session-launch-recipe, and harness-session-binding
+contracts. GoalRun may retain their refs and derive application status, but it
+may not maintain a peer event stream, fork graph, managed-session lifecycle,
+harness binding, or launch/replay path. A harness that coordinates another
+harness does so by requesting a bounded daemon-owned fork/session/launch chain;
+it grants no authority and creates no peer runtime truth by itself (ADR 0031).
+
 ## Hypervisor Node Boundary
 
 A Hypervisor Node is the local autonomous-system settlement and interop domain

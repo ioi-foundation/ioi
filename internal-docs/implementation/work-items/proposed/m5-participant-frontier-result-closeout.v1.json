@@ -275,9 +275,10 @@
       "architecture_canon": false
     }
   ],
-  "current_implementation_evidence": "Pre-migration record status is preserved as proposed. Existing anchors and refs prove only their original named scope. Missing checkout refs: none. Newly populated schema, proof-shape, journey, metric, gate, and exit-contract fields are planning metadata and are not covered by the historical status. This migration adds no runtime or stage claim.",
+  "current_implementation_evidence": "Pre-migration record status is preserved as proposed. Existing anchors and refs prove only their original named scope. Missing checkout refs: none. Newly populated schema, proof-shape, journey, metric, gate, and exit-contract fields are planning metadata and are not covered by the historical status. This migration adds no runtime or stage claim. ADR 0031 adds m5-goalrun-thread-orchestration-seam as an explicit pre-execution dependency; this dependency edit implements no participant or runtime behavior and generates no literal.",
   "dependency_work_item_ids": [
-    "m4-outcome-room-system-spine"
+    "m4-outcome-room-system-spine",
+    "m5-goalrun-thread-orchestration-seam"
   ],
   "external_gates": [],
   "aggregate_child_ids": [],

@@ -101,6 +101,13 @@ not privileged substrate. A user or organization should be able to build an
 ioi.ai-like coordinator through Hypervisor without receiving host authority or a
 separate runtime bypass.
 
+That dogfooding applies inside each GoalRun as well as around each OutcomeRoom.
+ioi.ai owns pursuit choices and shared-graph projections, while actual thread
+events, forks, managed Sessions, launch recipes, harness bindings, readiness,
+and terminal attachment remain Hypervisor daemon primitives. A GoalRun or room
+may reference and coordinate those records but may not recreate their execution
+spine (ADR 0031).
+
 The reusable OutcomeRoom package is the first flagship/reference bounded-DAS
 profile because it pressure-tests local-agent ingress, typed workgraphs,
 verification, contribution lineage, course correction, and network supply in

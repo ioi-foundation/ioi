@@ -111,6 +111,15 @@ naming and ownership across the shared-object canon. It did **not** change any
 runtime. Daemon, GoalRun, and OutcomeRoom profile semantics still need to be
 brought into line with the reconciled canon, and that is a separate pass.
 
+ADR 0031 makes the GoalRun execution delta exact: the current
+`runtime_goal_pursuit.rs` and `goalrun_routes.rs` paths reference
+`runtime_thread_event`, `runtime_thread_fork_control`,
+`runtime_managed_session_control`,
+`runtime_harness_session_binding_admission`, and
+`runtime_hypervisor_session_launch_recipe_admission` zero times each. GoalRun
+application state remains valid, but its execution path must consume those
+daemon primitives before it can claim canonical orchestration composition.
+
 Two rules keep this from becoming a source of conflation:
 
 - The canon states the **target** contract. Nothing in it may be read as a claim

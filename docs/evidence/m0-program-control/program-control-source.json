@@ -342,7 +342,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "1b021ad92feefb1d43a295095d96c5a4ad3840a39cb00283703e59cf640d2666"
+      "source_sha256": "d92a680bcc63e31fcf754ac05d25df1578dd8d563f58a442f84eeb86dc021fb9"
     },
     {
       "role": "landed owner canon",
@@ -402,7 +402,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/objects/goal-run-execution.md",
-      "source_sha256": "ffa7834eab42dc84b61b4767ef854f21366f593d037c8b1240915e7762c77d60"
+      "source_sha256": "adc7f070e32b95e6bad21274fe508aa79d1efea4b42986779e0e918ddc3c6d5e"
     },
     {
       "role": "landed owner canon",
@@ -462,7 +462,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/doctrine.md",
-      "source_sha256": "27a34c7bcf9035fc13607150cfce10b10a3320eaeba0de6fbbf17b8cb46101b1"
+      "source_sha256": "4788208f06bf55b39e954abbc560da9b089c438a6410c015126ebec171723a5f"
     },
     {
       "role": "landed owner canon",
@@ -507,7 +507,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
-      "source_sha256": "7d567da3bcfd38f990db58a5b8d5b5e3c8b1c678cc8bc5245a512bfc207fbe91"
+      "source_sha256": "92930e5cf1d8b1b063f1d9bf66df2bc4304586878dc1519371aa485c0f7a544c"
     },
     {
       "role": "landed owner canon",
@@ -522,7 +522,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
-      "source_sha256": "9f7212615733863d842ce28103c98f907d308031025bb3f80905b0128d98938c"
+      "source_sha256": "7be567b838d2742249b3f0ea57bcd6a1adbe7ec3fff4a2d7b72ea9a66c86a1ce"
     },
     {
       "role": "landed owner canon",
@@ -1657,7 +1657,7 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "8f9f26ffcf754261bfa19b98ded3214946c18ac2925ca3b0c9b0cfa4dbca9653",
+    "program_source_material_sha256": "1c2b4d550fc54204fe0f5bfb786c71664e7841e1a45d837fbb56ba02d35136d9",
     "review_epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
     "review_lock_sha256": "d97b9f25be8bef7c4e22eda293aeb936c6ded44d2a47badca1df04ee2b54d743",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
@@ -1667,7 +1667,7 @@
     "reviewer_label": "reviewer://ioi/m0-program-control-m4-agentgres-composition-review",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "f4e24e021f75fb9613ad569e06a462fdd434f76391a07f39e868931a373bcc67",
+    "snapshot_head_entry_sha256": "3f17d18ee437c4fcf50d22d58161a02899c59365f89f9f5a807307828ed632de",
     "snapshot_head_sequence": 29,
     "snapshot_predecessor_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
