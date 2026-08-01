@@ -61,6 +61,18 @@ export function evaluateHistoricalDisposition({ disposition, artifactSha256, suc
   if (disposition.artifact_sha256 !== artifactSha256) {
     return `historical disposition binds ${disposition.artifact_sha256}, artifact is ${artifactSha256}`;
   }
+  // An owner-ruled "unaffected" disposition closes a stale case WITHOUT a
+  // successor: the mechanical test (did an admitted correction change a
+  // contract family this literal's claim depends on?) answered NO, and the
+  // recorded reasoning says why the staleness is bookkeeping drift, not an
+  // invalidated claim. It stays content-bound to the literal's exact bytes,
+  // so any further change to the retained log reopens the case.
+  if (disposition.disposition_kind === "unaffected_by_admitted_corrections") {
+    if (!disposition.reasoning) {
+      return "unaffected disposition states no reasoning; a release from the successor requirement must argue itself";
+    }
+    return null;
+  }
   if (successorStatus !== "verified") {
     return `corrective successor ${disposition.successor_work_item_id} is ${successorStatus ?? "absent"}, not verified`;
   }
@@ -144,6 +156,33 @@ function main() {
         ),
       );
     }
+    // Boundary fix (owner-ruled 2026-08-01): a legacy top-level literal is a
+    // retained literal like any other. The old boundary descended only M\d+
+    // stage directories, so the top-level M0 literal escaped content
+    // validation entirely — registered, never validated.
+    if (entry.endsWith(".exit.v1.txt")) {
+      const defects = validateLiteralExitText(fs.readFileSync(abs, "utf8"));
+      validated += 1;
+      const disposition = dispositionByPath.get(rel);
+      const dispositionDefect = defects.length > 0
+        ? evaluateHistoricalDisposition({
+            disposition,
+            artifactSha256: sha256File(abs),
+            successorStatus: disposition
+              ? statuses.get(disposition.successor_work_item_id)
+              : null,
+          })
+        : null;
+      if (defects.length > 0 && dispositionDefect) {
+        findings.push(
+          finding(
+            "error",
+            "retained-log",
+            `evidence/${entry}: ${defects.join(" | ")}; historical disposition not closed: ${dispositionDefect}`,
+          ),
+        );
+      }
+    }
   }
 
   // Duty 2: fail-closed fixture self-test.
@@ -223,6 +262,38 @@ function main() {
   }) !== null) {
     findings.push(
       finding("error", "fixture-self-test", "a content-bound disposition with a verified corrective successor was rejected"),
+    );
+  }
+  const unaffected = {
+    artifact_sha256: "a".repeat(64),
+    disposition_kind: "unaffected_by_admitted_corrections",
+    reasoning: "fixture reasoning",
+  };
+  if (evaluateHistoricalDisposition({
+    disposition: unaffected,
+    artifactSha256: "a".repeat(64),
+    successorStatus: null,
+  }) !== null) {
+    findings.push(
+      finding("error", "fixture-self-test", "a content-bound, reasoned unaffected disposition was rejected"),
+    );
+  }
+  if (!evaluateHistoricalDisposition({
+    disposition: { ...unaffected, reasoning: undefined },
+    artifactSha256: "a".repeat(64),
+    successorStatus: null,
+  })?.includes("no reasoning")) {
+    findings.push(
+      finding("error", "fixture-self-test", "an unaffected disposition without reasoning was not refused"),
+    );
+  }
+  if (!evaluateHistoricalDisposition({
+    disposition: unaffected,
+    artifactSha256: "b".repeat(64),
+    successorStatus: null,
+  })?.includes("historical disposition binds")) {
+    findings.push(
+      finding("error", "fixture-self-test", "an unaffected disposition with a stale content binding was not refused"),
     );
   }
 

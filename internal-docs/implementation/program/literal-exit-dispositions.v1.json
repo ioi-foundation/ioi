@@ -79,6 +79,69 @@
       "artifact_sha256": "63c28b9b73c305535504433d8ac54d776985b265b81f7a029b5c89a9aa020ba4",
       "defect_class": "malformed_withdrawn_artifact",
       "successor_work_item_id": "route-final-invoker-census-corrective-successor"
+    },
+    {
+      "artifact_path": "internal-docs/implementation/evidence/M9/m0-canonical-estate-and-baseline-binding-successor.exit.v1.txt",
+      "artifact_sha256": "392fabb7b3a334105dafa17e30810bca50c85568152c8449429b4879fc84c2f9",
+      "defect_class": "stale_artifact_binding",
+      "disposition_kind": "unaffected_by_admitted_corrections",
+      "reasoning": "Claim: canonical estate binding at its proof revision. Bound artifact tools/check-canonical-estate.mjs has NO commit since import f3926f467 — the literal/artifact pair was mismatched at import (tracked-ness is not validity). ADR 0030 (room composition) and ADR 0031 (GoalRun execution composition) changed no estate-machinery family the claim depends on.",
+      "ruled_by": "owner directive 2026-08-01 (director session), lane A: mechanical disposition test — did ADR 0030/0031 change a contract family this claim depends on?",
+      "recorded_at_commit": "9a52067f4871837289a670f5f8879524ed82207e"
+    },
+    {
+      "artifact_path": "internal-docs/implementation/evidence/M9/m0-invariant-registry-census-successor.exit.v1.txt",
+      "artifact_sha256": "6ca01fc3b244dae7ea691af9352047073076804d1d1340a6f645201be335cf65",
+      "defect_class": "stale_artifact_binding",
+      "disposition_kind": "unaffected_by_admitted_corrections",
+      "reasoning": "Claim: invariant-registry census at its proof revision. Bound artifact generated/invariant-census.v1.json has NO commit since import f3926f467 — mismatched at import. docs/architecture/foundations/invariants.md carries no ADR 0030/0031 commit in its history; neither ADR changed the invariant-registry family the census claim depends on.",
+      "ruled_by": "owner directive 2026-08-01 (director session), lane A: mechanical disposition test — did ADR 0030/0031 change a contract family this claim depends on?",
+      "recorded_at_commit": "9a52067f4871837289a670f5f8879524ed82207e"
+    },
+    {
+      "artifact_path": "internal-docs/implementation/evidence/M9/m0-overlay-member-custody-and-disposition-successor.exit.v1.txt",
+      "artifact_sha256": "2a6f5f6c94320561c295f0f97e3431c4786423ef785253b3541e90727172d369",
+      "defect_class": "stale_artifact_binding",
+      "disposition_kind": "unaffected_by_admitted_corrections",
+      "reasoning": "Claim: overlay-member custody/disposition at its proof revision. Bound artifact program/canon-overlay-dispositions.v1.json has NO commit since import f3926f467 — mismatched at import. ADR 0030/0031 changed no overlay-custody family.",
+      "ruled_by": "owner directive 2026-08-01 (director session), lane A: mechanical disposition test — did ADR 0030/0031 change a contract family this claim depends on?",
+      "recorded_at_commit": "9a52067f4871837289a670f5f8879524ed82207e"
+    },
+    {
+      "artifact_path": "internal-docs/implementation/evidence/M9/m0-retired-campaign-claim-successor.exit.v1.txt",
+      "artifact_sha256": "a69a78edced27b7b6a8a91817e6376903e821ba0b9ba88e7e745644c3ceb3237",
+      "defect_class": "stale_artifact_binding",
+      "disposition_kind": "unaffected_by_admitted_corrections",
+      "reasoning": "Claim: retired-campaign claim fencing at its proof revision. Same import-time artifact mismatch over program/canon-overlay-dispositions.v1.json. ADR 0030/0031 changed no retained-claim-fencing family.",
+      "ruled_by": "owner directive 2026-08-01 (director session), lane A: mechanical disposition test — did ADR 0030/0031 change a contract family this claim depends on?",
+      "recorded_at_commit": "9a52067f4871837289a670f5f8879524ed82207e"
+    },
+    {
+      "artifact_path": "internal-docs/implementation/evidence/M9/m2-provider-isolation-closure-successor-aggregate.exit.v1.txt",
+      "artifact_sha256": "4449ac86f03057e56e8b42d1daba561c4da323d6594dd38a595f17633a561475",
+      "defect_class": "stale_artifact_binding",
+      "disposition_kind": "unaffected_by_admitted_corrections",
+      "reasoning": "Claim: provider isolation closure at its proof revision. Bound artifact docs/architecture/foundations/invariants.md moved via the containment wave (e4eba917c isolation-overclaim withdrawal, 3ae3f6810 isolation floor) — NOT via ADR 0030/0031, which carry no commit in that file. The isolation-floor drift is owned by the already-filed m2-isolation-containment-enforcement-successor record; this disposition adjudicates only the 0030/0031 question and hides nothing: that successor remains owed under its own record.",
+      "ruled_by": "owner directive 2026-08-01 (director session), lane A: mechanical disposition test — did ADR 0030/0031 change a contract family this claim depends on?",
+      "recorded_at_commit": "9a52067f4871837289a670f5f8879524ed82207e"
+    },
+    {
+      "artifact_path": "internal-docs/implementation/evidence/m0-exit.v1.txt",
+      "artifact_sha256": "be44ea045e43ce0fb5145fc6b8cf1d6e12b893a1170e7e324158e201d0d4b316",
+      "defect_class": "stale_artifact_binding",
+      "disposition_kind": "unaffected_by_admitted_corrections",
+      "reasoning": "Legacy top-level M0 literal, content-validated for the first time under the fixed checker boundary. Claim: the July-2026 M0 exit at its proof revision. Bound artifact docs/evidence/m0-program-control/m0-exit-report.json moved with branch program-control bookkeeping (413543689/8f8634532/219154326). ADR 0030/0031 changed no program-control family. The stale M0 literal is deliberately preserved, not regenerated; its family successors are already dispositioned to M9 records, and the three sibling cases dispositioned to the proposed m0-authority-admission-census-epoch-successor remain honestly open under that wave.",
+      "ruled_by": "owner directive 2026-08-01 (director session), lane A: mechanical disposition test — did ADR 0030/0031 change a contract family this claim depends on?",
+      "recorded_at_commit": "9a52067f4871837289a670f5f8879524ed82207e"
+    },
+    {
+      "artifact_path": "internal-docs/implementation/evidence/M9/m0-literal-exit-evidence-contract-successor.exit.v1.txt",
+      "artifact_sha256": "2bd64d2df7f98d4bc8ff24fcf1e456df446994521308fe789b163c30a33b577c",
+      "defect_class": "stale_artifact_binding",
+      "disposition_kind": "unaffected_by_admitted_corrections",
+      "reasoning": "Claim: the literal-exit evidence-contract bar at its proof revision. Bound artifact tools/check-literal-exit-contract.mjs was strengthened TODAY under the owner-ruled 2026-08-01 lane-A boundary fix (legacy top-level literals content-validated; unaffected-disposition kind added) — a deliberate strengthening, not ADR 0030/0031 drift. The bar cannot silently rot behind this disposition: it re-proves its own teeth on every invocation through the eight predeclared fixture classes and the historical-disposition self-tests, all of which passed in the same run that surfaced this case.",
+      "ruled_by": "owner directive 2026-08-01 (director session), lane A: mechanical disposition test — did ADR 0030/0031 change a contract family this claim depends on?",
+      "recorded_at_commit": "9a52067f4871837289a670f5f8879524ed82207e"
     }
   ],
   "nonclaim": "These entries retain and classify defective historical artifacts. They grant no proof, do not rewrite predecessor bytes, and cannot suppress a defect until the named successor is verified."
