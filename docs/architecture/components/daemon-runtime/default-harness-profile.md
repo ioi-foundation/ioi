@@ -184,7 +184,7 @@ profile; it does not make research the only non-software result family or move
 result ownership into the harness.
 
 The registered wire contract is
-`schema://ioi/foundations/goal-run-admission-path-decision/v1`. ADR 0029 records
+`schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1`. ADR 0029 records
 the durable owner ruling. Implementing or proving this direct-path contract
 does not satisfy the System-bound prerequisites, close M3, or admit P0.
 

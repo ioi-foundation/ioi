@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "schema://ioi/foundations/collaborative-work-graph/v1",
+  "$id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
   "title": "CollaborativeWorkGraph",
-  "x-ioi-schema-version": "ioi.foundations.collaborative-work-graph.v1",
+  "x-ioi-schema-version": "ioi.applications.ioi-ai.collaborative-work-graph.v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -27,7 +27,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "ioi.foundations.collaborative-work-graph.v1"
+      "const": "ioi.applications.ioi-ai.collaborative-work-graph.v1"
     },
     "projection_id": {
       "type": "string",

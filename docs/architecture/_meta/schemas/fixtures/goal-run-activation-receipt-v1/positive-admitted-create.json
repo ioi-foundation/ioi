@@ -3,7 +3,7 @@
   "receipt_id": "receipt://goal-run-activation/demo-create-1/admission",
   "receipt_ref": "receipt://goal-run-activation/demo-create-1/admission",
   "receipt_type": "goal_run_activation",
-  "receipt_profile_ref": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+  "receipt_profile_ref": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
   "activation_ref": "goal-run-activation://demo/create-1",
   "activation_mode": "create",
   "source_context": {
@@ -39,5 +39,5 @@
     "room_membership": "none",
     "budget_creation": "none"
   },
-  "receipt_root": "sha256:02d387b51679889632f233bf1ff1d5288f3f5be81308725fba478455fb0b6523"
+  "receipt_root": "sha256:5da11327a5f1fee4b5ca87b3965da0000c1e4cee8bfe3f47052c7bfb7d5dbb19"
 }

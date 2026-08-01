@@ -83,7 +83,7 @@
       "semantic_owner_paths": [],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalrunenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/goal-run/v1"
+        "schema://ioi/applications/ioi-ai/goal-run/v1"
       ],
       "schema_versions": [
         "ioi.goal-run.v1"

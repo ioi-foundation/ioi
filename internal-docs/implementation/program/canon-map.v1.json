@@ -13,14 +13,14 @@
     "missing_implementation_coverage": "Obligation-bearing canon with no owning stage or work item. An honest gap, not a pass."
   },
   "generated_by": "node internal-docs/implementation/tools/bootstrap-canon-map.mjs --write (one-time bootstrap; entries are maintained by hand afterwards)",
-  "subject_count": 364,
+  "subject_count": 356,
   "classification_counts": {
     "actively_sequenced": 176,
     "conformance_only": 19,
     "future_gated": 1,
     "missing_implementation_coverage": 1,
     "non_build_doctrine": 55,
-    "planned": 104,
+    "planned": 96,
     "unresolved_canon_gap": 8
   },
   "subjects": [
@@ -622,37 +622,7 @@
       "reason": "Registered by the M2 build wave for work item storage-profile-repair-and-availability; owner-anchored contract material with unit/route proofs at the cited anchors."
     },
     {
-      "id": "docs/architecture/_meta/schemas/attempt.v1.schema.json",
-      "kind": "contract_schema",
-      "classification": "planned",
-      "stages": [
-        "M4"
-      ],
-      "modules": [
-        "cooperation",
-        "mechanism-gates",
-        "product-ux",
-        "proof-and-evidence",
-        "runtime-fabric"
-      ],
-      "work_items": [
-        "m4-room-graph-truth-and-product-projection"
-      ],
-      "contract_families": [
-        "Attempt"
-      ],
-      "conformance_targets": [],
-      "code_anchors": [
-        "crates/types/src/app/generated/architecture_contracts.rs",
-        "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts"
-      ],
-      "proof_gates": [
-        "PG-3.5"
-      ],
-      "reason": "Registry-backed M4 Attempt contract. Its schema, fixtures, and generated projections admit the future contract shape; the proposed M4 record and target-runnable conformance suite still own executable proof and no status or product claim is granted."
-    },
-    {
-      "id": "docs/architecture/_meta/schemas/attempt.v2.schema.json",
+      "id": "docs/architecture/_meta/schemas/attempt.v3.schema.json",
       "kind": "contract_schema",
       "classification": "actively_sequenced",
       "stages": [
@@ -2299,37 +2269,7 @@
       "reason": "Registered by the M2 build wave for work item m2-node-attestation-identity-secret-readiness; owner-anchored contract material with unit/route proofs at the cited anchors."
     },
     {
-      "id": "docs/architecture/_meta/schemas/finding.v1.schema.json",
-      "kind": "contract_schema",
-      "classification": "planned",
-      "stages": [
-        "M4"
-      ],
-      "modules": [
-        "cooperation",
-        "mechanism-gates",
-        "product-ux",
-        "proof-and-evidence",
-        "runtime-fabric"
-      ],
-      "work_items": [
-        "m4-room-graph-truth-and-product-projection"
-      ],
-      "contract_families": [
-        "Finding"
-      ],
-      "conformance_targets": [],
-      "code_anchors": [
-        "crates/types/src/app/generated/architecture_contracts.rs",
-        "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts"
-      ],
-      "proof_gates": [
-        "PG-3.5"
-      ],
-      "reason": "Registry-backed M4 Finding contract. Its schema, fixtures, and generated projections admit the future contract shape; the proposed M4 record and target-runnable conformance suite still own executable proof and no status or product claim is granted."
-    },
-    {
-      "id": "docs/architecture/_meta/schemas/finding.v2.schema.json",
+      "id": "docs/architecture/_meta/schemas/finding.v3.schema.json",
       "kind": "contract_schema",
       "classification": "actively_sequenced",
       "stages": [
@@ -3796,36 +3736,7 @@
       "reason": "Registered by the M2 build wave for work item m2-writer-fence-and-lost-suffix; owner-anchored contract material with unit/route proofs at the cited anchors."
     },
     {
-      "id": "docs/architecture/_meta/schemas/outcome-delta.v1.schema.json",
-      "kind": "contract_schema",
-      "classification": "actively_sequenced",
-      "stages": [
-        "M3"
-      ],
-      "modules": [
-        "adversarial-proof-matrix",
-        "mechanism-gates",
-        "proof-and-evidence",
-        "runtime-fabric"
-      ],
-      "work_items": [
-        "m3-direct-path-and-exit-proof",
-        "m3-result-lifecycle-negative-retention"
-      ],
-      "contract_families": [
-        "OutcomeDelta"
-      ],
-      "conformance_targets": [],
-      "code_anchors": [
-        "crates/services/src/agentic/runtime/kernel/runtime_goal_pursuit.rs",
-        "crates/types/src/app/generated/architecture_contracts.rs",
-        "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts"
-      ],
-      "proof_gates": [],
-      "reason": "Registered M3 selected-profile contract with closed schema, positive and adversarial fixtures, generated Rust/TypeScript projections, and executable selected-profile coverage."
-    },
-    {
-      "id": "docs/architecture/_meta/schemas/outcome-delta.v2.schema.json",
+      "id": "docs/architecture/_meta/schemas/outcome-delta.v3.schema.json",
       "kind": "contract_schema",
       "classification": "actively_sequenced",
       "stages": [
@@ -3888,36 +3799,6 @@
       "reason": "Registry-backed M4 OutcomeRoomDiscussionProjection contract. Its schema, fixtures, and generated projections admit the future contract shape; the proposed M4 record and target-runnable conformance suite still own executable proof and no status or product claim is granted."
     },
     {
-      "id": "docs/architecture/_meta/schemas/outcome-room.v1.schema.json",
-      "kind": "contract_schema",
-      "classification": "planned",
-      "stages": [
-        "M4"
-      ],
-      "modules": [
-        "cooperation",
-        "mechanism-gates",
-        "product-ux",
-        "proof-and-evidence",
-        "runtime-fabric"
-      ],
-      "work_items": [
-        "m4-room-graph-truth-and-product-projection"
-      ],
-      "contract_families": [
-        "OutcomeRoom"
-      ],
-      "conformance_targets": [],
-      "code_anchors": [
-        "crates/types/src/app/generated/architecture_contracts.rs",
-        "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts"
-      ],
-      "proof_gates": [
-        "PG-3.5"
-      ],
-      "reason": "Registry-backed M4 OutcomeRoom contract. Its schema, fixtures, and generated projections admit the future contract shape; the proposed M4 record and target-runnable conformance suite still own executable proof and no status or product claim is granted."
-    },
-    {
       "id": "docs/architecture/_meta/schemas/outcome-room.v2.schema.json",
       "kind": "contract_schema",
       "classification": "actively_sequenced",
@@ -3951,37 +3832,7 @@
       "reason": "Registered M4 OutcomeRoom contract for the active room-graph cut; schema, fixtures, generated projections, runtime admission, and focused conformance ownership are bound here without asserting verification or product closure."
     },
     {
-      "id": "docs/architecture/_meta/schemas/participant-state-bundle.v1.schema.json",
-      "kind": "contract_schema",
-      "classification": "planned",
-      "stages": [
-        "M4"
-      ],
-      "modules": [
-        "cooperation",
-        "mechanism-gates",
-        "product-ux",
-        "proof-and-evidence",
-        "runtime-fabric"
-      ],
-      "work_items": [
-        "m4-room-graph-truth-and-product-projection"
-      ],
-      "contract_families": [
-        "ParticipantStateBundle"
-      ],
-      "conformance_targets": [],
-      "code_anchors": [
-        "crates/types/src/app/generated/architecture_contracts.rs",
-        "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts"
-      ],
-      "proof_gates": [
-        "PG-3.5"
-      ],
-      "reason": "Registry-backed M4 ParticipantStateBundle contract. Its schema, fixtures, and generated projections admit the future contract shape; the proposed M4 record and target-runnable conformance suite still own executable proof and no status or product claim is granted."
-    },
-    {
-      "id": "docs/architecture/_meta/schemas/participant-state-bundle.v2.schema.json",
+      "id": "docs/architecture/_meta/schemas/participant-state-bundle.v3.schema.json",
       "kind": "contract_schema",
       "classification": "actively_sequenced",
       "stages": [
@@ -4221,37 +4072,7 @@
       "reason": "cited by 6 work item(s) in stage(s) M3, M9, none yet advanced past proposed"
     },
     {
-      "id": "docs/architecture/_meta/schemas/room-admitted-object-base.v1.schema.json",
-      "kind": "contract_schema",
-      "classification": "planned",
-      "stages": [
-        "M4"
-      ],
-      "modules": [
-        "cooperation",
-        "mechanism-gates",
-        "product-ux",
-        "proof-and-evidence",
-        "runtime-fabric"
-      ],
-      "work_items": [
-        "m4-room-graph-truth-and-product-projection"
-      ],
-      "contract_families": [
-        "RoomAdmittedObjectBase"
-      ],
-      "conformance_targets": [],
-      "code_anchors": [
-        "crates/types/src/app/generated/architecture_contracts.rs",
-        "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts"
-      ],
-      "proof_gates": [
-        "PG-3.5"
-      ],
-      "reason": "Registry-backed M4 RoomAdmittedObjectBase contract. Its schema, fixtures, and generated projections admit the future contract shape; the proposed M4 record and target-runnable conformance suite still own executable proof and no status or product claim is granted."
-    },
-    {
-      "id": "docs/architecture/_meta/schemas/room-admitted-object-base.v2.schema.json",
+      "id": "docs/architecture/_meta/schemas/system-scoped-object-binding.v1.schema.json",
       "kind": "contract_schema",
       "classification": "actively_sequenced",
       "stages": [
@@ -4268,7 +4089,7 @@
         "m4-room-graph-truth-and-product-projection"
       ],
       "contract_families": [
-        "RoomAdmittedObjectBase"
+        "SystemScopedObjectBinding"
       ],
       "conformance_targets": [
         "docs/conformance/hypervisor-core/outcome-room-admission.md"
@@ -4281,7 +4102,7 @@
       "proof_gates": [
         "PG-3.5"
       ],
-      "reason": "Registered M4 RoomAdmittedObjectBase contract for the active room-graph cut; schema, fixtures, generated projections, runtime admission, and focused conformance ownership are bound here without asserting verification or product closure."
+      "reason": "Registered substrate-generic SystemScopedObjectBinding for the active M4 room-composition cut; schema, fixtures, generated projections, runtime association, and focused conformance ownership are bound here without creating a room admission plane or asserting product closure."
     },
     {
       "id": "docs/architecture/_meta/schemas/runtime-action-schema.json",
@@ -4585,37 +4406,7 @@
       "reason": "Registered by the M2 build wave for work item m2-node-attestation-identity-secret-readiness; owner-anchored contract material with unit/route proofs at the cited anchors."
     },
     {
-      "id": "docs/architecture/_meta/schemas/verifier-challenge.v1.schema.json",
-      "kind": "contract_schema",
-      "classification": "planned",
-      "stages": [
-        "M4"
-      ],
-      "modules": [
-        "cooperation",
-        "mechanism-gates",
-        "product-ux",
-        "proof-and-evidence",
-        "runtime-fabric"
-      ],
-      "work_items": [
-        "m4-room-graph-truth-and-product-projection"
-      ],
-      "contract_families": [
-        "VerifierChallenge"
-      ],
-      "conformance_targets": [],
-      "code_anchors": [
-        "crates/types/src/app/generated/architecture_contracts.rs",
-        "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts"
-      ],
-      "proof_gates": [
-        "PG-3.5"
-      ],
-      "reason": "Registry-backed M4 VerifierChallenge contract. Its schema, fixtures, and generated projections admit the future contract shape; the proposed M4 record and target-runnable conformance suite still own executable proof and no status or product claim is granted."
-    },
-    {
-      "id": "docs/architecture/_meta/schemas/verifier-challenge.v2.schema.json",
+      "id": "docs/architecture/_meta/schemas/verifier-challenge.v3.schema.json",
       "kind": "contract_schema",
       "classification": "actively_sequenced",
       "stages": [
@@ -4648,37 +4439,7 @@
       "reason": "Registered M4 VerifierChallenge contract for the active room-graph cut; schema, fixtures, generated projections, runtime admission, and focused conformance ownership are bound here without asserting verification or product closure."
     },
     {
-      "id": "docs/architecture/_meta/schemas/work-claim-lease.v1.schema.json",
-      "kind": "contract_schema",
-      "classification": "planned",
-      "stages": [
-        "M4"
-      ],
-      "modules": [
-        "cooperation",
-        "mechanism-gates",
-        "product-ux",
-        "proof-and-evidence",
-        "runtime-fabric"
-      ],
-      "work_items": [
-        "m4-room-graph-truth-and-product-projection"
-      ],
-      "contract_families": [
-        "WorkClaimLease"
-      ],
-      "conformance_targets": [],
-      "code_anchors": [
-        "crates/types/src/app/generated/architecture_contracts.rs",
-        "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts"
-      ],
-      "proof_gates": [
-        "PG-3.5"
-      ],
-      "reason": "Registry-backed M4 WorkClaimLease contract. Its schema, fixtures, and generated projections admit the future contract shape; the proposed M4 record and target-runnable conformance suite still own executable proof and no status or product claim is granted."
-    },
-    {
-      "id": "docs/architecture/_meta/schemas/work-claim-lease.v2.schema.json",
+      "id": "docs/architecture/_meta/schemas/work-claim-lease.v3.schema.json",
       "kind": "contract_schema",
       "classification": "actively_sequenced",
       "stages": [
@@ -4711,37 +4472,7 @@
       "reason": "Registered M4 WorkClaimLease contract for the active room-graph cut; schema, fixtures, generated projections, runtime admission, and focused conformance ownership are bound here without asserting verification or product closure."
     },
     {
-      "id": "docs/architecture/_meta/schemas/work-frontier-item.v1.schema.json",
-      "kind": "contract_schema",
-      "classification": "planned",
-      "stages": [
-        "M4"
-      ],
-      "modules": [
-        "cooperation",
-        "mechanism-gates",
-        "product-ux",
-        "proof-and-evidence",
-        "runtime-fabric"
-      ],
-      "work_items": [
-        "m4-room-graph-truth-and-product-projection"
-      ],
-      "contract_families": [
-        "WorkFrontierItem"
-      ],
-      "conformance_targets": [],
-      "code_anchors": [
-        "crates/types/src/app/generated/architecture_contracts.rs",
-        "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts"
-      ],
-      "proof_gates": [
-        "PG-3.5"
-      ],
-      "reason": "Registry-backed M4 WorkFrontierItem contract. Its schema, fixtures, and generated projections admit the future contract shape; the proposed M4 record and target-runnable conformance suite still own executable proof and no status or product claim is granted."
-    },
-    {
-      "id": "docs/architecture/_meta/schemas/work-frontier-item.v2.schema.json",
+      "id": "docs/architecture/_meta/schemas/work-frontier-item.v3.schema.json",
       "kind": "contract_schema",
       "classification": "actively_sequenced",
       "stages": [
@@ -4805,7 +4536,7 @@
       "reason": "Registered M3 selected-profile contract with closed schema, positive and adversarial fixtures, generated Rust/TypeScript projections, and executable selected-profile coverage."
     },
     {
-      "id": "docs/architecture/_meta/schemas/work-result.v2.schema.json",
+      "id": "docs/architecture/_meta/schemas/work-result.v3.schema.json",
       "kind": "contract_schema",
       "classification": "actively_sequenced",
       "stages": [
@@ -4836,35 +4567,6 @@
         "PG-3.5"
       ],
       "reason": "Registered M4 WorkResult contract for the active room-graph cut; schema, fixtures, generated projections, runtime admission, and focused conformance ownership are bound here without asserting verification or product closure."
-    },
-    {
-      "id": "docs/architecture/_meta/schemas/work-result.v1.schema.json",
-      "kind": "contract_schema",
-      "classification": "actively_sequenced",
-      "stages": [
-        "M3"
-      ],
-      "modules": [
-        "adversarial-proof-matrix",
-        "mechanism-gates",
-        "proof-and-evidence",
-        "runtime-fabric"
-      ],
-      "work_items": [
-        "m3-direct-path-and-exit-proof",
-        "m3-result-lifecycle-negative-retention"
-      ],
-      "contract_families": [
-        "WorkResult"
-      ],
-      "conformance_targets": [],
-      "code_anchors": [
-        "crates/services/src/agentic/runtime/kernel/runtime_goal_pursuit.rs",
-        "crates/types/src/app/generated/architecture_contracts.rs",
-        "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts"
-      ],
-      "proof_gates": [],
-      "reason": "Registered M3 selected-profile contract with closed schema, positive and adversarial fixtures, generated Rust/TypeScript projections, and executable selected-profile coverage."
     },
     {
       "id": "docs/architecture/_meta/schemas/workflow-template.v1.schema.json",
@@ -10753,6 +10455,42 @@
       ],
       "proof_gates": [],
       "reason": "Accepted M3 owner ruling for daemon-owned direct-path admission and the preselected research WorkResult conformance profile."
+    },
+    {
+      "id": "docs/decisions/0030-rooms-are-a-composition-not-a-primitive-family.md",
+      "kind": "adr",
+      "classification": "actively_sequenced",
+      "stages": [
+        "M4"
+      ],
+      "modules": [
+        "cooperation",
+        "mechanism-gates",
+        "product-ux",
+        "proof-and-evidence",
+        "runtime-fabric"
+      ],
+      "work_items": [
+        "m4-room-graph-truth-and-product-projection"
+      ],
+      "contract_families": [
+        "OutcomeRoom",
+        "SystemScopedObjectBinding",
+        "WorkResult",
+        "OutcomeDelta"
+      ],
+      "conformance_targets": [
+        "docs/conformance/hypervisor-core/outcome-room-admission.md"
+      ],
+      "code_anchors": [
+        "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs"
+      ],
+      "proof_gates": [
+        "PG-3.5"
+      ],
+      "reason": "Proposed owner ruling actively sequenced in the reopened M4 cut: rooms compose through System genesis and Agentgres admission, SystemScopedObjectBinding carries non-authoritative association, and no room-owned CAS, receipt, or state-root spine is admitted."
     },
     {
       "id": "docs/decisions/README.md",

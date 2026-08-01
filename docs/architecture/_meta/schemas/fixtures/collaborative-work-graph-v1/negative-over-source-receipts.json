@@ -1,5 +1,5 @@
 {
-  "schema_version": "ioi.foundations.collaborative-work-graph.v1",
+  "schema_version": "ioi.applications.ioi-ai.collaborative-work-graph.v1",
   "projection_id": "projection://room/demo/graph/1",
   "outcome_room_ref": "outcome-room://demo",
   "source_room_revision": 1,

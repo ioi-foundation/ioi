@@ -1,7 +1,7 @@
 {
-  "$id": "invariant://ioi/foundations/goal-run-activation-receipt/admission/v1",
+  "$id": "invariant://ioi/applications/ioi-ai/goal-run-activation-receipt/admission/v1",
   "language": "ioi.portable-invariants.v1",
-  "contract_id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
   "rules": [
     {
       "rule_id": "goal_run_activation_receipt.identity.matches",

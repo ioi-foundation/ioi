@@ -74,213 +74,12 @@ const BUILTIN_BOUNDED_ADMISSION_POLICY_KEY: &str = "bounded-direct-release-v1";
 const BUILTIN_ZERO_EXECUTION_CEILING_KEY: &str = "ioi-goal-draft-zero-release-v1";
 const GOAL_RUN_ACTIVATION_RECEIPT_TYPE: &str = "goal_run_activation";
 const GOAL_RUN_ACTIVATION_RECEIPT_PROFILE: &str =
-    "schema://ioi/foundations/goal-run-activation-receipt/v1";
+    "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1";
 const GOAL_RUN_CREATE_AUTHORITY_SCOPE: &str = "scope:goal.run.create";
 const M4_HOSTED_COLLECTIVE_POLICY_REF: &str = "policy://ioi/m4/hosted-only";
 const OUTCOME_ROOM_PACKAGE_REF: &str = "package://ioi/outcome-room";
 const ADMISSION_FACT_RESOLUTION_SCHEMA: &str = "ioi.goal-run-admission-runtime-fact-resolution.v1";
-const LEGACY_GOAL_RUN_WORK_RESULT_KIND: &str = "work-results";
-
-fn migration_invalid(message: impl Into<String>) -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::InvalidData, message.into())
-}
-
-fn canonical_work_results_by_id(data_dir: &str) -> std::io::Result<HashMap<String, Value>> {
-    let mut canonical = HashMap::<String, Value>::new();
-    for record in
-        super::work_result_routes::list_work_results_strict(data_dir).map_err(migration_invalid)?
-    {
-        let id = text(&record, "work_result_id");
-        if id.is_empty() || canonical.insert(id.to_owned(), record).is_some() {
-            return Err(migration_invalid(
-                "canonical WorkResult registry contains a missing or duplicate identity",
-            ));
-        }
-    }
-    Ok(canonical)
-}
-
-fn commit_migrated_work_result_no_clobber(
-    data_dir: &str,
-    key: &str,
-    record: &Value,
-) -> std::io::Result<()> {
-    super::durable_fs::persist_receipt_no_clobber(
-        data_dir,
-        super::work_result_routes::RESULT_DIR,
-        key,
-        record,
-    )
-    .map_err(|failure| {
-        migration_invalid(format!(
-            "legacy WorkResult '{key}' could not commit through the durable no-clobber writer ({failure:?})"
-        ))
-    })?;
-    // Preserve the generic record writer's opt-in substrate soak behavior. The canonical read
-    // owner remains the file registry until this family passes promotion independently.
-    super::substrate_store::dual_write(
-        data_dir,
-        super::work_result_routes::RESULT_DIR,
-        key,
-        record,
-    );
-    Ok(())
-}
-
-/// Repair only the exact hash slot that the former migration could have truncated. The intact,
-/// fully validated M3 source remains authoritative for this one-time fold. Unknown occupants,
-/// valid-but-different JSON, symlinks, and unrelated malformed slots remain hard readiness
-/// failures: recovery never guesses or overwrites ambiguous truth.
-fn recover_interrupted_legacy_work_result_copies(
-    data_dir: &str,
-    legacy: &[Value],
-) -> std::io::Result<usize> {
-    use super::durable_fs::UnlinkOutcome;
-
-    let directory = match super::durable_fs::open_family_dir_pinned(
-        data_dir,
-        super::work_result_routes::RESULT_DIR,
-    ) {
-        Ok(directory) => directory,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
-        Err(error) => return Err(error),
-    };
-    let mut repaired = 0;
-    for record in legacy {
-        let result_ref = text(record, "work_result_id");
-        let key = super::work_result_routes::goal_run_work_truth_record_key(result_ref);
-        let target = format!("{key}.json");
-        let occupant =
-            super::durable_fs::read_slot_strict(&directory, &target).map_err(|error| {
-                migration_invalid(format!(
-                    "canonical migration slot '{target}' is unreadable ({error})"
-                ))
-            })?;
-        let Some((_file, bytes)) = occupant else {
-            continue;
-        };
-        match serde_json::from_slice::<Value>(&bytes) {
-            Ok(existing) if existing == *record => {
-                // A process may have died after the no-clobber link became visible but before its
-                // directory barrier. Replaying the exact bytes re-fsyncs and re-certifies it.
-                commit_migrated_work_result_no_clobber(data_dir, &key, record)?;
-            }
-            Ok(_) => {
-                // Valid divergent truth is never migration residue and must not be overwritten.
-            }
-            Err(_) => {
-                // The former direct `std::fs::write` migration could leave only this exact target
-                // truncated. Durably removing it is restart-safe: a crash after removal leaves an
-                // absent slot which the next boot fills through the anonymous no-clobber writer.
-                match super::durable_fs::unlink_durable_at(
-                    &directory,
-                    &target,
-                    "m4-legacy-work-result-partial-copy",
-                )? {
-                    UnlinkOutcome::Absent | UnlinkOutcome::Durable => {}
-                    outcome => {
-                        return Err(migration_invalid(format!(
-                            "partial canonical WorkResult removal was not durability-confirmed ({outcome:?})"
-                        )))
-                    }
-                }
-                commit_migrated_work_result_no_clobber(data_dir, &key, record)?;
-                repaired += 1;
-            }
-        }
-    }
-    Ok(repaired)
-}
-
-/// One-way compatibility fold for M3-era direct GoalRun results. M4 makes the canonical
-/// WorkResult registry the only live read/write owner; startup copies any legacy result whose
-/// identity is not already present, then leaves the old file as inert migration history. Every
-/// new slot uses the descriptor-bound, no-clobber durable writer. An interrupted predecessor copy
-/// is recoverable from its exact validated legacy source; ambiguity still blocks readiness.
-pub(crate) fn migrate_legacy_goal_run_work_results(data_dir: &str) -> std::io::Result<usize> {
-    let legacy_dir =
-        match super::durable_fs::open_family_dir_pinned(data_dir, LEGACY_GOAL_RUN_WORK_RESULT_KIND)
-        {
-            Ok(directory) => directory,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                canonical_work_results_by_id(data_dir)?;
-                return Ok(0);
-            }
-            Err(error) => return Err(error),
-        };
-    let mut names = super::durable_fs::enumerate_pinned(&legacy_dir)?;
-    names.sort();
-    let mut seen_legacy = BTreeSet::<String>::new();
-    let mut legacy = Vec::new();
-    for name in names {
-        if !name.ends_with(".json") {
-            return Err(migration_invalid(format!(
-                "legacy GoalRun WorkResult registry contains non-record entry '{name}'"
-            )));
-        }
-        let Some((_file, bytes)) = super::durable_fs::read_slot_strict(&legacy_dir, &name)? else {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("legacy GoalRun WorkResult slot '{name}' vanished during migration"),
-            ));
-        };
-        let record: Value = serde_json::from_slice(&bytes).map_err(|error| {
-            migration_invalid(format!("legacy GoalRun WorkResult is malformed ({error})"))
-        })?;
-        let result_ref = text(&record, "work_result_id");
-        let goal_ref = text(&record, "goal_run_ref");
-        if record.get("schema_version").and_then(Value::as_str)
-            != Some("ioi.foundations.work-result.v1")
-            || !result_ref.starts_with("work-result://")
-            || !goal_ref.starts_with("goal://")
-            || name != format!("{}.json", safe(result_ref))
-        {
-            return Err(migration_invalid(format!(
-                    "legacy GoalRun WorkResult slot '{name}' fails schema, identity, path, or GoalRun binding"
-                )));
-        }
-        if !seen_legacy.insert(result_ref.to_owned()) {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::AlreadyExists,
-                format!("legacy WorkResult '{result_ref}' resolves more than once"),
-            ));
-        }
-        legacy.push(record);
-    }
-
-    let mut migrated = recover_interrupted_legacy_work_result_copies(data_dir, &legacy)?;
-    let mut canonical = canonical_work_results_by_id(data_dir)?;
-    for record in &legacy {
-        let result_ref = text(record, "work_result_id");
-        if let Some(existing) = canonical.get(result_ref) {
-            if existing != record {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::AlreadyExists,
-                    format!(
-                        "legacy WorkResult '{result_ref}' differs from its live versioned record"
-                    ),
-                ));
-            }
-        } else {
-            let key = super::work_result_routes::goal_run_work_truth_record_key(result_ref);
-            commit_migrated_work_result_no_clobber(data_dir, &key, record)?;
-            canonical.insert(result_ref.to_owned(), record.clone());
-            migrated += 1;
-        }
-    }
-    // Re-read through the live versioned contract. A successful copy is not migration evidence if
-    // the resulting registry cannot be resolved exactly on the same startup.
-    let final_canonical = canonical_work_results_by_id(data_dir)?;
-    for record in &legacy {
-        let result_ref = text(record, "work_result_id");
-        if final_canonical.get(result_ref) != Some(record) {
-            return Err(migration_invalid(format!(
-                "legacy WorkResult '{result_ref}' did not re-resolve byte-exactly after migration"
-            )));
-        }
-    }
-    Ok(migrated)
-}
+// Live compatibility migration for superseded WorkResult contracts was deleted under ADR 0022.
 
 /// GoalRun record mutation lock (#72 review round 2). LOCK ORDERING (fixed, documented):
 /// ROOM_MUTATION_LOCK — when held — is always acquired BEFORE this lock; no .await ever executes
@@ -1473,7 +1272,7 @@ fn zero_execution_ceiling() -> Result<Value, HttpRefusal> {
 
 fn validate_zero_execution_ceiling(record: &Value) -> Result<(), HttpRefusal> {
     ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-        "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+        "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
         record,
     )
     .map_err(|error| {
@@ -1598,7 +1397,7 @@ fn activation_profile(
         "display_name": "Generic adaptive",
         "description": "A bounded single-subject profile whose admission dependencies are frozen from daemon-owned releases.",
         "applicable_goal_class_refs": ["schema://ioi/ioi-ai/goal-draft/v1"],
-        "compatible_domain_object_schema_refs": ["schema://ioi/foundations/work-result/v1"],
+        "compatible_domain_object_schema_refs": ["schema://ioi/foundations/work-result/v3"],
         "orchestration_policy_ref": policy.get("policy_ref").cloned().unwrap_or(Value::Null),
         "constraint_derivation_policy_refs": ["policy://ioi/goal-run/source-derived-constraints/v1"],
         "workflow_template_revision_refs": [],
@@ -1614,7 +1413,7 @@ fn activation_profile(
         "primitive_capability_requirements": [],
         "context_requirement_profile_refs": [],
         "input_contract_ref": "schema://ioi/ioi-ai/goal-draft/v1",
-        "output_contract_ref": "schema://ioi/foundations/work-result/v1",
+        "output_contract_ref": "schema://ioi/foundations/work-result/v3",
         "acceptance_contract_refs": [],
         "verifier_requirement_refs": [],
         "budget_time_and_resource_ceiling_refs": [execution_ceiling.get("revision_ref").cloned().unwrap_or(Value::Null)],
@@ -2273,7 +2072,7 @@ fn admit_activation_state(
     record["state_root"] = json!(root);
     record["state_root_ref"] = json!(root_ref);
     ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-        "schema://ioi/foundations/goal-run-admitted-state/v1",
+        "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
         &record,
     )
     .map_err(|error| {
@@ -3524,7 +3323,7 @@ fn create_direct_goal_run(
     }
     if let Err(error) =
         ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-            "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1",
+            "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
             resolution.get("resolution_receipt").unwrap_or(&Value::Null),
         )
     {
@@ -3705,7 +3504,7 @@ fn create_direct_goal_run(
             "obligation_id": format!("receipt-obligation://goal-run/{goal_run_id}/admission"),
             "boundary_event":"admission",
             "receipt_type":"goal_run_admission_path_decision",
-            "receipt_profile_ref":"schema://ioi/foundations/goal-run-admission-path-decision/v1",
+            "receipt_profile_ref":"schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
             "bound_fact_requirement_refs":[
                 decision.get("decision_ref").cloned().unwrap_or(Value::Null),
                 goal_ref
@@ -3716,7 +3515,7 @@ fn create_direct_goal_run(
             "obligation_id": format!("receipt-obligation://goal-run/{goal_run_id}/close-or-escalate"),
             "boundary_event":"close_or_escalate",
             "receipt_type":"work_result",
-            "receipt_profile_ref":"schema://ioi/foundations/work-result/v1",
+            "receipt_profile_ref":"schema://ioi/foundations/work-result/v3",
             "bound_fact_requirement_refs":[goal_ref],
             "required":true
         }),
@@ -3807,7 +3606,7 @@ fn create_direct_goal_run(
     if activation.is_some() {
         if let Err(error) =
             ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-                "schema://ioi/foundations/goal-run/v1",
+                "schema://ioi/applications/ioi-ai/goal-run/v1",
                 &record,
             )
         {
@@ -4016,7 +3815,7 @@ fn activation_projection(st: &DaemonState, id: &str, replayed: bool) -> Result<V
         if let Some(run) = goal_run.as_ref() {
             if let Err(error) =
                 ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-                    "schema://ioi/foundations/goal-run/v1",
+                    "schema://ioi/applications/ioi-ai/goal-run/v1",
                     run,
                 )
             {
@@ -4124,7 +3923,7 @@ fn activation_projection(st: &DaemonState, id: &str, replayed: bool) -> Result<V
         )?;
         if let Err(error) =
             ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-                "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1",
+                "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
                 &resolution_receipt,
             )
         {
@@ -7641,7 +7440,7 @@ fn derive_invocation_work_result(
             .is_some_and(|refs| refs.iter().any(|value| value.as_str() == Some(goal_ref)))
     {
         return Err((
-            "work_result_runtime_room_binding_diverged".into(),
+            "work_result_runtime_system_binding_diverged".into(),
             "OutcomeRoom, System, and GoalRun reciprocal membership do not resolve exactly".into(),
         ));
     }
@@ -7991,17 +7790,13 @@ fn derive_invocation_work_result(
         conductor_verification_evidence,
     ) = conductor_verification_evidence(goal_run_id, invocation_ref, &receipt, verification)?;
     let result = json!({
-        "schema_version":"ioi.foundations.work-result.v2",
+        "schema_version":"ioi.foundations.work-result.v3",
         "work_result_id":result_ref,
         "work_subject_ref":goal_ref,
-        "goal_run_ref":goal_ref,
-        "outcome_room_ref":Value::Null,
-        "room_admission":Value::Null,
+        "system_binding":Value::Null,
         "produced_by_ref":system_id,
         "submitted_by_ref":system_id,
         "operator_and_affiliation_refs":[goal_run.get("owner_ref").cloned().unwrap_or(Value::Null)],
-        "work_claim_ref":Value::Null,
-        "attempt_ref":Value::Null,
         "invocation_or_run_ref":invocation_ref,
         "result_profile":"software_implementation",
         "result_profile_ref":"profile://ioi/software-implementation/implementation-result-payload/v1",
@@ -8019,7 +7814,7 @@ fn derive_invocation_work_result(
         "outcome_class":"positive",
         "status":"completed",
         "outcome_delta_refs":[],
-        "finding_refs":[],
+        "observation_refs":[],
         "claim_refs":[verification_evidence_ref],
         "uncertainty":{
             "acceptance_not_implied":true,
@@ -8036,7 +7831,7 @@ fn derive_invocation_work_result(
         "reproduction_state":"unreviewed",
         "reproduction_refs":[receipt_ref],
         "acceptance_ref":Value::Null,
-        "challenge_refs":[],
+        "review_refs":[],
         "supersedes_work_result_ref":Value::Null,
         "superseded_by_ref":Value::Null,
         "summary_ref":Value::Null,
@@ -8217,7 +8012,7 @@ fn expected_room_result_runtime_dependency_intent(
             &authority,
             &receipt,
             text(work_result, "invocation_or_run_ref"),
-            text(work_result, "goal_run_ref"),
+            text(work_result, "work_subject_ref"),
         )?;
     let (component_ref, component_key, component) = component_resolution_snapshot(
         text(&invocation, "goal_run_id"),
@@ -8361,6 +8156,11 @@ pub(crate) fn validate_room_owner_runtime_dependency_intent(
     ] {
         let _ = closed_dependency_entry(dependency_intent, field)?;
     }
+    // Validate the WorkResult's invocation-derived artifact identity before any retained
+    // dependency can be converged. This is deliberately side-effect free: recovery must reject
+    // a self-consistently re-rooted owner/operation substitution without rewriting its intent or
+    // admitting any payload, label, component, verification, or authority records first.
+    let _ = expected_payload_inputs_for_work_result(data_dir, work_result)?;
     let expected = expected_room_result_runtime_dependency_intent(
         data_dir,
         room,
@@ -8864,10 +8664,10 @@ pub(crate) fn validate_room_owner_runtime_dependencies(
     owner_record: &Value,
 ) -> Result<(), SeamErr> {
     match owner_record.get("schema_version").and_then(Value::as_str) {
-        Some("ioi.foundations.work-result.v2") => {
+        Some("ioi.foundations.work-result.v3") => {
             validate_work_result_runtime_dependencies(data_dir, room, owner_record)
         }
-        Some("ioi.foundations.outcome-delta.v2") => {
+        Some("ioi.foundations.outcome-delta.v3") => {
             resolve_information_flow_label_set(
                 data_dir,
                 owner_record
@@ -8878,15 +8678,14 @@ pub(crate) fn validate_room_owner_runtime_dependencies(
         }
         _ => Err((
             "outcome_room_owner_record_contract_unavailable".into(),
-            "runtime dependency validation owns only room WorkResult and OutcomeDelta v2".into(),
+            "runtime dependency validation owns only room WorkResult and OutcomeDelta v3".into(),
         )),
     }
 }
 
 fn admitted_matches_derived_runtime_result(admitted: &Value, derived: &Value) -> bool {
     let mut normalized = admitted.clone();
-    normalized["outcome_room_ref"] = Value::Null;
-    normalized["room_admission"] = Value::Null;
+    normalized["system_binding"] = Value::Null;
     normalized == *derived
 }
 
@@ -8943,7 +8742,7 @@ fn converge_invocation_work_result(
             && current.pointer("/work_result_derivation/result_payload_ref")
                 == admitted_object.get("result_payload_ref")
             && current.pointer("/work_result_derivation/outcome_room_ref")
-                == admitted_object.get("outcome_room_ref")
+                == admitted_object.pointer("/system_binding/parent_scope_ref")
             && current
                 .pointer("/work_result_derivation/invocation_successor_root")
                 .and_then(Value::as_str)
@@ -8958,7 +8757,7 @@ fn converge_invocation_work_result(
             ))
         };
     }
-    let goal_ref = text(admitted_object, "goal_run_ref");
+    let goal_ref = text(admitted_object, "work_subject_ref");
     let goal_run = load_goal_run_strict(data_dir, goal_ref)
         .map_err(|error| ("outcome_room_invocation_goal_unreadable".into(), error))?
         .ok_or_else(|| {
@@ -8981,7 +8780,7 @@ fn converge_invocation_work_result(
     derived.successor_invocation["work_result_derivation"] = json!({
         "schema_version":"ioi.harness-invocation-work-result-derivation.v1",
         "work_result_ref":work_result_ref,
-        "outcome_room_ref":admitted_object.get("outcome_room_ref").cloned().unwrap_or(Value::Null),
+        "outcome_room_ref":admitted_object.pointer("/system_binding/parent_scope_ref").cloned().unwrap_or(Value::Null),
         "result_payload_ref":admitted_object.get("result_payload_ref").cloned().unwrap_or(Value::Null),
         "admitted_work_result_root":admitted_root,
         "invocation_successor_root":invocation_successor_root,
@@ -9073,7 +8872,12 @@ pub(crate) async fn handle_goal_run_result_create(
         // Callers follow the refs-only convergence summary through the canonical owner GETs.
         return (StatusCode::CREATED, Json(room_admission));
     }
-    for plane_owned in ["goal_run_ref", "outcome_room_ref", "room_admission"] {
+    for plane_owned in [
+        "goal_run_ref",
+        "outcome_room_ref",
+        "room_admission",
+        "system_binding",
+    ] {
         if object
             .get(plane_owned)
             .is_some_and(|value| !value.is_null())
@@ -9086,7 +8890,7 @@ pub(crate) async fn handle_goal_run_result_create(
         }
     }
     object.insert(
-        "goal_run_ref".into(),
+        "work_subject_ref".into(),
         goal_run.get("goal_ref").cloned().unwrap_or(Value::Null),
     );
     // The daemon owns producer truth. A caller-supplied producer resolution is never
@@ -9261,7 +9065,7 @@ fn room_owner_record_is_exact_or_successor(existing: &Value, expected: &Value) -
         return true;
     }
     if expected.get("schema_version").and_then(Value::as_str)
-        != Some("ioi.foundations.work-result.v2")
+        != Some("ioi.foundations.work-result.v3")
     {
         return false;
     }
@@ -9393,31 +9197,35 @@ pub(crate) fn converge_room_owner_backlinks(
         ));
     }
     let schema = text(admitted_object, "schema_version");
-    let room_ref = text(admitted_object, "outcome_room_ref");
+    let system_binding = admitted_object
+        .get("system_binding")
+        .unwrap_or(&Value::Null);
+    let room_ref = system_binding
+        .get("parent_scope_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if room_ref.is_empty()
-        || admitted_object
-            .pointer("/room_admission/admission_receipt_ref")
+        || system_binding.get("schema_version").and_then(Value::as_str)
+            != Some("ioi.foundations.system-scoped-object-binding.v1")
+        || system_binding
+            .get("parent_scope_ref")
             .and_then(Value::as_str)
-            != Some(room_admission_receipt_ref)
-        || admitted_object
-            .pointer("/room_admission/admission_status")
-            .and_then(Value::as_str)
-            != Some("admitted")
+            != Some(room_ref)
     {
         return Err((
             "outcome_room_owner_admission_binding_invalid".into(),
-            "owner object does not bind the committed room admission receipt".into(),
+            "owner object does not carry the exact SystemScopedObjectBinding".into(),
         ));
     }
     let (family, identity_field, identity, goal_ref, proposer) = match schema {
-        "ioi.foundations.work-result.v2" => (
+        "ioi.foundations.work-result.v3" => (
             super::work_result_routes::RESULT_DIR,
             "work_result_id",
             text(admitted_object, "work_result_id").to_string(),
-            text(admitted_object, "goal_run_ref").to_string(),
+            text(admitted_object, "work_subject_ref").to_string(),
             None,
         ),
-        "ioi.foundations.outcome-delta.v2" => (
+        "ioi.foundations.outcome-delta.v3" => (
             super::work_result_routes::DELTA_DIR,
             "outcome_delta_id",
             text(admitted_object, "outcome_delta_id").to_string(),
@@ -9427,7 +9235,7 @@ pub(crate) fn converge_room_owner_backlinks(
         _ => {
             return Err((
                 "outcome_room_owner_record_contract_unavailable".into(),
-                "only room-admitted WorkResult v2 and OutcomeDelta v2 records may converge".into(),
+                "only room-scoped WorkResult v3 and OutcomeDelta v3 records may converge".into(),
             ))
         }
     };
@@ -9444,7 +9252,7 @@ pub(crate) fn converge_room_owner_backlinks(
         &identity,
         admitted_object,
     )?;
-    let harness_invocation = if schema == "ioi.foundations.work-result.v2" {
+    let harness_invocation = if schema == "ioi.foundations.work-result.v3" {
         Some(converge_invocation_work_result(data_dir, admitted_object)?)
     } else {
         None
@@ -9464,20 +9272,24 @@ pub(crate) fn converge_room_owner_backlinks(
                 )
             })?;
         if result.get("schema_version").and_then(Value::as_str)
-            != Some("ioi.foundations.work-result.v2")
+            != Some("ioi.foundations.work-result.v3")
         {
             return Err((
                 "outcome_room_delta_work_result_contract_mismatch".into(),
                 "OutcomeDelta proposer is not the current room WorkResult contract".into(),
             ));
         }
-        if text(&result, "outcome_room_ref") != room_ref {
+        if result
+            .pointer("/system_binding/parent_scope_ref")
+            .and_then(Value::as_str)
+            != Some(room_ref)
+        {
             return Err((
                 "outcome_room_delta_work_result_room_mismatch".into(),
                 "OutcomeDelta proposer belongs to a different room".into(),
             ));
         }
-        let goal_ref = text(&result, "goal_run_ref").to_string();
+        let goal_ref = text(&result, "work_subject_ref").to_string();
         let refs = result
             .get_mut("outcome_delta_refs")
             .and_then(Value::as_array_mut)
@@ -9519,7 +9331,7 @@ pub(crate) fn converge_room_owner_backlinks(
         )
     })?;
     let backlink_updated_at = admitted_object
-        .pointer("/room_admission/updated_at")
+        .pointer("/system_binding/updated_at")
         .and_then(Value::as_str)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| {
@@ -9542,7 +9354,7 @@ pub(crate) fn converge_room_owner_backlinks(
             Ok(())
         },
         |run| {
-            if schema == "ioi.foundations.work-result.v2" {
+            if schema == "ioi.foundations.work-result.v3" {
                 let refs = run
                     .entry("work_result_refs")
                     .or_insert_with(|| json!([]))
@@ -9584,10 +9396,7 @@ pub(crate) fn converge_room_owner_backlinks(
 }
 
 fn work_result_goal_ref_for_delta_binding(work_result: &Value) -> Option<&str> {
-    work_result
-        .get("goal_run_ref")
-        .and_then(Value::as_str)
-        .or_else(|| work_result.get("work_subject_ref").and_then(Value::as_str))
+    work_result.get("work_subject_ref").and_then(Value::as_str)
 }
 
 /// POST /v1/goal-orchestration/goal-runs/:id/outcome-deltas — admit a proposed direct-lane
@@ -9638,6 +9447,7 @@ pub(crate) async fn handle_goal_run_outcome_delta_create(
         "work_subject_ref",
         "outcome_room_ref",
         "room_admission",
+        "system_binding",
         "status",
         "effect_executed",
         "acceptance_granted",
@@ -9687,11 +9497,7 @@ pub(crate) async fn handle_goal_run_outcome_delta_create(
                 )
             }
         };
-    let expected_result_schema = if room_ref.is_empty() {
-        "ioi.foundations.work-result.v1"
-    } else {
-        "ioi.foundations.work-result.v2"
-    };
+    let expected_result_schema = "ioi.foundations.work-result.v3";
     if work_result.get("schema_version").and_then(Value::as_str) != Some(expected_result_schema) {
         return bad(
             StatusCode::CONFLICT,
@@ -9728,8 +9534,7 @@ pub(crate) async fn handle_goal_run_outcome_delta_create(
                 .any(|value| value.as_str() == Some(proposed_by_ref.as_str()))
         });
     let goal_ref = text(&goal_run, "goal_ref").to_string();
-    // Canonical WorkResult v1/v2 permits a null goal_run_ref when work_subject_ref is the exact
-    // GoalRun. JSON null must not shadow that required subject during delta binding.
+    // The substrate-generic WorkResult binds its application owner through work_subject_ref.
     let result_goal_ref = work_result_goal_ref_for_delta_binding(&work_result).unwrap_or("");
     if !result_is_bound || result_goal_ref != goal_ref {
         return bad(
@@ -9775,7 +9580,6 @@ pub(crate) async fn handle_goal_run_outcome_delta_create(
     let delta_ref = format!("outcome-delta://goal-run/{id}/{:x}", nanos());
     object.insert("outcome_delta_id".into(), json!(delta_ref));
     object.insert("work_subject_ref".into(), json!(goal_ref));
-    object.insert("outcome_room_ref".into(), Value::Null);
     object.insert("room_admission".into(), Value::Null);
     object.insert(
         "information_flow_label_refs".into(),
@@ -9790,7 +9594,16 @@ pub(crate) async fn handle_goal_run_outcome_delta_create(
         .cloned()
         .unwrap_or(Value::Null);
     if !room_ref.is_empty() {
-        delta["schema_version"] = json!("ioi.foundations.outcome-delta.v2");
+        delta
+            .as_object_mut()
+            .expect("GoalPursuitCore OutcomeDelta is an object")
+            .remove("room_admission");
+        delta
+            .as_object_mut()
+            .expect("GoalPursuitCore OutcomeDelta is an object")
+            .remove("outcome_room_ref");
+        delta["system_binding"] = Value::Null;
+        delta["schema_version"] = json!("ioi.foundations.outcome-delta.v3");
         let room_admission = match super::outcome_room_system_routes::admit_persisted_owner_record(
             &st.data_dir,
             &room_ref,
@@ -12773,6 +12586,17 @@ mod goal_run_seam_tests {
         dir
     }
 
+    fn current_hosted_work_result(identity: &str, subject: &str) -> Value {
+        let mut record: Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-hosted-admitted.json"
+        )))
+        .unwrap();
+        record["work_result_id"] = json!(identity);
+        record["work_subject_ref"] = json!(subject);
+        record
+    }
+
     fn plant(dir: &std::path::Path, file: &str, record: &Value) {
         std::fs::write(
             dir.join(GOAL_RUN_KIND).join(file),
@@ -12797,87 +12621,6 @@ mod goal_run_seam_tests {
         records
     }
 
-    fn legacy_m3_work_result(result_ref: &str) -> Value {
-        json!({
-            "schema_version":"ioi.foundations.work-result.v1",
-            "work_result_id":result_ref,
-            "goal_run_ref":"goal://gr_migration"
-        })
-    }
-
-    fn plant_legacy_m3_work_result(dir: &std::path::Path, record: &Value) {
-        std::fs::create_dir_all(dir.join(LEGACY_GOAL_RUN_WORK_RESULT_KIND)).unwrap();
-        let result_ref = record["work_result_id"].as_str().unwrap();
-        std::fs::write(
-            dir.join(LEGACY_GOAL_RUN_WORK_RESULT_KIND)
-                .join(format!("{}.json", safe(result_ref))),
-            serde_json::to_vec_pretty(record).unwrap(),
-        )
-        .unwrap();
-    }
-
-    #[test]
-    fn legacy_work_result_migration_recovers_a_truncated_canonical_copy_on_restart() {
-        let dir = temp_dir("legacy-work-result-partial-copy");
-        let data_dir = dir.to_str().unwrap();
-        let result_ref = "work-result://m3/migration-partial";
-        let record = legacy_m3_work_result(result_ref);
-        plant_legacy_m3_work_result(&dir, &record);
-
-        let key = super::super::work_result_routes::goal_run_work_truth_record_key(result_ref);
-        std::fs::create_dir_all(dir.join(super::super::work_result_routes::RESULT_DIR)).unwrap();
-        std::fs::write(
-            dir.join(super::super::work_result_routes::RESULT_DIR)
-                .join(format!("{key}.json")),
-            b"{\"schema_version\":",
-        )
-        .unwrap();
-
-        assert_eq!(migrate_legacy_goal_run_work_results(data_dir).unwrap(), 1);
-        assert_eq!(
-            super::super::work_result_routes::list_work_results_strict(data_dir).unwrap(),
-            vec![record.clone()]
-        );
-        assert_eq!(
-            migrate_legacy_goal_run_work_results(data_dir).unwrap(),
-            0,
-            "a second startup replays the exact no-clobber record without duplicating it"
-        );
-        let names = std::fs::read_dir(dir.join(super::super::work_result_routes::RESULT_DIR))
-            .unwrap()
-            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
-            .collect::<Vec<_>>();
-        assert_eq!(names, vec![format!("{key}.json")]);
-        std::fs::remove_dir_all(dir).unwrap();
-    }
-
-    #[test]
-    fn legacy_work_result_migration_never_overwrites_valid_divergent_truth() {
-        let dir = temp_dir("legacy-work-result-divergent-copy");
-        let data_dir = dir.to_str().unwrap();
-        let result_ref = "work-result://m3/migration-conflict";
-        let record = legacy_m3_work_result(result_ref);
-        plant_legacy_m3_work_result(&dir, &record);
-
-        let key = super::super::work_result_routes::goal_run_work_truth_record_key(result_ref);
-        let mut divergent = record.clone();
-        divergent["goal_run_ref"] = json!("goal://gr_other");
-        std::fs::create_dir_all(dir.join(super::super::work_result_routes::RESULT_DIR)).unwrap();
-        let target = dir
-            .join(super::super::work_result_routes::RESULT_DIR)
-            .join(format!("{key}.json"));
-        let before = serde_json::to_vec_pretty(&divergent).unwrap();
-        std::fs::write(&target, &before).unwrap();
-
-        assert!(migrate_legacy_goal_run_work_results(data_dir).is_err());
-        assert_eq!(
-            std::fs::read(&target).unwrap(),
-            before,
-            "valid divergent canonical truth is never treated as repairable migration residue"
-        );
-        std::fs::remove_dir_all(dir).unwrap();
-    }
-
     #[test]
     fn resolved_goal_run_mutation_principal_is_compared_without_a_second_identity_lookup() {
         let goal_run = json!({
@@ -12899,24 +12642,15 @@ mod goal_run_seam_tests {
     }
 
     #[test]
-    fn delta_binding_uses_goal_subject_when_nullable_goal_run_alias_is_null() {
+    fn delta_binding_uses_the_generic_work_subject() {
         let result = json!({
-            "goal_run_ref":Value::Null,
             "work_subject_ref":"goal://gr_subject",
         });
         assert_eq!(
             work_result_goal_ref_for_delta_binding(&result),
             Some("goal://gr_subject")
         );
-        let explicit = json!({
-            "goal_run_ref":"goal://gr_explicit",
-            "work_subject_ref":"goal://gr_subject",
-        });
-        assert_eq!(
-            work_result_goal_ref_for_delta_binding(&explicit),
-            Some("goal://gr_explicit"),
-            "a concrete canonical GoalRun binding remains authoritative"
-        );
+        assert_eq!(work_result_goal_ref_for_delta_binding(&json!({})), None);
     }
 
     #[test]
@@ -12942,11 +12676,7 @@ mod goal_run_seam_tests {
     fn room_owner_publication_refuses_incomplete_or_ambiguous_versioned_registry_without_mutation()
     {
         let candidate_ref = "work-result://goal-run/gr-room/invocation/candidate";
-        let candidate = json!({
-            "schema_version":"ioi.foundations.work-result.v2",
-            "work_result_id":candidate_ref,
-            "goal_run_ref":"goal://room"
-        });
+        let candidate = current_hosted_work_result(candidate_ref, "goal://room");
 
         let malformed_dir = temp_dir("room-owner-malformed-registry");
         std::fs::create_dir_all(malformed_dir.join(super::super::work_result_routes::RESULT_DIR))
@@ -12980,11 +12710,7 @@ mod goal_run_seam_tests {
             relocated_dir.to_str().unwrap(),
             super::super::work_result_routes::RESULT_DIR,
             "wrong_tail",
-            &json!({
-                "schema_version":"ioi.foundations.work-result.v2",
-                "work_result_id":relocated_ref,
-                "goal_run_ref":"goal://room"
-            }),
+            &current_hosted_work_result(relocated_ref, "goal://room"),
         )
         .unwrap();
         let relocated_before =
@@ -13005,11 +12731,7 @@ mod goal_run_seam_tests {
 
         let duplicate_dir = temp_dir("room-owner-duplicate-registry");
         let m3_ref = "work-result://research/duplicate";
-        let m3 = json!({
-            "schema_version":"ioi.foundations.work-result.v1",
-            "work_result_id":m3_ref,
-            "goal_run_ref":"goal://room"
-        });
+        let m3 = current_hosted_work_result(m3_ref, "goal://room");
         for key in [
             super::super::work_result_routes::goal_run_work_truth_record_key(m3_ref),
             safe(m3_ref),

@@ -5681,10 +5681,10 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/goal-run-admission-path-decision/v1",
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
       "canonical_name": "GoalRunAdmissionPathDecision",
       "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/default-harness-profile.md#goalrun-admission-path-decision",
-      "schema_version": "ioi.foundations.goal-run-admission-path-decision.v1",
+      "schema_version": "ioi.applications.ioi-ai.goal-run-admission-path-decision.v1",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",
@@ -5724,49 +5724,6 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/work-result/v1",
-      "canonical_name": "WorkResult",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
-      "schema_version": "ioi.foundations.work-result.v1",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": null,
-        "successor_contract_id": "schema://ioi/foundations/work-result/v2",
-        "compatibility": "initial",
-        "migration_policy": "none",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "work-result.v1.schema.json",
-      "cross_field_invariant_refs": [],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "WorkResultV1"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "WorkResultV1"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/work-result-v1/positive-minimal.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/work-result-v1/negative-unknown-field.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
       "contract_id": "schema://ioi/foundations/work-lifecycle-record/v1",
       "canonical_name": "WorkLifecycleRecord",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#worklifecyclerecordenvelope",
@@ -5777,7 +5734,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": "schema://ioi/foundations/work-result/v2",
+        "successor_contract_id": "schema://ioi/foundations/work-result/v3",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -6025,7 +5982,7 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/goal-run-profile/v1",
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
       "canonical_name": "GoalRunProfile",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-pursuit.md#goalrunprofileenvelope",
       "schema_version": "ioi.goal-run-profile.v1",
@@ -6240,7 +6197,7 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/goal-grounding-loop/v1",
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1",
       "canonical_name": "GoalGroundingLoop",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalgroundingloopenvelope",
       "schema_version": "ioi.goal-grounding-loop.v1",
@@ -6364,49 +6321,6 @@
       "negative_fixture_refs": [
         {
           "path": "fixtures/agent-harness-adapter-v1/negative-unknown-field.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/outcome-delta/v1",
-      "canonical_name": "OutcomeDelta",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
-      "schema_version": "ioi.outcome-delta.v1",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": null,
-        "successor_contract_id": "schema://ioi/foundations/outcome-delta/v2",
-        "compatibility": "initial",
-        "migration_policy": "none",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "outcome-delta.v1.schema.json",
-      "cross_field_invariant_refs": [],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "OutcomeDeltaV1"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "OutcomeDeltaV1"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/outcome-delta-v1/positive-minimal.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/outcome-delta-v1/negative-unknown-field.json",
           "expected_failure": "schema"
         }
       ]
@@ -6670,7 +6584,7 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/goal-run/v1",
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v1",
       "canonical_name": "GoalRun",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalrunenvelope",
       "schema_version": "ioi.goal-run.v1",
@@ -6713,7 +6627,7 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
       "canonical_name": "GoalRunExecutionCeiling",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalrunexecutionceilingenvelope",
       "schema_version": "ioi.goal-run-execution-ceiling.v1",
@@ -6733,7 +6647,7 @@
       "schema_ref": "goal-run-execution-ceiling.v1.schema.json",
       "cross_field_invariant_refs": [
         {
-          "invariant_id": "invariant://ioi/foundations/goal-run-execution-ceiling/release/v1",
+          "invariant_id": "invariant://ioi/applications/ioi-ai/goal-run-execution-ceiling/release/v1",
           "path": "invariants/goal-run-execution-ceiling.v1.invariants.json"
         }
       ],
@@ -6771,10 +6685,10 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1",
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
       "canonical_name": "GoalRunProfileResolutionReceipt",
       "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#goalrun-profile-resolution-receipts",
-      "schema_version": "ioi.foundations.goal-run-profile-resolution-receipt.v1",
+      "schema_version": "ioi.applications.ioi-ai.goal-run-profile-resolution-receipt.v1",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",
@@ -6814,53 +6728,10 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/attempt/v1",
-      "canonical_name": "Attempt",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#attemptenvelope",
-      "schema_version": "ioi.foundations.attempt.v1",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": null,
-        "successor_contract_id": "schema://ioi/foundations/attempt/v2",
-        "compatibility": "initial",
-        "migration_policy": "none",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "attempt.v1.schema.json",
-      "cross_field_invariant_refs": [],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "AttemptV1"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "AttemptV1"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/attempt-v1/positive-minimal.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/attempt-v1/negative-unknown-field.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/collaborative-work-graph/v1",
+      "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
       "canonical_name": "CollaborativeWorkGraph",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#collaborativeworkgraph-and-discussion-projections",
-      "schema_version": "ioi.foundations.collaborative-work-graph.v1",
+      "schema_version": "ioi.applications.ioi-ai.collaborative-work-graph.v1",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",
@@ -6908,53 +6779,10 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/finding/v1",
-      "canonical_name": "Finding",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope",
-      "schema_version": "ioi.foundations.finding.v1",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": null,
-        "successor_contract_id": "schema://ioi/foundations/finding/v2",
-        "compatibility": "initial",
-        "migration_policy": "none",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "finding.v1.schema.json",
-      "cross_field_invariant_refs": [],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "FindingV1"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "FindingV1"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/finding-v1/positive-minimal.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/finding-v1/negative-unknown-field.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+      "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
       "canonical_name": "OutcomeRoomDiscussionProjection",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#collaborativeworkgraph-and-discussion-projections",
-      "schema_version": "ioi.foundations.outcome-room-discussion-projection.v1",
+      "schema_version": "ioi.applications.ioi-ai.outcome-room-discussion-projection.v1",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",
@@ -7002,222 +6830,7 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/outcome-room/v1",
-      "canonical_name": "OutcomeRoom",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#outcomeroomenvelope",
-      "schema_version": "ioi.foundations.outcome-room.v1",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": null,
-        "successor_contract_id": "schema://ioi/foundations/outcome-room/v2",
-        "compatibility": "initial",
-        "migration_policy": "none",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "outcome-room.v1.schema.json",
-      "cross_field_invariant_refs": [],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "OutcomeRoomV1"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "OutcomeRoomV1"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/outcome-room-v1/positive-minimal.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/outcome-room-v1/negative-unknown-field.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/participant-state-bundle/v1",
-      "canonical_name": "ParticipantStateBundle",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#participantstatebundleenvelope",
-      "schema_version": "ioi.foundations.participant-state-bundle.v1",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": null,
-        "successor_contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-        "compatibility": "initial",
-        "migration_policy": "none",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "participant-state-bundle.v1.schema.json",
-      "cross_field_invariant_refs": [],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "ParticipantStateBundleV1"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "ParticipantStateBundleV1"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/participant-state-bundle-v1/positive-minimal.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/participant-state-bundle-v1/negative-unknown-field.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/verifier-challenge/v1",
-      "canonical_name": "VerifierChallenge",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#verifierchallengeenvelope",
-      "schema_version": "ioi.foundations.verifier-challenge.v1",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": null,
-        "successor_contract_id": "schema://ioi/foundations/verifier-challenge/v2",
-        "compatibility": "initial",
-        "migration_policy": "none",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "verifier-challenge.v1.schema.json",
-      "cross_field_invariant_refs": [],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "VerifierChallengeV1"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "VerifierChallengeV1"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/verifier-challenge-v1/positive-minimal.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/verifier-challenge-v1/negative-unknown-field.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/work-claim-lease/v1",
-      "canonical_name": "WorkClaimLease",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workclaimleaseenvelope",
-      "schema_version": "ioi.foundations.work-claim-lease.v1",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": null,
-        "successor_contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-        "compatibility": "initial",
-        "migration_policy": "none",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "work-claim-lease.v1.schema.json",
-      "cross_field_invariant_refs": [],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "WorkClaimLeaseV1"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "WorkClaimLeaseV1"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/work-claim-lease-v1/positive-minimal.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/work-claim-lease-v1/negative-unknown-field.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/work-frontier-item/v1",
-      "canonical_name": "WorkFrontierItem",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workfrontieritemenvelope",
-      "schema_version": "ioi.foundations.work-frontier-item.v1",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": null,
-        "successor_contract_id": "schema://ioi/foundations/work-frontier-item/v2",
-        "compatibility": "initial",
-        "migration_policy": "none",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "work-frontier-item.v1.schema.json",
-      "cross_field_invariant_refs": [],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "WorkFrontierItemV1"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "WorkFrontierItemV1"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/work-frontier-item-v1/positive-minimal.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/work-frontier-item-v1/negative-unknown-field.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/goal-run-activation/v1",
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
       "canonical_name": "GoalRunActivationEnvelope",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-pursuit.md#goalrunactivationenvelope",
       "schema_version": "ioi.goal-run-activation.v1",
@@ -7237,7 +6850,7 @@
       "schema_ref": "goal-run-activation.v1.schema.json",
       "cross_field_invariant_refs": [
         {
-          "invariant_id": "invariant://ioi/foundations/goal-run-activation/crossing/v1",
+          "invariant_id": "invariant://ioi/applications/ioi-ai/goal-run-activation/crossing/v1",
           "path": "invariants/goal-run-activation.v1.invariants.json"
         }
       ],
@@ -7273,7 +6886,7 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
       "canonical_name": "GoalRunActivationReceipt",
       "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#goalrun-activation-receipts",
       "schema_version": "ioi.goal-run-activation-receipt.v1",
@@ -7293,7 +6906,7 @@
       "schema_ref": "goal-run-activation-receipt.v1.schema.json",
       "cross_field_invariant_refs": [
         {
-          "invariant_id": "invariant://ioi/foundations/goal-run-activation-receipt/admission/v1",
+          "invariant_id": "invariant://ioi/applications/ioi-ai/goal-run-activation-receipt/admission/v1",
           "path": "invariants/goal-run-activation-receipt.v1.invariants.json"
         }
       ],
@@ -7331,7 +6944,7 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/goal-run-admitted-state/v1",
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
       "canonical_name": "GoalRunAdmittedState",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalrunenvelope",
       "schema_version": "ioi.goal-run-admitted-state.v1",
@@ -7351,7 +6964,7 @@
       "schema_ref": "goal-run-admitted-state.v1.schema.json",
       "cross_field_invariant_refs": [
         {
-          "invariant_id": "invariant://ioi/foundations/goal-run-admitted-state/content-root/v1",
+          "invariant_id": "invariant://ioi/applications/ioi-ai/goal-run-admitted-state/content-root/v1",
           "path": "invariants/goal-run-admitted-state.v1.invariants.json"
         }
       ],
@@ -7384,19 +6997,19 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/outcome-room/v2",
+      "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
       "canonical_name": "OutcomeRoom",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#outcomeroomenvelope",
-      "schema_version": "ioi.foundations.outcome-room.v2",
+      "schema_version": "ioi.applications.ioi-ai.outcome-room.v2",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
-        "successor_of": "schema://ioi/foundations/outcome-room/v1",
+        "successor_of": null,
         "successor_contract_id": null,
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
+        "compatibility": "initial",
+        "migration_policy": "none",
         "predecessor_remains_valid": true,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
@@ -7404,7 +7017,7 @@
       "schema_ref": "outcome-room.v2.schema.json",
       "cross_field_invariant_refs": [
         {
-          "invariant_id": "invariant://ioi/foundations/outcome-room/bounded-system/v2",
+          "invariant_id": "invariant://ioi/applications/ioi-ai/outcome-room/bounded-system/v2",
           "path": "invariants/outcome-room.v2.invariants.json"
         }
       ],
@@ -7453,503 +7066,10 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/work-frontier-item/v2",
-      "canonical_name": "WorkFrontierItem",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workfrontieritemenvelope",
-      "schema_version": "ioi.foundations.work-frontier-item.v2",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": "schema://ioi/foundations/work-frontier-item/v1",
-        "successor_contract_id": "schema://ioi/foundations/work-frontier-item/v3",
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "work-frontier-item.v2.schema.json",
-      "cross_field_invariant_refs": [
-        {
-          "invariant_id": "invariant://ioi/foundations/work-frontier-item/room-binding/v2",
-          "path": "invariants/work-frontier-item.v2.invariants.json"
-        }
-      ],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "WorkFrontierItemV2"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "WorkFrontierItemV2"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/work-frontier-item-v2/positive-admitted.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/work-frontier-item-v2/negative-room-substitution.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/work-frontier-item-v2/negative-evaluating-carries-admitted-roots.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-      "canonical_name": "WorkClaimLease",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workclaimleaseenvelope",
-      "schema_version": "ioi.foundations.work-claim-lease.v2",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": "schema://ioi/foundations/work-claim-lease/v1",
-        "successor_contract_id": "schema://ioi/foundations/work-claim-lease/v3",
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "work-claim-lease.v2.schema.json",
-      "cross_field_invariant_refs": [
-        {
-          "invariant_id": "invariant://ioi/foundations/work-claim-lease/room-claim/v2",
-          "path": "invariants/work-claim-lease.v2.invariants.json"
-        }
-      ],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "WorkClaimLeaseV2"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "WorkClaimLeaseV2"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/work-claim-lease-v2/positive-active-room-claim.json",
-        "fixtures/work-claim-lease-v2/positive-direct-bilateral.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/work-claim-lease-v2/negative-room-substitution.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "work_claim.room.matches_admission"
-        },
-        {
-          "path": "fixtures/work-claim-lease-v2/negative-participant-lease-substitution.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "work_claim.participant_lease.matches_admission_issuer"
-        },
-        {
-          "path": "fixtures/work-claim-lease-v2/negative-wrong-task-offer-scheme.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/work-claim-lease-v2/negative-rejected-carries-admitted-roots.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/attempt/v2",
-      "canonical_name": "Attempt",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#attemptenvelope",
-      "schema_version": "ioi.foundations.attempt.v2",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": "schema://ioi/foundations/attempt/v1",
-        "successor_contract_id": "schema://ioi/foundations/attempt/v3",
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "attempt.v2.schema.json",
-      "cross_field_invariant_refs": [
-        {
-          "invariant_id": "invariant://ioi/foundations/attempt/frozen-room-coordinates/v2",
-          "path": "invariants/attempt.v2.invariants.json"
-        }
-      ],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "AttemptV2"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "AttemptV2"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/attempt-v2/positive-hosted-admitted.json",
-        "fixtures/attempt-v2/positive-non-room.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/attempt-v2/negative-stale-bound-goal.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "attempt.goal.matches_bound_goal"
-        },
-        {
-          "path": "fixtures/attempt-v2/negative-admission-lease-substitution.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "attempt.admission_issuer.matches_bound_lease_or_room_system"
-        },
-        {
-          "path": "fixtures/attempt-v2/negative-wrong-work-subject-scheme.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/attempt-v2/negative-non-room-bound-coordinates.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/attempt-v2/negative-proposed-carries-admitted-roots.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/finding/v2",
-      "canonical_name": "Finding",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope",
-      "schema_version": "ioi.foundations.finding.v2",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": "schema://ioi/foundations/finding/v1",
-        "successor_contract_id": "schema://ioi/foundations/finding/v3",
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "finding.v2.schema.json",
-      "cross_field_invariant_refs": [
-        {
-          "invariant_id": "invariant://ioi/foundations/finding/frozen-room-coordinates/v2",
-          "path": "invariants/finding.v2.invariants.json"
-        }
-      ],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "FindingV2"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "FindingV2"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/finding-v2/positive-hosted-admitted.json",
-        "fixtures/finding-v2/positive-non-room.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/finding-v2/negative-stale-attempt-coordinate.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "finding.attempt.matches_bound_attempt"
-        },
-        {
-          "path": "fixtures/finding-v2/negative-admission-lease-substitution.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "finding.admission_issuer.matches_participant_or_room_system"
-        },
-        {
-          "path": "fixtures/finding-v2/negative-proposer-principal-substitution.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "finding.proposer.resolves_through_bound_lease_or_room_system"
-        },
-        {
-          "path": "fixtures/finding-v2/negative-wrong-source-scheme.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/finding-v2/negative-non-room-bound-coordinates.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/finding-v2/negative-evaluating-carries-admitted-roots.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/verifier-challenge/v2",
-      "canonical_name": "VerifierChallenge",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#verifierchallengeenvelope",
-      "schema_version": "ioi.foundations.verifier-challenge.v2",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": "schema://ioi/foundations/verifier-challenge/v1",
-        "successor_contract_id": "schema://ioi/foundations/verifier-challenge/v3",
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "verifier-challenge.v2.schema.json",
-      "cross_field_invariant_refs": [
-        {
-          "invariant_id": "invariant://ioi/foundations/verifier-challenge/room-binding/v2",
-          "path": "invariants/verifier-challenge.v2.invariants.json"
-        }
-      ],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "VerifierChallengeV2"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "VerifierChallengeV2"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/verifier-challenge-v2/positive-hosted-admitted.json",
-        "fixtures/verifier-challenge-v2/positive-non-room.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/verifier-challenge-v2/negative-room-substitution.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "verifier_challenge.room.matches_admission"
-        },
-        {
-          "path": "fixtures/verifier-challenge-v2/negative-unsupported-challenger-kind.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/verifier-challenge-v2/negative-rejected-carries-admitted-roots.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-      "canonical_name": "ParticipantStateBundle",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#participantstatebundleenvelope",
-      "schema_version": "ioi.foundations.participant-state-bundle.v2",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": "schema://ioi/foundations/participant-state-bundle/v1",
-        "successor_contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "participant-state-bundle.v2.schema.json",
-      "cross_field_invariant_refs": [
-        {
-          "invariant_id": "invariant://ioi/foundations/participant-state-bundle/portable-room-binding/v2",
-          "path": "invariants/participant-state-bundle.v2.invariants.json"
-        }
-      ],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "ParticipantStateBundleV2"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "ParticipantStateBundleV2"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/participant-state-bundle-v2/positive-hosted-export.json",
-        "fixtures/participant-state-bundle-v2/positive-system-issued-expiry.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/participant-state-bundle-v2/negative-database-access-leakage.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/participant-state-bundle-v2/negative-foreign-system-issuer.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "participant_state_bundle.issuer.matches_lease_or_room_system"
-        },
-        {
-          "path": "fixtures/participant-state-bundle-v2/negative-encrypted-ref-smuggling.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/participant-state-bundle-v2/negative-proposed-carries-admitted-roots.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/work-result/v2",
-      "canonical_name": "WorkResult",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
-      "schema_version": "ioi.foundations.work-result.v2",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": "schema://ioi/foundations/work-result/v1",
-        "successor_contract_id": "schema://ioi/foundations/work-result/v3",
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "work-result.v2.schema.json",
-      "cross_field_invariant_refs": [
-        {
-          "invariant_id": "invariant://ioi/foundations/work-result/room-accountability/v2",
-          "path": "invariants/work-result.v2.invariants.json"
-        }
-      ],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "WorkResultV2"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "WorkResultV2"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/work-result-v2/positive-hosted-admitted.json",
-        "fixtures/work-result-v2/positive-direct-non-room.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/work-result-v2/negative-room-substitution.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "work_result.room.matches_admission"
-        },
-        {
-          "path": "fixtures/work-result-v2/negative-array-uncertainty.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/work-result-v2/negative-over-cardinality.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/work-result-v2/negative-evaluating-carries-admitted-roots.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/outcome-delta/v2",
-      "canonical_name": "OutcomeDelta",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
-      "schema_version": "ioi.foundations.outcome-delta.v2",
-      "maturity": "partial",
-      "stability": "provisional",
-      "wire_format": "json",
-      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {
-        "successor_of": "schema://ioi/foundations/outcome-delta/v1",
-        "successor_contract_id": "schema://ioi/foundations/outcome-delta/v3",
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
-        "predecessor_remains_valid": false,
-        "wire_mutation_policy": "forbidden",
-        "hash_impact": "signature_preimage_changed"
-      },
-      "schema_ref": "outcome-delta.v2.schema.json",
-      "cross_field_invariant_refs": [
-        {
-          "invariant_id": "invariant://ioi/foundations/outcome-delta/room-binding/v2",
-          "path": "invariants/outcome-delta.v2.invariants.json"
-        }
-      ],
-      "compatibility_aliases": [],
-      "generated_targets": [
-        {
-          "kind": "typescript_projection",
-          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "OutcomeDeltaV2"
-        },
-        {
-          "kind": "rust_projection",
-          "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "OutcomeDeltaV2"
-        }
-      ],
-      "positive_fixture_refs": [
-        "fixtures/outcome-delta-v2/positive-hosted-admitted.json",
-        "fixtures/outcome-delta-v2/positive-direct-non-room.json"
-      ],
-      "negative_fixture_refs": [
-        {
-          "path": "fixtures/outcome-delta-v2/negative-unsupported-proposer-kind.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/outcome-delta-v2/negative-over-cardinality.json",
-          "expected_failure": "schema"
-        },
-        {
-          "path": "fixtures/outcome-delta-v2/negative-rejected-carries-admitted-roots.json",
-          "expected_failure": "schema"
-        }
-      ]
-    },
-    {
-      "contract_id": "schema://ioi/foundations/room-scoped-object-binding/v1",
-      "canonical_name": "RoomScopedObjectBinding",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#roomscopedobjectbinding",
-      "schema_version": "ioi.foundations.room-scoped-object-binding.v1",
+      "contract_id": "schema://ioi/foundations/system-scoped-object-binding/v1",
+      "canonical_name": "SystemScopedObjectBinding",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#systemscopedobjectbinding",
+      "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",
@@ -7963,45 +7083,45 @@
         "wire_mutation_policy": "forbidden",
         "hash_impact": "none"
       },
-      "schema_ref": "room-scoped-object-binding.v1.schema.json",
+      "schema_ref": "system-scoped-object-binding.v1.schema.json",
       "cross_field_invariant_refs": [],
       "compatibility_aliases": [],
       "generated_targets": [
         {
           "kind": "typescript_projection",
           "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-          "symbol": "RoomScopedObjectBindingV1"
+          "symbol": "SystemScopedObjectBindingV1"
         },
         {
           "kind": "rust_projection",
           "path": "crates/types/src/app/generated/architecture_contracts.rs",
-          "symbol": "RoomScopedObjectBindingV1"
+          "symbol": "SystemScopedObjectBindingV1"
         }
       ],
       "positive_fixture_refs": [
-        "fixtures/room-scoped-object-binding-v1/positive-minimal.json"
+        "fixtures/system-scoped-object-binding-v1/positive-minimal.json"
       ],
       "negative_fixture_refs": [
         {
-          "path": "fixtures/room-scoped-object-binding-v1/negative-parallel-admission-field.json",
+          "path": "fixtures/system-scoped-object-binding-v1/negative-parallel-admission-field.json",
           "expected_failure": "schema"
         }
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/work-frontier-item/v3",
+      "contract_id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
       "canonical_name": "WorkFrontierItem",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workfrontieritemenvelope",
-      "schema_version": "ioi.foundations.work-frontier-item.v3",
+      "schema_version": "ioi.applications.ioi-ai.work-frontier-item.v3",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
-        "successor_of": "schema://ioi/foundations/work-frontier-item/v2",
+        "successor_of": null,
         "successor_contract_id": null,
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
+        "compatibility": "initial",
+        "migration_policy": "none",
         "predecessor_remains_valid": false,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
@@ -8036,19 +7156,19 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+      "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
       "canonical_name": "WorkClaimLease",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workclaimleaseenvelope",
-      "schema_version": "ioi.foundations.work-claim-lease.v3",
+      "schema_version": "ioi.applications.ioi-ai.work-claim-lease.v3",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
-        "successor_of": "schema://ioi/foundations/work-claim-lease/v2",
+        "successor_of": null,
         "successor_contract_id": null,
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
+        "compatibility": "initial",
+        "migration_policy": "none",
         "predecessor_remains_valid": false,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
@@ -8056,7 +7176,7 @@
       "schema_ref": "work-claim-lease.v3.schema.json",
       "cross_field_invariant_refs": [
         {
-          "invariant_id": "invariant://ioi/foundations/work-claim-lease/room-claim/v3",
+          "invariant_id": "invariant://ioi/applications/ioi-ai/work-claim-lease/room-claim/v3",
           "path": "invariants/work-claim-lease.v3.invariants.json"
         }
       ],
@@ -8099,19 +7219,19 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/attempt/v3",
+      "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
       "canonical_name": "Attempt",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#attemptenvelope",
-      "schema_version": "ioi.foundations.attempt.v3",
+      "schema_version": "ioi.applications.ioi-ai.attempt.v3",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
-        "successor_of": "schema://ioi/foundations/attempt/v2",
+        "successor_of": null,
         "successor_contract_id": null,
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
+        "compatibility": "initial",
+        "migration_policy": "none",
         "predecessor_remains_valid": false,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
@@ -8119,7 +7239,7 @@
       "schema_ref": "attempt.v3.schema.json",
       "cross_field_invariant_refs": [
         {
-          "invariant_id": "invariant://ioi/foundations/attempt/frozen-room-coordinates/v3",
+          "invariant_id": "invariant://ioi/applications/ioi-ai/attempt/frozen-room-coordinates/v3",
           "path": "invariants/attempt.v3.invariants.json"
         }
       ],
@@ -8166,19 +7286,19 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/finding/v3",
+      "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
       "canonical_name": "Finding",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope",
-      "schema_version": "ioi.foundations.finding.v3",
+      "schema_version": "ioi.applications.ioi-ai.finding.v3",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
-        "successor_of": "schema://ioi/foundations/finding/v2",
+        "successor_of": null,
         "successor_contract_id": null,
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
+        "compatibility": "initial",
+        "migration_policy": "none",
         "predecessor_remains_valid": false,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
@@ -8186,7 +7306,7 @@
       "schema_ref": "finding.v3.schema.json",
       "cross_field_invariant_refs": [
         {
-          "invariant_id": "invariant://ioi/foundations/finding/frozen-room-coordinates/v3",
+          "invariant_id": "invariant://ioi/applications/ioi-ai/finding/frozen-room-coordinates/v3",
           "path": "invariants/finding.v3.invariants.json"
         }
       ],
@@ -8238,19 +7358,19 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/verifier-challenge/v3",
+      "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
       "canonical_name": "VerifierChallenge",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#verifierchallengeenvelope",
-      "schema_version": "ioi.foundations.verifier-challenge.v3",
+      "schema_version": "ioi.applications.ioi-ai.verifier-challenge.v3",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
-        "successor_of": "schema://ioi/foundations/verifier-challenge/v2",
+        "successor_of": null,
         "successor_contract_id": null,
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
+        "compatibility": "initial",
+        "migration_policy": "none",
         "predecessor_remains_valid": false,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
@@ -8258,7 +7378,7 @@
       "schema_ref": "verifier-challenge.v3.schema.json",
       "cross_field_invariant_refs": [
         {
-          "invariant_id": "invariant://ioi/foundations/verifier-challenge/room-binding/v3",
+          "invariant_id": "invariant://ioi/applications/ioi-ai/verifier-challenge/room-binding/v3",
           "path": "invariants/verifier-challenge.v3.invariants.json"
         }
       ],
@@ -8296,19 +7416,19 @@
       ]
     },
     {
-      "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+      "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
       "canonical_name": "ParticipantStateBundle",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#participantstatebundleenvelope",
-      "schema_version": "ioi.foundations.participant-state-bundle.v3",
+      "schema_version": "ioi.applications.ioi-ai.participant-state-bundle.v3",
       "maturity": "partial",
       "stability": "provisional",
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
-        "successor_of": "schema://ioi/foundations/participant-state-bundle/v2",
+        "successor_of": null,
         "successor_contract_id": null,
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
+        "compatibility": "initial",
+        "migration_policy": "none",
         "predecessor_remains_valid": false,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
@@ -8316,7 +7436,7 @@
       "schema_ref": "participant-state-bundle.v3.schema.json",
       "cross_field_invariant_refs": [
         {
-          "invariant_id": "invariant://ioi/foundations/participant-state-bundle/portable-room-binding/v3",
+          "invariant_id": "invariant://ioi/applications/ioi-ai/participant-state-bundle/portable-room-binding/v3",
           "path": "invariants/participant-state-bundle.v3.invariants.json"
         }
       ],
@@ -8367,21 +7487,16 @@
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
-        "successor_of": "schema://ioi/foundations/work-result/v2",
+        "successor_of": null,
         "successor_contract_id": null,
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
+        "compatibility": "initial",
+        "migration_policy": "none",
         "predecessor_remains_valid": false,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
       },
       "schema_ref": "work-result.v3.schema.json",
-      "cross_field_invariant_refs": [
-        {
-          "invariant_id": "invariant://ioi/foundations/work-result/room-accountability/v3",
-          "path": "invariants/work-result.v3.invariants.json"
-        }
-      ],
+      "cross_field_invariant_refs": [],
       "compatibility_aliases": [],
       "generated_targets": [
         {
@@ -8400,11 +7515,6 @@
         "fixtures/work-result-v3/positive-direct-non-room.json"
       ],
       "negative_fixture_refs": [
-        {
-          "path": "fixtures/work-result-v3/negative-room-substitution.json",
-          "expected_failure": "invariant",
-          "expected_rule_id": "work_result.room.matches_admission"
-        },
         {
           "path": "fixtures/work-result-v3/negative-array-uncertainty.json",
           "expected_failure": "schema"
@@ -8429,21 +7539,16 @@
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
-        "successor_of": "schema://ioi/foundations/outcome-delta/v2",
+        "successor_of": null,
         "successor_contract_id": null,
-        "compatibility": "breaking",
-        "migration_policy": "explicit_adapter_required",
+        "compatibility": "initial",
+        "migration_policy": "none",
         "predecessor_remains_valid": false,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
       },
       "schema_ref": "outcome-delta.v3.schema.json",
-      "cross_field_invariant_refs": [
-        {
-          "invariant_id": "invariant://ioi/foundations/outcome-delta/room-binding/v3",
-          "path": "invariants/outcome-delta.v3.invariants.json"
-        }
-      ],
+      "cross_field_invariant_refs": [],
       "compatibility_aliases": [],
       "generated_targets": [
         {
@@ -8462,10 +7567,6 @@
         "fixtures/outcome-delta-v3/positive-direct-non-room.json"
       ],
       "negative_fixture_refs": [
-        {
-          "path": "fixtures/outcome-delta-v3/negative-unsupported-proposer-kind.json",
-          "expected_failure": "schema"
-        },
         {
           "path": "fixtures/outcome-delta-v3/negative-over-cardinality.json",
           "expected_failure": "schema"

@@ -1,15 +1,15 @@
 {
-  "$id": "invariant://ioi/foundations/work-claim-lease/room-claim/v3",
+  "$id": "invariant://ioi/applications/ioi-ai/work-claim-lease/room-claim/v3",
   "language": "ioi.portable-invariants.v1",
-  "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+  "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
   "rules": [
     {
       "rule_id": "work_claim.room.matches_admission",
       "description": "A room-scoped claim and its room-scoping bind the same room; direct claims carry null on both sides.",
       "expression": {
         "operator": "optional_field_equals",
-        "optional_object_path": "$.room_binding",
-        "field": "outcome_room_ref",
+        "optional_object_path": "$.system_binding",
+        "field": "parent_scope_ref",
         "expected_path": "$.outcome_room_ref"
       }
     },
@@ -21,15 +21,15 @@
         "expressions": [
           {
             "operator": "optional_field_equals",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "field": "proposed_or_issued_by_ref",
             "expected_path": "$.claimant_participant_lease_ref"
           },
           {
             "operator": "optional_field_equals",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "field": "proposed_or_issued_by_ref",
-            "expected_path": "$.room_binding.room_system_id"
+            "expected_path": "$.system_binding.system_id"
           }
         ]
       }

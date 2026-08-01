@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "schema://ioi/foundations/verifier-challenge/v3",
+  "$id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
   "title": "VerifierChallenge",
-  "x-ioi-schema-version": "ioi.foundations.verifier-challenge.v3",
+  "x-ioi-schema-version": "ioi.applications.ioi-ai.verifier-challenge.v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
     "verifier_challenge_id",
     "outcome_room_ref",
-    "room_binding",
+    "system_binding",
     "challenger_ref",
     "challenged_ref",
     "challenge_kind",
@@ -23,13 +23,13 @@
     "status"
   ],
   "$defs": {
-    "roomBinding": {
+    "systemBinding": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "schema_version",
-        "room_system_id",
-        "outcome_room_ref",
+        "system_id",
+        "parent_scope_ref",
         "proposed_or_issued_by_ref",
         "payload_root",
         "created_at",
@@ -37,19 +37,19 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "ioi.foundations.room-scoped-object-binding.v1"
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
         },
-        "room_system_id": {
+        "system_id": {
           "type": "string",
           "pattern": "^system://[^\\s]{1,500}$"
         },
-        "outcome_room_ref": {
+        "parent_scope_ref": {
           "type": "string",
-          "pattern": "^outcome-room://[^\\s]{1,500}$"
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
         },
         "proposed_or_issued_by_ref": {
           "type": "string",
-          "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
         },
         "payload_root": {
           "type": "string",
@@ -77,7 +77,7 @@
   },
   "properties": {
     "schema_version": {
-      "const": "ioi.foundations.verifier-challenge.v3"
+      "const": "ioi.applications.ioi-ai.verifier-challenge.v3"
     },
     "verifier_challenge_id": {
       "type": "string",
@@ -87,17 +87,17 @@
       "anyOf": [
         {
           "type": "string",
-          "pattern": "^outcome-room://[^\\s]{1,500}$"
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
         },
         {
           "type": "null"
         }
       ]
     },
-    "room_binding": {
+    "system_binding": {
       "anyOf": [
         {
-          "$ref": "#/$defs/roomBinding"
+          "$ref": "#/$defs/systemBinding"
         },
         {
           "type": "null"

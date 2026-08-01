@@ -1,15 +1,15 @@
 {
-  "$id": "invariant://ioi/foundations/finding/frozen-room-coordinates/v3",
+  "$id": "invariant://ioi/applications/ioi-ai/finding/frozen-room-coordinates/v3",
   "language": "ioi.portable-invariants.v1",
-  "contract_id": "schema://ioi/foundations/finding/v3",
+  "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
   "rules": [
     {
       "rule_id": "finding.room.matches_admission",
       "description": "Finding and admission bind the same room; both are null for direct work.",
       "expression": {
         "operator": "optional_field_equals",
-        "optional_object_path": "$.room_binding",
-        "field": "outcome_room_ref",
+        "optional_object_path": "$.system_binding",
+        "field": "parent_scope_ref",
         "expected_path": "$.outcome_room_ref"
       }
     },
@@ -57,18 +57,18 @@
         "expressions": [
           {
             "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "paths": [
-              "$.room_binding.proposed_or_issued_by_ref",
+              "$.system_binding.proposed_or_issued_by_ref",
               "$.participant_ref"
             ]
           },
           {
             "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "paths": [
-              "$.room_binding.proposed_or_issued_by_ref",
-              "$.room_binding.room_system_id"
+              "$.system_binding.proposed_or_issued_by_ref",
+              "$.system_binding.system_id"
             ]
           }
         ]
@@ -98,10 +98,10 @@
           },
           {
             "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "paths": [
               "$.proposed_by_ref",
-              "$.room_binding.room_system_id"
+              "$.system_binding.system_id"
             ]
           }
         ]

@@ -239,7 +239,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "attempt_ref",
+        "publication_attempt_ref",
         "attempt_number",
         "cas",
         "cas_fingerprint",
@@ -247,7 +247,7 @@
         "dispatch"
       ],
       "properties": {
-        "attempt_ref": {
+        "publication_attempt_ref": {
           "$ref": "#/$defs/attemptRef"
         },
         "attempt_number": {

@@ -33,7 +33,7 @@ lifecycle profile runnable. Federated admission, external participant
 portability, settlement, and public acceptance remain separate targets.
 
 Every positive case validates the registered typed object contract and its
-non-authoritative `RoomScopedObjectBinding`. Passing JSON shape alone is
+non-authoritative `SystemScopedObjectBinding`. Passing JSON shape alone is
 insufficient: the runtime must resolve the binding through the owner plane and
 prove one Agentgres operation with the exact expected head or heads, resolved
 policy and authority, canonical receipt refs, and resulting head/root. When the
@@ -163,7 +163,7 @@ graph and discussion source commitments.
   truth, unilateral backlink repair, or status-derived acceptance.
 - Stop if a schema is registered without positive and negative fixtures or if a
   runtime path accepts an object without validating its family contract,
-  `RoomScopedObjectBinding`, Agentgres preconditions, and enclosing-System
+  `SystemScopedObjectBinding`, Agentgres preconditions, and enclosing-System
   transition requirements.
 - Stop on any room-owned admission policy/decision/receipt, sequence, revision,
   transition commitment, state root, receipt root, or custom CAS plane used as

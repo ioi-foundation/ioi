@@ -3652,7 +3652,7 @@
       "bound_but_unverified_records": [],
       "required_successor": {
         "work_item_id": null,
-        "requirement": "Re-prove the typed room families with RoomScopedObjectBinding and no RoomAdmittedObjectBase dependency. Prove shared-graph conflicts through Agentgres expected_head/expected_heads or expected_absent and the enclosing bounded-System predecessor condition. Prove that canonical decisions, sequences, transitions, receipts, state roots, and receipt roots are minted once by the Agentgres/System path and only referenced by room objects. Retain the original wrong-System, stale-head, direct-write, recovery, replay, label, lineage, and product-projection refusals."
+        "requirement": "Re-prove the typed room families with SystemScopedObjectBinding and no RoomAdmittedObjectBase dependency. Prove shared-graph conflicts through Agentgres expected_head/expected_heads or expected_absent and the enclosing bounded-System predecessor condition. Prove that canonical decisions, sequences, transitions, receipts, state roots, and receipt roots are minted once by the Agentgres/System path and only referenced by room objects. Retain the original wrong-System, stale-head, direct-write, recovery, replay, label, lineage, and product-projection refusals."
       },
       "projection_qualification": "verified_historical_with_open_successor",
       "state": "open",

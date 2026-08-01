@@ -3315,7 +3315,7 @@ mod offer_match_tests {
                 .join(rooms::ROOM_DIR)
                 .join(format!("{room_tail}.json")),
             serde_json::to_vec(&json!({
-                "schema_version": "ioi.foundations.outcome-room.v2",
+                "schema_version": "ioi.applications.ioi-ai.outcome-room.v2",
                 "outcome_room_id": room_ref,
             }))
             .unwrap(),

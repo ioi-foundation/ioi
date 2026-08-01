@@ -3,7 +3,7 @@
   "receipt_id": "receipt://goal-run-activation/demo-create-1/admission",
   "receipt_ref": "receipt://goal-run-activation/demo-create-1/admission",
   "receipt_type": "goal_run_activation",
-  "receipt_profile_ref": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+  "receipt_profile_ref": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
   "activation_ref": "goal-run-activation://demo/create-1",
   "activation_mode": "create",
   "source_context": {

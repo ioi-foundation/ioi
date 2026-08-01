@@ -107,7 +107,7 @@ synchronized.
   capability offers, attempts, findings, verifier challenges, contribution
   lineage, admission policy, discussion projections, and replay. It is not a
   peer runtime, admission plane, or globally mutable Agentgres graph. Every
-  room-scoped payload uses `RoomScopedObjectBinding` for its exact room System,
+  room-scoped payload uses `SystemScopedObjectBinding` for its exact room System,
   room, issuer, and payload root. Agentgres expected-head conditions and the
   enclosing bounded-System predecessor supply compare-and-swap; the canonical
   operation/transition owns decisions, sequence, commitments, receipts, state

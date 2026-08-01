@@ -44,7 +44,7 @@ lease semantics apply in both cases; only ordering/admission ownership differs.
 OutcomeRoomDiscoveryEnvelope:
   room_discovery_id: room-discovery://...
   outcome_room_ref: outcome-room://...
-  room_binding: RoomScopedObjectBinding
+  system_binding: SystemScopedObjectBinding
   publication_version: semver_or_hash
   published_by_ref: system://... | domain://... | org://... | service://...
   public_goal_ref: goal://... | task://... | service://...
@@ -342,7 +342,7 @@ creating a second credential system.
 RoomParticipantLeaseEnvelope:
   participant_lease_id: participant-lease://...
   outcome_room_ref: outcome-room://...
-  room_binding: RoomScopedObjectBinding
+  system_binding: SystemScopedObjectBinding
   participant_ref:
     system://... | agent://... | worker://... | service://... | org://... | domain://...
   admitted_role:
@@ -430,7 +430,7 @@ lineage; historical proof cannot depend on later host availability.
 ParticipantStateBundleEnvelope:
   participant_state_bundle_id: participant-state://...
   outcome_room_ref: outcome-room://...
-  room_binding: RoomScopedObjectBinding
+  system_binding: SystemScopedObjectBinding
   participant_lease_ref: participant-lease://...
   participant_and_home_domain_refs:
     - worker://... | service://... | org://... | domain://... | system://...
@@ -482,16 +482,18 @@ specialist work, tools, or other capabilities to a room. Offers are typed
 profiles over existing provider inventory, worker manifests, capability
 discovery, and resource-allocation objects; they are not a second marketplace.
 
-## RoomScopedObjectBinding
+## SystemScopedObjectBinding
 
-Every room-scoped typed object carries a non-authoritative binding to the room
-and issuer whose operation contains it:
+Every typed child of a bounded System scope carries a non-authoritative binding
+to that System, parent scope, and the proposer or issuer whose operation contains
+it. OutcomeRoom uses its room ref as the parent scope; the binding itself is not
+room vocabulary:
 
 ```yaml
-RoomScopedObjectBinding:
-  room_system_id: system://...
-  outcome_room_ref: outcome-room://...
-  proposed_or_issued_by_ref: participant-lease://... | system://...
+SystemScopedObjectBinding:
+  system_id: system://...
+  parent_scope_ref: scheme://...
+  proposed_or_issued_by_ref: scheme://...
   payload_root: hash
   created_at: timestamp
   updated_at: timestamp | null
@@ -500,7 +502,9 @@ RoomScopedObjectBinding:
 An external agent, Worker, service, organization, or sovereign system acts in a
 room only through a current `participant-lease://` ref. `system://` is valid as
 issuer only for a room-system-authored scheduling, expiry, or policy transition.
-The binding scopes and hashes the typed payload; it owns no verdict, sequence,
+The room application requires the parent scope to be its exact `outcome-room://`
+ref and resolves eligible issuers under room policy. The substrate binding scopes
+and hashes the typed payload; it owns no verdict, sequence,
 head, transition, receipt, state root, or receipt root. A payload becomes shared
 truth only when the daemon resolves its issuer and policy evidence and Agentgres
 admits the enclosing bounded-System operation. Compare-and-swap binds the
@@ -511,7 +515,7 @@ used as a request precondition but is not stored as room-owned truth.
 ```yaml
 ResourceOfferEnvelope:
   resource_offer_id: resource-offer://...
-  room_binding: RoomScopedObjectBinding
+  system_binding: SystemScopedObjectBinding
   provider_participant_lease_ref: participant-lease://...
   backing_provider_ref: provider://... | org://... | domain://... | system://...
   resource_profile_ref: resource://... | runtime://... | node://...
@@ -540,7 +544,7 @@ ResourceOfferEnvelope:
 ```yaml
 CapabilityOfferEnvelope:
   capability_offer_id: capability-offer://...
-  room_binding: RoomScopedObjectBinding
+  system_binding: SystemScopedObjectBinding
   participant_lease_ref: participant-lease://...
   backing_worker_or_service_ref: worker://... | service://... | system://...
   capability_descriptor_refs:
@@ -624,7 +628,7 @@ taskforces under one contract.
 ```yaml
 WorkFrontierItemEnvelope:
   frontier_item_id: frontier://...
-  room_binding: RoomScopedObjectBinding
+  system_binding: SystemScopedObjectBinding
   item_kind:
     question | problem | hypothesis | task | review_need |
     verification_need | resource_need | synthesis_need
@@ -658,7 +662,7 @@ WorkFrontierItemEnvelope:
 WorkClaimLeaseEnvelope:
   work_claim_id: work-claim://...
   outcome_room_ref: outcome-room://... | null
-  room_binding: RoomScopedObjectBinding | null
+  system_binding: SystemScopedObjectBinding | null
   frontier_item_ref: frontier://... | null
   claimant_ref:
     participant-lease://... | system://... | domain://... |
@@ -745,7 +749,7 @@ transitioning it does not launch work or grant execution authority.
 AttemptEnvelope:
   attempt_id: attempt://...
   outcome_room_ref: outcome-room://... | null
-  room_binding: RoomScopedObjectBinding | null
+  system_binding: SystemScopedObjectBinding | null
   work_subject_ref:
     goal://... | automation-run://... | work_run://... | run://... |
     invocation://... | work-claim://...
@@ -795,7 +799,7 @@ AttemptEnvelope:
 `bound_coordinates` is non-null only for a room-scoped Attempt. A non-room
 Attempt sets it to `null`; it MUST NOT fabricate an OutcomeRoom, frontier,
 claim, participant lease, or room-bound GoalRun merely to satisfy a shape. When
-`outcome_room_ref` is non-null, `room_binding` and every hosted coordinate
+`outcome_room_ref` is non-null, `system_binding` and every hosted coordinate
 shown above are non-null and mutually bound.
 
 ## FindingEnvelope
@@ -820,7 +824,7 @@ still an admission state, not acceptance or a verifier verdict.
 FindingEnvelope:
   finding_id: finding://...
   outcome_room_ref: outcome-room://... | null
-  room_binding: RoomScopedObjectBinding | null
+  system_binding: SystemScopedObjectBinding | null
   attempt_ref: attempt://...
   work_result_ref: work-result://...
   participant_ref: participant-lease://...
@@ -863,7 +867,7 @@ FindingEnvelope:
 `bound_coordinates` is non-null only for a room-scoped Finding. A non-room
 Finding sets it to `null`; it MUST NOT invent room, participant-lease, Attempt,
 or WorkResult room coordinates. When `outcome_room_ref` is non-null,
-`room_binding` and the hosted coordinate set above are non-null and mutually
+`system_binding` and the hosted coordinate set above are non-null and mutually
 bound.
 
 ## VerifierChallengeEnvelope
@@ -872,7 +876,7 @@ bound.
 VerifierChallengeEnvelope:
   verifier_challenge_id: verifier-challenge://...
   outcome_room_ref: outcome-room://... | null
-  room_binding: RoomScopedObjectBinding | null
+  system_binding: SystemScopedObjectBinding | null
   challenger_ref: participant-lease://... | system://... | worker://... | org://... | user://...
   challenged_ref:
     attempt://... | finding://... | verifier_path://... | benchmark://... |

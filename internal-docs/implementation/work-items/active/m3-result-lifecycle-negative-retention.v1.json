@@ -112,10 +112,10 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/work-result/v1"
+        "schema://ioi/foundations/work-result/v3"
       ],
       "schema_versions": [
-        "ioi.foundations.work-result.v1"
+        "ioi.foundations.work-result.v3"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -129,10 +129,10 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/outcome-delta/v1"
+        "schema://ioi/foundations/outcome-delta/v3"
       ],
       "schema_versions": [
-        "ioi.outcome-delta.v1"
+        "ioi.foundations.outcome-delta.v3"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"

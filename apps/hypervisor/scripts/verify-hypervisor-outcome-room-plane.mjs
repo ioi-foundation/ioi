@@ -3,10 +3,10 @@
 // Current M4 OutcomeRoom done-bar. The predecessor runner mixed retired v1 mutation fixtures
 // with current claims and could leave 41 assertions dark behind stale authority setup. This
 // runner admits no skip or explanation lane: every child process must exit zero, emit its exact
-// pinned number of positive assertions, and together produce exactly 140 current assertions.
+// pinned number of positive assertions, and together produce exactly 143 current assertions.
 //
 //   98 — fresh bounded-System/runtime, Agentgres, CAS, refusal, recovery, and product projection
-//   19 — field-for-field canonical room-child and RoomAdmittedObjectBase contract depth
+//   22 — field-for-field v3 room shapes and SystemScopedObjectBinding composition depth
 //   23 — typed v1 retirement, zero-mutation, restart, and no compatibility-route behavior
 
 import { createHash } from "node:crypto";
@@ -54,11 +54,12 @@ const planes = [
       "M4 outcome-room system spine: PASS (direct activation, real package/genesis/System, runtime-derived room result, reciprocal CAS, Agentgres replay/recovery, selected ported-shell projection)",
   },
   {
-    name: "room contract-depth plane",
-    script: "apps/hypervisor/scripts/verify-m4-room-contract-depth.mjs",
-    expected: 19,
-    countSentinel: "19/19 passed",
-    successSentinel: "M4 room contract depth: OK",
+    name: "room composition contract-depth plane",
+    script:
+      "apps/hypervisor/scripts/verify-m4-room-composition-contract-depth.mjs",
+    expected: 22,
+    countSentinel: "22/22 passed",
+    successSentinel: "M4 room composition contract depth: OK",
   },
   {
     name: "v1 retirement plane",
@@ -160,11 +161,14 @@ for (const plane of planes) {
   total += passes;
 }
 
-if (total !== 140) {
-  console.error(`FAIL current OutcomeRoom plane: ${total}/140 assertions`);
+const expectedTotal = planes.reduce((sum, plane) => sum + plane.expected, 0);
+if (total !== expectedTotal) {
+  console.error(
+    `FAIL current OutcomeRoom plane: ${total}/${expectedTotal} assertions`,
+  );
   process.exit(1);
 }
-console.log("140/140 passed");
+console.log(`${expectedTotal}/${expectedTotal} passed`);
 console.log(
   "M4 OutcomeRoom plane: OK (current bounded-System runtime + contract depth + typed predecessor retirement; no skipped or dark assertions)",
 );

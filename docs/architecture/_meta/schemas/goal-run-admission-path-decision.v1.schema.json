@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "schema://ioi/foundations/goal-run-admission-path-decision/v1",
+  "$id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
   "title": "GoalRunAdmissionPathDecision",
-  "x-ioi-schema-version": "ioi.foundations.goal-run-admission-path-decision.v1",
+  "x-ioi-schema-version": "ioi.applications.ioi-ai.goal-run-admission-path-decision.v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -25,7 +25,7 @@
     "decided_at"
   ],
   "properties": {
-    "schema_version": { "const": "ioi.foundations.goal-run-admission-path-decision.v1" },
+    "schema_version": { "const": "ioi.applications.ioi-ai.goal-run-admission-path-decision.v1" },
     "decision_ref": { "$ref": "#/$defs/ref" },
     "goal_run_ref": { "type": "string", "pattern": "^goal://[^\\s]{1,500}$" },
     "requested_path": { "enum": ["auto", "direct_non_system", "system_bound"] },

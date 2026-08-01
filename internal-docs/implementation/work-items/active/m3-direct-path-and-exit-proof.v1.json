@@ -95,21 +95,21 @@
     {
       "name": "GoalRun",
       "contract_ids": [
-        "schema://ioi/foundations/goal-run/v1"
+        "schema://ioi/applications/ioi-ai/goal-run/v1"
       ],
       "registry_resolution": "architecture_contract_registry"
     },
     {
       "name": "GoalRunProfile",
       "contract_ids": [
-        "schema://ioi/foundations/goal-run-profile/v1"
+        "schema://ioi/applications/ioi-ai/goal-run-profile/v1"
       ],
       "registry_resolution": "architecture_contract_registry"
     },
     {
       "name": "GoalRunProfileResolutionReceipt",
       "contract_ids": [
-        "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1"
+        "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1"
       ],
       "registry_resolution": "architecture_contract_registry"
     },
@@ -144,7 +144,7 @@
     {
       "name": "WorkResult",
       "contract_ids": [
-        "schema://ioi/foundations/work-result/v1"
+        "schema://ioi/foundations/work-result/v3"
       ],
       "registry_resolution": "architecture_contract_registry"
     }

@@ -57,9 +57,12 @@ KEEP AS APPLICATION VOCABULARY
   Attempt, Finding, VerifierChallenge and ParticipantStateBundle
 
 KEEP AS A NON-AUTHORITATIVE TYPED BINDING
-  room_system_id, outcome_room_ref, proposed_or_issued_by_ref, payload_root
-  and object-owned timestamps. This binding scopes a payload; it owns no
-  admission verdict, sequence, head, transition, receipt or root.
+  SystemScopedObjectBinding: system_id, parent_scope_ref,
+  proposed_or_issued_by_ref, payload_root and object-owned timestamps. This
+  substrate-generic binding scopes a payload; it owns no admission verdict,
+  sequence, head, transition, receipt or root. The ioi.ai application maps an
+  OutcomeRoom to parent_scope_ref rather than exporting room vocabulary into
+  foundations.
 
 REMOVE
   RoomAdmittedObjectBase and every room-owned admission_policy_ref,

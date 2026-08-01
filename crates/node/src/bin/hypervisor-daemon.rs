@@ -498,21 +498,12 @@ async fn async_main() -> anyhow::Result<()> {
     )?;
     seed_default_state(&data_dir);
     // A retained M4 child intent makes its owner registry part of recovery truth. Census that
-    // complete registry before the generic M3 compatibility fold so malformed, relocated, or
-    // ambiguous owner bytes receive the room-recovery refusal that fences the pending intent;
-    // migration must neither normalize nor take ownership of that failure first.
+    // complete registry before recovery so malformed, relocated, or ambiguous owner bytes fence
+    // the pending intent. Superseded WorkResult compatibility folds were deleted under ADR 0022.
     if let Err((code, message)) =
         outcome_room_system_routes::preflight_pending_owner_registry_census(&data_dir)
     {
         anyhow::bail!("OutcomeRoom recovery blocks readiness ({code}: {message})");
-    }
-    let migrated_goal_run_results =
-        goalrun_routes::migrate_legacy_goal_run_work_results(&data_dir)?;
-    if migrated_goal_run_results > 0 {
-        tracing::info!(
-            migrated_goal_run_results,
-            "folded legacy GoalRun WorkResults into the canonical registry"
-        );
     }
     // WS-3r — reconcile editor services on boot: a runtime persisted `ready` did not survive the
     // restart, so mark it degraded (restart required) rather than claim a phantom-ready editor.

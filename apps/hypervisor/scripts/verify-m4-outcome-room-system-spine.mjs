@@ -45,7 +45,7 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");
 const SCHEMAS = join(REPO, "docs", "architecture", "_meta", "schemas");
-const ROOM_SCHEMA = "ioi.foundations.outcome-room.v2";
+const ROOM_SCHEMA = "ioi.applications.ioi-ai.outcome-room.v2";
 const OUTCOME_PACKAGE = "package://ioi/outcome-room";
 const SYSTEM_ID = "system://ioi/outcome-room/m4-hosted-proof";
 const GENESIS_ID = "genesis://ioi/outcome-room/m4-hosted-proof/genesis";
@@ -58,18 +58,13 @@ const RESULT_REGISTRY_PROJECTION_SCHEMA =
   "ioi.hypervisor.versioned-work-result-registry-projection.v1";
 const DELTA_REGISTRY_PROJECTION_SCHEMA =
   "ioi.hypervisor.versioned-outcome-delta-registry-projection.v1";
-const RESULT_RECORD_SCHEMAS = [
-  "ioi.hypervisor.work-result.v1",
-  "ioi.foundations.work-result.v1",
-  "ioi.foundations.work-result.v2",
-];
-const DELTA_RECORD_SCHEMAS = [
-  "ioi.hypervisor.outcome-delta.v1",
-  "ioi.outcome-delta.v1",
-  "ioi.foundations.outcome-delta.v2",
-];
+const RESULT_RECORD_SCHEMAS = ["ioi.foundations.work-result.v3"];
+const DELTA_RECORD_SCHEMAS = ["ioi.foundations.outcome-delta.v3"];
 
 const checks = [];
+// 90 static check() sites execute as 98 assertions: the five-field runtime-substitution loop and
+// the five-surface pending-intent fence loop each contribute four executions beyond their one
+// static call site. Any case-count change must update this explanation and the exact done bar.
 const EXPECTED_CHECKS = 98;
 const CLEAN_BASE_ENV = sanitizedVerifierBaseEnv();
 const check = (name, pass, detail = "") =>
@@ -180,6 +175,19 @@ function jcsRoot(domain, value) {
     .digest("hex")}`;
 }
 
+function systemScopedPayloadRoot(record) {
+  const payload = structuredClone(record);
+  delete payload.system_binding;
+  return jcsRoot("ioi.system-scoped-object-payload-jcs-sha256.v1", payload);
+}
+
+function receiptRefBindsRoot(receiptRef, receiptRoot) {
+  return typeof receiptRef === "string" &&
+    typeof receiptRoot === "string" &&
+    /^sha256:[0-9a-f]{64}$/u.test(receiptRoot) &&
+    receiptRef.endsWith(`/${receiptRoot.slice("sha256:".length)}`);
+}
+
 function canonicalSha256(value) {
   return `sha256:${createHash("sha256").update(canonicalJson(value)).digest("hex")}`;
 }
@@ -188,22 +196,6 @@ function rootedRuntimeRecordRoot(domain, record, rootField) {
   return canonicalSha256({
     domain,
     record: { ...record, [rootField]: null },
-  });
-}
-
-function outcomeRoomRequiredRecordRoot(recordFamily, record, rootField) {
-  return canonicalSha256({
-    domain: "ioi.outcome-room-required-admission-record-jcs-sha256.v1",
-    record_family: recordFamily,
-    record: { ...record, [rootField]: null },
-  });
-}
-
-function outcomeRoomStateRoot(room) {
-  return jcsRoot("ioi.outcome-room-state-jcs-sha256.v2", {
-    ...room,
-    room_state_root: null,
-    room_receipt_root: null,
   });
 }
 
@@ -694,6 +686,13 @@ function runDeepChildAdmissionGuardTests() {
   );
 }
 
+function runStableAgentgresRoomCasTests() {
+  return runFocusedOutcomeRoomRustTests(
+    "substrate_store::tests::outcome_room_system_operation_uses_one_stable_expected_head",
+    "stable_agentgres_room_cas_test",
+  );
+}
+
 function runDeepMembershipDetachGuardTests() {
   return runFocusedOutcomeRoomRustTests(
     "outcome_room_system_routes::tests::membership_detach_",
@@ -907,70 +906,6 @@ const validateDiscussion = ajv.compile(
 
 const dataDir = mkdtempSync(join(tmpdir(), "ioi-m4-outcome-room-spine-"));
 const sessionsRoot = join(dataDir, "verifier-session-workspaces");
-const m3LegacyResult = {
-  ...JSON.parse(
-    readFileSync(
-      join(
-        SCHEMAS,
-        "fixtures",
-        "work-result-v1",
-        "positive-minimal.json",
-      ),
-      "utf8",
-    ),
-  ),
-  work_result_id: "work-result://m3/legacy-migration-proof",
-  work_subject_ref: "goal://m3-legacy-migration-proof",
-  goal_run_ref: "goal://m3-legacy-migration-proof",
-};
-const m3LegacySourceBytes = Buffer.from(`${JSON.stringify(m3LegacyResult)}\n`);
-const m3LegacySourceDirectory = join(dataDir, "work-results");
-const m3LegacySourcePath = join(
-  m3LegacySourceDirectory,
-  `${m3LegacyResult.work_result_id.replace(/[^a-zA-Z0-9_-]/gu, "_")}.json`,
-);
-mkdirSync(m3LegacySourceDirectory, { recursive: true });
-writeFileSync(m3LegacySourcePath, m3LegacySourceBytes, { flag: "wx" });
-const predecessorGoalRunTemplate = JSON.parse(
-  readFileSync(
-    join(SCHEMAS, "fixtures", "goal-run-v1", "positive-minimal.json"),
-    "utf8",
-  ),
-);
-const predecessorOwnerGoalRun = (goalRunId, goalRef) => ({
-  ...predecessorGoalRunTemplate,
-  goal_run_id: goalRunId,
-  goal_ref: goalRef,
-  owner_ref: LOCAL_OWNER,
-  resolved_component_set_snapshot_ref:
-    `artifact://goal-run/${goalRunId}/components`,
-  active_skill_set_snapshot_ref: `active-skill-set://goal-run/${goalRunId}`,
-  goal_run_profile_resolution_receipt_ref:
-    `receipt://goal-run/${goalRunId}/profile-resolution`,
-  normalized_goal: `Retained predecessor owner fixture ${goalRunId}`,
-  admitted_state_root_ref: `agentgres://state-root/goal-run/${goalRunId}`,
-});
-// Retained M3/generic WorkResults predate inline owner coordinates. Their exact predecessor
-// GoalRuns keep that history owner-resolvable on managed collection/point reads without silently
-// dropping a row or weakening a strict unresolved-owner failure into false-empty truth.
-const m3LegacyOwnerGoalRun = installIsolatedJsonFixture(
-  dataDir,
-  "goal-runs",
-  "m3-legacy-migration-proof",
-  predecessorOwnerGoalRun(
-    "m3-legacy-migration-proof",
-    m3LegacyResult.goal_run_ref,
-  ),
-);
-const genericPredecessorOwnerGoalRun = installIsolatedJsonFixture(
-  dataDir,
-  "goal-runs",
-  "m4-versioned-registry-predecessor",
-  predecessorOwnerGoalRun(
-    "m4-versioned-registry-predecessor",
-    "goal://m4-versioned-registry-predecessor",
-  ),
-);
 let resolver;
 let plane;
 let completed = false;
@@ -1050,34 +985,31 @@ try {
       modelRouteProbe.body.availability?.state === "available",
     `BLOCKED: the isolated daemon's real model route is unavailable (${modelRoutes.status}/${seededModelRoute?.model?.model_id}/${modelRouteProbe.status}/${modelRouteProbe.body.availability?.state})`,
   );
-  const genericPredecessorCreate = await call(
+  const genericCurrentCreate = await call(
     "POST",
     "/v1/hypervisor/work-results",
     {
-      goal_ref: "goal://m4-versioned-registry-predecessor",
+      goal_ref: "goal://m4-current-generic-result",
       result_profile: "custom",
       outcome_class: "negative",
       status: "completed",
       uncertainty: {
-        source_disposition: "predecessor-generation coexistence fixture",
+        source_disposition: "current generic substrate fixture",
       },
       next_action: "none",
     },
   );
-  const genericPredecessorResult = genericPredecessorCreate.body.work_result;
-  const genericPredecessorWorkResultId = requireValue(
-    genericPredecessorResult?.work_result_id,
-    "BLOCKED: generic predecessor WorkResult fixture was not admitted",
+  const genericCurrentResult = genericCurrentCreate.body.work_result;
+  const genericCurrentWorkResultId = requireValue(
+    genericCurrentResult?.work_result_id,
+    "BLOCKED: current generic WorkResult fixture was not admitted",
+  );
+  const genericCurrentBytes = Buffer.from(
+    `${JSON.stringify(genericCurrentResult)}\n`,
   );
   const initialVersionedResults = await call(
     "GET",
     "/v1/hypervisor/work-results",
-  );
-  const migratedM3Point = await call(
-    "GET",
-    `/v1/hypervisor/work-results/${encodeURIComponent(
-      m3LegacyResult.work_result_id.replace("work-result://", ""),
-    )}`,
   );
   const directAfterRestart = await call(
     "GET",
@@ -1088,9 +1020,10 @@ try {
     directAfterRestart.status === 200 &&
       directAfterRestart.body.goal_run?.outcome_room_ref === null &&
       directAfterRestart.body.goal_run?.goal_run_id === directGoalRunId &&
-      genericPredecessorCreate.status === 201 &&
-      genericPredecessorResult?.schema_version ===
-        "ioi.hypervisor.work-result.v1" &&
+      genericCurrentCreate.status === 201 &&
+      genericCurrentResult?.schema_version ===
+        "ioi.foundations.work-result.v3" &&
+      genericCurrentResult?.system_binding === null &&
       initialVersionedResults.status === 200 &&
       initialVersionedResults.body.schema_version ===
         RESULT_REGISTRY_PROJECTION_SCHEMA &&
@@ -1099,34 +1032,18 @@ try {
       ) === canonicalJson(RESULT_RECORD_SCHEMAS) &&
       canonicalJson(initialVersionedResults.body.record_schema_counts) ===
         canonicalJson({
-          "ioi.hypervisor.work-result.v1": 1,
-          "ioi.foundations.work-result.v1": 1,
-          "ioi.foundations.work-result.v2": 0,
-        }) &&
-      migratedM3Point.status === 200 &&
-      migratedM3Point.body.schema_version ===
-        RESULT_REGISTRY_PROJECTION_SCHEMA &&
-      migratedM3Point.body.record_schema_version ===
-        "ioi.foundations.work-result.v1" &&
-      canonicalJson(migratedM3Point.body.work_result) ===
-        canonicalJson(m3LegacyResult) &&
-      readFileSync(m3LegacySourcePath).equals(m3LegacySourceBytes) &&
-      readFileSync(m3LegacyOwnerGoalRun.path).equals(
-        m3LegacyOwnerGoalRun.bytes,
-      ) &&
-      readFileSync(genericPredecessorOwnerGoalRun.path).equals(
-        genericPredecessorOwnerGoalRun.bytes,
-      ),
-    `${directAfterRestart.status}/${directAfterRestart.body.goal_run?.goal_run_id}/generic=${genericPredecessorCreate.status}/${genericPredecessorResult?.schema_version}/registry=${initialVersionedResults.status}/${canonicalJson(initialVersionedResults.body.record_schema_counts)}/m3=${migratedM3Point.status}/${migratedM3Point.body.record_schema_version}/source_bytes=${readFileSync(m3LegacySourcePath).equals(m3LegacySourceBytes)}/owner_fixtures=${readFileSync(m3LegacyOwnerGoalRun.path).equals(m3LegacyOwnerGoalRun.bytes)}/${readFileSync(genericPredecessorOwnerGoalRun.path).equals(genericPredecessorOwnerGoalRun.bytes)}`,
+          "ioi.foundations.work-result.v3": 1,
+        }),
+    `${directAfterRestart.status}/${directAfterRestart.body.goal_run?.goal_run_id}/generic=${genericCurrentCreate.status}/${genericCurrentResult?.schema_version}/registry=${initialVersionedResults.status}/${canonicalJson(initialVersionedResults.body.record_schema_counts)}`,
   );
   check(
-    "DIRECT RESTART: direct GoalRun acquires no result/delta and coexistence remains predecessor-only",
+    "DIRECT RESTART: direct GoalRun acquires no result/delta and only the current generic contract is live",
     directAfterRestart.body.goal_run?.work_result_refs?.length === 0 &&
       (directAfterRestart.body.goal_run?.outcome_delta_refs || []).length === 0 &&
-      familyCount(dataDir, "work-result-registry") === 2 &&
+      familyCount(dataDir, "work-result-registry") === 1 &&
       familyCount(dataDir, "outcome-delta-registry") === 0 &&
       initialVersionedResults.body.work_results?.every(
-        (record) => record.schema_version !== "ioi.foundations.work-result.v2",
+        (record) => record.schema_version === "ioi.foundations.work-result.v3",
       ),
     `results=${familyCount(dataDir, "work-result-registry")}/deltas=${familyCount(dataDir, "outcome-delta-registry")}`,
   );
@@ -1291,7 +1208,7 @@ try {
       // projection that correctly renders the GoalRun intent contains the same byte sequence as
       // the result payload and makes the export-leakage assertion a false positive. The runtime
       // still has an exact, deterministic output contract without receiving the canary verbatim.
-      goal: "Create m4-room-load-proof.txt containing, with no trailing newline, the four words bounded, room, load, and proven joined by one ASCII space in that order",
+      goal: "Use the available workspace file tool to create m4-room-load-proof.txt containing, with no trailing newline, the four words bounded, room, load, and proven joined by one ASCII space in that order. Read the file back before returning. Do not report completion unless that exact file exists with exactly the requested four-word ASCII-space sequence",
       session_ref: sessionRef,
       target_system_id: SYSTEM_ID,
       admission_path_request: collectivePathRequest(),
@@ -1514,7 +1431,7 @@ try {
   const collisionDirectory = join(dataDir, "outcome-room-registry");
   const collisionPath = join(collisionDirectory, `${collisionTail}.json`);
   const historicalRoomBytes = `${JSON.stringify({
-    schema_version: "ioi.foundations.outcome-room.v1",
+    schema_version: "ioi.applications.ioi-ai.outcome-room.v1",
     outcome_room_id: `outcome-room://${collisionTail}`,
     system_id: SYSTEM_ID,
     historical_predecessor: true,
@@ -1593,10 +1510,10 @@ try {
     dataDir,
     "outcome-room-registry",
   );
-  const pendingGenesisReceiptCount = familyRecords(
+  const pendingGenesisReceiptCount = familyCount(
     dataDir,
     "outcome-room-system-receipts",
-  ).filter((receipt) => receipt.receipt_type === "outcome_room_admission").length;
+  );
   const pendingRoomPoint = await call("GET", roomPath);
   requireValue(
     faultedCreate.status === 503 &&
@@ -1620,24 +1537,27 @@ try {
   const recoveredGenesisReplay = await call("GET", replayPath);
   const recoveredGenesisOperations =
     recoveredGenesisReplay.body.operations?.filter(
-      (operation) => operation.operation_kind === "room_genesis_admitted",
+      (operation) => operation.operation_kind === "room_genesis",
     ) || [];
   const recoveredGenesisOperation = recoveredGenesisOperations[0];
   const expectedGenesisRequestRoot = jcsRoot(
     "ioi.outcome-room-create-request-jcs-sha256.v1",
     requestBody,
   );
-  const expectedGenesisOperationRoot = outcomeRoomRequiredRecordRoot(
-    "outcome-room-admission-operations",
-    pendingGenesisIntent.operation,
-    "operation_root",
-  );
   const recoveredGenesisReceipts = familyRecords(
     dataDir,
     "outcome-room-system-receipts",
-  ).filter((receipt) => receipt.receipt_type === "outcome_room_admission");
-  const recoveredGenesisReceipt = recoveredGenesisReceipts[0];
+  );
   let room = recoveredRoomPoint.body.outcome_room;
+  const expectedRecoveredGenesisRoom = {
+    ...structuredClone(pendingGenesisIntent?.candidate_room || {}),
+    latest_sequence: recoveredGenesisOperation?.sequence,
+    latest_transition_commitment_ref:
+      recoveredGenesisOperation?.resulting_transition_commitment_ref,
+    room_state_root: recoveredGenesisOperation?.resulting_room_state_root,
+    room_receipt_root: recoveredGenesisOperation?.receipt_root,
+    admission_and_replay_refs: [recoveredGenesisOperation?.receipt_ref],
+  };
   const replayedCreateDurableBefore = roomAdmissionSideEffectSnapshot(dataDir);
   const replayedCreate = await call(
     "POST",
@@ -1680,36 +1600,35 @@ try {
     existsSync(join(dataDir, "substrate", "muxlog.bin")) &&
       pendingGenesisIntents.length === 1 &&
       canonicalJson(pendingGenesisIntent?.request) === canonicalJson(requestBody) &&
-      canonicalJson(pendingGenesisIntent?.room) === canonicalJson(room) &&
-      canonicalJson(pendingGenesisIntent?.receipt) ===
-        canonicalJson(recoveredGenesisReceipt) &&
-      pendingGenesisIntent?.operation?.operation_root ===
-        recoveredGenesisOperation?.operation_root &&
-      pendingGenesisReceiptCount === 1 &&
+      canonicalJson(pendingGenesisIntent?.candidate_room) ===
+        canonicalJson(pendingGenesisIntent?.operation?.typed_payload) &&
+      pendingGenesisReceiptCount === 0 &&
       recoveredGenesisReplay.status === 200 &&
       recoveredGenesisOperations.length === 1 &&
-      recoveredGenesisReceipts.length === 1 &&
-      recoveredGenesisOperation?.operation_kind === "room_genesis_admitted" &&
-      recoveredGenesisOperation?.operation_root ===
-        expectedGenesisOperationRoot &&
-      pendingGenesisIntent?.operation?.operation_root ===
-        expectedGenesisOperationRoot &&
-      recoveredGenesisOperation?.system_chain_root === active.chain.chain_root &&
-      recoveredGenesisOperation?.system_state_root ===
+      recoveredGenesisReceipts.length === 0 &&
+      recoveredGenesisOperation?.operation_kind === "room_genesis" &&
+      String(recoveredGenesisOperation?.operation_root || "").startsWith(
+        "sha256:",
+      ) &&
+      pendingGenesisIntent?.operation?.expected_system_predecessor?.chain_root ===
+        active.chain.chain_root &&
+      pendingGenesisIntent?.operation?.expected_system_predecessor?.state_root ===
         active.chain.latest_state_root &&
       recoveredGenesisOperation?.collective_goal_run_ref ===
         collectiveGoal.goal_ref &&
       recoveredGenesisOperation?.collective_path_decision_ref ===
         collectiveGoal.admission_path_decision?.decision_ref &&
       recoveredGenesisOperation?.request_root === expectedGenesisRequestRoot &&
-      recoveredGenesisOperation?.receipt_ref ===
-        recoveredGenesisReceipt?.receipt_ref &&
-      recoveredGenesisOperation?.receipt_root ===
-        recoveredGenesisReceipt?.receipt_root &&
-      room?.room_receipt_root === recoveredGenesisReceipt?.receipt_root &&
+      String(recoveredGenesisOperation?.receipt_ref || "").startsWith(
+        "receipt://agentgres/outcome-room-system/",
+      ) &&
+      recoveredGenesisOperation?.receipt_root === room?.room_receipt_root &&
+      recoveredGenesisOperation?.resulting_room_state_root ===
+        room?.room_state_root &&
+      canonicalJson(room) === canonicalJson(expectedRecoveredGenesisRoom) &&
       familyCount(dataDir, "outcome-room-registry") === 1 &&
       familyCount(dataDir, "outcome-room-system-admission-intents") === 0,
-    `pending_intents=${pendingGenesisIntents.length}/pending_receipts=${pendingGenesisReceiptCount}/recovered_ops=${recoveredGenesisOperations.length}/operation_root=${recoveredGenesisOperation?.operation_root}/${expectedGenesisOperationRoot}/system_roots=${recoveredGenesisOperation?.system_chain_root}/${recoveredGenesisOperation?.system_state_root}/collective=${recoveredGenesisOperation?.collective_goal_run_ref}/${recoveredGenesisOperation?.collective_path_decision_ref}/request=${recoveredGenesisOperation?.request_root}/${expectedGenesisRequestRoot}/recovered_receipts=${recoveredGenesisReceipts.length}/rooms=${familyCount(dataDir, "outcome-room-registry")}/remaining_intents=${familyCount(dataDir, "outcome-room-system-admission-intents")}`,
+    `pending_intents=${pendingGenesisIntents.length}/pending_receipts=${pendingGenesisReceiptCount}/recovered_ops=${recoveredGenesisOperations.length}/operation_root=${recoveredGenesisOperation?.operation_root}/system_roots=${pendingGenesisIntent?.operation?.expected_system_predecessor?.chain_root}/${pendingGenesisIntent?.operation?.expected_system_predecessor?.state_root}/collective=${recoveredGenesisOperation?.collective_goal_run_ref}/${recoveredGenesisOperation?.collective_path_decision_ref}/request=${recoveredGenesisOperation?.request_root}/${expectedGenesisRequestRoot}/recovered_receipts=${recoveredGenesisReceipts.length}/rooms=${familyCount(dataDir, "outcome-room-registry")}/remaining_intents=${familyCount(dataDir, "outcome-room-system-admission-intents")}`,
   );
   const changedCreateDurableBefore = roomAdmissionSideEffectSnapshot(dataDir);
   const changedCreate = await call(
@@ -1856,7 +1775,8 @@ try {
       );
       inverseResultRoomless =
         inverseGenericResult.body.work_result?.outcome_room_ref == null &&
-        inverseGenericResult.body.work_result?.room_admission == null;
+        inverseGenericResult.body.work_result?.room_admission == null &&
+        inverseGenericResult.body.work_result?.system_binding == null;
       const treeBefore = roomAdmissionSideEffectSnapshot(inverseAttachDataDir);
       inverseAttach = await request(
         inversePlane.daemonUrl,
@@ -1906,7 +1826,7 @@ try {
       /test .*membership_detach_guards_wrong_room_and_missing_reciprocity \.\.\. ok/u.test(
         deepMembershipDetachGuardTests.output,
       ) &&
-      /2 passed; 0 failed/u.test(deepMembershipDetachGuardTests.output),
+      /1 passed; 0 failed/u.test(deepMembershipDetachGuardTests.output),
     `not_member=${preAttachDetach.status}/${preAttachDetach.body.error?.code}/stale=${staleGoal.status}/${staleGoal.body.error?.code}/oracle=${membershipExistingNoncollective.status}/${membershipExistingNoncollective.body.error?.code}/${membershipMissingNoncollective.status}/${membershipMissingNoncollective.body.error?.code}/oracle_raw_equal=${membershipExistingNoncollective.raw === membershipMissingNoncollective.raw}/oracle_tree=${membershipGoalOracleSnapshotAfter === membershipGoalOracleSnapshotBefore}/inverse=${inverseGenericResult?.status}/${inverseAttach?.status}/${inverseAttach?.body.error?.code}/inverse_roomless=${inverseResultRoomless}/inverse_tree=${inverseAttachTreeUnchanged}/whole_tree_unchanged=${preAttachDetachSnapshotAfter === preAttachDetachSnapshotBefore && staleGoalSnapshotAfter === staleGoalSnapshotBefore}/deep=${deepMembershipDetachGuardTests.code}`,
   );
   const attached = await call(
@@ -2046,7 +1966,7 @@ try {
   let selfConsistentMembershipRecovery;
   let selfConsistentMembershipRecoveryTreeUnchanged = false;
   let selfConsistentMembershipIntentRetained = false;
-  let selfConsistentMembershipRootsRecomputed = false;
+  let selfConsistentMembershipBindingSubstituted = false;
   let selfConsistentMembershipRoomSchemaValid = false;
   try {
     let constructorFaultPlane = await startIsolatedPlane({
@@ -2111,58 +2031,21 @@ try {
       intentEntry.name,
     );
     const intent = JSON.parse(readFileSync(intentPath, "utf8"));
-    const priorRoots = {
-      room: intent.room?.room_state_root,
-      receipt: intent.receipt?.receipt_root,
-      operation: intent.operation?.operation_root,
-    };
-    const substitutedRoom = structuredClone(intent.room);
+    const priorRoom = structuredClone(intent.candidate_room);
+    const priorOperation = structuredClone(intent.operation);
+    const substitutedRoom = structuredClone(intent.candidate_room);
     substitutedRoom.member_goal_run_refs = [
       ...(substitutedRoom.member_goal_run_refs || []),
       "goal://gr_m4_unrelated_membership_recovery",
     ];
-    substitutedRoom.room_state_root = outcomeRoomStateRoot(substitutedRoom);
-
-    const substitutedReceipt = structuredClone(intent.receipt);
-    substitutedReceipt.resulting_room_state_root =
-      substitutedRoom.room_state_root;
-    substitutedReceipt.receipt_root = outcomeRoomRequiredRecordRoot(
-      "outcome-room-admission-receipts",
-      substitutedReceipt,
-      "receipt_root",
-    );
-    substitutedRoom.room_receipt_root = substitutedReceipt.receipt_root;
-
-    const substitutedOperation = structuredClone(intent.operation);
-    substitutedOperation.resulting_room_state_root =
-      substitutedRoom.room_state_root;
-    substitutedOperation.resulting_room = substitutedRoom;
-    substitutedOperation.receipt_root = substitutedReceipt.receipt_root;
-    substitutedOperation.operation_root = outcomeRoomRequiredRecordRoot(
-      "outcome-room-transition-operations",
-      substitutedOperation,
-      "operation_root",
-    );
-
-    intent.room = substitutedRoom;
-    intent.receipt = substitutedReceipt;
-    intent.operation = substitutedOperation;
-    const replacementKey =
-      `orto_${substitutedOperation.operation_root.replace(/^sha256:/u, "")}`;
-    const replacementPath = join(
-      selfConsistentMembershipRecoveryDataDir,
-      "outcome-room-membership-admission-intents",
-      `${replacementKey}.json`,
-    );
+    intent.candidate_room = substitutedRoom;
+    const replacementPath = intentPath;
     const replacementBytes = Buffer.from(`${JSON.stringify(intent)}\n`);
-    rmSync(intentPath, { force: true });
-    writeFileSync(replacementPath, replacementBytes, { flag: "wx" });
+    writeFileSync(replacementPath, replacementBytes);
     selfConsistentMembershipRoomSchemaValid = validateRoom(substitutedRoom);
-    selfConsistentMembershipRootsRecomputed =
-      substitutedRoom.room_state_root !== priorRoots.room &&
-      substitutedReceipt.receipt_root !== priorRoots.receipt &&
-      substitutedOperation.operation_root !== priorRoots.operation &&
-      replacementPath.endsWith(`${replacementKey}.json`);
+    selfConsistentMembershipBindingSubstituted =
+      canonicalJson(substitutedRoom) !== canonicalJson(priorRoom) &&
+      canonicalJson(intent.operation) === canonicalJson(priorOperation);
     const treeBefore = roomAdmissionSideEffectSnapshot(
       selfConsistentMembershipRecoveryDataDir,
     );
@@ -2250,9 +2133,6 @@ try {
   const recoveredDetachOperation = recoveredDetachReplay.body.operations?.find(
     (operation) => operation.operation_kind === "goal_run_membership_detached",
   );
-  const recoveredDetachReceipt = membershipRecoveryReceipts.find(
-    (receipt) => receipt.receipt_type === "goal_run_membership_detachment",
-  );
   const detachedGoalRoot = jcsRoot(
     "ioi.goal-run-room-membership-predecessor-jcs-sha256.v1",
     recoveredDetachGoal.body.goal_run,
@@ -2315,7 +2195,7 @@ try {
         selfConsistentMembershipRecovery.expectedCode,
       ) &&
       selfConsistentMembershipRoomSchemaValid &&
-      selfConsistentMembershipRootsRecomputed &&
+      selfConsistentMembershipBindingSubstituted &&
       selfConsistentMembershipIntentRetained &&
       selfConsistentMembershipRecoveryTreeUnchanged &&
       membershipRecoveryFenceAfter === membershipRecoveryFenceBefore &&
@@ -2352,60 +2232,50 @@ try {
         room.outcome_room_id &&
       canonicalJson(collectiveAfterReattach.body.goal_run) ===
         canonicalJson(reattached.body.goal_run),
-    `attach=${attached.status}/fault=${faultedDetach.status}/${faultedDetach.body.error?.code}/recovery_registry_fences=${[malformedMembershipRecovery, relocatedMembershipRecovery].map((probe) => `${probe?.refused}/${probe?.logText.includes(probe.expectedCode)}/${probe?.newLogs.length}`).join(",")}/self_consistent=${selfConsistentMembershipRecovery?.refused}/${selfConsistentMembershipRecovery?.logText.includes(selfConsistentMembershipRecovery.expectedCode)}/${selfConsistentMembershipRecovery?.newLogs.length}/room_schema=${selfConsistentMembershipRoomSchemaValid}/roots=${selfConsistentMembershipRootsRecomputed}/intent_retained=${selfConsistentMembershipIntentRetained}/tree=${selfConsistentMembershipRecoveryTreeUnchanged}/whole_tree_unchanged=${membershipRecoveryFenceAfter === membershipRecoveryFenceBefore}/fences=${membershipFencedResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/recovered=${recoveredDetachRoom.status}/${recoveredDetachGoal.status}/${recoveredDetachGraph.status}/${recoveredDetachDiscussion.status}/${recoveredDetachReplay.status}/${recoveredDetachProduct.status}/reattach=${reattached.status}/room_seq=${room?.latest_sequence}`,
+    `attach=${attached.status}/fault=${faultedDetach.status}/${faultedDetach.body.error?.code}/recovery_registry_fences=${[malformedMembershipRecovery, relocatedMembershipRecovery].map((probe) => `${probe?.refused}/${probe?.logText.includes(probe.expectedCode)}/${probe?.newLogs.length}`).join(",")}/self_consistent=${selfConsistentMembershipRecovery?.refused}/${selfConsistentMembershipRecovery?.logText.includes(selfConsistentMembershipRecovery.expectedCode)}/${selfConsistentMembershipRecovery?.newLogs.length}/room_schema=${selfConsistentMembershipRoomSchemaValid}/binding_substituted=${selfConsistentMembershipBindingSubstituted}/intent_retained=${selfConsistentMembershipIntentRetained}/tree=${selfConsistentMembershipRecoveryTreeUnchanged}/whole_tree_unchanged=${membershipRecoveryFenceAfter === membershipRecoveryFenceBefore}/fences=${membershipFencedResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/recovered=${recoveredDetachRoom.status}/${recoveredDetachGoal.status}/${recoveredDetachGraph.status}/${recoveredDetachDiscussion.status}/${recoveredDetachReplay.status}/${recoveredDetachProduct.status}/reattach=${reattached.status}/room_seq=${room?.latest_sequence}`,
   );
   check(
-    "MEMBERSHIP RECOVERY: restart commits exactly one detach operation/receipt before the reattach successor",
-    attached.body.agentgres_operation?.sequence === 1 &&
-      attached.body.agentgres_operation?.operation_kind ===
-        "goal_run_membership_admitted" &&
-      attached.body.outcome_room_receipt?.receipt_type ===
-        "goal_run_membership_admission" &&
-      attached.body.agentgres_operation?.resulting_goal_run_record_root ===
-        attachedGoalRoot &&
+    "MEMBERSHIP RECOVERY: restart commits one Agentgres detach before the reattach successor",
+    attached.body.agentgres_admission?.agentgres_sequence === 1 &&
+      attached.body.agentgres_admission?.operation_kind ===
+        "outcome_room.goal_run_membership_admitted" &&
       attached.body.outcome_room?.room_receipt_root ===
-        attached.body.outcome_room_receipt?.receipt_root &&
+        attached.body.agentgres_admission?.admission_root &&
+      attached.body.outcome_room?.room_state_root ===
+        attached.body.agentgres_admission?.resulting_head &&
       recoveredDetachOperation?.sequence === 2 &&
       recoveredDetachOperation?.operation_kind ===
         "goal_run_membership_detached" &&
-      recoveredDetachReceipt?.receipt_type ===
-        "goal_run_membership_detachment" &&
-      recoveredDetachReceipt?.expected_goal_run_record_root ===
+      recoveredDetachOperation?.goal_run_ref === collectiveGoal.goal_ref &&
+      recoveredDetachOperation?.expected_predecessor_commitment_ref ===
+        attached.body.outcome_room?.room_state_root &&
+      recoveredDetachOperation?.expected_goal_run_record_root ===
         attachedGoalRoot &&
-      recoveredDetachReceipt?.resulting_goal_run_record_root ===
+      recoveredDetachOperation?.resulting_goal_run_record_root ===
         detachedGoalRoot &&
-      recoveredDetachOperation?.receipt_ref ===
-        recoveredDetachReceipt?.receipt_ref &&
-      recoveredDetachOperation?.receipt_root ===
-        recoveredDetachReceipt?.receipt_root &&
       recoveredDetachRoom.body.outcome_room?.room_receipt_root ===
-        recoveredDetachReceipt?.receipt_root &&
+        recoveredDetachOperation?.receipt_root &&
       recoveredDetachOperation?.resulting_room_state_root ===
         recoveredDetachRoom.body.outcome_room?.room_state_root &&
       String(recoveredDetachOperation?.operation_root || "").startsWith(
         "sha256:",
       ) &&
-      String(recoveredDetachReceipt?.receipt_root || "").startsWith("sha256:") &&
+      String(recoveredDetachOperation?.receipt_ref || "").startsWith(
+        "receipt://agentgres/outcome-room-system/",
+      ) &&
       recoveredDetachReplay.body.operations?.filter(
         (operation) =>
           operation.operation_kind === "goal_run_membership_detached",
       ).length === 1 &&
-      membershipRecoveryReceipts.filter(
-        (receipt) =>
-          receipt.receipt_type === "goal_run_membership_detachment",
-      ).length === 1 &&
+      membershipRecoveryReceipts.length === 0 &&
       familyCount(dataDir, "outcome-room-membership-admission-intents") === 0 &&
-      reattached.body.agentgres_operation?.sequence === 3 &&
-      reattached.body.agentgres_operation?.operation_kind ===
-        "goal_run_membership_admitted" &&
-      reattached.body.outcome_room_receipt?.receipt_type ===
-        "goal_run_membership_admission" &&
-      reattached.body.agentgres_operation?.resulting_goal_run_record_root ===
-        reattachedGoalRoot &&
+      reattached.body.agentgres_admission?.agentgres_sequence === 3 &&
+      reattached.body.agentgres_admission?.operation_kind ===
+        "outcome_room.goal_run_membership_admitted" &&
       room?.room_receipt_root ===
-        reattached.body.outcome_room_receipt?.receipt_root &&
+        reattached.body.agentgres_admission?.admission_root &&
       room?.latest_sequence === 3,
-    `attach=${attached.body.agentgres_operation?.sequence}/${attached.body.outcome_room_receipt?.receipt_type}/detach=${recoveredDetachOperation?.sequence}/${recoveredDetachReceipt?.receipt_type}/detach_ops=${recoveredDetachReplay.body.operations?.filter((operation) => operation.operation_kind === "goal_run_membership_detached").length}/detach_receipts=${membershipRecoveryReceipts.filter((receipt) => receipt.receipt_type === "goal_run_membership_detachment").length}/reattach=${reattached.body.agentgres_operation?.sequence}/${reattached.body.outcome_room_receipt?.receipt_type}`,
+    `attach=${attached.body.agentgres_admission?.agentgres_sequence}/${attached.body.agentgres_admission?.operation_kind}/detach=${recoveredDetachOperation?.sequence}/${recoveredDetachOperation?.operation_kind}/detach_ops=${recoveredDetachReplay.body.operations?.filter((operation) => operation.operation_kind === "goal_run_membership_detached").length}/parallel_receipts=${membershipRecoveryReceipts.length}/reattach=${reattached.body.agentgres_admission?.agentgres_sequence}/${reattached.body.agentgres_admission?.operation_kind}`,
   );
   const staleRoomSnapshotBefore = roomAdmissionSideEffectSnapshot(dataDir);
   const staleRoomAttach = await call(
@@ -2491,23 +2361,30 @@ try {
   );
   const childBaseSideEffectsAfter = roomAdmissionSideEffectSnapshot(dataDir);
   const deepChildGuardTests = await runDeepChildAdmissionGuardTests();
+  const stableAgentgresRoomCasTests = await runStableAgentgresRoomCasTests();
   check(
-    "DEEP CHILD BASE REFUSAL: canon-valid fixture mutations reach exact wrong-System and stale-head guards before publication",
+    "DEEP CHILD BASE REFUSAL: v3 candidates reject caller-owned and wrong-room bindings before publication",
     deepChildGuardTests.code === 0 &&
       deepChildGuardTests.failure === null &&
-      /test .*owner_child_admission_refuses_wrong_system_guard_before_publication \.\.\. ok/u.test(
+      /test .*owner_child_admission_refuses_caller_owned_binding_before_publication \.\.\. ok/u.test(
         deepChildGuardTests.output,
       ) &&
-      /test .*owner_child_admission_refuses_stale_child_guard_before_publication \.\.\. ok/u.test(
+      /test .*owner_child_admission_refuses_wrong_system_binding_before_agentgres_read \.\.\. ok/u.test(
         deepChildGuardTests.output,
-      ),
-    `${deepChildGuardTests.code}/${deepChildGuardTests.signal || "no-signal"}/${deepChildGuardTests.failure || "no-failure"}`,
+      ) &&
+      stableAgentgresRoomCasTests.code === 0 &&
+      stableAgentgresRoomCasTests.failure === null &&
+      /test .*outcome_room_system_operation_uses_one_stable_expected_head \.\.\. ok/u.test(
+        stableAgentgresRoomCasTests.output,
+      ) &&
+      /1 passed; 0 failed/u.test(stableAgentgresRoomCasTests.output),
+    `child=${deepChildGuardTests.code}/${deepChildGuardTests.signal || "no-signal"}/${deepChildGuardTests.failure || "no-failure"}/agentgres_cas=${stableAgentgresRoomCasTests.code}/${stableAgentgresRoomCasTests.failure || "no-failure"}`,
   );
   check(
-    "DEEP CHILD VERDICT/LABEL REFUSAL: owner candidates reach exact stale-verdict and missing-or-empty-label guards before publication",
+    "DEEP CHILD SPINE/LABEL REFUSAL: owner candidates reject a parallel spine and missing-or-empty labels before publication",
     deepChildGuardTests.code === 0 &&
       deepChildGuardTests.failure === null &&
-      /test .*owner_child_admission_refuses_stale_verdict_guard_before_publication \.\.\. ok/u.test(
+      /test .*owner_child_admission_refuses_parallel_spine_before_publication \.\.\. ok/u.test(
         deepChildGuardTests.output,
       ) &&
       /test .*owner_child_admission_refuses_missing_or_empty_projection_labels_guard_before_publication \.\.\. ok/u.test(
@@ -2655,7 +2532,7 @@ try {
   let relocatedOwnerPreflightTreeUnchanged = false;
   const relocatedOwnerPreflight = await (async () => {
     try {
-      writeFileSync(relocatedOwnerPreflightPath, m3LegacySourceBytes, {
+      writeFileSync(relocatedOwnerPreflightPath, genericCurrentBytes, {
         flag: "wx",
       });
       const treeBefore = roomAdmissionSideEffectSnapshot(dataDir);
@@ -2750,7 +2627,7 @@ try {
       malformedOwnerPreflightTreeUnchanged &&
       relocatedOwnerPreflightTreeUnchanged &&
       nonRecordGoalRunTreeUnchanged &&
-      familyCount(dataDir, "work-result-registry") === 2,
+      familyCount(dataDir, "work-result-registry") === 1,
     `closed-selector=${childBaseSubstitutionCases
       .map(
         ([name], index) =>
@@ -2761,7 +2638,7 @@ try {
   const rawAdmission = await call(
     "POST",
     `/v1/goal-orchestration/outcome-rooms/${roomTail}/admission-proposals`,
-    { object_contract_id: "schema://ioi/foundations/work-result/v2" },
+    { object_contract_id: "schema://ioi/foundations/work-result/v3" },
   );
   check(
     "CHILD REFUSAL: no public generic room-child admission route exists",
@@ -2879,7 +2756,7 @@ try {
         childConstructorFaultSourceDataDir,
         "outcome-room-child-admission-intents",
       ) === 1,
-    `BLOCKED: child after-intent fault did not retain exactly one bounded intent (${constructorFaultResponse.status}/${constructorFaultResponse.body.error?.code})`,
+    `BLOCKED: child after-intent fault did not retain exactly one bounded intent (${constructorFaultResponse.status}/${constructorFaultResponse.body.error?.code}/${constructorFaultResponse.body.error?.message})`,
   );
   plane = await startIsolatedPlane({
     dataDir,
@@ -3010,7 +2887,7 @@ try {
           response.body.error?.code === "outcome_room_owner_mismatch" &&
           responseOmitsWireTokens(response, faultForbidden),
       ) &&
-      familyCount(dataDir, "work-result-registry") === 2 &&
+      familyCount(dataDir, "work-result-registry") === 1 &&
       familyCount(dataDir, "outcome-delta-registry") === 0 &&
       intentCoveredRuntimeDependencies,
     `${faultedResult.status}/${faultedResult.body.error?.code}/intent_covered=${intentCoveredRuntimeDependencies}/outsider=${pendingOutsiderRoomReads.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/results=${familyCount(dataDir, "work-result-registry")}/deltas=${familyCount(dataDir, "outcome-delta-registry")}`,
@@ -3052,9 +2929,9 @@ try {
     "result fault did not retain an admitted child intent",
   );
   requireValue(
-    pendingResult?.schema_version === "ioi.foundations.work-result.v2" &&
+    pendingResult?.schema_version === "ioi.foundations.work-result.v3" &&
       typeof pendingResult.work_result_id === "string",
-    "result fault did not retain its exact v2 owner-publication record",
+    "result fault did not retain its exact v3 owner-publication record",
   );
   rmSync(completedOutputPath, { force: true });
   await plane.stop();
@@ -3089,43 +2966,25 @@ try {
       tamperedIntentEntry.name,
     );
     const tamperedIntent = JSON.parse(readFileSync(tamperedIntentPath, "utf8"));
-    const priorObjectRoot = tamperedIntent.object?.object_root;
-    const priorOperationRoot = tamperedIntent.operation?.operation_root;
+    const priorOwnerRecord = structuredClone(
+      tamperedIntent.owner_publication_record,
+    );
+    const priorOperation = structuredClone(tamperedIntent.operation);
     const tamperedOwnerRecord = JSON.parse(
       JSON.stringify(tamperedIntent.owner_publication_record),
     );
     tamperedOwnerRecord.recovery_schema_substitution =
-      "must be refused even when envelope roots are recomputed";
+      "must be refused before Agentgres admission";
     tamperedIntent.owner_publication_record = tamperedOwnerRecord;
-    tamperedIntent.object.admitted_object = tamperedOwnerRecord;
-    tamperedIntent.object.object_root = outcomeRoomRequiredRecordRoot(
-      "outcome-room-admitted-objects",
-      tamperedIntent.object,
-      "object_root",
-    );
-    tamperedIntent.operation.object_root = tamperedIntent.object.object_root;
-    tamperedIntent.operation.operation_root = outcomeRoomRequiredRecordRoot(
-      "outcome-room-transition-operations",
-      tamperedIntent.operation,
-      "operation_root",
-    );
-    const tamperedIntentKey =
-      `orto_${tamperedIntent.operation.operation_root.replace(/^sha256:/u, "")}`;
-    const tamperedIntentReplacementPath = join(
-      tamperedChildRecoveryDataDir,
-      "outcome-room-child-admission-intents",
-      `${tamperedIntentKey}.json`,
-    );
-    rmSync(tamperedIntentPath, { force: true });
+    const tamperedIntentReplacementPath = tamperedIntentPath;
     writeFileSync(
       tamperedIntentReplacementPath,
       Buffer.from(`${JSON.stringify(tamperedIntent)}\n`),
-      { flag: "wx" },
     );
     tamperedChildRecoveryRootsRecomputed =
-      tamperedIntent.object.object_root !== priorObjectRoot &&
-      tamperedIntent.operation.operation_root !== priorOperationRoot &&
-      tamperedIntentReplacementPath.endsWith(`${tamperedIntentKey}.json`);
+      canonicalJson(tamperedIntent.owner_publication_record) !==
+        canonicalJson(priorOwnerRecord) &&
+      canonicalJson(tamperedIntent.operation) === canonicalJson(priorOperation);
     const tamperedTreeBefore = roomAdmissionSideEffectSnapshot(
       tamperedChildRecoveryDataDir,
     );
@@ -3174,81 +3033,38 @@ try {
       intentEntry.name,
     );
     const intent = JSON.parse(readFileSync(intentPath, "utf8"));
-    const priorRoots = {
-      room: intent.room?.room_state_root,
-      receipt: intent.receipt?.receipt_root,
-      object: intent.object?.object_root,
-      operation: intent.operation?.operation_root,
-    };
-    const unrelatedReplayRef =
-      "receipt://outcome-room/unrelated-recovery-coordinate/sequence/1";
-    const substitutedRoom = structuredClone(intent.room);
-    substitutedRoom.admission_and_replay_refs = [
-      ...(substitutedRoom.admission_and_replay_refs || []),
-      unrelatedReplayRef,
-    ];
-    substitutedRoom.room_state_root = outcomeRoomStateRoot(substitutedRoom);
-
-    const substitutedReceipt = structuredClone(intent.receipt);
-    substitutedReceipt.resulting_room_state_root =
-      substitutedRoom.room_state_root;
-    substitutedReceipt.receipt_root = outcomeRoomRequiredRecordRoot(
-      "outcome-room-admission-receipts",
-      substitutedReceipt,
-      "receipt_root",
-    );
-    substitutedRoom.room_receipt_root = substitutedReceipt.receipt_root;
-
+    const priorOwnerRecord = structuredClone(intent.owner_publication_record);
+    const priorOperation = structuredClone(intent.operation);
     const substitutedOwnerRecord = structuredClone(
       intent.owner_publication_record,
     );
-    substitutedOwnerRecord.room_admission.resulting_room_state_root =
-      substitutedRoom.room_state_root;
-    substitutedOwnerRecord.room_admission.resulting_receipt_root =
-      substitutedReceipt.receipt_root;
-
-    const substitutedObject = structuredClone(intent.object);
-    substitutedObject.admitted_object = substitutedOwnerRecord;
-    substitutedObject.object_root = outcomeRoomRequiredRecordRoot(
-      "outcome-room-admitted-objects",
-      substitutedObject,
-      "object_root",
-    );
-
-    const substitutedOperation = structuredClone(intent.operation);
-    substitutedOperation.resulting_room_state_root =
-      substitutedRoom.room_state_root;
-    substitutedOperation.resulting_room = substitutedRoom;
-    substitutedOperation.object_root = substitutedObject.object_root;
-    substitutedOperation.receipt_root = substitutedReceipt.receipt_root;
-    substitutedOperation.operation_root = outcomeRoomRequiredRecordRoot(
-      "outcome-room-transition-operations",
-      substitutedOperation,
-      "operation_root",
-    );
-
-    intent.room = substitutedRoom;
-    intent.receipt = substitutedReceipt;
+    substitutedOwnerRecord.result_payload_ref =
+      "artifact://unrelated-self-consistent-recovery-payload";
+    substitutedOwnerRecord.system_binding.payload_root =
+      systemScopedPayloadRoot(substitutedOwnerRecord);
     intent.owner_publication_record = substitutedOwnerRecord;
-    intent.object = substitutedObject;
-    intent.operation = substitutedOperation;
-    const replacementKey =
-      `orto_${substitutedOperation.operation_root.replace(/^sha256:/u, "")}`;
+    intent.operation.typed_payload = structuredClone(substitutedOwnerRecord);
+    const substitutedOperationRoot = jcsRoot(
+      "ioi.outcome-room-system-operation-jcs-sha256.v1",
+      intent.operation,
+    );
     const replacementPath = join(
       selfConsistentChildRecoveryDataDir,
       "outcome-room-child-admission-intents",
-      `${replacementKey}.json`,
+      `orop_${substitutedOperationRoot.slice("sha256:".length)}.json`,
     );
     const replacementBytes = Buffer.from(`${JSON.stringify(intent)}\n`);
-    rmSync(intentPath, { force: true });
-    writeFileSync(replacementPath, replacementBytes, { flag: "wx" });
-    selfConsistentChildRoomSchemaValid = validateRoom(substitutedRoom);
+    writeFileSync(replacementPath, replacementBytes);
+    if (replacementPath !== intentPath) rmSync(intentPath);
+    selfConsistentChildRoomSchemaValid = validateRoom(intent.candidate_room);
     selfConsistentChildRootsRecomputed =
-      substitutedRoom.room_state_root !== priorRoots.room &&
-      substitutedReceipt.receipt_root !== priorRoots.receipt &&
-      substitutedObject.object_root !== priorRoots.object &&
-      substitutedOperation.operation_root !== priorRoots.operation &&
-      replacementPath.endsWith(`${replacementKey}.json`);
+      canonicalJson(substitutedOwnerRecord) !== canonicalJson(priorOwnerRecord) &&
+      canonicalJson(intent.operation) !== canonicalJson(priorOperation) &&
+      intent.operation.typed_payload.system_binding.payload_root ===
+        systemScopedPayloadRoot(intent.operation.typed_payload) &&
+      replacementPath.endsWith(
+        `orop_${substitutedOperationRoot.slice("sha256:".length)}.json`,
+      );
     const treeBefore = roomAdmissionSideEffectSnapshot(
       selfConsistentChildRecoveryDataDir,
     );
@@ -3256,7 +3072,7 @@ try {
       dataDir: selfConsistentChildRecoveryDataDir,
       baseEnv: CLEAN_BASE_ENV,
       env: basePlaneEnv,
-      expectedCode: "outcome_room_recovery_invalid",
+      expectedCode: "work_result_payload_artifact_substituted",
     });
     const treeAfter = roomAdmissionSideEffectSnapshot(
       selfConsistentChildRecoveryDataDir,
@@ -3331,7 +3147,7 @@ try {
       selfConsistentChildIntentRetained &&
       selfConsistentChildRecoveryTreeUnchanged &&
       childRecoveryFenceAfter === childRecoveryFenceBefore,
-    `candidate_absent=${!existsSync(completedOutputPath)}/registry_fences=${[malformedChildRecovery, relocatedChildRecovery].map((probe) => `${probe?.refused}/${probe?.logText.includes(probe.expectedCode)}/${probe?.newLogs.length}`).join(",")}/schema_invalid_tamper=${tamperedChildRecovery?.refused}/${tamperedChildRecovery?.logText.includes(tamperedChildRecovery.expectedCode)}/${tamperedChildRecovery?.newLogs.length}/schema_invalid_roots=${tamperedChildRecoveryRootsRecomputed}/schema_invalid_tree=${tamperedChildRecoveryTreeUnchanged}/self_consistent=${selfConsistentChildRecovery?.refused}/${selfConsistentChildRecovery?.logText.includes(selfConsistentChildRecovery.expectedCode)}/${selfConsistentChildRecovery?.newLogs.length}/room_schema=${selfConsistentChildRoomSchemaValid}/roots=${selfConsistentChildRootsRecomputed}/intent_retained=${selfConsistentChildIntentRetained}/tree=${selfConsistentChildRecoveryTreeUnchanged}/whole_tree_unchanged=${childRecoveryFenceAfter === childRecoveryFenceBefore}`,
+    `candidate_absent=${!existsSync(completedOutputPath)}/registry_fences=${[malformedChildRecovery, relocatedChildRecovery].map((probe) => `${probe?.refused}/${probe?.logText.includes(probe.expectedCode)}/${probe?.newLogs.length}`).join(",")}/schema_invalid_tamper=${tamperedChildRecovery?.refused}/${tamperedChildRecovery?.logText.includes(tamperedChildRecovery.expectedCode)}/${tamperedChildRecovery?.newLogs.length}/schema_invalid_roots=${tamperedChildRecoveryRootsRecomputed}/schema_invalid_tree=${tamperedChildRecoveryTreeUnchanged}/self_consistent=${selfConsistentChildRecovery?.refused}/${selfConsistentChildRecovery?.logText.includes(selfConsistentChildRecovery.expectedCode)}/${selfConsistentChildRecovery?.newLogs.length}/room_schema=${selfConsistentChildRoomSchemaValid}/roots=${selfConsistentChildRootsRecomputed}/intent_retained=${selfConsistentChildIntentRetained}/tree=${selfConsistentChildRecoveryTreeUnchanged}/whole_tree_unchanged=${childRecoveryFenceAfter === childRecoveryFenceBefore}/self_consistent_startup=${selfConsistentChildRecovery?.startupError}/self_consistent_log_tail=${JSON.stringify(selfConsistentChildRecovery?.logText.slice(-1200))}`,
   );
   plane = await startIsolatedPlane({
     dataDir,
@@ -3411,103 +3227,37 @@ try {
     },
   );
   const postResultDetachAfter = roomAdmissionSideEffectSnapshot(dataDir);
-  const admittedResultObjectEntry = requireValue(
-    strictFamilyEntries(dataDir, "outcome-room-admitted-object-projections")
-      .map((entry) => {
-        const path = join(
-          dataDir,
-          "outcome-room-admitted-object-projections",
-          entry.name,
-        );
-        const bytes = readFileSync(path);
-        return {
-          path,
-          bytes,
-          record: JSON.parse(bytes.toString("utf8")),
-        };
-      })
-      .find(({ record }) => record.object_ref === admittedResult.work_result_id),
-    "BLOCKED: admitted WorkResult has no local admitted-object projection/cache",
-  );
   const objectFaultForbidden = wireTokenVariants([
     collectiveGoal.goal_ref,
     room.outcome_room_id,
     admittedResult.work_result_id,
-    admittedResultObjectEntry.record.object_root,
-    admittedResult.room_admission?.admission_receipt_ref,
+    admittedResult.system_binding?.payload_root,
   ]);
-  // This directory is a disposable local projection/cache, not the Agentgres object source.
-  // Removing or substituting it must not erase the authoritative admitted-child dependency.
-  let missingObjectDetach;
-  let missingObjectOutsiderDetach;
-  let missingObjectDetachTreeUnchanged = false;
-  try {
-    rmSync(admittedResultObjectEntry.path, { force: true });
-    const treeBefore = roomAdmissionSideEffectSnapshot(dataDir);
-    missingObjectDetach = await call(
-      "POST",
-      `/v1/goal-orchestration/outcome-rooms/${roomTail}/detach-goal-run`,
-      {
-        goal_run_ref: collectiveGoal.goal_ref,
-        expected_revision: room.latest_sequence,
-        expected_goal_run_record_root: postResultDetachGoalRoot,
-      },
-    );
-    missingObjectOutsiderDetach = await call(
-      "POST",
-      `/v1/goal-orchestration/outcome-rooms/${roomTail}/detach-goal-run`,
-      {
-        goal_run_ref: collectiveGoal.goal_ref,
-        expected_revision: room.latest_sequence,
-        expected_goal_run_record_root: postResultDetachGoalRoot,
-      },
-      pendingOutsiderHeaders,
-    );
-    const treeAfter = roomAdmissionSideEffectSnapshot(dataDir);
-    missingObjectDetachTreeUnchanged = treeAfter === treeBefore;
-  } finally {
-    writeFileSync(admittedResultObjectEntry.path, admittedResultObjectEntry.bytes, {
-      flag: "wx",
-    });
-  }
-  let substitutedObjectDetach;
-  let substitutedObjectOutsiderDetach;
-  let substitutedObjectDetachTreeUnchanged = false;
-  try {
-    writeFileSync(
-      admittedResultObjectEntry.path,
-      Buffer.from(
-        `${JSON.stringify({
-          ...admittedResultObjectEntry.record,
-          object_root: `sha256:${"d".repeat(64)}`,
-        })}\n`,
-      ),
-    );
-    const treeBefore = roomAdmissionSideEffectSnapshot(dataDir);
-    substitutedObjectDetach = await call(
-      "POST",
-      `/v1/goal-orchestration/outcome-rooms/${roomTail}/detach-goal-run`,
-      {
-        goal_run_ref: collectiveGoal.goal_ref,
-        expected_revision: room.latest_sequence,
-        expected_goal_run_record_root: postResultDetachGoalRoot,
-      },
-    );
-    substitutedObjectOutsiderDetach = await call(
-      "POST",
-      `/v1/goal-orchestration/outcome-rooms/${roomTail}/detach-goal-run`,
-      {
-        goal_run_ref: collectiveGoal.goal_ref,
-        expected_revision: room.latest_sequence,
-        expected_goal_run_record_root: postResultDetachGoalRoot,
-      },
-      pendingOutsiderHeaders,
-    );
-    const treeAfter = roomAdmissionSideEffectSnapshot(dataDir);
-    substitutedObjectDetachTreeUnchanged = treeAfter === treeBefore;
-  } finally {
-    writeFileSync(admittedResultObjectEntry.path, admittedResultObjectEntry.bytes);
-  }
+  // The retired room object/receipt caches are absent. This detach must resolve the admitted child
+  // from Agentgres history and fail before any mutation. The focused substrate proof above
+  // destructively removes and corrupts that history source and proves fail-closed, write-free reads.
+  const treeBeforeAgentgresBackedDetach = roomAdmissionSideEffectSnapshot(dataDir);
+  const agentgresBackedDetach = await call(
+    "POST",
+    `/v1/goal-orchestration/outcome-rooms/${roomTail}/detach-goal-run`,
+    {
+      goal_run_ref: collectiveGoal.goal_ref,
+      expected_revision: room.latest_sequence,
+      expected_goal_run_record_root: postResultDetachGoalRoot,
+    },
+  );
+  const agentgresBackedOutsiderDetach = await call(
+    "POST",
+    `/v1/goal-orchestration/outcome-rooms/${roomTail}/detach-goal-run`,
+    {
+      goal_run_ref: collectiveGoal.goal_ref,
+      expected_revision: room.latest_sequence,
+      expected_goal_run_record_root: postResultDetachGoalRoot,
+    },
+    pendingOutsiderHeaders,
+  );
+  const agentgresBackedDetachTreeUnchanged =
+    roomAdmissionSideEffectSnapshot(dataDir) === treeBeforeAgentgresBackedDetach;
   const resultPayloadContentHash =
     `sha256:${createHash("sha256").update(resultPayloadBytes).digest("hex")}`;
   const expectedResultLabelIdentityMaterial = {
@@ -3553,29 +3303,25 @@ try {
       postResultDetach.body.error?.code ===
         "outcome_room_goal_run_detach_has_admitted_children" &&
       postResultDetachAfter === postResultDetachBefore &&
-      [missingObjectDetach, substitutedObjectDetach].every(
-        (response) =>
-          response?.status === 422 &&
-          response.body.error?.code ===
-            "outcome_room_goal_run_detach_has_admitted_children" &&
-          responseOmitsWireTokens(response, objectFaultForbidden),
+      agentgresBackedDetach?.status === 422 &&
+      agentgresBackedDetach.body.error?.code ===
+        "outcome_room_goal_run_detach_has_admitted_children" &&
+      responseOmitsWireTokens(agentgresBackedDetach, objectFaultForbidden) &&
+      agentgresBackedOutsiderDetach?.status === 403 &&
+      agentgresBackedOutsiderDetach.body.error?.code ===
+        "outcome_room_owner_mismatch" &&
+      responseOmitsWireTokens(
+        agentgresBackedOutsiderDetach,
+        objectFaultForbidden,
       ) &&
-      [missingObjectOutsiderDetach, substitutedObjectOutsiderDetach].every(
-        (response) =>
-          response?.status === 403 &&
-          response.body.error?.code === "outcome_room_owner_mismatch" &&
-          responseOmitsWireTokens(response, objectFaultForbidden),
-      ) &&
-      missingObjectDetachTreeUnchanged &&
-      substitutedObjectDetachTreeUnchanged &&
-      readFileSync(admittedResultObjectEntry.path).equals(
-        admittedResultObjectEntry.bytes,
-      ),
-    `${recoveredResultRoom.status}/seq=${room?.latest_sequence}/pending=${familyCount(dataDir, "outcome-room-child-admission-intents")}/post_result_detach=${postResultDetach.status}/${postResultDetach.body.error?.code}/tree_unchanged=${postResultDetachAfter === postResultDetachBefore}/object_missing=${missingObjectDetach?.status}/${missingObjectDetach?.body.error?.code}/${missingObjectOutsiderDetach?.status}/${missingObjectOutsiderDetach?.body.error?.code}/${missingObjectDetachTreeUnchanged}/object_substituted=${substitutedObjectDetach?.status}/${substitutedObjectDetach?.body.error?.code}/${substitutedObjectOutsiderDetach?.status}/${substitutedObjectOutsiderDetach?.body.error?.code}/${substitutedObjectDetachTreeUnchanged}`,
+      agentgresBackedDetachTreeUnchanged &&
+      familyCount(dataDir, "outcome-room-admitted-object-projections") === 0 &&
+      familyCount(dataDir, "outcome-room-system-receipts") === 0,
+    `${recoveredResultRoom.status}/seq=${room?.latest_sequence}/pending=${familyCount(dataDir, "outcome-room-child-admission-intents")}/post_result_detach=${postResultDetach.status}/${postResultDetach.body.error?.code}/tree_unchanged=${postResultDetachAfter === postResultDetachBefore}/agentgres_backed=${agentgresBackedDetach?.status}/${agentgresBackedDetach?.body.error?.code}/${agentgresBackedOutsiderDetach?.status}/${agentgresBackedOutsiderDetach?.body.error?.code}/${agentgresBackedDetachTreeUnchanged}`,
   );
   check(
     "ROOM RESULT RECOVERY: daemon-derived WorkResult validates the software implementation profile",
-    admittedResult?.schema_version === "ioi.foundations.work-result.v2" &&
+    admittedResult?.schema_version === "ioi.foundations.work-result.v3" &&
       admittedResult?.result_profile === "software_implementation",
     `${admittedResult?.schema_version}/${admittedResult?.result_profile}`,
   );
@@ -3587,9 +3333,11 @@ try {
   );
   check(
     "ROOM RESULT RECOVERY: Agentgres admission binds the exact bounded System",
-    admittedResult?.room_admission?.room_system_id === SYSTEM_ID &&
-      admittedResult?.room_admission?.admission_status === "admitted",
-    `${admittedResult?.room_admission?.room_system_id}/${admittedResult?.room_admission?.admission_status}`,
+    admittedResult?.system_binding?.system_id === SYSTEM_ID &&
+      admittedResult?.system_binding?.parent_scope_ref === room.outcome_room_id &&
+      admittedResult?.system_binding?.payload_root ===
+        systemScopedPayloadRoot(admittedResult),
+    `${admittedResult?.system_binding?.system_id}/${admittedResult?.system_binding?.parent_scope_ref}`,
   );
   check(
     "ROOM RESULT RECOVERY: producer receipt, durable byte custody, and label derive from invocation truth",
@@ -3660,17 +3408,15 @@ try {
         canonicalJson(RESULT_RECORD_SCHEMAS) &&
       canonicalJson(recoveredResultList.body.record_schema_counts) ===
         canonicalJson({
-          "ioi.hypervisor.work-result.v1": 1,
-          "ioi.foundations.work-result.v1": 1,
-          "ioi.foundations.work-result.v2": 1,
+          "ioi.foundations.work-result.v3": 2,
         }) &&
-      recoveredResultList.body.work_results?.length === 3 &&
-      familyCount(dataDir, "work-result-registry") === 3 &&
+      recoveredResultList.body.work_results?.length === 2 &&
+      familyCount(dataDir, "work-result-registry") === 2 &&
       recoveredResultPoint.status === 200 &&
       recoveredResultPoint.body.schema_version ===
         RESULT_REGISTRY_PROJECTION_SCHEMA &&
       recoveredResultPoint.body.record_schema_version ===
-        "ioi.foundations.work-result.v2" &&
+        "ioi.foundations.work-result.v3" &&
       canonicalJson(recoveredResultPoint.body.work_result) ===
         canonicalJson(admittedResult) &&
       recoveredResultGoal.body.goal_run?.work_result_refs?.length === 1 &&
@@ -3928,25 +3674,23 @@ try {
       faultedDelta.body.error?.code === "outcome_room_child_pending_recovery" &&
       pendingDeltaIntents.length === 1 &&
       pendingDeltaIntent?.owner_publication_family === "outcome-delta-registry" &&
-      pendingDelta?.schema_version === "ioi.foundations.outcome-delta.v2" &&
+      pendingDelta?.schema_version === "ioi.foundations.outcome-delta.v3" &&
       typeof pendingDeltaRef === "string" &&
       pendingDelta?.status === "proposed" &&
-      pendingDelta?.room_admission?.admission_status === "admitted" &&
-      pendingDelta?.room_admission?.resulting_room_revision ===
-        preDeltaFaultRevision + 1 &&
+      pendingDelta?.system_binding?.system_id === SYSTEM_ID &&
+      pendingDelta?.system_binding?.parent_scope_ref === room.outcome_room_id &&
+      pendingDelta?.system_binding?.payload_root ===
+        systemScopedPayloadRoot(pendingDelta) &&
       pendingDeltaIntent?.operation?.operation_kind === "room_child_admitted" &&
-      pendingDeltaIntent?.receipt?.receipt_type === "room_child_admission" &&
-      pendingDeltaIntent?.object?.admitted_object?.outcome_delta_id ===
+      pendingDeltaIntent?.operation?.typed_payload?.outcome_delta_id ===
         pendingDeltaRef &&
       pendingDeltaRoom?.latest_sequence === preDeltaFaultRevision + 1 &&
-      pendingDeltaRoom?.room_state_root ===
-        pendingDelta?.room_admission?.resulting_room_state_root &&
-      pendingDeltaRoom?.room_receipt_root ===
-        pendingDelta?.room_admission?.resulting_receipt_root &&
+      String(pendingDeltaRoom?.room_state_root || "").startsWith("sha256:") &&
+      String(pendingDeltaRoom?.room_receipt_root || "").startsWith("sha256:") &&
       familyCount(dataDir, "outcome-room-system-receipts") ===
-        preDeltaFaultReceiptCount + 1 &&
+        preDeltaFaultReceiptCount &&
       familyCount(dataDir, "outcome-room-admitted-object-projections") ===
-        preDeltaFaultObjectCount + 1 &&
+        preDeltaFaultObjectCount &&
       familyCount(dataDir, "outcome-delta-registry") === 0 &&
       !(pendingDeltaParent?.outcome_delta_refs || []).includes(pendingDeltaRef) &&
       deltaFaultFences.every(
@@ -3991,13 +3735,18 @@ try {
       admittedResult.work_result_id.replace("work-result://", ""),
     )}`,
   );
+  const recoveredDeltaReplay = await call("GET", replayPath);
+  const recoveredDeltaOperation = recoveredDeltaReplay.body.operations?.find(
+    (operation) =>
+      operation.operation_kind === "room_child_admitted" &&
+      operation.object_ref === pendingDeltaRef,
+  );
   const recoveredDeltaReceipts = familyRecords(
     dataDir,
     "outcome-room-system-receipts",
   );
   const recoveredDeltaReceipt = recoveredDeltaReceipts.find(
-    (record) =>
-      record.receipt_ref === pendingDelta?.room_admission?.admission_receipt_ref,
+    () => false,
   );
   const recoveredDeltaObjects = familyRecords(
     dataDir,
@@ -4024,29 +3773,25 @@ try {
     "ROOM DELTA RECOVERY: restart converges exactly one canonical delta, parent backlink, receipt, and room head",
     recoveredDeltaRoom.status === 200 &&
       room?.latest_sequence === preDeltaFaultRevision + 1 &&
-      canonicalJson(room) === canonicalJson(pendingDeltaIntent?.room) &&
       familyCount(dataDir, "outcome-room-child-admission-intents") === 0 &&
-      admittedDelta?.schema_version === "ioi.foundations.outcome-delta.v2" &&
+      admittedDelta?.schema_version === "ioi.foundations.outcome-delta.v3" &&
       admittedDelta?.status === "proposed" &&
       canonicalJson(admittedDelta) === canonicalJson(pendingDelta) &&
-      admittedDelta?.room_admission?.admission_status === "admitted" &&
-      admittedDelta?.room_admission?.resulting_room_revision ===
-        room?.latest_sequence &&
-      admittedDelta?.room_admission?.resulting_room_state_root ===
-        room?.room_state_root &&
-      admittedDelta?.room_admission?.resulting_receipt_root ===
-        room?.room_receipt_root &&
-      recoveredDeltaReceipts.length === preDeltaFaultReceiptCount + 1 &&
-      canonicalJson(recoveredDeltaReceipt) ===
-        canonicalJson(pendingDeltaIntent?.receipt) &&
-      recoveredDeltaObjects.length === preDeltaFaultObjectCount + 1 &&
-      canonicalJson(recoveredDeltaObject) ===
-        canonicalJson(pendingDeltaIntent?.object) &&
+      admittedDelta?.system_binding?.system_id === SYSTEM_ID &&
+      admittedDelta?.system_binding?.parent_scope_ref === room?.outcome_room_id &&
+      admittedDelta?.system_binding?.payload_root ===
+        systemScopedPayloadRoot(admittedDelta) &&
+      recoveredDeltaReplay.status === 200 &&
+      recoveredDeltaOperation?.sequence === room?.latest_sequence &&
+      recoveredDeltaOperation?.resulting_room_state_root === room?.room_state_root &&
+      recoveredDeltaOperation?.receipt_root === room?.room_receipt_root &&
+      recoveredDeltaReceipts.length === preDeltaFaultReceiptCount &&
+      recoveredDeltaObjects.length === preDeltaFaultObjectCount &&
       postDeltaResultPoint.status === 200 &&
       postDeltaResultPoint.body.work_result?.outcome_delta_refs?.length === 1 &&
       postDeltaResultPoint.body.work_result.outcome_delta_refs[0] ===
         admittedDelta?.outcome_delta_id &&
-      familyCount(dataDir, "work-result-registry") === 3 &&
+      familyCount(dataDir, "work-result-registry") === 2 &&
       familyCount(dataDir, "outcome-delta-registry") === 1 &&
       versionedDeltaList.status === 200 &&
       versionedDeltaList.body.schema_version ===
@@ -4055,19 +3800,17 @@ try {
         canonicalJson(DELTA_RECORD_SCHEMAS) &&
       canonicalJson(versionedDeltaList.body.record_schema_counts) ===
         canonicalJson({
-          "ioi.hypervisor.outcome-delta.v1": 0,
-          "ioi.outcome-delta.v1": 0,
-          "ioi.foundations.outcome-delta.v2": 1,
+          "ioi.foundations.outcome-delta.v3": 1,
         }) &&
       versionedDeltaList.body.outcome_deltas?.length === 1 &&
       admittedDeltaPoint.status === 200 &&
       admittedDeltaPoint.body.schema_version ===
         DELTA_REGISTRY_PROJECTION_SCHEMA &&
       admittedDeltaPoint.body.record_schema_version ===
-        "ioi.foundations.outcome-delta.v2" &&
+        "ioi.foundations.outcome-delta.v3" &&
       canonicalJson(admittedDeltaPoint.body.outcome_delta) ===
         canonicalJson(admittedDelta),
-    `${recoveredDeltaRoom.status}/seq=${room?.latest_sequence}/intent=${familyCount(dataDir, "outcome-room-child-admission-intents")}/delta=${admittedDelta?.outcome_delta_id}/${admittedDelta?.room_admission?.admission_status}/receipts=${recoveredDeltaReceipts.length}/objects=${recoveredDeltaObjects.length}/results=${familyCount(dataDir, "work-result-registry")}/deltas=${familyCount(dataDir, "outcome-delta-registry")}/schemas=${canonicalJson(versionedDeltaList.body.record_schema_counts)}/points=${admittedDeltaPoint.status}/${admittedDeltaPoint.body.record_schema_version}/${postDeltaResultPoint.status}`,
+    `${recoveredDeltaRoom.status}/seq=${room?.latest_sequence}/intent=${familyCount(dataDir, "outcome-room-child-admission-intents")}/delta=${admittedDelta?.outcome_delta_id}/${admittedDelta?.system_binding?.system_id}/receipts=${recoveredDeltaReceipts.length}/objects=${recoveredDeltaObjects.length}/results=${familyCount(dataDir, "work-result-registry")}/deltas=${familyCount(dataDir, "outcome-delta-registry")}/schemas=${canonicalJson(versionedDeltaList.body.record_schema_counts)}/points=${admittedDeltaPoint.status}/${admittedDeltaPoint.body.record_schema_version}/${postDeltaResultPoint.status}`,
   );
   check(
     "ROOM DELTA ORA-8: proposal grants no effect or acceptance and exact post-terminal retry is write-free",
@@ -4099,6 +3842,14 @@ try {
   const graph = graphResponse.body.collaborative_work_graph;
   const discussion = discussionResponse.body.discussion_projection;
   const product = productResponse.body;
+  const resultAdmissionOperation = replayResponse.body.operations?.find(
+    (operation) => operation.object_ref === admittedResult.work_result_id,
+  );
+  const deltaAdmissionOperation = replayResponse.body.operations?.find(
+    (operation) => operation.object_ref === admittedDelta.outcome_delta_id,
+  );
+  const resultAdmissionReceiptRef = resultAdmissionOperation?.receipt_ref;
+  const deltaAdmissionReceiptRef = deltaAdmissionOperation?.receipt_ref;
   check(
     "GRAPH: canonical collaborative-work projection is available and schema-valid",
     graphResponse.status === 200 && validateGraph(graph),
@@ -4125,7 +3876,11 @@ try {
       graph.work_result_refs[0] === admittedResult.work_result_id &&
       graph?.outcome_delta_refs?.length === 1 &&
       graph.outcome_delta_refs[0] === admittedDelta.outcome_delta_id &&
-      graph?.source_admission_receipt_refs?.length === room.latest_sequence + 1,
+      graph?.source_admission_receipt_refs?.length === room.latest_sequence + 1 &&
+      resultAdmissionOperation?.object_root ===
+        admittedResult.system_binding.payload_root &&
+      deltaAdmissionOperation?.object_root ===
+        admittedDelta.system_binding.payload_root,
     `results=${graph?.work_result_refs?.length}/deltas=${graph?.outcome_delta_refs?.length}/receipts=${graph?.source_admission_receipt_refs?.length}`,
   );
   check(
@@ -4538,10 +4293,11 @@ try {
         "resource-offers",
         "capability-offers",
       ].every((family) => familyCount(dataDir, family) === 0) &&
-      familyRecords(dataDir, "outcome-room-admitted-object-projections").every(
-        (record) =>
-          record.schema_version !==
-          "ioi.foundations.participant-state-bundle.v2",
+      familyCount(dataDir, "outcome-room-admitted-object-projections") === 0 &&
+      replayResponse.body.operations?.every(
+        (operation) =>
+          operation.typed_payload?.schema_version !==
+          "ioi.applications.ioi-ai.participant-state-bundle.v2",
       ),
     `creates=${predecessorProfileWriteResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/room_reads=${predecessorProfileReadResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/gets=${predecessorFixtureGetResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/transitions=${predecessorFixtureTransitionResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/unfiltered=${predecessorFixtureUnfilteredResponses.map((response) => response.status).join(",")}/overviews=${predecessorFixtureOverviewResponses.map((response) => `${response.status}/${response.body.count}`).join(",")}/fixture_bytes_unchanged=${predecessorFixtureBytesUnchanged}/base_tree=${predecessorProfileSnapshotAfter === predecessorProfileSnapshotBefore}/fixture_tree=${predecessorFixtureSnapshotAfter === predecessorFixtureSnapshotBefore}/deep=${predecessorProfileFenceTests.code}`,
   );
@@ -4634,21 +4390,23 @@ try {
       rmSync(relocatedResultPath, { force: true });
     }
   })();
-  const duplicateM3AliasPath = join(
+  const duplicateCurrentAliasPath = join(
     resultRegistryDirectory,
-    `${m3LegacyResult.work_result_id.replace(/[^a-zA-Z0-9_-]/gu, "_")}.json`,
+    `${genericCurrentWorkResultId.replace(/[^a-zA-Z0-9_-]/gu, "_")}.json`,
   );
   let duplicateSelectedSourceTreeUnchanged = false;
   const duplicateSelectedSource = await (async () => {
     try {
-      writeFileSync(duplicateM3AliasPath, m3LegacySourceBytes, { flag: "wx" });
+      writeFileSync(duplicateCurrentAliasPath, genericCurrentBytes, {
+        flag: "wx",
+      });
       const treeBefore = roomAdmissionSideEffectSnapshot(dataDir);
       const response = await call("GET", productPath);
       duplicateSelectedSourceTreeUnchanged =
         roomAdmissionSideEffectSnapshot(dataDir) === treeBefore;
       return response;
     } finally {
-      rmSync(duplicateM3AliasPath, { force: true });
+      rmSync(duplicateCurrentAliasPath, { force: true });
     }
   })();
   const ownerRegistryRefusalResponses = [
@@ -4841,7 +4599,7 @@ try {
     "outcome-room-registry",
     predecessorOwnerProbeTail,
     {
-      schema_version: "ioi.foundations.outcome-room.v1",
+      schema_version: "ioi.applications.ioi-ai.outcome-room.v1",
       outcome_room_id: predecessorOwnerProbeRef,
       owner_or_sponsor_ref: LOCAL_OWNER,
       system_id: "system://ioi/outcome-room/predecessor-owner-probe",
@@ -4948,10 +4706,8 @@ try {
     linkedInvocation?.execution_provenance?.source_candidate_ref,
     admittedResult.work_result_id,
     admittedResult.result_payload_ref,
-    m3LegacyResult.work_result_id,
-    m3LegacyResult.goal_run_ref,
-    genericPredecessorWorkResultId,
-    genericPredecessorResult?.goal_ref,
+    genericCurrentWorkResultId,
+    genericCurrentResult?.work_subject_ref,
     admittedDelta.outcome_delta_id,
     room.outcome_room_id,
     room.owner_or_sponsor_ref,
@@ -4988,8 +4744,8 @@ try {
     ...(Array.isArray(discussion?.source_admission_receipt_refs)
       ? discussion.source_admission_receipt_refs
       : []),
-    admittedResult?.room_admission?.admission_receipt_ref,
-    admittedDelta?.room_admission?.admission_receipt_ref,
+    resultAdmissionReceiptRef,
+    deltaAdmissionReceiptRef,
     direct.activation?.activation_receipt_ref,
     ...(Array.isArray(direct.goalRun?.receipt_refs)
       ? direct.goalRun.receipt_refs
@@ -5055,15 +4811,8 @@ try {
       localMissingCode: null,
     },
     {
-      name: "result-m3-predecessor",
-      path: `/v1/hypervisor/work-results/${encodeURIComponent(m3LegacyResult.work_result_id.replace("work-result://", ""))}`,
-      anonymousCode: "authentication_required",
-      managedCode: "work_result_owner_mismatch",
-      localMissingCode: null,
-    },
-    {
-      name: "result-generic-predecessor",
-      path: `/v1/hypervisor/work-results/${encodeURIComponent(genericPredecessorWorkResultId.replace("work-result://", ""))}`,
+      name: "result-current-generic",
+      path: `/v1/hypervisor/work-results/${encodeURIComponent(genericCurrentWorkResultId.replace("work-result://", ""))}`,
       anonymousCode: "authentication_required",
       managedCode: "work_result_owner_mismatch",
       localMissingCode: null,
@@ -5930,10 +5679,7 @@ try {
     genesis_ref: product.outcome_room.genesis_ref,
     constitution_ref: product.outcome_room.constitution_ref,
   });
-  const preRestartReceiptRecords = familyRecords(
-    dataDir,
-    "outcome-room-system-receipts",
-  );
+  const preRestartReceiptRecords = [...(replayResponse.body.operations || [])];
   const preRestartReceiptRefs = [...preRestartReceiptRecords]
     .sort((left, right) => left.sequence - right.sequence)
     .map((receipt) => receipt.receipt_ref);
@@ -5947,8 +5693,13 @@ try {
       canonicalJson(graph.source_admission_receipt_refs) ===
         canonicalJson(preRestartReceiptRefs) &&
       canonicalJson(discussion.source_admission_receipt_refs) ===
-        canonicalJson(preRestartReceiptRefs),
-    "BLOCKED: persisted room receipt census does not exactly bind both pre-restart projections",
+        canonicalJson(preRestartReceiptRefs) &&
+      canonicalJson(room.admission_and_replay_refs) ===
+        canonicalJson(preRestartReceiptRefs) &&
+      preRestartReceiptRecords.every((operation) =>
+        receiptRefBindsRoot(operation.receipt_ref, operation.receipt_root)
+      ),
+    "BLOCKED: Agentgres receipt census does not exactly bind both pre-restart projections",
   );
   const preRestartInvocationProof = {
     output_commitment:
@@ -5986,10 +5737,10 @@ try {
     "GET",
     "/v1/hypervisor/outcome-deltas",
   );
-  const recoveredM3ResultPoint = await call(
+  const recoveredGenericResultPoint = await call(
     "GET",
     `/v1/hypervisor/work-results/${encodeURIComponent(
-      m3LegacyResult.work_result_id.replace("work-result://", ""),
+      genericCurrentWorkResultId.replace("work-result://", ""),
     )}`,
   );
   const recoveredM4ResultPoint = await call(
@@ -6012,10 +5763,10 @@ try {
     (value) =>
       value.harness_invocation_id === successfulInvocation.harness_invocation_id,
   );
-  const recoveredReceiptRecords = familyRecords(
-    dataDir,
-    "outcome-room-system-receipts",
-  );
+  const recoveredReceiptRecords = [...(recoveredReplay.body.operations || [])];
+  const recoveredReceiptRefs = [...recoveredReceiptRecords]
+    .sort((left, right) => left.sequence - right.sequence)
+    .map((operation) => operation.receipt_ref);
   const recoveredReceiptSnapshot = canonicalJson(recoveredReceiptRecords);
   room = recoveredRoom.body.outcome_room;
   const activeSystemChainEntry = requireValue(
@@ -6143,48 +5894,37 @@ try {
       recoveredProduct.body.outcome_deltas?.length === 1 &&
       recoveredProduct.body.outcome_deltas[0]?.outcome_delta_id ===
         admittedDelta.outcome_delta_id &&
-      familyCount(dataDir, "work-result-registry") === 3 &&
+      familyCount(dataDir, "work-result-registry") === 2 &&
       familyCount(dataDir, "outcome-delta-registry") === 1 &&
       recoveredVersionedResults.status === 200 &&
       recoveredVersionedResults.body.schema_version ===
         RESULT_REGISTRY_PROJECTION_SCHEMA &&
       canonicalJson(recoveredVersionedResults.body.record_schema_counts) ===
         canonicalJson({
-          "ioi.hypervisor.work-result.v1": 1,
-          "ioi.foundations.work-result.v1": 1,
-          "ioi.foundations.work-result.v2": 1,
+          "ioi.foundations.work-result.v3": 2,
         }) &&
       recoveredVersionedDeltas.status === 200 &&
       recoveredVersionedDeltas.body.schema_version ===
         DELTA_REGISTRY_PROJECTION_SCHEMA &&
       canonicalJson(recoveredVersionedDeltas.body.record_schema_counts) ===
         canonicalJson({
-          "ioi.hypervisor.outcome-delta.v1": 0,
-          "ioi.outcome-delta.v1": 0,
-          "ioi.foundations.outcome-delta.v2": 1,
+          "ioi.foundations.outcome-delta.v3": 1,
         }) &&
-      recoveredM3ResultPoint.status === 200 &&
-      recoveredM3ResultPoint.body.record_schema_version ===
-        "ioi.foundations.work-result.v1" &&
-      canonicalJson(recoveredM3ResultPoint.body.work_result) ===
-        canonicalJson(m3LegacyResult) &&
+      recoveredGenericResultPoint.status === 200 &&
+      recoveredGenericResultPoint.body.record_schema_version ===
+        "ioi.foundations.work-result.v3" &&
+      canonicalJson(recoveredGenericResultPoint.body.work_result) ===
+        canonicalJson(genericCurrentResult) &&
       recoveredM4ResultPoint.status === 200 &&
       recoveredM4ResultPoint.body.record_schema_version ===
-        "ioi.foundations.work-result.v2" &&
+        "ioi.foundations.work-result.v3" &&
       canonicalJson(recoveredM4ResultPoint.body.work_result) ===
         canonicalJson(postDeltaResultPoint.body.work_result) &&
       recoveredM4DeltaPoint.status === 200 &&
       recoveredM4DeltaPoint.body.record_schema_version ===
-        "ioi.foundations.outcome-delta.v2" &&
+        "ioi.foundations.outcome-delta.v3" &&
       canonicalJson(recoveredM4DeltaPoint.body.outcome_delta) ===
         canonicalJson(admittedDelta) &&
-      readFileSync(m3LegacySourcePath).equals(m3LegacySourceBytes) &&
-      readFileSync(m3LegacyOwnerGoalRun.path).equals(
-        m3LegacyOwnerGoalRun.bytes,
-      ) &&
-      readFileSync(genericPredecessorOwnerGoalRun.path).equals(
-        genericPredecessorOwnerGoalRun.bytes,
-      ) &&
       recoveredGraph.body.collaborative_work_graph?.source_room_state_root ===
         room.room_state_root &&
       recoveredGraph.body.collaborative_work_graph?.source_room_revision ===
@@ -6196,7 +5936,7 @@ try {
       recoveredProduct.body.outcome_room?.package_id === OUTCOME_PACKAGE &&
       recoveredProduct.body.outcome_room?.genesis_ref === GENESIS_ID &&
       recoveredProduct.body.outcome_room?.constitution_ref === CONSTITUTION_REF,
-    `${recoveredProduct.body.outcome_room?.room_state_root}/${room.room_state_root}/result_schemas=${canonicalJson(recoveredVersionedResults.body.record_schema_counts)}/delta_schemas=${canonicalJson(recoveredVersionedDeltas.body.record_schema_counts)}/points=${recoveredM3ResultPoint.status}/${recoveredM4ResultPoint.status}/${recoveredM4DeltaPoint.status}/source_bytes=${readFileSync(m3LegacySourcePath).equals(m3LegacySourceBytes)}/owner_fixtures=${readFileSync(m3LegacyOwnerGoalRun.path).equals(m3LegacyOwnerGoalRun.bytes)}/${readFileSync(genericPredecessorOwnerGoalRun.path).equals(genericPredecessorOwnerGoalRun.bytes)}`,
+    `${recoveredProduct.body.outcome_room?.room_state_root}/${room.room_state_root}/result_schemas=${canonicalJson(recoveredVersionedResults.body.record_schema_counts)}/delta_schemas=${canonicalJson(recoveredVersionedDeltas.body.record_schema_counts)}/points=${recoveredGenericResultPoint.status}/${recoveredM4ResultPoint.status}/${recoveredM4DeltaPoint.status}`,
   );
   check(
     "RESTART/REPLAY: operation chain remains contiguous through the recovered head",
@@ -6235,7 +5975,7 @@ try {
           .map((operation) => operation.operation_kind),
       ) ===
         canonicalJson([
-          "room_genesis_admitted",
+          "room_genesis",
           "goal_run_membership_admitted",
           "goal_run_membership_detached",
           "goal_run_membership_admitted",
@@ -6281,21 +6021,26 @@ try {
   );
   check(
     "RESTART PROJECTIONS: replay receipt and honest-empty discussion preserve the exact room head",
-    recoveredReplay.body.room_receipt_root === room.room_receipt_root &&
+      recoveredReplay.body.room_receipt_root === room.room_receipt_root &&
+      familyCount(dataDir, "outcome-room-system-receipts") === 0 &&
       recoveredReceiptSnapshot === preRestartReceiptSnapshot &&
       recoveredReceiptRecords.length === room.latest_sequence + 1 &&
       new Set(
         recoveredReceiptRecords.map((receipt) => receipt.sequence),
       ).size === recoveredReceiptRecords.length &&
-      recoveredReplay.body.operations?.every((operation) => {
-        const receipt = recoveredReceiptRecords.find(
-          (candidate) => candidate.sequence === operation.sequence,
-        );
-        return (
-          receipt?.receipt_ref === operation.receipt_ref &&
-          receipt?.receipt_root === operation.receipt_root
-        );
-      }) &&
+      recoveredReceiptRecords.every((operation) =>
+        receiptRefBindsRoot(operation.receipt_ref, operation.receipt_root)
+      ) &&
+      canonicalJson(recoveredReceiptRefs) ===
+        canonicalJson(room.admission_and_replay_refs) &&
+      canonicalJson(recoveredReceiptRefs) === canonicalJson(
+        recoveredGraph.body.collaborative_work_graph
+          ?.source_admission_receipt_refs,
+      ) &&
+      canonicalJson(recoveredReceiptRefs) === canonicalJson(
+        recoveredDiscussion.body.discussion_projection
+          ?.source_admission_receipt_refs,
+      ) &&
       recoveredDiscussion.status === 200 &&
       canonicalJson({
         source_room_revision:
@@ -6431,10 +6176,6 @@ try {
   const discussionStateHtml = renderedSection("dl", "m4-discussion-state");
   const resultStateHtml = renderedSection("table", "m4-direct-results");
   const deltaStateHtml = renderedSection("table", "m4-direct-deltas");
-  const resultAdmissionReceiptRef =
-    admittedResult.room_admission?.admission_receipt_ref;
-  const deltaAdmissionReceiptRef =
-    admittedDelta.room_admission?.admission_receipt_ref;
   const timelineImplementationResultRef =
     recoveredInvocation?.implementation_result?.implementation_result_id;
   const timelineSourceCandidateRef =

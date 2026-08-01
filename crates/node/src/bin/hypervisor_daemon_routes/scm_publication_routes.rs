@@ -1186,7 +1186,7 @@ fn execute_scm_publication_v2<P: ScmRemotePort>(
     let review_key =
         v2_review_operation_key(&operation_key, review_intent, &identity["target_ref"])?;
     let attempt = json!({
-        "attempt_ref": format!("scm-publication-attempt://ioi/hypervisor/{operation_tag}-1"),
+        "publication_attempt_ref": format!("scm-publication-attempt://ioi/hypervisor/{operation_tag}-1"),
         "attempt_number": 1,
         "cas": {
             "mechanism": "expected_head_compare_and_swap",

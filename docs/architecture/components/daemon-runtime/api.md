@@ -3406,7 +3406,7 @@ owner backlink; an oversized response therefore refuses without side effects.
 Room create/update routes never mint free-form mutable aggregates. Every
 frontier item, offer, claim, attempt, finding, challenge, result, delta, lease,
 budget transition, and state export compiles into a typed payload carrying a
-`RoomScopedObjectBinding`. The daemon resolves issuer, current policy,
+`SystemScopedObjectBinding`. The daemon resolves issuer, current policy,
 authority, expected Agentgres head or heads, and the enclosing room System's
 predecessor condition. The accepted operation and bounded-System transition
 own the canonical decision, sequence, resulting head/commitment, receipt refs,

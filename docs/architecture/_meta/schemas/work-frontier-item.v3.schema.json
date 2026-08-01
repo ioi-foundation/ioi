@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "schema://ioi/foundations/work-frontier-item/v3",
+  "$id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
   "title": "WorkFrontierItem",
-  "x-ioi-schema-version": "ioi.foundations.work-frontier-item.v3",
+  "x-ioi-schema-version": "ioi.applications.ioi-ai.work-frontier-item.v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
     "frontier_item_id",
-    "room_binding",
+    "system_binding",
     "item_kind",
     "objective",
     "dependency_refs",
@@ -36,13 +36,13 @@
         }
       ]
     },
-    "roomBinding": {
+    "systemBinding": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "schema_version",
-        "room_system_id",
-        "outcome_room_ref",
+        "system_id",
+        "parent_scope_ref",
         "proposed_or_issued_by_ref",
         "payload_root",
         "created_at",
@@ -50,19 +50,19 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "ioi.foundations.room-scoped-object-binding.v1"
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
         },
-        "room_system_id": {
+        "system_id": {
           "type": "string",
           "pattern": "^system://[^\\s]{1,500}$"
         },
-        "outcome_room_ref": {
+        "parent_scope_ref": {
           "type": "string",
-          "pattern": "^outcome-room://[^\\s]{1,500}$"
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
         },
         "proposed_or_issued_by_ref": {
           "type": "string",
-          "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
         },
         "payload_root": {
           "type": "string",
@@ -90,14 +90,14 @@
   },
   "properties": {
     "schema_version": {
-      "const": "ioi.foundations.work-frontier-item.v3"
+      "const": "ioi.applications.ioi-ai.work-frontier-item.v3"
     },
     "frontier_item_id": {
       "type": "string",
       "pattern": "^frontier://[^\\s]{1,500}$"
     },
-    "room_binding": {
-      "$ref": "#/$defs/roomBinding"
+    "system_binding": {
+      "$ref": "#/$defs/systemBinding"
     },
     "item_kind": {
       "enum": [

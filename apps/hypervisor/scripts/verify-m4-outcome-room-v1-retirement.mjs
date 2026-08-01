@@ -222,7 +222,7 @@ async function assertRetired(base, expectedBytes, phase) {
   check(
     `${phase}: canonical list is v2-only and excludes the historical v1 record`,
     list.status === 200 &&
-      list.body.schema_version === "ioi.foundations.outcome-room.v2" &&
+      list.body.schema_version === "ioi.applications.ioi-ai.outcome-room.v2" &&
       Array.isArray(list.body.outcome_rooms) &&
       list.body.outcome_rooms.length === 0 &&
       responseDoesNotLeakLegacyTruth(list),

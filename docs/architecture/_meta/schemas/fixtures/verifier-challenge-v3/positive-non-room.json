@@ -1,8 +1,8 @@
 {
-  "schema_version": "ioi.foundations.verifier-challenge.v3",
+  "schema_version": "ioi.applications.ioi-ai.verifier-challenge.v3",
   "verifier_challenge_id": "verifier-challenge://direct/one",
   "outcome_room_ref": null,
-  "room_binding": null,
+  "system_binding": null,
   "challenger_ref": "user://direct/reviewer",
   "challenged_ref": "rubric://direct/v1",
   "challenge_kind": "rule",

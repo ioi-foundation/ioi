@@ -20,7 +20,7 @@ use std::collections::HashSet;
 
 pub const GOAL_RUN_ADMISSION_SCHEMA_VERSION: &str = "ioi.runtime.goal_run_admission.v1";
 pub const GOAL_RUN_ADMISSION_PATH_DECISION_SCHEMA_VERSION: &str =
-    "ioi.foundations.goal-run-admission-path-decision.v1";
+    "ioi.applications.ioi-ai.goal-run-admission-path-decision.v1";
 
 /// The first orchestration policy: parallel implementation + verifier reconciliation.
 pub const GOAL_RUN_POLICY_PARALLEL_IMPLEMENT_RECONCILE: &str = "parallel_implement_reconcile";

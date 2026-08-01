@@ -17,11 +17,11 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const DEFINITION_RESOLUTION_SCHEMA_VERSION: &str =
-    "ioi.foundations.goal-run-definition-resolution.v1";
+    "ioi.applications.ioi-ai.goal-run-definition-resolution.v1";
 pub const PROFILE_RESOLUTION_RECEIPT_SCHEMA_VERSION: &str =
-    "ioi.foundations.goal-run-profile-resolution-receipt.v1";
-pub const WORK_RESULT_SCHEMA_VERSION: &str = "ioi.foundations.work-result.v1";
-pub const OUTCOME_DELTA_SCHEMA_VERSION: &str = "ioi.outcome-delta.v1";
+    "ioi.applications.ioi-ai.goal-run-profile-resolution-receipt.v1";
+pub const WORK_RESULT_SCHEMA_VERSION: &str = "ioi.foundations.work-result.v3";
+pub const OUTCOME_DELTA_SCHEMA_VERSION: &str = "ioi.foundations.outcome-delta.v3";
 pub const WORK_LIFECYCLE_SCHEMA_VERSION: &str = "ioi.work-lifecycle-record.v1";
 pub const IFC_DECISION_SCHEMA_VERSION: &str =
     "ioi.components.daemon-runtime.information-flow-decision-receipt.v1";
@@ -703,7 +703,7 @@ impl GoalPursuitCore {
             "superseded",
         ];
         let result_ref = required_ref(request, "work_result_id", "work-result://")?;
-        let goal_ref = required_ref(request, "goal_run_ref", "goal://")?;
+        let goal_ref = required_ref(request, "work_subject_ref", "goal://")?;
         let profile = required_text(request, "result_profile")?;
         if profile != "research" {
             return Err(GoalPursuitError::new(
@@ -798,14 +798,10 @@ impl GoalPursuitCore {
             "schema_version": WORK_RESULT_SCHEMA_VERSION,
             "work_result_id": result_ref,
             "work_subject_ref": goal_ref,
-            "goal_run_ref": goal_ref,
-            "outcome_room_ref": Value::Null,
-            "room_admission": Value::Null,
+            "system_binding": Value::Null,
             "produced_by_ref": produced_by_ref,
             "submitted_by_ref": submitted_by_ref,
             "operator_and_affiliation_refs": request.get("operator_and_affiliation_refs").cloned().unwrap_or_else(|| json!([])),
-            "work_claim_ref": Value::Null,
-            "attempt_ref": request.get("attempt_ref").cloned().unwrap_or(Value::Null),
             "invocation_or_run_ref": request.get("invocation_or_run_ref").cloned().unwrap_or(Value::Null),
             "result_profile": profile,
             "result_profile_ref": request.get("result_profile_ref").cloned().unwrap_or(Value::Null),
@@ -823,7 +819,7 @@ impl GoalPursuitCore {
             "outcome_class": outcome,
             "status": status,
             "outcome_delta_refs": request.get("outcome_delta_refs").cloned().unwrap_or_else(|| json!([])),
-            "finding_refs": request.get("finding_refs").cloned().unwrap_or_else(|| json!([])),
+            "observation_refs": request.get("observation_refs").cloned().unwrap_or_else(|| json!([])),
             "claim_refs": claims,
             "uncertainty": uncertainty,
             "supporting_evidence_refs": supporting,
@@ -837,12 +833,22 @@ impl GoalPursuitCore {
             "reproduction_state": request.get("reproduction_state").cloned().unwrap_or(Value::Null),
             "reproduction_refs": request.get("reproduction_refs").cloned().unwrap_or_else(|| json!([])),
             "acceptance_ref": request.get("acceptance_ref").cloned().unwrap_or(Value::Null),
-            "challenge_refs": request.get("challenge_refs").cloned().unwrap_or_else(|| json!([])),
+            "review_refs": request.get("review_refs").cloned().unwrap_or_else(|| json!([])),
             "supersedes_work_result_ref": request.get("supersedes_work_result_ref").cloned().unwrap_or(Value::Null),
             "superseded_by_ref": request.get("superseded_by_ref").cloned().unwrap_or(Value::Null),
             "summary_ref": request.get("summary_ref").cloned().unwrap_or(Value::Null),
             "next_action": request.get("next_action").cloned().unwrap_or_else(|| json!("none")),
         });
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            "schema://ioi/foundations/work-result/v3",
+            &result,
+        )
+        .map_err(|error| {
+            GoalPursuitError::new(
+                "work_result_contract_invalid",
+                format!("the admitted WorkResult does not satisfy the current contract: {error}"),
+            )
+        })?;
         Ok(json!({
             "work_result": result,
             "work_result_hash": hash(&result),
@@ -913,8 +919,7 @@ impl GoalPursuitCore {
             "schema_version":OUTCOME_DELTA_SCHEMA_VERSION,
             "outcome_delta_id":delta_ref,
             "work_subject_ref":work_subject_ref,
-            "outcome_room_ref":request.get("outcome_room_ref").cloned().unwrap_or(Value::Null),
-            "room_admission":request.get("room_admission").cloned().unwrap_or(Value::Null),
+            "system_binding":request.get("system_binding").cloned().unwrap_or(Value::Null),
             "proposed_by_ref":proposed_by_ref,
             "target_ref":target_ref,
             "delta_kind":kind,
@@ -926,6 +931,16 @@ impl GoalPursuitCore {
             "status":"proposed"
         });
         let outcome_delta_hash = hash(&record);
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            "schema://ioi/foundations/outcome-delta/v3",
+            &record,
+        )
+        .map_err(|error| {
+            GoalPursuitError::new(
+                "outcome_delta_contract_invalid",
+                format!("the admitted OutcomeDelta does not satisfy the current contract: {error}"),
+            )
+        })?;
         Ok(json!({
             "outcome_delta":record,
             "outcome_delta_hash":outcome_delta_hash,
@@ -2010,7 +2025,7 @@ mod tests {
     fn result(outcome: &str, status: &str) -> Value {
         json!({
             "work_result_id":"work-result://research-1",
-            "goal_run_ref":"goal://research-1",
+            "work_subject_ref":"goal://research-1",
             "result_profile":"research",
             "outcome_class":outcome,
             "status":status,
@@ -2018,7 +2033,7 @@ mod tests {
             "produced_by_ref":"worker://research-1",
             "submitted_by_ref":"worker://research-1",
             "claim_refs":["evidence://claim/1"],
-            "uncertainty":["remaining uncertainty"],
+            "uncertainty":"remaining uncertainty",
             "supporting_evidence_refs":["evidence://paper/1"],
             "contradicting_evidence_refs":["evidence://paper/2"],
             "producer_component_resolution":{

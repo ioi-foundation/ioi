@@ -27,7 +27,7 @@
       "obligation_id": "receipt-obligation://goal-run-activation/gra_demo/0",
       "boundary_event": "activation",
       "receipt_type": "goal_run_activation",
-      "receipt_profile_ref": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+      "receipt_profile_ref": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
       "bound_fact_requirement_refs": [
         "goal://gr_demo",
         "goal-run-activation://gra_demo"

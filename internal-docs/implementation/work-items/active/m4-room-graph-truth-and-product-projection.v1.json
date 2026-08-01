@@ -20,7 +20,7 @@
     ],
     "explicitly_not_done": "The verified record, its original contract-family bindings, retained evidence, and literal are not rewritten. They remain evidence of the superseded proof contract.",
     "corrective_successor_requirements": [
-      "Re-prove the typed room families with RoomScopedObjectBinding and no RoomAdmittedObjectBase dependency.",
+      "Re-prove the typed room families with SystemScopedObjectBinding and no RoomAdmittedObjectBase dependency.",
       "Prove shared-graph conflicts through Agentgres expected_head/expected_heads or expected_absent and the enclosing bounded-System predecessor condition.",
       "Prove that canonical decisions, sequences, transitions, receipts, state roots, and receipt roots are minted once by the Agentgres/System path and only referenced by room objects.",
       "Retain the original wrong-System, stale-head, direct-write, recovery, replay, label, lineage, and product-projection refusals."
@@ -150,7 +150,7 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-pursuit.md#goalrunactivationenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/goal-run-activation/v1"
+        "schema://ioi/applications/ioi-ai/goal-run-activation/v1"
       ],
       "schema_versions": [
         "ioi.goal-run-activation.v1"
@@ -168,7 +168,7 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#goalrun-activation-receipts",
       "contract_ids": [
-        "schema://ioi/foundations/goal-run-activation-receipt/v1"
+        "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1"
       ],
       "schema_versions": [
         "ioi.goal-run-activation-receipt.v1"
@@ -186,7 +186,7 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalrunenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/goal-run-admitted-state/v1"
+        "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1"
       ],
       "schema_versions": [
         "ioi.goal-run-admitted-state.v1"
@@ -203,10 +203,10 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#outcomeroomenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/outcome-room/v2"
+        "schema://ioi/applications/ioi-ai/outcome-room/v2"
       ],
       "schema_versions": [
-        "ioi.foundations.outcome-room.v2"
+        "ioi.applications.ioi-ai.outcome-room.v2"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -220,10 +220,10 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#collaborativeworkgraph-and-discussion-projections",
       "contract_ids": [
-        "schema://ioi/foundations/collaborative-work-graph/v1"
+        "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1"
       ],
       "schema_versions": [
-        "ioi.foundations.collaborative-work-graph.v1"
+        "ioi.applications.ioi-ai.collaborative-work-graph.v1"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -237,10 +237,10 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workfrontieritemenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/work-frontier-item/v2"
+        "schema://ioi/applications/ioi-ai/work-frontier-item/v3"
       ],
       "schema_versions": [
-        "ioi.foundations.work-frontier-item.v2"
+        "ioi.applications.ioi-ai.work-frontier-item.v3"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -254,10 +254,10 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workclaimleaseenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/work-claim-lease/v2"
+        "schema://ioi/applications/ioi-ai/work-claim-lease/v3"
       ],
       "schema_versions": [
-        "ioi.foundations.work-claim-lease.v2"
+        "ioi.applications.ioi-ai.work-claim-lease.v3"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -271,10 +271,10 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#attemptenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/attempt/v2"
+        "schema://ioi/applications/ioi-ai/attempt/v3"
       ],
       "schema_versions": [
-        "ioi.foundations.attempt.v2"
+        "ioi.applications.ioi-ai.attempt.v3"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -289,10 +289,10 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/finding/v2"
+        "schema://ioi/applications/ioi-ai/finding/v3"
       ],
       "schema_versions": [
-        "ioi.foundations.finding.v2"
+        "ioi.applications.ioi-ai.finding.v3"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -307,10 +307,10 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#verifierchallengeenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/verifier-challenge/v2"
+        "schema://ioi/applications/ioi-ai/verifier-challenge/v3"
       ],
       "schema_versions": [
-        "ioi.foundations.verifier-challenge.v2"
+        "ioi.applications.ioi-ai.verifier-challenge.v3"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -324,10 +324,10 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/work-result/v2"
+        "schema://ioi/foundations/work-result/v3"
       ],
       "schema_versions": [
-        "ioi.foundations.work-result.v2"
+        "ioi.foundations.work-result.v3"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -341,10 +341,10 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/outcome-delta/v2"
+        "schema://ioi/foundations/outcome-delta/v3"
       ],
       "schema_versions": [
-        "ioi.foundations.outcome-delta.v2"
+        "ioi.foundations.outcome-delta.v3"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -358,27 +358,27 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#participantstatebundleenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/participant-state-bundle/v2"
+        "schema://ioi/applications/ioi-ai/participant-state-bundle/v3"
       ],
       "schema_versions": [
-        "ioi.foundations.participant-state-bundle.v2"
+        "ioi.applications.ioi-ai.participant-state-bundle.v3"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
     },
     {
-      "name": "RoomScopedObjectBinding",
+      "name": "SystemScopedObjectBinding",
       "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
       "semantic_owner_paths": [
         "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
       ],
       "owner_role": "registry_canonical_owner",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#roomscopedobjectbinding",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#systemscopedobjectbinding",
       "contract_ids": [
-        "schema://ioi/foundations/room-scoped-object-binding/v1"
+        "schema://ioi/foundations/system-scoped-object-binding/v1"
       ],
       "schema_versions": [
-        "ioi.foundations.room-scoped-object-binding.v1"
+        "ioi.foundations.system-scoped-object-binding.v1"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -393,10 +393,10 @@
       "owner_role": "registry_canonical_owner",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#collaborativeworkgraph-and-discussion-projections",
       "contract_ids": [
-        "schema://ioi/foundations/outcome-room-discussion-projection/v1"
+        "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1"
       ],
       "schema_versions": [
-        "ioi.foundations.outcome-room-discussion-projection.v1"
+        "ioi.applications.ioi-ai.outcome-room-discussion-projection.v1"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -433,7 +433,7 @@
       "architecture_canon": false
     }
   ],
-  "current_implementation_evidence": "Final implementation anchors exist at source commit 287449463f42c2a0e55464b4c8230a9f6fa05dbe: the registered GoalRunActivation envelope/receipt lane, explicit-review ported-composer rebind, Session-only native submit, a roomless and resultless direct-lane restart regression, full-depth canonical, lifecycle-unimplemented v2 room-child schemas, the minimum current-v2 room WorkResult/OutcomeDelta with exact payload/label dependency resolution, read-only selected Goal Space projection, honest-empty current M5 lifecycle projections with predecessor-generation fences, reciprocal attach/detach, and the bounded hosted room/System owner plane. Verification is owned only by the evidence index, exact 140-assertion current room plane, exact 98-assertion aggregate, uninterrupted architecture-contract bar, touched M3 regressions, retained literal, and typed status transition; this paragraph grants no verified, stage, P0, M9, release, or product claim.",
+  "current_implementation_evidence": "Corrective implementation is in progress after ADR 0030 reopened R-CONTRACT: application-owned GoalRun/room contracts now resolve under schema://ioi/applications/ioi-ai, current v3 child shapes use the substrate-generic SystemScopedObjectBinding, and WorkResult/OutcomeDelta retain only substrate-generic subject/scope vocabulary. The runtime and proof bars must finish against this current-only registry before any M4 literal or verified claim. Historical 140/98 assertion results remain evidence of their finished runs, not proof of this successor cut.",
   "dependency_work_item_ids": [
     "m3-direct-path-and-exit-proof"
   ],

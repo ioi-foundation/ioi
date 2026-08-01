@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "schema://ioi/foundations/goal-run-profile/v1",
+  "$id": "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
   "title": "GoalRunProfile",
   "x-ioi-schema-version": "ioi.goal-run-profile.v1",
   "type": "object",

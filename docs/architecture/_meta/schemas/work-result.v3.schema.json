@@ -9,14 +9,10 @@
     "schema_version",
     "work_result_id",
     "work_subject_ref",
-    "goal_run_ref",
-    "outcome_room_ref",
-    "room_binding",
+    "system_binding",
     "produced_by_ref",
     "submitted_by_ref",
     "operator_and_affiliation_refs",
-    "work_claim_ref",
-    "attempt_ref",
     "invocation_or_run_ref",
     "result_profile",
     "result_profile_ref",
@@ -26,8 +22,6 @@
     "information_flow_label_refs",
     "outcome_class",
     "status",
-    "outcome_delta_refs",
-    "finding_refs",
     "claim_refs",
     "uncertainty",
     "supporting_evidence_refs",
@@ -41,11 +35,13 @@
     "reproduction_state",
     "reproduction_refs",
     "acceptance_ref",
-    "challenge_refs",
     "supersedes_work_result_ref",
     "superseded_by_ref",
     "summary_ref",
-    "next_action"
+    "next_action",
+    "outcome_delta_refs",
+    "observation_refs",
+    "review_refs"
   ],
   "$defs": {
     "ref": {
@@ -81,13 +77,13 @@
         }
       ]
     },
-    "roomBinding": {
+    "systemBinding": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "schema_version",
-        "room_system_id",
-        "outcome_room_ref",
+        "system_id",
+        "parent_scope_ref",
         "proposed_or_issued_by_ref",
         "payload_root",
         "created_at",
@@ -95,19 +91,19 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "ioi.foundations.room-scoped-object-binding.v1"
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
         },
-        "room_system_id": {
+        "system_id": {
           "type": "string",
           "pattern": "^system://[^\\s]{1,500}$"
         },
-        "outcome_room_ref": {
+        "parent_scope_ref": {
           "type": "string",
-          "pattern": "^outcome-room://[^\\s]{1,500}$"
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
         },
         "proposed_or_issued_by_ref": {
           "type": "string",
-          "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
         },
         "payload_root": {
           "type": "string",
@@ -203,34 +199,12 @@
     },
     "work_subject_ref": {
       "type": "string",
-      "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$"
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
     },
-    "goal_run_ref": {
+    "system_binding": {
       "anyOf": [
         {
-          "type": "string",
-          "pattern": "^goal://[^\\s]{1,500}$"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "outcome_room_ref": {
-      "anyOf": [
-        {
-          "type": "string",
-          "pattern": "^outcome-room://[^\\s]{1,500}$"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "room_binding": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/roomBinding"
+          "$ref": "#/$defs/systemBinding"
         },
         {
           "type": "null"
@@ -248,33 +222,10 @@
     "operator_and_affiliation_refs": {
       "$ref": "#/$defs/refs"
     },
-    "work_claim_ref": {
-      "anyOf": [
-        {
-          "type": "string",
-          "pattern": "^work-claim://[^\\s]{1,500}$"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "attempt_ref": {
-      "anyOf": [
-        {
-          "type": "string",
-          "pattern": "^attempt://[^\\s]{1,500}$"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
     "invocation_or_run_ref": {
       "anyOf": [
         {
-          "type": "string",
-          "pattern": "^(?:harness-invocation|run|work-run|automation-run|service)://[^\\s]{1,500}$"
+          "$ref": "#/$defs/ref"
         },
         {
           "type": "null"
@@ -324,8 +275,7 @@
       "maxItems": 64,
       "uniqueItems": true,
       "items": {
-        "type": "string",
-        "pattern": "^(?:method|attempt|finding|work-result|artifact|trace)://[^\\s]{1,500}$"
+        "$ref": "#/$defs/ref"
       }
     },
     "information_flow_label_refs": {
@@ -364,15 +314,6 @@
       "items": {
         "type": "string",
         "pattern": "^outcome-delta://[^\\s]{1,500}$"
-      }
-    },
-    "finding_refs": {
-      "type": "array",
-      "maxItems": 64,
-      "uniqueItems": true,
-      "items": {
-        "type": "string",
-        "pattern": "^finding://[^\\s]{1,500}$"
       }
     },
     "claim_refs": {
@@ -508,15 +449,6 @@
         }
       ]
     },
-    "challenge_refs": {
-      "type": "array",
-      "maxItems": 64,
-      "uniqueItems": true,
-      "items": {
-        "type": "string",
-        "pattern": "^(?:verifier-challenge|dispute|evidence)://[^\\s]{1,500}$"
-      }
-    },
     "supersedes_work_result_ref": {
       "anyOf": [
         {
@@ -560,33 +492,24 @@
         "synthesize",
         "ask_user",
         "escalate",
-        "update_frontier"
+        "update_work_queue"
       ]
-    }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "outcome_room_ref": {
-            "type": "string"
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "room_binding": {
-            "$ref": "#/$defs/roomBinding"
-          }
-        }
-      },
-      "else": {
-        "properties": {
-          "room_binding": {
-            "type": "null"
-          }
-        }
+    },
+    "observation_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "review_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ref"
       }
     }
-  ]
+  }
 }

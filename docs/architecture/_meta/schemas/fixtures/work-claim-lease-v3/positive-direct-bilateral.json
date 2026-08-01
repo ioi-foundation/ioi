@@ -1,8 +1,8 @@
 {
-  "schema_version": "ioi.foundations.work-claim-lease.v3",
+  "schema_version": "ioi.applications.ioi-ai.work-claim-lease.v3",
   "work_claim_id": "work-claim://direct/1",
   "outcome_room_ref": null,
-  "room_binding": null,
+  "system_binding": null,
   "frontier_item_ref": null,
   "claimant_ref": "worker://direct/1",
   "claimant_participant_lease_ref": null,

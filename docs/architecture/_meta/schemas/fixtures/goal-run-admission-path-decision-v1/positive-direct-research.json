@@ -1,5 +1,5 @@
 {
-  "schema_version": "ioi.foundations.goal-run-admission-path-decision.v1",
+  "schema_version": "ioi.applications.ioi-ai.goal-run-admission-path-decision.v1",
   "decision_ref": "decision://goal-run/gr_research/admission-path",
   "goal_run_ref": "goal://gr_research",
   "requested_path": "auto",

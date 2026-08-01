@@ -1,8 +1,8 @@
 {
-  "schema_version": "ioi.foundations.attempt.v3",
+  "schema_version": "ioi.applications.ioi-ai.attempt.v3",
   "attempt_id": "attempt://direct/fabricated-room-coordinate",
   "outcome_room_ref": null,
-  "room_binding": null,
+  "system_binding": null,
   "work_subject_ref": "automation-run://direct/1",
   "goal_run_ref": null,
   "frontier_item_ref": null,

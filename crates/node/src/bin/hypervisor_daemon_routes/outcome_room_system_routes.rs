@@ -1,13 +1,11 @@
 //! M4 bounded-System OutcomeRoom admission.
 //!
-//! This is the current-contract path. The older `outcome_room_routes` module retains
-//! predecessor storage/recovery helpers only; canonical v1 reads and writes are retired. A v2
-//! room is admitted only after the daemon reconstructs an active sequence-two System
-//! from its owner planes. Every room or room-child commit crosses a declared
-//! Agentgres required-admission domain before the local aggregate projection
-//! becomes visible.
+//! A v2 room is composed over an active bounded System. Creation, reciprocal
+//! membership, and v3 typed-child mutations all advance one stable Agentgres
+//! object with expected-absent/expected-head admission; local room and owner
+//! records are rebuildable projections of that canonical operation history.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use axum::extract::{Path as AxumPath, State};
@@ -17,27 +15,21 @@ use serde_json::{json, Value};
 
 use super::{iso_now, DaemonState};
 
-const ROOM_SCHEMA: &str = "ioi.foundations.outcome-room.v2";
-const ROOM_CONTRACT: &str = "schema://ioi/foundations/outcome-room/v2";
-const BASE_SCHEMA: &str = "ioi.foundations.room-admitted-object-base.v2";
+const ROOM_SCHEMA: &str = "ioi.applications.ioi-ai.outcome-room.v2";
+const ROOM_CONTRACT: &str = "schema://ioi/applications/ioi-ai/outcome-room/v2";
+const SYSTEM_BINDING_SCHEMA: &str = "ioi.foundations.system-scoped-object-binding.v1";
 const OUTCOME_PACKAGE: &str = "package://ioi/outcome-room";
 
 const ROOM_DIR: &str = super::outcome_room_routes::ROOM_DIR;
 const INTENT_DIR: &str = "outcome-room-system-admission-intents";
 const CHILD_INTENT_DIR: &str = "outcome-room-child-admission-intents";
 const MEMBERSHIP_INTENT_DIR: &str = "outcome-room-membership-admission-intents";
-const RECEIPT_DIR: &str = "outcome-room-system-receipts";
-const OBJECT_DIR: &str = "outcome-room-admitted-object-projections";
 
-const ADMISSION_OPERATION_DOMAIN: &str = "outcome-room-admission-operations";
-const TRANSITION_OPERATION_DOMAIN: &str = "outcome-room-transition-operations";
-const RECEIPT_DOMAIN: &str = "outcome-room-admission-receipts";
-const OBJECT_DOMAIN: &str = "outcome-room-admitted-objects";
-
-const GRAPH_SCHEMA: &str = "ioi.foundations.collaborative-work-graph.v1";
-const GRAPH_CONTRACT: &str = "schema://ioi/foundations/collaborative-work-graph/v1";
-const DISCUSSION_SCHEMA: &str = "ioi.foundations.outcome-room-discussion-projection.v1";
-const DISCUSSION_CONTRACT: &str = "schema://ioi/foundations/outcome-room-discussion-projection/v1";
+const GRAPH_SCHEMA: &str = "ioi.applications.ioi-ai.collaborative-work-graph.v1";
+const GRAPH_CONTRACT: &str = "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1";
+const DISCUSSION_SCHEMA: &str = "ioi.applications.ioi-ai.outcome-room-discussion-projection.v1";
+const DISCUSSION_CONTRACT: &str =
+    "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1";
 
 pub(crate) const M4_ROOM_REF_SET_MAX: usize = 64;
 pub(crate) const M4_HOSTED_ROOM_MAX: usize = 50;
@@ -251,40 +243,6 @@ fn jcs_root(domain: &str, value: &Value) -> Result<String, VErr> {
 
 fn create_request_root(body: &Value) -> Result<String, VErr> {
     jcs_root("ioi.outcome-room-create-request-jcs-sha256.v1", body)
-}
-
-fn rooted_record(
-    family: &str,
-    prefix: &str,
-    root_field: &str,
-    mut record: Value,
-) -> Result<(String, Value), VErr> {
-    let Some(object) = record.as_object_mut() else {
-        return Err(verr(
-            "outcome_room_record_invalid",
-            "record is not an object",
-        ));
-    };
-    object.insert(root_field.to_owned(), Value::Null);
-    let root = super::system_activation_routes::jcs_hash(&json!({
-        "domain":"ioi.outcome-room-required-admission-record-jcs-sha256.v1",
-        "record_family":family,
-        "record":record,
-    }))
-    .map_err(|(_, message)| verr("outcome_room_hash_failed", message))?;
-    record[root_field] = json!(root);
-    let key = format!(
-        "{prefix}{}",
-        root.strip_prefix("sha256:").unwrap_or_default()
-    );
-    Ok((key, record))
-}
-
-fn state_root(room: &Value) -> Result<String, VErr> {
-    let mut material = room.clone();
-    material["room_state_root"] = Value::Null;
-    material["room_receipt_root"] = Value::Null;
-    jcs_root("ioi.outcome-room-state-jcs-sha256.v2", &material)
 }
 
 fn canonical_contract(contract_id: &str, value: &Value) -> Result<(), VErr> {
@@ -535,7 +493,7 @@ fn build_room_admission(
     body: &Value,
     room_tail: &str,
     at: &str,
-) -> Result<(Value, Value, Value), VErr> {
+) -> Result<(Value, Value), VErr> {
     if body.get("schema_version").and_then(Value::as_str) != Some(ROOM_SCHEMA) {
         return Err(verr(
             "outcome_room_schema_version_invalid",
@@ -662,85 +620,29 @@ fn build_room_admission(
         "room_receipt_root": Value::Null,
         "status": "open",
     });
-    let transition_root = jcs_root(
-        "ioi.outcome-room-genesis-transition-jcs-sha256.v2",
-        &json!({
-            "system_chain_root":chain["chain_root"],
-            "system_state_root":chain["latest_state_root"],
-            "room":room,
-        }),
-    )?;
-    let transition_ref = format!(
-        "commitment://ioi/outcome-room/{room_tail}/sequence/0/{}",
-        transition_root.strip_prefix("sha256:").unwrap_or_default()
-    );
-    room["latest_transition_commitment_ref"] = json!(transition_ref);
-    room["room_state_root"] = json!(state_root(&room)?);
-    let receipt_ref = format!("receipt://outcome-room/{room_tail}/sequence/0");
-    room["admission_and_replay_refs"] = json!([receipt_ref]);
-    room["room_state_root"] = json!(state_root(&room)?);
-    let receipt = json!({
-        "schema_version":"ioi.outcome-room-admission-receipt.v2",
-        "receipt_ref":receipt_ref,
-        "receipt_root":Value::Null,
-        "receipt_type":"outcome_room_admission",
-        "system_id":room["system_id"],
-        "outcome_room_ref":room["outcome_room_id"],
-        "package_id":room["package_id"],
-        "manifest_ref":room["manifest_ref"],
-        "genesis_ref":room["genesis_ref"],
-        "constitution_ref":room["constitution_ref"],
-        "expected_room_revision":Value::Null,
-        "resulting_room_revision":0,
-        "sequence":0,
-        "expected_predecessor_commitment_ref":Value::Null,
-        "resulting_transition_commitment_ref":room["latest_transition_commitment_ref"],
-        "resulting_room_state_root":room["room_state_root"],
-        "status":"admitted",
-        "at":at,
-    });
-    let (_, receipt) = rooted_record(RECEIPT_DOMAIN, "orrc_", "receipt_root", receipt)?;
-    room["room_receipt_root"] = receipt["receipt_root"].clone();
-    validate_current_room_contract(&room)?;
     let operation = json!({
-        "schema_version":"ioi.outcome-room-admission-operation.v2",
-        "operation_root":Value::Null,
-        "operation_kind":"room_genesis_admitted",
+        "schema_version":"ioi.outcome-room-system-operation.v1",
+        "operation_kind":"room_genesis",
+        "room_system_id":room["system_id"],
         "outcome_room_ref":room["outcome_room_id"],
-        "system_id":room["system_id"],
-        "sequence":0,
-        "expected_predecessor_commitment_ref":Value::Null,
-        "resulting_transition_commitment_ref":room["latest_transition_commitment_ref"],
-        "resulting_room_state_root":room["room_state_root"],
-        "resulting_room":room,
-        "receipt_ref":receipt["receipt_ref"],
-        "receipt_root":receipt["receipt_root"],
-        "system_chain_root":chain["chain_root"],
-        "system_state_root":chain["latest_state_root"],
+        "typed_payload":room,
+        "resolved_policy_refs":[room["coordination_policy_ref"].clone(),room["ordering_and_merge_policy_ref"].clone()],
+        "resolved_authority_refs":[room["system_id"].clone()],
+        "expected_system_predecessor":{
+            "chain_ref":chain["chain_ref"],
+            "chain_root":chain["chain_root"],
+            "operation_log_root":chain["operation_log_root"],
+            "sequence":chain["latest_sequence"],
+            "transition_ref":chain["latest_transition_id"],
+            "state_root":chain["latest_state_root"],
+            "receipt_root":chain["latest_receipt_root"],
+        },
         "collective_goal_run_ref":collective_goal_run["goal_ref"],
         "collective_path_decision_ref":collective_goal_run["admission_path_decision"]["decision_ref"],
         "request_root":create_request_root(body)?,
         "at":at,
     });
-    let (_, operation) = rooted_record(
-        ADMISSION_OPERATION_DOMAIN,
-        "orao_",
-        "operation_root",
-        operation,
-    )?;
-    Ok((operation["resulting_room"].clone(), receipt, operation))
-}
-
-fn key_for(record: &Value, field: &str, prefix: &str) -> Result<String, VErr> {
-    let root = exact_string(
-        record,
-        &format!("/{field}"),
-        "outcome_room_record_root_missing",
-    )?;
-    Ok(format!(
-        "{prefix}{}",
-        root.strip_prefix("sha256:").unwrap_or_default()
-    ))
+    Ok((operation["typed_payload"].clone(), operation))
 }
 
 fn persist_local(family: &str, data_dir: &str, key: &str, value: &Value) -> Result<(), VErr> {
@@ -748,15 +650,6 @@ fn persist_local(family: &str, data_dir: &str, key: &str, value: &Value) -> Resu
         verr(
             "outcome_room_projection_persist_failed",
             format!("{family}/{key}: {}", failure.detail()),
-        )
-    })
-}
-
-fn admit_required(family: &str, data_dir: &str, key: &str, value: &Value) -> Result<(), VErr> {
-    super::substrate_store::admit_required(data_dir, family, key, value).map_err(|error| {
-        verr(
-            "outcome_room_agentgres_admission_failed",
-            format!("{family}/{key}: {error}"),
         )
     })
 }
@@ -874,54 +767,6 @@ fn confirm_room_read_stable(data_dir: &str, room_ref: &str, observed: &Value) ->
     Ok(())
 }
 
-fn reservation_slot_root(room_ref: &str, predecessor: Option<&str>) -> Result<String, VErr> {
-    jcs_root(
-        "ioi.outcome-room-head-reservation-slot-jcs-sha256.v1",
-        &json!({
-            "outcome_room_ref": room_ref,
-            "expected_predecessor_commitment_ref": predecessor,
-        }),
-    )
-}
-
-fn reserve_exact_room_successor(data_dir: &str, operation: &Value) -> Result<(), VErr> {
-    let room_ref = exact_string(
-        operation,
-        "/outcome_room_ref",
-        "outcome_room_reservation_invalid",
-    )?;
-    let predecessor = operation
-        .get("expected_predecessor_commitment_ref")
-        .and_then(Value::as_str);
-    let slot_root = reservation_slot_root(room_ref, predecessor)?;
-    let key = format!(
-        "orhr_{}",
-        slot_root.strip_prefix("sha256:").unwrap_or_default()
-    );
-    let reservation = json!({
-        "schema_version":"ioi.outcome-room-head-reservation.v1",
-        "reservation_slot_root":slot_root,
-        "outcome_room_ref":room_ref,
-        "sequence":operation["sequence"],
-        "expected_predecessor_commitment_ref":operation["expected_predecessor_commitment_ref"],
-        "resulting_transition_commitment_ref":operation["resulting_transition_commitment_ref"],
-        "resulting_room_state_root":operation["resulting_room_state_root"],
-        "operation_root":operation["operation_root"],
-        "at":operation["at"],
-    });
-    super::substrate_store::admit_outcome_room_head_reservation(data_dir, &key, &reservation)
-        .map_err(|error| {
-            let code = if error.kind() == std::io::ErrorKind::AlreadyExists
-                || error.to_string().contains("different immutable")
-            {
-                "outcome_room_head_conflict"
-            } else {
-                "outcome_room_head_reservation_agentgres_failed"
-            };
-            verr(code, error.to_string())
-        })
-}
-
 fn remove_intent(data_dir: &str, family: &str, key: &str) -> Result<(), VErr> {
     let path = std::path::Path::new(data_dir)
         .join(family)
@@ -945,43 +790,148 @@ fn remove_intent(data_dir: &str, family: &str, key: &str) -> Result<(), VErr> {
     }
 }
 
+fn agentgres_room_receipt_ref(room_tail: &str, batch_seq: u64, root: &str) -> String {
+    format!(
+        "receipt://agentgres/outcome-room-system/{room_tail}/batch/{batch_seq}/{}",
+        root.strip_prefix("sha256:").unwrap_or(root)
+    )
+}
+
+fn agentgres_room_operation_ref(room_tail: &str, sequence: u64, head: &str) -> String {
+    format!("agentgres://operation/outcome-room-system/{room_tail}/sequence/{sequence}/head/{head}")
+}
+
+fn agentgres_room_transition_ref(room_tail: &str, head: &str) -> String {
+    format!(
+        "commitment://agentgres/outcome-room-system/{room_tail}/head/{}",
+        head.strip_prefix("sha256:").unwrap_or(head)
+    )
+}
+
+fn project_room_admission(
+    room_tail: &str,
+    candidate: &Value,
+    exact: &agentgres::mux::ExactProjection,
+) -> Result<(Value, Value), VErr> {
+    if exact.seq > M4_TRANSITION_ENTRY_MAX as u64 {
+        return Err(verr(
+            "outcome_room_transition_capacity_exceeded",
+            format!(
+                "hosted M4 permits room transitions only through Agentgres sequence {M4_TRANSITION_ENTRY_MAX}"
+            ),
+        ));
+    }
+    let receipt_ref =
+        agentgres_room_receipt_ref(room_tail, exact.admission_batch_seq, &exact.admission_root);
+    let operation_ref = agentgres_room_operation_ref(room_tail, exact.seq, &exact.head);
+    let transition_ref = agentgres_room_transition_ref(room_tail, &exact.head);
+    let mut room = candidate.clone();
+    room["latest_sequence"] = json!(exact.seq);
+    room["latest_transition_commitment_ref"] = json!(transition_ref);
+    room["room_state_root"] = json!(exact.head);
+    room["room_receipt_root"] = json!(exact.admission_root);
+    append_unique(&mut room, "admission_and_replay_refs", json!(receipt_ref))?;
+    validate_current_room_contract(&room)?;
+    let evidence = json!({
+        "operation_ref":operation_ref,
+        "object_ref":exact.operation.object_ref,
+        "operation_kind":exact.operation.op_kind,
+        "expected_head":exact.operation.expected_head,
+        "expected_absent":exact.operation.expected_absent,
+        "resulting_head":exact.head,
+        "agentgres_sequence":exact.seq,
+        "admission_batch_sequence":exact.admission_batch_seq,
+        "admission_root":exact.admission_root,
+        "terminal_root":exact.terminal_root,
+        "receipt_ref":receipt_ref,
+        "bounded_system_predecessor":exact.operation.payload["expected_system_predecessor"],
+    });
+    Ok((room, evidence))
+}
+
+/// Build a conservative serialization-only projection before the first durable write.
+/// Agentgres roots are fixed-width sha256 values; the batch sequence uses the widest u64
+/// representation so the admitted response cannot become larger than this preflight shape.
+fn preflight_room_admission(
+    room_tail: &str,
+    candidate: &Value,
+    operation: &Value,
+    expected_head: Option<&str>,
+    agentgres_operation_kind: &str,
+) -> Result<(Value, Value), VErr> {
+    let maximum_root = format!("sha256:{}", "f".repeat(64));
+    let maximum_sequence = M4_TRANSITION_ENTRY_MAX as u64;
+    let maximum_batch_sequence = u64::MAX;
+    let receipt_ref = agentgres_room_receipt_ref(room_tail, maximum_batch_sequence, &maximum_root);
+    let mut room = candidate.clone();
+    room["latest_sequence"] = json!(maximum_sequence);
+    room["latest_transition_commitment_ref"] =
+        json!(agentgres_room_transition_ref(room_tail, &maximum_root));
+    room["room_state_root"] = json!(maximum_root);
+    room["room_receipt_root"] = json!(maximum_root);
+    append_unique(&mut room, "admission_and_replay_refs", json!(receipt_ref))?;
+    let evidence = json!({
+        "operation_ref":agentgres_room_operation_ref(room_tail, maximum_sequence, &maximum_root),
+        "object_ref":format!("agentgres://outcome-room-system-operations/{room_tail}"),
+        "operation_kind":agentgres_operation_kind,
+        "expected_head":expected_head,
+        "expected_absent":expected_head.is_none(),
+        "resulting_head":maximum_root,
+        "agentgres_sequence":maximum_sequence,
+        "admission_batch_sequence":maximum_batch_sequence,
+        "admission_root":maximum_root,
+        "terminal_root":maximum_root,
+        "receipt_ref":receipt_ref,
+        "bounded_system_predecessor":operation["expected_system_predecessor"],
+    });
+    Ok((room, evidence))
+}
+
 fn finalize_room(
     data_dir: &str,
     room_tail: &str,
     body: &Value,
-    room: &Value,
-    receipt: &Value,
+    candidate: &Value,
     operation: &Value,
-    cleanup_definitive_live_conflict: bool,
-) -> Result<(), VErr> {
-    let operation_key = key_for(operation, "operation_root", "orao_")?;
+) -> Result<(Value, Value), VErr> {
+    let operation_root = jcs_root("ioi.outcome-room-system-operation-jcs-sha256.v1", operation)?;
+    let operation_key = format!(
+        "orop_{}",
+        operation_root.strip_prefix("sha256:").unwrap_or_default()
+    );
     let intent = json!({
-        "schema_version":"ioi.outcome-room-system-admission-intent.v1",
+        "schema_version":"ioi.outcome-room-system-operation-intent.v2",
         "room_tail":room_tail,
         "request":body,
-        "room":room,
-        "receipt":receipt,
+        "candidate_room":candidate,
         "operation":operation,
         "at":operation["at"],
     });
-    // The operation-root key prevents two distinct concurrent genesis candidates from replacing
-    // each other's recovery intent before the fixed room-head reservation adjudicates them.
     persist_local(INTENT_DIR, data_dir, &operation_key, &intent)?;
-    if let Err(error) = reserve_exact_room_successor(data_dir, operation) {
-        if cleanup_definitive_live_conflict && error.0 == "outcome_room_head_conflict" {
-            remove_intent(data_dir, INTENT_DIR, &operation_key)?;
-        }
-        return Err(error);
-    }
-    let receipt_key = key_for(receipt, "receipt_root", "orrc_")?;
-    admit_required(
-        ADMISSION_OPERATION_DOMAIN,
+    let recorded_at_ms = agentgres::parse_rfc3339_ms(
+        operation
+            .get("at")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+    );
+    let exact = super::substrate_store::admit_outcome_room_system_operation(
         data_dir,
-        &operation_key,
+        room_tail,
+        "outcome_room.room_genesis",
+        None,
         operation,
-    )?;
-    admit_required(RECEIPT_DOMAIN, data_dir, &receipt_key, receipt)?;
-    persist_local(RECEIPT_DIR, data_dir, &receipt_key, receipt)?;
+        recorded_at_ms,
+        &operation_key,
+    )
+    .map_err(|error| {
+        let code = if error.kind() == std::io::ErrorKind::AlreadyExists {
+            "outcome_room_head_conflict"
+        } else {
+            "outcome_room_agentgres_admission_failed"
+        };
+        verr(code, error.to_string())
+    })?;
+    let (room, evidence) = project_room_admission(room_tail, candidate, &exact)?;
     if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_AFTER_AGENTGRES")
         .ok()
         .as_deref()
@@ -992,8 +942,9 @@ fn finalize_room(
             "test-forced interruption after Agentgres admission and before projection visibility",
         ));
     }
-    persist_local(ROOM_DIR, data_dir, room_tail, room)?;
-    remove_intent(data_dir, INTENT_DIR, &operation_key)
+    persist_local(ROOM_DIR, data_dir, room_tail, &room)?;
+    remove_intent(data_dir, INTENT_DIR, &operation_key)?;
+    Ok((room, evidence))
 }
 
 pub(crate) async fn handle_create(
@@ -1054,19 +1005,26 @@ pub(crate) async fn handle_create(
                 Ok(value) => value,
                 Err(error) => return classify(error),
             };
-            let admitted = match required_projection_records(
+            let admitted = match super::substrate_store::read_outcome_room_system_operation(
                 &state.data_dir,
-                ADMISSION_OPERATION_DOMAIN,
-                &room_ref,
-                1,
+                &room_tail,
             ) {
-                Ok(values) => values,
-                Err(error) => return classify(error),
+                Ok(value) => value,
+                Err(error) => {
+                    return classify(verr(
+                        "outcome_room_agentgres_projection_unavailable",
+                        error.to_string(),
+                    ))
+                }
             };
-            if admitted.len() == 1
-                && admitted[0].get("request_root").and_then(Value::as_str)
+            if admitted.as_ref().is_some_and(|exact| {
+                exact
+                    .operation
+                    .payload
+                    .get("request_root")
+                    .and_then(Value::as_str)
                     == Some(request_root.as_str())
-            {
+            }) {
                 let response = json!({"outcome_room":existing,"replayed":true});
                 if let Err(error) =
                     ensure_serialized_body_bound(&response, "outcome_room_response_too_large")
@@ -1094,29 +1052,42 @@ pub(crate) async fn handle_create(
         ));
     }
     let at = iso_now();
-    let (room, receipt, operation) =
-        match build_room_admission(&state.data_dir, &body, &room_tail, &at) {
+    let (candidate, operation) = match build_room_admission(&state.data_dir, &body, &room_tail, &at)
+    {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    let (preflight_room, preflight_admission) = match preflight_room_admission(
+        &room_tail,
+        &candidate,
+        &operation,
+        None,
+        "outcome_room.room_genesis",
+    ) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    if let Err(error) = ensure_serialized_body_bound(
+        &json!({
+            "outcome_room":preflight_room,
+            "agentgres_admission":preflight_admission,
+            "replayed":false,
+        }),
+        "outcome_room_response_too_large",
+    ) {
+        return classify(error);
+    }
+    let (room, admission) =
+        match finalize_room(&state.data_dir, &room_tail, &body, &candidate, &operation) {
             Ok(value) => value,
             Err(error) => return classify(error),
         };
     let response = json!({
-        "outcome_room":room.clone(),
-        "outcome_room_receipt":receipt.clone(),
-        "agentgres_operation":operation.clone(),
+        "outcome_room":room,
+        "agentgres_admission":admission,
         "replayed":false,
     });
     if let Err(error) = ensure_serialized_body_bound(&response, "outcome_room_response_too_large") {
-        return classify(error);
-    }
-    if let Err(error) = finalize_room(
-        &state.data_dir,
-        &room_tail,
-        &body,
-        &room,
-        &receipt,
-        &operation,
-        true,
-    ) {
         return classify(error);
     }
     (StatusCode::CREATED, Json(response))
@@ -1130,124 +1101,48 @@ struct ChildContract {
 
 fn child_contract(contract_id: &str) -> Option<ChildContract> {
     Some(match contract_id {
-        "schema://ioi/foundations/work-frontier-item/v2" => ChildContract {
-            schema: "ioi.foundations.work-frontier-item.v2",
+        "schema://ioi/applications/ioi-ai/work-frontier-item/v3" => ChildContract {
+            schema: "ioi.applications.ioi-ai.work-frontier-item.v3",
             id_field: "frontier_item_id",
             list_field: Some("frontier_item_refs"),
         },
-        "schema://ioi/foundations/work-claim-lease/v2" => ChildContract {
-            schema: "ioi.foundations.work-claim-lease.v2",
+        "schema://ioi/applications/ioi-ai/work-claim-lease/v3" => ChildContract {
+            schema: "ioi.applications.ioi-ai.work-claim-lease.v3",
             id_field: "work_claim_id",
             list_field: None,
         },
-        "schema://ioi/foundations/attempt/v2" => ChildContract {
-            schema: "ioi.foundations.attempt.v2",
+        "schema://ioi/applications/ioi-ai/attempt/v3" => ChildContract {
+            schema: "ioi.applications.ioi-ai.attempt.v3",
             id_field: "attempt_id",
             list_field: Some("attempt_refs"),
         },
-        "schema://ioi/foundations/finding/v2" => ChildContract {
-            schema: "ioi.foundations.finding.v2",
+        "schema://ioi/applications/ioi-ai/finding/v3" => ChildContract {
+            schema: "ioi.applications.ioi-ai.finding.v3",
             id_field: "finding_id",
             list_field: Some("finding_refs"),
         },
-        "schema://ioi/foundations/verifier-challenge/v2" => ChildContract {
-            schema: "ioi.foundations.verifier-challenge.v2",
+        "schema://ioi/applications/ioi-ai/verifier-challenge/v3" => ChildContract {
+            schema: "ioi.applications.ioi-ai.verifier-challenge.v3",
             id_field: "verifier_challenge_id",
             list_field: Some("verifier_challenge_refs"),
         },
-        "schema://ioi/foundations/participant-state-bundle/v2" => ChildContract {
-            schema: "ioi.foundations.participant-state-bundle.v2",
+        "schema://ioi/applications/ioi-ai/participant-state-bundle/v3" => ChildContract {
+            schema: "ioi.applications.ioi-ai.participant-state-bundle.v3",
             id_field: "participant_state_bundle_id",
             list_field: Some("participant_state_bundle_refs"),
         },
-        "schema://ioi/foundations/work-result/v2" => ChildContract {
-            schema: "ioi.foundations.work-result.v2",
+        "schema://ioi/foundations/work-result/v3" => ChildContract {
+            schema: "ioi.foundations.work-result.v3",
             id_field: "work_result_id",
             list_field: None,
         },
-        "schema://ioi/foundations/outcome-delta/v2" => ChildContract {
-            schema: "ioi.foundations.outcome-delta.v2",
+        "schema://ioi/foundations/outcome-delta/v3" => ChildContract {
+            schema: "ioi.foundations.outcome-delta.v3",
             id_field: "outcome_delta_id",
             list_field: None,
         },
         _ => return None,
     })
-}
-
-fn expected_proposed_base<'a>(
-    object: &'a Value,
-    room: &Value,
-    object_ref: &str,
-) -> Result<&'a Value, VErr> {
-    let base = object.get("room_admission").ok_or_else(|| {
-        verr(
-            "outcome_room_admission_base_required",
-            "room_admission is required",
-        )
-    })?;
-    let sequence = room
-        .get("latest_sequence")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| verr("outcome_room_state_invalid", "room sequence is absent"))?;
-    for (field, expected) in [
-        ("schema_version", json!(BASE_SCHEMA)),
-        ("room_system_id", room["system_id"].clone()),
-        ("outcome_room_ref", room["outcome_room_id"].clone()),
-        ("proposed_or_issued_by_ref", room["system_id"].clone()),
-        ("expected_room_revision", json!(sequence)),
-        (
-            "expected_predecessor_commitment_ref",
-            room["latest_transition_commitment_ref"].clone(),
-        ),
-        (
-            "admission_policy_ref",
-            room["coordination_policy_ref"].clone(),
-        ),
-        ("admission_status", json!("proposed")),
-    ] {
-        if base.get(field) != Some(&expected) {
-            return Err(verr(
-                if field == "room_system_id" || field == "outcome_room_ref" {
-                    "outcome_room_wrong_system_child_refused"
-                } else if field.starts_with("expected_") {
-                    "outcome_room_stale_child_refused"
-                } else {
-                    "outcome_room_admission_base_invalid"
-                },
-                format!("child '{object_ref}' has a detached '{field}'"),
-            ));
-        }
-    }
-    for field in [
-        "admission_decision_ref",
-        "admission_receipt_ref",
-        "admitted_sequence",
-        "resulting_room_revision",
-        "resulting_transition_commitment_ref",
-        "resulting_room_state_root",
-        "resulting_receipt_root",
-        "updated_at",
-    ] {
-        if base.get(field) != Some(&Value::Null) {
-            return Err(verr(
-                "outcome_room_stale_verdict_refused",
-                format!("proposed child carries plane-owned terminal field '{field}'"),
-            ));
-        }
-    }
-    let mut payload = object.clone();
-    payload
-        .as_object_mut()
-        .ok_or_else(|| verr("outcome_room_child_invalid", "child is not an object"))?
-        .remove("room_admission");
-    let expected_payload = jcs_root("ioi.outcome-room-child-payload-jcs-sha256.v1", &payload)?;
-    if base.get("payload_root").and_then(Value::as_str) != Some(expected_payload.as_str()) {
-        return Err(verr(
-            "outcome_room_child_payload_root_mismatch",
-            "payload_root does not bind the exact object-specific payload",
-        ));
-    }
-    Ok(base)
 }
 
 fn append_unique(room: &mut Value, field: &str, value: Value) -> Result<(), VErr> {
@@ -1266,350 +1161,37 @@ fn append_unique(room: &mut Value, field: &str, value: Value) -> Result<(), VErr
     Ok(())
 }
 
-fn next_room_sequence(room: &Value) -> Result<u64, VErr> {
-    let prior_sequence = room["latest_sequence"]
-        .as_u64()
-        .ok_or_else(|| verr("outcome_room_state_invalid", "room sequence is absent"))?;
-    if prior_sequence >= M4_TRANSITION_ENTRY_MAX as u64 {
-        return Err(verr(
-            "outcome_room_transition_capacity_exceeded",
-            format!(
-                "hosted M4 permits room transitions only through sequence {M4_TRANSITION_ENTRY_MAX}"
-            ),
-        ));
-    }
-    Ok(prior_sequence + 1)
-}
-
-fn build_child_admission(
-    room: &Value,
-    contract_id: &str,
-    object: &Value,
-    at: &str,
-) -> Result<(Value, Value, Value, Value), VErr> {
-    let contract = child_contract(contract_id).ok_or_else(|| {
-        verr(
-            "outcome_room_child_contract_unavailable",
-            "only the registered M4 room-child v2 families are admitted",
-        )
-    })?;
-    if object.get("schema_version").and_then(Value::as_str) != Some(contract.schema) {
-        return Err(verr(
-            "outcome_room_child_contract_substitution",
-            "object schema_version does not match object_contract_id",
-        ));
-    }
-    let sequence = next_room_sequence(room)?;
-    let object_ref = object
-        .get(contract.id_field)
-        .and_then(Value::as_str)
-        .ok_or_else(|| verr("outcome_room_child_identity_required", contract.id_field))?;
-    let base = expected_proposed_base(object, room, object_ref)?;
-    canonical_contract(contract_id, object)?;
-    let prior_sequence = sequence - 1;
-    let transition_hash = jcs_root(
-        "ioi.outcome-room-child-transition-jcs-sha256.v2",
-        &json!({
-            "outcome_room_ref":room["outcome_room_id"],
-            "system_id":room["system_id"],
-            "sequence":sequence,
-            "predecessor":room["latest_transition_commitment_ref"],
-            "object_contract_id":contract_id,
-            "object_ref":object_ref,
-            "payload_root":base["payload_root"],
-        }),
-    )?;
-    let room_tail = room["outcome_room_id"]
-        .as_str()
-        .and_then(|value| value.strip_prefix("outcome-room://"))
-        .ok_or_else(|| verr("outcome_room_state_invalid", "room identity is invalid"))?;
-    let transition_ref = format!(
-        "commitment://ioi/outcome-room/{room_tail}/sequence/{sequence}/{}",
-        transition_hash.strip_prefix("sha256:").unwrap_or_default()
-    );
-    let receipt_ref = format!("receipt://outcome-room/{room_tail}/sequence/{sequence}");
-    let mut updated_room = room.clone();
-    updated_room["latest_sequence"] = json!(sequence);
-    updated_room["latest_transition_commitment_ref"] = json!(transition_ref);
-    append_unique(
-        &mut updated_room,
-        "admission_and_replay_refs",
-        json!(receipt_ref),
-    )?;
-    if let Some(field) = contract.list_field {
-        append_unique(&mut updated_room, field, json!(object_ref))?;
-    }
-    updated_room["room_state_root"] = json!(state_root(&updated_room)?);
-    let receipt = json!({
-        "schema_version":"ioi.outcome-room-admission-receipt.v2",
-        "receipt_ref":receipt_ref,
-        "receipt_root":Value::Null,
-        "receipt_type":"room_child_admission",
-        "system_id":room["system_id"],
-        "outcome_room_ref":room["outcome_room_id"],
-        "subject_refs":[object_ref],
-        "object_contract_id":contract_id,
-        "expected_room_revision":prior_sequence,
-        "resulting_room_revision":sequence,
-        "sequence":sequence,
-        "expected_predecessor_commitment_ref":room["latest_transition_commitment_ref"],
-        "resulting_transition_commitment_ref":updated_room["latest_transition_commitment_ref"],
-        "resulting_room_state_root":updated_room["room_state_root"],
-        "status":"admitted",
-        "at":at,
-    });
-    let (_, receipt) = rooted_record(RECEIPT_DOMAIN, "orrc_", "receipt_root", receipt)?;
-    updated_room["room_receipt_root"] = receipt["receipt_root"].clone();
-    validate_current_room_contract(&updated_room)?;
-
-    let mut admitted = object.clone();
-    admitted["room_admission"] = json!({
-        "schema_version":BASE_SCHEMA,
-        "room_system_id":room["system_id"],
-        "outcome_room_ref":room["outcome_room_id"],
-        "proposed_or_issued_by_ref":room["system_id"],
-        "expected_room_revision":prior_sequence,
-        "expected_predecessor_commitment_ref":room["latest_transition_commitment_ref"],
-        "payload_root":base["payload_root"],
-        "admission_policy_ref":room["coordination_policy_ref"],
-        "admission_decision_ref":format!("decision://outcome-room/{room_tail}/sequence/{sequence}"),
-        "admission_receipt_ref":receipt["receipt_ref"],
-        "admitted_sequence":sequence,
-        "resulting_room_revision":sequence,
-        "resulting_transition_commitment_ref":updated_room["latest_transition_commitment_ref"],
-        "resulting_room_state_root":updated_room["room_state_root"],
-        "resulting_receipt_root":receipt["receipt_root"],
-        "created_at":base["created_at"],
-        "updated_at":at,
-        "admission_status":"admitted",
-    });
-    canonical_contract(contract_id, &admitted)?;
-    let object_record = json!({
-        "schema_version":"ioi.outcome-room-admitted-object.v2",
-        "object_root":Value::Null,
-        "object_contract_id":contract_id,
-        "object_ref":object_ref,
-        "outcome_room_ref":room["outcome_room_id"],
-        "system_id":room["system_id"],
-        "admitted_object":admitted,
-        "at":at,
-    });
-    let (_, object_record) = rooted_record(OBJECT_DOMAIN, "orobj_", "object_root", object_record)?;
-    let operation = json!({
-        "schema_version":"ioi.outcome-room-transition-operation.v2",
-        "operation_root":Value::Null,
-        "operation_kind":"room_child_admitted",
-        "outcome_room_ref":room["outcome_room_id"],
-        "system_id":room["system_id"],
-        "sequence":sequence,
-        "expected_predecessor_commitment_ref":room["latest_transition_commitment_ref"],
-        "resulting_transition_commitment_ref":updated_room["latest_transition_commitment_ref"],
-        "resulting_room_state_root":updated_room["room_state_root"],
-        "resulting_room":updated_room,
-        "object_contract_id":contract_id,
-        "object_ref":object_ref,
-        "object_root":object_record["object_root"],
-        "receipt_ref":receipt["receipt_ref"],
-        "receipt_root":receipt["receipt_root"],
-        "at":at,
-    });
-    let (_, operation) = rooted_record(
-        TRANSITION_OPERATION_DOMAIN,
-        "orto_",
-        "operation_root",
-        operation,
-    )?;
-    Ok((
-        operation["resulting_room"].clone(),
-        receipt,
-        object_record,
-        operation,
-    ))
-}
-
-fn finalize_child(
-    data_dir: &str,
-    room_tail: &str,
-    prior_room: &Value,
-    room: &Value,
-    receipt: &Value,
-    object: &Value,
-    operation: &Value,
-    runtime_dependencies: Option<&Value>,
-) -> Result<(), VErr> {
-    let operation_key = key_for(operation, "operation_root", "orto_")?;
-    let receipt_key = key_for(receipt, "receipt_root", "orrc_")?;
-    let object_key = key_for(object, "object_root", "orobj_")?;
-    let admitted_object = object.get("admitted_object").ok_or_else(|| {
-        verr(
-            "outcome_room_owner_record_invalid",
-            "admitted-object projection omits its owner record",
-        )
-    })?;
-    let (owner_family, owner_identity_field) = match admitted_object
-        .get("schema_version")
-        .and_then(Value::as_str)
-    {
-        Some("ioi.foundations.work-result.v2") => {
-            (super::work_result_routes::RESULT_DIR, "work_result_id")
-        }
-        Some("ioi.foundations.outcome-delta.v2") => {
-            (super::work_result_routes::DELTA_DIR, "outcome_delta_id")
-        }
-        _ => {
-            return Err(verr(
-                "outcome_room_owner_record_contract_unavailable",
-                "child finalization accepts only WorkResult or OutcomeDelta",
-            ))
-        }
-    };
-    let owner_identity = exact_string(
-        admitted_object,
-        &format!("/{owner_identity_field}"),
-        "outcome_room_owner_record_identity_required",
-    )?;
-    let owner_key = safe_owner_key(owner_identity);
-    let intent = json!({
-        "schema_version":"ioi.outcome-room-child-admission-intent.v1",
-        "room_tail":room_tail,
-        "prior_room_state_root":prior_room["room_state_root"],
-        "prior_room":prior_room,
-        "room":room,
-        "receipt":receipt,
-        "object":object,
-        "owner_publication_family":owner_family,
-        "owner_publication_key":owner_key,
-        "owner_publication_record":admitted_object,
-        "runtime_dependencies":runtime_dependencies.cloned().unwrap_or(Value::Null),
-        "operation":operation,
-        "at":operation["at"],
-    });
-    persist_local(CHILD_INTENT_DIR, data_dir, &operation_key, &intent)?;
-    if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_CHILD_AFTER_INTENT")
-        .ok()
-        .as_deref()
-        == Some("1")
-    {
-        return Err(verr(
-            "outcome_room_child_pending_recovery",
-            "test-forced interruption after child intent persistence and before any child admission side effect",
-        ));
-    }
-    if let Some(dependencies) = runtime_dependencies {
-        super::goalrun_routes::converge_room_owner_runtime_dependencies(
-            data_dir,
-            room,
-            admitted_object,
-            dependencies,
-        )
-        .map_err(|(code, message)| verr(&code, message))?;
-    }
-    if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_CHILD_AFTER_RUNTIME_DEPENDENCIES")
-        .ok()
-        .as_deref()
-        == Some("1")
-    {
-        return Err(verr(
-            "outcome_room_child_pending_recovery",
-            "test-forced interruption after intent-covered runtime dependencies and before room succession",
-        ));
-    }
-    if let Err(error) = reserve_exact_room_successor(data_dir, operation) {
-        if error.0 == "outcome_room_head_conflict"
-            && child_head_conflict_may_remove_intent(runtime_dependencies)
-        {
-            remove_intent(data_dir, CHILD_INTENT_DIR, &operation_key)?;
-        }
-        return Err(error);
-    }
-    admit_required(
-        TRANSITION_OPERATION_DOMAIN,
-        data_dir,
-        &operation_key,
-        operation,
-    )?;
-    admit_required(RECEIPT_DOMAIN, data_dir, &receipt_key, receipt)?;
-    admit_required(OBJECT_DOMAIN, data_dir, &object_key, object)?;
-    persist_local(RECEIPT_DIR, data_dir, &receipt_key, receipt)?;
-    persist_local(OBJECT_DIR, data_dir, &object_key, object)?;
-    if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_CHILD_AFTER_AGENTGRES")
-        .ok()
-        .as_deref()
-        == Some("1")
-    {
-        return Err(verr(
-            "outcome_room_child_pending_recovery",
-            "test-forced interruption after Agentgres admission and before projection visibility",
-        ));
-    }
-    persist_local(ROOM_DIR, data_dir, room_tail, room)?;
-    if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_CHILD_AFTER_ROOM")
-        .ok()
-        .as_deref()
-        == Some("1")
-    {
-        return Err(verr(
-            "outcome_room_child_pending_recovery",
-            "test-forced interruption after room projection and before owner publication",
-        ));
-    }
-    let room_receipt_ref = exact_string(
-        receipt,
-        "/receipt_ref",
-        "outcome_room_owner_receipt_ref_invalid",
-    )?;
-    super::goalrun_routes::converge_room_owner_backlinks(
-        data_dir,
-        admitted_object,
-        room_receipt_ref,
-    )
-    .map_err(|(code, message)| verr(&code, message))?;
-    remove_intent(data_dir, CHILD_INTENT_DIR, &operation_key)?;
-    Ok(())
-}
-
 fn owner_convergence_summary(
     resulting_room: &Value,
-    object_record: &Value,
-    receipt: &Value,
+    contract_id: &str,
+    admitted_object: &Value,
+    agentgres_admission: &Value,
 ) -> Result<Value, VErr> {
-    let admitted_object = object_record.get("admitted_object").ok_or_else(|| {
-        verr(
-            "outcome_room_owner_record_invalid",
-            "admitted-object projection omits its owner record",
-        )
-    })?;
-    let contract_id = exact_string(
-        object_record,
-        "/object_contract_id",
-        "outcome_room_owner_record_contract_unavailable",
-    )?;
+    let identity_field = if contract_id.ends_with("work-result/v3") {
+        "work_result_id"
+    } else {
+        "outcome_delta_id"
+    };
     let owner_record_ref = exact_string(
-        object_record,
-        "/object_ref",
+        admitted_object,
+        &format!("/{identity_field}"),
         "outcome_room_owner_record_identity_required",
     )?;
     let goal_run_ref = admitted_object
-        .get("goal_run_ref")
-        .filter(|value| !value.is_null())
-        .cloned()
-        .or_else(|| {
-            admitted_object
-                .get("work_subject_ref")
-                .filter(|value| {
-                    value
-                        .as_str()
-                        .is_some_and(|reference| reference.starts_with("goal://"))
-                })
-                .cloned()
+        .get("work_subject_ref")
+        .filter(|value| {
+            value
+                .as_str()
+                .is_some_and(|reference| reference.starts_with("goal://"))
         })
+        .cloned()
         .unwrap_or(Value::Null);
     let invocation_or_run_ref = admitted_object
         .get("invocation_or_run_ref")
         .filter(|value| !value.is_null())
         .cloned()
         .unwrap_or(Value::Null);
-    let parent_work_result_ref = if contract_id.ends_with("outcome-delta/v2") {
+    let parent_work_result_ref = if contract_id.ends_with("outcome-delta/v3") {
         admitted_object
             .get("proposed_by_ref")
             .filter(|value| !value.is_null())
@@ -1621,13 +1203,11 @@ fn owner_convergence_summary(
     Ok(json!({
         "owner_record_contract_id":contract_id,
         "owner_record_ref":owner_record_ref,
-        "admitted_object_projection_root":object_record["object_root"],
         "outcome_room_ref":resulting_room["outcome_room_id"],
-        "resulting_room_revision":resulting_room["latest_sequence"],
-        "resulting_transition_commitment_ref":resulting_room["latest_transition_commitment_ref"],
-        "resulting_room_state_root":resulting_room["room_state_root"],
-        "room_admission_receipt_ref":receipt["receipt_ref"],
-        "room_admission_receipt_root":receipt["receipt_root"],
+        "agentgres_operation_ref":agentgres_admission["operation_ref"],
+        "agentgres_resulting_head":agentgres_admission["resulting_head"],
+        "agentgres_receipt_ref":agentgres_admission["receipt_ref"],
+        "bounded_system_transition_ref":agentgres_admission["bounded_system_predecessor"]["transition_ref"],
         "goal_run_ref":goal_run_ref,
         "invocation_or_run_ref":invocation_or_run_ref,
         "parent_work_result_ref":parent_work_result_ref,
@@ -1635,7 +1215,7 @@ fn owner_convergence_summary(
 }
 
 fn owner_admission_http_response(contract_id: &str, admission: Value) -> Value {
-    if contract_id.ends_with("work-result/v2") {
+    if contract_id.ends_with("work-result/v3") {
         json!({"ok":true,"admission":admission})
     } else {
         json!({
@@ -1647,13 +1227,281 @@ fn owner_admission_http_response(contract_id: &str, admission: Value) -> Value {
     }
 }
 
-fn child_head_conflict_may_remove_intent(runtime_dependencies: Option<&Value>) -> bool {
-    // A WorkResult's dependency bundle may already have converged before an
-    // out-of-process writer advances the room head.  Its child intent is then
-    // the durable recovery and inspection owner for those partial writes.
-    // OutcomeDelta has no dependency bundle, so a definitive live conflict can
-    // discard its write-free intent.
-    runtime_dependencies.is_none()
+fn build_composed_child_operation(
+    data_dir: &str,
+    room_tail: &str,
+    room: &Value,
+    contract_id: &str,
+    object: &Value,
+    at: &str,
+) -> Result<(Value, Value, String, String), VErr> {
+    let contract = child_contract(contract_id).ok_or_else(|| {
+        verr(
+            "outcome_room_child_contract_unavailable",
+            "only registered room-child v3 families are admitted",
+        )
+    })?;
+    if object.get("schema_version").and_then(Value::as_str) != Some(contract.schema) {
+        return Err(verr(
+            "outcome_room_child_contract_substitution",
+            "object schema_version does not match object_contract_id",
+        ));
+    }
+    canonical_contract(contract_id, object)?;
+    let object_ref = exact_string(
+        object,
+        &format!("/{}", contract.id_field),
+        "outcome_room_child_identity_required",
+    )?;
+    let binding = object.get("system_binding").ok_or_else(|| {
+        verr(
+            "outcome_system_binding_required",
+            "room-scoped v3 payload lacks SystemScopedObjectBinding",
+        )
+    })?;
+    if binding.get("schema_version").and_then(Value::as_str) != Some(SYSTEM_BINDING_SCHEMA)
+        || binding.get("system_id") != room.get("system_id")
+        || binding.get("parent_scope_ref") != room.get("outcome_room_id")
+    {
+        return Err(verr(
+            "outcome_room_wrong_system_child_refused",
+            "SystemScopedObjectBinding does not name the exact room System and OutcomeRoom",
+        ));
+    }
+    let mut payload_material = object.clone();
+    payload_material
+        .as_object_mut()
+        .expect("canonical child is an object")
+        .remove("system_binding");
+    let payload_root = jcs_root(
+        "ioi.system-scoped-object-payload-jcs-sha256.v1",
+        &payload_material,
+    )?;
+    if binding.get("payload_root").and_then(Value::as_str) != Some(payload_root.as_str()) {
+        return Err(verr(
+            "outcome_room_child_payload_root_mismatch",
+            "SystemScopedObjectBinding payload_root does not bind the exact typed payload",
+        ));
+    }
+
+    let current = super::substrate_store::read_outcome_room_system_operation(data_dir, room_tail)
+        .map_err(|error| {
+            verr(
+                "outcome_room_agentgres_projection_unavailable",
+                error.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            verr(
+                "outcome_room_agentgres_head_uninitialized",
+                "room projection has no canonical Agentgres System-operation head",
+            )
+        })?;
+    if room.get("room_state_root").and_then(Value::as_str) != Some(current.head.as_str())
+        || room
+            .get("latest_transition_commitment_ref")
+            .and_then(Value::as_str)
+            != Some(agentgres_room_transition_ref(room_tail, &current.head).as_str())
+    {
+        return Err(verr(
+            "outcome_room_agentgres_head_mismatch",
+            "room projection is detached from its canonical Agentgres head",
+        ));
+    }
+    if current.seq >= M4_TRANSITION_ENTRY_MAX as u64 {
+        return Err(verr(
+            "outcome_room_transition_capacity_exceeded",
+            format!(
+                "hosted M4 permits room transitions only through sequence {M4_TRANSITION_ENTRY_MAX}"
+            ),
+        ));
+    }
+    let system = active_system_binding(
+        data_dir,
+        room.get("system_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+    )?;
+    let chain = &system["autonomous_system_chain"];
+    let list_patch = contract
+        .list_field
+        .map(|field| json!({"append_unique":{"field":field,"ref":object_ref}}))
+        .unwrap_or_else(|| json!({"append_unique":Value::Null}));
+    let operation = json!({
+        "schema_version":"ioi.outcome-room-system-operation.v1",
+        "operation_kind":"room_child_admitted",
+        "room_system_id":room["system_id"],
+        "outcome_room_ref":room["outcome_room_id"],
+        "object_contract_id":contract_id,
+        "object_ref":object_ref,
+        "typed_payload":object,
+        "room_patch":list_patch,
+        "resolved_policy_refs":[room["coordination_policy_ref"].clone(),room["ordering_and_merge_policy_ref"].clone()],
+        "resolved_authority_refs":[binding["proposed_or_issued_by_ref"].clone()],
+        "expected_system_predecessor":{
+            "chain_ref":chain["chain_ref"],
+            "chain_root":chain["chain_root"],
+            "operation_log_root":chain["operation_log_root"],
+            "sequence":chain["latest_sequence"],
+            "transition_ref":chain["latest_transition_id"],
+            "state_root":chain["latest_state_root"],
+            "receipt_root":chain["latest_receipt_root"],
+        },
+        "at":at,
+    });
+    let operation_root = jcs_root(
+        "ioi.outcome-room-system-operation-jcs-sha256.v1",
+        &operation,
+    )?;
+    let operation_key = format!(
+        "orop_{}",
+        operation_root.strip_prefix("sha256:").unwrap_or_default()
+    );
+    let mut candidate = room.clone();
+    if let Some(field) = contract.list_field {
+        append_unique(&mut candidate, field, json!(object_ref))?;
+    }
+    Ok((candidate, operation, operation_key, current.head))
+}
+
+fn finalize_composed_child(
+    data_dir: &str,
+    room_tail: &str,
+    prior_room: &Value,
+    candidate_room: &Value,
+    contract_id: &str,
+    object: &Value,
+    operation: &Value,
+    operation_key: &str,
+    expected_head: &str,
+    runtime_dependencies: Option<&Value>,
+) -> Result<(Value, Value), VErr> {
+    let (owner_family, owner_identity_field) = if contract_id.ends_with("work-result/v3") {
+        (super::work_result_routes::RESULT_DIR, "work_result_id")
+    } else if contract_id.ends_with("outcome-delta/v3") {
+        (super::work_result_routes::DELTA_DIR, "outcome_delta_id")
+    } else {
+        return Err(verr(
+            "outcome_room_owner_record_contract_unavailable",
+            "M4 composed child finalization accepts WorkResult v3 or OutcomeDelta v3",
+        ));
+    };
+    let owner_identity = exact_string(
+        object,
+        &format!("/{owner_identity_field}"),
+        "outcome_room_owner_record_identity_required",
+    )?;
+    if let Some(dependencies) = runtime_dependencies {
+        // Recovery re-enters this finalizer with an already-retained intent. Revalidate the
+        // complete runtime closure before even replaying that intent write: a re-rooted but
+        // semantically substituted WorkResult must leave every durable byte untouched.
+        super::goalrun_routes::validate_room_owner_runtime_dependency_intent(
+            data_dir,
+            prior_room,
+            object,
+            dependencies,
+        )
+        .map_err(|(code, message)| verr(&code, message))?;
+    }
+    let intent = json!({
+        "schema_version":"ioi.outcome-room-system-operation-intent.v2",
+        "room_tail":room_tail,
+        "prior_room":prior_room,
+        "candidate_room":candidate_room,
+        "object_contract_id":contract_id,
+        "owner_publication_family":owner_family,
+        "owner_publication_key":safe_owner_key(owner_identity),
+        "owner_publication_record":object,
+        "runtime_dependencies":runtime_dependencies.cloned().unwrap_or(Value::Null),
+        "expected_agentgres_head":expected_head,
+        "operation":operation,
+        "at":operation["at"],
+    });
+    persist_local(CHILD_INTENT_DIR, data_dir, operation_key, &intent)?;
+    if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_CHILD_AFTER_INTENT")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        return Err(verr(
+            "outcome_room_child_pending_recovery",
+            "test-forced interruption after child intent persistence",
+        ));
+    }
+    if let Some(dependencies) = runtime_dependencies {
+        super::goalrun_routes::converge_room_owner_runtime_dependencies(
+            data_dir,
+            prior_room,
+            object,
+            dependencies,
+        )
+        .map_err(|(code, message)| verr(&code, message))?;
+    }
+    if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_CHILD_AFTER_RUNTIME_DEPENDENCIES")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        return Err(verr(
+            "outcome_room_child_pending_recovery",
+            "test-forced interruption after child runtime dependency convergence",
+        ));
+    }
+    let exact = super::substrate_store::admit_outcome_room_system_operation(
+        data_dir,
+        room_tail,
+        "outcome_room.room_child_admitted",
+        Some(expected_head),
+        operation,
+        agentgres::parse_rfc3339_ms(
+            operation
+                .get("at")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+        ),
+        operation_key,
+    )
+    .map_err(|error| {
+        let code = if error.kind() == std::io::ErrorKind::AlreadyExists {
+            "outcome_room_head_conflict"
+        } else {
+            "outcome_room_agentgres_admission_failed"
+        };
+        verr(code, error.to_string())
+    })?;
+    let (room, evidence) = project_room_admission(room_tail, candidate_room, &exact)?;
+    if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_CHILD_AFTER_AGENTGRES")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        return Err(verr(
+            "outcome_room_child_pending_recovery",
+            "test-forced interruption after Agentgres admission and before projection visibility",
+        ));
+    }
+    persist_local(ROOM_DIR, data_dir, room_tail, &room)?;
+    if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_CHILD_AFTER_ROOM")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        return Err(verr(
+            "outcome_room_child_pending_recovery",
+            "test-forced interruption after room projection and before owner convergence",
+        ));
+    }
+    super::goalrun_routes::converge_room_owner_backlinks(
+        data_dir,
+        object,
+        evidence
+            .get("receipt_ref")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+    )
+    .map_err(|(code, message)| verr(&code, message))?;
+    remove_intent(data_dir, CHILD_INTENT_DIR, operation_key)?;
+    Ok((room, evidence))
 }
 
 fn safe_owner_key(reference: &str) -> String {
@@ -1666,12 +1514,12 @@ fn owner_publication_slot(
 ) -> Result<(&'static str, String), VErr> {
     let (family, identity_field, records) =
         match owner_record.get("schema_version").and_then(Value::as_str) {
-            Some("ioi.foundations.work-result.v2") => (
+            Some("ioi.foundations.work-result.v3") => (
                 super::work_result_routes::RESULT_DIR,
                 "work_result_id",
                 super::work_result_routes::list_work_results_strict(data_dir),
             ),
-            Some("ioi.foundations.outcome-delta.v2") => (
+            Some("ioi.foundations.outcome-delta.v3") => (
                 super::work_result_routes::DELTA_DIR,
                 "outcome_delta_id",
                 super::work_result_routes::list_outcome_deltas_strict(data_dir),
@@ -1747,7 +1595,7 @@ fn refuse_terminal_outcome_delta_retry(
     if admitted_candidate
         .get("schema_version")
         .and_then(Value::as_str)
-        != Some("ioi.foundations.outcome-delta.v2")
+        != Some("ioi.foundations.outcome-delta.v3")
     {
         return Ok(());
     }
@@ -1763,12 +1611,12 @@ fn refuse_terminal_outcome_delta_retry(
         })?;
     for record in existing.into_iter().filter(|record| {
         record.get("schema_version").and_then(Value::as_str)
-            == Some("ioi.foundations.outcome-delta.v2")
+            == Some("ioi.foundations.outcome-delta.v3")
     }) {
-        canonical_contract("schema://ioi/foundations/outcome-delta/v2", &record).map_err(|_| {
+        canonical_contract("schema://ioi/foundations/outcome-delta/v3", &record).map_err(|_| {
             verr(
                 "outcome_room_owner_publication_registry_unreadable",
-                "versioned OutcomeDelta registry contains a non-canonical v2 owner record",
+                "versioned OutcomeDelta registry contains a non-canonical v3 owner record",
             )
         })?;
         if outcome_delta_semantic_request(&record) == candidate_semantics {
@@ -1800,49 +1648,19 @@ fn prepare_owner_record_for_room(
     runtime_dependencies: Option<&Value>,
 ) -> Result<(String, Value), VErr> {
     let _ = owner_publication_slot(data_dir, owner_record)?;
-    if let Some(base) = owner_record
-        .get("room_admission")
-        .filter(|value| !value.is_null())
-    {
-        if base.get("room_system_id") != room.get("system_id")
-            || base.get("outcome_room_ref") != room.get("outcome_room_id")
-        {
-            return Err(verr(
-                "outcome_room_wrong_system_child_refused",
-                "caller-carried room base names the wrong System or room",
-            ));
-        }
-        if base.get("expected_room_revision") != room.get("latest_sequence")
-            || base.get("expected_predecessor_commitment_ref")
-                != room.get("latest_transition_commitment_ref")
-        {
-            return Err(verr(
-                "outcome_room_stale_child_refused",
-                "caller-carried room base is stale",
-            ));
-        }
-        if base.get("admission_status").and_then(Value::as_str) != Some("proposed")
-            || [
-                "admission_decision_ref",
-                "admission_receipt_ref",
-                "admitted_sequence",
-                "resulting_room_revision",
-                "resulting_transition_commitment_ref",
-                "resulting_room_state_root",
-                "resulting_receipt_root",
-                "updated_at",
-            ]
-            .iter()
-            .any(|field| base.get(*field).is_some_and(|value| !value.is_null()))
-        {
-            return Err(verr(
-                "outcome_room_stale_verdict_refused",
-                "caller-carried room base includes a terminal admission verdict",
-            ));
-        }
+    if owner_record.get("room_admission").is_some() || owner_record.get("room_binding").is_some() {
         return Err(verr(
-            "outcome_room_admission_base_plane_owned",
-            "room_admission is derived by the daemon from the current owner and room heads",
+            "outcome_room_parallel_admission_spine_refused",
+            "RoomAdmittedObjectBase, room_admission, and room_binding are retired; a room payload may carry only SystemScopedObjectBinding",
+        ));
+    }
+    if owner_record
+        .get("system_binding")
+        .is_some_and(|value| !value.is_null())
+    {
+        return Err(verr(
+            "outcome_system_binding_plane_owned",
+            "system_binding is derived by the daemon from the resolved room System and issuer",
         ));
     }
     if owner_record
@@ -1856,11 +1674,11 @@ fn prepare_owner_record_for_room(
     }
     let (contract_id, identity_field) =
         match owner_record.get("schema_version").and_then(Value::as_str) {
-            Some("ioi.foundations.work-result.v2") => {
-                ("schema://ioi/foundations/work-result/v2", "work_result_id")
+            Some("ioi.foundations.work-result.v3") => {
+                ("schema://ioi/foundations/work-result/v3", "work_result_id")
             }
-            Some("ioi.foundations.outcome-delta.v2") => (
-                "schema://ioi/foundations/outcome-delta/v2",
+            Some("ioi.foundations.outcome-delta.v3") => (
+                "schema://ioi/foundations/outcome-delta/v3",
                 "outcome_delta_id",
             ),
             _ => unreachable!("validated above"),
@@ -1881,7 +1699,7 @@ fn prepare_owner_record_for_room(
             "room-admitted WorkResult and OutcomeDelta records require a non-empty label projection",
         ));
     }
-    if contract_id.ends_with("work-result/v2") {
+    if contract_id.ends_with("work-result/v3") {
         let dependencies = runtime_dependencies.ok_or_else(|| {
             verr(
                 "outcome_room_work_result_runtime_dependency_intent_required",
@@ -1897,7 +1715,7 @@ fn prepare_owner_record_for_room(
         .map_err(|(code, message)| verr(&code, message))?;
         let goal_run_ref = exact_string(
             owner_record,
-            "/goal_run_ref",
+            "/work_subject_ref",
             "outcome_room_work_result_goal_run_required",
         )?;
         if !room
@@ -1940,11 +1758,10 @@ fn prepare_owner_record_for_room(
             "/proposed_by_ref",
             "outcome_room_delta_proposer_required",
         )?;
-        let admitted_results =
-            required_projection_records(data_dir, OBJECT_DOMAIN, room_ref, M4_REPLAY_ENTRY_MAX)?;
+        let admitted_results = room_admitted_objects(data_dir, room_ref)?;
         let proposed_result = admitted_results.iter().find(|record| {
             record.get("object_contract_id").and_then(Value::as_str)
-                == Some("schema://ioi/foundations/work-result/v2")
+                == Some("schema://ioi/foundations/work-result/v3")
                 && record.get("object_ref").and_then(Value::as_str) == Some(proposed_by)
         });
         let Some(proposed_result) = proposed_result else {
@@ -2007,44 +1824,24 @@ fn prepare_owner_record_for_room(
             ));
         }
     }
-    let sequence = room
-        .get("latest_sequence")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| verr("outcome_room_state_invalid", "room sequence is absent"))?;
-    let predecessor = exact_string(
-        room,
-        "/latest_transition_commitment_ref",
-        "outcome_room_state_invalid",
-    )?;
     let mut prepared = owner_record.clone();
-    prepared["outcome_room_ref"] = json!(room_ref);
-    prepared["room_admission"] = Value::Null;
+    prepared["system_binding"] = Value::Null;
     let mut payload = prepared.clone();
     payload
         .as_object_mut()
         .expect("validated owner record object")
-        .remove("room_admission");
-    let payload_root = jcs_root("ioi.outcome-room-child-payload-jcs-sha256.v1", &payload)?;
-    prepared["room_admission"] = json!({
-        "schema_version":BASE_SCHEMA,
-        "room_system_id":room["system_id"],
-        "outcome_room_ref":room_ref,
+        .remove("system_binding");
+    let payload_root = jcs_root("ioi.system-scoped-object-payload-jcs-sha256.v1", &payload)?;
+    prepared["system_binding"] = json!({
+        "schema_version":SYSTEM_BINDING_SCHEMA,
+        "system_id":room["system_id"],
+        "parent_scope_ref":room_ref,
         "proposed_or_issued_by_ref":room["system_id"],
-        "expected_room_revision":sequence,
-        "expected_predecessor_commitment_ref":predecessor,
         "payload_root":payload_root,
-        "admission_policy_ref":room["coordination_policy_ref"],
-        "admission_decision_ref":Value::Null,
-        "admission_receipt_ref":Value::Null,
-        "admitted_sequence":Value::Null,
-        "resulting_room_revision":Value::Null,
-        "resulting_transition_commitment_ref":Value::Null,
-        "resulting_room_state_root":Value::Null,
-        "resulting_receipt_root":Value::Null,
         "created_at":at,
-        "updated_at":Value::Null,
-        "admission_status":"proposed",
+        "updated_at":at,
     });
+    canonical_contract(contract_id, &prepared)?;
     Ok((contract_id.to_owned(), prepared))
 }
 
@@ -2090,36 +1887,61 @@ pub(crate) fn admit_persisted_owner_record(
     let at = iso_now();
     let (contract_id, prepared) =
         prepare_owner_record_for_room(data_dir, &fresh, owner_record, &at, runtime_dependencies)?;
-    let (updated, receipt, object_record, operation) =
-        build_child_admission(&fresh, &contract_id, &prepared, &at)?;
+    let room_tail = room_ref
+        .strip_prefix("outcome-room://")
+        .ok_or_else(|| verr("outcome_room_ref_invalid", "room ref is not canonical"))?;
+    let (candidate, operation, operation_key, expected_head) =
+        build_composed_child_operation(data_dir, room_tail, &fresh, &contract_id, &prepared, &at)?;
     // ORA-8: this check is deliberately after canonical candidate construction but still inside
-    // ROOM_MUTATION_LOCK and before `finalize_child` performs its first durable write. Two
+    // ROOM_MUTATION_LOCK and before `finalize_composed_child` performs its first durable write. Two
     // concurrent exact retries serialize here; a genuinely distinct semantic delta remains free
     // to receive its own plane-minted identity and room successor.
-    refuse_terminal_outcome_delta_retry(data_dir, &object_record["admitted_object"])?;
-    let owner_convergence = owner_convergence_summary(&updated, &object_record, &receipt)?;
+    refuse_terminal_outcome_delta_retry(data_dir, &prepared)?;
+    let (preflight_room, preflight_admission) = preflight_room_admission(
+        room_tail,
+        &candidate,
+        &operation,
+        Some(&expected_head),
+        "outcome_room.room_child_admitted",
+    )?;
+    let preflight_convergence = owner_convergence_summary(
+        &preflight_room,
+        &contract_id,
+        &prepared,
+        &preflight_admission,
+    )?;
+    let preflight_response = owner_admission_http_response(
+        &contract_id,
+        json!({
+            "outcome_room":preflight_room,
+            "admitted_object":prepared,
+            "agentgres_admission":preflight_admission,
+            "owner_convergence":preflight_convergence,
+        }),
+    );
+    ensure_serialized_body_bound(&preflight_response, "outcome_room_response_too_large")?;
+    let (updated, agentgres_admission) = finalize_composed_child(
+        data_dir,
+        room_tail,
+        &fresh,
+        &candidate,
+        &contract_id,
+        &prepared,
+        &operation,
+        &operation_key,
+        &expected_head,
+        runtime_dependencies,
+    )?;
+    let owner_convergence =
+        owner_convergence_summary(&updated, &contract_id, &prepared, &agentgres_admission)?;
     let admission = json!({
         "outcome_room":updated,
-        "admitted_object":object_record["admitted_object"],
-        "admission_receipt":receipt,
-        "agentgres_operation":operation,
+        "admitted_object":prepared,
+        "agentgres_admission":agentgres_admission,
         "owner_convergence":owner_convergence,
     });
     let response = owner_admission_http_response(&contract_id, admission);
     ensure_serialized_body_bound(&response, "outcome_room_response_too_large")?;
-    let room_tail = room_ref
-        .strip_prefix("outcome-room://")
-        .ok_or_else(|| verr("outcome_room_ref_invalid", "room ref is not canonical"))?;
-    finalize_child(
-        data_dir,
-        room_tail,
-        &fresh,
-        &updated,
-        &receipt,
-        &object_record,
-        &operation,
-        runtime_dependencies,
-    )?;
     Ok(response)
 }
 
@@ -2141,13 +1963,6 @@ impl MembershipTransition {
         match self {
             Self::Attach => "goal_run_membership_admitted",
             Self::Detach => "goal_run_membership_detached",
-        }
-    }
-
-    fn receipt_type(self) -> &'static str {
-        match self {
-            Self::Attach => "goal_run_membership_admission",
-            Self::Detach => "goal_run_membership_detachment",
         }
     }
 
@@ -2240,8 +2055,7 @@ fn refuse_detach_with_admitted_goal_children(
     // Missing required-object truth is uncertainty, not evidence that no dependent child exists.
     // Reconstruct the exact operation/receipt/object/runtime closure before dropping membership.
     let _ = load_projection_snapshot(data_dir, room_ref)?;
-    let admitted =
-        required_projection_records(data_dir, OBJECT_DOMAIN, room_ref, M4_REPLAY_ENTRY_MAX)?;
+    let admitted = room_admitted_objects(data_dir, room_ref)?;
     let mut dependent = false;
     for projection in admitted {
         let contract_id = exact_string(
@@ -2251,7 +2065,7 @@ fn refuse_detach_with_admitted_goal_children(
         )?;
         if !matches!(
             contract_id,
-            "schema://ioi/foundations/work-result/v2" | "schema://ioi/foundations/outcome-delta/v2"
+            "schema://ioi/foundations/work-result/v3" | "schema://ioi/foundations/outcome-delta/v3"
         ) {
             continue;
         }
@@ -2268,8 +2082,8 @@ fn refuse_detach_with_admitted_goal_children(
             owner_record,
         )
         .map_err(|(code, message)| verr(&code, message))?;
-        dependent |= owner_record.get("goal_run_ref").and_then(Value::as_str) == Some(goal_run_ref)
-            || owner_record.get("work_subject_ref").and_then(Value::as_str) == Some(goal_run_ref);
+        dependent |=
+            owner_record.get("work_subject_ref").and_then(Value::as_str) == Some(goal_run_ref);
     }
     if dependent {
         return Err(verr(
@@ -2297,14 +2111,7 @@ fn refuse_attach_with_preexisting_goal_truth(
     let result_refs = results
         .iter()
         .filter(|result| {
-            // The generic v1 route materializes `goal_run_ref: null` beside its required
-            // `goal_ref`.  A present JSON null is not an owner identity and must not shadow the
-            // canonical generic goal ref when membership checks for pre-existing roomless truth.
-            result
-                .get("goal_run_ref")
-                .and_then(Value::as_str)
-                .or_else(|| result.get("goal_ref").and_then(Value::as_str))
-                == Some(goal_run_ref)
+            result.get("work_subject_ref").and_then(Value::as_str) == Some(goal_run_ref)
         })
         .filter_map(|result| result.get("work_result_id").and_then(Value::as_str))
         .collect::<BTreeSet<_>>();
@@ -2331,12 +2138,13 @@ fn refuse_attach_with_preexisting_goal_truth(
 }
 
 fn build_membership_transition(
+    data_dir: &str,
+    room_tail: &str,
     room: &Value,
     goal_run: &Value,
     at: &str,
     transition: MembershipTransition,
-) -> Result<(Value, Value, Value), VErr> {
-    let sequence = next_room_sequence(room)?;
+) -> Result<(Value, Value, Value, String, String, String, String), VErr> {
     let goal_run_ref = exact_string(
         goal_run,
         "/goal_ref",
@@ -2350,38 +2158,47 @@ fn build_membership_transition(
     };
     resulting_goal_run["updated_at"] = json!(at);
     let resulting_goal_run_root = goal_run_record_root(&resulting_goal_run)?;
-    let prior_sequence = sequence - 1;
-    let transition_hash = jcs_root(
-        "ioi.outcome-room-goal-run-membership-transition-jcs-sha256.v2",
-        &json!({
-            "outcome_room_ref":room["outcome_room_id"],
-            "system_id":room["system_id"],
-            "sequence":sequence,
-            "predecessor":room["latest_transition_commitment_ref"],
-            "membership_transition":transition.transition_label(),
-            "goal_run_ref":goal_run_ref,
-            "expected_goal_run_record_root":expected_goal_run_root,
-            "resulting_goal_run_record_root":resulting_goal_run_root,
-        }),
-    )?;
-    let room_tail = room["outcome_room_id"]
-        .as_str()
-        .and_then(|value| value.strip_prefix("outcome-room://"))
-        .ok_or_else(|| verr("outcome_room_state_invalid", "room identity is invalid"))?;
-    let transition_ref = format!(
-        "commitment://ioi/outcome-room/{room_tail}/sequence/{sequence}/{}",
-        transition_hash.strip_prefix("sha256:").unwrap_or_default()
-    );
-    let receipt_ref = format!("receipt://outcome-room/{room_tail}/sequence/{sequence}");
-    let mut updated = room.clone();
-    updated["latest_sequence"] = json!(sequence);
-    updated["latest_transition_commitment_ref"] = json!(transition_ref);
+
+    let current = super::substrate_store::read_outcome_room_system_operation(data_dir, room_tail)
+        .map_err(|error| {
+            verr(
+                "outcome_room_agentgres_projection_unavailable",
+                error.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            verr(
+                "outcome_room_agentgres_head_uninitialized",
+                "room projection has no canonical Agentgres System-operation head",
+            )
+        })?;
+    if room.get("room_state_root").and_then(Value::as_str) != Some(current.head.as_str())
+        || room
+            .get("latest_transition_commitment_ref")
+            .and_then(Value::as_str)
+            != Some(agentgres_room_transition_ref(room_tail, &current.head).as_str())
+    {
+        return Err(verr(
+            "outcome_room_agentgres_head_mismatch",
+            "room projection is detached from its canonical Agentgres head",
+        ));
+    }
+    if current.seq >= M4_TRANSITION_ENTRY_MAX as u64 {
+        return Err(verr(
+            "outcome_room_transition_capacity_exceeded",
+            format!(
+                "hosted M4 permits room transitions only through sequence {M4_TRANSITION_ENTRY_MAX}"
+            ),
+        ));
+    }
+
+    let mut candidate = room.clone();
     match transition {
         MembershipTransition::Attach => {
-            append_unique(&mut updated, "member_goal_run_refs", json!(goal_run_ref))?;
+            append_unique(&mut candidate, "member_goal_run_refs", json!(goal_run_ref))?;
         }
         MembershipTransition::Detach => {
-            let members = updated
+            let members = candidate
                 .get_mut("member_goal_run_refs")
                 .and_then(Value::as_array_mut)
                 .ok_or_else(|| {
@@ -2400,64 +2217,62 @@ fn build_membership_transition(
             }
         }
     }
-    append_unique(
-        &mut updated,
-        "admission_and_replay_refs",
-        json!(receipt_ref),
+
+    let system = active_system_binding(
+        data_dir,
+        room.get("system_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
     )?;
-    updated["room_state_root"] = json!(state_root(&updated)?);
-    let receipt = json!({
-        "schema_version":"ioi.outcome-room-admission-receipt.v2",
-        "receipt_ref":receipt_ref,
-        "receipt_root":Value::Null,
-        "receipt_type":transition.receipt_type(),
-        "system_id":room["system_id"],
-        "outcome_room_ref":room["outcome_room_id"],
-        "subject_refs":[goal_run_ref],
-        "expected_room_revision":prior_sequence,
-        "resulting_room_revision":sequence,
-        "sequence":sequence,
-        "expected_predecessor_commitment_ref":room["latest_transition_commitment_ref"],
-        "resulting_transition_commitment_ref":updated["latest_transition_commitment_ref"],
-        "resulting_room_state_root":updated["room_state_root"],
-        "expected_goal_run_record_root":expected_goal_run_root,
-        "resulting_goal_run_record_root":resulting_goal_run_root,
-        "status":"admitted",
-        "at":at,
-    });
-    let (_, receipt) = rooted_record(RECEIPT_DOMAIN, "orrc_", "receipt_root", receipt)?;
-    updated["room_receipt_root"] = receipt["receipt_root"].clone();
-    validate_current_room_contract(&updated)?;
+    let chain = &system["autonomous_system_chain"];
     let operation = json!({
-        "schema_version":"ioi.outcome-room-transition-operation.v2",
-        "operation_root":Value::Null,
+        "schema_version":"ioi.outcome-room-system-operation.v1",
         "operation_kind":transition.operation_kind(),
+        "room_system_id":room["system_id"],
         "outcome_room_ref":room["outcome_room_id"],
-        "system_id":room["system_id"],
-        "sequence":sequence,
-        "expected_predecessor_commitment_ref":room["latest_transition_commitment_ref"],
-        "resulting_transition_commitment_ref":updated["latest_transition_commitment_ref"],
-        "resulting_room_state_root":updated["room_state_root"],
-        "resulting_room":updated,
+        "membership_transition":transition.transition_label(),
+        "goal_run_ref":goal_run_ref,
         "expected_goal_run_record_root":expected_goal_run_root,
         "resulting_goal_run_record_root":resulting_goal_run_root,
         "resulting_goal_run":resulting_goal_run,
-        "object_contract_id":Value::Null,
-        "object_ref":goal_run_ref,
-        "object_root":Value::Null,
-        "receipt_ref":receipt["receipt_ref"],
-        "receipt_root":receipt["receipt_root"],
+        "room_patch":{
+            "membership_transition":transition.transition_label(),
+            "goal_run_ref":goal_run_ref,
+        },
+        "resolved_policy_refs":[
+            room["coordination_policy_ref"].clone(),
+            room["ordering_and_merge_policy_ref"].clone()
+        ],
+        "resolved_authority_refs":[room["owner_or_sponsor_ref"].clone()],
+        "expected_system_predecessor":{
+            "chain_ref":chain["chain_ref"],
+            "chain_root":chain["chain_root"],
+            "operation_log_root":chain["operation_log_root"],
+            "sequence":chain["latest_sequence"],
+            "transition_ref":chain["latest_transition_id"],
+            "state_root":chain["latest_state_root"],
+            "receipt_root":chain["latest_receipt_root"],
+        },
         "at":at,
     });
-    let (_, operation) = rooted_record(
-        TRANSITION_OPERATION_DOMAIN,
-        "orto_",
-        "operation_root",
-        operation,
+    let operation_root = jcs_root(
+        "ioi.outcome-room-system-operation-jcs-sha256.v1",
+        &operation,
     )?;
-    Ok((operation["resulting_room"].clone(), receipt, operation))
+    let operation_key = format!(
+        "orop_{}",
+        operation_root.strip_prefix("sha256:").unwrap_or_default()
+    );
+    Ok((
+        candidate,
+        operation["resulting_goal_run"].clone(),
+        operation,
+        operation_key,
+        current.head,
+        expected_goal_run_root,
+        resulting_goal_run_root,
+    ))
 }
-
 fn stamp_goal_run_membership(
     data_dir: &str,
     goal_run_id: &str,
@@ -2592,32 +2407,32 @@ fn finalize_membership(
     room_tail: &str,
     prior_room: &Value,
     prior_goal_run: &Value,
-    room: &Value,
-    receipt: &Value,
+    candidate_room: &Value,
+    resulting_goal_run: &Value,
     operation: &Value,
+    operation_key: &str,
+    expected_head: &str,
     goal_run_id: &str,
     goal_run_ref: &str,
     expected_goal_run_root: &str,
     resulting_goal_run_root: &str,
-) -> Result<(), VErr> {
-    let operation_key = key_for(operation, "operation_root", "orto_")?;
-    let receipt_key = key_for(receipt, "receipt_root", "orrc_")?;
+) -> Result<(Value, Value), VErr> {
     let intent = json!({
-        "schema_version":"ioi.outcome-room-membership-admission-intent.v1",
+        "schema_version":"ioi.outcome-room-system-membership-intent.v2",
         "room_tail":room_tail,
-        "prior_room_state_root":prior_room["room_state_root"],
         "prior_room":prior_room,
         "prior_goal_run":prior_goal_run,
-        "room":room,
-        "receipt":receipt,
+        "candidate_room":candidate_room,
+        "resulting_goal_run":resulting_goal_run,
         "operation":operation,
+        "expected_agentgres_head":expected_head,
         "goal_run_id":goal_run_id,
         "goal_run_ref":goal_run_ref,
         "expected_goal_run_record_root":expected_goal_run_root,
         "resulting_goal_run_record_root":resulting_goal_run_root,
         "at":operation["at"],
     });
-    persist_local(MEMBERSHIP_INTENT_DIR, data_dir, &operation_key, &intent)?;
+    persist_local(MEMBERSHIP_INTENT_DIR, data_dir, operation_key, &intent)?;
     if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_MEMBERSHIP_AFTER_INTENT")
         .ok()
         .as_deref()
@@ -2625,29 +2440,50 @@ fn finalize_membership(
     {
         return Err(verr(
             "outcome_room_membership_pending_recovery",
-            "test-forced interruption after membership intent persistence and before any membership admission side effect",
+            "test-forced interruption after membership intent persistence and before Agentgres admission",
         ));
     }
-    if let Err(error) = reserve_exact_room_successor(data_dir, operation) {
-        if error.0 == "outcome_room_head_conflict" {
-            remove_intent(data_dir, MEMBERSHIP_INTENT_DIR, &operation_key)?;
-        }
-        return Err(error);
-    }
-    admit_required(
-        TRANSITION_OPERATION_DOMAIN,
+    let exact = super::substrate_store::admit_outcome_room_system_operation(
         data_dir,
-        &operation_key,
+        room_tail,
+        &format!(
+            "outcome_room.{}",
+            operation["operation_kind"].as_str().unwrap_or_default()
+        ),
+        Some(expected_head),
         operation,
-    )?;
-    admit_required(RECEIPT_DOMAIN, data_dir, &receipt_key, receipt)?;
-    persist_local(RECEIPT_DIR, data_dir, &receipt_key, receipt)?;
+        agentgres::parse_rfc3339_ms(
+            operation
+                .get("at")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+        ),
+        operation_key,
+    )
+    .map_err(|error| {
+        let code = if error.kind() == std::io::ErrorKind::AlreadyExists {
+            "outcome_room_head_conflict"
+        } else {
+            "outcome_room_agentgres_admission_failed"
+        };
+        verr(code, error.to_string())
+    })?;
+    if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_MEMBERSHIP_AFTER_AGENTGRES")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        return Err(verr(
+            "outcome_room_membership_pending_recovery",
+            "test-forced interruption after Agentgres admission and before reciprocal GoalRun projection",
+        ));
+    }
     let transition = MembershipTransition::from_operation(operation)?;
     stamp_goal_run_membership(
         data_dir,
         goal_run_id,
         goal_run_ref,
-        room["outcome_room_id"].as_str().unwrap_or_default(),
+        prior_room["outcome_room_id"].as_str().unwrap_or_default(),
         expected_goal_run_root,
         resulting_goal_run_root,
         operation["at"].as_str().unwrap_or_default(),
@@ -2660,13 +2496,14 @@ fn finalize_membership(
     {
         return Err(verr(
             "outcome_room_membership_pending_recovery",
-            "test-forced interruption after reciprocal GoalRun stamp and before room projection",
+            "test-forced interruption after reciprocal GoalRun projection and before room projection",
         ));
     }
-    persist_local(ROOM_DIR, data_dir, room_tail, room)?;
-    remove_intent(data_dir, MEMBERSHIP_INTENT_DIR, &operation_key)
+    let (room, evidence) = project_room_admission(room_tail, candidate_room, &exact)?;
+    persist_local(ROOM_DIR, data_dir, room_tail, &room)?;
+    remove_intent(data_dir, MEMBERSHIP_INTENT_DIR, operation_key)?;
+    Ok((room, evidence))
 }
-
 async fn handle_goal_run_membership(
     State(state): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -2855,24 +2692,72 @@ async fn handle_goal_run_membership(
         ));
     }
     let at = iso_now();
-    let (updated, receipt, operation) =
-        match build_membership_transition(&fresh_room, &goal_run, &at, transition) {
-            Ok(value) => value,
-            Err(error) => return classify(error),
-        };
-    let resulting_goal_root = match exact_string(
+    let (
+        candidate,
+        resulting_goal_run,
+        operation,
+        operation_key,
+        expected_head,
+        expected_goal_root,
+        resulting_goal_root,
+    ) = match build_membership_transition(
+        &state.data_dir,
+        &id,
+        &fresh_room,
+        &goal_run,
+        &at,
+        transition,
+    ) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    let (preflight_room, preflight_admission) = match preflight_room_admission(
+        &id,
+        &candidate,
         &operation,
-        "/resulting_goal_run_record_root",
-        "outcome_room_goal_run_resulting_head_required",
+        Some(&expected_head),
+        &format!("outcome_room.{}", transition.operation_kind()),
+    ) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    if let Err(error) = ensure_serialized_body_bound(
+        &json!({
+            "outcome_room":preflight_room,
+            "agentgres_admission":preflight_admission,
+            "goal_run":resulting_goal_run,
+            "membership_transition":transition.transition_label(),
+            "goal_run_stamped":{
+                "goal_run_ref":goal_run_ref,
+                "outcome_room_ref":operation["resulting_goal_run"]["outcome_room_ref"],
+            },
+        }),
+        "outcome_room_response_too_large",
+    ) {
+        return classify(error);
+    }
+    let (updated, agentgres_admission) = match finalize_membership(
+        &state.data_dir,
+        &id,
+        &fresh_room,
+        &goal_run,
+        &candidate,
+        &resulting_goal_run,
+        &operation,
+        &operation_key,
+        &expected_head,
+        goal_run_id,
+        goal_run_ref,
+        &expected_goal_root,
+        &resulting_goal_root,
     ) {
         Ok(value) => value,
         Err(error) => return classify(error),
     };
     let response = json!({
-        "outcome_room":updated.clone(),
-        "outcome_room_receipt":receipt.clone(),
-        "agentgres_operation":operation.clone(),
-        "goal_run":operation["resulting_goal_run"].clone(),
+        "outcome_room":updated,
+        "agentgres_admission":agentgres_admission,
+        "goal_run":resulting_goal_run,
         "membership_transition":transition.transition_label(),
         "goal_run_stamped":{
             "goal_run_ref":goal_run_ref,
@@ -2880,21 +2765,6 @@ async fn handle_goal_run_membership(
         },
     });
     if let Err(error) = ensure_serialized_body_bound(&response, "outcome_room_response_too_large") {
-        return classify(error);
-    }
-    if let Err(error) = finalize_membership(
-        &state.data_dir,
-        &id,
-        &fresh_room,
-        &goal_run,
-        &updated,
-        &receipt,
-        &operation,
-        goal_run_id,
-        goal_run_ref,
-        expected_goal_root,
-        resulting_goal_root,
-    ) {
         return classify(error);
     }
     (StatusCode::OK, Json(response))
@@ -2941,6 +2811,9 @@ fn safe_replay_operation(operation: &Value) -> Value {
         "collective_goal_run_ref",
         "collective_path_decision_ref",
         "request_root",
+        "goal_run_ref",
+        "expected_goal_run_record_root",
+        "resulting_goal_run_record_root",
     ] {
         if let Some(value) = operation.get(field) {
             safe[field] = value.clone();
@@ -3001,75 +2874,15 @@ pub(crate) async fn handle_replay(
     if let Err(error) = load_projection_snapshot(&state.data_dir, &room_ref) {
         return classify(error);
     }
-    let mut operations = match required_projection_records(
-        &state.data_dir,
-        ADMISSION_OPERATION_DOMAIN,
-        &room_ref,
-        1,
-    ) {
-        Ok(values) => values,
+    let history = match room_system_operation_history(&state.data_dir, &room_ref) {
+        Ok(history) => history,
         Err(error) => return classify(error),
     };
-    let transitions = match required_projection_records(
-        &state.data_dir,
-        TRANSITION_OPERATION_DOMAIN,
-        &room_ref,
-        M4_TRANSITION_ENTRY_MAX,
-    ) {
-        Ok(values) => values,
+    let operations = match verify_projection_operation_chain(&room, history) {
+        Ok(operations) => operations,
         Err(error) => return classify(error),
     };
-    operations.extend(transitions);
-    if operations.len() > M4_REPLAY_ENTRY_MAX {
-        return classify(verr(
-            "outcome_room_projection_source_unavailable",
-            format!(
-                "room replay contains {} operations; hosted M4 permits at most {M4_REPLAY_ENTRY_MAX}",
-                operations.len()
-            ),
-        ));
-    }
-    operations.sort_by_key(|value| {
-        value
-            .get("sequence")
-            .and_then(Value::as_u64)
-            .unwrap_or(u64::MAX)
-    });
     let latest = room["latest_sequence"].as_u64().unwrap_or(u64::MAX);
-    if operations.len() != latest.saturating_add(1) as usize
-        || operations.iter().enumerate().any(|(index, value)| {
-            value.get("sequence").and_then(Value::as_u64) != Some(index as u64)
-        })
-    {
-        return classify(verr(
-            "outcome_room_replay_discontinuous",
-            "Agentgres operation sequence does not reconstruct the visible room head",
-        ));
-    }
-    for pair in operations.windows(2) {
-        if pair[1].get("expected_predecessor_commitment_ref")
-            != pair[0].get("resulting_transition_commitment_ref")
-        {
-            return classify(verr(
-                "outcome_room_replay_discontinuous",
-                "operation predecessor commitment does not match the prior head",
-            ));
-        }
-    }
-    if operations
-        .last()
-        .and_then(|value| value.get("resulting_room_state_root"))
-        != room.get("room_state_root")
-        || operations
-            .last()
-            .and_then(|value| value.get("resulting_transition_commitment_ref"))
-            != room.get("latest_transition_commitment_ref")
-    {
-        return classify(verr(
-            "outcome_room_replay_head_mismatch",
-            "reconstructed Agentgres head differs from the room projection",
-        ));
-    }
     let response = json!({
         "schema_version":"ioi.outcome-room-replay-projection.v2",
         "outcome_room_ref":room_ref,
@@ -3080,7 +2893,7 @@ pub(crate) async fn handle_replay(
         "room_receipt_root":room["room_receipt_root"],
         "operations":operations.iter().map(safe_replay_operation).collect::<Vec<_>>(),
         "payload_bytes_exported":false,
-        "runtimeTruthSource":"agentgres-required-admission-projection",
+        "runtimeTruthSource":"agentgres-operation-projection",
     });
     if let Err(error) =
         ensure_serialized_body_bound(&response, "outcome_room_projection_response_too_large")
@@ -3236,52 +3049,89 @@ fn strict_goal_run_census(data_dir: &str) -> Result<Vec<Value>, VErr> {
     Ok(records)
 }
 
-fn required_projection_records(
+fn room_system_operation_history(
     data_dir: &str,
-    family: &str,
     room_ref: &str,
-    per_room_max: usize,
-) -> Result<Vec<Value>, VErr> {
-    let records = super::substrate_store::read_required_all(data_dir, family).map_err(|error| {
+) -> Result<Vec<agentgres::mux::ExactProjection>, VErr> {
+    let room_tail = room_ref.strip_prefix("outcome-room://").ok_or_else(|| {
         verr(
-            "outcome_room_projection_source_unreadable",
-            format!("Agentgres family '{family}' cannot be projected ({error})"),
+            "outcome_room_projection_source_unresolved",
+            "room identity is not canonical",
         )
     })?;
-    if records.len() > M4_REQUIRED_DOMAIN_MAX {
-        return Err(verr(
-            "outcome_room_projection_source_unavailable",
-            format!(
-                "Agentgres family '{family}' contains {} records; hosted M4 permits at most {M4_REQUIRED_DOMAIN_MAX}",
-                records.len()
-            ),
-        ));
-    }
-    let projected = records
-        .into_iter()
-        .filter(|record| record.get("outcome_room_ref").and_then(Value::as_str) == Some(room_ref))
-        .collect::<Vec<_>>();
-    if projected.len() > per_room_max {
-        return Err(verr(
-            "outcome_room_projection_source_unavailable",
-            format!(
-                "Agentgres family '{family}' contains {} records for '{room_ref}'; hosted M4 permits at most {per_room_max}",
-                projected.len()
-            ),
-        ));
-    }
-    Ok(projected)
+    super::substrate_store::read_outcome_room_system_operation_history(data_dir, room_tail).map_err(
+        |error| {
+            verr(
+                "outcome_room_projection_source_unreadable",
+                format!("Agentgres room-operation history cannot be projected ({error})"),
+            )
+        },
+    )
+}
+
+fn projected_agentgres_operation(
+    room_tail: &str,
+    exact: &agentgres::mux::ExactProjection,
+) -> Result<Value, VErr> {
+    let payload = &exact.operation.payload;
+    let receipt_ref =
+        agentgres_room_receipt_ref(room_tail, exact.admission_batch_seq, &exact.admission_root);
+    let operation_ref = agentgres_room_operation_ref(room_tail, exact.seq, &exact.head);
+    let operation_root = jcs_root(
+        "ioi.agentgres-operation-jcs-sha256.v1",
+        &json!({
+            "domain":exact.operation.domain,
+            "object_ref":exact.operation.object_ref,
+            "op_kind":exact.operation.op_kind,
+            "expected_head":exact.operation.expected_head,
+            "expected_absent":exact.operation.expected_absent,
+            "payload":exact.operation.payload,
+            "recorded_at_ms":exact.operation.recorded_at_ms,
+            "idem_key":exact.operation.idem_key,
+        }),
+    )?;
+    Ok(json!({
+        "operation_root":operation_root,
+        "agentgres_operation_ref":operation_ref,
+        "operation_kind":payload["operation_kind"],
+        "outcome_room_ref":payload["outcome_room_ref"],
+        "system_id":payload["room_system_id"],
+        "sequence":exact.seq,
+        "expected_predecessor_commitment_ref":exact.operation.expected_head,
+        "resulting_transition_commitment_ref":agentgres_room_transition_ref(room_tail, &exact.head),
+        "resulting_room_state_root":exact.head,
+        "object_contract_id":payload.get("object_contract_id").cloned().unwrap_or(Value::Null),
+        "object_ref":payload.get("object_ref").cloned().unwrap_or(Value::Null),
+        "object_root":payload.pointer("/typed_payload/system_binding/payload_root").cloned().unwrap_or(Value::Null),
+        "receipt_ref":receipt_ref,
+        "receipt_root":exact.admission_root,
+        "agentgres_terminal_root":exact.terminal_root,
+        "bounded_system_predecessor":payload.get("expected_system_predecessor").cloned().unwrap_or(Value::Null),
+        "at":payload["at"],
+        "request_root":payload.get("request_root").cloned().unwrap_or(Value::Null),
+        "collective_goal_run_ref":payload.get("collective_goal_run_ref").cloned().unwrap_or(Value::Null),
+        "collective_path_decision_ref":payload.get("collective_path_decision_ref").cloned().unwrap_or(Value::Null),
+        "goal_run_ref":payload.get("goal_run_ref").cloned().unwrap_or(Value::Null),
+        "expected_goal_run_record_root":payload.get("expected_goal_run_record_root").cloned().unwrap_or(Value::Null),
+        "resulting_goal_run_record_root":payload.get("resulting_goal_run_record_root").cloned().unwrap_or(Value::Null),
+    }))
 }
 
 fn verify_projection_operation_chain(
     room: &Value,
-    mut operations: Vec<(&'static str, Value)>,
+    history: Vec<agentgres::mux::ExactProjection>,
 ) -> Result<Vec<Value>, VErr> {
     let room_ref = exact_string(
         room,
         "/outcome_room_id",
         "outcome_room_projection_source_unresolved",
     )?;
+    let room_tail = room_ref.strip_prefix("outcome-room://").ok_or_else(|| {
+        verr(
+            "outcome_room_projection_source_unresolved",
+            "room identity is not canonical",
+        )
+    })?;
     let system_id = exact_string(
         room,
         "/system_id",
@@ -3296,198 +3146,115 @@ fn verify_projection_operation_chain(
                 "room latest_sequence is absent",
             )
         })?;
-    if operations.len() > M4_REPLAY_ENTRY_MAX {
-        return Err(verr(
-            "outcome_room_projection_source_unavailable",
-            format!(
-                "room operation census contains {} records; hosted M4 permits at most {M4_REPLAY_ENTRY_MAX}",
-                operations.len()
-            ),
-        ));
-    }
-    operations.sort_by_key(|(_, operation)| {
-        operation
-            .get("sequence")
-            .and_then(Value::as_u64)
-            .unwrap_or(u64::MAX)
-    });
-    if operations.len() != latest.saturating_add(1) as usize {
+    if history.len() > M4_REPLAY_ENTRY_MAX || history.len() != latest.saturating_add(1) as usize {
         return Err(verr(
             "outcome_room_projection_source_unresolved",
-            "Agentgres operation census does not exactly cover the visible room revision",
+            "Agentgres history does not exactly cover the visible room revision",
         ));
     }
-    let mut verified: Vec<Value> = Vec::with_capacity(operations.len());
-    for (index, (family, operation)) in operations.into_iter().enumerate() {
-        verify_rooted_record(family, "operation_root", &operation).map_err(|_| {
-            verr(
-                "outcome_room_projection_source_unresolved",
-                format!("Agentgres operation {index} has an invalid root"),
-            )
-        })?;
-        if operation.get("sequence").and_then(Value::as_u64) != Some(index as u64)
-            || operation.get("outcome_room_ref").and_then(Value::as_str) != Some(room_ref)
-            || operation.get("system_id").and_then(Value::as_str) != Some(system_id)
+    let mut operations = Vec::with_capacity(history.len());
+    let mut expected_receipt_refs = Vec::with_capacity(history.len());
+    let mut prior_head: Option<&str> = None;
+    for (index, exact) in history.iter().enumerate() {
+        let payload = &exact.operation.payload;
+        if exact.seq != index as u64
+            || payload.get("schema_version").and_then(Value::as_str)
+                != Some("ioi.outcome-room-system-operation.v1")
+            || payload.get("outcome_room_ref").and_then(Value::as_str) != Some(room_ref)
+            || payload.get("room_system_id").and_then(Value::as_str) != Some(system_id)
+            || exact.operation.expected_head.as_deref() != prior_head
+            || exact.operation.expected_absent != (index == 0)
         {
             return Err(verr(
                 "outcome_room_projection_source_unresolved",
-                format!("Agentgres operation {index} is detached from the room"),
+                format!("Agentgres operation {index} is detached from the room head chain"),
             ));
         }
-        if index > 0
-            && operation.get("expected_predecessor_commitment_ref")
-                != verified[index - 1].get("resulting_transition_commitment_ref")
-        {
-            return Err(verr(
-                "outcome_room_projection_source_unresolved",
-                format!("Agentgres operation {index} does not extend the prior head"),
-            ));
-        }
-        let resulting_room = operation.get("resulting_room").ok_or_else(|| {
-            verr(
-                "outcome_room_projection_source_unresolved",
-                format!("Agentgres operation {index} omits its resulting room"),
-            )
-        })?;
-        validate_current_room_contract(resulting_room).map_err(|_| {
-            verr(
-                "outcome_room_projection_source_unresolved",
-                format!("Agentgres operation {index} carries an invalid room"),
-            )
-        })?;
-        let recomputed = state_root(resulting_room)?;
-        if resulting_room
-            .get("latest_sequence")
-            .and_then(Value::as_u64)
-            != Some(index as u64)
-            || resulting_room
-                .get("room_state_root")
-                .and_then(Value::as_str)
-                != Some(recomputed.as_str())
-            || operation.get("resulting_room_state_root") != resulting_room.get("room_state_root")
-            || operation.get("resulting_transition_commitment_ref")
-                != resulting_room.get("latest_transition_commitment_ref")
-        {
-            return Err(verr(
-                "outcome_room_projection_source_unresolved",
-                format!("Agentgres operation {index} does not bind its resulting room root"),
-            ));
-        }
-        verified.push(operation);
+        operations.push(projected_agentgres_operation(room_tail, exact)?);
+        expected_receipt_refs.push(Value::String(agentgres_room_receipt_ref(
+            room_tail,
+            exact.admission_batch_seq,
+            &exact.admission_root,
+        )));
+        prior_head = Some(exact.head.as_str());
     }
-    if verified
-        .last()
-        .and_then(|operation| operation.get("resulting_room"))
-        != Some(room)
+    let latest_exact = history.last().ok_or_else(|| {
+        verr(
+            "outcome_room_projection_source_unresolved",
+            "room has no Agentgres genesis operation",
+        )
+    })?;
+    if room.get("room_state_root").and_then(Value::as_str) != Some(latest_exact.head.as_str())
+        || room.get("room_receipt_root").and_then(Value::as_str)
+            != Some(latest_exact.admission_root.as_str())
+        || room
+            .get("latest_transition_commitment_ref")
+            .and_then(Value::as_str)
+            != Some(agentgres_room_transition_ref(room_tail, &latest_exact.head).as_str())
+        || !room
+            .get("admission_and_replay_refs")
+            .and_then(Value::as_array)
+            .is_some_and(|refs| refs == &expected_receipt_refs)
     {
         return Err(verr(
             "outcome_room_projection_source_stale",
-            "local room projection is not the exact current Agentgres head",
+            "local room projection is not the exact current Agentgres head and receipt root",
         ));
     }
-    Ok(verified)
+    Ok(operations)
 }
 
-fn verify_projection_receipts(
-    room: &Value,
-    operations: &[Value],
-    receipts: Vec<Value>,
-) -> Result<Vec<String>, VErr> {
-    let room_ref = room["outcome_room_id"].as_str().unwrap_or_default();
-    let system_id = room["system_id"].as_str().unwrap_or_default();
-    let latest = room["latest_sequence"].as_u64().unwrap_or(u64::MAX);
-    if receipts.len() > M4_REPLAY_ENTRY_MAX {
-        return Err(verr(
-            "outcome_room_projection_source_unavailable",
-            format!(
-                "room receipt census contains {} records; hosted M4 permits at most {M4_REPLAY_ENTRY_MAX}",
-                receipts.len()
-            ),
-        ));
-    }
-    let mut by_sequence = BTreeMap::new();
-    for receipt in receipts {
-        verify_rooted_record(RECEIPT_DOMAIN, "receipt_root", &receipt).map_err(|_| {
+fn project_room_admitted_objects(
+    room_tail: &str,
+    history: &[agentgres::mux::ExactProjection],
+) -> Result<Vec<Value>, VErr> {
+    let mut objects = Vec::new();
+    for exact in history {
+        let payload = &exact.operation.payload;
+        if payload.get("operation_kind").and_then(Value::as_str) != Some("room_child_admitted") {
+            continue;
+        }
+        let contract_id = exact_string(
+            payload,
+            "/object_contract_id",
+            "outcome_room_projection_object_source_unresolved",
+        )?;
+        let object_ref = exact_string(
+            payload,
+            "/object_ref",
+            "outcome_room_projection_object_source_unresolved",
+        )?;
+        let admitted = payload.get("typed_payload").ok_or_else(|| {
             verr(
-                "outcome_room_projection_receipt_source_unresolved",
-                "an Agentgres room receipt has an invalid root",
+                "outcome_room_projection_object_source_unresolved",
+                format!("Agentgres operation {} omits its typed payload", exact.seq),
             )
         })?;
-        let sequence = receipt
-            .get("sequence")
-            .and_then(Value::as_u64)
-            .ok_or_else(|| {
-                verr(
-                    "outcome_room_projection_receipt_source_unresolved",
-                    "an Agentgres room receipt omits its sequence",
-                )
-            })?;
-        if receipt.get("outcome_room_ref").and_then(Value::as_str) != Some(room_ref)
-            || receipt.get("system_id").and_then(Value::as_str) != Some(system_id)
-            || receipt.get("status").and_then(Value::as_str) != Some("admitted")
-            || by_sequence.insert(sequence, receipt).is_some()
-        {
-            return Err(verr(
-                "outcome_room_projection_receipt_source_unresolved",
-                "room receipt census contains a detached or duplicate receipt",
-            ));
-        }
+        objects.push(json!({
+            "sequence":exact.seq,
+            "object_contract_id":contract_id,
+            "object_ref":object_ref,
+            "outcome_room_ref":payload["outcome_room_ref"],
+            "system_id":payload["room_system_id"],
+            "admitted_object":admitted,
+            "agentgres_operation_ref":agentgres_room_operation_ref(room_tail, exact.seq, &exact.head),
+            "agentgres_receipt_ref":agentgres_room_receipt_ref(room_tail, exact.admission_batch_seq, &exact.admission_root),
+            "agentgres_head":exact.head,
+            "agentgres_receipt_root":exact.admission_root,
+        }));
     }
-    if by_sequence.len() != latest.saturating_add(1) as usize {
-        return Err(verr(
-            "outcome_room_projection_receipt_source_unresolved",
-            "Agentgres receipt census does not exactly cover the room revision",
-        ));
-    }
-    let mut refs = Vec::with_capacity(by_sequence.len());
-    for (index, operation) in operations.iter().enumerate() {
-        let receipt = by_sequence.get(&(index as u64)).ok_or_else(|| {
-            verr(
-                "outcome_room_projection_receipt_source_unresolved",
-                format!("room receipt {index} is absent"),
-            )
-        })?;
-        if operation.get("receipt_ref") != receipt.get("receipt_ref")
-            || operation.get("receipt_root") != receipt.get("receipt_root")
-            || operation.get("resulting_room_state_root")
-                != receipt.get("resulting_room_state_root")
-            || operation.get("resulting_transition_commitment_ref")
-                != receipt.get("resulting_transition_commitment_ref")
-        {
-            return Err(verr(
-                "outcome_room_projection_receipt_source_unresolved",
-                format!("room receipt {index} is detached from its operation"),
-            ));
-        }
-        refs.push(
-            receipt
-                .get("receipt_ref")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_owned(),
-        );
-    }
-    let declared = room
-        .get("admission_and_replay_refs")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    if declared
-        != refs
-            .iter()
-            .map(|reference| json!(reference))
-            .collect::<Vec<_>>()
-        || room.get("room_receipt_root")
-            != by_sequence
-                .get(&latest)
-                .and_then(|receipt| receipt.get("receipt_root"))
-    {
-        return Err(verr(
-            "outcome_room_projection_receipt_source_stale",
-            "room receipt refs or terminal receipt root differ from Agentgres truth",
-        ));
-    }
-    Ok(refs)
+    Ok(objects)
+}
+
+fn room_admitted_objects(data_dir: &str, room_ref: &str) -> Result<Vec<Value>, VErr> {
+    let room_tail = room_ref.strip_prefix("outcome-room://").ok_or_else(|| {
+        verr(
+            "outcome_room_projection_object_source_unresolved",
+            "room identity is not canonical",
+        )
+    })?;
+    let history = room_system_operation_history(data_dir, room_ref)?;
+    project_room_admitted_objects(room_tail, &history)
 }
 
 fn verify_reciprocal_goal_runs(
@@ -3533,14 +3300,20 @@ fn projection_ref_bucket<'a>(
     contract_id: &str,
 ) -> Option<&'a mut BTreeSet<String>> {
     match contract_id {
-        "schema://ioi/foundations/work-frontier-item/v2" => Some(&mut refs.frontier_item_refs),
-        "schema://ioi/foundations/work-claim-lease/v2" => Some(&mut refs.work_claim_refs),
-        "schema://ioi/foundations/attempt/v2" => Some(&mut refs.attempt_refs),
-        "schema://ioi/foundations/finding/v2" => Some(&mut refs.finding_refs),
-        "schema://ioi/foundations/verifier-challenge/v2" => Some(&mut refs.verifier_challenge_refs),
-        "schema://ioi/foundations/participant-state-bundle/v2" => Some(&mut refs.participant_refs),
-        "schema://ioi/foundations/work-result/v2" => Some(&mut refs.work_result_refs),
-        "schema://ioi/foundations/outcome-delta/v2" => Some(&mut refs.outcome_delta_refs),
+        "schema://ioi/applications/ioi-ai/work-frontier-item/v3" => {
+            Some(&mut refs.frontier_item_refs)
+        }
+        "schema://ioi/applications/ioi-ai/work-claim-lease/v3" => Some(&mut refs.work_claim_refs),
+        "schema://ioi/applications/ioi-ai/attempt/v3" => Some(&mut refs.attempt_refs),
+        "schema://ioi/applications/ioi-ai/finding/v3" => Some(&mut refs.finding_refs),
+        "schema://ioi/applications/ioi-ai/verifier-challenge/v3" => {
+            Some(&mut refs.verifier_challenge_refs)
+        }
+        "schema://ioi/applications/ioi-ai/participant-state-bundle/v3" => {
+            Some(&mut refs.participant_refs)
+        }
+        "schema://ioi/foundations/work-result/v3" => Some(&mut refs.work_result_refs),
+        "schema://ioi/foundations/outcome-delta/v3" => Some(&mut refs.outcome_delta_refs),
         _ => None,
     }
 }
@@ -3558,15 +3331,16 @@ fn require_projection_labels(
     Ok(())
 }
 
-fn safe_room_object_summary(contract_id: &str, admitted: &Value) -> Option<Value> {
-    let admission_receipt_ref = admitted
-        .pointer("/room_admission/admission_receipt_ref")
-        .cloned()
-        .unwrap_or(Value::Null);
+fn safe_room_object_summary(
+    contract_id: &str,
+    admitted: &Value,
+    agentgres_receipt_ref: &str,
+) -> Option<Value> {
+    let admission_receipt_ref = json!(agentgres_receipt_ref);
     match contract_id {
-        "schema://ioi/foundations/work-result/v2" => Some(json!({
+        "schema://ioi/foundations/work-result/v3" => Some(json!({
             "work_result_id":admitted["work_result_id"],
-            "goal_run_ref":admitted["goal_run_ref"],
+            "goal_run_ref":admitted["work_subject_ref"],
             "work_subject_ref":admitted["work_subject_ref"],
             "outcome_class":admitted["outcome_class"],
             "status":admitted["status"],
@@ -3575,7 +3349,7 @@ fn safe_room_object_summary(contract_id: &str, admitted: &Value) -> Option<Value
             "evidence_refs_exported":false,
             "artifact_refs_exported":false,
         })),
-        "schema://ioi/foundations/outcome-delta/v2" => Some(json!({
+        "schema://ioi/foundations/outcome-delta/v3" => Some(json!({
             "outcome_delta_id":admitted["outcome_delta_id"],
             "work_subject_ref":admitted["work_subject_ref"],
             "proposed_by_ref":admitted["proposed_by_ref"],
@@ -3597,10 +3371,10 @@ fn verify_owner_projection_backlinks(
     room_receipt_ref: &str,
 ) -> Result<(), VErr> {
     let public = match contract_id {
-        "schema://ioi/foundations/work-result/v2" => {
+        "schema://ioi/foundations/work-result/v3" => {
             super::work_result_routes::load_work_result_strict(data_dir, object_ref)
         }
-        "schema://ioi/foundations/outcome-delta/v2" => {
+        "schema://ioi/foundations/outcome-delta/v3" => {
             super::work_result_routes::load_outcome_delta_strict(data_dir, object_ref)
         }
         _ => return Ok(()),
@@ -3619,7 +3393,7 @@ fn verify_owner_projection_backlinks(
             format!("owner registry has no admitted '{object_ref}'"),
         )
     })?;
-    let public_matches = if contract_id.ends_with("work-result/v2") {
+    let public_matches = if contract_id.ends_with("work-result/v3") {
         let admitted_refs = admitted
             .get("outcome_delta_refs")
             .and_then(Value::as_array)
@@ -3642,10 +3416,10 @@ fn verify_owner_projection_backlinks(
             format!("owner registry bytes for '{object_ref}' diverge from room admission"),
         ));
     }
-    let (goal_ref, parent_result) = if contract_id.ends_with("work-result/v2") {
+    let (goal_ref, parent_result) = if contract_id.ends_with("work-result/v3") {
         (
             admitted
-                .get("goal_run_ref")
+                .get("work_subject_ref")
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_owned(),
@@ -3671,7 +3445,10 @@ fn verify_owner_projection_backlinks(
                     format!("OutcomeDelta parent WorkResult '{proposer}' is absent"),
                 )
             })?;
-        if parent.get("outcome_room_ref").and_then(Value::as_str) != Some(room_ref)
+        if parent
+            .pointer("/system_binding/parent_scope_ref")
+            .and_then(Value::as_str)
+            != Some(room_ref)
             || !parent
                 .get("outcome_delta_refs")
                 .and_then(Value::as_array)
@@ -3684,7 +3461,7 @@ fn verify_owner_projection_backlinks(
         }
         (
             parent
-                .get("goal_run_ref")
+                .get("work_subject_ref")
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_owned(),
@@ -3719,25 +3496,15 @@ fn verify_owner_projection_backlinks(
 }
 
 fn sort_projection_objects_by_admission_order(objects: &mut [Value]) {
-    // Agentgres projects this family by content-derived object key. Content hashes are not a
-    // semantic order: run-derived WorkResult/OutcomeDelta bytes can therefore swap enumeration
-    // order across otherwise equivalent fresh executions. Validate owner/backlink truth in the
-    // room's admitted sequence instead, with stable identity/root tie-breaks. Missing, duplicate,
-    // or detached coordinates remain invalid and are rejected by the exact checks below; this
-    // ordering helper never turns an invalid coordinate into accepted truth.
+    // The order is the canonical Agentgres sequence of the stable room object.
     objects.sort_by_cached_key(|record| {
         (
             record
-                .pointer("/admitted_object/room_admission/admitted_sequence")
+                .get("sequence")
                 .and_then(Value::as_u64)
                 .unwrap_or(u64::MAX),
             record
                 .get("object_ref")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_owned(),
-            record
-                .get("object_root")
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_owned(),
@@ -3763,12 +3530,6 @@ fn verify_projection_objects(
     let mut label_bearing_object_count = 0usize;
     sort_projection_objects_by_admission_order(&mut objects);
     for object_record in objects {
-        verify_rooted_record(OBJECT_DOMAIN, "object_root", &object_record).map_err(|_| {
-            verr(
-                "outcome_room_projection_object_source_unresolved",
-                "an Agentgres admitted-object record has an invalid root",
-            )
-        })?;
         let contract_id = exact_string(
             &object_record,
             "/object_contract_id",
@@ -3822,14 +3583,14 @@ fn verify_projection_objects(
                 ),
             )
         })?;
-        let admission = admitted.get("room_admission").ok_or_else(|| {
+        let binding = admitted.get("system_binding").ok_or_else(|| {
             verr(
                 "outcome_room_projection_object_source_unresolved",
-                format!("admitted object '{object_ref}' omits room admission"),
+                format!("admitted object '{object_ref}' omits SystemScopedObjectBinding"),
             )
         })?;
-        let sequence = admission
-            .get("admitted_sequence")
+        let sequence = object_record
+            .get("sequence")
             .and_then(Value::as_u64)
             .ok_or_else(|| {
                 verr(
@@ -3840,9 +3601,9 @@ fn verify_projection_objects(
         if sequence == 0
             || sequence as usize >= operations.len()
             || !object_sequences.insert(sequence)
-            || admission.get("admission_status").and_then(Value::as_str) != Some("admitted")
-            || admission.get("outcome_room_ref").and_then(Value::as_str) != Some(room_ref)
-            || admission.get("room_system_id").and_then(Value::as_str) != Some(system_id)
+            || binding.get("schema_version").and_then(Value::as_str) != Some(SYSTEM_BINDING_SCHEMA)
+            || binding.get("parent_scope_ref").and_then(Value::as_str) != Some(room_ref)
+            || binding.get("system_id").and_then(Value::as_str) != Some(system_id)
         {
             return Err(verr(
                 "outcome_room_projection_object_source_unresolved",
@@ -3852,7 +3613,7 @@ fn verify_projection_objects(
         let operation = &operations[sequence as usize];
         let label_bearing = matches!(
             contract_id,
-            "schema://ioi/foundations/work-result/v2" | "schema://ioi/foundations/outcome-delta/v2"
+            "schema://ioi/foundations/work-result/v3" | "schema://ioi/foundations/outcome-delta/v3"
         );
         if label_bearing {
             label_bearing_object_count += 1;
@@ -3861,13 +3622,9 @@ fn verify_projection_objects(
             != Some("room_child_admitted")
             || operation.get("object_contract_id").and_then(Value::as_str) != Some(contract_id)
             || operation.get("object_ref").and_then(Value::as_str) != Some(object_ref)
-            || operation.get("object_root") != object_record.get("object_root")
-            || operation.get("receipt_ref") != admission.get("admission_receipt_ref")
-            || operation.get("receipt_root") != admission.get("resulting_receipt_root")
-            || operation.get("resulting_room_state_root")
-                != admission.get("resulting_room_state_root")
-            || operation.get("resulting_transition_commitment_ref")
-                != admission.get("resulting_transition_commitment_ref");
+            || operation.get("receipt_ref") != object_record.get("agentgres_receipt_ref")
+            || operation.get("receipt_root") != object_record.get("agentgres_receipt_root")
+            || operation.get("resulting_room_state_root") != object_record.get("agentgres_head");
         if detached {
             return Err(verr(
                 if label_bearing {
@@ -3878,8 +3635,8 @@ fn verify_projection_objects(
                 format!("admitted object '{object_ref}' is detached from its Agentgres operation"),
             ));
         }
-        let room_receipt_ref = admission
-            .get("admission_receipt_ref")
+        let room_receipt_ref = object_record
+            .get("agentgres_receipt_ref")
             .and_then(Value::as_str)
             .ok_or_else(|| {
                 verr(
@@ -3904,9 +3661,9 @@ fn verify_projection_objects(
                     format!("admitted object '{object_ref}' is not an object"),
                 )
             })?
-            .remove("room_admission");
-        let payload_root = jcs_root("ioi.outcome-room-child-payload-jcs-sha256.v1", &payload)?;
-        if admission.get("payload_root").and_then(Value::as_str) != Some(payload_root.as_str()) {
+            .remove("system_binding");
+        let payload_root = jcs_root("ioi.system-scoped-object-payload-jcs-sha256.v1", &payload)?;
+        if binding.get("payload_root").and_then(Value::as_str) != Some(payload_root.as_str()) {
             return Err(verr(
                 if label_bearing {
                     "outcome_room_projection_label_source_stale"
@@ -3973,8 +3730,8 @@ fn verify_projection_objects(
                 format!("admitted object '{object_ref}' omits its information-flow labels"),
             ));
         }
-        if let Some(summary) = safe_room_object_summary(contract_id, admitted) {
-            if contract_id == "schema://ioi/foundations/work-result/v2" {
+        if let Some(summary) = safe_room_object_summary(contract_id, admitted, room_receipt_ref) {
+            if contract_id == "schema://ioi/foundations/work-result/v3" {
                 refs.work_result_summaries.push(summary);
                 ensure_projection_cardinality(
                     refs.work_result_summaries.len(),
@@ -4167,8 +3924,17 @@ fn validate_projection_system_binding(
         || room.get("constitution_ref") != chain.get("constitution_ref")
         || room.get("active_profile_refs") != Some(&expected_profiles)
         || room.get("autonomous_system_state_ref") != operation_log.get("operation_log_ref")
-        || genesis_operation.get("system_chain_root") != chain.get("chain_root")
-        || genesis_operation.get("system_state_root") != chain.get("latest_state_root")
+        || genesis_operation.pointer("/bounded_system_predecessor/chain_ref")
+            != chain.get("chain_ref")
+        || genesis_operation
+            .pointer("/bounded_system_predecessor/chain_root")
+            .is_none()
+        || genesis_operation
+            .pointer("/bounded_system_predecessor/state_root")
+            .is_none()
+        || genesis_operation
+            .pointer("/bounded_system_predecessor/receipt_root")
+            .is_none()
         || genesis_operation.get("collective_goal_run_ref") != room.get("objective_ref")
     {
         return Err(verr(
@@ -4192,51 +3958,6 @@ fn validate_projection_system_binding(
             "room genesis is detached from the collective GoalRun's admitted path decision",
         ));
     }
-    let mut pre_genesis_room = genesis_operation
-        .get("resulting_room")
-        .cloned()
-        .ok_or_else(|| {
-            verr(
-                "outcome_room_projection_system_unresolved",
-                "room genesis operation omits its resulting room",
-            )
-        })?;
-    pre_genesis_room["latest_transition_commitment_ref"] = Value::Null;
-    pre_genesis_room["room_state_root"] = Value::Null;
-    pre_genesis_room["room_receipt_root"] = Value::Null;
-    pre_genesis_room["admission_and_replay_refs"] = json!([]);
-    let transition_hash = jcs_root(
-        "ioi.outcome-room-genesis-transition-jcs-sha256.v2",
-        &json!({
-            "system_chain_root":chain["chain_root"],
-            "system_state_root":chain["latest_state_root"],
-            "room":pre_genesis_room,
-        }),
-    )?;
-    let room_tail = room
-        .get("outcome_room_id")
-        .and_then(Value::as_str)
-        .and_then(|value| value.strip_prefix("outcome-room://"))
-        .ok_or_else(|| {
-            verr(
-                "outcome_room_projection_system_unresolved",
-                "room identity is non-canonical",
-            )
-        })?;
-    let expected_transition = format!(
-        "commitment://ioi/outcome-room/{room_tail}/sequence/0/{}",
-        transition_hash.strip_prefix("sha256:").unwrap_or_default()
-    );
-    if genesis_operation
-        .get("resulting_transition_commitment_ref")
-        .and_then(Value::as_str)
-        != Some(expected_transition.as_str())
-    {
-        return Err(verr(
-            "outcome_room_projection_system_unresolved",
-            "room genesis transition does not reproduce from the exact active System roots",
-        ));
-    }
     Ok(())
 }
 
@@ -4257,29 +3978,8 @@ fn load_projection_snapshot(data_dir: &str, room_ref: &str) -> Result<Projection
             "local room fails its registered contract",
         )
     })?;
-    let expected_state_root = state_root(&room)?;
-    if room.get("room_state_root").and_then(Value::as_str) != Some(expected_state_root.as_str()) {
-        return Err(verr(
-            "outcome_room_projection_source_stale",
-            "local room state root does not recompute",
-        ));
-    }
-    let mut operations =
-        required_projection_records(data_dir, ADMISSION_OPERATION_DOMAIN, room_ref, 1)?
-            .into_iter()
-            .map(|operation| (ADMISSION_OPERATION_DOMAIN, operation))
-            .collect::<Vec<_>>();
-    operations.extend(
-        required_projection_records(
-            data_dir,
-            TRANSITION_OPERATION_DOMAIN,
-            room_ref,
-            M4_TRANSITION_ENTRY_MAX,
-        )?
-        .into_iter()
-        .map(|operation| (TRANSITION_OPERATION_DOMAIN, operation)),
-    );
-    let operations = verify_projection_operation_chain(&room, operations)?;
+    let history = room_system_operation_history(data_dir, room_ref)?;
+    let operations = verify_projection_operation_chain(&room, history.clone())?;
     let genesis_operation = operations.first().ok_or_else(|| {
         verr(
             "outcome_room_projection_system_unresolved",
@@ -4287,18 +3987,27 @@ fn load_projection_snapshot(data_dir: &str, room_ref: &str) -> Result<Projection
         )
     })?;
     validate_projection_system_binding(data_dir, &room, genesis_operation)?;
-    let source_admission_receipt_refs = verify_projection_receipts(
-        &room,
-        &operations,
-        required_projection_records(data_dir, RECEIPT_DOMAIN, room_ref, M4_REPLAY_ENTRY_MAX)?,
-    )?;
+    let source_admission_receipt_refs = operations
+        .iter()
+        .map(|operation| {
+            exact_string(
+                operation,
+                "/receipt_ref",
+                "outcome_room_projection_receipt_source_unresolved",
+            )
+            .map(str::to_owned)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     let member_goal_run_refs =
         verify_reciprocal_goal_runs(&room, &strict_goal_run_census(data_dir)?)?;
     let mut refs = verify_projection_objects(
         data_dir,
         &room,
         &operations,
-        required_projection_records(data_dir, OBJECT_DOMAIN, room_ref, M4_REPLAY_ENTRY_MAX)?,
+        project_room_admitted_objects(
+            room_ref.strip_prefix("outcome-room://").unwrap_or_default(),
+            &history,
+        )?,
     )?;
     let participant_lease_refs = bounded_ref_set(
         &room,
@@ -4377,12 +4086,12 @@ fn projection_response(data_dir: &str, room_tail: &str, graph: bool) -> Result<V
     let response = if graph {
         json!({
             "collaborative_work_graph":graph_projection,
-            "runtimeTruthSource":"agentgres-required-admission-projection",
+            "runtimeTruthSource":"agentgres-operation-projection",
         })
     } else {
         json!({
             "discussion_projection":discussion_projection,
-            "runtimeTruthSource":"agentgres-required-admission-projection",
+            "runtimeTruthSource":"agentgres-operation-projection",
         })
     };
     ensure_serialized_body_bound(&response, "outcome_room_projection_response_too_large")?;
@@ -4539,7 +4248,7 @@ fn selected_product_projection(
         "source_admission_receipt_refs":snapshot.source_admission_receipt_refs,
         "payload_refs_exported":false,
         "payload_bytes_exported":false,
-        "runtimeTruthSource":"agentgres-required-admission-projection",
+        "runtimeTruthSource":"agentgres-operation-projection",
     });
     ensure_serialized_body_bound(&projection, "outcome_room_projection_response_too_large")?;
     Ok(projection)
@@ -4604,74 +4313,6 @@ pub(crate) async fn handle_product_projection(
     (StatusCode::OK, Json(projection))
 }
 
-fn verify_rooted_record(family: &str, root_field: &str, value: &Value) -> Result<(), VErr> {
-    let expected = exact_string(
-        value,
-        &format!("/{root_field}"),
-        "outcome_room_recovery_invalid",
-    )?;
-    let mut material = value.clone();
-    material[root_field] = Value::Null;
-    let actual = super::system_activation_routes::jcs_hash(&json!({
-        "domain":"ioi.outcome-room-required-admission-record-jcs-sha256.v1",
-        "record_family":family,
-        "record":material,
-    }))
-    .map_err(|(_, message)| verr("outcome_room_hash_failed", message))?;
-    if actual != expected {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("'{root_field}' does not recompute"),
-        ));
-    }
-    Ok(())
-}
-
-fn validate_recovery_room_head(
-    data_dir: &str,
-    room_tail: &str,
-    prior_root: Option<&str>,
-    resulting_room: &Value,
-) -> Result<(), VErr> {
-    let room_ref = format!("outcome-room://{room_tail}");
-    let current = super::outcome_room_routes::resolve_room_strict(data_dir, &room_ref)
-        .map_err(|error| verr("outcome_room_recovery_unreadable", error))?;
-    let resulting_root = exact_string(
-        resulting_room,
-        "/room_state_root",
-        "outcome_room_recovery_invalid",
-    )?;
-    match (prior_root, current) {
-        (None, None) => Ok(()),
-        (None, Some(current)) if current == *resulting_room => Ok(()),
-        (None, Some(_)) => Err(verr(
-            "outcome_room_recovery_head_conflict",
-            "genesis recovery refuses to replace an occupied room slot",
-        )),
-        (Some(_), None) => Err(verr(
-            "outcome_room_recovery_head_conflict",
-            "transition recovery cannot reconstruct an absent predecessor room",
-        )),
-        (Some(prior), Some(current)) => {
-            let current_root = exact_string(
-                &current,
-                "/room_state_root",
-                "outcome_room_recovery_head_conflict",
-            )?;
-            if current_root == prior || current_root == resulting_root {
-                Ok(())
-            } else {
-                Err(verr(
-                    "outcome_room_recovery_head_conflict",
-                    "recovery refuses to overwrite a newer or divergent room head",
-                ))
-            }
-        }
-    }
-}
-
-/// Complete every v2 room transaction before readiness. Any malformed, unreadable, or divergent
-/// intent is a startup error; recovery never skips dark state and never overwrites a newer head.
 pub(crate) fn preflight_pending_owner_registry_census(data_dir: &str) -> Result<(), VErr> {
     for (_intent_key, intent) in strict_intent_family(data_dir, CHILD_INTENT_DIR)? {
         let owner_family = exact_string(
@@ -4707,442 +4348,6 @@ pub(crate) fn preflight_pending_owner_registry_census(data_dir: &str) -> Result<
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
-fn validate_child_recovery_intent(
-    data_dir: &str,
-    intent_key: &str,
-    intent: &Value,
-    room_tail: &str,
-    prior_room: &Value,
-    room: &Value,
-    receipt: &Value,
-    object: &Value,
-    operation: &Value,
-    owner_family: &str,
-    owner_key: &str,
-    owner_record: &Value,
-    runtime_dependencies: &Value,
-) -> Result<(), VErr> {
-    if intent.get("schema_version").and_then(Value::as_str)
-        != Some("ioi.outcome-room-child-admission-intent.v1")
-    {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' has an unsupported envelope"),
-        ));
-    }
-    let contract_id = exact_string(
-        object,
-        "/object_contract_id",
-        "outcome_room_recovery_invalid",
-    )?;
-    let (expected_family, expected_schema, identity_field) = match contract_id {
-        "schema://ioi/foundations/work-result/v2" => (
-            super::work_result_routes::RESULT_DIR,
-            "ioi.foundations.work-result.v2",
-            "work_result_id",
-        ),
-        "schema://ioi/foundations/outcome-delta/v2" => (
-            super::work_result_routes::DELTA_DIR,
-            "ioi.foundations.outcome-delta.v2",
-            "outcome_delta_id",
-        ),
-        _ => {
-            return Err(verr(
-                "outcome_room_recovery_invalid",
-                format!("child intent '{intent_key}' names a non-published contract family"),
-            ))
-        }
-    };
-    if owner_family != expected_family
-        || owner_record.get("schema_version").and_then(Value::as_str) != Some(expected_schema)
-    {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' substitutes its owner family or contract"),
-        ));
-    }
-    canonical_contract(contract_id, owner_record).map_err(|_| {
-        verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' carries a non-canonical owner record"),
-        )
-    })?;
-
-    let object_ref = exact_string(
-        owner_record,
-        &format!("/{identity_field}"),
-        "outcome_room_recovery_invalid",
-    )?;
-    if safe_owner_key(object_ref) != owner_key {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' detaches its owner key"),
-        ));
-    }
-    let room_ref = exact_string(room, "/outcome_room_id", "outcome_room_recovery_invalid")?;
-    if room_ref != format!("outcome-room://{room_tail}") {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' detaches its room slot"),
-        ));
-    }
-    validate_current_room_contract(room)?;
-    let system_id = exact_string(room, "/system_id", "outcome_room_recovery_invalid")?;
-    let sequence = room
-        .get("latest_sequence")
-        .and_then(Value::as_u64)
-        .filter(|sequence| *sequence > 0)
-        .ok_or_else(|| {
-            verr(
-                "outcome_room_recovery_invalid",
-                format!("child intent '{intent_key}' has no child sequence"),
-            )
-        })?;
-    let resulting_transition = exact_string(
-        room,
-        "/latest_transition_commitment_ref",
-        "outcome_room_recovery_invalid",
-    )?;
-    let resulting_room_root =
-        exact_string(room, "/room_state_root", "outcome_room_recovery_invalid")?;
-    if state_root(room)? != resulting_room_root {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' carries a detached room state root"),
-        ));
-    }
-    let prior_transition = exact_string(
-        operation,
-        "/expected_predecessor_commitment_ref",
-        "outcome_room_recovery_invalid",
-    )?;
-    if prior_transition == resulting_transition {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' does not advance the room head"),
-        ));
-    }
-    let at = exact_string(operation, "/at", "outcome_room_recovery_invalid")?;
-
-    let mut payload = owner_record.clone();
-    payload
-        .as_object_mut()
-        .ok_or_else(|| {
-            verr(
-                "outcome_room_recovery_invalid",
-                "owner record is not an object",
-            )
-        })?
-        .remove("room_admission");
-    let payload_root = jcs_root("ioi.outcome-room-child-payload-jcs-sha256.v1", &payload)?;
-    let prior_root = exact_string(
-        intent,
-        "/prior_room_state_root",
-        "outcome_room_recovery_invalid",
-    )?;
-    validate_current_room_contract(prior_room)?;
-    if prior_room.get("outcome_room_id").and_then(Value::as_str) != Some(room_ref)
-        || prior_room.get("system_id").and_then(Value::as_str) != Some(system_id)
-        || prior_room.get("latest_sequence").and_then(Value::as_u64) != Some(sequence - 1)
-        || prior_room
-            .get("latest_transition_commitment_ref")
-            .and_then(Value::as_str)
-            != Some(prior_transition)
-        || prior_room.get("room_state_root").and_then(Value::as_str) != Some(prior_root)
-        || state_root(prior_room)? != prior_root
-    {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' detaches its exact predecessor room"),
-        ));
-    }
-    let proposed_admission = json!({
-        "schema_version":BASE_SCHEMA,
-        "room_system_id":system_id,
-        "outcome_room_ref":room_ref,
-        "proposed_or_issued_by_ref":system_id,
-        "expected_room_revision":sequence - 1,
-        "expected_predecessor_commitment_ref":prior_transition,
-        "payload_root":payload_root,
-        "admission_policy_ref":prior_room["coordination_policy_ref"],
-        "admission_decision_ref":Value::Null,
-        "admission_receipt_ref":Value::Null,
-        "admitted_sequence":Value::Null,
-        "resulting_room_revision":Value::Null,
-        "resulting_transition_commitment_ref":Value::Null,
-        "resulting_room_state_root":Value::Null,
-        "resulting_receipt_root":Value::Null,
-        "created_at":at,
-        "updated_at":Value::Null,
-        "admission_status":"proposed",
-    });
-    let mut proposed_owner_record = owner_record.clone();
-    proposed_owner_record["room_admission"] = proposed_admission;
-    let (constructor_room, constructor_receipt, constructor_object, constructor_operation) =
-        build_child_admission(prior_room, contract_id, &proposed_owner_record, at)?;
-    if constructor_room != *room
-        || constructor_receipt != *receipt
-        || constructor_object != *object
-        || constructor_operation != *operation
-    {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' is not constructor-exact from its predecessor"),
-        ));
-    }
-    let transition_hash = jcs_root(
-        "ioi.outcome-room-child-transition-jcs-sha256.v2",
-        &json!({
-            "outcome_room_ref":room_ref,
-            "system_id":system_id,
-            "sequence":sequence,
-            "predecessor":prior_transition,
-            "object_contract_id":contract_id,
-            "object_ref":object_ref,
-            "payload_root":payload_root,
-        }),
-    )?;
-    let expected_transition_ref = format!(
-        "commitment://ioi/outcome-room/{room_tail}/sequence/{sequence}/{}",
-        transition_hash.strip_prefix("sha256:").unwrap_or_default()
-    );
-    if resulting_transition != expected_transition_ref {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' carries a substituted transition commitment"),
-        ));
-    }
-    let expected_receipt_ref = format!("receipt://outcome-room/{room_tail}/sequence/{sequence}");
-    let expected_decision_ref = format!("decision://outcome-room/{room_tail}/sequence/{sequence}");
-    let admission = owner_record.get("room_admission").ok_or_else(|| {
-        verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' omits its terminal admission"),
-        )
-    })?;
-    let expected_admission = json!({
-        "schema_version":BASE_SCHEMA,
-        "room_system_id":system_id,
-        "outcome_room_ref":room_ref,
-        "proposed_or_issued_by_ref":system_id,
-        "expected_room_revision":sequence - 1,
-        "expected_predecessor_commitment_ref":prior_transition,
-        "payload_root":payload_root,
-        "admission_policy_ref":room["coordination_policy_ref"],
-        "admission_decision_ref":expected_decision_ref,
-        "admission_receipt_ref":expected_receipt_ref,
-        "admitted_sequence":sequence,
-        "resulting_room_revision":sequence,
-        "resulting_transition_commitment_ref":resulting_transition,
-        "resulting_room_state_root":resulting_room_root,
-        "resulting_receipt_root":receipt["receipt_root"],
-        "created_at":at,
-        "updated_at":at,
-        "admission_status":"admitted",
-    });
-    if admission != &expected_admission {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' carries a detached admission verdict"),
-        ));
-    }
-
-    let expected_receipt = json!({
-        "schema_version":"ioi.outcome-room-admission-receipt.v2",
-        "receipt_ref":expected_receipt_ref,
-        "receipt_root":Value::Null,
-        "receipt_type":"room_child_admission",
-        "system_id":system_id,
-        "outcome_room_ref":room_ref,
-        "subject_refs":[object_ref],
-        "object_contract_id":contract_id,
-        "expected_room_revision":sequence - 1,
-        "resulting_room_revision":sequence,
-        "sequence":sequence,
-        "expected_predecessor_commitment_ref":prior_transition,
-        "resulting_transition_commitment_ref":resulting_transition,
-        "resulting_room_state_root":resulting_room_root,
-        "status":"admitted",
-        "at":at,
-    });
-    let (_, expected_receipt) =
-        rooted_record(RECEIPT_DOMAIN, "orrc_", "receipt_root", expected_receipt)?;
-    let expected_object = json!({
-        "schema_version":"ioi.outcome-room-admitted-object.v2",
-        "object_root":Value::Null,
-        "object_contract_id":contract_id,
-        "object_ref":object_ref,
-        "outcome_room_ref":room_ref,
-        "system_id":system_id,
-        "admitted_object":owner_record,
-        "at":at,
-    });
-    let (_, expected_object) =
-        rooted_record(OBJECT_DOMAIN, "orobj_", "object_root", expected_object)?;
-    let expected_operation = json!({
-        "schema_version":"ioi.outcome-room-transition-operation.v2",
-        "operation_root":Value::Null,
-        "operation_kind":"room_child_admitted",
-        "outcome_room_ref":room_ref,
-        "system_id":system_id,
-        "sequence":sequence,
-        "expected_predecessor_commitment_ref":prior_transition,
-        "resulting_transition_commitment_ref":resulting_transition,
-        "resulting_room_state_root":resulting_room_root,
-        "resulting_room":room,
-        "object_contract_id":contract_id,
-        "object_ref":object_ref,
-        "object_root":expected_object["object_root"],
-        "receipt_ref":expected_receipt["receipt_ref"],
-        "receipt_root":expected_receipt["receipt_root"],
-        "at":at,
-    });
-    let (expected_operation_key, expected_operation) = rooted_record(
-        TRANSITION_OPERATION_DOMAIN,
-        "orto_",
-        "operation_root",
-        expected_operation,
-    )?;
-    if receipt != &expected_receipt
-        || object != &expected_object
-        || operation != &expected_operation
-        || expected_operation_key != intent_key
-        || intent.get("at").and_then(Value::as_str) != Some(at)
-        || room.get("room_receipt_root") != expected_receipt.get("receipt_root")
-        || !room
-            .get("admission_and_replay_refs")
-            .and_then(Value::as_array)
-            .is_some_and(|refs| {
-                refs.iter()
-                    .filter(|value| value.as_str() == Some(expected_receipt_ref.as_str()))
-                    .count()
-                    == 1
-            })
-    {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' has detached transaction coordinates"),
-        ));
-    }
-
-    if !owner_record
-        .get("information_flow_label_refs")
-        .and_then(Value::as_array)
-        .is_some_and(|labels| !labels.is_empty())
-    {
-        return Err(verr(
-            "outcome_room_recovery_invalid",
-            format!("child intent '{intent_key}' omits its label closure"),
-        ));
-    }
-    if owner_family == super::work_result_routes::RESULT_DIR {
-        let goal_run_ref = exact_string(
-            owner_record,
-            "/goal_run_ref",
-            "outcome_room_recovery_invalid",
-        )?;
-        if runtime_dependencies.is_null()
-            || !prior_room
-                .get("member_goal_run_refs")
-                .and_then(Value::as_array)
-                .is_some_and(|refs| {
-                    refs.iter()
-                        .any(|value| value.as_str() == Some(goal_run_ref))
-                })
-            || owner_record
-                .get("invocation_or_run_ref")
-                .is_none_or(Value::is_null)
-        {
-            return Err(verr(
-                "outcome_room_recovery_invalid",
-                format!("child intent '{intent_key}' detaches its WorkResult runtime owner"),
-            ));
-        }
-        super::goalrun_routes::validate_room_owner_runtime_dependency_intent(
-            data_dir,
-            prior_room,
-            owner_record,
-            runtime_dependencies,
-        )
-        .map_err(|(code, message)| verr(&code, message))?;
-    } else {
-        if !runtime_dependencies.is_null() {
-            return Err(verr(
-                "outcome_room_recovery_invalid",
-                "OutcomeDelta child intent carries a WorkResult runtime-dependency bundle",
-            ));
-        }
-        super::goalrun_routes::validate_room_owner_runtime_dependencies(
-            data_dir,
-            prior_room,
-            owner_record,
-        )
-        .map_err(|(code, message)| verr(&code, message))?;
-        let proposed_by = exact_string(
-            owner_record,
-            "/proposed_by_ref",
-            "outcome_room_recovery_invalid",
-        )?;
-        let parent =
-            required_projection_records(data_dir, OBJECT_DOMAIN, room_ref, M4_REPLAY_ENTRY_MAX)?
-                .into_iter()
-                .find(|record| {
-                    record.get("object_contract_id").and_then(Value::as_str)
-                        == Some("schema://ioi/foundations/work-result/v2")
-                        && record.get("object_ref").and_then(Value::as_str) == Some(proposed_by)
-                        && record.get("outcome_room_ref").and_then(Value::as_str) == Some(room_ref)
-                        && record.get("system_id").and_then(Value::as_str) == Some(system_id)
-                })
-                .and_then(|record| record.get("admitted_object").cloned())
-                .ok_or_else(|| {
-                    verr(
-                        "outcome_room_recovery_invalid",
-                        format!(
-                            "child intent '{intent_key}' detaches its admitted WorkResult parent"
-                        ),
-                    )
-                })?;
-        canonical_contract("schema://ioi/foundations/work-result/v2", &parent).map_err(|_| {
-            verr(
-                "outcome_room_recovery_invalid",
-                format!("child intent '{intent_key}' resolves a non-canonical parent"),
-            )
-        })?;
-        super::goalrun_routes::validate_room_owner_runtime_dependencies(
-            data_dir, prior_room, &parent,
-        )
-        .map_err(|(code, message)| verr(&code, message))?;
-        let parent_labels = parent
-            .get("information_flow_label_refs")
-            .and_then(Value::as_array)
-            .ok_or_else(|| verr("outcome_room_recovery_invalid", "parent labels are absent"))?;
-        let delta_labels = owner_record
-            .get("information_flow_label_refs")
-            .and_then(Value::as_array)
-            .expect("validated label array");
-        let parent_set = parent_labels
-            .iter()
-            .filter_map(Value::as_str)
-            .collect::<BTreeSet<_>>();
-        let delta_set = delta_labels
-            .iter()
-            .filter_map(Value::as_str)
-            .collect::<BTreeSet<_>>();
-        if parent.get("work_subject_ref") != owner_record.get("work_subject_ref")
-            || parent_set.len() != parent_labels.len()
-            || delta_set.len() != delta_labels.len()
-            || !parent_set.is_subset(&delta_set)
-        {
-            return Err(verr(
-                "outcome_room_recovery_invalid",
-                format!("child intent '{intent_key}' substitutes its parent binding or labels"),
-            ));
-        }
-    }
-    Ok(())
-}
-
 pub(crate) fn complete_pending(data_dir: &str) -> Result<(), VErr> {
     for (intent_key, intent) in strict_intent_family(data_dir, INTENT_DIR)? {
         let room_tail = exact_string(&intent, "/room_tail", "outcome_room_recovery_invalid")?;
@@ -5153,54 +4358,68 @@ pub(crate) fn complete_pending(data_dir: &str) -> Result<(), VErr> {
             )
         })?;
         let at = exact_string(&intent, "/at", "outcome_room_recovery_invalid")?;
-        let (room, receipt, operation) = build_room_admission(data_dir, body, room_tail, at)?;
-        if intent.get("room") != Some(&room)
-            || intent.get("receipt") != Some(&receipt)
-            || intent.get("operation") != Some(&operation)
-            || key_for(&operation, "operation_root", "orao_")? != intent_key
+        let (candidate, operation) = build_room_admission(data_dir, body, room_tail, at)?;
+        let operation_root = jcs_root(
+            "ioi.outcome-room-system-operation-jcs-sha256.v1",
+            &operation,
+        )?;
+        let expected_key = format!(
+            "orop_{}",
+            operation_root.strip_prefix("sha256:").unwrap_or_default()
+        );
+        let successor_intent = intent.get("schema_version").and_then(Value::as_str)
+            == Some("ioi.outcome-room-system-operation-intent.v2");
+        if successor_intent
+            && (intent.get("candidate_room") != Some(&candidate)
+                || intent.get("operation") != Some(&operation)
+                || expected_key != intent_key)
         {
             return Err(verr(
                 "outcome_room_recovery_invalid",
                 format!("create intent '{intent_key}' is not canonical"),
             ));
         }
-        validate_recovery_room_head(data_dir, room_tail, None, &room)?;
-        finalize_room(
-            data_dir, room_tail, body, &room, &receipt, &operation, false,
-        )?;
+        let _ = finalize_room(data_dir, room_tail, body, &candidate, &operation)?;
+        if intent_key != expected_key {
+            remove_intent(data_dir, INTENT_DIR, &intent_key)?;
+        }
     }
 
     for (intent_key, intent) in strict_intent_family(data_dir, CHILD_INTENT_DIR)? {
+        if intent.get("schema_version").and_then(Value::as_str)
+            != Some("ioi.outcome-room-system-operation-intent.v2")
+        {
+            return Err(verr(
+                "outcome_room_recovery_retired_parallel_spine",
+                format!(
+                    "child intent '{intent_key}' predates ADR 0030 and cannot replay a room-owned receipt spine"
+                ),
+            ));
+        }
         let room_tail = exact_string(&intent, "/room_tail", "outcome_room_recovery_invalid")?;
-        let prior_root = exact_string(
-            &intent,
-            "/prior_room_state_root",
-            "outcome_room_recovery_invalid",
-        )?;
         let prior_room = intent.get("prior_room").ok_or_else(|| {
             verr(
                 "outcome_room_recovery_invalid",
                 "child intent omits its exact predecessor room",
             )
         })?;
-        let room = intent
-            .get("room")
-            .ok_or_else(|| verr("outcome_room_recovery_invalid", "child intent omits room"))?;
-        let receipt = intent.get("receipt").ok_or_else(|| {
+        let candidate_room = intent.get("candidate_room").ok_or_else(|| {
             verr(
                 "outcome_room_recovery_invalid",
-                "child intent omits receipt",
+                "child intent omits its pre-admission room projection",
             )
         })?;
-        let object = intent
-            .get("object")
-            .ok_or_else(|| verr("outcome_room_recovery_invalid", "child intent omits object"))?;
         let operation = intent.get("operation").ok_or_else(|| {
             verr(
                 "outcome_room_recovery_invalid",
                 "child intent omits operation",
             )
         })?;
+        let contract_id = exact_string(
+            &intent,
+            "/object_contract_id",
+            "outcome_room_recovery_invalid",
+        )?;
         let owner_family = exact_string(
             &intent,
             "/owner_publication_family",
@@ -5223,82 +4442,108 @@ pub(crate) fn complete_pending(data_dir: &str) -> Result<(), VErr> {
                 "child intent omits its runtime-dependency disposition",
             )
         })?;
-        validate_child_recovery_intent(
-            data_dir,
-            &intent_key,
+        let expected_head = exact_string(
             &intent,
-            room_tail,
-            prior_room,
-            room,
-            receipt,
-            object,
-            operation,
-            owner_family,
-            owner_key,
-            owner_record,
-            runtime_dependencies,
+            "/expected_agentgres_head",
+            "outcome_room_recovery_invalid",
         )?;
-        verify_rooted_record(TRANSITION_OPERATION_DOMAIN, "operation_root", operation)?;
-        verify_rooted_record(RECEIPT_DOMAIN, "receipt_root", receipt)?;
-        verify_rooted_record(OBJECT_DOMAIN, "object_root", object)?;
-        validate_current_room_contract(room)?;
-        let operation_key = key_for(operation, "operation_root", "orto_")?;
-        if operation_key != intent_key
-            || operation.get("resulting_room") != Some(room)
-            || object.get("admitted_object") != Some(owner_record)
-            || !matches!(
-                owner_family,
-                super::work_result_routes::RESULT_DIR | super::work_result_routes::DELTA_DIR
+        let at = exact_string(&intent, "/at", "outcome_room_recovery_invalid")?;
+        let contract = child_contract(contract_id).ok_or_else(|| {
+            verr(
+                "outcome_room_recovery_invalid",
+                format!("child intent '{intent_key}' names a retired or unknown contract"),
             )
-            || operation.get("expected_predecessor_commitment_ref")
-                == operation.get("resulting_transition_commitment_ref")
+        })?;
+        let expected_family = if contract_id.ends_with("work-result/v3") {
+            super::work_result_routes::RESULT_DIR
+        } else if contract_id.ends_with("outcome-delta/v3") {
+            super::work_result_routes::DELTA_DIR
+        } else {
+            return Err(verr(
+                "outcome_room_recovery_invalid",
+                format!("child intent '{intent_key}' is not an M4 owner-plane family"),
+            ));
+        };
+        let owner_identity = exact_string(
+            owner_record,
+            &format!("/{}", contract.id_field),
+            "outcome_room_recovery_invalid",
+        )?;
+        canonical_contract(contract_id, owner_record).map_err(|_| {
+            verr(
+                "outcome_room_recovery_invalid",
+                format!("child intent '{intent_key}' carries a non-canonical v3 owner record"),
+            )
+        })?;
+        validate_current_room_contract(prior_room)?;
+        validate_current_room_contract(candidate_room)?;
+        let room_ref = format!("outcome-room://{room_tail}");
+        let binding = owner_record.get("system_binding").ok_or_else(|| {
+            verr(
+                "outcome_room_recovery_invalid",
+                format!("child intent '{intent_key}' omits SystemScopedObjectBinding"),
+            )
+        })?;
+        let mut payload = owner_record.clone();
+        payload
+            .as_object_mut()
+            .expect("canonical v3 owner record is an object")
+            .remove("system_binding");
+        let payload_root = jcs_root("ioi.system-scoped-object-payload-jcs-sha256.v1", &payload)?;
+        let operation_root =
+            jcs_root("ioi.outcome-room-system-operation-jcs-sha256.v1", operation)?;
+        let expected_key = format!(
+            "orop_{}",
+            operation_root.strip_prefix("sha256:").unwrap_or_default()
+        );
+        let mut expected_candidate = prior_room.clone();
+        if let Some(field) = contract.list_field {
+            append_unique(&mut expected_candidate, field, json!(owner_identity))?;
+        }
+        let prior_transition = agentgres_room_transition_ref(room_tail, expected_head);
+        if expected_key != intent_key
+            || owner_family != expected_family
+            || safe_owner_key(owner_identity) != owner_key
+            || prior_room.get("outcome_room_id").and_then(Value::as_str) != Some(room_ref.as_str())
+            || prior_room.get("room_state_root").and_then(Value::as_str) != Some(expected_head)
+            || prior_room
+                .get("latest_transition_commitment_ref")
+                .and_then(Value::as_str)
+                != Some(prior_transition.as_str())
+            || candidate_room != &expected_candidate
+            || binding.get("schema_version").and_then(Value::as_str) != Some(SYSTEM_BINDING_SCHEMA)
+            || binding.get("system_id") != prior_room.get("system_id")
+            || binding.get("parent_scope_ref").and_then(Value::as_str) != Some(room_ref.as_str())
+            || binding.get("payload_root").and_then(Value::as_str) != Some(payload_root.as_str())
+            || operation.get("schema_version").and_then(Value::as_str)
+                != Some("ioi.outcome-room-system-operation.v1")
+            || operation.get("operation_kind").and_then(Value::as_str)
+                != Some("room_child_admitted")
+            || operation.get("room_system_id") != prior_room.get("system_id")
+            || operation.get("outcome_room_ref").and_then(Value::as_str) != Some(room_ref.as_str())
+            || operation.get("object_contract_id").and_then(Value::as_str) != Some(contract_id)
+            || operation.get("object_ref").and_then(Value::as_str) != Some(owner_identity)
+            || operation.get("typed_payload") != Some(owner_record)
+            || operation.get("at").and_then(Value::as_str) != Some(at)
         {
             return Err(verr(
                 "outcome_room_recovery_invalid",
-                format!("child intent '{intent_key}' is detached"),
+                format!("child intent '{intent_key}' is detached from its canonical Agentgres operation"),
             ));
         }
-        let (owner_identity_field, existing_owner) = if owner_family
-            == super::work_result_routes::RESULT_DIR
-        {
-            let identity = exact_string(
-                owner_record,
-                "/work_result_id",
-                "outcome_room_recovery_invalid",
-            )?;
-            (
-                "work_result_id",
-                super::work_result_routes::load_work_result_strict(data_dir, identity).map_err(
-                    |message| {
-                        verr(
-                            "outcome_room_recovery_owner_registry_unreadable",
-                            format!(
-                                "versioned WorkResult registry is not complete enough to recover '{identity}' ({message})"
-                            ),
-                        )
-                    },
-                )?,
-            )
+        let existing_owner = if expected_family == super::work_result_routes::RESULT_DIR {
+            super::work_result_routes::load_work_result_strict(data_dir, owner_identity)
         } else {
-            let identity = exact_string(
-                owner_record,
-                "/outcome_delta_id",
-                "outcome_room_recovery_invalid",
-            )?;
-            (
-                "outcome_delta_id",
-                super::work_result_routes::load_outcome_delta_strict(data_dir, identity).map_err(
-                    |message| {
-                        verr(
-                            "outcome_room_recovery_owner_registry_unreadable",
-                            format!(
-                                "versioned OutcomeDelta registry is not complete enough to recover '{identity}' ({message})"
-                            ),
-                        )
-                    },
-                )?,
+            super::work_result_routes::load_outcome_delta_strict(data_dir, owner_identity)
+        }
+        .map_err(|message| {
+            verr(
+                "outcome_room_recovery_owner_registry_unreadable",
+                format!(
+                    "versioned owner registry is not complete enough to recover '{owner_identity}' ({message})"
+                ),
             )
-        };
+        })?;
         if existing_owner
             .as_ref()
             .is_some_and(|record| record != owner_record)
@@ -5308,97 +4553,99 @@ pub(crate) fn complete_pending(data_dir: &str) -> Result<(), VErr> {
                 "owner publication slot contains divergent bytes",
             ));
         }
-        let expected_owner_key = owner_record
-            .get(owner_identity_field)
-            .and_then(Value::as_str)
-            .map(safe_owner_key)
+        if (expected_family == super::work_result_routes::RESULT_DIR
+            && runtime_dependencies.is_null())
+            || (expected_family == super::work_result_routes::DELTA_DIR
+                && !runtime_dependencies.is_null())
+        {
+            return Err(verr(
+                "outcome_room_recovery_invalid",
+                "child intent has a substituted runtime-dependency disposition",
+            ));
+        }
+        let current_room = super::outcome_room_routes::resolve_room_strict(data_dir, &room_ref)
+            .map_err(|message| verr("outcome_room_recovery_source_unreadable", message))?
             .ok_or_else(|| {
                 verr(
-                    "outcome_room_recovery_invalid",
-                    "owner publication identity is absent",
+                    "outcome_room_recovery_head_conflict",
+                    "room disappeared before child recovery",
                 )
             })?;
-        if expected_owner_key != owner_key {
+        let current_operation =
+            super::substrate_store::read_outcome_room_system_operation(data_dir, room_tail)
+                .map_err(|error| {
+                    verr(
+                        "outcome_room_agentgres_projection_unavailable",
+                        error.to_string(),
+                    )
+                })?
+                .ok_or_else(|| {
+                    verr(
+                        "outcome_room_recovery_head_conflict",
+                        "room Agentgres operation head disappeared before recovery",
+                    )
+                })?;
+        let projected_after_admission = if current_operation.operation.payload == *operation {
+            Some(project_room_admission(room_tail, candidate_room, &current_operation)?.0)
+        } else {
+            None
+        };
+        if current_room != *prior_room && projected_after_admission.as_ref() != Some(&current_room)
+        {
             return Err(verr(
-                "outcome_room_recovery_invalid",
-                "owner publication key is detached from its record identity",
+                "outcome_room_recovery_head_conflict",
+                "room projection diverged from both sides of the retained Agentgres intent",
             ));
         }
-        validate_recovery_room_head(data_dir, room_tail, Some(prior_root), room)?;
-        if owner_family == super::work_result_routes::RESULT_DIR {
-            if runtime_dependencies.is_null() {
-                return Err(verr(
-                    "outcome_room_recovery_invalid",
-                    "WorkResult child intent omits its recoverable runtime dependencies",
-                ));
-            }
-            super::goalrun_routes::converge_room_owner_runtime_dependencies(
-                data_dir,
-                room,
-                owner_record,
-                runtime_dependencies,
-            )
-            .map_err(|(code, message)| verr(&code, message))?;
-        } else if !runtime_dependencies.is_null() {
-            return Err(verr(
-                "outcome_room_recovery_invalid",
-                "OutcomeDelta child intent carries a WorkResult runtime-dependency bundle",
-            ));
-        }
-        let receipt_key = key_for(receipt, "receipt_root", "orrc_")?;
-        let object_key = key_for(object, "object_root", "orobj_")?;
-        reserve_exact_room_successor(data_dir, operation)?;
-        admit_required(
-            TRANSITION_OPERATION_DOMAIN,
+        let dependencies = (!runtime_dependencies.is_null()).then_some(runtime_dependencies);
+        let _ = finalize_composed_child(
             data_dir,
-            &operation_key,
-            operation,
-        )?;
-        admit_required(RECEIPT_DOMAIN, data_dir, &receipt_key, receipt)?;
-        admit_required(OBJECT_DOMAIN, data_dir, &object_key, object)?;
-        persist_local(RECEIPT_DIR, data_dir, &receipt_key, receipt)?;
-        persist_local(OBJECT_DIR, data_dir, &object_key, object)?;
-        persist_local(ROOM_DIR, data_dir, room_tail, room)?;
-        let room_receipt_ref =
-            exact_string(receipt, "/receipt_ref", "outcome_room_recovery_invalid")?;
-        super::goalrun_routes::converge_room_owner_backlinks(
-            data_dir,
+            room_tail,
+            prior_room,
+            candidate_room,
+            contract_id,
             owner_record,
-            room_receipt_ref,
-        )
-        .map_err(|(code, message)| verr(&code, message))?;
-        remove_intent(data_dir, CHILD_INTENT_DIR, &operation_key)?;
+            operation,
+            &intent_key,
+            expected_head,
+            dependencies,
+        )?;
     }
 
     for (intent_key, intent) in strict_intent_family(data_dir, MEMBERSHIP_INTENT_DIR)? {
+        if intent.get("schema_version").and_then(Value::as_str)
+            != Some("ioi.outcome-room-system-membership-intent.v2")
+        {
+            return Err(verr(
+                "outcome_room_recovery_retired_parallel_spine",
+                format!(
+                    "membership intent '{intent_key}' predates ADR 0030 and cannot replay a room-owned receipt spine"
+                ),
+            ));
+        }
         let room_tail = exact_string(&intent, "/room_tail", "outcome_room_recovery_invalid")?;
-        let prior_root = exact_string(
-            &intent,
-            "/prior_room_state_root",
-            "outcome_room_recovery_invalid",
-        )?;
         let prior_room = intent.get("prior_room").ok_or_else(|| {
             verr(
                 "outcome_room_recovery_invalid",
-                "membership intent omits its exact predecessor room",
+                "membership intent omits prior room",
             )
         })?;
         let prior_goal_run = intent.get("prior_goal_run").ok_or_else(|| {
             verr(
                 "outcome_room_recovery_invalid",
-                "membership intent omits its exact predecessor GoalRun",
+                "membership intent omits prior GoalRun",
             )
         })?;
-        let room = intent.get("room").ok_or_else(|| {
+        let candidate_room = intent.get("candidate_room").ok_or_else(|| {
             verr(
                 "outcome_room_recovery_invalid",
-                "membership intent omits room",
+                "membership intent omits candidate room",
             )
         })?;
-        let receipt = intent.get("receipt").ok_or_else(|| {
+        let resulting_goal_run = intent.get("resulting_goal_run").ok_or_else(|| {
             verr(
                 "outcome_room_recovery_invalid",
-                "membership intent omits receipt",
+                "membership intent omits resulting GoalRun",
             )
         })?;
         let operation = intent.get("operation").ok_or_else(|| {
@@ -5407,6 +4654,11 @@ pub(crate) fn complete_pending(data_dir: &str) -> Result<(), VErr> {
                 "membership intent omits operation",
             )
         })?;
+        let expected_head = exact_string(
+            &intent,
+            "/expected_agentgres_head",
+            "outcome_room_recovery_invalid",
+        )?;
         let goal_run_id = exact_string(&intent, "/goal_run_id", "outcome_room_recovery_invalid")?;
         let goal_run_ref = exact_string(&intent, "/goal_run_ref", "outcome_room_recovery_invalid")?;
         let expected_goal_root = exact_string(
@@ -5419,71 +4671,65 @@ pub(crate) fn complete_pending(data_dir: &str) -> Result<(), VErr> {
             "/resulting_goal_run_record_root",
             "outcome_room_recovery_invalid",
         )?;
-        if intent.get("schema_version").and_then(Value::as_str)
-            != Some("ioi.outcome-room-membership-admission-intent.v1")
-            || prior_room.get("room_state_root").and_then(Value::as_str) != Some(prior_root)
-            || state_root(prior_room)? != prior_root
-            || prior_room.get("outcome_room_id").and_then(Value::as_str)
-                != Some(format!("outcome-room://{room_tail}").as_str())
+        let at = exact_string(&intent, "/at", "outcome_room_recovery_invalid")?;
+        let transition = MembershipTransition::from_operation(operation)?;
+        let room_ref = format!("outcome-room://{room_tail}");
+        let operation_root =
+            jcs_root("ioi.outcome-room-system-operation-jcs-sha256.v1", operation)?;
+        let expected_key = format!(
+            "orop_{}",
+            operation_root.strip_prefix("sha256:").unwrap_or_default()
+        );
+        validate_current_room_contract(prior_room)?;
+        validate_current_room_contract(candidate_room)?;
+        let mut expected_candidate = prior_room.clone();
+        match transition {
+            MembershipTransition::Attach => {
+                append_unique(
+                    &mut expected_candidate,
+                    "member_goal_run_refs",
+                    json!(goal_run_ref),
+                )?;
+            }
+            MembershipTransition::Detach => {
+                let members = expected_candidate
+                    .get_mut("member_goal_run_refs")
+                    .and_then(Value::as_array_mut)
+                    .ok_or_else(|| {
+                        verr(
+                            "outcome_room_recovery_invalid",
+                            "prior room omits membership set",
+                        )
+                    })?;
+                members.retain(|value| value.as_str() != Some(goal_run_ref));
+            }
+        }
+        let mut expected_goal_run = prior_goal_run.clone();
+        expected_goal_run["outcome_room_ref"] = match transition {
+            MembershipTransition::Attach => json!(room_ref),
+            MembershipTransition::Detach => Value::Null,
+        };
+        expected_goal_run["updated_at"] = json!(at);
+        if expected_key != intent_key
+            || prior_room.get("outcome_room_id").and_then(Value::as_str) != Some(room_ref.as_str())
+            || prior_room.get("room_state_root").and_then(Value::as_str) != Some(expected_head)
+            || prior_room
+                .get("latest_transition_commitment_ref")
+                .and_then(Value::as_str)
+                != Some(agentgres_room_transition_ref(room_tail, expected_head).as_str())
+            || candidate_room != &expected_candidate
             || prior_goal_run.get("goal_run_id").and_then(Value::as_str) != Some(goal_run_id)
             || prior_goal_run.get("goal_ref").and_then(Value::as_str) != Some(goal_run_ref)
             || goal_run_record_root(prior_goal_run)? != expected_goal_root
-        {
-            return Err(verr(
-                "outcome_room_recovery_invalid",
-                format!("membership intent '{intent_key}' detaches its exact predecessors"),
-            ));
-        }
-        validate_current_room_contract(prior_room)?;
-        verify_rooted_record(TRANSITION_OPERATION_DOMAIN, "operation_root", operation)?;
-        verify_rooted_record(RECEIPT_DOMAIN, "receipt_root", receipt)?;
-        validate_current_room_contract(room)?;
-        let transition = MembershipTransition::from_operation(operation)?;
-        validate_membership_relation(
-            prior_room,
-            prior_goal_run,
-            prior_room["outcome_room_id"].as_str().unwrap_or_default(),
-            goal_run_ref,
-            transition,
-        )?;
-        let at = exact_string(operation, "/at", "outcome_room_recovery_invalid")?;
-        let (constructor_room, constructor_receipt, constructor_operation) =
-            build_membership_transition(prior_room, prior_goal_run, at, transition)?;
-        if constructor_room != *room
-            || constructor_receipt != *receipt
-            || constructor_operation != *operation
-            || intent.get("at").and_then(Value::as_str) != Some(at)
-        {
-            return Err(verr(
-                "outcome_room_recovery_invalid",
-                format!(
-                    "membership intent '{intent_key}' is not constructor-exact from its predecessors"
-                ),
-            ));
-        }
-        let resulting_goal_run = operation.get("resulting_goal_run").ok_or_else(|| {
-            verr(
-                "outcome_room_recovery_invalid",
-                "membership operation omits resulting GoalRun",
-            )
-        })?;
-        let recomputed_resulting_goal_root = goal_run_record_root(resulting_goal_run)?;
-        let resulting_backlink = resulting_goal_run
-            .get("outcome_room_ref")
-            .and_then(Value::as_str)
-            .filter(|value| !value.is_empty());
-        let expected_resulting_backlink = match transition {
-            MembershipTransition::Attach => room.get("outcome_room_id").and_then(Value::as_str),
-            MembershipTransition::Detach => None,
-        };
-        let operation_key = key_for(operation, "operation_root", "orto_")?;
-        if operation_key != intent_key
-            || operation.get("resulting_room") != Some(room)
-            || receipt.get("receipt_type").and_then(Value::as_str)
-                != Some(transition.receipt_type())
-            || resulting_goal_run.get("goal_ref").and_then(Value::as_str) != Some(goal_run_ref)
-            || resulting_backlink != expected_resulting_backlink
-            || recomputed_resulting_goal_root != resulting_goal_root
+            || resulting_goal_run != &expected_goal_run
+            || goal_run_record_root(resulting_goal_run)? != resulting_goal_root
+            || operation.get("schema_version").and_then(Value::as_str)
+                != Some("ioi.outcome-room-system-operation.v1")
+            || operation.get("operation_kind").and_then(Value::as_str)
+                != Some(transition.operation_kind())
+            || operation.get("outcome_room_ref").and_then(Value::as_str) != Some(room_ref.as_str())
+            || operation.get("room_system_id") != prior_room.get("system_id")
+            || operation.get("goal_run_ref").and_then(Value::as_str) != Some(goal_run_ref)
             || operation
                 .get("expected_goal_run_record_root")
                 .and_then(Value::as_str)
@@ -5492,13 +4738,50 @@ pub(crate) fn complete_pending(data_dir: &str) -> Result<(), VErr> {
                 .get("resulting_goal_run_record_root")
                 .and_then(Value::as_str)
                 != Some(resulting_goal_root)
+            || operation.get("resulting_goal_run") != Some(resulting_goal_run)
+            || operation.get("at").and_then(Value::as_str) != Some(at)
         {
             return Err(verr(
                 "outcome_room_recovery_invalid",
-                format!("membership intent '{intent_key}' is detached"),
+                format!(
+                    "membership intent '{intent_key}' is detached from its Agentgres operation or exact room/GoalRun predecessors"
+                ),
             ));
         }
-        validate_recovery_room_head(data_dir, room_tail, Some(prior_root), room)?;
+        let current_room = super::outcome_room_routes::resolve_room_strict(data_dir, &room_ref)
+            .map_err(|message| verr("outcome_room_recovery_source_unreadable", message))?
+            .ok_or_else(|| {
+                verr(
+                    "outcome_room_recovery_head_conflict",
+                    "room disappeared before membership recovery",
+                )
+            })?;
+        let current_operation =
+            super::substrate_store::read_outcome_room_system_operation(data_dir, room_tail)
+                .map_err(|error| {
+                    verr(
+                        "outcome_room_agentgres_projection_unavailable",
+                        error.to_string(),
+                    )
+                })?
+                .ok_or_else(|| {
+                    verr(
+                        "outcome_room_recovery_head_conflict",
+                        "room Agentgres operation head disappeared before membership recovery",
+                    )
+                })?;
+        let projected_after_admission = if current_operation.operation.payload == *operation {
+            Some(project_room_admission(room_tail, candidate_room, &current_operation)?.0)
+        } else {
+            None
+        };
+        if current_room != *prior_room && projected_after_admission.as_ref() != Some(&current_room)
+        {
+            return Err(verr(
+                "outcome_room_recovery_head_conflict",
+                "room projection diverged from both sides of the retained membership intent",
+            ));
+        }
         let current_goal_run = strict_goal_run_census(data_dir)?
             .into_iter()
             .find(|record| record.get("goal_run_id").and_then(Value::as_str) == Some(goal_run_id))
@@ -5508,35 +4791,27 @@ pub(crate) fn complete_pending(data_dir: &str) -> Result<(), VErr> {
                     "membership GoalRun disappeared before recovery",
                 )
             })?;
-        let current_goal_root = goal_run_record_root(&current_goal_run)?;
-        if current_goal_root != expected_goal_root && current_goal_root != resulting_goal_root {
+        if current_goal_run != *prior_goal_run && current_goal_run != *resulting_goal_run {
             return Err(verr(
                 "outcome_room_recovery_head_conflict",
-                "membership recovery refuses a divergent GoalRun head",
+                "GoalRun diverged from both sides of the retained membership intent",
             ));
         }
-        let receipt_key = key_for(receipt, "receipt_root", "orrc_")?;
-        reserve_exact_room_successor(data_dir, operation)?;
-        admit_required(
-            TRANSITION_OPERATION_DOMAIN,
+        let _ = finalize_membership(
             data_dir,
-            &operation_key,
+            room_tail,
+            prior_room,
+            prior_goal_run,
+            candidate_room,
+            resulting_goal_run,
             operation,
-        )?;
-        admit_required(RECEIPT_DOMAIN, data_dir, &receipt_key, receipt)?;
-        persist_local(RECEIPT_DIR, data_dir, &receipt_key, receipt)?;
-        stamp_goal_run_membership(
-            data_dir,
+            &intent_key,
+            expected_head,
             goal_run_id,
             goal_run_ref,
-            room["outcome_room_id"].as_str().unwrap_or_default(),
             expected_goal_root,
             resulting_goal_root,
-            operation["at"].as_str().unwrap_or_default(),
-            transition,
         )?;
-        persist_local(ROOM_DIR, data_dir, room_tail, room)?;
-        remove_intent(data_dir, MEMBERSHIP_INTENT_DIR, &operation_key)?;
     }
     Ok(())
 }
@@ -5545,20 +4820,22 @@ pub(crate) fn complete_pending(data_dir: &str) -> Result<(), VErr> {
 mod tests {
     use super::*;
 
-    const WORK_RESULT_V2_CONTRACT: &str = "schema://ioi/foundations/work-result/v2";
-    const WORK_RESULT_V2_POSITIVE_FIXTURE_PATH: &str =
-        "docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-hosted-admitted.json";
-    const WORK_RESULT_V2_POSITIVE_FIXTURE: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-hosted-admitted.json"
-    ));
+    const WORK_RESULT_V3_CONTRACT: &str = "schema://ioi/foundations/work-result/v3";
     const OUTCOME_ROOM_V2_POSITIVE_FIXTURE: &str = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json"
     ));
-    const OUTCOME_DELTA_V2_POSITIVE_FIXTURE: &str = include_str!(concat!(
+    const WORK_RESULT_V3_POSITIVE_FIXTURE: &str = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-hosted-admitted.json"
+        "/../../docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-hosted-admitted.json"
+    ));
+    const WORK_RESULT_V3_DIRECT_FIXTURE: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-direct-non-room.json"
+    ));
+    const OUTCOME_DELTA_V3_POSITIVE_FIXTURE: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json"
     ));
 
     fn owner_child_guard_dir(tag: &str) -> std::path::PathBuf {
@@ -5598,69 +4875,12 @@ mod tests {
         );
     }
 
-    fn registered_positive_work_result_v2() -> Value {
-        let registration =
-            ioi_types::app::generated::architecture_contracts::ARCHITECTURE_CONTRACT_FIXTURES
-                .iter()
-                .find(|fixture| {
-                    fixture.contract_id == WORK_RESULT_V2_CONTRACT
-                        && fixture.path == WORK_RESULT_V2_POSITIVE_FIXTURE_PATH
-                })
-                .expect("the WorkResult v2 positive fixture is registered");
-        assert!(registration.expected_schema_accept);
-        assert!(registration.expected_accept);
-        assert_eq!(registration.expected_failure, None);
-        assert_eq!(registration.expected_rule_id, None);
-
-        let record: Value = serde_json::from_str(WORK_RESULT_V2_POSITIVE_FIXTURE)
-            .expect("the registered WorkResult v2 positive fixture contains JSON");
-        canonical_contract(WORK_RESULT_V2_CONTRACT, &record)
-            .expect("the registered WorkResult v2 positive fixture validates canonically");
+    fn positive_work_result_v3() -> Value {
+        let record: Value = serde_json::from_str(WORK_RESULT_V3_POSITIVE_FIXTURE)
+            .expect("the registered WorkResult v3 positive fixture contains JSON");
+        canonical_contract(WORK_RESULT_V3_CONTRACT, &record)
+            .expect("the registered WorkResult v3 positive fixture validates canonically");
         record
-    }
-
-    fn owner_child_guard_room(record: &Value) -> Value {
-        let admission = record
-            .get("room_admission")
-            .and_then(Value::as_object)
-            .expect("the registered positive fixture carries room admission coordinates");
-        json!({
-            "system_id":admission["room_system_id"],
-            "outcome_room_id":admission["outcome_room_ref"],
-            "latest_sequence":admission["expected_room_revision"],
-            "latest_transition_commitment_ref":admission["expected_predecessor_commitment_ref"],
-            "coordination_policy_ref":admission["admission_policy_ref"],
-        })
-    }
-
-    fn alter_one_canonical_admission_field(
-        original: &Value,
-        field: &str,
-        replacement: Value,
-    ) -> Value {
-        let pointer = format!("/room_admission/{field}");
-        let prior = original
-            .pointer(&pointer)
-            .cloned()
-            .expect("the targeted room-admission field exists");
-        assert_ne!(prior, replacement, "the mutation must change its one field");
-
-        let mut altered = original.clone();
-        *altered
-            .pointer_mut(&pointer)
-            .expect("the targeted room-admission field remains addressable") = replacement;
-        canonical_contract(WORK_RESULT_V2_CONTRACT, &altered)
-            .expect("the one-field admission mutation remains schema and invariant valid");
-
-        let mut reconstructed = altered.clone();
-        *reconstructed
-            .pointer_mut(&pointer)
-            .expect("the targeted room-admission field remains addressable") = prior;
-        assert_eq!(
-            reconstructed, *original,
-            "only the named room-admission field may differ from the registered fixture"
-        );
-        altered
     }
 
     fn owner_plane_work_result_candidate(fixture: &Value) -> Value {
@@ -5669,8 +4889,11 @@ mod tests {
         // become canonical only after `prepare_owner_record_for_room` derives them from the
         // current room head. The registered admitted fixture itself was validated before this
         // conversion; do not mislabel the transitional candidate as a canonical wire record.
-        candidate["outcome_room_ref"] = Value::Null;
-        candidate["room_admission"] = Value::Null;
+        candidate
+            .as_object_mut()
+            .expect("the WorkResult fixture is an object")
+            .remove("room_admission");
+        candidate["system_binding"] = Value::Null;
         candidate
     }
 
@@ -5678,8 +4901,6 @@ mod tests {
         for family in [
             super::super::work_result_routes::RESULT_DIR,
             CHILD_INTENT_DIR,
-            RECEIPT_DIR,
-            OBJECT_DIR,
         ] {
             assert!(
                 !data_dir.join(family).exists(),
@@ -5694,11 +4915,13 @@ mod tests {
         let room_ref = "outcome-room://m4/strict-projection-parent";
         let result_ref = "work-result://m4/strict-projection-parent";
         let delta_ref = "outcome-delta://m4/strict-projection-parent";
-        let delta = json!({
-            "schema_version":"ioi.foundations.outcome-delta.v2",
-            "outcome_delta_id":delta_ref,
-            "proposed_by_ref":result_ref,
-        });
+        let mut delta: Value = serde_json::from_str(OUTCOME_DELTA_V3_POSITIVE_FIXTURE)
+            .expect("the registered OutcomeDelta v3 fixture contains JSON");
+        delta["outcome_delta_id"] = json!(delta_ref);
+        delta["proposed_by_ref"] = json!(result_ref);
+        delta["system_binding"]["parent_scope_ref"] = json!(room_ref);
+        canonical_contract("schema://ioi/foundations/outcome-delta/v3", &delta)
+            .expect("the projection source must be valid before its parent backlink is read");
         let delta_dir = data_dir.join(super::super::work_result_routes::DELTA_DIR);
         let result_dir = data_dir.join(super::super::work_result_routes::RESULT_DIR);
         std::fs::create_dir_all(&delta_dir).unwrap();
@@ -5719,7 +4942,7 @@ mod tests {
         let error = verify_owner_projection_backlinks(
             data_dir.to_str().unwrap(),
             room_ref,
-            "schema://ioi/foundations/outcome-delta/v2",
+            "schema://ioi/foundations/outcome-delta/v3",
             delta_ref,
             &delta,
             "receipt://outcome-room/m4/strict-projection-parent",
@@ -5737,13 +4960,9 @@ mod tests {
     fn projection_object_validation_order_is_admission_order_not_agentgres_content_order() {
         let object = |object_ref: &str, object_root: &str, admitted_sequence: Option<u64>| {
             json!({
+                "sequence":admitted_sequence,
                 "object_ref":object_ref,
                 "object_root":object_root,
-                "admitted_object":{
-                    "room_admission":{
-                        "admitted_sequence":admitted_sequence,
-                    },
-                },
             })
         };
         let result = object(
@@ -5784,13 +5003,123 @@ mod tests {
         );
     }
 
+    fn exact_room_operation(
+        room: &Value,
+        sequence: u64,
+        expected_head: Option<&str>,
+        head_digit: char,
+        admission_digit: char,
+    ) -> agentgres::mux::ExactProjection {
+        let room_ref = room["outcome_room_id"].as_str().unwrap();
+        let room_tail = room_ref.strip_prefix("outcome-room://").unwrap();
+        let head = format!("sha256:{}", head_digit.to_string().repeat(64));
+        let admission_root = format!("sha256:{}", admission_digit.to_string().repeat(64));
+        agentgres::mux::ExactProjection {
+            operation: agentgres::Operation {
+                domain: format!("outcome-room-system-operations.{room_tail}"),
+                object_ref: format!("agentgres://outcome-room-system-operations/{room_tail}"),
+                op_kind: if sequence == 0 {
+                    "outcome_room.room_genesis".to_owned()
+                } else {
+                    "outcome_room.room_child_admitted".to_owned()
+                },
+                expected_head: expected_head.map(str::to_owned),
+                expected_absent: sequence == 0,
+                payload: json!({
+                    "schema_version":"ioi.outcome-room-system-operation.v1",
+                    "operation_kind":if sequence == 0 { "room_genesis" } else { "room_child_admitted" },
+                    "outcome_room_ref":room_ref,
+                    "room_system_id":room["system_id"],
+                    "expected_system_predecessor":{
+                        "transition_ref":"system-transition://demo/one",
+                    },
+                    "at":"2026-07-31T12:00:00Z",
+                }),
+                recorded_at_ms: sequence,
+                idem_key: format!("room-test-{sequence}"),
+            },
+            seq: sequence,
+            head,
+            admission_batch_seq: sequence,
+            admission_root,
+            terminal_root: format!("sha256:{}", "e".repeat(64)),
+        }
+    }
+
+    #[test]
+    fn projection_chain_binds_every_agentgres_receipt_in_order() {
+        let mut room = positive_outcome_room_v2();
+        let first = exact_room_operation(&room, 0, None, 'a', 'b');
+        let second = exact_room_operation(&room, 1, Some(&first.head), 'c', 'd');
+        room["latest_sequence"] = json!(1);
+        room["latest_transition_commitment_ref"] =
+            json!(agentgres_room_transition_ref("demo", &second.head));
+        room["room_state_root"] = json!(second.head);
+        room["room_receipt_root"] = json!(second.admission_root);
+        room["admission_and_replay_refs"] = json!([
+            agentgres_room_receipt_ref("demo", 0, &first.admission_root),
+            agentgres_room_receipt_ref("demo", 1, &second.admission_root),
+        ]);
+
+        assert_eq!(
+            verify_projection_operation_chain(&room, vec![first.clone(), second.clone()])
+                .unwrap()
+                .len(),
+            2
+        );
+        room["admission_and_replay_refs"][0] = json!("receipt://agentgres/substituted");
+        assert_eq!(
+            verify_projection_operation_chain(&room, vec![first, second])
+                .unwrap_err()
+                .0,
+            "outcome_room_projection_source_stale"
+        );
+    }
+
+    #[test]
+    fn mutation_response_preflight_is_conservative_before_durable_admission() {
+        let candidate = positive_outcome_room_v2();
+        let exact = exact_room_operation(
+            &candidate,
+            2,
+            candidate["room_state_root"].as_str(),
+            'a',
+            'b',
+        );
+        let operation = exact.operation.payload.clone();
+        let (actual_room, actual_admission) =
+            project_room_admission("demo", &candidate, &exact).unwrap();
+        let (preflight_room, preflight_admission) = preflight_room_admission(
+            "demo",
+            &candidate,
+            &operation,
+            exact.operation.expected_head.as_deref(),
+            &exact.operation.op_kind,
+        )
+        .unwrap();
+        let actual = json!({
+            "outcome_room":actual_room,
+            "agentgres_admission":actual_admission,
+            "replayed":false,
+        });
+        let preflight = json!({
+            "outcome_room":preflight_room,
+            "agentgres_admission":preflight_admission,
+            "replayed":false,
+        });
+        assert!(
+            serde_json::to_vec(&preflight).unwrap().len()
+                >= serde_json::to_vec(&actual).unwrap().len()
+        );
+    }
+
     #[test]
     fn owner_publication_preflight_refuses_malformed_and_relocated_registry_without_mutation() {
         let data_dir = owner_child_guard_dir("owner-publication-strict-census");
         let result_dir = data_dir.join(super::super::work_result_routes::RESULT_DIR);
         std::fs::create_dir_all(&result_dir).unwrap();
         let candidate = json!({
-            "schema_version":"ioi.foundations.work-result.v2",
+            "schema_version":"ioi.foundations.work-result.v3",
             "work_result_id":"work-result://m4/strict-preflight-candidate",
         });
 
@@ -5808,7 +5137,7 @@ mod tests {
 
         let relocated_path = result_dir.join("relocated.json");
         let relocated = json!({
-            "schema_version":"ioi.foundations.work-result.v2",
+            "schema_version":"ioi.foundations.work-result.v3",
             "work_result_id":"work-result://m4/relocated-existing",
         });
         let relocated_bytes = serde_json::to_vec(&relocated).unwrap();
@@ -5829,15 +5158,15 @@ mod tests {
         let data_dir = owner_child_guard_dir("terminal-delta-semantic-retry");
         let delta_dir = data_dir.join(super::super::work_result_routes::DELTA_DIR);
         std::fs::create_dir_all(&delta_dir).unwrap();
-        let mut existing: Value = serde_json::from_str(OUTCOME_DELTA_V2_POSITIVE_FIXTURE)
-            .expect("the registered OutcomeDelta v2 fixture contains JSON");
+        let mut existing: Value = serde_json::from_str(OUTCOME_DELTA_V3_POSITIVE_FIXTURE)
+            .expect("the registered OutcomeDelta v3 fixture contains JSON");
         existing["precondition_and_invariant_refs"] =
             json!(["policy://alpha/retain", "state://alpha/revision/7"]);
         existing["verifier_and_acceptance_refs"] =
             json!(["gate://alpha/accept", "verifier-path://alpha/one"]);
         existing["information_flow_label_refs"] =
             json!(["ifc-label://alpha/private", "ifc-label://alpha/public"]);
-        canonical_contract("schema://ioi/foundations/outcome-delta/v2", &existing)
+        canonical_contract("schema://ioi/foundations/outcome-delta/v3", &existing)
             .expect("the expanded existing OutcomeDelta remains canonical");
         let existing_ref = existing["outcome_delta_id"].as_str().unwrap();
         let existing_path = delta_dir.join(format!(
@@ -5856,8 +5185,6 @@ mod tests {
             json!(["verifier-path://alpha/one", "gate://alpha/accept"]);
         exact_retry["information_flow_label_refs"] =
             json!(["ifc-label://alpha/public", "ifc-label://alpha/private"]);
-        exact_retry["room_admission"]["admission_decision_ref"] = json!("decision://alpha/retry");
-        exact_retry["room_admission"]["admission_receipt_ref"] = json!("receipt://alpha/retry");
         let refusal = refuse_terminal_outcome_delta_retry(data_dir.to_str().unwrap(), &exact_retry)
             .expect_err("the complete semantic retry must be refused");
         assert_eq!(refusal.0, "outcome_room_delta_post_terminal_retry_refused");
@@ -5881,7 +5208,7 @@ mod tests {
             .find("refuse_terminal_outcome_delta_retry")
             .expect("owner admission applies the semantic retry fence");
         let durable_finalize = admission
-            .find("finalize_child(")
+            .find("finalize_composed_child(")
             .expect("owner admission retains its durable finalizer");
         assert!(
             lock < semantic_fence && semantic_fence < durable_finalize,
@@ -5897,7 +5224,7 @@ mod tests {
         let result_dir = data_dir.join(super::super::work_result_routes::RESULT_DIR);
         std::fs::create_dir_all(&intent_dir).unwrap();
         std::fs::create_dir_all(&result_dir).unwrap();
-        let owner_record = registered_positive_work_result_v2();
+        let owner_record = positive_work_result_v3();
         let intent_path = intent_dir.join("pending-owner.json");
         let intent_bytes = serde_json::to_vec(&json!({
             "owner_publication_family":super::super::work_result_routes::RESULT_DIR,
@@ -5922,7 +5249,7 @@ mod tests {
 
         let relocated_path = result_dir.join("relocated-pending-owner.json");
         let relocated_bytes = serde_json::to_vec(&json!({
-            "schema_version":"ioi.foundations.work-result.v2",
+            "schema_version":"ioi.foundations.work-result.v3",
             "work_result_id":"work-result://m4/relocated-pending-owner",
         }))
         .unwrap();
@@ -5941,12 +5268,9 @@ mod tests {
         let recovery_preflight = startup
             .find("outcome_room_system_routes::preflight_pending_owner_registry_census")
             .expect("startup invokes the pending-child owner-registry preflight");
-        let compatibility_migration = startup
-            .find("goalrun_routes::migrate_legacy_goal_run_work_results")
-            .expect("startup retains the predecessor compatibility migration");
         assert!(
-            recovery_preflight < compatibility_migration,
-            "pending OutcomeRoom recovery must own its typed owner-registry refusal before generic migration"
+            recovery_preflight > 0,
+            "startup must retain the pending OutcomeRoom recovery preflight"
         );
 
         std::fs::remove_dir_all(data_dir).unwrap();
@@ -5970,15 +5294,12 @@ mod tests {
     }
 
     #[test]
-    fn owner_child_admission_refuses_wrong_system_guard_before_publication() {
-        let data_dir = owner_child_guard_dir("wrong-system");
-        let fixture = registered_positive_work_result_v2();
-        let room = owner_child_guard_room(&fixture);
-        let record = alter_one_canonical_admission_field(
-            &fixture,
-            "room_system_id",
-            json!("system://ioi/outcome-room/wrong"),
-        );
+    fn owner_child_admission_refuses_parallel_spine_before_publication() {
+        let data_dir = owner_child_guard_dir("parallel-spine");
+        let fixture = positive_work_result_v3();
+        let room = positive_outcome_room_v2();
+        let mut record = owner_plane_work_result_candidate(&fixture);
+        record["room_admission"] = Value::Null;
 
         let error = prepare_owner_record_for_room(
             data_dir.to_str().unwrap(),
@@ -5986,6 +5307,45 @@ mod tests {
             &record,
             "2026-07-30T00:00:00Z",
             None,
+        )
+        .unwrap_err();
+        assert_eq!(error.0, "outcome_room_parallel_admission_spine_refused");
+        assert_owner_child_guard_precedes_publication(&data_dir);
+        std::fs::remove_dir_all(data_dir).unwrap();
+    }
+
+    #[test]
+    fn owner_child_admission_refuses_caller_owned_binding_before_publication() {
+        let data_dir = owner_child_guard_dir("caller-binding");
+        let record = positive_work_result_v3();
+        let room = positive_outcome_room_v2();
+
+        let error = prepare_owner_record_for_room(
+            data_dir.to_str().unwrap(),
+            &room,
+            &record,
+            "2026-07-30T00:00:00Z",
+            None,
+        )
+        .unwrap_err();
+        assert_eq!(error.0, "outcome_system_binding_plane_owned");
+        assert_owner_child_guard_precedes_publication(&data_dir);
+        std::fs::remove_dir_all(data_dir).unwrap();
+    }
+
+    #[test]
+    fn owner_child_admission_refuses_wrong_system_binding_before_agentgres_read() {
+        let data_dir = owner_child_guard_dir("wrong-system-binding");
+        let room = positive_outcome_room_v2();
+        let mut record = positive_work_result_v3();
+        record["system_binding"]["system_id"] = json!("system://ioi/outcome-room/wrong");
+        let error = build_composed_child_operation(
+            data_dir.to_str().unwrap(),
+            "alpha",
+            &room,
+            WORK_RESULT_V3_CONTRACT,
+            &record,
+            "2026-07-30T00:00:00Z",
         )
         .unwrap_err();
         assert_eq!(error.0, "outcome_room_wrong_system_child_refused");
@@ -5994,74 +5354,14 @@ mod tests {
     }
 
     #[test]
-    fn owner_child_admission_refuses_stale_child_guard_before_publication() {
-        let data_dir = owner_child_guard_dir("stale-child");
-        let fixture = registered_positive_work_result_v2();
-        let room = owner_child_guard_room(&fixture);
-        let record = alter_one_canonical_admission_field(
-            &fixture,
-            "expected_room_revision",
-            json!(room["latest_sequence"].as_u64().unwrap() - 1),
-        );
-
-        let error = prepare_owner_record_for_room(
-            data_dir.to_str().unwrap(),
-            &room,
-            &record,
-            "2026-07-30T00:00:00Z",
-            None,
-        )
-        .unwrap_err();
-        assert_eq!(error.0, "outcome_room_stale_child_refused");
-        assert_owner_child_guard_precedes_publication(&data_dir);
-        std::fs::remove_dir_all(data_dir).unwrap();
-    }
-
-    #[test]
-    fn owner_child_admission_refuses_stale_verdict_guard_before_publication() {
-        let data_dir = owner_child_guard_dir("stale-verdict");
-        let fixture = registered_positive_work_result_v2();
-        let room = owner_child_guard_room(&fixture);
-        let mut record = fixture.clone();
-        record["room_admission"]["admission_status"] = json!("proposed");
-        for field in [
-            "admitted_sequence",
-            "resulting_room_revision",
-            "resulting_transition_commitment_ref",
-            "resulting_room_state_root",
-            "resulting_receipt_root",
-        ] {
-            record["room_admission"][field] = Value::Null;
-        }
-        canonical_contract(WORK_RESULT_V2_CONTRACT, &record)
-            .expect("the proposed probe is canonical before the stale terminal refs are refused");
-        assert!(
-            record["room_admission"]["admission_decision_ref"].is_string(),
-            "the canonical proposed probe deliberately retains one terminal verdict ref"
-        );
-
-        let error = prepare_owner_record_for_room(
-            data_dir.to_str().unwrap(),
-            &room,
-            &record,
-            "2026-07-30T00:00:00Z",
-            None,
-        )
-        .unwrap_err();
-        assert_eq!(error.0, "outcome_room_stale_verdict_refused");
-        assert_owner_child_guard_precedes_publication(&data_dir);
-        std::fs::remove_dir_all(data_dir).unwrap();
-    }
-
-    #[test]
     fn owner_child_admission_refuses_missing_or_empty_projection_labels_guard_before_publication() {
         let data_dir = owner_child_guard_dir("projection-labels");
-        let fixture = registered_positive_work_result_v2();
-        let room = owner_child_guard_room(&fixture);
+        let fixture = positive_work_result_v3();
+        let room = positive_outcome_room_v2();
 
         let mut empty_admitted = fixture.clone();
         empty_admitted["information_flow_label_refs"] = json!([]);
-        canonical_contract(WORK_RESULT_V2_CONTRACT, &empty_admitted)
+        canonical_contract(WORK_RESULT_V3_CONTRACT, &empty_admitted)
             .expect("an empty label array remains schema-valid before the room guard refuses it");
         let empty = owner_plane_work_result_candidate(&empty_admitted);
 
@@ -6072,7 +5372,7 @@ mod tests {
             .remove("information_flow_label_refs")
             .expect("the required label field existed before the missing-field probe");
         assert!(
-            canonical_contract(WORK_RESULT_V2_CONTRACT, &missing_admitted).is_err(),
+            canonical_contract(WORK_RESULT_V3_CONTRACT, &missing_admitted).is_err(),
             "the registered schema must continue to reject a missing required label field"
         );
         let missing = owner_plane_work_result_candidate(&missing_admitted);
@@ -6163,75 +5463,16 @@ mod tests {
     }
 
     #[test]
-    fn membership_detach_transition_is_dual_head_rooted() {
-        let room = positive_outcome_room_v2();
-        let goal_run = json!({
-            "goal_run_id":"demo/1",
-            "goal_ref":"goal://demo/1",
-            "outcome_room_ref":"outcome-room://demo",
-            "updated_at":"2026-07-30T11:59:00Z",
-        });
-        validate_membership_relation(
-            &room,
-            &goal_run,
-            "outcome-room://demo",
-            "goal://demo/1",
-            MembershipTransition::Detach,
-        )
-        .unwrap();
-        let expected_goal_root = goal_run_record_root(&goal_run).unwrap();
-        let (detached_room, receipt, operation) = build_membership_transition(
-            &room,
-            &goal_run,
-            "2026-07-30T12:00:00Z",
-            MembershipTransition::Detach,
-        )
-        .unwrap();
-
-        assert_eq!(detached_room["latest_sequence"], json!(2));
-        assert_eq!(detached_room["member_goal_run_refs"], json!([]));
-        assert_eq!(
-            receipt["receipt_type"],
-            json!("goal_run_membership_detachment")
-        );
-        assert_eq!(
-            operation["operation_kind"],
-            json!("goal_run_membership_detached")
-        );
-        assert_eq!(
-            operation["expected_goal_run_record_root"],
-            json!(expected_goal_root)
-        );
-        assert_eq!(
-            operation["resulting_goal_run"]["outcome_room_ref"],
-            Value::Null
-        );
-        assert_eq!(
-            operation["resulting_goal_run_record_root"],
-            json!(goal_run_record_root(&operation["resulting_goal_run"]).unwrap())
-        );
-        assert_eq!(
-            detached_room["room_receipt_root"], receipt["receipt_root"],
-            "the detached room head must seal the same rooted receipt"
-        );
-        verify_rooted_record(TRANSITION_OPERATION_DOMAIN, "operation_root", &operation).unwrap();
-        verify_rooted_record(RECEIPT_DOMAIN, "receipt_root", &receipt).unwrap();
-        canonical_contract(ROOM_CONTRACT, &detached_room).unwrap();
-    }
-
-    #[test]
-    fn membership_attach_refuses_generic_result_when_nullable_alias_is_null() {
+    fn membership_attach_refuses_existing_generic_result_truth() {
         let data_dir = owner_child_guard_dir("attach-after-generic-result");
+        let mut result: Value = serde_json::from_str(WORK_RESULT_V3_DIRECT_FIXTURE).unwrap();
+        result["work_result_id"] = json!("work-result://wr_preexisting");
+        result["work_subject_ref"] = json!("goal://demo/1");
         persist_local(
             super::super::work_result_routes::RESULT_DIR,
             data_dir.to_str().unwrap(),
             "wr_preexisting",
-            &json!({
-                "schema_version":"ioi.hypervisor.work-result.v1",
-                "work_result_id":"work-result://wr_preexisting",
-                "goal_ref":"goal://demo/1",
-                "goal_run_ref":Value::Null,
-            }),
+            &result,
         )
         .unwrap();
 
@@ -6454,55 +5695,8 @@ mod tests {
     }
 
     #[test]
-    fn terminal_room_sequence_refuses_membership_and_child_builds_before_effects() {
-        let mut room = positive_outcome_room_v2();
-        room["latest_sequence"] = json!(M4_TRANSITION_ENTRY_MAX);
-        let goal_run = json!({
-            "goal_run_id":"demo/terminal",
-            "goal_ref":"goal://demo/terminal",
-            "outcome_room_ref":room["outcome_room_id"],
-            "updated_at":"2026-07-30T11:59:00Z",
-        });
-        for transition in [MembershipTransition::Attach, MembershipTransition::Detach] {
-            let error =
-                build_membership_transition(&room, &goal_run, "2026-07-30T12:00:00Z", transition)
-                    .expect_err("sequence 128 must never be constructed");
-            assert_eq!(error.0, "outcome_room_transition_capacity_exceeded");
-        }
-
-        let proposed_child = json!({"schema_version":"ioi.foundations.work-result.v2"});
-        let error = build_child_admission(
-            &room,
-            WORK_RESULT_V2_CONTRACT,
-            &proposed_child,
-            "2026-07-30T12:00:00Z",
-        )
-        .expect_err("a child must not be admitted beyond the terminal room sequence");
-        assert_eq!(error.0, "outcome_room_transition_capacity_exceeded");
-    }
-
-    #[test]
     fn projection_cardinality_and_http_envelope_bounds_fail_typed() {
         let room = positive_outcome_room_v2();
-        let operations = (0..=M4_REPLAY_ENTRY_MAX)
-            .map(|_| (ADMISSION_OPERATION_DOMAIN, json!({})))
-            .collect::<Vec<_>>();
-        assert_eq!(
-            verify_projection_operation_chain(&room, operations)
-                .unwrap_err()
-                .0,
-            "outcome_room_projection_source_unavailable"
-        );
-        assert_eq!(
-            verify_projection_receipts(
-                &room,
-                &[],
-                (0..=M4_REPLAY_ENTRY_MAX).map(|_| json!({})).collect(),
-            )
-            .unwrap_err()
-            .0,
-            "outcome_room_projection_source_unavailable"
-        );
         let object_error = match verify_projection_objects(
             "unused",
             &room,
@@ -6571,38 +5765,46 @@ mod tests {
             "room_state_root":format!("sha256:{}", "a".repeat(64)),
         });
         let object = json!({
-            "object_contract_id":"schema://ioi/foundations/work-result/v2",
-            "object_ref":"work-result://m4/result",
-            "object_root":format!("sha256:{}", "b".repeat(64)),
-            "admitted_object":{
-                "goal_run_ref":"goal://m4/run",
-                "invocation_or_run_ref":"harness-invocation://m4/run",
-            },
+            "work_result_id":"work-result://m4/result",
+            "work_subject_ref":"goal://m4/run",
+            "invocation_or_run_ref":"harness-invocation://m4/run",
         });
-        let receipt = json!({
-            "receipt_ref":"receipt://outcome-room/or_a/sequence/7",
-            "receipt_root":format!("sha256:{}", "c".repeat(64)),
+        let admission = json!({
+            "operation_ref":"agentgres://operation/outcome-room-system/or_a/sequence/7/head/sha256:head",
+            "resulting_head":format!("sha256:{}", "b".repeat(64)),
+            "receipt_ref":"receipt://agentgres/outcome-room-system/or_a/batch/7/root",
+            "bounded_system_predecessor":{"transition_ref":"lifecycle-transition://room/2"},
         });
-        let summary = owner_convergence_summary(&room, &object, &receipt).unwrap();
+        let summary = owner_convergence_summary(
+            &room,
+            "schema://ioi/foundations/work-result/v3",
+            &object,
+            &admission,
+        )
+        .unwrap();
         assert_eq!(summary["goal_run_ref"], json!("goal://m4/run"));
         assert_eq!(
             summary["invocation_or_run_ref"],
             json!("harness-invocation://m4/run")
         );
-        assert_eq!(summary["resulting_room_revision"], json!(7));
+        assert!(summary.get("resulting_room_revision").is_none());
         for duplicated_body in ["goal_run", "harness_invocation", "work_result"] {
             assert!(summary.get(duplicated_body).is_none());
         }
         ensure_serialized_body_bound(&summary, "outcome_room_response_too_large").unwrap();
 
-        let mut delta_object = object;
-        delta_object["object_contract_id"] = json!("schema://ioi/foundations/outcome-delta/v2");
-        delta_object["object_ref"] = json!("outcome-delta://m4/delta");
-        delta_object["admitted_object"] = json!({
+        let delta_object = json!({
+            "outcome_delta_id":"outcome-delta://m4/delta",
             "work_subject_ref":"goal://m4/run",
             "proposed_by_ref":"work-result://m4/result",
         });
-        let delta_summary = owner_convergence_summary(&room, &delta_object, &receipt).unwrap();
+        let delta_summary = owner_convergence_summary(
+            &room,
+            "schema://ioi/foundations/outcome-delta/v3",
+            &delta_object,
+            &admission,
+        )
+        .unwrap();
         assert_eq!(delta_summary["goal_run_ref"], json!("goal://m4/run"));
         assert_eq!(
             delta_summary["parent_work_result_ref"],
@@ -6610,7 +5812,7 @@ mod tests {
         );
 
         let work_result_response = owner_admission_http_response(
-            "schema://ioi/foundations/work-result/v2",
+            "schema://ioi/foundations/work-result/v3",
             json!({"summary":summary}),
         );
         assert_eq!(
@@ -6623,7 +5825,7 @@ mod tests {
             BTreeSet::from(["admission", "ok"])
         );
         let delta_response = owner_admission_http_response(
-            "schema://ioi/foundations/outcome-delta/v2",
+            "schema://ioi/foundations/outcome-delta/v3",
             json!({"summary":delta_summary}),
         );
         assert_eq!(
@@ -6699,12 +5901,18 @@ mod tests {
             "room_admission":{"admission_receipt_ref":"receipt://room/two"},
         });
 
-        let work_summary =
-            safe_room_object_summary("schema://ioi/foundations/work-result/v2", &work_result)
-                .unwrap();
-        let delta_summary =
-            safe_room_object_summary("schema://ioi/foundations/outcome-delta/v2", &outcome_delta)
-                .unwrap();
+        let work_summary = safe_room_object_summary(
+            "schema://ioi/foundations/work-result/v3",
+            &work_result,
+            "receipt://agentgres/room/one",
+        )
+        .unwrap();
+        let delta_summary = safe_room_object_summary(
+            "schema://ioi/foundations/outcome-delta/v3",
+            &outcome_delta,
+            "receipt://agentgres/room/two",
+        )
+        .unwrap();
         let exported = serde_json::to_string(&json!([work_summary, delta_summary])).unwrap();
         for forbidden in [
             "result_payload_ref",
@@ -6740,63 +5948,6 @@ mod tests {
             create_request_root(&first).unwrap(),
             create_request_root(&changed).unwrap()
         );
-    }
-
-    #[test]
-    fn recovery_refuses_to_overwrite_a_newer_room_head() {
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let data_dir = std::env::temp_dir().join(format!(
-            "ioi-outcome-room-recovery-head-{}-{nonce}",
-            std::process::id()
-        ));
-        let room_tail = format!("or_{}", "ab".repeat(32));
-        let room_ref = format!("outcome-room://{room_tail}");
-        let prior_root = format!("sha256:{}", "11".repeat(32));
-        let resulting_root = format!("sha256:{}", "22".repeat(32));
-        let newer_root = format!("sha256:{}", "33".repeat(32));
-        let prior = json!({
-            "outcome_room_id":room_ref,
-            "room_state_root":prior_root,
-        });
-        let resulting = json!({
-            "outcome_room_id":format!("outcome-room://{room_tail}"),
-            "room_state_root":resulting_root,
-        });
-        persist_local(ROOM_DIR, data_dir.to_str().unwrap(), &room_tail, &prior).unwrap();
-        validate_recovery_room_head(
-            data_dir.to_str().unwrap(),
-            &room_tail,
-            prior.get("room_state_root").and_then(Value::as_str),
-            &resulting,
-        )
-        .unwrap();
-
-        let newer = json!({
-            "outcome_room_id":format!("outcome-room://{room_tail}"),
-            "room_state_root":newer_root,
-        });
-        persist_local(ROOM_DIR, data_dir.to_str().unwrap(), &room_tail, &newer).unwrap();
-        let error = validate_recovery_room_head(
-            data_dir.to_str().unwrap(),
-            &room_tail,
-            prior.get("room_state_root").and_then(Value::as_str),
-            &resulting,
-        )
-        .unwrap_err();
-        assert_eq!(error.0, "outcome_room_recovery_head_conflict");
-        std::fs::remove_dir_all(data_dir).unwrap();
-    }
-
-    #[test]
-    fn work_result_head_conflict_retains_the_dependency_recovery_intent() {
-        let dependencies = json!({
-            "schema_version":"ioi.outcome-room-work-result-runtime-dependencies.v1"
-        });
-        assert!(!child_head_conflict_may_remove_intent(Some(&dependencies)));
-        assert!(child_head_conflict_may_remove_intent(None));
     }
 
     #[test]

@@ -129,10 +129,10 @@
       ],
       "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/default-harness-profile.md#goalrun-admission-path-decision",
       "contract_ids": [
-        "schema://ioi/foundations/goal-run-admission-path-decision/v1"
+        "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1"
       ],
       "schema_versions": [
-        "ioi.foundations.goal-run-admission-path-decision.v1"
+        "ioi.applications.ioi-ai.goal-run-admission-path-decision.v1"
       ],
       "registry_resolution": "architecture_contract_registry",
       "classification": "canonical_contract"
@@ -144,7 +144,7 @@
       "semantic_owner_paths": [],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-pursuit.md#goalrunprofileenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/goal-run-profile/v1"
+        "schema://ioi/applications/ioi-ai/goal-run-profile/v1"
       ],
       "schema_versions": [
         "ioi.goal-run-profile.v1"
@@ -221,7 +221,7 @@
       "semantic_owner_paths": [],
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#goalgroundingloopenvelope",
       "contract_ids": [
-        "schema://ioi/foundations/goal-grounding-loop/v1"
+        "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1"
       ],
       "schema_versions": [
         "ioi.goal-grounding-loop.v1"

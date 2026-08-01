@@ -9,8 +9,7 @@
     "schema_version",
     "outcome_delta_id",
     "work_subject_ref",
-    "outcome_room_ref",
-    "room_binding",
+    "system_binding",
     "proposed_by_ref",
     "target_ref",
     "delta_kind",
@@ -44,13 +43,13 @@
         }
       ]
     },
-    "roomBinding": {
+    "systemBinding": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "schema_version",
-        "room_system_id",
-        "outcome_room_ref",
+        "system_id",
+        "parent_scope_ref",
         "proposed_or_issued_by_ref",
         "payload_root",
         "created_at",
@@ -58,19 +57,19 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "ioi.foundations.room-scoped-object-binding.v1"
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
         },
-        "room_system_id": {
+        "system_id": {
           "type": "string",
           "pattern": "^system://[^\\s]{1,500}$"
         },
-        "outcome_room_ref": {
+        "parent_scope_ref": {
           "type": "string",
-          "pattern": "^outcome-room://[^\\s]{1,500}$"
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
         },
         "proposed_or_issued_by_ref": {
           "type": "string",
-          "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
         },
         "payload_root": {
           "type": "string",
@@ -106,23 +105,12 @@
     },
     "work_subject_ref": {
       "type": "string",
-      "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$"
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
     },
-    "outcome_room_ref": {
+    "system_binding": {
       "anyOf": [
         {
-          "type": "string",
-          "pattern": "^outcome-room://[^\\s]{1,500}$"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "room_binding": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/roomBinding"
+          "$ref": "#/$defs/systemBinding"
         },
         {
           "type": "null"
@@ -131,11 +119,11 @@
     },
     "proposed_by_ref": {
       "type": "string",
-      "pattern": "^(?:work-result|attempt|finding|participant-lease)://[^\\s]{1,500}$"
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
     },
     "target_ref": {
       "type": "string",
-      "pattern": "^(?:frontier|finding|ontology|state|capability|policy|routing-prior|service)://[^\\s]{1,500}$"
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
     },
     "delta_kind": {
       "enum": [
@@ -202,30 +190,5 @@
         "rolled_back"
       ]
     }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "outcome_room_ref": {
-            "type": "string"
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "room_binding": {
-            "$ref": "#/$defs/roomBinding"
-          }
-        }
-      },
-      "else": {
-        "properties": {
-          "room_binding": {
-            "type": "null"
-          }
-        }
-      }
-    }
-  ]
+  }
 }

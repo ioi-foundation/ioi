@@ -1,7 +1,7 @@
 {
   "schema_version": "ioi.goal-run-admitted-state.v1",
-  "state_root_ref": "agentgres://state-root/goal-run/gr_demo/sha256:97f14a4d46fa1f181e63978da4745076bc15db1e405b3ddc7f746fd9a099a89e",
-  "state_root": "sha256:97f14a4d46fa1f181e63978da4745076bc15db1e405b3ddc7f746fd9a099a89e",
+  "state_root_ref": "agentgres://state-root/goal-run/gr_demo/sha256:b463b5c48aa0c8c826f04508aacae48a695ae15c5be5480ccc1fd37e2c535420",
+  "state_root": "sha256:b463b5c48aa0c8c826f04508aacae48a695ae15c5be5480ccc1fd37e2c535420",
   "goal_run_ref": "goal://gr_demo",
   "activation_ref": "goal-run-activation://gra_demo",
   "source_context_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -27,7 +27,7 @@
       "obligation_id": "receipt-obligation://goal-run-activation/gra_demo/0",
       "boundary_event": "activation",
       "receipt_type": "goal_run_activation",
-      "receipt_profile_ref": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+      "receipt_profile_ref": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
       "bound_fact_requirement_refs": [
         "goal://gr_demo",
         "goal-run-activation://gra_demo"

@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "schema://ioi/foundations/room-scoped-object-binding/v1",
-  "title": "RoomScopedObjectBinding",
-  "x-ioi-schema-version": "ioi.foundations.room-scoped-object-binding.v1",
+  "$id": "schema://ioi/foundations/system-scoped-object-binding/v1",
+  "title": "SystemScopedObjectBinding",
+  "x-ioi-schema-version": "ioi.foundations.system-scoped-object-binding.v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
-    "room_system_id",
-    "outcome_room_ref",
+    "system_id",
+    "parent_scope_ref",
     "proposed_or_issued_by_ref",
     "payload_root",
     "created_at",
@@ -16,19 +16,19 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "ioi.foundations.room-scoped-object-binding.v1"
+      "const": "ioi.foundations.system-scoped-object-binding.v1"
     },
-    "room_system_id": {
+    "system_id": {
       "type": "string",
       "pattern": "^system://[^\\s]{1,500}$"
     },
-    "outcome_room_ref": {
+    "parent_scope_ref": {
       "type": "string",
-      "pattern": "^outcome-room://[^\\s]{1,500}$"
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
     },
     "proposed_or_issued_by_ref": {
       "type": "string",
-      "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
     },
     "payload_root": {
       "type": "string",

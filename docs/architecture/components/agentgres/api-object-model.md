@@ -1545,7 +1545,7 @@ information-flow labels, and is neither authoritative nor client-writable.
 Participant inputs remain tainted until the enclosing room System's Agentgres
 operation path accepts an object or delta. Every room-scoped typed payload binds
 the exact room System, OutcomeRoom, participant lease or room-System issuer, and
-payload root through `RoomScopedObjectBinding`. The binding is vocabulary, not
+payload root through `SystemScopedObjectBinding`. The binding is vocabulary, not
 an admission envelope. The Agentgres operation owns the expected object head or
 heads, resolved policy and authority, accepted sequence, resulting head, state
 root, and receipt refs; the bounded-System transition owns predecessor and

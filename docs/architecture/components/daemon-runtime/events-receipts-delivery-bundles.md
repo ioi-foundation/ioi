@@ -1687,7 +1687,7 @@ GoalRunActivationReceipt:
   receipt_id: receipt://...
   receipt_ref: receipt://...
   receipt_type: goal_run_activation
-  receipt_profile_ref: schema://ioi/foundations/goal-run-activation-receipt/v1
+  receipt_profile_ref: schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1
   activation_ref: goal-run-activation://...
   activation_mode: create | join_existing
   source_context:
@@ -3295,7 +3295,7 @@ rule changes, affected re-verification, spend, authority, contribution lineage,
 and why the room changed direction.
 
 Every room-child receipt is the canonical receipt of the enclosing System's
-Agentgres operation. The typed payload contributes `RoomScopedObjectBinding`:
+Agentgres operation. The typed payload contributes `SystemScopedObjectBinding`:
 exact room System, OutcomeRoom, participant lease or room-System issuer, and
 payload root. Agentgres owns expected-head comparison, resolved policy and
 decision, accepted sequence/head, and receipt refs; the bounded-System

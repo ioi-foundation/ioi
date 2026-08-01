@@ -1,5 +1,5 @@
 {
-  "schema_version": "ioi.foundations.goal-run-profile-resolution-receipt.v1",
+  "schema_version": "ioi.applications.ioi-ai.goal-run-profile-resolution-receipt.v1",
   "receipt_id": "receipt://goal-run/research/profile-resolution",
   "receipt_type": "goal_run_profile_resolution",
   "goal_ref": "goal://research",

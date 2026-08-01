@@ -39,16 +39,11 @@ run, room, domain, contribution, dispute, or replay boundary.
 WorkResultEnvelope:
   work_result_id: work-result://...
   work_subject_ref:
-    goal://... | automation-run://... | work_run://... | run://... |
-    invocation://... | work-claim://... | attempt://...
-  goal_run_ref: goal://... | null
-  outcome_room_ref: outcome-room://... | null
-  room_binding: RoomScopedObjectBinding | null
+    canonical-ref://...  # owner plane assigns the domain meaning
+  system_binding: SystemScopedObjectBinding | null
   produced_by_ref: system://... | participant-lease://... | worker://... | service://... | org://... | domain://...
   submitted_by_ref: system://... | participant-lease://... | worker://... | service://... | org://... | domain://...
   operator_and_affiliation_refs: []
-  work_claim_ref: work-claim://... | null
-  attempt_ref: attempt://... | null
   invocation_or_run_ref:
     harness_invocation://... | run://... | work_run://... | automation-run://... |
     service://... | null
@@ -78,8 +73,8 @@ WorkResultEnvelope:
   status: completed | failed | blocked | partial | challenged | superseded
   outcome_delta_refs:
     - outcome-delta://...
-  finding_refs:
-    - finding://...
+  observation_refs:
+    - canonical-ref://...
   claim_refs:
     - finding://... | ontology-assertion://... | evidence://...
   uncertainty: number | string | object | null
@@ -105,14 +100,14 @@ WorkResultEnvelope:
   reproduction_refs:
     - attempt://... | work-result://... | evidence://... | receipt://...
   acceptance_ref: acceptance://... | decision://... | receipt://... | null
-  challenge_refs:
-    - verifier-challenge://... | dispute://... | evidence://...
+  review_refs:
+    - canonical-ref://...
   supersedes_work_result_ref: work-result://... | null
   superseded_by_ref: work-result://... | outcome-delta://... | null
   summary_ref: message://... | artifact://... | null
   next_action:
     none | repair | review | verify | replicate | synthesize |
-    ask_user | escalate | update_frontier
+    ask_user | escalate | update_work_queue
 ```
 
 The producer component snapshot/receipt and resolver pair are null, with
@@ -130,15 +125,10 @@ current registry heads are invalid provenance.
 OutcomeDeltaEnvelope:
   outcome_delta_id: outcome-delta://...
   work_subject_ref:
-    goal://... | automation-run://... | work_run://... | run://... |
-    invocation://... | work-claim://... | attempt://...
-  outcome_room_ref: outcome-room://... | null
-  room_binding: RoomScopedObjectBinding | null
-  proposed_by_ref:
-    work-result://... | attempt://... | finding://... | participant-lease://...
-  target_ref:
-    frontier://... | finding://... | ontology://... | state://... |
-    capability://... | policy://... | routing-prior://... | service://...
+    canonical-ref://...  # owner plane assigns the domain meaning
+  system_binding: SystemScopedObjectBinding | null
+  proposed_by_ref: canonical-ref://...
+  target_ref: canonical-ref://...
   delta_kind:
     create | update | supersede | reject | merge | promote |
     rollback | course_correct | close
@@ -153,7 +143,7 @@ OutcomeDeltaEnvelope:
   status: proposed | evaluating | admitted | rejected | superseded | rolled_back
 ```
 
-The registered v2 form bounds every repeated ref set in `WorkResultEnvelope`
+The registered v3 form bounds every repeated ref set in `WorkResultEnvelope`
 and `OutcomeDeltaEnvelope` to at most 64 unique entries. Producers and readers
 MUST refuse an over-bound record; they MUST NOT truncate, partially project, or
 silently omit refs to manufacture a valid result.
@@ -169,13 +159,12 @@ instruction authority. The label objects remain owned by their originating
 artifact, context, receipt, or runtime boundary; these fields carry exact refs
 so downstream effect admission can resolve and join them.
 
-For `Attempt`, `Finding`, `VerifierChallenge`, `WorkResult`, and `OutcomeDelta`,
-`outcome_room_ref != null` requires a non-null `room_binding` whose
-`proposed_or_issued_by_ref` is the current room participant lease (or the room
-system for a system-authored transition). Direct actor refs are permitted only
-for non-room work subjects. Room-scoped `WorkResult.produced_by_ref` and
-`submitted_by_ref` must resolve through that same participant lease, preserving
-the accountable operator/affiliation lineage.
+`WorkResult` and `OutcomeDelta` remain substrate-generic. When an application
+places either object inside a bounded System, its owner supplies a non-null
+`system_binding`; the binding's `parent_scope_ref` carries the application
+scope without exporting that application's vocabulary into the foundations
+contract. The owner plane validates its participant, producer, and subject
+mapping before Agentgres admission.
 
 ## WorkLifecycleRecordEnvelope
 

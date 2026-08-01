@@ -4532,7 +4532,7 @@ export type ScmPublicationEffectV2 = {
       prepared_persistence_evidence_ref: string;
     };
   attempt: {
-      attempt_ref: string;
+      publication_attempt_ref: string;
       attempt_number: number;
       cas: {
             mechanism: "expected_head_compare_and_swap";
@@ -4902,7 +4902,7 @@ export type HypervisorRouteRetirementRefusalV1 = {
 };
 
 export type GoalRunAdmissionPathDecisionV1 = {
-  schema_version: "ioi.foundations.goal-run-admission-path-decision.v1";
+  schema_version: "ioi.applications.ioi-ai.goal-run-admission-path-decision.v1";
   decision_ref: string;
   goal_run_ref: string;
   requested_path: "auto" | "direct_non_system" | "system_bound";
@@ -4931,56 +4931,6 @@ export type GoalRunAdmissionPathDecisionV1 = {
   reason_codes: Array<"direct_path_eligible" | "multiple_work_subjects" | "system_membership_required" | "shared_frontier_required" | "outcome_room_required" | "collective_scheduling_required" | "capability_requirements_exceed_single_execution" | "authority_requirements_exceed_single_execution" | "risk_or_isolation_exceeds_single_execution" | "unresolved_system_dependency" | "policy_requires_system_path" | "requested_system_path" | "system_path_prerequisites_unavailable">;
   decision_receipt_ref: string;
   decided_at: string;
-};
-
-export type WorkResultV1 = {
-  schema_version: "ioi.foundations.work-result.v1";
-  work_result_id: string;
-  work_subject_ref: string;
-  goal_run_ref: string | null;
-  outcome_room_ref: string | null;
-  room_admission: Record<string, unknown> | null;
-  produced_by_ref: string;
-  submitted_by_ref: string;
-  operator_and_affiliation_refs: Array<string>;
-  work_claim_ref: string | null;
-  attempt_ref: string | null;
-  invocation_or_run_ref: string | null;
-  result_profile: "software_implementation" | "research" | "ontology_mutation" | "incident_resolution" | "service_delivery" | "physical_mission" | "review" | "evaluation" | "custom";
-  result_profile_ref: string | null;
-  result_payload_ref: string | null;
-  producer_component_resolution: {
-      resolved_component_set_snapshot_ref: string | null;
-      resolved_component_set_hash: string | null;
-      component_resolution_receipt_ref: string | null;
-      resolver_kind: "harness_profile" | "agent_harness_adapter" | "none";
-      resolver_revision_ref: string | null;
-      resolver_content_hash: string | null;
-    };
-  declared_method_and_lineage_refs: Array<string>;
-  information_flow_label_refs: Array<string>;
-  outcome_class: "positive" | "negative" | "inconclusive" | "invalid" | "exploit_found" | "superseded";
-  status: "completed" | "failed" | "blocked" | "partial" | "challenged" | "superseded";
-  outcome_delta_refs: Array<string>;
-  finding_refs: Array<string>;
-  claim_refs: Array<string>;
-  uncertainty: Array<unknown> | number | string | Record<string, unknown> | null;
-  supporting_evidence_refs: Array<string>;
-  contradicting_evidence_refs: Array<string>;
-  artifact_receipt_and_trace_refs: Array<string>;
-  resource_and_cost_refs: Array<string>;
-  authority_and_policy_refs: Array<string>;
-  blocker_and_decision_request_refs: Array<string>;
-  verifier_refs: Array<string>;
-  license_disclosure_retention_and_export_refs: Array<string>;
-  reproduction_state: "unreviewed" | "reproducible" | "not_reproduced" | "contradicted" | "invalidated" | null;
-  reproduction_refs: Array<string>;
-  acceptance_ref: string | null;
-  challenge_refs: Array<string>;
-  supersedes_work_result_ref: string | null;
-  superseded_by_ref: string | null;
-  summary_ref: string | null;
-  next_action: "none" | "repair" | "review" | "verify" | "replicate" | "synthesize" | "ask_user" | "escalate" | "update_frontier";
 };
 
 export type WorkLifecycleRecordV1 = {
@@ -5334,23 +5284,6 @@ export type AgentHarnessAdapterV1 = {
   registry_status: "draft" | "evaluable" | "released" | "deprecated" | "revoked";
 };
 
-export type OutcomeDeltaV1 = {
-  schema_version: "ioi.outcome-delta.v1";
-  outcome_delta_id: string;
-  work_subject_ref: string;
-  outcome_room_ref: string | null;
-  room_admission: Record<string, unknown> | null;
-  proposed_by_ref: string;
-  target_ref: string;
-  delta_kind: "create" | "update" | "supersede" | "reject" | "merge" | "promote" | "rollback" | "course_correct" | "close";
-  payload_ref: string;
-  precondition_and_invariant_refs: Array<string>;
-  expected_effect_ref: string | null;
-  verifier_and_acceptance_refs: Array<string>;
-  information_flow_label_refs: Array<string>;
-  status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "rolled_back";
-};
-
 export type CancellationFanoutPlanV1 = {
   schema_version: "ioi.cancellation-fanout-plan.v1";
   object_ref: string;
@@ -5562,7 +5495,7 @@ export type GoalRunExecutionCeilingV1 = {
 };
 
 export type GoalRunProfileResolutionReceiptV1 = {
-  schema_version: "ioi.foundations.goal-run-profile-resolution-receipt.v1";
+  schema_version: "ioi.applications.ioi-ai.goal-run-profile-resolution-receipt.v1";
   receipt_id: string;
   receipt_type: "goal_run_profile_resolution";
   goal_ref: string;
@@ -5613,30 +5546,8 @@ export type GoalRunProfileResolutionReceiptV1 = {
   signature?: string | null;
 };
 
-export type AttemptV1 = {
-  schema_version?: "ioi.foundations.attempt.v1";
-  attempt_id: string;
-  outcome_room_ref: string | null;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    } | null;
-  work_subject_ref: string;
-  goal_run_ref: string | null;
-  frontier_item_ref: string | null;
-  work_claim_ref: string | null;
-  participant_ref: string;
-  outcome_class: "positive" | "negative" | "inconclusive" | "invalid" | "exploit_found" | "superseded";
-  work_result_ref: string | null;
-  outcome_delta_refs: Array<string>;
-  artifact_evidence_and_receipt_refs: Array<string>;
-  status: "draft" | "running" | "submitted" | "admitted" | "challenged" | "accepted" | "rejected" | "superseded";
-};
-
 export type CollaborativeWorkGraphV1 = {
-  schema_version?: "ioi.foundations.collaborative-work-graph.v1";
+  schema_version?: "ioi.applications.ioi-ai.collaborative-work-graph.v1";
   projection_id: string;
   outcome_room_ref: string;
   source_room_revision: number;
@@ -5657,32 +5568,8 @@ export type CollaborativeWorkGraphV1 = {
   client_writable: false;
 };
 
-export type FindingV1 = {
-  schema_version?: "ioi.foundations.finding.v1";
-  finding_id: string;
-  outcome_room_ref: string | null;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    } | null;
-  attempt_ref: string;
-  work_result_ref: string;
-  participant_ref: string;
-  proposed_by_ref: string;
-  proposition: string;
-  finding_kind: "hypothesis" | "observation" | "claim" | "negative_result" | "integrity_incident" | "mapping_claim" | "causal_claim" | "counterexample" | "synthesis";
-  transaction_time: string;
-  supporting_evidence_refs: Array<string>;
-  contradicting_evidence_refs: Array<string>;
-  proof_refs: Array<string>;
-  supersedes_ref: string | null;
-  status: "branch_local" | "proposed" | "admitted" | "contradicted" | "superseded" | "disputed" | "rejected" | "archived";
-};
-
 export type OutcomeRoomDiscussionProjectionV1 = {
-  schema_version?: "ioi.foundations.outcome-room-discussion-projection.v1";
+  schema_version?: "ioi.applications.ioi-ai.outcome-room-discussion-projection.v1";
   projection_id: string;
   outcome_room_ref: string;
   source_room_revision: number;
@@ -5697,123 +5584,6 @@ export type OutcomeRoomDiscussionProjectionV1 = {
   generated_at: string;
   authoritative: false;
   client_writable: false;
-};
-
-export type OutcomeRoomV1 = {
-  schema_version?: "ioi.foundations.outcome-room.v1";
-  outcome_room_id: string;
-  system_id: string;
-  genesis_ref: string | null;
-  package_id: string;
-  manifest_ref: string;
-  constitution_ref: string;
-  owner_or_sponsor_ref: string;
-  objective_ref: string;
-  objective: string;
-  room_mode: "private_goal" | "permissioned_team" | "cross_org" | "open_challenge";
-  coordination_topology: "hosted_admission" | "federated_admission";
-  coordination_policy_ref: string;
-  host_domain_ref: string | null;
-  participant_lease_refs: Array<string>;
-  member_goal_run_refs: Array<string>;
-  frontier_item_refs: Array<string>;
-  attempt_refs: Array<string>;
-  finding_refs: Array<string>;
-  verifier_challenge_refs: Array<string>;
-  discussion_projection_refs: Array<string>;
-  admission_and_replay_refs: Array<string>;
-  latest_sequence: number;
-  latest_transition_commitment_ref: string;
-  room_state_root: string;
-  room_receipt_root: string;
-  status: "proposed" | "open" | "active" | "paused" | "blocked" | "verifying" | "accepted" | "disputed" | "settled" | "closed" | "revoked" | "archived";
-};
-
-export type ParticipantStateBundleV1 = {
-  schema_version?: "ioi.foundations.participant-state-bundle.v1";
-  participant_state_bundle_id: string;
-  outcome_room_ref: string;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    };
-  participant_lease_ref: string;
-  participant_and_home_domain_refs: Array<string>;
-  coordination_topology: "hosted_admission" | "federated_admission";
-  bundle_reason: "checkpoint" | "voluntary_retirement" | "lease_expiry" | "revocation" | "quarantine" | "room_close";
-  source_admission_watermark_ref: string;
-  released_or_reassigned_claim_refs: Array<string>;
-  preserved_contribution_attempt_finding_and_result_refs: Array<string>;
-  excluded_context_classes: Array<"raw_secret" | "protected_plaintext" | "unauthorized_connector_payload" | "unrelated_private_memory" | "private_room_database_state" | "revoked_restricted_view" | "non_opted_in_training_trace">;
-  bundle_artifact_ref: string;
-  bundle_root: string;
-  room_database_access_required: false;
-  issued_at: string;
-  signature: string;
-  status: "prepared" | "exported" | "acknowledged" | "superseded" | "revoked";
-};
-
-export type VerifierChallengeV1 = {
-  schema_version?: "ioi.foundations.verifier-challenge.v1";
-  verifier_challenge_id: string;
-  outcome_room_ref: string | null;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    } | null;
-  challenger_ref: string;
-  challenged_ref: string;
-  challenge_kind: "metric" | "rule" | "verifier" | "evidence" | "eligibility" | "result" | "exploit" | "independence" | "collusion" | "mapping";
-  challenge_evidence_refs: Array<string>;
-  adjudicator_policy_ref: string;
-  reverification_required: boolean;
-  adjudication_ref: string | null;
-  status: "proposed" | "admitted" | "investigating" | "upheld" | "rejected" | "rule_changed" | "reverifying" | "resolved" | "withdrawn";
-};
-
-export type WorkClaimLeaseV1 = {
-  schema_version?: "ioi.foundations.work-claim-lease.v1";
-  work_claim_id: string;
-  outcome_room_ref: string | null;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    } | null;
-  frontier_item_ref: string | null;
-  claimant_ref: string;
-  claimant_participant_lease_ref: string | null;
-  collaboration_terms_ref: string;
-  collaboration_terms_root: string;
-  terms_acceptance_ref: string;
-  bounded_scope_ref: string;
-  issued_at: string;
-  expires_at: string;
-  renewal_count: number;
-  status: "proposed" | "active" | "waiting" | "released" | "expired" | "reassigned" | "completed" | "quarantined" | "revoked";
-};
-
-export type WorkFrontierItemV1 = {
-  schema_version?: "ioi.foundations.work-frontier-item.v1";
-  frontier_item_id: string;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    };
-  item_kind: "question" | "problem" | "hypothesis" | "task" | "review_need" | "verification_need" | "resource_need" | "synthesis_need";
-  objective: string;
-  dependency_refs: Array<string>;
-  required_capability_refs: Array<string>;
-  claimability: "open" | "invited_only" | "assigned" | "paused" | "closed";
-  duplication_policy: "exclusive" | "allowed" | "encouraged" | "independent_replication_required";
-  status: "open" | "claimed" | "blocked" | "replicating" | "verifying" | "accepted" | "rejected" | "superseded" | "closed";
 };
 
 export type GoalRunActivationEnvelopeV1 = {
@@ -5855,7 +5625,7 @@ export type GoalRunActivationReceiptV1 = {
   receipt_id: string;
   receipt_ref: string;
   receipt_type: "goal_run_activation";
-  receipt_profile_ref: "schema://ioi/foundations/goal-run-activation-receipt/v1";
+  receipt_profile_ref: "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1";
   activation_ref: string;
   activation_mode: "create" | "join_existing";
   source_context: {
@@ -5932,7 +5702,7 @@ export type GoalRunAdmittedStateV1 = {
 };
 
 export type OutcomeRoomV2 = {
-  schema_version: "ioi.foundations.outcome-room.v2";
+  schema_version: "ioi.applications.ioi-ai.outcome-room.v2";
   outcome_room_id: string;
   system_id: string;
   genesis_ref: string | null;
@@ -5993,445 +5763,10 @@ export type OutcomeRoomV2 = {
   status: "proposed" | "open" | "active" | "paused" | "blocked" | "verifying" | "accepted" | "disputed" | "settled" | "closed" | "revoked" | "archived";
 };
 
-export type WorkFrontierItemV2 = {
-  schema_version: "ioi.foundations.work-frontier-item.v2";
-  frontier_item_id: string;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v2";
-      room_system_id: string;
-      outcome_room_ref: string;
-      proposed_or_issued_by_ref: string;
-      expected_room_revision: number;
-      expected_predecessor_commitment_ref: string;
-      payload_root: string;
-      admission_policy_ref: string;
-      admission_decision_ref: string | null;
-      admission_receipt_ref: string | null;
-      admitted_sequence: number | null;
-      resulting_room_revision: number | null;
-      resulting_transition_commitment_ref: string | null;
-      resulting_room_state_root: string | null;
-      resulting_receipt_root: string | null;
-      created_at: string;
-      updated_at: string | null;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    };
-  item_kind: "question" | "problem" | "hypothesis" | "task" | "review_need" | "verification_need" | "resource_need" | "synthesis_need";
-  objective: string;
-  dependency_refs: Array<string>;
-  related_attempt_and_finding_refs: Array<string>;
-  required_capability_refs: Array<string>;
-  required_context_resource_authority_and_evidence_refs: Array<string>;
-  expected_value: number | null;
-  uncertainty: number | null;
-  priority: number | null;
-  duplication_policy: "exclusive" | "allowed" | "encouraged" | "independent_replication_required";
-  claimability: "open" | "invited_only" | "assigned" | "paused" | "closed";
-  max_concurrency: number | null;
-  expires_at: string | null;
-  stop_condition_ref: string | null;
-  status: "open" | "claimed" | "blocked" | "replicating" | "verifying" | "accepted" | "rejected" | "superseded" | "closed";
-};
-
-export type WorkClaimLeaseV2 = {
-  schema_version: "ioi.foundations.work-claim-lease.v2";
-  work_claim_id: string;
-  outcome_room_ref: string | null;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v2";
-      room_system_id: string;
-      outcome_room_ref: string;
-      proposed_or_issued_by_ref: string;
-      expected_room_revision: number;
-      expected_predecessor_commitment_ref: string;
-      payload_root: string;
-      admission_policy_ref: string;
-      admission_decision_ref: string | null;
-      admission_receipt_ref: string | null;
-      admitted_sequence: number | null;
-      resulting_room_revision: number | null;
-      resulting_transition_commitment_ref: string | null;
-      resulting_room_state_root: string | null;
-      resulting_receipt_root: string | null;
-      created_at: string;
-      updated_at: string | null;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    } | null;
-  frontier_item_ref: string | null;
-  claimant_ref: string;
-  claimant_participant_lease_ref: string | null;
-  eligibility_match_receipt_ref: string | null;
-  task_offer_ref: string | null;
-  task_acceptance_ref: string | null;
-  routing_decision_ref: string | null;
-  collaboration_terms_ref: string;
-  collaboration_terms_root: string;
-  terms_acceptance_ref: string;
-  contribution_policy_ref: string;
-  quote_ref: string | null;
-  budget_reservation_ref: string | null;
-  settlement_profile_ref: string;
-  bounded_scope_ref: string;
-  context_lease_refs: Array<string>;
-  authority_resource_compute_data_budget_and_tool_lease_refs: Array<string>;
-  duplicate_work_policy: "exclusive" | "allowed" | "independent_replication" | "adversarial_replication";
-  issued_at: string;
-  expires_at: string;
-  heartbeat_ref: string | null;
-  renewal_count: number;
-  release_or_reassignment_reason: string | null;
-  status: "proposed" | "active" | "waiting" | "released" | "expired" | "reassigned" | "completed" | "quarantined" | "revoked";
-};
-
-export type AttemptV2 = {
-  schema_version: "ioi.foundations.attempt.v2";
-  attempt_id: string;
-  outcome_room_ref: string | null;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v2";
-      room_system_id: string;
-      outcome_room_ref: string;
-      proposed_or_issued_by_ref: string;
-      expected_room_revision: number;
-      expected_predecessor_commitment_ref: string;
-      payload_root: string;
-      admission_policy_ref: string;
-      admission_decision_ref: string | null;
-      admission_receipt_ref: string | null;
-      admitted_sequence: number | null;
-      resulting_room_revision: number | null;
-      resulting_transition_commitment_ref: string | null;
-      resulting_room_state_root: string | null;
-      resulting_receipt_root: string | null;
-      created_at: string;
-      updated_at: string | null;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    } | null;
-  work_subject_ref: string;
-  goal_run_ref: string | null;
-  frontier_item_ref: string | null;
-  work_claim_ref: string | null;
-  participant_ref: string;
-  bound_coordinates: {
-      outcome_room: {
-            record_ref: string;
-            host_domain_ref: string;
-            control_hash: string;
-          };
-      frontier_item: {
-            record_ref: string;
-            outcome_room_ref: string;
-            revision: number;
-            record_hash: string;
-          };
-      work_claim: {
-            record_ref: string;
-            outcome_room_ref: string;
-            frontier_item_ref: string;
-            claimant_ref: string;
-            revision: number;
-            record_hash: string;
-          };
-      participant_lease: {
-            record_ref: string;
-            outcome_room_ref: string;
-            principal_ref: string;
-            revision: number;
-            record_hash: string;
-          };
-      goal_run: {
-            record_ref: string;
-            outcome_room_ref: string;
-            updated_at: string | null;
-            record_hash: string;
-          };
-    } | null;
-  declared_method_and_hypothesis_refs: Array<string>;
-  parent_and_derivation_refs: Array<string>;
-  input_state_and_environment_refs: Array<string>;
-  worker_model_resolver_tool_and_runtime_version_refs: Array<string>;
-  authority_and_policy_refs: Array<string>;
-  resource_and_cost_refs: Array<string>;
-  outcome_class: "positive" | "negative" | "inconclusive" | "invalid" | "exploit_found" | "superseded";
-  work_result_ref: string | null;
-  outcome_delta_refs: Array<string>;
-  artifact_evidence_and_receipt_refs: Array<string>;
-  verifier_refs: Array<string>;
-  reproduction_state: "unreviewed" | "reproducible" | "not_reproduced" | "contradicted" | "invalidated";
-  artifact_license_ip_retention_and_export_refs: Array<string>;
-  contribution_refs: Array<string>;
-  status: "draft" | "running" | "submitted" | "admitted" | "challenged" | "accepted" | "rejected" | "superseded";
-};
-
-export type FindingV2 = {
-  schema_version: "ioi.foundations.finding.v2";
-  finding_id: string;
-  outcome_room_ref: string | null;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v2";
-      room_system_id: string;
-      outcome_room_ref: string;
-      proposed_or_issued_by_ref: string;
-      expected_room_revision: number;
-      expected_predecessor_commitment_ref: string;
-      payload_root: string;
-      admission_policy_ref: string;
-      admission_decision_ref: string | null;
-      admission_receipt_ref: string | null;
-      admitted_sequence: number | null;
-      resulting_room_revision: number | null;
-      resulting_transition_commitment_ref: string | null;
-      resulting_room_state_root: string | null;
-      resulting_receipt_root: string | null;
-      created_at: string;
-      updated_at: string | null;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    } | null;
-  attempt_ref: string;
-  work_result_ref: string;
-  participant_ref: string;
-  proposed_by_ref: string;
-  bound_coordinates: {
-      attempt: {
-            record_ref: string;
-            outcome_room_ref: string;
-            participant_ref: string;
-            work_result_ref: string;
-            revision: number;
-            record_hash: string;
-          };
-      work_result: {
-            record_ref: string;
-            outcome_room_ref: string;
-            goal_run_ref: string;
-            goal_ref: string;
-            updated_at: string | null;
-            record_hash: string;
-          };
-      participant_lease: {
-            record_ref: string;
-            outcome_room_ref: string;
-            principal_ref: string;
-            revision: number;
-            record_hash: string;
-          };
-      supersedes_finding: {
-            record_ref: string;
-            outcome_room_ref: string;
-            revision: number;
-            record_hash: string;
-          } | null;
-    } | null;
-  proposition: string;
-  finding_kind: "hypothesis" | "observation" | "claim" | "negative_result" | "integrity_incident" | "mapping_claim" | "causal_claim" | "counterexample" | "synthesis";
-  confidence_or_uncertainty: number | null;
-  valid_time: Record<string, unknown> | null;
-  transaction_time: string;
-  source_and_observation_context_refs: Array<string>;
-  supporting_evidence_refs: Array<string>;
-  proof_refs: Array<string>;
-  contradicting_evidence_refs: Array<string>;
-  applicability_and_counterexample_refs: Array<string>;
-  provenance_ontology_and_mapping_refs: Array<string>;
-  proposed_effect_refs: Array<string>;
-  supersedes_ref: string | null;
-  dispute_ref: string | null;
-  status: "branch_local" | "proposed" | "admitted" | "contradicted" | "superseded" | "disputed" | "rejected" | "archived";
-};
-
-export type VerifierChallengeV2 = {
-  schema_version: "ioi.foundations.verifier-challenge.v2";
-  verifier_challenge_id: string;
-  outcome_room_ref: string | null;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v2";
-      room_system_id: string;
-      outcome_room_ref: string;
-      proposed_or_issued_by_ref: string;
-      expected_room_revision: number;
-      expected_predecessor_commitment_ref: string;
-      payload_root: string;
-      admission_policy_ref: string;
-      admission_decision_ref: string | null;
-      admission_receipt_ref: string | null;
-      admitted_sequence: number | null;
-      resulting_room_revision: number | null;
-      resulting_transition_commitment_ref: string | null;
-      resulting_room_state_root: string | null;
-      resulting_receipt_root: string | null;
-      created_at: string;
-      updated_at: string | null;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    } | null;
-  challenger_ref: string;
-  challenged_ref: string;
-  challenge_kind: "metric" | "rule" | "verifier" | "evidence" | "eligibility" | "result" | "exploit" | "independence" | "collusion" | "mapping";
-  challenge_evidence_refs: Array<string>;
-  adjudicator_policy_ref: string;
-  prior_rule_version_ref: string | null;
-  proposed_rule_version_ref: string | null;
-  affected_attempt_refs: Array<string>;
-  reverification_required: boolean;
-  adjudication_ref: string | null;
-  status: "proposed" | "admitted" | "investigating" | "upheld" | "rejected" | "rule_changed" | "reverifying" | "resolved" | "withdrawn";
-};
-
-export type ParticipantStateBundleV2 = {
-  schema_version: "ioi.foundations.participant-state-bundle.v2";
-  participant_state_bundle_id: string;
-  outcome_room_ref: string;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v2";
-      room_system_id: string;
-      outcome_room_ref: string;
-      proposed_or_issued_by_ref: string;
-      expected_room_revision: number;
-      expected_predecessor_commitment_ref: string;
-      payload_root: string;
-      admission_policy_ref: string;
-      admission_decision_ref: string | null;
-      admission_receipt_ref: string | null;
-      admitted_sequence: number | null;
-      resulting_room_revision: number | null;
-      resulting_transition_commitment_ref: string | null;
-      resulting_room_state_root: string | null;
-      resulting_receipt_root: string | null;
-      created_at: string;
-      updated_at: string | null;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    };
-  participant_lease_ref: string;
-  participant_and_home_domain_refs: Array<string>;
-  coordination_topology: "hosted_admission" | "federated_admission";
-  bundle_reason: "checkpoint" | "voluntary_retirement" | "lease_expiry" | "revocation" | "quarantine" | "room_close";
-  source_admission_watermark_ref: string;
-  released_or_reassigned_claim_refs: Array<string>;
-  preserved_contribution_attempt_finding_and_result_refs: Array<string>;
-  preserved_receipt_acceptance_settlement_and_dispute_refs: Array<string>;
-  portable_artifact_and_view_refs: Array<string>;
-  lineage_and_supersession_refs: Array<string>;
-  export_license_retention_and_recall_policy_refs: Array<string>;
-  excluded_context_classes: Array<"raw_secret" | "protected_plaintext" | "unauthorized_connector_payload" | "unrelated_private_memory" | "private_room_database_state" | "revoked_restricted_view" | "non_opted_in_training_trace">;
-  released_future_access_refs: Array<string>;
-  revocation_or_supersession_refs: Array<string>;
-  revocation_effect: "none" | "future_access_only" | "restricted_view_keys_revoked" | "erroneous_export_superseded";
-  bundle_artifact_ref: string;
-  bundle_root: string;
-  room_database_access_required: false;
-  issued_at: string;
-  signature: string;
-  status: "prepared" | "exported" | "acknowledged" | "superseded" | "revoked";
-};
-
-export type WorkResultV2 = {
-  schema_version: "ioi.foundations.work-result.v2";
-  work_result_id: string;
-  work_subject_ref: string;
-  goal_run_ref: string | null;
-  outcome_room_ref: string | null;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v2";
-      room_system_id: string;
-      outcome_room_ref: string;
-      proposed_or_issued_by_ref: string;
-      expected_room_revision: number;
-      expected_predecessor_commitment_ref: string;
-      payload_root: string;
-      admission_policy_ref: string;
-      admission_decision_ref: string | null;
-      admission_receipt_ref: string | null;
-      admitted_sequence: number | null;
-      resulting_room_revision: number | null;
-      resulting_transition_commitment_ref: string | null;
-      resulting_room_state_root: string | null;
-      resulting_receipt_root: string | null;
-      created_at: string;
-      updated_at: string | null;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    } | null;
-  produced_by_ref: string;
-  submitted_by_ref: string;
-  operator_and_affiliation_refs: Array<string>;
-  work_claim_ref: string | null;
-  attempt_ref: string | null;
-  invocation_or_run_ref: string | null;
-  result_profile: "software_implementation" | "research" | "ontology_mutation" | "incident_resolution" | "service_delivery" | "physical_mission" | "review" | "evaluation" | "custom";
-  result_profile_ref: string | null;
-  result_payload_ref: string | null;
-  producer_component_resolution: {
-      resolved_component_set_snapshot_ref: string | null;
-      resolved_component_set_hash: string | null;
-      component_resolution_receipt_ref: string | null;
-      resolver_kind: "harness_profile" | "agent_harness_adapter" | "none";
-      resolver_revision_ref: string | null;
-      resolver_content_hash: string | null;
-    };
-  declared_method_and_lineage_refs: Array<string>;
-  information_flow_label_refs: Array<string>;
-  outcome_class: "positive" | "negative" | "inconclusive" | "invalid" | "exploit_found" | "superseded";
-  status: "completed" | "failed" | "blocked" | "partial" | "challenged" | "superseded";
-  outcome_delta_refs: Array<string>;
-  finding_refs: Array<string>;
-  claim_refs: Array<string>;
-  uncertainty: number | string | Record<string, unknown> | null;
-  supporting_evidence_refs: Array<string>;
-  contradicting_evidence_refs: Array<string>;
-  artifact_receipt_and_trace_refs: Array<string>;
-  resource_and_cost_refs: Array<string>;
-  authority_and_policy_refs: Array<string>;
-  blocker_and_decision_request_refs: Array<string>;
-  verifier_refs: Array<string>;
-  license_disclosure_retention_and_export_refs: Array<string>;
-  reproduction_state: "unreviewed" | "reproducible" | "not_reproduced" | "contradicted" | "invalidated" | null;
-  reproduction_refs: Array<string>;
-  acceptance_ref: string | null;
-  challenge_refs: Array<string>;
-  supersedes_work_result_ref: string | null;
-  superseded_by_ref: string | null;
-  summary_ref: string | null;
-  next_action: "none" | "repair" | "review" | "verify" | "replicate" | "synthesize" | "ask_user" | "escalate" | "update_frontier";
-};
-
-export type OutcomeDeltaV2 = {
-  schema_version: "ioi.foundations.outcome-delta.v2";
-  outcome_delta_id: string;
-  work_subject_ref: string;
-  outcome_room_ref: string | null;
-  room_admission: {
-      schema_version: "ioi.foundations.room-admitted-object-base.v2";
-      room_system_id: string;
-      outcome_room_ref: string;
-      proposed_or_issued_by_ref: string;
-      expected_room_revision: number;
-      expected_predecessor_commitment_ref: string;
-      payload_root: string;
-      admission_policy_ref: string;
-      admission_decision_ref: string | null;
-      admission_receipt_ref: string | null;
-      admitted_sequence: number | null;
-      resulting_room_revision: number | null;
-      resulting_transition_commitment_ref: string | null;
-      resulting_room_state_root: string | null;
-      resulting_receipt_root: string | null;
-      created_at: string;
-      updated_at: string | null;
-      admission_status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "revoked";
-    } | null;
-  proposed_by_ref: string;
-  target_ref: string;
-  delta_kind: "create" | "update" | "supersede" | "reject" | "merge" | "promote" | "rollback" | "course_correct" | "close";
-  payload_ref: string;
-  precondition_and_invariant_refs: Array<string>;
-  expected_effect_ref: string | null;
-  verifier_and_acceptance_refs: Array<string>;
-  information_flow_label_refs: Array<string>;
-  status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "rolled_back";
-};
-
-export type RoomScopedObjectBindingV1 = {
-  schema_version: "ioi.foundations.room-scoped-object-binding.v1";
-  room_system_id: string;
-  outcome_room_ref: string;
+export type SystemScopedObjectBindingV1 = {
+  schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+  system_id: string;
+  parent_scope_ref: string;
   proposed_or_issued_by_ref: string;
   payload_root: string;
   created_at: string;
@@ -6439,12 +5774,12 @@ export type RoomScopedObjectBindingV1 = {
 };
 
 export type WorkFrontierItemV3 = {
-  schema_version: "ioi.foundations.work-frontier-item.v3";
+  schema_version: "ioi.applications.ioi-ai.work-frontier-item.v3";
   frontier_item_id: string;
-  room_binding: {
-      schema_version: "ioi.foundations.room-scoped-object-binding.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
       proposed_or_issued_by_ref: string;
       payload_root: string;
       created_at: string;
@@ -6468,13 +5803,13 @@ export type WorkFrontierItemV3 = {
 };
 
 export type WorkClaimLeaseV3 = {
-  schema_version: "ioi.foundations.work-claim-lease.v3";
+  schema_version: "ioi.applications.ioi-ai.work-claim-lease.v3";
   work_claim_id: string;
   outcome_room_ref: string | null;
-  room_binding: {
-      schema_version: "ioi.foundations.room-scoped-object-binding.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
       proposed_or_issued_by_ref: string;
       payload_root: string;
       created_at: string;
@@ -6507,13 +5842,13 @@ export type WorkClaimLeaseV3 = {
 };
 
 export type AttemptV3 = {
-  schema_version: "ioi.foundations.attempt.v3";
+  schema_version: "ioi.applications.ioi-ai.attempt.v3";
   attempt_id: string;
   outcome_room_ref: string | null;
-  room_binding: {
-      schema_version: "ioi.foundations.room-scoped-object-binding.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
       proposed_or_issued_by_ref: string;
       payload_root: string;
       created_at: string;
@@ -6576,13 +5911,13 @@ export type AttemptV3 = {
 };
 
 export type FindingV3 = {
-  schema_version: "ioi.foundations.finding.v3";
+  schema_version: "ioi.applications.ioi-ai.finding.v3";
   finding_id: string;
   outcome_room_ref: string | null;
-  room_binding: {
-      schema_version: "ioi.foundations.room-scoped-object-binding.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
       proposed_or_issued_by_ref: string;
       payload_root: string;
       created_at: string;
@@ -6641,13 +5976,13 @@ export type FindingV3 = {
 };
 
 export type VerifierChallengeV3 = {
-  schema_version: "ioi.foundations.verifier-challenge.v3";
+  schema_version: "ioi.applications.ioi-ai.verifier-challenge.v3";
   verifier_challenge_id: string;
   outcome_room_ref: string | null;
-  room_binding: {
-      schema_version: "ioi.foundations.room-scoped-object-binding.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
       proposed_or_issued_by_ref: string;
       payload_root: string;
       created_at: string;
@@ -6667,13 +6002,13 @@ export type VerifierChallengeV3 = {
 };
 
 export type ParticipantStateBundleV3 = {
-  schema_version: "ioi.foundations.participant-state-bundle.v3";
+  schema_version: "ioi.applications.ioi-ai.participant-state-bundle.v3";
   participant_state_bundle_id: string;
   outcome_room_ref: string;
-  room_binding: {
-      schema_version: "ioi.foundations.room-scoped-object-binding.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
       proposed_or_issued_by_ref: string;
       payload_root: string;
       created_at: string;
@@ -6706,12 +6041,10 @@ export type WorkResultV3 = {
   schema_version: "ioi.foundations.work-result.v3";
   work_result_id: string;
   work_subject_ref: string;
-  goal_run_ref: string | null;
-  outcome_room_ref: string | null;
-  room_binding: {
-      schema_version: "ioi.foundations.room-scoped-object-binding.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
       proposed_or_issued_by_ref: string;
       payload_root: string;
       created_at: string;
@@ -6720,8 +6053,6 @@ export type WorkResultV3 = {
   produced_by_ref: string;
   submitted_by_ref: string;
   operator_and_affiliation_refs: Array<string>;
-  work_claim_ref: string | null;
-  attempt_ref: string | null;
   invocation_or_run_ref: string | null;
   result_profile: "software_implementation" | "research" | "ontology_mutation" | "incident_resolution" | "service_delivery" | "physical_mission" | "review" | "evaluation" | "custom";
   result_profile_ref: string | null;
@@ -6739,7 +6070,6 @@ export type WorkResultV3 = {
   outcome_class: "positive" | "negative" | "inconclusive" | "invalid" | "exploit_found" | "superseded";
   status: "completed" | "failed" | "blocked" | "partial" | "challenged" | "superseded";
   outcome_delta_refs: Array<string>;
-  finding_refs: Array<string>;
   claim_refs: Array<string>;
   uncertainty: number | string | Record<string, unknown> | null;
   supporting_evidence_refs: Array<string>;
@@ -6753,22 +6083,22 @@ export type WorkResultV3 = {
   reproduction_state: "unreviewed" | "reproducible" | "not_reproduced" | "contradicted" | "invalidated" | null;
   reproduction_refs: Array<string>;
   acceptance_ref: string | null;
-  challenge_refs: Array<string>;
   supersedes_work_result_ref: string | null;
   superseded_by_ref: string | null;
   summary_ref: string | null;
-  next_action: "none" | "repair" | "review" | "verify" | "replicate" | "synthesize" | "ask_user" | "escalate" | "update_frontier";
+  next_action: "none" | "repair" | "review" | "verify" | "replicate" | "synthesize" | "ask_user" | "escalate" | "update_work_queue";
+  observation_refs: Array<string>;
+  review_refs: Array<string>;
 };
 
 export type OutcomeDeltaV3 = {
   schema_version: "ioi.foundations.outcome-delta.v3";
   outcome_delta_id: string;
   work_subject_ref: string;
-  outcome_room_ref: string | null;
-  room_binding: {
-      schema_version: "ioi.foundations.room-scoped-object-binding.v1";
-      room_system_id: string;
-      outcome_room_ref: string;
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
       proposed_or_issued_by_ref: string;
       payload_root: string;
       created_at: string;
@@ -10188,7 +9518,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-admission-path-decision/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/positive-direct-research.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -10196,24 +9526,8 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-admission-path-decision/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/negative-direct-with-shared-frontier.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-result/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-result-v1/positive-minimal.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-result/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-result-v1/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -10316,7 +9630,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-profile/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -10324,7 +9638,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-profile/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10396,7 +9710,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-grounding-loop/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/positive-minimal.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -10404,7 +9718,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-grounding-loop/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10438,22 +9752,6 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/outcome-delta/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v1/positive-minimal.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/outcome-delta/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v1/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -10556,7 +9854,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -10564,7 +9862,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-v1/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10572,7 +9870,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/positive-zero.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -10580,7 +9878,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-widened-parallel.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -10588,7 +9886,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "goal_run_execution_ceiling.parallel_lte_total"
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-tampered-hash.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -10596,7 +9894,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "goal_run_execution_ceiling.hash.recomputes"
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10604,7 +9902,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -10612,7 +9910,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10620,23 +9918,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/attempt/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v1/positive-minimal.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/attempt/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v1/negative-unknown-field.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/collaborative-work-graph/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -10644,7 +9926,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/collaborative-work-graph/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10652,7 +9934,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/collaborative-work-graph/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10660,7 +9942,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/collaborative-work-graph/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10668,23 +9950,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/finding/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/finding-v1/positive-minimal.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/finding/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/finding-v1/negative-unknown-field.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -10692,7 +9958,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10700,7 +9966,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-permitted-subjects.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10708,7 +9974,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-source-receipts.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10716,87 +9982,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/outcome-room/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v1/positive-minimal.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/outcome-room/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v1/negative-unknown-field.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/positive-minimal.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/negative-unknown-field.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/positive-minimal.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/negative-unknown-field.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/positive-minimal.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/negative-unknown-field.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/positive-minimal.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/negative-unknown-field.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/goal-run-activation/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/positive-admitted-create.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -10804,7 +9990,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-activation/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-source-kind-ref-mismatch.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10812,7 +9998,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-activation/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-create-missing-profile-hash.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10820,7 +10006,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-activation/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-admitted-without-receipt.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10828,7 +10014,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -10836,7 +10022,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-receipt-identity-mismatch.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -10844,7 +10030,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "goal_run_activation_receipt.identity.matches"
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-source-kind-ref-mismatch.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10852,7 +10038,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-admitted-goal-substitution.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -10860,7 +10046,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "goal_run_activation_receipt.root.recomputes"
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-admitted-state/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/positive-admitted-create.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -10868,7 +10054,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-admitted-state/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-prefix-only-state-root.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10876,7 +10062,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/goal-run-admitted-state/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-tampered-source-context.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -10884,7 +10070,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "goal_run_admitted_state.root.matches_record"
   },
   {
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -10892,7 +10078,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-hosted-without-host-domain.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -10900,7 +10086,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "outcome_room.host.required_for_hosted_admission"
   },
   {
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-owner-scheme.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10908,7 +10094,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-cardinality.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10916,7 +10102,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-objective.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10924,7 +10110,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-replay-cardinality.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10932,7 +10118,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-max-sequence.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -10940,391 +10126,23 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/positive-admitted.json",
+    "contract_id": "schema://ioi/foundations/system-scoped-object-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/positive-minimal.json",
     "expected": "accept",
     "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-room-substitution.json",
+    "contract_id": "schema://ioi/foundations/system-scoped-object-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/negative-parallel-admission-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-evaluating-carries-admitted-roots.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-active-room-claim.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-direct-bilateral.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-room-substitution.json",
-    "expected": "reject",
-    "expected_schema_accept": true,
-    "expected_failure": "invariant",
-    "expected_rule_id": "work_claim.room.matches_admission"
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-participant-lease-substitution.json",
-    "expected": "reject",
-    "expected_schema_accept": true,
-    "expected_failure": "invariant",
-    "expected_rule_id": "work_claim.participant_lease.matches_admission_issuer"
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-wrong-task-offer-scheme.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-rejected-carries-admitted-roots.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-hosted-admitted.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-non-room.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-stale-bound-goal.json",
-    "expected": "reject",
-    "expected_schema_accept": true,
-    "expected_failure": "invariant",
-    "expected_rule_id": "attempt.goal.matches_bound_goal"
-  },
-  {
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-admission-lease-substitution.json",
-    "expected": "reject",
-    "expected_schema_accept": true,
-    "expected_failure": "invariant",
-    "expected_rule_id": "attempt.admission_issuer.matches_bound_lease_or_room_system"
-  },
-  {
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-wrong-work-subject-scheme.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-non-room-bound-coordinates.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-proposed-carries-admitted-roots.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/finding-v2/positive-hosted-admitted.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/finding-v2/positive-non-room.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-stale-attempt-coordinate.json",
-    "expected": "reject",
-    "expected_schema_accept": true,
-    "expected_failure": "invariant",
-    "expected_rule_id": "finding.attempt.matches_bound_attempt"
-  },
-  {
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-admission-lease-substitution.json",
-    "expected": "reject",
-    "expected_schema_accept": true,
-    "expected_failure": "invariant",
-    "expected_rule_id": "finding.admission_issuer.matches_participant_or_room_system"
-  },
-  {
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-proposer-principal-substitution.json",
-    "expected": "reject",
-    "expected_schema_accept": true,
-    "expected_failure": "invariant",
-    "expected_rule_id": "finding.proposer.resolves_through_bound_lease_or_room_system"
-  },
-  {
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-wrong-source-scheme.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-non-room-bound-coordinates.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-evaluating-carries-admitted-roots.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-hosted-admitted.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-non-room.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-room-substitution.json",
-    "expected": "reject",
-    "expected_schema_accept": true,
-    "expected_failure": "invariant",
-    "expected_rule_id": "verifier_challenge.room.matches_admission"
-  },
-  {
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-unsupported-challenger-kind.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-rejected-carries-admitted-roots.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-hosted-export.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-system-issued-expiry.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-database-access-leakage.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-foreign-system-issuer.json",
-    "expected": "reject",
-    "expected_schema_accept": true,
-    "expected_failure": "invariant",
-    "expected_rule_id": "participant_state_bundle.issuer.matches_lease_or_room_system"
-  },
-  {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-encrypted-ref-smuggling.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-proposed-carries-admitted-roots.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-result/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-hosted-admitted.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-result/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-direct-non-room.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-result/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-room-substitution.json",
-    "expected": "reject",
-    "expected_schema_accept": true,
-    "expected_failure": "invariant",
-    "expected_rule_id": "work_result.room.matches_admission"
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-result/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-array-uncertainty.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-result/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-over-cardinality.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-result/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-evaluating-carries-admitted-roots.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/outcome-delta/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-hosted-admitted.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/outcome-delta/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-direct-non-room.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/outcome-delta/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-unsupported-proposer-kind.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/outcome-delta/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-over-cardinality.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/outcome-delta/v2",
-    "path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-rejected-carries-admitted-roots.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/room-scoped-object-binding/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/room-scoped-object-binding-v1/positive-minimal.json",
-    "expected": "accept",
-    "expected_schema_accept": true,
-    "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/room-scoped-object-binding/v1",
-    "path": "docs/architecture/_meta/schemas/fixtures/room-scoped-object-binding-v1/negative-parallel-admission-field.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/positive-admitted.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -11332,7 +10150,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-room-substitution.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11340,7 +10158,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-evaluating-carries-admitted-roots.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11348,7 +10166,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-active-room-claim.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -11356,7 +10174,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-direct-bilateral.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -11364,7 +10182,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-room-substitution.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -11372,7 +10190,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "work_claim.room.matches_admission"
   },
   {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-participant-lease-substitution.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -11380,7 +10198,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "work_claim.participant_lease.matches_admission_issuer"
   },
   {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-wrong-task-offer-scheme.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11388,7 +10206,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11396,7 +10214,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-hosted-admitted.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -11404,7 +10222,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-non-room.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -11412,7 +10230,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-stale-bound-goal.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -11420,7 +10238,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "attempt.goal.matches_bound_goal"
   },
   {
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-admission-lease-substitution.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -11428,7 +10246,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "attempt.admission_issuer.matches_bound_lease_or_room_system"
   },
   {
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11436,7 +10254,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11444,7 +10262,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11452,7 +10270,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -11460,7 +10278,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -11468,7 +10286,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -11476,7 +10294,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "finding.attempt.matches_bound_attempt"
   },
   {
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-admission-lease-substitution.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -11484,7 +10302,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "finding.admission_issuer.matches_participant_or_room_system"
   },
   {
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-proposer-principal-substitution.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -11492,7 +10310,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "finding.proposer.resolves_through_bound_lease_or_room_system"
   },
   {
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-wrong-source-scheme.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11500,7 +10318,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-non-room-bound-coordinates.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11508,7 +10326,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11516,7 +10334,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -11524,7 +10342,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -11532,7 +10350,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -11540,7 +10358,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "verifier_challenge.room.matches_admission"
   },
   {
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-unsupported-challenger-kind.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11548,7 +10366,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-rejected-carries-admitted-roots.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11556,7 +10374,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-hosted-export.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -11564,7 +10382,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-system-issued-expiry.json",
     "expected": "accept",
     "expected_schema_accept": true,
@@ -11572,7 +10390,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-database-access-leakage.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11580,7 +10398,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -11588,7 +10406,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "participant_state_bundle.issuer.matches_lease_or_room_system"
   },
   {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11596,7 +10414,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -11618,14 +10436,6 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/work-result/v3",
-    "path": "docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-room-substitution.json",
-    "expected": "reject",
-    "expected_schema_accept": true,
-    "expected_failure": "invariant",
-    "expected_rule_id": "work_result.room.matches_admission"
   },
   {
     "contract_id": "schema://ioi/foundations/work-result/v3",
@@ -11665,14 +10475,6 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected": "accept",
     "expected_schema_accept": true,
     "expected_failure": null,
-    "expected_rule_id": null
-  },
-  {
-    "contract_id": "schema://ioi/foundations/outcome-delta/v3",
-    "path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-unsupported-proposer-kind.json",
-    "expected": "reject",
-    "expected_schema_accept": false,
-    "expected_failure": "schema",
     "expected_rule_id": null
   },
   {
@@ -17245,29 +16047,15 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/positive-direct-research.json",
-    "contract_id": "schema://ioi/foundations/goal-run-admission-path-decision/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/positive-direct-research.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/negative-direct-with-shared-frontier.json",
-    "contract_id": "schema://ioi/foundations/goal-run-admission-path-decision/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/negative-direct-with-shared-frontier.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/work-result/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/work-result/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v1/negative-unknown-field.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -17357,14 +16145,14 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/goal-run-profile/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/goal-run-profile/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json",
     "mutation_id": null,
     "value_json": null
@@ -17427,14 +16215,14 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/goal-grounding-loop/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/positive-minimal.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/goal-grounding-loop/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/negative-unknown-field.json",
     "mutation_id": null,
     "value_json": null
@@ -17464,20 +16252,6 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json",
     "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/outcome-delta/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/outcome-delta/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v1/negative-unknown-field.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -17567,917 +16341,497 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/goal-run/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/goal-run/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-v1/negative-unknown-field.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/positive-zero.json",
-    "contract_id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/positive-zero.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-widened-parallel.json",
-    "contract_id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-widened-parallel.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-tampered-hash.json",
-    "contract_id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-tampered-hash.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json",
     "mutation_id": null,
     "value_json": null
   },
   {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/attempt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/attempt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/collaborative-work-graph/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/collaborative-work-graph/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json",
-    "contract_id": "schema://ioi/foundations/collaborative-work-graph/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json",
-    "contract_id": "schema://ioi/foundations/collaborative-work-graph/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json",
     "mutation_id": null,
     "value_json": null
   },
   {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/finding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/finding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-permitted-subjects.json",
-    "contract_id": "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-permitted-subjects.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-source-receipts.json",
-    "contract_id": "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-source-receipts.json",
     "mutation_id": null,
     "value_json": null
   },
   {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/outcome-room/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/outcome-room/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/positive-admitted-create.json",
-    "contract_id": "schema://ioi/foundations/goal-run-activation/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/positive-admitted-create.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-source-kind-ref-mismatch.json",
-    "contract_id": "schema://ioi/foundations/goal-run-activation/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-source-kind-ref-mismatch.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-create-missing-profile-hash.json",
-    "contract_id": "schema://ioi/foundations/goal-run-activation/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-create-missing-profile-hash.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-admitted-without-receipt.json",
-    "contract_id": "schema://ioi/foundations/goal-run-activation/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-admitted-without-receipt.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json",
-    "contract_id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-receipt-identity-mismatch.json",
-    "contract_id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-receipt-identity-mismatch.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-source-kind-ref-mismatch.json",
-    "contract_id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-source-kind-ref-mismatch.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-admitted-goal-substitution.json",
-    "contract_id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-admitted-goal-substitution.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/positive-admitted-create.json",
-    "contract_id": "schema://ioi/foundations/goal-run-admitted-state/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/positive-admitted-create.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-prefix-only-state-root.json",
-    "contract_id": "schema://ioi/foundations/goal-run-admitted-state/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-prefix-only-state-root.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-tampered-source-context.json",
-    "contract_id": "schema://ioi/foundations/goal-run-admitted-state/v1",
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-tampered-source-context.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json",
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-hosted-without-host-domain.json",
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-hosted-without-host-domain.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-owner-scheme.json",
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-owner-scheme.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-cardinality.json",
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-cardinality.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-objective.json",
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-objective.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-replay-cardinality.json",
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-replay-cardinality.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-max-sequence.json",
-    "contract_id": "schema://ioi/foundations/outcome-room/v2",
+    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-max-sequence.json",
     "mutation_id": null,
     "value_json": null
   },
   {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/positive-admitted.json",
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/positive-admitted.json",
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/system-scoped-object-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/positive-minimal.json",
     "mutation_id": null,
     "value_json": null
   },
   {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-room-substitution.json",
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-room-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-evaluating-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-evaluating-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-active-room-claim.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-active-room-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-direct-bilateral.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-direct-bilateral.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-room-substitution.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-room-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-participant-lease-substitution.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-participant-lease-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-wrong-task-offer-scheme.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-wrong-task-offer-scheme.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-rejected-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-rejected-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-hosted-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-non-room.json",
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-non-room.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-stale-bound-goal.json",
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-stale-bound-goal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-admission-lease-substitution.json",
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-admission-lease-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-wrong-work-subject-scheme.json",
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-wrong-work-subject-scheme.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-non-room-bound-coordinates.json",
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-non-room-bound-coordinates.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-proposed-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/attempt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-proposed-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v2/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v2/positive-hosted-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v2/positive-non-room.json",
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v2/positive-non-room.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v2/negative-stale-attempt-coordinate.json",
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-stale-attempt-coordinate.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v2/negative-admission-lease-substitution.json",
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-admission-lease-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v2/negative-proposer-principal-substitution.json",
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-proposer-principal-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v2/negative-wrong-source-scheme.json",
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-wrong-source-scheme.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v2/negative-non-room-bound-coordinates.json",
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-non-room-bound-coordinates.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v2/negative-evaluating-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/finding/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-evaluating-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-hosted-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-non-room.json",
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-non-room.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-room-substitution.json",
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-room-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-unsupported-challenger-kind.json",
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-unsupported-challenger-kind.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-rejected-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-rejected-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-hosted-export.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-hosted-export.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-system-issued-expiry.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-system-issued-expiry.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-database-access-leakage.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-database-access-leakage.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-foreign-system-issuer.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-foreign-system-issuer.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-encrypted-ref-smuggling.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-encrypted-ref-smuggling.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-proposed-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-proposed-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/foundations/work-result/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-hosted-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-direct-non-room.json",
-    "contract_id": "schema://ioi/foundations/work-result/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-direct-non-room.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-room-substitution.json",
-    "contract_id": "schema://ioi/foundations/work-result/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-room-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-array-uncertainty.json",
-    "contract_id": "schema://ioi/foundations/work-result/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-array-uncertainty.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-over-cardinality.json",
-    "contract_id": "schema://ioi/foundations/work-result/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-over-cardinality.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-evaluating-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/work-result/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-evaluating-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/foundations/outcome-delta/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-hosted-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-direct-non-room.json",
-    "contract_id": "schema://ioi/foundations/outcome-delta/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-direct-non-room.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-unsupported-proposer-kind.json",
-    "contract_id": "schema://ioi/foundations/outcome-delta/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-unsupported-proposer-kind.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-over-cardinality.json",
-    "contract_id": "schema://ioi/foundations/outcome-delta/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-over-cardinality.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-rejected-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/outcome-delta/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-rejected-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-scoped-object-binding-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/room-scoped-object-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-scoped-object-binding-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-scoped-object-binding-v1/negative-parallel-admission-field.json",
-    "contract_id": "schema://ioi/foundations/room-scoped-object-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-scoped-object-binding-v1/negative-parallel-admission-field.json",
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/negative-parallel-admission-field.json",
+    "contract_id": "schema://ioi/foundations/system-scoped-object-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/negative-parallel-admission-field.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/positive-admitted.json",
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/positive-admitted.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-room-substitution.json",
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-room-substitution.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-evaluating-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/work-frontier-item/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-evaluating-carries-admitted-roots.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-active-room-claim.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-active-room-claim.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-direct-bilateral.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-direct-bilateral.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-room-substitution.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-room-substitution.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-participant-lease-substitution.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-participant-lease-substitution.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-wrong-task-offer-scheme.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-wrong-task-offer-scheme.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/work-claim-lease/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-hosted-admitted.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-non-room.json",
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-non-room.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-stale-bound-goal.json",
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-stale-bound-goal.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-admission-lease-substitution.json",
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-admission-lease-substitution.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json",
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json",
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/attempt/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json",
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json",
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-admission-lease-substitution.json",
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-admission-lease-substitution.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-proposer-principal-substitution.json",
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-proposer-principal-substitution.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-wrong-source-scheme.json",
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-wrong-source-scheme.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-non-room-bound-coordinates.json",
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-non-room-bound-coordinates.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/finding/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json",
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json",
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-unsupported-challenger-kind.json",
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-unsupported-challenger-kind.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-rejected-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/verifier-challenge/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-rejected-carries-admitted-roots.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-hosted-export.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-hosted-export.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-system-issued-expiry.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-system-issued-expiry.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-database-access-leakage.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-database-access-leakage.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json",
     "mutation_id": null,
     "value_json": null
   },
   {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json",
     "mutation_id": null,
     "value_json": null
@@ -18493,13 +16847,6 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-direct-non-room.json",
     "contract_id": "schema://ioi/foundations/work-result/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-direct-non-room.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-room-substitution.json",
-    "contract_id": "schema://ioi/foundations/work-result/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-room-substitution.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -18535,13 +16882,6 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-direct-non-room.json",
     "contract_id": "schema://ioi/foundations/outcome-delta/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-direct-non-room.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-unsupported-proposer-kind.json",
-    "contract_id": "schema://ioi/foundations/outcome-delta/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-unsupported-proposer-kind.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -19482,16 +17822,13 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:finding|ontology-assertion|evidence)://[^\\s]{1,500}$",
   "^(?:finding|ontology-assertion|evidence|artifact)://[^\\s]{1,500}$",
   "^(?:frontier|attempt|finding)://[^\\s]{1,500}$",
-  "^(?:frontier|finding|ontology|state|capability|policy|routing-prior|service)://[^\\s]{1,500}$",
   "^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$",
   "^(?:gate|policy)://[^\\s]{1,240}$",
   "^(?:goal|automation-run|work-run|run|invocation|work-claim)://[^\\s]{1,500}$",
-  "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$",
   "^(?:goal|task|service)://[^\\s]{1,500}$",
   "^(?:grant|approval)://[^\\s]{1,500}$",
   "^(?:grant|policy)://[^\\s]{1,500}$",
   "^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$",
-  "^(?:harness-invocation|run|work-run|automation-run|service)://[^\\s]{1,500}$",
   "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}/revision/[^\\s]{1,500}$",
   "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$",
   "^(?:heartbeat|receipt)://[^\\s]{1,500}$",
@@ -19499,13 +17836,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:license|policy)://[^\\s]{1,500}$",
   "^(?:license|policy|restricted-view|receipt)://[^\\s]{1,500}$",
   "^(?:message|artifact)://[^\\s]{1,500}$",
-  "^(?:method|attempt|finding|work-result|artifact|trace)://[^\\s]{1,500}$",
   "^(?:method|finding|artifact)://[^\\s]{1,500}$",
   "^(?:network|chain|domain)://[^\\s]{1,248}$",
   "^(?:observed-state|agentgres)://[^\\s]{1,240}$",
   "^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$",
   "^(?:org|project|system|user)://[^\\s]{1,500}$",
-  "^(?:participant-lease|system)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|agent)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$",
@@ -19558,7 +17893,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:user|wallet)://\\S*$",
   "^(?:user|wallet)://\\S+$",
   "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
-  "^(?:verifier-challenge|dispute|evidence)://[^\\s]{1,500}$",
   "^(?:verifier-path|rubric|gate)://[^\\s]{1,500}$",
   "^(?:verifier-path|verification|receipt)://[^\\s]+$",
   "^(?:verifier-path|verifier-challenge)://[^\\s]{1,500}$",
@@ -19569,7 +17903,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:wallet|provider|org)://[^\\s]{1,248}$",
   "^(?:wallet|user|agent|system)://[^\\s]{1,500}$",
   "^(?:work-claim|decision|receipt)://[^\\s]{1,500}$",
-  "^(?:work-result|attempt|finding|participant-lease)://[^\\s]{1,500}$",
   "^(?:work-result|outcome-delta)://[^\\s]{1,500}$",
   "^(?:work-run|run)://[^\\s]{1,500}$",
   "^(?:worker|agent)://[^\\s]{1,500}$",
@@ -19692,7 +18025,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^decision://[A-Za-z0-9._:/-]+$",
   "^decision://[^\\s]{1,248}$",
-  "^decision://[^\\s]{1,500}$",
   "^decision://\\S*$",
   "^deployment-profile://[A-Za-z0-9._:/-]+$",
   "^deployment-profile://[^\\s?#\\\\]{1,160}$",
@@ -19937,7 +18269,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^work-claim://[^\\s]{1,500}$",
   "^work-item://[^\\s]{1,500}$",
   "^work-lifecycle://[^\\s]+$",
-  "^work-result://[^\\s]+$",
   "^work-result://[^\\s]{1,500}$",
   "^work-run://[^\\s]{1,248}$",
   "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -20035,7 +18366,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1": "sha256:64fc7bceebf6e18119387f16940b0cf4e68c2b8a1a5d6caed6b1a76502607513",
   "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1": "sha256:7e303b8ded639767da86d7daf1941b05ea800a3f43ad22e5881a6986281cbecf",
   "schema://ioi/components/connectors-tools/scm-publication-effect/v1": "sha256:00f65134dab87fe98063d3cc720268553cd1cd96862df5dfe7ec00041de0abff",
-  "schema://ioi/components/connectors-tools/scm-publication-effect/v2": "sha256:04da1c21908882140b9e9c435566684301ad24a9160219eeb5f33cce43f84759",
+  "schema://ioi/components/connectors-tools/scm-publication-effect/v2": "sha256:acc0b12e275584302f9fa0d30937e7439bdb8bf9af7805edcba0b861e24e3ae5",
   "schema://ioi/components/hypervisor/backend-capability-declaration/v1": "sha256:ff20dc82932a0095e15e8ecd6ccb8f458e92ce81990ab0c7c3f25c5d7942cddf",
   "schema://ioi/components/hypervisor/workload-isolation-requirements/v1": "sha256:718d9c35d0e969108feb391bb83e0a1b8029f24e0cb2272de15b3fb261a64fd1",
   "schema://ioi/components/hypervisor/workload-isolation-binding/v1": "sha256:57099f54fe5e9de26028f4910be956ee4f3ce585a67698b68d0bcc1e31371899",
@@ -20051,62 +18382,45 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/collection-query/v1": "sha256:fc25b17cf6830faca44e00eedad7b6d4dd7c4eee5008e2c05ca553ce7da25bd5",
   "schema://ioi/components/hypervisor/collection-page/v1": "sha256:1838faff61bec1c9b137763e19114dcca2017b8ddb20b3a7400561391e2321d7",
   "schema://ioi/components/hypervisor/route-retirement-refusal/v1": "sha256:6add3b557f9b25684a4ad6172bba6de8d147133d01c2835ba52b9d4f71ef290e",
-  "schema://ioi/foundations/goal-run-admission-path-decision/v1": "sha256:196e304ae43cd1b35e9290bd40dabd0de6a9e460d08643916ca37ed0989ac888",
-  "schema://ioi/foundations/work-result/v1": "sha256:4b79e657bebc93c93198a260de024894fec712ccdb2e743c8a54760d0184a05c",
+  "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1": "sha256:a38a908eb1ecf0ee91162b8d7b24d642cc440903e774d027123c25bd6901c1e4",
   "schema://ioi/foundations/work-lifecycle-record/v1": "sha256:b04465b2aba647773c44bf8631d2d03f91a7aa6dbb1aeb11bc3e5e59276ad7cd",
   "schema://ioi/components/daemon-runtime/information-flow-decision-receipt/v1": "sha256:c17754b427471854db48fc58484da826b2caa8cce597031f7aca0f60997ca52e",
   "schema://ioi/components/agentgres/agent-execution-branch/v1": "sha256:e9a2a131a83dbdea693e979b7e0a985f39116da4c8cfdd9c4bd23d7ebd35247f",
   "schema://ioi/components/agentgres/staged-effect/v1": "sha256:fe662fdb440e2751201a7013c02457ea18e27958f3a3348d6a156cabfa74b5b0",
   "schema://ioi/components/agentgres/branch-checkpoint/v1": "sha256:c6ca8a0337e42ee53399fe05ac7c35688d3b793cafe9bbb668c2558939c90eff",
   "schema://ioi/components/agentgres/branch-merge-plan/v1": "sha256:42e14189b7a6b3e48bec11293311f1c661b0f5d08ff2ca553d1ffe15fd99c517",
-  "schema://ioi/foundations/goal-run-profile/v1": "sha256:59485d1f30c3b0ddca3adc52ba4cc0c650da64478a888c84e61641ed941c7967",
+  "schema://ioi/applications/ioi-ai/goal-run-profile/v1": "sha256:8426a6ed08ae7ac05e720afdb565f6e92a2d27a8eb916b7cc6b82df4ae845863",
   "schema://ioi/foundations/workflow-template/v1": "sha256:77f96b713670707d3da8fead21bfab833169aadae340da8290afea549dea8ffd",
   "schema://ioi/foundations/skill-manifest/v1": "sha256:cf1ca7a5711a784e57adef9c17d12d4495f22d4c17930847c6ec2061c50b2995",
   "schema://ioi/foundations/skill-entry/v1": "sha256:3f1bc8b58d8604b5b1bd0562aac17e55f961ee3d3061e5321224161901861a2a",
   "schema://ioi/foundations/active-skill-set-snapshot/v1": "sha256:c62f6d794bf48172de77fa72cb71ea86dd1ed07944abf70d92aa8e82a97f87d6",
-  "schema://ioi/foundations/goal-grounding-loop/v1": "sha256:41d77b02d0d15b25618c0629d97a9762fda1b73ad42bf95ce347688d3281cc7c",
+  "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1": "sha256:b9ee6a68b49ece6ba66a51e69e0df922f8f22a1c7f3f22ed3b193371a21d8650",
   "schema://ioi/components/daemon-runtime/harness-profile/v1": "sha256:755016efbf5fb6e51f010dac5431b1bc2ac25eff5a0670f03646cb388305e6ad",
   "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1": "sha256:9243ba237b4624997f35edddfba804e2f30f8f1a3217d283cec4f19ff1ee65ec",
-  "schema://ioi/foundations/outcome-delta/v1": "sha256:b540811d3b81cc5c526e418979522d03ea59613eeeceff353259d2c386956452",
   "schema://ioi/foundations/cancellation-fanout-plan/v1": "sha256:107e096004fabc7624d0e95ed0d0179fd6953411cf704761d3ba995e6f0fd5e1",
   "schema://ioi/components/agentgres/operation-log-entry/v1": "sha256:3fa2af121551e64fd45781f8ab300d41d2f241ad6aa204ad407445948f73f48e",
   "schema://ioi/components/agentgres/artifact-ref/v1": "sha256:6f9e2efe1c8e8c00dd1e669fe28d59ab7b31f430e9c7df1cda2620cfa9528bc2",
   "schema://ioi/components/agentgres/projection-definition/v1": "sha256:6b65dcbb81684bae243ae51d889f3470f6265446ea36adecf82957cc5cfeeada",
   "schema://ioi/components/daemon-runtime/declassification-receipt/v1": "sha256:3bd20027d03dcc1c41f63ffb4d886397ee85760e803138fa483d8bef7501ec7c",
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1": "sha256:6af61ba9d156c2e04c5641dbf78324ccc719d9da10d6269c87e358802d49feff",
-  "schema://ioi/foundations/goal-run/v1": "sha256:d79551dfbecc77adc6230ab96f36be5d1c19030bcdb00454c7a5c2a85f2244d0",
-  "schema://ioi/foundations/goal-run-execution-ceiling/v1": "sha256:a603d82bc9827f737d8aa97b3f28e182f3187cf6096871abac2af217f305288c",
-  "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1": "sha256:dc3fbf227eae097f7b815125f287ad0cbb9504a5f5e7df141b64ef4f089b7cbd",
-  "schema://ioi/foundations/attempt/v1": "sha256:de9ad01527339b3216e397326b325e5ce563123196cbd9eda2e4e82dac0c299d",
-  "schema://ioi/foundations/collaborative-work-graph/v1": "sha256:e0dd3f09f0078919591bdd51b6c1e3dc0f8d3fd50b342261b71de1216aa33d87",
-  "schema://ioi/foundations/finding/v1": "sha256:0d644924fb01fb7fac8502de13c098d1a8e69c71a99abce70153b5a830b86e78",
-  "schema://ioi/foundations/outcome-room-discussion-projection/v1": "sha256:061c31324e096200700085a0c82f49a762381d186f4443e70b31d498f57d24b5",
-  "schema://ioi/foundations/outcome-room/v1": "sha256:251a700cc0c55e9c2b9cd49cec8984eee7bc3a0ed4ff49126272b21d134a08a0",
-  "schema://ioi/foundations/participant-state-bundle/v1": "sha256:8e621f4847b9a83cc28252ccd2d1459d065017b40e829efb8beb43a5d25c84c3",
-  "schema://ioi/foundations/verifier-challenge/v1": "sha256:a5f3efba0396d3dff2fb64e8c00449fb785f46e00068a6de4ce17524e64647fa",
-  "schema://ioi/foundations/work-claim-lease/v1": "sha256:0fb966c4940672eb5d4ec87c0d92bc34d4db6369756356b1b0ba1d1ff3d35653",
-  "schema://ioi/foundations/work-frontier-item/v1": "sha256:5bc0d8189b368b4b8f71d0f1fc1bc1f3f847682d1fcd70dbeaada5920905b8c1",
-  "schema://ioi/foundations/goal-run-activation/v1": "sha256:fe851f9b6fea9b42055e8996454fd1095afd58adc7bcfc99b203de06a8ae3204",
-  "schema://ioi/foundations/goal-run-activation-receipt/v1": "sha256:e2f29ba42df7865ae80024344b004d9e7a7864d8fc0e93146a54c9cd1da3a718",
-  "schema://ioi/foundations/goal-run-admitted-state/v1": "sha256:bc5854d8a02e210452e244379b116f2d836716715831a885297540c0cc7e83ff",
-  "schema://ioi/foundations/outcome-room/v2": "sha256:82b083cc0b1059d70094918f99f46185eb34ba1086b74ee9fee30294fd34c90f",
-  "schema://ioi/foundations/work-frontier-item/v2": "sha256:d6883ab8df540451e5904acd38d931e1cb8111e702fcaf596281a5f2573c5ad1",
-  "schema://ioi/foundations/work-claim-lease/v2": "sha256:dbd0d2c4ad8420d8ff2b19e676b244f9ec218c15f6e2d94a206c514a4b819e11",
-  "schema://ioi/foundations/attempt/v2": "sha256:9400a0b3bb3a535f20becc691d56689b42777970247b355e5559259fa4863ecd",
-  "schema://ioi/foundations/finding/v2": "sha256:73086d32fe09f051919079558033b8f92d315368f3e722e15d43fc4d641824a2",
-  "schema://ioi/foundations/verifier-challenge/v2": "sha256:e21af90739ad676759362c3bf950209d78e660f4adf06193e30ddc37293614e3",
-  "schema://ioi/foundations/participant-state-bundle/v2": "sha256:050d36d7ca589dbb3caac565e0abb0e8ed937542e08908fd3dfad660d476e8ff",
-  "schema://ioi/foundations/work-result/v2": "sha256:f18a5a4dcc326998eeedf2d52b8d5947c7c6325567f7dd8394c07f1579d76619",
-  "schema://ioi/foundations/outcome-delta/v2": "sha256:f525f1a9350a2609909fa77bcdce8cade87b5258ea911c981acc04956576b61e",
-  "schema://ioi/foundations/room-scoped-object-binding/v1": "sha256:4fcf859297fced97db8520324ed31b10f0630d754ac0400e59988e992c838f96",
-  "schema://ioi/foundations/work-frontier-item/v3": "sha256:23ed0f686cfd2417984dd468da55b0056657221aa23d26ad1eed645e9e208c62",
-  "schema://ioi/foundations/work-claim-lease/v3": "sha256:0bfccd4145f480f3198f1086bb0740293e20f8c7eb71175d020717bdef9c3c05",
-  "schema://ioi/foundations/attempt/v3": "sha256:1cc55141f87140b9c9921126c1d080fa51c98c801239f6f81a55a6a8f488eee6",
-  "schema://ioi/foundations/finding/v3": "sha256:386e55e604e9ab026346b93d7e1d41f814aecbc8dfc78474371bf8f85c3a1a54",
-  "schema://ioi/foundations/verifier-challenge/v3": "sha256:4c363496917df3d573853d3428bcf35b2247a19fe37b7fa27e9e2dcef7494362",
-  "schema://ioi/foundations/participant-state-bundle/v3": "sha256:44800f10a85753447bf3cc0a2a708b44334df803edb0c7385aa4471827b20b84",
-  "schema://ioi/foundations/work-result/v3": "sha256:4170a94ba87a52a6cecf274a4e0d20fc53e8ce4d454e8d976899a629f70b6a9f",
-  "schema://ioi/foundations/outcome-delta/v3": "sha256:789be1f8913fbe3213c9d80b38a4d50e094b1d3427ba62a5c19f619ef378fe82"
+  "schema://ioi/applications/ioi-ai/goal-run/v1": "sha256:03f2aa66af2424ebb30b6adb4c605d8a22fa50816b0f939d62c868a799c16cb5",
+  "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1": "sha256:ede0138bfe5d32d8bffec8c085e51356aa53f4c8c44f6c3313d6fa143fd1b8cb",
+  "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1": "sha256:98b28124a2094d3f8c5659772d42a7ab40ae475d4bda88d24e52d51392f6f477",
+  "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1": "sha256:4153fe127298d00c9836a7ac8e8a62da6fd0c7d4b0c2372717b7468d9a96d632",
+  "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1": "sha256:d98eec6115a535ad4a53cdffbefccf6e6b19302502b8e86bdf9db5c5fd4710f0",
+  "schema://ioi/applications/ioi-ai/goal-run-activation/v1": "sha256:ede21f480591582d0e4db34f3d258a392faf85c5bb5b0080abdc1d077639dfd3",
+  "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1": "sha256:59fc95ab0db7dea0fa7ea5310d53e9a112bcb52d57e318bc71d02f21a8ac68f0",
+  "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1": "sha256:9d0dbebfbcdc3a630d027b5ad7bb0e5d1332b978ad665c19f8079b15a34b7b03",
+  "schema://ioi/applications/ioi-ai/outcome-room/v2": "sha256:c422433e7cd1c76780075b3eed5b1b55e0e517daf6774d7cd99d29ed9cfe6246",
+  "schema://ioi/foundations/system-scoped-object-binding/v1": "sha256:6f2a54cb99566951e3bcec4bd99f864fe0ea61c28621a6a4f68c734c45361917",
+  "schema://ioi/applications/ioi-ai/work-frontier-item/v3": "sha256:ef718d9b0643a361674b7173bc6b29758bec366f6e5b5b328d2f974e0818f1ca",
+  "schema://ioi/applications/ioi-ai/work-claim-lease/v3": "sha256:a9f4260494a490b2a60c3acb437a6b90667a5c7fb3760cb19f7b042d36747588",
+  "schema://ioi/applications/ioi-ai/attempt/v3": "sha256:cd1d3175783030983a471006d8ee4827f8f0b24e27bd857f1095610eb21ae45b",
+  "schema://ioi/applications/ioi-ai/finding/v3": "sha256:58e6e7bf57e42ee280cceda6f928c84855ea18617a2c81c4127d435ba19b7253",
+  "schema://ioi/applications/ioi-ai/verifier-challenge/v3": "sha256:9b7c215945dacf4a4267b583d7c21484995f652ce79d7c5146d1e2b50d4edaae",
+  "schema://ioi/applications/ioi-ai/participant-state-bundle/v3": "sha256:c833dd239224d3d9c12f7daf39c9a05c3645b498f7ddef1dd286fd057670ec89",
+  "schema://ioi/foundations/work-result/v3": "sha256:0220d0bb1d76fa05a49decd8554c7debb3d47e855c8856a5298ecd0f2bda51b4",
+  "schema://ioi/foundations/outcome-delta/v3": "sha256:ee040b737b47f68264dd0bff1d638b7c539ef4b9679691ca2924e2b4b56085a2"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -55419,7 +53733,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "attempt_ref",
+          "publication_attempt_ref",
           "attempt_number",
           "cas",
           "cas_fingerprint",
@@ -55427,7 +53741,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "dispatch"
         ],
         "properties": {
-          "attempt_ref": {
+          "publication_attempt_ref": {
             "$ref": "#/$defs/attemptRef"
           },
           "attempt_number": {
@@ -58435,11 +56749,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/goal-run-admission-path-decision/v1": {
+  "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/goal-run-admission-path-decision/v1",
+    "$id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
     "title": "GoalRunAdmissionPathDecision",
-    "x-ioi-schema-version": "ioi.foundations.goal-run-admission-path-decision.v1",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.goal-run-admission-path-decision.v1",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -58463,7 +56777,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     ],
     "properties": {
       "schema_version": {
-        "const": "ioi.foundations.goal-run-admission-path-decision.v1"
+        "const": "ioi.applications.ioi-ai.goal-run-admission-path-decision.v1"
       },
       "decision_ref": {
         "$ref": "#/$defs/ref"
@@ -58749,493 +57063,6 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "hash": {
         "type": "string",
         "pattern": "^sha256:[0-9a-f]{64}$"
-      }
-    }
-  },
-  "schema://ioi/foundations/work-result/v1": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/work-result/v1",
-    "title": "WorkResult",
-    "x-ioi-schema-version": "ioi.foundations.work-result.v1",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "schema_version",
-      "work_result_id",
-      "work_subject_ref",
-      "goal_run_ref",
-      "outcome_room_ref",
-      "room_admission",
-      "produced_by_ref",
-      "submitted_by_ref",
-      "operator_and_affiliation_refs",
-      "work_claim_ref",
-      "attempt_ref",
-      "invocation_or_run_ref",
-      "result_profile",
-      "result_profile_ref",
-      "result_payload_ref",
-      "producer_component_resolution",
-      "declared_method_and_lineage_refs",
-      "information_flow_label_refs",
-      "outcome_class",
-      "status",
-      "outcome_delta_refs",
-      "finding_refs",
-      "claim_refs",
-      "uncertainty",
-      "supporting_evidence_refs",
-      "contradicting_evidence_refs",
-      "artifact_receipt_and_trace_refs",
-      "resource_and_cost_refs",
-      "authority_and_policy_refs",
-      "blocker_and_decision_request_refs",
-      "verifier_refs",
-      "license_disclosure_retention_and_export_refs",
-      "reproduction_state",
-      "reproduction_refs",
-      "acceptance_ref",
-      "challenge_refs",
-      "supersedes_work_result_ref",
-      "superseded_by_ref",
-      "summary_ref",
-      "next_action"
-    ],
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.work-result.v1"
-      },
-      "work_result_id": {
-        "type": "string",
-        "pattern": "^work-result://[^\\s]+$"
-      },
-      "work_subject_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "goal_run_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_admission": {
-        "anyOf": [
-          {
-            "type": "object"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "produced_by_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "submitted_by_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "operator_and_affiliation_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "work_claim_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "attempt_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "invocation_or_run_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "result_profile": {
-        "enum": [
-          "software_implementation",
-          "research",
-          "ontology_mutation",
-          "incident_resolution",
-          "service_delivery",
-          "physical_mission",
-          "review",
-          "evaluation",
-          "custom"
-        ]
-      },
-      "result_profile_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "result_payload_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "producer_component_resolution": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "resolved_component_set_snapshot_ref",
-          "resolved_component_set_hash",
-          "component_resolution_receipt_ref",
-          "resolver_kind",
-          "resolver_revision_ref",
-          "resolver_content_hash"
-        ],
-        "properties": {
-          "resolved_component_set_snapshot_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resolved_component_set_hash": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "component_resolution_receipt_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resolver_kind": {
-            "enum": [
-              "harness_profile",
-              "agent_harness_adapter",
-              "none"
-            ]
-          },
-          "resolver_revision_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resolver_content_hash": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        }
-      },
-      "declared_method_and_lineage_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "information_flow_label_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "outcome_class": {
-        "enum": [
-          "positive",
-          "negative",
-          "inconclusive",
-          "invalid",
-          "exploit_found",
-          "superseded"
-        ]
-      },
-      "status": {
-        "enum": [
-          "completed",
-          "failed",
-          "blocked",
-          "partial",
-          "challenged",
-          "superseded"
-        ]
-      },
-      "outcome_delta_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "finding_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "claim_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "uncertainty": {
-        "anyOf": [
-          {
-            "type": "array"
-          },
-          {
-            "type": "number"
-          },
-          {
-            "type": "string"
-          },
-          {
-            "type": "object"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "supporting_evidence_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "contradicting_evidence_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "artifact_receipt_and_trace_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "resource_and_cost_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "authority_and_policy_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "blocker_and_decision_request_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "verifier_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "license_disclosure_retention_and_export_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "reproduction_state": {
-        "anyOf": [
-          {
-            "enum": [
-              "unreviewed",
-              "reproducible",
-              "not_reproduced",
-              "contradicted",
-              "invalidated"
-            ]
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "reproduction_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "acceptance_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "challenge_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "supersedes_work_result_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "superseded_by_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "summary_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "next_action": {
-        "enum": [
-          "none",
-          "repair",
-          "review",
-          "verify",
-          "replicate",
-          "synthesize",
-          "ask_user",
-          "escalate",
-          "update_frontier"
-        ]
       }
     }
   },
@@ -60142,9 +57969,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/goal-run-profile/v1": {
+  "schema://ioi/applications/ioi-ai/goal-run-profile/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/goal-run-profile/v1",
+    "$id": "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
     "title": "GoalRunProfile",
     "x-ioi-schema-version": "ioi.goal-run-profile.v1",
     "type": "object",
@@ -61206,9 +59033,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/goal-grounding-loop/v1": {
+  "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/goal-grounding-loop/v1",
+    "$id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1",
     "title": "GoalGroundingLoop",
     "x-ioi-schema-version": "ioi.goal-grounding-loop.v1",
     "type": "object",
@@ -61702,134 +59529,6 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "released",
           "deprecated",
           "revoked"
-        ]
-      }
-    }
-  },
-  "schema://ioi/foundations/outcome-delta/v1": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/outcome-delta/v1",
-    "title": "OutcomeDelta",
-    "x-ioi-schema-version": "ioi.outcome-delta.v1",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "schema_version",
-      "outcome_delta_id",
-      "work_subject_ref",
-      "outcome_room_ref",
-      "room_admission",
-      "proposed_by_ref",
-      "target_ref",
-      "delta_kind",
-      "payload_ref",
-      "precondition_and_invariant_refs",
-      "expected_effect_ref",
-      "verifier_and_acceptance_refs",
-      "information_flow_label_refs",
-      "status"
-    ],
-    "properties": {
-      "schema_version": {
-        "const": "ioi.outcome-delta.v1"
-      },
-      "outcome_delta_id": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
-      },
-      "work_subject_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_admission": {
-        "anyOf": [
-          {
-            "type": "object"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "proposed_by_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
-      },
-      "target_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
-      },
-      "delta_kind": {
-        "enum": [
-          "create",
-          "update",
-          "supersede",
-          "reject",
-          "merge",
-          "promote",
-          "rollback",
-          "course_correct",
-          "close"
-        ]
-      },
-      "payload_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
-      },
-      "precondition_and_invariant_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
-        }
-      },
-      "expected_effect_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "verifier_and_acceptance_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
-        }
-      },
-      "information_flow_label_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
-        }
-      },
-      "status": {
-        "enum": [
-          "proposed",
-          "evaluating",
-          "admitted",
-          "rejected",
-          "superseded",
-          "rolled_back"
         ]
       }
     }
@@ -62646,9 +60345,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/goal-run/v1": {
+  "schema://ioi/applications/ioi-ai/goal-run/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/goal-run/v1",
+    "$id": "schema://ioi/applications/ioi-ai/goal-run/v1",
     "title": "GoalRun",
     "x-ioi-schema-version": "ioi.goal-run.v1",
     "type": "object",
@@ -63222,9 +60921,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     ]
   },
-  "schema://ioi/foundations/goal-run-execution-ceiling/v1": {
+  "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/goal-run-execution-ceiling/v1",
+    "$id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
     "title": "GoalRunExecutionCeiling",
     "description": "Immutable source-neutral invocation-count ceiling admitted with a GoalRun.",
     "x-ioi-schema-version": "ioi.goal-run-execution-ceiling.v1",
@@ -63283,11 +60982,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1": {
+  "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1",
+    "$id": "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
     "title": "GoalRunProfileResolutionReceipt",
-    "x-ioi-schema-version": "ioi.foundations.goal-run-profile-resolution-receipt.v1",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.goal-run-profile-resolution-receipt.v1",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -63317,7 +61016,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     ],
     "properties": {
       "schema_version": {
-        "const": "ioi.foundations.goal-run-profile-resolution-receipt.v1"
+        "const": "ioi.applications.ioi-ai.goal-run-profile-resolution-receipt.v1"
       },
       "receipt_id": {
         "type": "string",
@@ -63656,184 +61355,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     ]
   },
-  "schema://ioi/foundations/attempt/v1": {
+  "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/attempt/v1",
-    "title": "Attempt",
-    "x-ioi-schema-version": "ioi.foundations.attempt.v1",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "attempt_id",
-      "outcome_room_ref",
-      "room_admission",
-      "work_subject_ref",
-      "goal_run_ref",
-      "frontier_item_ref",
-      "work_claim_ref",
-      "participant_ref",
-      "outcome_class",
-      "work_result_ref",
-      "outcome_delta_refs",
-      "artifact_evidence_and_receipt_refs",
-      "status"
-    ],
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.attempt.v1"
-      },
-      "attempt_id": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_admission": {
-        "anyOf": [
-          {
-            "type": "object",
-            "required": [
-              "schema_version",
-              "room_system_id",
-              "outcome_room_ref",
-              "admission_status"
-            ],
-            "properties": {
-              "schema_version": {
-                "const": "ioi.foundations.room-admitted-object-base.v1"
-              },
-              "room_system_id": {
-                "type": "string",
-                "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-              },
-              "outcome_room_ref": {
-                "type": "string",
-                "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-              },
-              "admission_status": {
-                "enum": [
-                  "proposed",
-                  "evaluating",
-                  "admitted",
-                  "rejected",
-                  "superseded",
-                  "revoked"
-                ]
-              }
-            },
-            "additionalProperties": true
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "work_subject_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "goal_run_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "frontier_item_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "work_claim_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "participant_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "outcome_class": {
-        "enum": [
-          "positive",
-          "negative",
-          "inconclusive",
-          "invalid",
-          "exploit_found",
-          "superseded"
-        ]
-      },
-      "work_result_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "outcome_delta_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "artifact_evidence_and_receipt_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "status": {
-        "enum": [
-          "draft",
-          "running",
-          "submitted",
-          "admitted",
-          "challenged",
-          "accepted",
-          "rejected",
-          "superseded"
-        ]
-      }
-    }
-  },
-  "schema://ioi/foundations/collaborative-work-graph/v1": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/collaborative-work-graph/v1",
+    "$id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
     "title": "CollaborativeWorkGraph",
-    "x-ioi-schema-version": "ioi.foundations.collaborative-work-graph.v1",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.collaborative-work-graph.v1",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -63858,7 +61384,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     ],
     "properties": {
       "schema_version": {
-        "const": "ioi.foundations.collaborative-work-graph.v1"
+        "const": "ioi.applications.ioi-ai.collaborative-work-graph.v1"
       },
       "projection_id": {
         "type": "string",
@@ -63989,182 +61515,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/finding/v1": {
+  "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/finding/v1",
-    "title": "Finding",
-    "x-ioi-schema-version": "ioi.foundations.finding.v1",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "finding_id",
-      "outcome_room_ref",
-      "room_admission",
-      "attempt_ref",
-      "work_result_ref",
-      "participant_ref",
-      "proposed_by_ref",
-      "proposition",
-      "finding_kind",
-      "transaction_time",
-      "supporting_evidence_refs",
-      "contradicting_evidence_refs",
-      "proof_refs",
-      "supersedes_ref",
-      "status"
-    ],
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.finding.v1"
-      },
-      "finding_id": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_admission": {
-        "anyOf": [
-          {
-            "type": "object",
-            "required": [
-              "schema_version",
-              "room_system_id",
-              "outcome_room_ref",
-              "admission_status"
-            ],
-            "properties": {
-              "schema_version": {
-                "const": "ioi.foundations.room-admitted-object-base.v1"
-              },
-              "room_system_id": {
-                "type": "string",
-                "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-              },
-              "outcome_room_ref": {
-                "type": "string",
-                "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-              },
-              "admission_status": {
-                "enum": [
-                  "proposed",
-                  "evaluating",
-                  "admitted",
-                  "rejected",
-                  "superseded",
-                  "revoked"
-                ]
-              }
-            },
-            "additionalProperties": true
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "attempt_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "work_result_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "participant_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "proposed_by_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "proposition": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 8000
-      },
-      "finding_kind": {
-        "enum": [
-          "hypothesis",
-          "observation",
-          "claim",
-          "negative_result",
-          "integrity_incident",
-          "mapping_claim",
-          "causal_claim",
-          "counterexample",
-          "synthesis"
-        ]
-      },
-      "transaction_time": {
-        "type": "string",
-        "format": "date-time",
-        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-      },
-      "supporting_evidence_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "contradicting_evidence_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "proof_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "supersedes_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "status": {
-        "enum": [
-          "branch_local",
-          "proposed",
-          "admitted",
-          "contradicted",
-          "superseded",
-          "disputed",
-          "rejected",
-          "archived"
-        ]
-      }
-    }
-  },
-  "schema://ioi/foundations/outcome-room-discussion-projection/v1": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+    "$id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
     "title": "OutcomeRoomDiscussionProjection",
-    "x-ioi-schema-version": "ioi.foundations.outcome-room-discussion-projection.v1",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.outcome-room-discussion-projection.v1",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -64185,7 +61540,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     ],
     "properties": {
       "schema_version": {
-        "const": "ioi.foundations.outcome-room-discussion-projection.v1"
+        "const": "ioi.applications.ioi-ai.outcome-room-discussion-projection.v1"
       },
       "projection_id": {
         "type": "string",
@@ -64271,805 +61626,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/outcome-room/v1": {
+  "schema://ioi/applications/ioi-ai/goal-run-activation/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/outcome-room/v1",
-    "title": "OutcomeRoom",
-    "x-ioi-schema-version": "ioi.foundations.outcome-room.v1",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "outcome_room_id",
-      "system_id",
-      "genesis_ref",
-      "package_id",
-      "manifest_ref",
-      "constitution_ref",
-      "owner_or_sponsor_ref",
-      "objective_ref",
-      "objective",
-      "room_mode",
-      "coordination_topology",
-      "coordination_policy_ref",
-      "host_domain_ref",
-      "participant_lease_refs",
-      "member_goal_run_refs",
-      "frontier_item_refs",
-      "attempt_refs",
-      "finding_refs",
-      "verifier_challenge_refs",
-      "discussion_projection_refs",
-      "admission_and_replay_refs",
-      "latest_sequence",
-      "latest_transition_commitment_ref",
-      "room_state_root",
-      "room_receipt_root",
-      "status"
-    ],
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.outcome-room.v1"
-      },
-      "outcome_room_id": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "system_id": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "genesis_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "package_id": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "manifest_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "constitution_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "owner_or_sponsor_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "objective_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "objective": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 4000
-      },
-      "room_mode": {
-        "enum": [
-          "private_goal",
-          "permissioned_team",
-          "cross_org",
-          "open_challenge"
-        ]
-      },
-      "coordination_topology": {
-        "enum": [
-          "hosted_admission",
-          "federated_admission"
-        ]
-      },
-      "coordination_policy_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "host_domain_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "participant_lease_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "member_goal_run_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "frontier_item_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "attempt_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "finding_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "verifier_challenge_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "discussion_projection_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "admission_and_replay_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "latest_sequence": {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 9007199254740991
-      },
-      "latest_transition_commitment_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "room_state_root": {
-        "type": "string",
-        "pattern": "^sha256:[0-9a-f]{64}$"
-      },
-      "room_receipt_root": {
-        "type": "string",
-        "pattern": "^sha256:[0-9a-f]{64}$"
-      },
-      "status": {
-        "enum": [
-          "proposed",
-          "open",
-          "active",
-          "paused",
-          "blocked",
-          "verifying",
-          "accepted",
-          "disputed",
-          "settled",
-          "closed",
-          "revoked",
-          "archived"
-        ]
-      }
-    }
-  },
-  "schema://ioi/foundations/participant-state-bundle/v1": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/participant-state-bundle/v1",
-    "title": "ParticipantStateBundle",
-    "x-ioi-schema-version": "ioi.foundations.participant-state-bundle.v1",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "participant_state_bundle_id",
-      "outcome_room_ref",
-      "room_admission",
-      "participant_lease_ref",
-      "participant_and_home_domain_refs",
-      "coordination_topology",
-      "bundle_reason",
-      "source_admission_watermark_ref",
-      "released_or_reassigned_claim_refs",
-      "preserved_contribution_attempt_finding_and_result_refs",
-      "excluded_context_classes",
-      "bundle_artifact_ref",
-      "bundle_root",
-      "room_database_access_required",
-      "issued_at",
-      "signature",
-      "status"
-    ],
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.participant-state-bundle.v1"
-      },
-      "participant_state_bundle_id": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "outcome_room_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "room_admission": {
-        "type": "object",
-        "required": [
-          "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
-          "admission_status"
-        ],
-        "properties": {
-          "schema_version": {
-            "const": "ioi.foundations.room-admitted-object-base.v1"
-          },
-          "room_system_id": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          "outcome_room_ref": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          "admission_status": {
-            "enum": [
-              "proposed",
-              "evaluating",
-              "admitted",
-              "rejected",
-              "superseded",
-              "revoked"
-            ]
-          }
-        },
-        "additionalProperties": true
-      },
-      "participant_lease_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "participant_and_home_domain_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "coordination_topology": {
-        "enum": [
-          "hosted_admission",
-          "federated_admission"
-        ]
-      },
-      "bundle_reason": {
-        "enum": [
-          "checkpoint",
-          "voluntary_retirement",
-          "lease_expiry",
-          "revocation",
-          "quarantine",
-          "room_close"
-        ]
-      },
-      "source_admission_watermark_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "released_or_reassigned_claim_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "preserved_contribution_attempt_finding_and_result_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "excluded_context_classes": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "enum": [
-            "raw_secret",
-            "protected_plaintext",
-            "unauthorized_connector_payload",
-            "unrelated_private_memory",
-            "private_room_database_state",
-            "revoked_restricted_view",
-            "non_opted_in_training_trace"
-          ]
-        }
-      },
-      "bundle_artifact_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "bundle_root": {
-        "type": "string",
-        "pattern": "^sha256:[0-9a-f]{64}$"
-      },
-      "room_database_access_required": {
-        "const": false
-      },
-      "issued_at": {
-        "type": "string",
-        "format": "date-time",
-        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-      },
-      "signature": {
-        "type": "string",
-        "minLength": 1
-      },
-      "status": {
-        "enum": [
-          "prepared",
-          "exported",
-          "acknowledged",
-          "superseded",
-          "revoked"
-        ]
-      }
-    }
-  },
-  "schema://ioi/foundations/verifier-challenge/v1": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/verifier-challenge/v1",
-    "title": "VerifierChallenge",
-    "x-ioi-schema-version": "ioi.foundations.verifier-challenge.v1",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "verifier_challenge_id",
-      "outcome_room_ref",
-      "room_admission",
-      "challenger_ref",
-      "challenged_ref",
-      "challenge_kind",
-      "challenge_evidence_refs",
-      "adjudicator_policy_ref",
-      "reverification_required",
-      "adjudication_ref",
-      "status"
-    ],
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.verifier-challenge.v1"
-      },
-      "verifier_challenge_id": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_admission": {
-        "anyOf": [
-          {
-            "type": "object",
-            "required": [
-              "schema_version",
-              "room_system_id",
-              "outcome_room_ref",
-              "admission_status"
-            ],
-            "properties": {
-              "schema_version": {
-                "const": "ioi.foundations.room-admitted-object-base.v1"
-              },
-              "room_system_id": {
-                "type": "string",
-                "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-              },
-              "outcome_room_ref": {
-                "type": "string",
-                "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-              },
-              "admission_status": {
-                "enum": [
-                  "proposed",
-                  "evaluating",
-                  "admitted",
-                  "rejected",
-                  "superseded",
-                  "revoked"
-                ]
-              }
-            },
-            "additionalProperties": true
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "challenger_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "challenged_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "challenge_kind": {
-        "enum": [
-          "metric",
-          "rule",
-          "verifier",
-          "evidence",
-          "eligibility",
-          "result",
-          "exploit",
-          "independence",
-          "collusion",
-          "mapping"
-        ]
-      },
-      "challenge_evidence_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "adjudicator_policy_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "reverification_required": {
-        "type": "boolean"
-      },
-      "adjudication_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "status": {
-        "enum": [
-          "proposed",
-          "admitted",
-          "investigating",
-          "upheld",
-          "rejected",
-          "rule_changed",
-          "reverifying",
-          "resolved",
-          "withdrawn"
-        ]
-      }
-    }
-  },
-  "schema://ioi/foundations/work-claim-lease/v1": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/work-claim-lease/v1",
-    "title": "WorkClaimLease",
-    "x-ioi-schema-version": "ioi.foundations.work-claim-lease.v1",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "work_claim_id",
-      "outcome_room_ref",
-      "room_admission",
-      "frontier_item_ref",
-      "claimant_ref",
-      "claimant_participant_lease_ref",
-      "collaboration_terms_ref",
-      "collaboration_terms_root",
-      "terms_acceptance_ref",
-      "bounded_scope_ref",
-      "issued_at",
-      "expires_at",
-      "renewal_count",
-      "status"
-    ],
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.work-claim-lease.v1"
-      },
-      "work_claim_id": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_admission": {
-        "anyOf": [
-          {
-            "type": "object",
-            "required": [
-              "schema_version",
-              "room_system_id",
-              "outcome_room_ref",
-              "admission_status"
-            ],
-            "properties": {
-              "schema_version": {
-                "const": "ioi.foundations.room-admitted-object-base.v1"
-              },
-              "room_system_id": {
-                "type": "string",
-                "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-              },
-              "outcome_room_ref": {
-                "type": "string",
-                "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-              },
-              "admission_status": {
-                "enum": [
-                  "proposed",
-                  "evaluating",
-                  "admitted",
-                  "rejected",
-                  "superseded",
-                  "revoked"
-                ]
-              }
-            },
-            "additionalProperties": true
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "frontier_item_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "claimant_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "claimant_participant_lease_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "collaboration_terms_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "collaboration_terms_root": {
-        "type": "string",
-        "pattern": "^sha256:[0-9a-f]{64}$"
-      },
-      "terms_acceptance_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "bounded_scope_ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "issued_at": {
-        "type": "string",
-        "format": "date-time",
-        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-      },
-      "expires_at": {
-        "type": "string",
-        "format": "date-time",
-        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-      },
-      "renewal_count": {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 9007199254740991
-      },
-      "status": {
-        "enum": [
-          "proposed",
-          "active",
-          "waiting",
-          "released",
-          "expired",
-          "reassigned",
-          "completed",
-          "quarantined",
-          "revoked"
-        ]
-      }
-    }
-  },
-  "schema://ioi/foundations/work-frontier-item/v1": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/work-frontier-item/v1",
-    "title": "WorkFrontierItem",
-    "x-ioi-schema-version": "ioi.foundations.work-frontier-item.v1",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "frontier_item_id",
-      "room_admission",
-      "item_kind",
-      "objective",
-      "dependency_refs",
-      "required_capability_refs",
-      "claimability",
-      "duplication_policy",
-      "status"
-    ],
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.work-frontier-item.v1"
-      },
-      "frontier_item_id": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-      },
-      "room_admission": {
-        "type": "object",
-        "required": [
-          "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
-          "admission_status"
-        ],
-        "properties": {
-          "schema_version": {
-            "const": "ioi.foundations.room-admitted-object-base.v1"
-          },
-          "room_system_id": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          "outcome_room_ref": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-          },
-          "admission_status": {
-            "enum": [
-              "proposed",
-              "evaluating",
-              "admitted",
-              "rejected",
-              "superseded",
-              "revoked"
-            ]
-          }
-        },
-        "additionalProperties": true
-      },
-      "item_kind": {
-        "enum": [
-          "question",
-          "problem",
-          "hypothesis",
-          "task",
-          "review_need",
-          "verification_need",
-          "resource_need",
-          "synthesis_need"
-        ]
-      },
-      "objective": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 4000
-      },
-      "dependency_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "required_capability_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
-        }
-      },
-      "claimability": {
-        "enum": [
-          "open",
-          "invited_only",
-          "assigned",
-          "paused",
-          "closed"
-        ]
-      },
-      "duplication_policy": {
-        "enum": [
-          "exclusive",
-          "allowed",
-          "encouraged",
-          "independent_replication_required"
-        ]
-      },
-      "status": {
-        "enum": [
-          "open",
-          "claimed",
-          "blocked",
-          "replicating",
-          "verifying",
-          "accepted",
-          "rejected",
-          "superseded",
-          "closed"
-        ]
-      }
-    }
-  },
-  "schema://ioi/foundations/goal-run-activation/v1": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/goal-run-activation/v1",
+    "$id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
     "title": "GoalRunActivationEnvelope",
     "x-ioi-schema-version": "ioi.goal-run-activation.v1",
     "type": "object",
@@ -65597,9 +62156,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     ]
   },
-  "schema://ioi/foundations/goal-run-activation-receipt/v1": {
+  "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+    "$id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
     "title": "GoalRunActivationReceipt",
     "description": "Portable receipt for one admitted GoalRunActivation crossing. It binds the exact activation draft, typed source context and source payload commitment, requesting principal, authority and review decisions, admission decision and receipt, admitted GoalRun identity and state root, and the exact profile resolution for create mode without widening authority, declassifying context, granting room membership, or creating budget.",
     "x-ioi-schema-version": "ioi.goal-run-activation-receipt.v1",
@@ -65649,7 +62208,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "const": "goal_run_activation"
       },
       "receipt_profile_ref": {
-        "const": "schema://ioi/foundations/goal-run-activation-receipt/v1"
+        "const": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1"
       },
       "activation_ref": {
         "$ref": "#/$defs/activationRef"
@@ -66010,9 +62569,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/goal-run-admitted-state/v1": {
+  "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/goal-run-admitted-state/v1",
+    "$id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
     "title": "GoalRunAdmittedState",
     "description": "Daemon-owned, content-addressed GoalRun activation state whose root is admitted through the required Agentgres boundary.",
     "x-ioi-schema-version": "ioi.goal-run-admitted-state.v1",
@@ -66238,11 +62797,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/outcome-room/v2": {
+  "schema://ioi/applications/ioi-ai/outcome-room/v2": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/outcome-room/v2",
+    "$id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
     "title": "OutcomeRoom",
-    "x-ioi-schema-version": "ioi.foundations.outcome-room.v2",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.outcome-room.v2",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -66330,7 +62889,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     },
     "properties": {
       "schema_version": {
-        "const": "ioi.foundations.outcome-room.v2"
+        "const": "ioi.applications.ioi-ai.outcome-room.v2"
       },
       "outcome_room_id": {
         "type": "string",
@@ -66739,4423 +63298,17 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/work-frontier-item/v2": {
+  "schema://ioi/foundations/system-scoped-object-binding/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/work-frontier-item/v2",
-    "title": "WorkFrontierItem",
-    "x-ioi-schema-version": "ioi.foundations.work-frontier-item.v2",
+    "$id": "schema://ioi/foundations/system-scoped-object-binding/v1",
+    "title": "SystemScopedObjectBinding",
+    "x-ioi-schema-version": "ioi.foundations.system-scoped-object-binding.v1",
     "type": "object",
     "additionalProperties": false,
     "required": [
       "schema_version",
-      "frontier_item_id",
-      "room_admission",
-      "item_kind",
-      "objective",
-      "dependency_refs",
-      "related_attempt_and_finding_refs",
-      "required_capability_refs",
-      "required_context_resource_authority_and_evidence_refs",
-      "expected_value",
-      "uncertainty",
-      "priority",
-      "duplication_policy",
-      "claimability",
-      "max_concurrency",
-      "expires_at",
-      "stop_condition_ref",
-      "status"
-    ],
-    "$defs": {
-      "nullableNumber": {
-        "anyOf": [
-          {
-            "type": "number"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "roomAdmission": {
-        "type": "object",
-        "required": [
-          "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
-          "proposed_or_issued_by_ref",
-          "expected_room_revision",
-          "expected_predecessor_commitment_ref",
-          "payload_root",
-          "admission_policy_ref",
-          "admission_decision_ref",
-          "admission_receipt_ref",
-          "admitted_sequence",
-          "resulting_room_revision",
-          "resulting_transition_commitment_ref",
-          "resulting_room_state_root",
-          "resulting_receipt_root",
-          "created_at",
-          "updated_at",
-          "admission_status"
-        ],
-        "properties": {
-          "schema_version": {
-            "const": "ioi.foundations.room-admitted-object-base.v2"
-          },
-          "room_system_id": {
-            "type": "string",
-            "pattern": "^system://[^\\s]{1,500}$"
-          },
-          "outcome_room_ref": {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          "proposed_or_issued_by_ref": {
-            "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
-          },
-          "expected_room_revision": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
-          },
-          "expected_predecessor_commitment_ref": {
-            "type": "string",
-            "pattern": "^commitment://[^\\s]{1,500}$"
-          },
-          "payload_root": {
-            "type": "string",
-            "pattern": "^sha256:[0-9a-f]{64}$"
-          },
-          "admission_policy_ref": {
-            "type": "string",
-            "pattern": "^policy://[^\\s]{1,500}$"
-          },
-          "admission_decision_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^decision://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_receipt_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^receipt://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admitted_sequence": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_revision": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_transition_commitment_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^commitment://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_state_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_receipt_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_status": {
-            "enum": [
-              "proposed",
-              "evaluating",
-              "admitted",
-              "rejected",
-              "superseded",
-              "revoked"
-            ]
-          }
-        },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "admitted",
-                    "superseded",
-                    "revoked"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admission_decision_ref": {
-                  "type": "string"
-                },
-                "admission_receipt_ref": {
-                  "type": "string"
-                },
-                "admitted_sequence": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_room_revision": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "string"
-                },
-                "resulting_room_state_root": {
-                  "type": "string"
-                },
-                "resulting_receipt_root": {
-                  "type": "string"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time",
-                  "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "proposed",
-                    "evaluating",
-                    "rejected"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admitted_sequence": {
-                  "type": "null"
-                },
-                "resulting_room_revision": {
-                  "type": "null"
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "null"
-                },
-                "resulting_room_state_root": {
-                  "type": "null"
-                },
-                "resulting_receipt_root": {
-                  "type": "null"
-                }
-              }
-            }
-          }
-        ],
-        "additionalProperties": false
-      }
-    },
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.work-frontier-item.v2"
-      },
-      "frontier_item_id": {
-        "type": "string",
-        "pattern": "^frontier://[^\\s]{1,500}$"
-      },
-      "room_admission": {
-        "$ref": "#/$defs/roomAdmission"
-      },
-      "item_kind": {
-        "enum": [
-          "question",
-          "problem",
-          "hypothesis",
-          "task",
-          "review_need",
-          "verification_need",
-          "resource_need",
-          "synthesis_need"
-        ]
-      },
-      "objective": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 4000
-      },
-      "dependency_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:frontier|attempt|finding)://[^\\s]{1,500}$"
-        }
-      },
-      "related_attempt_and_finding_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:attempt|finding)://[^\\s]{1,500}$"
-        }
-      },
-      "required_capability_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:capability|worker|tool)://[^\\s]{1,500}$"
-        }
-      },
-      "required_context_resource_authority_and_evidence_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:(?:context-profile|resource|evidence)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"
-        }
-      },
-      "expected_value": {
-        "$ref": "#/$defs/nullableNumber"
-      },
-      "uncertainty": {
-        "$ref": "#/$defs/nullableNumber"
-      },
-      "priority": {
-        "$ref": "#/$defs/nullableNumber"
-      },
-      "duplication_policy": {
-        "enum": [
-          "exclusive",
-          "allowed",
-          "encouraged",
-          "independent_replication_required"
-        ]
-      },
-      "claimability": {
-        "enum": [
-          "open",
-          "invited_only",
-          "assigned",
-          "paused",
-          "closed"
-        ]
-      },
-      "max_concurrency": {
-        "anyOf": [
-          {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "expires_at": {
-        "anyOf": [
-          {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "stop_condition_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^policy://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "status": {
-        "enum": [
-          "open",
-          "claimed",
-          "blocked",
-          "replicating",
-          "verifying",
-          "accepted",
-          "rejected",
-          "superseded",
-          "closed"
-        ]
-      }
-    }
-  },
-  "schema://ioi/foundations/work-claim-lease/v2": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/work-claim-lease/v2",
-    "title": "WorkClaimLease",
-    "x-ioi-schema-version": "ioi.foundations.work-claim-lease.v2",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "schema_version",
-      "work_claim_id",
-      "outcome_room_ref",
-      "room_admission",
-      "frontier_item_ref",
-      "claimant_ref",
-      "claimant_participant_lease_ref",
-      "eligibility_match_receipt_ref",
-      "task_offer_ref",
-      "task_acceptance_ref",
-      "routing_decision_ref",
-      "collaboration_terms_ref",
-      "collaboration_terms_root",
-      "terms_acceptance_ref",
-      "contribution_policy_ref",
-      "quote_ref",
-      "budget_reservation_ref",
-      "settlement_profile_ref",
-      "bounded_scope_ref",
-      "context_lease_refs",
-      "authority_resource_compute_data_budget_and_tool_lease_refs",
-      "duplicate_work_policy",
-      "issued_at",
-      "expires_at",
-      "heartbeat_ref",
-      "renewal_count",
-      "release_or_reassignment_reason",
-      "status"
-    ],
-    "$defs": {
-      "roomAdmission": {
-        "type": "object",
-        "required": [
-          "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
-          "proposed_or_issued_by_ref",
-          "expected_room_revision",
-          "expected_predecessor_commitment_ref",
-          "payload_root",
-          "admission_policy_ref",
-          "admission_decision_ref",
-          "admission_receipt_ref",
-          "admitted_sequence",
-          "resulting_room_revision",
-          "resulting_transition_commitment_ref",
-          "resulting_room_state_root",
-          "resulting_receipt_root",
-          "created_at",
-          "updated_at",
-          "admission_status"
-        ],
-        "properties": {
-          "schema_version": {
-            "const": "ioi.foundations.room-admitted-object-base.v2"
-          },
-          "room_system_id": {
-            "type": "string",
-            "pattern": "^system://[^\\s]{1,500}$"
-          },
-          "outcome_room_ref": {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          "proposed_or_issued_by_ref": {
-            "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
-          },
-          "expected_room_revision": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
-          },
-          "expected_predecessor_commitment_ref": {
-            "type": "string",
-            "pattern": "^commitment://[^\\s]{1,500}$"
-          },
-          "payload_root": {
-            "type": "string",
-            "pattern": "^sha256:[0-9a-f]{64}$"
-          },
-          "admission_policy_ref": {
-            "type": "string",
-            "pattern": "^policy://[^\\s]{1,500}$"
-          },
-          "admission_decision_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^decision://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_receipt_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^receipt://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admitted_sequence": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_revision": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_transition_commitment_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^commitment://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_state_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_receipt_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_status": {
-            "enum": [
-              "proposed",
-              "evaluating",
-              "admitted",
-              "rejected",
-              "superseded",
-              "revoked"
-            ]
-          }
-        },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "admitted",
-                    "superseded",
-                    "revoked"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admission_decision_ref": {
-                  "type": "string"
-                },
-                "admission_receipt_ref": {
-                  "type": "string"
-                },
-                "admitted_sequence": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_room_revision": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "string"
-                },
-                "resulting_room_state_root": {
-                  "type": "string"
-                },
-                "resulting_receipt_root": {
-                  "type": "string"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time",
-                  "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "proposed",
-                    "evaluating",
-                    "rejected"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admitted_sequence": {
-                  "type": "null"
-                },
-                "resulting_room_revision": {
-                  "type": "null"
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "null"
-                },
-                "resulting_room_state_root": {
-                  "type": "null"
-                },
-                "resulting_receipt_root": {
-                  "type": "null"
-                }
-              }
-            }
-          }
-        ],
-        "additionalProperties": false
-      }
-    },
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.work-claim-lease.v2"
-      },
-      "work_claim_id": {
-        "type": "string",
-        "pattern": "^work-claim://[^\\s]{1,500}$"
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_admission": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/roomAdmission"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "frontier_item_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^frontier://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "claimant_ref": {
-        "type": "string",
-        "pattern": "^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$"
-      },
-      "claimant_participant_lease_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^participant-lease://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "eligibility_match_receipt_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^receipt://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "task_offer_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^packet://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "task_acceptance_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^packet://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "routing_decision_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^routing-decision://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "collaboration_terms_ref": {
-        "type": "string",
-        "pattern": "^terms://[^\\s]{1,500}$"
-      },
-      "collaboration_terms_root": {
-        "type": "string",
-        "pattern": "^sha256:[0-9a-f]{64}$"
-      },
-      "terms_acceptance_ref": {
-        "type": "string",
-        "pattern": "^receipt://[^\\s]{1,500}$"
-      },
-      "contribution_policy_ref": {
-        "type": "string",
-        "pattern": "^policy://[^\\s]{1,500}$"
-      },
-      "quote_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^quote://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "budget_reservation_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^(?:budget|spend|allocation)://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "settlement_profile_ref": {
-        "type": "string",
-        "pattern": "^policy://[^\\s]{1,500}$"
-      },
-      "bounded_scope_ref": {
-        "type": "string",
-        "pattern": "^(?:task|task-brief|policy)://[^\\s]{1,500}$"
-      },
-      "context_lease_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^context-lease://[^\\s]{1,500}$"
-        }
-      },
-      "authority_resource_compute_data_budget_and_tool_lease_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$"
-        }
-      },
-      "duplicate_work_policy": {
-        "enum": [
-          "exclusive",
-          "allowed",
-          "independent_replication",
-          "adversarial_replication"
-        ]
-      },
-      "issued_at": {
-        "type": "string",
-        "format": "date-time",
-        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-      },
-      "expires_at": {
-        "type": "string",
-        "format": "date-time",
-        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-      },
-      "heartbeat_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^(?:heartbeat|receipt)://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "renewal_count": {
-        "type": "integer",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991
-      },
-      "release_or_reassignment_reason": {
-        "anyOf": [
-          {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 1000
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "status": {
-        "enum": [
-          "proposed",
-          "active",
-          "waiting",
-          "released",
-          "expired",
-          "reassigned",
-          "completed",
-          "quarantined",
-          "revoked"
-        ]
-      }
-    },
-    "allOf": [
-      {
-        "if": {
-          "properties": {
-            "outcome_room_ref": {
-              "type": "string"
-            }
-          }
-        },
-        "then": {
-          "properties": {
-            "room_admission": {
-              "$ref": "#/$defs/roomAdmission"
-            },
-            "frontier_item_ref": {
-              "type": "string"
-            },
-            "claimant_participant_lease_ref": {
-              "type": "string"
-            },
-            "eligibility_match_receipt_ref": {
-              "type": "string"
-            }
-          }
-        },
-        "else": {
-          "properties": {
-            "room_admission": {
-              "type": "null"
-            },
-            "claimant_participant_lease_ref": {
-              "type": "null"
-            },
-            "eligibility_match_receipt_ref": {
-              "type": "null"
-            }
-          }
-        }
-      },
-      {
-        "if": {
-          "properties": {
-            "status": {
-              "const": "active"
-            }
-          }
-        },
-        "then": {
-          "properties": {
-            "authority_resource_compute_data_budget_and_tool_lease_refs": {
-              "type": "array",
-              "minItems": 1
-            }
-          }
-        }
-      }
-    ]
-  },
-  "schema://ioi/foundations/attempt/v2": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/attempt/v2",
-    "title": "Attempt",
-    "x-ioi-schema-version": "ioi.foundations.attempt.v2",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "schema_version",
-      "attempt_id",
-      "outcome_room_ref",
-      "room_admission",
-      "work_subject_ref",
-      "goal_run_ref",
-      "frontier_item_ref",
-      "work_claim_ref",
-      "participant_ref",
-      "bound_coordinates",
-      "declared_method_and_hypothesis_refs",
-      "parent_and_derivation_refs",
-      "input_state_and_environment_refs",
-      "worker_model_resolver_tool_and_runtime_version_refs",
-      "authority_and_policy_refs",
-      "resource_and_cost_refs",
-      "outcome_class",
-      "work_result_ref",
-      "outcome_delta_refs",
-      "artifact_evidence_and_receipt_refs",
-      "verifier_refs",
-      "reproduction_state",
-      "artifact_license_ip_retention_and_export_refs",
-      "contribution_refs",
-      "status"
-    ],
-    "$defs": {
-      "hash": {
-        "type": "string",
-        "pattern": "^sha256:[0-9a-f]{64}$"
-      },
-      "timestamp": {
-        "type": "string",
-        "format": "date-time",
-        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-      },
-      "roomAdmission": {
-        "type": "object",
-        "required": [
-          "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
-          "proposed_or_issued_by_ref",
-          "expected_room_revision",
-          "expected_predecessor_commitment_ref",
-          "payload_root",
-          "admission_policy_ref",
-          "admission_decision_ref",
-          "admission_receipt_ref",
-          "admitted_sequence",
-          "resulting_room_revision",
-          "resulting_transition_commitment_ref",
-          "resulting_room_state_root",
-          "resulting_receipt_root",
-          "created_at",
-          "updated_at",
-          "admission_status"
-        ],
-        "properties": {
-          "schema_version": {
-            "const": "ioi.foundations.room-admitted-object-base.v2"
-          },
-          "room_system_id": {
-            "type": "string",
-            "pattern": "^system://[^\\s]{1,500}$"
-          },
-          "outcome_room_ref": {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          "proposed_or_issued_by_ref": {
-            "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
-          },
-          "expected_room_revision": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
-          },
-          "expected_predecessor_commitment_ref": {
-            "type": "string",
-            "pattern": "^commitment://[^\\s]{1,500}$"
-          },
-          "payload_root": {
-            "type": "string",
-            "pattern": "^sha256:[0-9a-f]{64}$"
-          },
-          "admission_policy_ref": {
-            "type": "string",
-            "pattern": "^policy://[^\\s]{1,500}$"
-          },
-          "admission_decision_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^decision://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_receipt_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^receipt://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admitted_sequence": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_revision": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_transition_commitment_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^commitment://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_state_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_receipt_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_status": {
-            "enum": [
-              "proposed",
-              "evaluating",
-              "admitted",
-              "rejected",
-              "superseded",
-              "revoked"
-            ]
-          }
-        },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "admitted",
-                    "superseded",
-                    "revoked"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admission_decision_ref": {
-                  "type": "string"
-                },
-                "admission_receipt_ref": {
-                  "type": "string"
-                },
-                "admitted_sequence": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_room_revision": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "string"
-                },
-                "resulting_room_state_root": {
-                  "type": "string"
-                },
-                "resulting_receipt_root": {
-                  "type": "string"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time",
-                  "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "proposed",
-                    "evaluating",
-                    "rejected"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admitted_sequence": {
-                  "type": "null"
-                },
-                "resulting_room_revision": {
-                  "type": "null"
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "null"
-                },
-                "resulting_room_state_root": {
-                  "type": "null"
-                },
-                "resulting_receipt_root": {
-                  "type": "null"
-                }
-              }
-            }
-          }
-        ],
-        "additionalProperties": false
-      },
-      "boundCoordinates": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "outcome_room",
-          "frontier_item",
-          "work_claim",
-          "participant_lease",
-          "goal_run"
-        ],
-        "properties": {
-          "outcome_room": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "record_ref",
-              "host_domain_ref",
-              "control_hash"
-            ],
-            "properties": {
-              "record_ref": {
-                "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
-              },
-              "host_domain_ref": {
-                "type": "string",
-                "pattern": "^domain://[^\\s]{1,500}$"
-              },
-              "control_hash": {
-                "$ref": "#/$defs/hash"
-              }
-            }
-          },
-          "frontier_item": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "record_ref",
-              "outcome_room_ref",
-              "revision",
-              "record_hash"
-            ],
-            "properties": {
-              "record_ref": {
-                "type": "string",
-                "pattern": "^frontier://[^\\s]{1,500}$"
-              },
-              "outcome_room_ref": {
-                "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
-              },
-              "revision": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "record_hash": {
-                "$ref": "#/$defs/hash"
-              }
-            }
-          },
-          "work_claim": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "record_ref",
-              "outcome_room_ref",
-              "frontier_item_ref",
-              "claimant_ref",
-              "revision",
-              "record_hash"
-            ],
-            "properties": {
-              "record_ref": {
-                "type": "string",
-                "pattern": "^work-claim://[^\\s]{1,500}$"
-              },
-              "outcome_room_ref": {
-                "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
-              },
-              "frontier_item_ref": {
-                "type": "string",
-                "pattern": "^frontier://[^\\s]{1,500}$"
-              },
-              "claimant_ref": {
-                "type": "string",
-                "pattern": "^participant-lease://[^\\s]{1,500}$"
-              },
-              "revision": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "record_hash": {
-                "$ref": "#/$defs/hash"
-              }
-            }
-          },
-          "participant_lease": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "record_ref",
-              "outcome_room_ref",
-              "principal_ref",
-              "revision",
-              "record_hash"
-            ],
-            "properties": {
-              "record_ref": {
-                "type": "string",
-                "pattern": "^participant-lease://[^\\s]{1,500}$"
-              },
-              "outcome_room_ref": {
-                "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
-              },
-              "principal_ref": {
-                "type": "string",
-                "pattern": "^(?:worker|agent)://[^\\s]{1,500}$"
-              },
-              "revision": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "record_hash": {
-                "$ref": "#/$defs/hash"
-              }
-            }
-          },
-          "goal_run": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "record_ref",
-              "outcome_room_ref",
-              "updated_at",
-              "record_hash"
-            ],
-            "properties": {
-              "record_ref": {
-                "type": "string",
-                "pattern": "^goal://[^\\s]{1,500}$"
-              },
-              "outcome_room_ref": {
-                "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
-              },
-              "updated_at": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/timestamp"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "record_hash": {
-                "$ref": "#/$defs/hash"
-              }
-            }
-          }
-        }
-      }
-    },
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.attempt.v2"
-      },
-      "attempt_id": {
-        "type": "string",
-        "pattern": "^attempt://[^\\s]{1,500}$"
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_admission": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/roomAdmission"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "work_subject_ref": {
-        "type": "string",
-        "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim)://[^\\s]{1,500}$"
-      },
-      "goal_run_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^goal://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "frontier_item_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^frontier://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "work_claim_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^work-claim://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "participant_ref": {
-        "type": "string",
-        "pattern": "^(?:participant-lease|system|worker|agent)://[^\\s]{1,500}$"
-      },
-      "bound_coordinates": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/boundCoordinates"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "declared_method_and_hypothesis_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:method|finding|artifact)://[^\\s]{1,500}$"
-        }
-      },
-      "parent_and_derivation_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:attempt|artifact|finding)://[^\\s]{1,500}$"
-        }
-      },
-      "input_state_and_environment_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:state|environment|worktree|dataset)://[^\\s]{1,500}$"
-        }
-      },
-      "worker_model_resolver_tool_and_runtime_version_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:(?:worker|model-route|runtime)://[^\\s]{1,500}|(?:harness-profile|agent-harness-adapter|tool)://[^\\s]{1,500}/revision/[^\\s]{1,500})$"
-        }
-      },
-      "authority_and_policy_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:grant|policy)://[^\\s]{1,500}$"
-        }
-      },
-      "resource_and_cost_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:resource-lease|spend|ledger)://[^\\s]{1,500}$"
-        }
-      },
-      "outcome_class": {
-        "enum": [
-          "positive",
-          "negative",
-          "inconclusive",
-          "invalid",
-          "exploit_found",
-          "superseded"
-        ]
-      },
-      "work_result_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^work-result://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "outcome_delta_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^outcome-delta://[^\\s]{1,500}$"
-        }
-      },
-      "artifact_evidence_and_receipt_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"
-        }
-      },
-      "verifier_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:verifier-path|verifier-challenge)://[^\\s]{1,500}$"
-        }
-      },
-      "reproduction_state": {
-        "enum": [
-          "unreviewed",
-          "reproducible",
-          "not_reproduced",
-          "contradicted",
-          "invalidated"
-        ]
-      },
-      "artifact_license_ip_retention_and_export_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:license|policy)://[^\\s]{1,500}$"
-        }
-      },
-      "contribution_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:contribution|receipt)://[^\\s]{1,500}$"
-        }
-      },
-      "status": {
-        "enum": [
-          "draft",
-          "running",
-          "submitted",
-          "admitted",
-          "challenged",
-          "accepted",
-          "rejected",
-          "superseded"
-        ]
-      }
-    },
-    "allOf": [
-      {
-        "if": {
-          "properties": {
-            "outcome_room_ref": {
-              "type": "string"
-            }
-          }
-        },
-        "then": {
-          "properties": {
-            "room_admission": {
-              "$ref": "#/$defs/roomAdmission"
-            },
-            "bound_coordinates": {
-              "$ref": "#/$defs/boundCoordinates"
-            }
-          }
-        },
-        "else": {
-          "properties": {
-            "room_admission": {
-              "type": "null"
-            },
-            "bound_coordinates": {
-              "type": "null"
-            }
-          }
-        }
-      }
-    ]
-  },
-  "schema://ioi/foundations/finding/v2": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/finding/v2",
-    "title": "Finding",
-    "x-ioi-schema-version": "ioi.foundations.finding.v2",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "schema_version",
-      "finding_id",
-      "outcome_room_ref",
-      "room_admission",
-      "attempt_ref",
-      "work_result_ref",
-      "participant_ref",
-      "proposed_by_ref",
-      "bound_coordinates",
-      "proposition",
-      "finding_kind",
-      "confidence_or_uncertainty",
-      "valid_time",
-      "transaction_time",
-      "source_and_observation_context_refs",
-      "supporting_evidence_refs",
-      "proof_refs",
-      "contradicting_evidence_refs",
-      "applicability_and_counterexample_refs",
-      "provenance_ontology_and_mapping_refs",
-      "proposed_effect_refs",
-      "supersedes_ref",
-      "dispute_ref",
-      "status"
-    ],
-    "$defs": {
-      "hash": {
-        "type": "string",
-        "pattern": "^sha256:[0-9a-f]{64}$"
-      },
-      "timestamp": {
-        "type": "string",
-        "format": "date-time",
-        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-      },
-      "roomAdmission": {
-        "type": "object",
-        "required": [
-          "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
-          "proposed_or_issued_by_ref",
-          "expected_room_revision",
-          "expected_predecessor_commitment_ref",
-          "payload_root",
-          "admission_policy_ref",
-          "admission_decision_ref",
-          "admission_receipt_ref",
-          "admitted_sequence",
-          "resulting_room_revision",
-          "resulting_transition_commitment_ref",
-          "resulting_room_state_root",
-          "resulting_receipt_root",
-          "created_at",
-          "updated_at",
-          "admission_status"
-        ],
-        "properties": {
-          "schema_version": {
-            "const": "ioi.foundations.room-admitted-object-base.v2"
-          },
-          "room_system_id": {
-            "type": "string",
-            "pattern": "^system://[^\\s]{1,500}$"
-          },
-          "outcome_room_ref": {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          "proposed_or_issued_by_ref": {
-            "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
-          },
-          "expected_room_revision": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
-          },
-          "expected_predecessor_commitment_ref": {
-            "type": "string",
-            "pattern": "^commitment://[^\\s]{1,500}$"
-          },
-          "payload_root": {
-            "type": "string",
-            "pattern": "^sha256:[0-9a-f]{64}$"
-          },
-          "admission_policy_ref": {
-            "type": "string",
-            "pattern": "^policy://[^\\s]{1,500}$"
-          },
-          "admission_decision_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^decision://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_receipt_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^receipt://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admitted_sequence": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_revision": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_transition_commitment_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^commitment://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_state_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_receipt_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_status": {
-            "enum": [
-              "proposed",
-              "evaluating",
-              "admitted",
-              "rejected",
-              "superseded",
-              "revoked"
-            ]
-          }
-        },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "admitted",
-                    "superseded",
-                    "revoked"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admission_decision_ref": {
-                  "type": "string"
-                },
-                "admission_receipt_ref": {
-                  "type": "string"
-                },
-                "admitted_sequence": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_room_revision": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "string"
-                },
-                "resulting_room_state_root": {
-                  "type": "string"
-                },
-                "resulting_receipt_root": {
-                  "type": "string"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time",
-                  "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "proposed",
-                    "evaluating",
-                    "rejected"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admitted_sequence": {
-                  "type": "null"
-                },
-                "resulting_room_revision": {
-                  "type": "null"
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "null"
-                },
-                "resulting_room_state_root": {
-                  "type": "null"
-                },
-                "resulting_receipt_root": {
-                  "type": "null"
-                }
-              }
-            }
-          }
-        ],
-        "additionalProperties": false
-      },
-      "recordCoordinate": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "record_ref",
-          "outcome_room_ref",
-          "revision",
-          "record_hash"
-        ],
-        "properties": {
-          "record_ref": {
-            "type": "string",
-            "pattern": "^finding://[^\\s]{1,500}$"
-          },
-          "outcome_room_ref": {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          "revision": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "record_hash": {
-            "$ref": "#/$defs/hash"
-          }
-        }
-      },
-      "boundCoordinates": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "attempt",
-          "work_result",
-          "participant_lease",
-          "supersedes_finding"
-        ],
-        "properties": {
-          "attempt": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "record_ref",
-              "outcome_room_ref",
-              "participant_ref",
-              "work_result_ref",
-              "revision",
-              "record_hash"
-            ],
-            "properties": {
-              "record_ref": {
-                "type": "string",
-                "pattern": "^attempt://[^\\s]{1,500}$"
-              },
-              "outcome_room_ref": {
-                "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
-              },
-              "participant_ref": {
-                "type": "string",
-                "pattern": "^participant-lease://[^\\s]{1,500}$"
-              },
-              "work_result_ref": {
-                "type": "string",
-                "pattern": "^work-result://[^\\s]{1,500}$"
-              },
-              "revision": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "record_hash": {
-                "$ref": "#/$defs/hash"
-              }
-            }
-          },
-          "work_result": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "record_ref",
-              "outcome_room_ref",
-              "goal_run_ref",
-              "goal_ref",
-              "updated_at",
-              "record_hash"
-            ],
-            "properties": {
-              "record_ref": {
-                "type": "string",
-                "pattern": "^work-result://[^\\s]{1,500}$"
-              },
-              "outcome_room_ref": {
-                "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
-              },
-              "goal_run_ref": {
-                "type": "string",
-                "pattern": "^goal://[^\\s]{1,500}$"
-              },
-              "goal_ref": {
-                "type": "string",
-                "pattern": "^goal://[^\\s]{1,500}$"
-              },
-              "updated_at": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/timestamp"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "record_hash": {
-                "$ref": "#/$defs/hash"
-              }
-            }
-          },
-          "participant_lease": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "record_ref",
-              "outcome_room_ref",
-              "principal_ref",
-              "revision",
-              "record_hash"
-            ],
-            "properties": {
-              "record_ref": {
-                "type": "string",
-                "pattern": "^participant-lease://[^\\s]{1,500}$"
-              },
-              "outcome_room_ref": {
-                "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
-              },
-              "principal_ref": {
-                "type": "string",
-                "pattern": "^(?:worker|agent)://[^\\s]{1,500}$"
-              },
-              "revision": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "record_hash": {
-                "$ref": "#/$defs/hash"
-              }
-            }
-          },
-          "supersedes_finding": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/recordCoordinate"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        }
-      }
-    },
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.finding.v2"
-      },
-      "finding_id": {
-        "type": "string",
-        "pattern": "^finding://[^\\s]{1,500}$"
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_admission": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/roomAdmission"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "attempt_ref": {
-        "type": "string",
-        "pattern": "^attempt://[^\\s]{1,500}$"
-      },
-      "work_result_ref": {
-        "type": "string",
-        "pattern": "^work-result://[^\\s]{1,500}$"
-      },
-      "participant_ref": {
-        "type": "string",
-        "pattern": "^participant-lease://[^\\s]{1,500}$"
-      },
-      "proposed_by_ref": {
-        "type": "string",
-        "pattern": "^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$"
-      },
-      "bound_coordinates": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/boundCoordinates"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "proposition": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 8000
-      },
-      "finding_kind": {
-        "enum": [
-          "hypothesis",
-          "observation",
-          "claim",
-          "negative_result",
-          "integrity_incident",
-          "mapping_claim",
-          "causal_claim",
-          "counterexample",
-          "synthesis"
-        ]
-      },
-      "confidence_or_uncertainty": {
-        "anyOf": [
-          {
-            "type": "number"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "valid_time": {
-        "anyOf": [
-          {
-            "type": "object"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "transaction_time": {
-        "$ref": "#/$defs/timestamp"
-      },
-      "source_and_observation_context_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$"
-        }
-      },
-      "supporting_evidence_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
-        }
-      },
-      "proof_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
-        }
-      },
-      "contradicting_evidence_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:evidence|artifact|finding)://[^\\s]{1,500}$"
-        }
-      },
-      "applicability_and_counterexample_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:policy|finding|ontology)://[^\\s]{1,500}$"
-        }
-      },
-      "provenance_ontology_and_mapping_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:provenance|ontology|ontology-mapping)://[^\\s]{1,500}$"
-        }
-      },
-      "proposed_effect_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$"
-        }
-      },
-      "supersedes_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^finding://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "dispute_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^dispute://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "status": {
-        "enum": [
-          "branch_local",
-          "proposed",
-          "admitted",
-          "contradicted",
-          "superseded",
-          "disputed",
-          "rejected",
-          "archived"
-        ]
-      }
-    },
-    "allOf": [
-      {
-        "if": {
-          "properties": {
-            "outcome_room_ref": {
-              "type": "string"
-            }
-          }
-        },
-        "then": {
-          "properties": {
-            "room_admission": {
-              "$ref": "#/$defs/roomAdmission"
-            },
-            "bound_coordinates": {
-              "$ref": "#/$defs/boundCoordinates"
-            }
-          }
-        },
-        "else": {
-          "properties": {
-            "room_admission": {
-              "type": "null"
-            },
-            "bound_coordinates": {
-              "type": "null"
-            }
-          }
-        }
-      }
-    ]
-  },
-  "schema://ioi/foundations/verifier-challenge/v2": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/verifier-challenge/v2",
-    "title": "VerifierChallenge",
-    "x-ioi-schema-version": "ioi.foundations.verifier-challenge.v2",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "schema_version",
-      "verifier_challenge_id",
-      "outcome_room_ref",
-      "room_admission",
-      "challenger_ref",
-      "challenged_ref",
-      "challenge_kind",
-      "challenge_evidence_refs",
-      "adjudicator_policy_ref",
-      "prior_rule_version_ref",
-      "proposed_rule_version_ref",
-      "affected_attempt_refs",
-      "reverification_required",
-      "adjudication_ref",
-      "status"
-    ],
-    "$defs": {
-      "roomAdmission": {
-        "type": "object",
-        "required": [
-          "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
-          "proposed_or_issued_by_ref",
-          "expected_room_revision",
-          "expected_predecessor_commitment_ref",
-          "payload_root",
-          "admission_policy_ref",
-          "admission_decision_ref",
-          "admission_receipt_ref",
-          "admitted_sequence",
-          "resulting_room_revision",
-          "resulting_transition_commitment_ref",
-          "resulting_room_state_root",
-          "resulting_receipt_root",
-          "created_at",
-          "updated_at",
-          "admission_status"
-        ],
-        "properties": {
-          "schema_version": {
-            "const": "ioi.foundations.room-admitted-object-base.v2"
-          },
-          "room_system_id": {
-            "type": "string",
-            "pattern": "^system://[^\\s]{1,500}$"
-          },
-          "outcome_room_ref": {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          "proposed_or_issued_by_ref": {
-            "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
-          },
-          "expected_room_revision": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
-          },
-          "expected_predecessor_commitment_ref": {
-            "type": "string",
-            "pattern": "^commitment://[^\\s]{1,500}$"
-          },
-          "payload_root": {
-            "type": "string",
-            "pattern": "^sha256:[0-9a-f]{64}$"
-          },
-          "admission_policy_ref": {
-            "type": "string",
-            "pattern": "^policy://[^\\s]{1,500}$"
-          },
-          "admission_decision_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^decision://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_receipt_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^receipt://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admitted_sequence": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_revision": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_transition_commitment_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^commitment://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_state_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_receipt_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_status": {
-            "enum": [
-              "proposed",
-              "evaluating",
-              "admitted",
-              "rejected",
-              "superseded",
-              "revoked"
-            ]
-          }
-        },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "admitted",
-                    "superseded",
-                    "revoked"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admission_decision_ref": {
-                  "type": "string"
-                },
-                "admission_receipt_ref": {
-                  "type": "string"
-                },
-                "admitted_sequence": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_room_revision": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "string"
-                },
-                "resulting_room_state_root": {
-                  "type": "string"
-                },
-                "resulting_receipt_root": {
-                  "type": "string"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time",
-                  "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "proposed",
-                    "evaluating",
-                    "rejected"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admitted_sequence": {
-                  "type": "null"
-                },
-                "resulting_room_revision": {
-                  "type": "null"
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "null"
-                },
-                "resulting_room_state_root": {
-                  "type": "null"
-                },
-                "resulting_receipt_root": {
-                  "type": "null"
-                }
-              }
-            }
-          }
-        ],
-        "additionalProperties": false
-      }
-    },
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.verifier-challenge.v2"
-      },
-      "verifier_challenge_id": {
-        "type": "string",
-        "pattern": "^verifier-challenge://[^\\s]{1,500}$"
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_admission": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/roomAdmission"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "challenger_ref": {
-        "type": "string",
-        "pattern": "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$"
-      },
-      "challenged_ref": {
-        "type": "string",
-        "pattern": "^(?:attempt|finding|verifier-path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$"
-      },
-      "challenge_kind": {
-        "enum": [
-          "metric",
-          "rule",
-          "verifier",
-          "evidence",
-          "eligibility",
-          "result",
-          "exploit",
-          "independence",
-          "collusion",
-          "mapping"
-        ]
-      },
-      "challenge_evidence_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
-        }
-      },
-      "adjudicator_policy_ref": {
-        "type": "string",
-        "pattern": "^policy://[^\\s]{1,500}$"
-      },
-      "prior_rule_version_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^(?:rubric|verifier-path)://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "proposed_rule_version_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^(?:rubric|verifier-path)://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "affected_attempt_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^attempt://[^\\s]{1,500}$"
-        }
-      },
-      "reverification_required": {
-        "type": "boolean"
-      },
-      "adjudication_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^(?:decision|dispute)://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "status": {
-        "enum": [
-          "proposed",
-          "admitted",
-          "investigating",
-          "upheld",
-          "rejected",
-          "rule_changed",
-          "reverifying",
-          "resolved",
-          "withdrawn"
-        ]
-      }
-    }
-  },
-  "schema://ioi/foundations/participant-state-bundle/v2": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/participant-state-bundle/v2",
-    "title": "ParticipantStateBundle",
-    "x-ioi-schema-version": "ioi.foundations.participant-state-bundle.v2",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "schema_version",
-      "participant_state_bundle_id",
-      "outcome_room_ref",
-      "room_admission",
-      "participant_lease_ref",
-      "participant_and_home_domain_refs",
-      "coordination_topology",
-      "bundle_reason",
-      "source_admission_watermark_ref",
-      "released_or_reassigned_claim_refs",
-      "preserved_contribution_attempt_finding_and_result_refs",
-      "preserved_receipt_acceptance_settlement_and_dispute_refs",
-      "portable_artifact_and_view_refs",
-      "lineage_and_supersession_refs",
-      "export_license_retention_and_recall_policy_refs",
-      "excluded_context_classes",
-      "released_future_access_refs",
-      "revocation_or_supersession_refs",
-      "revocation_effect",
-      "bundle_artifact_ref",
-      "bundle_root",
-      "room_database_access_required",
-      "issued_at",
-      "signature",
-      "status"
-    ],
-    "$defs": {
-      "roomAdmission": {
-        "type": "object",
-        "required": [
-          "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
-          "proposed_or_issued_by_ref",
-          "expected_room_revision",
-          "expected_predecessor_commitment_ref",
-          "payload_root",
-          "admission_policy_ref",
-          "admission_decision_ref",
-          "admission_receipt_ref",
-          "admitted_sequence",
-          "resulting_room_revision",
-          "resulting_transition_commitment_ref",
-          "resulting_room_state_root",
-          "resulting_receipt_root",
-          "created_at",
-          "updated_at",
-          "admission_status"
-        ],
-        "properties": {
-          "schema_version": {
-            "const": "ioi.foundations.room-admitted-object-base.v2"
-          },
-          "room_system_id": {
-            "type": "string",
-            "pattern": "^system://[^\\s]{1,500}$"
-          },
-          "outcome_room_ref": {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          "proposed_or_issued_by_ref": {
-            "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
-          },
-          "expected_room_revision": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
-          },
-          "expected_predecessor_commitment_ref": {
-            "type": "string",
-            "pattern": "^commitment://[^\\s]{1,500}$"
-          },
-          "payload_root": {
-            "type": "string",
-            "pattern": "^sha256:[0-9a-f]{64}$"
-          },
-          "admission_policy_ref": {
-            "type": "string",
-            "pattern": "^policy://[^\\s]{1,500}$"
-          },
-          "admission_decision_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^decision://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_receipt_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^receipt://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admitted_sequence": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_revision": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_transition_commitment_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^commitment://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_state_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_receipt_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_status": {
-            "enum": [
-              "proposed",
-              "evaluating",
-              "admitted",
-              "rejected",
-              "superseded",
-              "revoked"
-            ]
-          }
-        },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "admitted",
-                    "superseded",
-                    "revoked"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admission_decision_ref": {
-                  "type": "string"
-                },
-                "admission_receipt_ref": {
-                  "type": "string"
-                },
-                "admitted_sequence": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_room_revision": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "string"
-                },
-                "resulting_room_state_root": {
-                  "type": "string"
-                },
-                "resulting_receipt_root": {
-                  "type": "string"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time",
-                  "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "proposed",
-                    "evaluating",
-                    "rejected"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admitted_sequence": {
-                  "type": "null"
-                },
-                "resulting_room_revision": {
-                  "type": "null"
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "null"
-                },
-                "resulting_room_state_root": {
-                  "type": "null"
-                },
-                "resulting_receipt_root": {
-                  "type": "null"
-                }
-              }
-            }
-          }
-        ],
-        "additionalProperties": false
-      }
-    },
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.participant-state-bundle.v2"
-      },
-      "participant_state_bundle_id": {
-        "type": "string",
-        "pattern": "^participant-state://[^\\s]{1,500}$"
-      },
-      "outcome_room_ref": {
-        "type": "string",
-        "pattern": "^outcome-room://[^\\s]{1,500}$"
-      },
-      "room_admission": {
-        "$ref": "#/$defs/roomAdmission"
-      },
-      "participant_lease_ref": {
-        "type": "string",
-        "pattern": "^participant-lease://[^\\s]{1,500}$"
-      },
-      "participant_and_home_domain_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:worker|service|org|domain|system)://[^\\s]{1,500}$"
-        }
-      },
-      "coordination_topology": {
-        "enum": [
-          "hosted_admission",
-          "federated_admission"
-        ]
-      },
-      "bundle_reason": {
-        "enum": [
-          "checkpoint",
-          "voluntary_retirement",
-          "lease_expiry",
-          "revocation",
-          "quarantine",
-          "room_close"
-        ]
-      },
-      "source_admission_watermark_ref": {
-        "type": "string",
-        "pattern": "^(?:(?:receipt|agentgres)://[^\\s]{1,500}|sha256:[0-9a-f]{64})$"
-      },
-      "released_or_reassigned_claim_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:work-claim|decision|receipt)://[^\\s]{1,500}$"
-        }
-      },
-      "preserved_contribution_attempt_finding_and_result_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$"
-        }
-      },
-      "preserved_receipt_acceptance_settlement_and_dispute_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:receipt|acceptance|settlement-intent|dispute|decision)://[^\\s]{1,500}$"
-        }
-      },
-      "portable_artifact_and_view_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:artifact|restricted-view|redacted-summary|evidence|replay)://[^\\s]{1,500}$"
-        }
-      },
-      "lineage_and_supersession_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:contribution|attempt|finding|work-result)://[^\\s]{1,500}$"
-        }
-      },
-      "export_license_retention_and_recall_policy_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:policy|license|revocation)://[^\\s]{1,500}$"
-        }
-      },
-      "excluded_context_classes": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "enum": [
-            "raw_secret",
-            "protected_plaintext",
-            "unauthorized_connector_payload",
-            "unrelated_private_memory",
-            "private_room_database_state",
-            "revoked_restricted_view",
-            "non_opted_in_training_trace"
-          ]
-        }
-      },
-      "released_future_access_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:revocation|context-lease|grant|receipt)://[^\\s]{1,500}$"
-        }
-      },
-      "revocation_or_supersession_refs": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:revocation|participant-state|decision|receipt)://[^\\s]{1,500}$"
-        }
-      },
-      "revocation_effect": {
-        "enum": [
-          "none",
-          "future_access_only",
-          "restricted_view_keys_revoked",
-          "erroneous_export_superseded"
-        ]
-      },
-      "bundle_artifact_ref": {
-        "type": "string",
-        "pattern": "^(?:(?:artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"
-      },
-      "bundle_root": {
-        "type": "string",
-        "pattern": "^sha256:[0-9a-f]{64}$"
-      },
-      "room_database_access_required": {
-        "const": false
-      },
-      "issued_at": {
-        "type": "string",
-        "format": "date-time",
-        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-      },
-      "signature": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 16000
-      },
-      "status": {
-        "enum": [
-          "prepared",
-          "exported",
-          "acknowledged",
-          "superseded",
-          "revoked"
-        ]
-      }
-    }
-  },
-  "schema://ioi/foundations/work-result/v2": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/work-result/v2",
-    "title": "WorkResult",
-    "x-ioi-schema-version": "ioi.foundations.work-result.v2",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "schema_version",
-      "work_result_id",
-      "work_subject_ref",
-      "goal_run_ref",
-      "outcome_room_ref",
-      "room_admission",
-      "produced_by_ref",
-      "submitted_by_ref",
-      "operator_and_affiliation_refs",
-      "work_claim_ref",
-      "attempt_ref",
-      "invocation_or_run_ref",
-      "result_profile",
-      "result_profile_ref",
-      "result_payload_ref",
-      "producer_component_resolution",
-      "declared_method_and_lineage_refs",
-      "information_flow_label_refs",
-      "outcome_class",
-      "status",
-      "outcome_delta_refs",
-      "finding_refs",
-      "claim_refs",
-      "uncertainty",
-      "supporting_evidence_refs",
-      "contradicting_evidence_refs",
-      "artifact_receipt_and_trace_refs",
-      "resource_and_cost_refs",
-      "authority_and_policy_refs",
-      "blocker_and_decision_request_refs",
-      "verifier_refs",
-      "license_disclosure_retention_and_export_refs",
-      "reproduction_state",
-      "reproduction_refs",
-      "acceptance_ref",
-      "challenge_refs",
-      "supersedes_work_result_ref",
-      "superseded_by_ref",
-      "summary_ref",
-      "next_action"
-    ],
-    "$defs": {
-      "ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
-      },
-      "refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "$ref": "#/$defs/ref"
-        }
-      },
-      "nullableRef": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/ref"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "nullableHash": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^sha256:[0-9a-f]{64}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "roomAdmission": {
-        "type": "object",
-        "required": [
-          "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
-          "proposed_or_issued_by_ref",
-          "expected_room_revision",
-          "expected_predecessor_commitment_ref",
-          "payload_root",
-          "admission_policy_ref",
-          "admission_decision_ref",
-          "admission_receipt_ref",
-          "admitted_sequence",
-          "resulting_room_revision",
-          "resulting_transition_commitment_ref",
-          "resulting_room_state_root",
-          "resulting_receipt_root",
-          "created_at",
-          "updated_at",
-          "admission_status"
-        ],
-        "properties": {
-          "schema_version": {
-            "const": "ioi.foundations.room-admitted-object-base.v2"
-          },
-          "room_system_id": {
-            "type": "string",
-            "pattern": "^system://[^\\s]{1,500}$"
-          },
-          "outcome_room_ref": {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          "proposed_or_issued_by_ref": {
-            "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
-          },
-          "expected_room_revision": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
-          },
-          "expected_predecessor_commitment_ref": {
-            "type": "string",
-            "pattern": "^commitment://[^\\s]{1,500}$"
-          },
-          "payload_root": {
-            "type": "string",
-            "pattern": "^sha256:[0-9a-f]{64}$"
-          },
-          "admission_policy_ref": {
-            "type": "string",
-            "pattern": "^policy://[^\\s]{1,500}$"
-          },
-          "admission_decision_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^decision://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_receipt_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^receipt://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admitted_sequence": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_revision": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_transition_commitment_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^commitment://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_state_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_receipt_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_status": {
-            "enum": [
-              "proposed",
-              "evaluating",
-              "admitted",
-              "rejected",
-              "superseded",
-              "revoked"
-            ]
-          }
-        },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "admitted",
-                    "superseded",
-                    "revoked"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admission_decision_ref": {
-                  "type": "string"
-                },
-                "admission_receipt_ref": {
-                  "type": "string"
-                },
-                "admitted_sequence": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_room_revision": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "string"
-                },
-                "resulting_room_state_root": {
-                  "type": "string"
-                },
-                "resulting_receipt_root": {
-                  "type": "string"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time",
-                  "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "proposed",
-                    "evaluating",
-                    "rejected"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admitted_sequence": {
-                  "type": "null"
-                },
-                "resulting_room_revision": {
-                  "type": "null"
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "null"
-                },
-                "resulting_room_state_root": {
-                  "type": "null"
-                },
-                "resulting_receipt_root": {
-                  "type": "null"
-                }
-              }
-            }
-          }
-        ],
-        "additionalProperties": false
-      },
-      "producerResolution": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "resolved_component_set_snapshot_ref",
-          "resolved_component_set_hash",
-          "component_resolution_receipt_ref",
-          "resolver_kind",
-          "resolver_revision_ref",
-          "resolver_content_hash"
-        ],
-        "properties": {
-          "resolved_component_set_snapshot_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^artifact://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resolved_component_set_hash": {
-            "$ref": "#/$defs/nullableHash"
-          },
-          "component_resolution_receipt_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^receipt://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resolver_kind": {
-            "enum": [
-              "harness_profile",
-              "agent_harness_adapter",
-              "none"
-            ]
-          },
-          "resolver_revision_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}/revision/[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resolver_content_hash": {
-            "$ref": "#/$defs/nullableHash"
-          }
-        }
-      }
-    },
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.work-result.v2"
-      },
-      "work_result_id": {
-        "type": "string",
-        "pattern": "^work-result://[^\\s]{1,500}$"
-      },
-      "work_subject_ref": {
-        "type": "string",
-        "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$"
-      },
-      "goal_run_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^goal://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_admission": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/roomAdmission"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "produced_by_ref": {
-        "type": "string",
-        "pattern": "^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"
-      },
-      "submitted_by_ref": {
-        "type": "string",
-        "pattern": "^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"
-      },
-      "operator_and_affiliation_refs": {
-        "$ref": "#/$defs/refs"
-      },
-      "work_claim_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^work-claim://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "attempt_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^attempt://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "invocation_or_run_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^(?:harness-invocation|run|work-run|automation-run|service)://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "result_profile": {
-        "enum": [
-          "software_implementation",
-          "research",
-          "ontology_mutation",
-          "incident_resolution",
-          "service_delivery",
-          "physical_mission",
-          "review",
-          "evaluation",
-          "custom"
-        ]
-      },
-      "result_profile_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^(?:schema|profile)://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "result_payload_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^(?:(?:implementation-result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "producer_component_resolution": {
-        "$ref": "#/$defs/producerResolution"
-      },
-      "declared_method_and_lineage_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:method|attempt|finding|work-result|artifact|trace)://[^\\s]{1,500}$"
-        }
-      },
-      "information_flow_label_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^ifc-label://[^\\s]{1,500}$"
-        }
-      },
-      "outcome_class": {
-        "enum": [
-          "positive",
-          "negative",
-          "inconclusive",
-          "invalid",
-          "exploit_found",
-          "superseded"
-        ]
-      },
-      "status": {
-        "enum": [
-          "completed",
-          "failed",
-          "blocked",
-          "partial",
-          "challenged",
-          "superseded"
-        ]
-      },
-      "outcome_delta_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^outcome-delta://[^\\s]{1,500}$"
-        }
-      },
-      "finding_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^finding://[^\\s]{1,500}$"
-        }
-      },
-      "claim_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:finding|ontology-assertion|evidence)://[^\\s]{1,500}$"
-        }
-      },
-      "uncertainty": {
-        "anyOf": [
-          {
-            "type": "number"
-          },
-          {
-            "type": "string"
-          },
-          {
-            "type": "object"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "supporting_evidence_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"
-        }
-      },
-      "contradicting_evidence_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:finding|ontology-assertion|evidence|artifact)://[^\\s]{1,500}$"
-        }
-      },
-      "artifact_receipt_and_trace_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$"
-        }
-      },
-      "resource_and_cost_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\\s]{1,500}$"
-        }
-      },
-      "authority_and_policy_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"
-        }
-      },
-      "blocker_and_decision_request_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:blocker|handoff|proposal)://[^\\s]{1,500}$"
-        }
-      },
-      "verifier_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:verifier-path|worker|gate|receipt)://[^\\s]{1,500}$"
-        }
-      },
-      "license_disclosure_retention_and_export_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:license|policy|restricted-view|receipt)://[^\\s]{1,500}$"
-        }
-      },
-      "reproduction_state": {
-        "anyOf": [
-          {
-            "enum": [
-              "unreviewed",
-              "reproducible",
-              "not_reproduced",
-              "contradicted",
-              "invalidated"
-            ]
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "reproduction_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$"
-        }
-      },
-      "acceptance_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^(?:acceptance|decision|receipt)://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "challenge_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:verifier-challenge|dispute|evidence)://[^\\s]{1,500}$"
-        }
-      },
-      "supersedes_work_result_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^work-result://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "superseded_by_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^(?:work-result|outcome-delta)://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "summary_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^(?:message|artifact)://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "next_action": {
-        "enum": [
-          "none",
-          "repair",
-          "review",
-          "verify",
-          "replicate",
-          "synthesize",
-          "ask_user",
-          "escalate",
-          "update_frontier"
-        ]
-      }
-    },
-    "allOf": [
-      {
-        "if": {
-          "properties": {
-            "outcome_room_ref": {
-              "type": "string"
-            }
-          }
-        },
-        "then": {
-          "properties": {
-            "room_admission": {
-              "$ref": "#/$defs/roomAdmission"
-            }
-          }
-        },
-        "else": {
-          "properties": {
-            "room_admission": {
-              "type": "null"
-            }
-          }
-        }
-      }
-    ]
-  },
-  "schema://ioi/foundations/outcome-delta/v2": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/outcome-delta/v2",
-    "title": "OutcomeDelta",
-    "x-ioi-schema-version": "ioi.foundations.outcome-delta.v2",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "schema_version",
-      "outcome_delta_id",
-      "work_subject_ref",
-      "outcome_room_ref",
-      "room_admission",
-      "proposed_by_ref",
-      "target_ref",
-      "delta_kind",
-      "payload_ref",
-      "precondition_and_invariant_refs",
-      "expected_effect_ref",
-      "verifier_and_acceptance_refs",
-      "information_flow_label_refs",
-      "status"
-    ],
-    "$defs": {
-      "ref": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
-      },
-      "refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "$ref": "#/$defs/ref"
-        }
-      },
-      "nullableRef": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/ref"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "roomAdmission": {
-        "type": "object",
-        "required": [
-          "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
-          "proposed_or_issued_by_ref",
-          "expected_room_revision",
-          "expected_predecessor_commitment_ref",
-          "payload_root",
-          "admission_policy_ref",
-          "admission_decision_ref",
-          "admission_receipt_ref",
-          "admitted_sequence",
-          "resulting_room_revision",
-          "resulting_transition_commitment_ref",
-          "resulting_room_state_root",
-          "resulting_receipt_root",
-          "created_at",
-          "updated_at",
-          "admission_status"
-        ],
-        "properties": {
-          "schema_version": {
-            "const": "ioi.foundations.room-admitted-object-base.v2"
-          },
-          "room_system_id": {
-            "type": "string",
-            "pattern": "^system://[^\\s]{1,500}$"
-          },
-          "outcome_room_ref": {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          "proposed_or_issued_by_ref": {
-            "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
-          },
-          "expected_room_revision": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
-          },
-          "expected_predecessor_commitment_ref": {
-            "type": "string",
-            "pattern": "^commitment://[^\\s]{1,500}$"
-          },
-          "payload_root": {
-            "type": "string",
-            "pattern": "^sha256:[0-9a-f]{64}$"
-          },
-          "admission_policy_ref": {
-            "type": "string",
-            "pattern": "^policy://[^\\s]{1,500}$"
-          },
-          "admission_decision_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^decision://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_receipt_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^receipt://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admitted_sequence": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_revision": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_transition_commitment_ref": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^commitment://[^\\s]{1,500}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_room_state_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resulting_receipt_root": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^sha256:[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "admission_status": {
-            "enum": [
-              "proposed",
-              "evaluating",
-              "admitted",
-              "rejected",
-              "superseded",
-              "revoked"
-            ]
-          }
-        },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "admitted",
-                    "superseded",
-                    "revoked"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admission_decision_ref": {
-                  "type": "string"
-                },
-                "admission_receipt_ref": {
-                  "type": "string"
-                },
-                "admitted_sequence": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_room_revision": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "string"
-                },
-                "resulting_room_state_root": {
-                  "type": "string"
-                },
-                "resulting_receipt_root": {
-                  "type": "string"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "format": "date-time",
-                  "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "admission_status": {
-                  "enum": [
-                    "proposed",
-                    "evaluating",
-                    "rejected"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "admitted_sequence": {
-                  "type": "null"
-                },
-                "resulting_room_revision": {
-                  "type": "null"
-                },
-                "resulting_transition_commitment_ref": {
-                  "type": "null"
-                },
-                "resulting_room_state_root": {
-                  "type": "null"
-                },
-                "resulting_receipt_root": {
-                  "type": "null"
-                }
-              }
-            }
-          }
-        ],
-        "additionalProperties": false
-      }
-    },
-    "properties": {
-      "schema_version": {
-        "const": "ioi.foundations.outcome-delta.v2"
-      },
-      "outcome_delta_id": {
-        "type": "string",
-        "pattern": "^outcome-delta://[^\\s]{1,500}$"
-      },
-      "work_subject_ref": {
-        "type": "string",
-        "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$"
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_admission": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/roomAdmission"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "proposed_by_ref": {
-        "type": "string",
-        "pattern": "^(?:work-result|attempt|finding|participant-lease)://[^\\s]{1,500}$"
-      },
-      "target_ref": {
-        "type": "string",
-        "pattern": "^(?:frontier|finding|ontology|state|capability|policy|routing-prior|service)://[^\\s]{1,500}$"
-      },
-      "delta_kind": {
-        "enum": [
-          "create",
-          "update",
-          "supersede",
-          "reject",
-          "merge",
-          "promote",
-          "rollback",
-          "course_correct",
-          "close"
-        ]
-      },
-      "payload_ref": {
-        "type": "string",
-        "pattern": "^(?:artifact|patch|mapping|state-delta)://[^\\s]{1,500}$"
-      },
-      "precondition_and_invariant_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:policy|gate|state)://[^\\s]{1,500}$"
-        }
-      },
-      "expected_effect_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^effect://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "verifier_and_acceptance_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:verifier-path|rubric|gate)://[^\\s]{1,500}$"
-        }
-      },
-      "information_flow_label_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^ifc-label://[^\\s]{1,500}$"
-        }
-      },
-      "status": {
-        "enum": [
-          "proposed",
-          "evaluating",
-          "admitted",
-          "rejected",
-          "superseded",
-          "rolled_back"
-        ]
-      }
-    },
-    "allOf": [
-      {
-        "if": {
-          "properties": {
-            "outcome_room_ref": {
-              "type": "string"
-            }
-          }
-        },
-        "then": {
-          "properties": {
-            "room_admission": {
-              "$ref": "#/$defs/roomAdmission"
-            }
-          }
-        },
-        "else": {
-          "properties": {
-            "room_admission": {
-              "type": "null"
-            }
-          }
-        }
-      }
-    ]
-  },
-  "schema://ioi/foundations/room-scoped-object-binding/v1": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/room-scoped-object-binding/v1",
-    "title": "RoomScopedObjectBinding",
-    "x-ioi-schema-version": "ioi.foundations.room-scoped-object-binding.v1",
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "schema_version",
-      "room_system_id",
-      "outcome_room_ref",
+      "system_id",
+      "parent_scope_ref",
       "proposed_or_issued_by_ref",
       "payload_root",
       "created_at",
@@ -71163,19 +63316,19 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     ],
     "properties": {
       "schema_version": {
-        "const": "ioi.foundations.room-scoped-object-binding.v1"
+        "const": "ioi.foundations.system-scoped-object-binding.v1"
       },
-      "room_system_id": {
+      "system_id": {
         "type": "string",
         "pattern": "^system://[^\\s]{1,500}$"
       },
-      "outcome_room_ref": {
+      "parent_scope_ref": {
         "type": "string",
-        "pattern": "^outcome-room://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       },
       "proposed_or_issued_by_ref": {
         "type": "string",
-        "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       },
       "payload_root": {
         "type": "string",
@@ -71200,17 +63353,17 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/work-frontier-item/v3": {
+  "schema://ioi/applications/ioi-ai/work-frontier-item/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/work-frontier-item/v3",
+    "$id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
     "title": "WorkFrontierItem",
-    "x-ioi-schema-version": "ioi.foundations.work-frontier-item.v3",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.work-frontier-item.v3",
     "type": "object",
     "additionalProperties": false,
     "required": [
       "schema_version",
       "frontier_item_id",
-      "room_binding",
+      "system_binding",
       "item_kind",
       "objective",
       "dependency_refs",
@@ -71238,13 +63391,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           }
         ]
       },
-      "roomBinding": {
+      "systemBinding": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
+          "system_id",
+          "parent_scope_ref",
           "proposed_or_issued_by_ref",
           "payload_root",
           "created_at",
@@ -71252,19 +63405,19 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ],
         "properties": {
           "schema_version": {
-            "const": "ioi.foundations.room-scoped-object-binding.v1"
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
           },
-          "room_system_id": {
+          "system_id": {
             "type": "string",
             "pattern": "^system://[^\\s]{1,500}$"
           },
-          "outcome_room_ref": {
+          "parent_scope_ref": {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "proposed_or_issued_by_ref": {
             "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "payload_root": {
             "type": "string",
@@ -71292,14 +63445,14 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     },
     "properties": {
       "schema_version": {
-        "const": "ioi.foundations.work-frontier-item.v3"
+        "const": "ioi.applications.ioi-ai.work-frontier-item.v3"
       },
       "frontier_item_id": {
         "type": "string",
         "pattern": "^frontier://[^\\s]{1,500}$"
       },
-      "room_binding": {
-        "$ref": "#/$defs/roomBinding"
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
       },
       "item_kind": {
         "enum": [
@@ -71426,18 +63579,18 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/work-claim-lease/v3": {
+  "schema://ioi/applications/ioi-ai/work-claim-lease/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/work-claim-lease/v3",
+    "$id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
     "title": "WorkClaimLease",
-    "x-ioi-schema-version": "ioi.foundations.work-claim-lease.v3",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.work-claim-lease.v3",
     "type": "object",
     "additionalProperties": false,
     "required": [
       "schema_version",
       "work_claim_id",
       "outcome_room_ref",
-      "room_binding",
+      "system_binding",
       "frontier_item_ref",
       "claimant_ref",
       "claimant_participant_lease_ref",
@@ -71464,13 +63617,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "status"
     ],
     "$defs": {
-      "roomBinding": {
+      "systemBinding": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
+          "system_id",
+          "parent_scope_ref",
           "proposed_or_issued_by_ref",
           "payload_root",
           "created_at",
@@ -71478,19 +63631,19 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ],
         "properties": {
           "schema_version": {
-            "const": "ioi.foundations.room-scoped-object-binding.v1"
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
           },
-          "room_system_id": {
+          "system_id": {
             "type": "string",
             "pattern": "^system://[^\\s]{1,500}$"
           },
-          "outcome_room_ref": {
+          "parent_scope_ref": {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "proposed_or_issued_by_ref": {
             "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "payload_root": {
             "type": "string",
@@ -71518,7 +63671,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     },
     "properties": {
       "schema_version": {
-        "const": "ioi.foundations.work-claim-lease.v3"
+        "const": "ioi.applications.ioi-ai.work-claim-lease.v3"
       },
       "work_claim_id": {
         "type": "string",
@@ -71528,17 +63681,17 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "anyOf": [
           {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           {
             "type": "null"
           }
         ]
       },
-      "room_binding": {
+      "system_binding": {
         "anyOf": [
           {
-            "$ref": "#/$defs/roomBinding"
+            "$ref": "#/$defs/systemBinding"
           },
           {
             "type": "null"
@@ -71748,8 +63901,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         },
         "then": {
           "properties": {
-            "room_binding": {
-              "$ref": "#/$defs/roomBinding"
+            "system_binding": {
+              "$ref": "#/$defs/systemBinding"
             },
             "frontier_item_ref": {
               "type": "string"
@@ -71764,7 +63917,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         },
         "else": {
           "properties": {
-            "room_binding": {
+            "system_binding": {
               "type": "null"
             },
             "claimant_participant_lease_ref": {
@@ -71795,18 +63948,18 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     ]
   },
-  "schema://ioi/foundations/attempt/v3": {
+  "schema://ioi/applications/ioi-ai/attempt/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/attempt/v3",
+    "$id": "schema://ioi/applications/ioi-ai/attempt/v3",
     "title": "Attempt",
-    "x-ioi-schema-version": "ioi.foundations.attempt.v3",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.attempt.v3",
     "type": "object",
     "additionalProperties": false,
     "required": [
       "schema_version",
       "attempt_id",
       "outcome_room_ref",
-      "room_binding",
+      "system_binding",
       "work_subject_ref",
       "goal_run_ref",
       "frontier_item_ref",
@@ -71839,13 +63992,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "format": "date-time",
         "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
       },
-      "roomBinding": {
+      "systemBinding": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
+          "system_id",
+          "parent_scope_ref",
           "proposed_or_issued_by_ref",
           "payload_root",
           "created_at",
@@ -71853,19 +64006,19 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ],
         "properties": {
           "schema_version": {
-            "const": "ioi.foundations.room-scoped-object-binding.v1"
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
           },
-          "room_system_id": {
+          "system_id": {
             "type": "string",
             "pattern": "^system://[^\\s]{1,500}$"
           },
-          "outcome_room_ref": {
+          "parent_scope_ref": {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "proposed_or_issued_by_ref": {
             "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "payload_root": {
             "type": "string",
@@ -71912,7 +64065,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "properties": {
               "record_ref": {
                 "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
+                "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
               },
               "host_domain_ref": {
                 "type": "string",
@@ -71939,7 +64092,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               },
               "outcome_room_ref": {
                 "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
+                "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
               },
               "revision": {
                 "type": "integer",
@@ -71969,7 +64122,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               },
               "outcome_room_ref": {
                 "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
+                "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
               },
               "frontier_item_ref": {
                 "type": "string",
@@ -72006,7 +64159,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               },
               "outcome_room_ref": {
                 "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
+                "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
               },
               "principal_ref": {
                 "type": "string",
@@ -72038,7 +64191,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               },
               "outcome_room_ref": {
                 "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
+                "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
               },
               "updated_at": {
                 "anyOf": [
@@ -72060,7 +64213,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     },
     "properties": {
       "schema_version": {
-        "const": "ioi.foundations.attempt.v3"
+        "const": "ioi.applications.ioi-ai.attempt.v3"
       },
       "attempt_id": {
         "type": "string",
@@ -72070,17 +64223,17 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "anyOf": [
           {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           {
             "type": "null"
           }
         ]
       },
-      "room_binding": {
+      "system_binding": {
         "anyOf": [
           {
-            "$ref": "#/$defs/roomBinding"
+            "$ref": "#/$defs/systemBinding"
           },
           {
             "type": "null"
@@ -72280,8 +64433,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         },
         "then": {
           "properties": {
-            "room_binding": {
-              "$ref": "#/$defs/roomBinding"
+            "system_binding": {
+              "$ref": "#/$defs/systemBinding"
             },
             "bound_coordinates": {
               "$ref": "#/$defs/boundCoordinates"
@@ -72290,7 +64443,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         },
         "else": {
           "properties": {
-            "room_binding": {
+            "system_binding": {
               "type": "null"
             },
             "bound_coordinates": {
@@ -72301,18 +64454,18 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     ]
   },
-  "schema://ioi/foundations/finding/v3": {
+  "schema://ioi/applications/ioi-ai/finding/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/finding/v3",
+    "$id": "schema://ioi/applications/ioi-ai/finding/v3",
     "title": "Finding",
-    "x-ioi-schema-version": "ioi.foundations.finding.v3",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.finding.v3",
     "type": "object",
     "additionalProperties": false,
     "required": [
       "schema_version",
       "finding_id",
       "outcome_room_ref",
-      "room_binding",
+      "system_binding",
       "attempt_ref",
       "work_result_ref",
       "participant_ref",
@@ -72344,13 +64497,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "format": "date-time",
         "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
       },
-      "roomBinding": {
+      "systemBinding": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
+          "system_id",
+          "parent_scope_ref",
           "proposed_or_issued_by_ref",
           "payload_root",
           "created_at",
@@ -72358,19 +64511,19 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ],
         "properties": {
           "schema_version": {
-            "const": "ioi.foundations.room-scoped-object-binding.v1"
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
           },
-          "room_system_id": {
+          "system_id": {
             "type": "string",
             "pattern": "^system://[^\\s]{1,500}$"
           },
-          "outcome_room_ref": {
+          "parent_scope_ref": {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "proposed_or_issued_by_ref": {
             "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "payload_root": {
             "type": "string",
@@ -72411,7 +64564,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "outcome_room_ref": {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "revision": {
             "type": "integer",
@@ -72451,7 +64604,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               },
               "outcome_room_ref": {
                 "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
+                "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
               },
               "participant_ref": {
                 "type": "string",
@@ -72489,7 +64642,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               },
               "outcome_room_ref": {
                 "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
+                "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
               },
               "goal_run_ref": {
                 "type": "string",
@@ -72531,7 +64684,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               },
               "outcome_room_ref": {
                 "type": "string",
-                "pattern": "^outcome-room://[^\\s]{1,500}$"
+                "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
               },
               "principal_ref": {
                 "type": "string",
@@ -72562,7 +64715,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     },
     "properties": {
       "schema_version": {
-        "const": "ioi.foundations.finding.v3"
+        "const": "ioi.applications.ioi-ai.finding.v3"
       },
       "finding_id": {
         "type": "string",
@@ -72572,17 +64725,17 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "anyOf": [
           {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           {
             "type": "null"
           }
         ]
       },
-      "room_binding": {
+      "system_binding": {
         "anyOf": [
           {
-            "$ref": "#/$defs/roomBinding"
+            "$ref": "#/$defs/systemBinding"
           },
           {
             "type": "null"
@@ -72758,8 +64911,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         },
         "then": {
           "properties": {
-            "room_binding": {
-              "$ref": "#/$defs/roomBinding"
+            "system_binding": {
+              "$ref": "#/$defs/systemBinding"
             },
             "bound_coordinates": {
               "$ref": "#/$defs/boundCoordinates"
@@ -72768,7 +64921,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         },
         "else": {
           "properties": {
-            "room_binding": {
+            "system_binding": {
               "type": "null"
             },
             "bound_coordinates": {
@@ -72779,18 +64932,18 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     ]
   },
-  "schema://ioi/foundations/verifier-challenge/v3": {
+  "schema://ioi/applications/ioi-ai/verifier-challenge/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/verifier-challenge/v3",
+    "$id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
     "title": "VerifierChallenge",
-    "x-ioi-schema-version": "ioi.foundations.verifier-challenge.v3",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.verifier-challenge.v3",
     "type": "object",
     "additionalProperties": false,
     "required": [
       "schema_version",
       "verifier_challenge_id",
       "outcome_room_ref",
-      "room_binding",
+      "system_binding",
       "challenger_ref",
       "challenged_ref",
       "challenge_kind",
@@ -72804,13 +64957,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "status"
     ],
     "$defs": {
-      "roomBinding": {
+      "systemBinding": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
+          "system_id",
+          "parent_scope_ref",
           "proposed_or_issued_by_ref",
           "payload_root",
           "created_at",
@@ -72818,19 +64971,19 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ],
         "properties": {
           "schema_version": {
-            "const": "ioi.foundations.room-scoped-object-binding.v1"
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
           },
-          "room_system_id": {
+          "system_id": {
             "type": "string",
             "pattern": "^system://[^\\s]{1,500}$"
           },
-          "outcome_room_ref": {
+          "parent_scope_ref": {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "proposed_or_issued_by_ref": {
             "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "payload_root": {
             "type": "string",
@@ -72858,7 +65011,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     },
     "properties": {
       "schema_version": {
-        "const": "ioi.foundations.verifier-challenge.v3"
+        "const": "ioi.applications.ioi-ai.verifier-challenge.v3"
       },
       "verifier_challenge_id": {
         "type": "string",
@@ -72868,17 +65021,17 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "anyOf": [
           {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           {
             "type": "null"
           }
         ]
       },
-      "room_binding": {
+      "system_binding": {
         "anyOf": [
           {
-            "$ref": "#/$defs/roomBinding"
+            "$ref": "#/$defs/systemBinding"
           },
           {
             "type": "null"
@@ -72978,18 +65131,18 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
-  "schema://ioi/foundations/participant-state-bundle/v3": {
+  "schema://ioi/applications/ioi-ai/participant-state-bundle/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "schema://ioi/foundations/participant-state-bundle/v3",
+    "$id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
     "title": "ParticipantStateBundle",
-    "x-ioi-schema-version": "ioi.foundations.participant-state-bundle.v3",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.participant-state-bundle.v3",
     "type": "object",
     "additionalProperties": false,
     "required": [
       "schema_version",
       "participant_state_bundle_id",
       "outcome_room_ref",
-      "room_binding",
+      "system_binding",
       "participant_lease_ref",
       "participant_and_home_domain_refs",
       "coordination_topology",
@@ -73013,13 +65166,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "status"
     ],
     "$defs": {
-      "roomBinding": {
+      "systemBinding": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
+          "system_id",
+          "parent_scope_ref",
           "proposed_or_issued_by_ref",
           "payload_root",
           "created_at",
@@ -73027,19 +65180,19 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ],
         "properties": {
           "schema_version": {
-            "const": "ioi.foundations.room-scoped-object-binding.v1"
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
           },
-          "room_system_id": {
+          "system_id": {
             "type": "string",
             "pattern": "^system://[^\\s]{1,500}$"
           },
-          "outcome_room_ref": {
+          "parent_scope_ref": {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "proposed_or_issued_by_ref": {
             "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "payload_root": {
             "type": "string",
@@ -73067,7 +65220,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     },
     "properties": {
       "schema_version": {
-        "const": "ioi.foundations.participant-state-bundle.v3"
+        "const": "ioi.applications.ioi-ai.participant-state-bundle.v3"
       },
       "participant_state_bundle_id": {
         "type": "string",
@@ -73075,10 +65228,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "outcome_room_ref": {
         "type": "string",
-        "pattern": "^outcome-room://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       },
-      "room_binding": {
-        "$ref": "#/$defs/roomBinding"
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
       },
       "participant_lease_ref": {
         "type": "string",
@@ -73242,14 +65395,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "schema_version",
       "work_result_id",
       "work_subject_ref",
-      "goal_run_ref",
-      "outcome_room_ref",
-      "room_binding",
+      "system_binding",
       "produced_by_ref",
       "submitted_by_ref",
       "operator_and_affiliation_refs",
-      "work_claim_ref",
-      "attempt_ref",
       "invocation_or_run_ref",
       "result_profile",
       "result_profile_ref",
@@ -73259,8 +65408,6 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "information_flow_label_refs",
       "outcome_class",
       "status",
-      "outcome_delta_refs",
-      "finding_refs",
       "claim_refs",
       "uncertainty",
       "supporting_evidence_refs",
@@ -73274,11 +65421,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "reproduction_state",
       "reproduction_refs",
       "acceptance_ref",
-      "challenge_refs",
       "supersedes_work_result_ref",
       "superseded_by_ref",
       "summary_ref",
-      "next_action"
+      "next_action",
+      "outcome_delta_refs",
+      "observation_refs",
+      "review_refs"
     ],
     "$defs": {
       "ref": {
@@ -73314,13 +65463,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           }
         ]
       },
-      "roomBinding": {
+      "systemBinding": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
+          "system_id",
+          "parent_scope_ref",
           "proposed_or_issued_by_ref",
           "payload_root",
           "created_at",
@@ -73328,19 +65477,19 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ],
         "properties": {
           "schema_version": {
-            "const": "ioi.foundations.room-scoped-object-binding.v1"
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
           },
-          "room_system_id": {
+          "system_id": {
             "type": "string",
             "pattern": "^system://[^\\s]{1,500}$"
           },
-          "outcome_room_ref": {
+          "parent_scope_ref": {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "proposed_or_issued_by_ref": {
             "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "payload_root": {
             "type": "string",
@@ -73436,34 +65585,12 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "work_subject_ref": {
         "type": "string",
-        "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       },
-      "goal_run_ref": {
+      "system_binding": {
         "anyOf": [
           {
-            "type": "string",
-            "pattern": "^goal://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "outcome_room_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_binding": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/roomBinding"
+            "$ref": "#/$defs/systemBinding"
           },
           {
             "type": "null"
@@ -73481,33 +65608,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "operator_and_affiliation_refs": {
         "$ref": "#/$defs/refs"
       },
-      "work_claim_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^work-claim://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "attempt_ref": {
-        "anyOf": [
-          {
-            "type": "string",
-            "pattern": "^attempt://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
       "invocation_or_run_ref": {
         "anyOf": [
           {
-            "type": "string",
-            "pattern": "^(?:harness-invocation|run|work-run|automation-run|service)://[^\\s]{1,500}$"
+            "$ref": "#/$defs/ref"
           },
           {
             "type": "null"
@@ -73557,8 +65661,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "maxItems": 64,
         "uniqueItems": true,
         "items": {
-          "type": "string",
-          "pattern": "^(?:method|attempt|finding|work-result|artifact|trace)://[^\\s]{1,500}$"
+          "$ref": "#/$defs/ref"
         }
       },
       "information_flow_label_refs": {
@@ -73597,15 +65700,6 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "items": {
           "type": "string",
           "pattern": "^outcome-delta://[^\\s]{1,500}$"
-        }
-      },
-      "finding_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^finding://[^\\s]{1,500}$"
         }
       },
       "claim_refs": {
@@ -73741,15 +65835,6 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           }
         ]
       },
-      "challenge_refs": {
-        "type": "array",
-        "maxItems": 64,
-        "uniqueItems": true,
-        "items": {
-          "type": "string",
-          "pattern": "^(?:verifier-challenge|dispute|evidence)://[^\\s]{1,500}$"
-        }
-      },
       "supersedes_work_result_ref": {
         "anyOf": [
           {
@@ -73793,35 +65878,26 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "synthesize",
           "ask_user",
           "escalate",
-          "update_frontier"
+          "update_work_queue"
         ]
-      }
-    },
-    "allOf": [
-      {
-        "if": {
-          "properties": {
-            "outcome_room_ref": {
-              "type": "string"
-            }
-          }
-        },
-        "then": {
-          "properties": {
-            "room_binding": {
-              "$ref": "#/$defs/roomBinding"
-            }
-          }
-        },
-        "else": {
-          "properties": {
-            "room_binding": {
-              "type": "null"
-            }
-          }
+      },
+      "observation_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "review_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
         }
       }
-    ]
+    }
   },
   "schema://ioi/foundations/outcome-delta/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -73834,8 +65910,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "schema_version",
       "outcome_delta_id",
       "work_subject_ref",
-      "outcome_room_ref",
-      "room_binding",
+      "system_binding",
       "proposed_by_ref",
       "target_ref",
       "delta_kind",
@@ -73869,13 +65944,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           }
         ]
       },
-      "roomBinding": {
+      "systemBinding": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "schema_version",
-          "room_system_id",
-          "outcome_room_ref",
+          "system_id",
+          "parent_scope_ref",
           "proposed_or_issued_by_ref",
           "payload_root",
           "created_at",
@@ -73883,19 +65958,19 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ],
         "properties": {
           "schema_version": {
-            "const": "ioi.foundations.room-scoped-object-binding.v1"
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
           },
-          "room_system_id": {
+          "system_id": {
             "type": "string",
             "pattern": "^system://[^\\s]{1,500}$"
           },
-          "outcome_room_ref": {
+          "parent_scope_ref": {
             "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "proposed_or_issued_by_ref": {
             "type": "string",
-            "pattern": "^(?:participant-lease|system)://[^\\s]{1,500}$"
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
           },
           "payload_root": {
             "type": "string",
@@ -73931,23 +66006,12 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "work_subject_ref": {
         "type": "string",
-        "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       },
-      "outcome_room_ref": {
+      "system_binding": {
         "anyOf": [
           {
-            "type": "string",
-            "pattern": "^outcome-room://[^\\s]{1,500}$"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "room_binding": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/roomBinding"
+            "$ref": "#/$defs/systemBinding"
           },
           {
             "type": "null"
@@ -73956,11 +66020,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "proposed_by_ref": {
         "type": "string",
-        "pattern": "^(?:work-result|attempt|finding|participant-lease)://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       },
       "target_ref": {
         "type": "string",
-        "pattern": "^(?:frontier|finding|ontology|state|capability|policy|routing-prior|service)://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       },
       "delta_kind": {
         "enum": [
@@ -74027,32 +66091,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "rolled_back"
         ]
       }
-    },
-    "allOf": [
-      {
-        "if": {
-          "properties": {
-            "outcome_room_ref": {
-              "type": "string"
-            }
-          }
-        },
-        "then": {
-          "properties": {
-            "room_binding": {
-              "$ref": "#/$defs/roomBinding"
-            }
-          }
-        },
-        "else": {
-          "properties": {
-            "room_binding": {
-              "type": "null"
-            }
-          }
-        }
-      }
-    ]
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -81458,31 +73497,29 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/collection-query/v1": [],
   "schema://ioi/components/hypervisor/collection-page/v1": [],
   "schema://ioi/components/hypervisor/route-retirement-refusal/v1": [],
-  "schema://ioi/foundations/goal-run-admission-path-decision/v1": [],
-  "schema://ioi/foundations/work-result/v1": [],
+  "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1": [],
   "schema://ioi/foundations/work-lifecycle-record/v1": [],
   "schema://ioi/components/daemon-runtime/information-flow-decision-receipt/v1": [],
   "schema://ioi/components/agentgres/agent-execution-branch/v1": [],
   "schema://ioi/components/agentgres/staged-effect/v1": [],
   "schema://ioi/components/agentgres/branch-checkpoint/v1": [],
   "schema://ioi/components/agentgres/branch-merge-plan/v1": [],
-  "schema://ioi/foundations/goal-run-profile/v1": [],
+  "schema://ioi/applications/ioi-ai/goal-run-profile/v1": [],
   "schema://ioi/foundations/workflow-template/v1": [],
   "schema://ioi/foundations/skill-manifest/v1": [],
   "schema://ioi/foundations/skill-entry/v1": [],
   "schema://ioi/foundations/active-skill-set-snapshot/v1": [],
-  "schema://ioi/foundations/goal-grounding-loop/v1": [],
+  "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1": [],
   "schema://ioi/components/daemon-runtime/harness-profile/v1": [],
   "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1": [],
-  "schema://ioi/foundations/outcome-delta/v1": [],
   "schema://ioi/foundations/cancellation-fanout-plan/v1": [],
   "schema://ioi/components/agentgres/operation-log-entry/v1": [],
   "schema://ioi/components/agentgres/artifact-ref/v1": [],
   "schema://ioi/components/agentgres/projection-definition/v1": [],
   "schema://ioi/components/daemon-runtime/declassification-receipt/v1": [],
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1": [],
-  "schema://ioi/foundations/goal-run/v1": [],
-  "schema://ioi/foundations/goal-run-execution-ceiling/v1": [
+  "schema://ioi/applications/ioi-ai/goal-run/v1": [],
+  "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1": [
     {
       "rule_id": "goal_run_execution_ceiling.hash.recomputes",
       "description": "The release content hash is the domain-separated JCS commitment over the immutable ceiling body.",
@@ -81534,17 +73571,10 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
-  "schema://ioi/foundations/goal-run-profile-resolution-receipt/v1": [],
-  "schema://ioi/foundations/attempt/v1": [],
-  "schema://ioi/foundations/collaborative-work-graph/v1": [],
-  "schema://ioi/foundations/finding/v1": [],
-  "schema://ioi/foundations/outcome-room-discussion-projection/v1": [],
-  "schema://ioi/foundations/outcome-room/v1": [],
-  "schema://ioi/foundations/participant-state-bundle/v1": [],
-  "schema://ioi/foundations/verifier-challenge/v1": [],
-  "schema://ioi/foundations/work-claim-lease/v1": [],
-  "schema://ioi/foundations/work-frontier-item/v1": [],
-  "schema://ioi/foundations/goal-run-activation/v1": [
+  "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1": [],
+  "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1": [],
+  "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1": [],
+  "schema://ioi/applications/ioi-ai/goal-run-activation/v1": [
     {
       "rule_id": "goal_run_activation.create.profile_revision.required",
       "description": "Create mode binds one exact GoalRunProfile revision.",
@@ -81595,7 +73625,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
-  "schema://ioi/foundations/goal-run-activation-receipt/v1": [
+  "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1": [
     {
       "rule_id": "goal_run_activation_receipt.identity.matches",
       "description": "The activation admission has one portable receipt identity.",
@@ -81701,7 +73731,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
-  "schema://ioi/foundations/goal-run-admitted-state/v1": [
+  "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1": [
     {
       "rule_id": "goal_run_admitted_state.root.matches_record",
       "description": "The state root is SHA-256 over JCS of the complete admitted-state record with both root fields null.",
@@ -81813,7 +73843,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
-  "schema://ioi/foundations/outcome-room/v2": [
+  "schema://ioi/applications/ioi-ai/outcome-room/v2": [
     {
       "rule_id": "outcome_room.genesis.required_when_live",
       "description": "A room beyond proposal binds its admitted genesis.",
@@ -81873,446 +73903,16 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
-  "schema://ioi/foundations/work-frontier-item/v2": [
-    {
-      "rule_id": "work_frontier.admission_receipt.required_for_terminal_truth",
-      "description": "A terminally admitted frontier item carries the CAS admission receipt required by RoomAdmittedObjectBase.",
-      "expression": {
-        "operator": "non_empty_when_in",
-        "path": "$.room_admission.admission_receipt_ref",
-        "when_path": "$.room_admission.admission_status",
-        "values": [
-          "admitted",
-          "superseded",
-          "revoked"
-        ]
-      }
-    }
-  ],
-  "schema://ioi/foundations/work-claim-lease/v2": [
-    {
-      "rule_id": "work_claim.room.matches_admission",
-      "description": "A room-scoped claim and its CAS admission bind the same room; direct claims carry null on both sides.",
-      "expression": {
-        "operator": "optional_field_equals",
-        "optional_object_path": "$.room_admission",
-        "field": "outcome_room_ref",
-        "expected_path": "$.outcome_room_ref"
-      }
-    },
-    {
-      "rule_id": "work_claim.participant_lease.matches_admission_issuer",
-      "description": "A room claim binds its separate participant-lease coordinate to the CAS issuer; a direct claim carries null room fields. The claimant actor may be a worker, agent, service, organization, domain, system, or the lease itself and remains subject to owner-plane actor-to-lease resolution.",
-      "expression": {
-        "operator": "any_of",
-        "expressions": [
-          {
-            "operator": "optional_field_equals",
-            "optional_object_path": "$.room_admission",
-            "field": "proposed_or_issued_by_ref",
-            "expected_path": "$.claimant_participant_lease_ref"
-          },
-          {
-            "operator": "optional_field_equals",
-            "optional_object_path": "$.room_admission",
-            "field": "proposed_or_issued_by_ref",
-            "expected_path": "$.room_admission.room_system_id"
-          }
-        ]
-      }
-    }
-  ],
-  "schema://ioi/foundations/attempt/v2": [
-    {
-      "rule_id": "attempt.room.matches_admission",
-      "description": "Attempt and admission bind the same room; both are null for direct work.",
-      "expression": {
-        "operator": "optional_field_equals",
-        "optional_object_path": "$.room_admission",
-        "field": "outcome_room_ref",
-        "expected_path": "$.outcome_room_ref"
-      }
-    },
-    {
-      "rule_id": "attempt.room.matches_bound_room",
-      "description": "A hosted Attempt freezes its OutcomeRoom coordinate; a non-room Attempt has no bound coordinate object.",
-      "expression": {
-        "operator": "optional_fields_equal",
-        "optional_object_path": "$.bound_coordinates",
-        "paths": [
-          "$.outcome_room_ref",
-          "$.bound_coordinates.outcome_room.record_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "attempt.goal.matches_bound_goal",
-      "description": "A hosted Attempt freezes its GoalRun coordinate.",
-      "expression": {
-        "operator": "optional_fields_equal",
-        "optional_object_path": "$.bound_coordinates",
-        "paths": [
-          "$.goal_run_ref",
-          "$.bound_coordinates.goal_run.record_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "attempt.frontier.matches_bound_frontier",
-      "description": "A hosted Attempt freezes its frontier coordinate.",
-      "expression": {
-        "operator": "optional_fields_equal",
-        "optional_object_path": "$.bound_coordinates",
-        "paths": [
-          "$.frontier_item_ref",
-          "$.bound_coordinates.frontier_item.record_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "attempt.claim.matches_bound_claim",
-      "description": "A hosted Attempt freezes its claim coordinate.",
-      "expression": {
-        "operator": "optional_fields_equal",
-        "optional_object_path": "$.bound_coordinates",
-        "paths": [
-          "$.work_claim_ref",
-          "$.bound_coordinates.work_claim.record_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "attempt.frontier_room.matches_room",
-      "description": "The hosted bound frontier belongs to the declared room.",
-      "expression": {
-        "operator": "optional_fields_equal",
-        "optional_object_path": "$.bound_coordinates",
-        "paths": [
-          "$.outcome_room_ref",
-          "$.bound_coordinates.frontier_item.outcome_room_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "attempt.claim_room.matches_room",
-      "description": "The hosted bound claim belongs to the declared room.",
-      "expression": {
-        "operator": "optional_fields_equal",
-        "optional_object_path": "$.bound_coordinates",
-        "paths": [
-          "$.outcome_room_ref",
-          "$.bound_coordinates.work_claim.outcome_room_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "attempt.participant_room.matches_room",
-      "description": "The hosted bound participant lease belongs to the declared room.",
-      "expression": {
-        "operator": "optional_fields_equal",
-        "optional_object_path": "$.bound_coordinates",
-        "paths": [
-          "$.outcome_room_ref",
-          "$.bound_coordinates.participant_lease.outcome_room_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "attempt.goal_room.matches_room",
-      "description": "The hosted bound GoalRun belongs to the declared room.",
-      "expression": {
-        "operator": "optional_fields_equal",
-        "optional_object_path": "$.bound_coordinates",
-        "paths": [
-          "$.outcome_room_ref",
-          "$.bound_coordinates.goal_run.outcome_room_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "attempt.claim_frontier.matches_frontier",
-      "description": "The hosted bound claim names the exact frozen frontier item.",
-      "expression": {
-        "operator": "optional_fields_equal",
-        "optional_object_path": "$.bound_coordinates",
-        "paths": [
-          "$.frontier_item_ref",
-          "$.bound_coordinates.work_claim.frontier_item_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "attempt.admission_issuer.matches_bound_lease_or_room_system",
-      "description": "Participant-authored admission binds the frozen participant lease; a system-authored transition binds the exact room system.",
-      "expression": {
-        "operator": "any_of",
-        "expressions": [
-          {
-            "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_admission",
-            "paths": [
-              "$.room_admission.proposed_or_issued_by_ref",
-              "$.bound_coordinates.participant_lease.record_ref"
-            ]
-          },
-          {
-            "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_admission",
-            "paths": [
-              "$.room_admission.proposed_or_issued_by_ref",
-              "$.room_admission.room_system_id"
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "rule_id": "attempt.participant.resolves_through_bound_lease",
-      "description": "The participant field retains the frozen lease, its principal, or the exact room system.",
-      "expression": {
-        "operator": "any_of",
-        "expressions": [
-          {
-            "operator": "optional_fields_equal",
-            "optional_object_path": "$.bound_coordinates",
-            "paths": [
-              "$.participant_ref",
-              "$.bound_coordinates.participant_lease.record_ref"
-            ]
-          },
-          {
-            "operator": "optional_fields_equal",
-            "optional_object_path": "$.bound_coordinates",
-            "paths": [
-              "$.participant_ref",
-              "$.bound_coordinates.participant_lease.principal_ref"
-            ]
-          },
-          {
-            "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_admission",
-            "paths": [
-              "$.participant_ref",
-              "$.room_admission.room_system_id"
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "rule_id": "attempt.claimant.resolves_through_bound_lease",
-      "description": "The hosted frozen claim claimant is the participant lease or the principal resolved by that lease.",
-      "expression": {
-        "operator": "any_of",
-        "expressions": [
-          {
-            "operator": "optional_fields_equal",
-            "optional_object_path": "$.bound_coordinates",
-            "paths": [
-              "$.bound_coordinates.work_claim.claimant_ref",
-              "$.bound_coordinates.participant_lease.record_ref"
-            ]
-          },
-          {
-            "operator": "optional_fields_equal",
-            "optional_object_path": "$.bound_coordinates",
-            "paths": [
-              "$.bound_coordinates.work_claim.claimant_ref",
-              "$.bound_coordinates.participant_lease.principal_ref"
-            ]
-          }
-        ]
-      }
-    }
-  ],
-  "schema://ioi/foundations/finding/v2": [
-    {
-      "rule_id": "finding.room.matches_admission",
-      "description": "Finding and admission bind the same room; both are null for direct work.",
-      "expression": {
-        "operator": "optional_field_equals",
-        "optional_object_path": "$.room_admission",
-        "field": "outcome_room_ref",
-        "expected_path": "$.outcome_room_ref"
-      }
-    },
-    {
-      "rule_id": "finding.attempt.matches_bound_attempt",
-      "description": "A hosted Finding freezes its exact Attempt; a non-room Finding has no bound coordinate object.",
-      "expression": {
-        "operator": "optional_fields_equal",
-        "optional_object_path": "$.bound_coordinates",
-        "paths": [
-          "$.attempt_ref",
-          "$.bound_coordinates.attempt.record_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "finding.result.matches_bound_result",
-      "description": "A hosted Finding freezes its exact WorkResult.",
-      "expression": {
-        "operator": "optional_fields_equal",
-        "optional_object_path": "$.bound_coordinates",
-        "paths": [
-          "$.work_result_ref",
-          "$.bound_coordinates.work_result.record_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "finding.participant.matches_bound_lease",
-      "description": "A hosted Finding freezes its historical participant lease.",
-      "expression": {
-        "operator": "optional_fields_equal",
-        "optional_object_path": "$.bound_coordinates",
-        "paths": [
-          "$.participant_ref",
-          "$.bound_coordinates.participant_lease.record_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "finding.admission_issuer.matches_participant_or_room_system",
-      "description": "Participant-authored admission binds the frozen participant lease; a host-governed transition binds the exact room system.",
-      "expression": {
-        "operator": "any_of",
-        "expressions": [
-          {
-            "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_admission",
-            "paths": [
-              "$.room_admission.proposed_or_issued_by_ref",
-              "$.participant_ref"
-            ]
-          },
-          {
-            "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_admission",
-            "paths": [
-              "$.room_admission.proposed_or_issued_by_ref",
-              "$.room_admission.room_system_id"
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "rule_id": "finding.proposer.resolves_through_bound_lease_or_room_system",
-      "description": "The proposer is the historical lease, its frozen principal, or the exact room system.",
-      "expression": {
-        "operator": "any_of",
-        "expressions": [
-          {
-            "operator": "optional_fields_equal",
-            "optional_object_path": "$.bound_coordinates",
-            "paths": [
-              "$.proposed_by_ref",
-              "$.bound_coordinates.participant_lease.record_ref"
-            ]
-          },
-          {
-            "operator": "optional_fields_equal",
-            "optional_object_path": "$.bound_coordinates",
-            "paths": [
-              "$.proposed_by_ref",
-              "$.bound_coordinates.participant_lease.principal_ref"
-            ]
-          },
-          {
-            "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_admission",
-            "paths": [
-              "$.proposed_by_ref",
-              "$.room_admission.room_system_id"
-            ]
-          }
-        ]
-      }
-    }
-  ],
-  "schema://ioi/foundations/verifier-challenge/v2": [
-    {
-      "rule_id": "verifier_challenge.room.matches_admission",
-      "description": "A room-scoped challenge and its CAS admission bind the same room. Challenger-to-participant-lease resolution remains an owner-plane admission check because this portable shape carries no separate challenger lease coordinate.",
-      "expression": {
-        "operator": "optional_field_equals",
-        "optional_object_path": "$.room_admission",
-        "field": "outcome_room_ref",
-        "expected_path": "$.outcome_room_ref"
-      }
-    }
-  ],
-  "schema://ioi/foundations/participant-state-bundle/v2": [
-    {
-      "rule_id": "participant_state_bundle.room.matches_admission",
-      "description": "The portable bundle and its CAS admission bind the same room.",
-      "expression": {
-        "operator": "fields_equal",
-        "paths": [
-          "$.outcome_room_ref",
-          "$.room_admission.outcome_room_ref"
-        ]
-      }
-    },
-    {
-      "rule_id": "participant_state_bundle.issuer.matches_lease_or_room_system",
-      "description": "A participant-requested export binds the exact lease; scheduling, expiry, revocation, quarantine, or room-close policy transitions may instead be issued by the exact room system.",
-      "expression": {
-        "operator": "any_of",
-        "expressions": [
-          {
-            "operator": "fields_equal",
-            "paths": [
-              "$.participant_lease_ref",
-              "$.room_admission.proposed_or_issued_by_ref"
-            ]
-          },
-          {
-            "operator": "fields_equal",
-            "paths": [
-              "$.room_admission.room_system_id",
-              "$.room_admission.proposed_or_issued_by_ref"
-            ]
-          }
-        ]
-      }
-    }
-  ],
-  "schema://ioi/foundations/work-result/v2": [
-    {
-      "rule_id": "work_result.room.matches_admission",
-      "description": "A room-scoped result and its CAS admission bind the same room. Producer and submitter actor-to-lease resolution is intentionally owner-plane conformance, because an external actor ref cannot be resolved by a portable shape invariant.",
-      "expression": {
-        "operator": "optional_field_equals",
-        "optional_object_path": "$.room_admission",
-        "field": "outcome_room_ref",
-        "expected_path": "$.outcome_room_ref"
-      }
-    }
-  ],
-  "schema://ioi/foundations/outcome-delta/v2": [
-    {
-      "rule_id": "outcome_delta.room.matches_admission",
-      "description": "A room-scoped delta and its CAS admission bind the same room. A WorkResult, Attempt, or Finding proposer resolves to its admitted participant lineage in the owner plane rather than equaling the room-admission lease bytes.",
-      "expression": {
-        "operator": "optional_field_equals",
-        "optional_object_path": "$.room_admission",
-        "field": "outcome_room_ref",
-        "expected_path": "$.outcome_room_ref"
-      }
-    }
-  ],
-  "schema://ioi/foundations/room-scoped-object-binding/v1": [],
-  "schema://ioi/foundations/work-frontier-item/v3": [],
-  "schema://ioi/foundations/work-claim-lease/v3": [
+  "schema://ioi/foundations/system-scoped-object-binding/v1": [],
+  "schema://ioi/applications/ioi-ai/work-frontier-item/v3": [],
+  "schema://ioi/applications/ioi-ai/work-claim-lease/v3": [
     {
       "rule_id": "work_claim.room.matches_admission",
       "description": "A room-scoped claim and its room-scoping bind the same room; direct claims carry null on both sides.",
       "expression": {
         "operator": "optional_field_equals",
-        "optional_object_path": "$.room_binding",
-        "field": "outcome_room_ref",
+        "optional_object_path": "$.system_binding",
+        "field": "parent_scope_ref",
         "expected_path": "$.outcome_room_ref"
       }
     },
@@ -82324,28 +73924,28 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "expressions": [
           {
             "operator": "optional_field_equals",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "field": "proposed_or_issued_by_ref",
             "expected_path": "$.claimant_participant_lease_ref"
           },
           {
             "operator": "optional_field_equals",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "field": "proposed_or_issued_by_ref",
-            "expected_path": "$.room_binding.room_system_id"
+            "expected_path": "$.system_binding.system_id"
           }
         ]
       }
     }
   ],
-  "schema://ioi/foundations/attempt/v3": [
+  "schema://ioi/applications/ioi-ai/attempt/v3": [
     {
       "rule_id": "attempt.room.matches_admission",
       "description": "Attempt and admission bind the same room; both are null for direct work.",
       "expression": {
         "operator": "optional_field_equals",
-        "optional_object_path": "$.room_binding",
-        "field": "outcome_room_ref",
+        "optional_object_path": "$.system_binding",
+        "field": "parent_scope_ref",
         "expected_path": "$.outcome_room_ref"
       }
     },
@@ -82465,18 +74065,18 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "expressions": [
           {
             "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "paths": [
-              "$.room_binding.proposed_or_issued_by_ref",
+              "$.system_binding.proposed_or_issued_by_ref",
               "$.bound_coordinates.participant_lease.record_ref"
             ]
           },
           {
             "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "paths": [
-              "$.room_binding.proposed_or_issued_by_ref",
-              "$.room_binding.room_system_id"
+              "$.system_binding.proposed_or_issued_by_ref",
+              "$.system_binding.system_id"
             ]
           }
         ]
@@ -82506,10 +74106,10 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
           },
           {
             "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "paths": [
               "$.participant_ref",
-              "$.room_binding.room_system_id"
+              "$.system_binding.system_id"
             ]
           }
         ]
@@ -82541,14 +74141,14 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
-  "schema://ioi/foundations/finding/v3": [
+  "schema://ioi/applications/ioi-ai/finding/v3": [
     {
       "rule_id": "finding.room.matches_admission",
       "description": "Finding and admission bind the same room; both are null for direct work.",
       "expression": {
         "operator": "optional_field_equals",
-        "optional_object_path": "$.room_binding",
-        "field": "outcome_room_ref",
+        "optional_object_path": "$.system_binding",
+        "field": "parent_scope_ref",
         "expected_path": "$.outcome_room_ref"
       }
     },
@@ -82596,18 +74196,18 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "expressions": [
           {
             "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "paths": [
-              "$.room_binding.proposed_or_issued_by_ref",
+              "$.system_binding.proposed_or_issued_by_ref",
               "$.participant_ref"
             ]
           },
           {
             "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "paths": [
-              "$.room_binding.proposed_or_issued_by_ref",
-              "$.room_binding.room_system_id"
+              "$.system_binding.proposed_or_issued_by_ref",
+              "$.system_binding.system_id"
             ]
           }
         ]
@@ -82637,29 +74237,29 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
           },
           {
             "operator": "optional_fields_equal",
-            "optional_object_path": "$.room_binding",
+            "optional_object_path": "$.system_binding",
             "paths": [
               "$.proposed_by_ref",
-              "$.room_binding.room_system_id"
+              "$.system_binding.system_id"
             ]
           }
         ]
       }
     }
   ],
-  "schema://ioi/foundations/verifier-challenge/v3": [
+  "schema://ioi/applications/ioi-ai/verifier-challenge/v3": [
     {
       "rule_id": "verifier_challenge.room.matches_admission",
       "description": "A room-scoped challenge and its room-scoping bind the same room. Challenger-to-participant-lease resolution remains an owner-plane admission check because this portable shape carries no separate challenger lease coordinate.",
       "expression": {
         "operator": "optional_field_equals",
-        "optional_object_path": "$.room_binding",
-        "field": "outcome_room_ref",
+        "optional_object_path": "$.system_binding",
+        "field": "parent_scope_ref",
         "expected_path": "$.outcome_room_ref"
       }
     }
   ],
-  "schema://ioi/foundations/participant-state-bundle/v3": [
+  "schema://ioi/applications/ioi-ai/participant-state-bundle/v3": [
     {
       "rule_id": "participant_state_bundle.room.matches_admission",
       "description": "The portable bundle and its room-scoping bind the same room.",
@@ -82667,7 +74267,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "operator": "fields_equal",
         "paths": [
           "$.outcome_room_ref",
-          "$.room_binding.outcome_room_ref"
+          "$.system_binding.parent_scope_ref"
         ]
       }
     },
@@ -82681,44 +74281,22 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
             "operator": "fields_equal",
             "paths": [
               "$.participant_lease_ref",
-              "$.room_binding.proposed_or_issued_by_ref"
+              "$.system_binding.proposed_or_issued_by_ref"
             ]
           },
           {
             "operator": "fields_equal",
             "paths": [
-              "$.room_binding.room_system_id",
-              "$.room_binding.proposed_or_issued_by_ref"
+              "$.system_binding.system_id",
+              "$.system_binding.proposed_or_issued_by_ref"
             ]
           }
         ]
       }
     }
   ],
-  "schema://ioi/foundations/work-result/v3": [
-    {
-      "rule_id": "work_result.room.matches_admission",
-      "description": "A room-scoped result and its room-scoping bind the same room. Producer and submitter actor-to-lease resolution is intentionally owner-plane conformance, because an external actor ref cannot be resolved by a portable shape invariant.",
-      "expression": {
-        "operator": "optional_field_equals",
-        "optional_object_path": "$.room_binding",
-        "field": "outcome_room_ref",
-        "expected_path": "$.outcome_room_ref"
-      }
-    }
-  ],
-  "schema://ioi/foundations/outcome-delta/v3": [
-    {
-      "rule_id": "outcome_delta.room.matches_admission",
-      "description": "A room-scoped delta and its room-scoping bind the same room. A WorkResult, Attempt, or Finding proposer resolves to its admitted participant lineage in the owner plane rather than equaling the room-admission lease bytes.",
-      "expression": {
-        "operator": "optional_field_equals",
-        "optional_object_path": "$.room_binding",
-        "field": "outcome_room_ref",
-        "expected_path": "$.outcome_room_ref"
-      }
-    }
-  ]
+  "schema://ioi/foundations/work-result/v3": [],
+  "schema://ioi/foundations/outcome-delta/v3": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -84186,13 +75764,7 @@ export function validateHypervisorRouteRetirementRefusalV1(
 export function validateGoalRunAdmissionPathDecisionV1(
   value: unknown,
 ): value is GoalRunAdmissionPathDecisionV1 {
-  return validateArchitectureContract("schema://ioi/foundations/goal-run-admission-path-decision/v1", value).ok;
-}
-
-export function validateWorkResultV1(
-  value: unknown,
-): value is WorkResultV1 {
-  return validateArchitectureContract("schema://ioi/foundations/work-result/v1", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1", value).ok;
 }
 
 export function validateWorkLifecycleRecordV1(
@@ -84234,7 +75806,7 @@ export function validateBranchMergePlanV1(
 export function validateGoalRunProfileV1(
   value: unknown,
 ): value is GoalRunProfileV1 {
-  return validateArchitectureContract("schema://ioi/foundations/goal-run-profile/v1", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-run-profile/v1", value).ok;
 }
 
 export function validateWorkflowTemplateV1(
@@ -84264,7 +75836,7 @@ export function validateActiveSkillSetSnapshotV1(
 export function validateGoalGroundingLoopV1(
   value: unknown,
 ): value is GoalGroundingLoopV1 {
-  return validateArchitectureContract("schema://ioi/foundations/goal-grounding-loop/v1", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-grounding-loop/v1", value).ok;
 }
 
 export function validateHarnessProfileV1(
@@ -84277,12 +75849,6 @@ export function validateAgentHarnessAdapterV1(
   value: unknown,
 ): value is AgentHarnessAdapterV1 {
   return validateArchitectureContract("schema://ioi/components/daemon-runtime/agent-harness-adapter/v1", value).ok;
-}
-
-export function validateOutcomeDeltaV1(
-  value: unknown,
-): value is OutcomeDeltaV1 {
-  return validateArchitectureContract("schema://ioi/foundations/outcome-delta/v1", value).ok;
 }
 
 export function validateCancellationFanoutPlanV1(
@@ -84324,187 +75890,97 @@ export function validateAuthorityEffectAdmissionReceiptV1(
 export function validateGoalRunV1(
   value: unknown,
 ): value is GoalRunV1 {
-  return validateArchitectureContract("schema://ioi/foundations/goal-run/v1", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-run/v1", value).ok;
 }
 
 export function validateGoalRunExecutionCeilingV1(
   value: unknown,
 ): value is GoalRunExecutionCeilingV1 {
-  return validateArchitectureContract("schema://ioi/foundations/goal-run-execution-ceiling/v1", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1", value).ok;
 }
 
 export function validateGoalRunProfileResolutionReceiptV1(
   value: unknown,
 ): value is GoalRunProfileResolutionReceiptV1 {
-  return validateArchitectureContract("schema://ioi/foundations/goal-run-profile-resolution-receipt/v1", value).ok;
-}
-
-export function validateAttemptV1(
-  value: unknown,
-): value is AttemptV1 {
-  return validateArchitectureContract("schema://ioi/foundations/attempt/v1", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1", value).ok;
 }
 
 export function validateCollaborativeWorkGraphV1(
   value: unknown,
 ): value is CollaborativeWorkGraphV1 {
-  return validateArchitectureContract("schema://ioi/foundations/collaborative-work-graph/v1", value).ok;
-}
-
-export function validateFindingV1(
-  value: unknown,
-): value is FindingV1 {
-  return validateArchitectureContract("schema://ioi/foundations/finding/v1", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/collaborative-work-graph/v1", value).ok;
 }
 
 export function validateOutcomeRoomDiscussionProjectionV1(
   value: unknown,
 ): value is OutcomeRoomDiscussionProjectionV1 {
-  return validateArchitectureContract("schema://ioi/foundations/outcome-room-discussion-projection/v1", value).ok;
-}
-
-export function validateOutcomeRoomV1(
-  value: unknown,
-): value is OutcomeRoomV1 {
-  return validateArchitectureContract("schema://ioi/foundations/outcome-room/v1", value).ok;
-}
-
-export function validateParticipantStateBundleV1(
-  value: unknown,
-): value is ParticipantStateBundleV1 {
-  return validateArchitectureContract("schema://ioi/foundations/participant-state-bundle/v1", value).ok;
-}
-
-export function validateVerifierChallengeV1(
-  value: unknown,
-): value is VerifierChallengeV1 {
-  return validateArchitectureContract("schema://ioi/foundations/verifier-challenge/v1", value).ok;
-}
-
-export function validateWorkClaimLeaseV1(
-  value: unknown,
-): value is WorkClaimLeaseV1 {
-  return validateArchitectureContract("schema://ioi/foundations/work-claim-lease/v1", value).ok;
-}
-
-export function validateWorkFrontierItemV1(
-  value: unknown,
-): value is WorkFrontierItemV1 {
-  return validateArchitectureContract("schema://ioi/foundations/work-frontier-item/v1", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1", value).ok;
 }
 
 export function validateGoalRunActivationEnvelopeV1(
   value: unknown,
 ): value is GoalRunActivationEnvelopeV1 {
-  return validateArchitectureContract("schema://ioi/foundations/goal-run-activation/v1", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-run-activation/v1", value).ok;
 }
 
 export function validateGoalRunActivationReceiptV1(
   value: unknown,
 ): value is GoalRunActivationReceiptV1 {
-  return validateArchitectureContract("schema://ioi/foundations/goal-run-activation-receipt/v1", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1", value).ok;
 }
 
 export function validateGoalRunAdmittedStateV1(
   value: unknown,
 ): value is GoalRunAdmittedStateV1 {
-  return validateArchitectureContract("schema://ioi/foundations/goal-run-admitted-state/v1", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1", value).ok;
 }
 
 export function validateOutcomeRoomV2(
   value: unknown,
 ): value is OutcomeRoomV2 {
-  return validateArchitectureContract("schema://ioi/foundations/outcome-room/v2", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/outcome-room/v2", value).ok;
 }
 
-export function validateWorkFrontierItemV2(
+export function validateSystemScopedObjectBindingV1(
   value: unknown,
-): value is WorkFrontierItemV2 {
-  return validateArchitectureContract("schema://ioi/foundations/work-frontier-item/v2", value).ok;
-}
-
-export function validateWorkClaimLeaseV2(
-  value: unknown,
-): value is WorkClaimLeaseV2 {
-  return validateArchitectureContract("schema://ioi/foundations/work-claim-lease/v2", value).ok;
-}
-
-export function validateAttemptV2(
-  value: unknown,
-): value is AttemptV2 {
-  return validateArchitectureContract("schema://ioi/foundations/attempt/v2", value).ok;
-}
-
-export function validateFindingV2(
-  value: unknown,
-): value is FindingV2 {
-  return validateArchitectureContract("schema://ioi/foundations/finding/v2", value).ok;
-}
-
-export function validateVerifierChallengeV2(
-  value: unknown,
-): value is VerifierChallengeV2 {
-  return validateArchitectureContract("schema://ioi/foundations/verifier-challenge/v2", value).ok;
-}
-
-export function validateParticipantStateBundleV2(
-  value: unknown,
-): value is ParticipantStateBundleV2 {
-  return validateArchitectureContract("schema://ioi/foundations/participant-state-bundle/v2", value).ok;
-}
-
-export function validateWorkResultV2(
-  value: unknown,
-): value is WorkResultV2 {
-  return validateArchitectureContract("schema://ioi/foundations/work-result/v2", value).ok;
-}
-
-export function validateOutcomeDeltaV2(
-  value: unknown,
-): value is OutcomeDeltaV2 {
-  return validateArchitectureContract("schema://ioi/foundations/outcome-delta/v2", value).ok;
-}
-
-export function validateRoomScopedObjectBindingV1(
-  value: unknown,
-): value is RoomScopedObjectBindingV1 {
-  return validateArchitectureContract("schema://ioi/foundations/room-scoped-object-binding/v1", value).ok;
+): value is SystemScopedObjectBindingV1 {
+  return validateArchitectureContract("schema://ioi/foundations/system-scoped-object-binding/v1", value).ok;
 }
 
 export function validateWorkFrontierItemV3(
   value: unknown,
 ): value is WorkFrontierItemV3 {
-  return validateArchitectureContract("schema://ioi/foundations/work-frontier-item/v3", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/work-frontier-item/v3", value).ok;
 }
 
 export function validateWorkClaimLeaseV3(
   value: unknown,
 ): value is WorkClaimLeaseV3 {
-  return validateArchitectureContract("schema://ioi/foundations/work-claim-lease/v3", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/work-claim-lease/v3", value).ok;
 }
 
 export function validateAttemptV3(
   value: unknown,
 ): value is AttemptV3 {
-  return validateArchitectureContract("schema://ioi/foundations/attempt/v3", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/attempt/v3", value).ok;
 }
 
 export function validateFindingV3(
   value: unknown,
 ): value is FindingV3 {
-  return validateArchitectureContract("schema://ioi/foundations/finding/v3", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/finding/v3", value).ok;
 }
 
 export function validateVerifierChallengeV3(
   value: unknown,
 ): value is VerifierChallengeV3 {
-  return validateArchitectureContract("schema://ioi/foundations/verifier-challenge/v3", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/verifier-challenge/v3", value).ok;
 }
 
 export function validateParticipantStateBundleV3(
   value: unknown,
 ): value is ParticipantStateBundleV3 {
-  return validateArchitectureContract("schema://ioi/foundations/participant-state-bundle/v3", value).ok;
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/participant-state-bundle/v3", value).ok;
 }
 
 export function validateWorkResultV3(

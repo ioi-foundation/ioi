@@ -44,8 +44,8 @@ use sha2::{Digest, Sha256};
 use super::{iso_now, read_record_dir, DaemonState};
 
 const ROOM_SCHEMA: &str = "ioi.hypervisor.outcome-room.v1";
-const FOUNDATIONS_V1_ROOM_SCHEMA: &str = "ioi.foundations.outcome-room.v1";
-const CURRENT_ROOM_SCHEMA: &str = "ioi.foundations.outcome-room.v2";
+const FOUNDATIONS_V1_ROOM_SCHEMA: &str = "ioi.applications.ioi-ai.outcome-room.v1";
+const CURRENT_ROOM_SCHEMA: &str = "ioi.applications.ioi-ai.outcome-room.v2";
 const ADMISSION_RECEIPT_SCHEMA: &str = "ioi.hypervisor.outcome-room-admission-receipt.v1";
 const TRANSITION_RECEIPT_SCHEMA: &str = "ioi.hypervisor.outcome-room-transition-receipt.v1";
 // Receipt assurance notes — shared by the finalizers AND the replay validators (#72 round 16)
@@ -1466,8 +1466,8 @@ pub(crate) fn resolve_room_strict(data_dir: &str, room_ref: &str) -> Result<Opti
 /// same storage registry.
 pub(crate) fn refuse_predecessor_child_profile_for_room(room: &Value) -> Result<(), VErr> {
     match room.get("schema_version").and_then(Value::as_str) {
-        Some("ioi.hypervisor.outcome-room.v1" | "ioi.foundations.outcome-room.v1") => Ok(()),
-        Some("ioi.foundations.outcome-room.v2") => Err(verr(
+        Some("ioi.hypervisor.outcome-room.v1" | "ioi.applications.ioi-ai.outcome-room.v1") => Ok(()),
+        Some("ioi.applications.ioi-ai.outcome-room.v2") => Err(verr(
             "outcome_room_predecessor_child_profile_retired",
             "the current bounded-System OutcomeRoom contract does not admit predecessor participant, offer, frontier, claim, attempt, finding, or challenge records; a current-generation child contract is required",
         )),
@@ -2454,7 +2454,7 @@ pub(crate) async fn handle_outcome_rooms_list(
                 }
             }
             let response = json!({
-                "schema_version": "ioi.foundations.outcome-room.v2",
+                "schema_version": "ioi.applications.ioi-ai.outcome-room.v2",
                 "outcome_rooms": filtered,
                 "runtimeTruthSource": "daemon-runtime"
             });
@@ -3268,7 +3268,7 @@ async fn handle_legacy_outcome_room_transition(
     let room_id = format!("outcome-room://{id}");
     if let Some(room) = resolve_room(&st.data_dir, &room_id) {
         if room.get("schema_version").and_then(Value::as_str)
-            == Some("ioi.foundations.outcome-room.v2")
+            == Some("ioi.applications.ioi-ai.outcome-room.v2")
         {
             if let Err(error) = super::outcome_room_system_routes::authorize_resolved_room_principal(
                 &principal_ref,
@@ -3651,7 +3651,7 @@ async fn handle_legacy_outcome_room_attach_goal_run(
         .to_string();
     let room_id = format!("outcome-room://{id}");
     if resolve_room(&st.data_dir, &room_id).and_then(|room| room.get("schema_version").cloned())
-        == Some(json!("ioi.foundations.outcome-room.v2"))
+        == Some(json!("ioi.applications.ioi-ai.outcome-room.v2"))
     {
         return super::outcome_room_system_routes::handle_attach_goal_run(
             State(st),
@@ -3869,7 +3869,7 @@ mod outcome_room_tests {
                 .join(ROOM_DIR)
                 .join(format!("{current_tail}.json")),
             serde_json::to_vec(&json!({
-                "schema_version": "ioi.foundations.outcome-room.v2",
+                "schema_version": "ioi.applications.ioi-ai.outcome-room.v2",
                 "outcome_room_id": current_ref,
             }))
             .unwrap(),
@@ -3896,7 +3896,7 @@ mod outcome_room_tests {
         std::fs::write(
             directory.join(ROOM_DIR).join("or_ff.json"),
             serde_json::to_vec(&json!({
-                "schema_version": "ioi.foundations.outcome-room.v3",
+                "schema_version": "ioi.applications.ioi-ai.outcome-room.v3",
                 "outcome_room_id": "outcome-room://or_ff",
             }))
             .unwrap(),
@@ -3913,7 +3913,7 @@ mod outcome_room_tests {
         );
         for room in [
             json!({}),
-            json!({"schema_version": "ioi.foundations.outcome-room.v3"}),
+            json!({"schema_version": "ioi.applications.ioi-ai.outcome-room.v3"}),
         ] {
             let error = refuse_predecessor_child_profile_for_room(&room).unwrap_err();
             assert_eq!(
@@ -3956,7 +3956,7 @@ mod outcome_room_tests {
         }
         for room in [
             json!({}),
-            json!({"schema_version": "ioi.foundations.outcome-room.v3"}),
+            json!({"schema_version": "ioi.applications.ioi-ai.outcome-room.v3"}),
         ] {
             let error = outcome_room_generation(&room).unwrap_err();
             assert_eq!(error.0, "outcome_room_generation_unreadable");
@@ -3973,7 +3973,7 @@ mod outcome_room_tests {
             (
                 "unknown-generation",
                 json!({
-                    "schema_version":"ioi.foundations.outcome-room.v3",
+                    "schema_version":"ioi.applications.ioi-ai.outcome-room.v3",
                     "outcome_room_id":"outcome-room://or_aa"
                 }),
             ),

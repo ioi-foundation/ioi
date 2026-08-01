@@ -715,7 +715,7 @@ delta and the deferred UX backlog):
    software patches, with `ImplementationResultPayload` retained as the
    software profile.
 4. Reusable `OutcomeRoom` package plus hosted room-system instantiation — each durable room compiles through genesis into the flagship reference DAS with a
-   declared admission mode and typed `RoomScopedObjectBinding`; every
+   declared admission mode and typed `SystemScopedObjectBinding`; every
    shared-state mutation is an ordinary Agentgres operation on the room System,
    using expected heads and that System's transition/receipt chain.
 5. Local-agent pairing, participants, offers, frontier, claims, attempts,

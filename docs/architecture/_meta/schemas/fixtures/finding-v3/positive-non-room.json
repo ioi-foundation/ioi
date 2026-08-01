@@ -1,8 +1,8 @@
 {
-  "schema_version": "ioi.foundations.finding.v3",
+  "schema_version": "ioi.applications.ioi-ai.finding.v3",
   "finding_id": "finding://direct/one",
   "outcome_room_ref": null,
-  "room_binding": null,
+  "system_binding": null,
   "attempt_ref": "attempt://direct/one",
   "work_result_ref": "work-result://direct/one",
   "participant_ref": "participant-lease://direct/researcher",

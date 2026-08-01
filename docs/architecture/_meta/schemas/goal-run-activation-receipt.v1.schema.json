@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "schema://ioi/foundations/goal-run-activation-receipt/v1",
+  "$id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
   "title": "GoalRunActivationReceipt",
   "description": "Portable receipt for one admitted GoalRunActivation crossing. It binds the exact activation draft, typed source context and source payload commitment, requesting principal, authority and review decisions, admission decision and receipt, admitted GoalRun identity and state root, and the exact profile resolution for create mode without widening authority, declassifying context, granting room membership, or creating budget.",
   "x-ioi-schema-version": "ioi.goal-run-activation-receipt.v1",
@@ -41,7 +41,7 @@
     "receipt_id": { "$ref": "#/$defs/receiptRef" },
     "receipt_ref": { "$ref": "#/$defs/receiptRef" },
     "receipt_type": { "const": "goal_run_activation" },
-    "receipt_profile_ref": { "const": "schema://ioi/foundations/goal-run-activation-receipt/v1" },
+    "receipt_profile_ref": { "const": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1" },
     "activation_ref": { "$ref": "#/$defs/activationRef" },
     "activation_mode": { "enum": ["create", "join_existing"] },
     "source_context": { "$ref": "#/$defs/sourceContext" },

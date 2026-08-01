@@ -1,5 +1,5 @@
 {
-  "schema_version": "ioi.foundations.outcome-room.v2",
+  "schema_version": "ioi.applications.ioi-ai.outcome-room.v2",
   "outcome_room_id": "outcome-room://demo",
   "system_id": "system://room/demo",
   "genesis_ref": "genesis://room/demo",

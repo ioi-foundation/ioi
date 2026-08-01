@@ -1,7 +1,7 @@
 {
-  "$id": "invariant://ioi/foundations/goal-run-activation/crossing/v1",
+  "$id": "invariant://ioi/applications/ioi-ai/goal-run-activation/crossing/v1",
   "language": "ioi.portable-invariants.v1",
-  "contract_id": "schema://ioi/foundations/goal-run-activation/v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
   "rules": [
     {
       "rule_id": "goal_run_activation.create.profile_revision.required",

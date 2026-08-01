@@ -1,7 +1,7 @@
 {
-  "$id": "invariant://ioi/foundations/outcome-room/bounded-system/v2",
+  "$id": "invariant://ioi/applications/ioi-ai/outcome-room/bounded-system/v2",
   "language": "ioi.portable-invariants.v1",
-  "contract_id": "schema://ioi/foundations/outcome-room/v2",
+  "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
   "rules": [
     {
       "rule_id": "outcome_room.genesis.required_when_live",
