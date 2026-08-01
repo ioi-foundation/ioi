@@ -3792,7 +3792,97 @@
       },
       "projection_qualification": "verified_historical_with_open_successor",
       "state": "open",
-      "state_transitions": []
+      "state_transitions": [],
+      "predecessor_coverage_dispositions": [
+        {
+          "predecessor": "agentgres-production-readiness-and-branch-effects",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns Agentgres substrate semantics (split head, branch effects before merge, replay divergence, projection-as-truth). ADR 0031 changed no Agentgres contract family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m0-route-final-invoker-pg-census-maintenance",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns route-census completeness (unknown route, effect without invoker, exit-without-literal, UI authority inference). ADR 0031 added no routes; its implementation is future M5 work.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m3-direct-path-and-exit-proof",
+          "coverage": "covered",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "COVERED: the direct GoalRun execution path is precisely what ADR 0031 recomposes over the five kernel primitives; runtime_goal_pursuit.rs is the measured zero-reference baseline the seam must consume.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m3-goal-kernel-context-and-runtime-truth-spine",
+          "coverage": "covered",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "COVERED: goal kernel, runtime truth, and harness/context injection are execution semantics the seam re-proves.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m3-pursuit-definition-resolution",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED (resolved borderline): the claim owns definition immutability, reuse without shared live state, identity preservation across replacement, and definitions-cannot-execute. ADR 0031 recomposed the execution path and explicitly left GoalRun placement/identity unchanged; the seam consumes resolved definitions unchanged. Kernel execution semantics stay with the kept m3-goal-kernel-context-and-runtime-truth-spine.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m3-result-lifecycle-negative-retention",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns result retention and lifecycle/effect fences for negative and challenged outputs. ADR 0031 changed no result-lifecycle family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m3-work-session-automation-product-journey",
+          "coverage": "covered",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "COVERED: work sessions, harness availability, and restart races sit on the managed-session/harness-binding layer ADR 0031 names.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m4-room-graph-truth-and-product-projection",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns room admission, graph truth, and product projection (direct-UI-write, wrong-System-child, stale-verdict, export-leakage refusals). m4.md rules the orchestration seam outside M4's exit contract; ADR 0031 recomposed GoalRun execution, not room truth. Its own restated proof discharged osh-0076.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "production-information-flow-and-declassification",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns information-flow labels, egress, and declassification. ADR 0031 changed no information-flow family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "production-receipt-checkpoint-and-offline-proof",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns receipt checkpointing and offline verification. ADR 0031 changed no receipt-checkpoint family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "project-discovery-startup-and-session-chain",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED (resolved borderline): the claim owns project-discovery/startup predecessor-product-recovery chain integrity; its session chain is startup lineage, its canon_owners do not include goal-run-execution.md, and ADR 0031's managed-session/harness-binding primitives govern runtime control and launch admission, not startup chains.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        }
+      ]
     },
     {
       "hold_id": "osh-0080",
@@ -3885,7 +3975,97 @@
       },
       "projection_qualification": "verified_historical_with_open_successor",
       "state": "open",
-      "state_transitions": []
+      "state_transitions": [],
+      "predecessor_coverage_dispositions": [
+        {
+          "predecessor": "m0-route-final-invoker-pg-census-maintenance",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns route-census completeness (unknown route, effect without invoker, exit-without-literal, UI authority inference). ADR 0031 added no routes; its implementation is future M5 work.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m1-dual-genesis-and-read-projection",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns genesis identity separation and canonical-root equivalence. ADR 0031 changed no genesis family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m1-system-genesis-product-journey",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns the genesis product journey (no UI-derived truth, cross-System bleed, premature activation). ADR 0031 changed no genesis or journey family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m2-agentgres-replay-recovery-and-product-topology",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns replay/writer-fence/restore and product topology. ADR 0031 changed no replay or topology family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m3-goal-kernel-context-and-runtime-truth-spine",
+          "coverage": "covered",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "COVERED: goal kernel, runtime truth, and harness/context injection are execution semantics the seam re-proves.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m3-pursuit-definition-resolution",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED (resolved borderline): the claim owns definition immutability, reuse without shared live state, identity preservation across replacement, and definitions-cannot-execute. ADR 0031 recomposed the execution path and explicitly left GoalRun placement/identity unchanged; the seam consumes resolved definitions unchanged. Kernel execution semantics stay with the kept m3-goal-kernel-context-and-runtime-truth-spine.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m3-work-session-automation-product-journey",
+          "coverage": "covered",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "COVERED: work sessions, harness availability, and restart races sit on the managed-session/harness-binding layer ADR 0031 names.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m4-room-graph-truth-and-product-projection",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns room admission, graph truth, and product projection (direct-UI-write, wrong-System-child, stale-verdict, export-leakage refusals). m4.md rules the orchestration seam outside M4's exit contract; ADR 0031 recomposed GoalRun execution, not room truth. Its own restated proof discharged osh-0076.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m9-compute-substrate-canon-successor",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: a hold-mapping meta-record over sequence-6 compute/substrate canon. ADR 0031 changed no compute-substrate family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "project-discovery-startup-and-session-chain",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED (resolved borderline): the claim owns project-discovery/startup predecessor-product-recovery chain integrity; its session chain is startup lineage, its canon_owners do not include goal-run-execution.md, and ADR 0031's managed-session/harness-binding primitives govern runtime control and launch admission, not startup chains.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "scm-publication-effect-and-route-rebuild",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns SCM publication effects and route rebuild. ADR 0031 changed no publication family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        }
+      ]
     },
     {
       "hold_id": "osh-0081",
@@ -3944,7 +4124,33 @@
       },
       "projection_qualification": "verified_historical_with_open_successor",
       "state": "open",
-      "state_transitions": []
+      "state_transitions": [],
+      "predecessor_coverage_dispositions": [
+        {
+          "predecessor": "m3-result-lifecycle-negative-retention",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns result retention and lifecycle/effect fences for negative and challenged outputs. ADR 0031 changed no result-lifecycle family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m4-room-graph-truth-and-product-projection",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns room admission, graph truth, and product projection (direct-UI-write, wrong-System-child, stale-verdict, export-leakage refusals). m4.md rules the orchestration seam outside M4's exit contract; ADR 0031 recomposed GoalRun execution, not room truth. Its own restated proof discharged osh-0076.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "production-information-flow-and-declassification",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns information-flow labels, egress, and declassification. ADR 0031 changed no information-flow family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        }
+      ]
     },
     {
       "hold_id": "osh-0082",
@@ -3991,7 +4197,25 @@
       },
       "projection_qualification": "verified_historical_with_open_successor",
       "state": "open",
-      "state_transitions": []
+      "state_transitions": [],
+      "predecessor_coverage_dispositions": [
+        {
+          "predecessor": "m4-room-graph-truth-and-product-projection",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns room admission, graph truth, and product projection (direct-UI-write, wrong-System-child, stale-verdict, export-leakage refusals). m4.md rules the orchestration seam outside M4's exit contract; ADR 0031 recomposed GoalRun execution, not room truth. Its own restated proof discharged osh-0076.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "production-information-flow-and-declassification",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns information-flow labels, egress, and declassification. ADR 0031 changed no information-flow family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        }
+      ]
     },
     {
       "hold_id": "osh-0083",
@@ -4040,7 +4264,57 @@
       },
       "projection_qualification": "verified_historical_with_open_successor",
       "state": "open",
-      "state_transitions": []
+      "state_transitions": [],
+      "predecessor_coverage_dispositions": [
+        {
+          "predecessor": "m0-route-final-invoker-pg-census-maintenance",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns route-census completeness (unknown route, effect without invoker, exit-without-literal, UI authority inference). ADR 0031 added no routes; its implementation is future M5 work.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m3-goal-kernel-context-and-runtime-truth-spine",
+          "coverage": "covered",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "COVERED: goal kernel, runtime truth, and harness/context injection are execution semantics the seam re-proves.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m3-pursuit-definition-resolution",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED (resolved borderline): the claim owns definition immutability, reuse without shared live state, identity preservation across replacement, and definitions-cannot-execute. ADR 0031 recomposed the execution path and explicitly left GoalRun placement/identity unchanged; the seam consumes resolved definitions unchanged. Kernel execution semantics stay with the kept m3-goal-kernel-context-and-runtime-truth-spine.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m3-work-session-automation-product-journey",
+          "coverage": "covered",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "COVERED: work sessions, harness availability, and restart races sit on the managed-session/harness-binding layer ADR 0031 names.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "m4-room-graph-truth-and-product-projection",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns room admission, graph truth, and product projection (direct-UI-write, wrong-System-child, stale-verdict, export-leakage refusals). m4.md rules the orchestration seam outside M4's exit contract; ADR 0031 recomposed GoalRun execution, not room truth. Its own restated proof discharged osh-0076.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        },
+        {
+          "predecessor": "production-information-flow-and-declassification",
+          "coverage": "released",
+          "test": "adr-0031-contract-family-dependency",
+          "reasoning": "RELEASED: the claim owns information-flow labels, egress, and declassification. ADR 0031 changed no information-flow family.",
+          "ruled_by": "owner ruling 2026-08-01 (director session): per-predecessor re-disposition of osh-0079..osh-0083 by the ADR-0031 dependency test; borderlines resolved RELEASE in the same ruling thread",
+          "recorded_at_commit": "0abf1cf5464d96fa32d777d067377c2ebc5a85a7"
+        }
+      ]
     },
     {
       "hold_id": "osh-0084",
