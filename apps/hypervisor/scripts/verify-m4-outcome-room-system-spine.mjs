@@ -1544,6 +1544,23 @@ try {
     "ioi.outcome-room-create-request-jcs-sha256.v1",
     requestBody,
   );
+  const pendingGenesisPayloadRoot = jcsRoot(
+    "ioi.outcome-room-system-operation-jcs-sha256.v1",
+    pendingGenesisIntent?.operation,
+  );
+  const expectedGenesisOperationRoot = jcsRoot(
+    "ioi.agentgres-operation-jcs-sha256.v1",
+    {
+      domain: `outcome-room-system-operations.${roomTail}`,
+      object_ref: `agentgres://outcome-room-system-operations/${roomTail}`,
+      op_kind: "outcome_room.room_genesis",
+      expected_head: null,
+      expected_absent: true,
+      payload: pendingGenesisIntent?.operation,
+      recorded_at_ms: Date.parse(pendingGenesisIntent?.operation?.at),
+      idem_key: `orop_${pendingGenesisPayloadRoot.slice("sha256:".length)}`,
+    },
+  );
   const recoveredGenesisReceipts = familyRecords(
     dataDir,
     "outcome-room-system-receipts",
@@ -1607,9 +1624,8 @@ try {
       recoveredGenesisOperations.length === 1 &&
       recoveredGenesisReceipts.length === 0 &&
       recoveredGenesisOperation?.operation_kind === "room_genesis" &&
-      String(recoveredGenesisOperation?.operation_root || "").startsWith(
-        "sha256:",
-      ) &&
+      recoveredGenesisOperation?.operation_root ===
+        expectedGenesisOperationRoot &&
       pendingGenesisIntent?.operation?.expected_system_predecessor?.chain_root ===
         active.chain.chain_root &&
       pendingGenesisIntent?.operation?.expected_system_predecessor?.state_root ===
@@ -1628,7 +1644,7 @@ try {
       canonicalJson(room) === canonicalJson(expectedRecoveredGenesisRoom) &&
       familyCount(dataDir, "outcome-room-registry") === 1 &&
       familyCount(dataDir, "outcome-room-system-admission-intents") === 0,
-    `pending_intents=${pendingGenesisIntents.length}/pending_receipts=${pendingGenesisReceiptCount}/recovered_ops=${recoveredGenesisOperations.length}/operation_root=${recoveredGenesisOperation?.operation_root}/system_roots=${pendingGenesisIntent?.operation?.expected_system_predecessor?.chain_root}/${pendingGenesisIntent?.operation?.expected_system_predecessor?.state_root}/collective=${recoveredGenesisOperation?.collective_goal_run_ref}/${recoveredGenesisOperation?.collective_path_decision_ref}/request=${recoveredGenesisOperation?.request_root}/${expectedGenesisRequestRoot}/recovered_receipts=${recoveredGenesisReceipts.length}/rooms=${familyCount(dataDir, "outcome-room-registry")}/remaining_intents=${familyCount(dataDir, "outcome-room-system-admission-intents")}`,
+    `pending_intents=${pendingGenesisIntents.length}/pending_receipts=${pendingGenesisReceiptCount}/recovered_ops=${recoveredGenesisOperations.length}/operation_root=${recoveredGenesisOperation?.operation_root}/${expectedGenesisOperationRoot}/system_roots=${pendingGenesisIntent?.operation?.expected_system_predecessor?.chain_root}/${pendingGenesisIntent?.operation?.expected_system_predecessor?.state_root}/collective=${recoveredGenesisOperation?.collective_goal_run_ref}/${recoveredGenesisOperation?.collective_path_decision_ref}/request=${recoveredGenesisOperation?.request_root}/${expectedGenesisRequestRoot}/recovered_receipts=${recoveredGenesisReceipts.length}/rooms=${familyCount(dataDir, "outcome-room-registry")}/remaining_intents=${familyCount(dataDir, "outcome-room-system-admission-intents")}`,
   );
   const changedCreateDurableBefore = roomAdmissionSideEffectSnapshot(dataDir);
   const changedCreate = await call(
@@ -2167,6 +2183,18 @@ try {
     "ioi.goal-run-room-membership-predecessor-jcs-sha256.v1",
     reattached.body.goal_run,
   );
+  const membershipReplayAfterReattach = await call("GET", replayPath);
+  const attachedOperation = membershipReplayAfterReattach.body.operations?.find(
+    (operation) =>
+      operation.sequence === 1 &&
+      operation.operation_kind === "goal_run_membership_admitted",
+  );
+  const reattachedOperation =
+    membershipReplayAfterReattach.body.operations?.find(
+      (operation) =>
+        operation.sequence === 3 &&
+        operation.operation_kind === "goal_run_membership_admitted",
+    );
   check(
     "MEMBERSHIP FAULT/RECOVERY: forced detach fences joined reads, converges both empty heads, then reattaches",
     attached.status === 200 &&
@@ -2239,6 +2267,9 @@ try {
     attached.body.agentgres_admission?.agentgres_sequence === 1 &&
       attached.body.agentgres_admission?.operation_kind ===
         "outcome_room.goal_run_membership_admitted" &&
+      membershipReplayAfterReattach.status === 200 &&
+      attachedOperation?.expected_goal_run_record_root === goalRoot &&
+      attachedOperation?.resulting_goal_run_record_root === attachedGoalRoot &&
       attached.body.outcome_room?.room_receipt_root ===
         attached.body.agentgres_admission?.admission_root &&
       attached.body.outcome_room?.room_state_root ===
@@ -2272,10 +2303,13 @@ try {
       reattached.body.agentgres_admission?.agentgres_sequence === 3 &&
       reattached.body.agentgres_admission?.operation_kind ===
         "outcome_room.goal_run_membership_admitted" &&
+      reattachedOperation?.expected_goal_run_record_root === detachedGoalRoot &&
+      reattachedOperation?.resulting_goal_run_record_root ===
+        reattachedGoalRoot &&
       room?.room_receipt_root ===
         reattached.body.agentgres_admission?.admission_root &&
       room?.latest_sequence === 3,
-    `attach=${attached.body.agentgres_admission?.agentgres_sequence}/${attached.body.agentgres_admission?.operation_kind}/detach=${recoveredDetachOperation?.sequence}/${recoveredDetachOperation?.operation_kind}/detach_ops=${recoveredDetachReplay.body.operations?.filter((operation) => operation.operation_kind === "goal_run_membership_detached").length}/parallel_receipts=${membershipRecoveryReceipts.length}/reattach=${reattached.body.agentgres_admission?.agentgres_sequence}/${reattached.body.agentgres_admission?.operation_kind}`,
+    `attach=${attached.body.agentgres_admission?.agentgres_sequence}/${attached.body.agentgres_admission?.operation_kind}/${attachedOperation?.resulting_goal_run_record_root}/${attachedGoalRoot}/detach=${recoveredDetachOperation?.sequence}/${recoveredDetachOperation?.operation_kind}/detach_ops=${recoveredDetachReplay.body.operations?.filter((operation) => operation.operation_kind === "goal_run_membership_detached").length}/parallel_receipts=${membershipRecoveryReceipts.length}/reattach=${reattached.body.agentgres_admission?.agentgres_sequence}/${reattached.body.agentgres_admission?.operation_kind}/${reattachedOperation?.resulting_goal_run_record_root}/${reattachedGoalRoot}`,
   );
   const staleRoomSnapshotBefore = roomAdmissionSideEffectSnapshot(dataDir);
   const staleRoomAttach = await call(
@@ -3741,6 +3775,20 @@ try {
       operation.operation_kind === "room_child_admitted" &&
       operation.object_ref === pendingDeltaRef,
   );
+  const expectedRecoveredDeltaRoom = {
+    ...structuredClone(pendingDeltaIntent?.candidate_room || {}),
+    latest_sequence: recoveredDeltaOperation?.sequence,
+    latest_transition_commitment_ref:
+      recoveredDeltaOperation?.resulting_transition_commitment_ref,
+    room_state_root: recoveredDeltaOperation?.resulting_room_state_root,
+    room_receipt_root: recoveredDeltaOperation?.receipt_root,
+    admission_and_replay_refs: [
+      ...new Set([
+        ...(pendingDeltaIntent?.candidate_room?.admission_and_replay_refs || []),
+        recoveredDeltaOperation?.receipt_ref,
+      ]),
+    ],
+  };
   const recoveredDeltaReceipts = familyRecords(
     dataDir,
     "outcome-room-system-receipts",
@@ -3773,6 +3821,8 @@ try {
     "ROOM DELTA RECOVERY: restart converges exactly one canonical delta, parent backlink, receipt, and room head",
     recoveredDeltaRoom.status === 200 &&
       room?.latest_sequence === preDeltaFaultRevision + 1 &&
+      canonicalJson(room) === canonicalJson(pendingDeltaRoom) &&
+      canonicalJson(room) === canonicalJson(expectedRecoveredDeltaRoom) &&
       familyCount(dataDir, "outcome-room-child-admission-intents") === 0 &&
       admittedDelta?.schema_version === "ioi.foundations.outcome-delta.v3" &&
       admittedDelta?.status === "proposed" &&
@@ -3783,6 +3833,8 @@ try {
         systemScopedPayloadRoot(admittedDelta) &&
       recoveredDeltaReplay.status === 200 &&
       recoveredDeltaOperation?.sequence === room?.latest_sequence &&
+      recoveredDeltaOperation?.object_root ===
+        pendingDelta?.system_binding?.payload_root &&
       recoveredDeltaOperation?.resulting_room_state_root === room?.room_state_root &&
       recoveredDeltaOperation?.receipt_root === room?.room_receipt_root &&
       recoveredDeltaReceipts.length === preDeltaFaultReceiptCount &&
@@ -3810,7 +3862,7 @@ try {
         "ioi.foundations.outcome-delta.v3" &&
       canonicalJson(admittedDeltaPoint.body.outcome_delta) ===
         canonicalJson(admittedDelta),
-    `${recoveredDeltaRoom.status}/seq=${room?.latest_sequence}/intent=${familyCount(dataDir, "outcome-room-child-admission-intents")}/delta=${admittedDelta?.outcome_delta_id}/${admittedDelta?.system_binding?.system_id}/receipts=${recoveredDeltaReceipts.length}/objects=${recoveredDeltaObjects.length}/results=${familyCount(dataDir, "work-result-registry")}/deltas=${familyCount(dataDir, "outcome-delta-registry")}/schemas=${canonicalJson(versionedDeltaList.body.record_schema_counts)}/points=${admittedDeltaPoint.status}/${admittedDeltaPoint.body.record_schema_version}/${postDeltaResultPoint.status}`,
+    `${recoveredDeltaRoom.status}/seq=${room?.latest_sequence}/candidate_room_exact=${canonicalJson(room) === canonicalJson(expectedRecoveredDeltaRoom)}/fault_room_exact=${canonicalJson(room) === canonicalJson(pendingDeltaRoom)}/object_root=${recoveredDeltaOperation?.object_root}/${pendingDelta?.system_binding?.payload_root}/intent=${familyCount(dataDir, "outcome-room-child-admission-intents")}/delta=${admittedDelta?.outcome_delta_id}/${admittedDelta?.system_binding?.system_id}/receipts=${recoveredDeltaReceipts.length}/objects=${recoveredDeltaObjects.length}/results=${familyCount(dataDir, "work-result-registry")}/deltas=${familyCount(dataDir, "outcome-delta-registry")}/schemas=${canonicalJson(versionedDeltaList.body.record_schema_counts)}/points=${admittedDeltaPoint.status}/${admittedDeltaPoint.body.record_schema_version}/${postDeltaResultPoint.status}`,
   );
   check(
     "ROOM DELTA ORA-8: proposal grants no effect or acceptance and exact post-terminal retry is write-free",
