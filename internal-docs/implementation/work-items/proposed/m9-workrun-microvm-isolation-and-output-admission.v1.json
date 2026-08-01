@@ -38,6 +38,14 @@
       "contract_ids": [
         "schema://ioi/components/hypervisor/workload-isolation-binding/v1"
       ]
+    },
+    {
+      "name": "WorkloadIsolationAdmission",
+      "registry_resolution": "reviewed_owner_locator"
+    },
+    {
+      "name": "SandboxInstance",
+      "registry_resolution": "reviewed_owner_locator"
     }
   ],
   "dependency_work_item_ids": [
@@ -51,6 +59,8 @@
   ],
   "in_scope": [
     "fresh boundary",
+    "WorkloadIsolationAdmission resolving the daemon-owned risk floor and live evidence before execution",
+    "SandboxInstance identity, authenticated execution, broker set, quarantine, promotion, and verified teardown",
     "mounts/secrets/network/dependency broker",
     "final invoker",
     "output quarantine",
@@ -63,6 +73,27 @@
   ],
   "implementation_actions": [
     "Replace host-mutating microVM WorkRun lane with guest proposal and governed output/effect pipeline."
+  ],
+  "pre_schema_admission_ownership_rulings": [
+    {
+      "family": "WorkloadIsolationAdmission",
+      "ruling": "This family is a daemon-resolved isolation binding and evidence projection over canonical Agentgres admission. It may reference policy, decision, receipt, and live-evidence refs but cannot mint or own a sequence, decision, receipt, state root, receipt root, or transition chain; rename it before registration if that cannot be made structural."
+    },
+    {
+      "family": "SandboxInstance",
+      "ruling": "The family owns live sandbox identity, brokers, quarantine, and teardown observations. Lifecycle changes are admitted Agentgres operations and the family mints no independent sequence, receipt, root, or transition chain."
+    }
+  ],
+  "contract_definition_of_done": [
+    "Each new family lands with a schema and invariants file, positive and negative fixtures, and a conformance owner that proves the named refusals.",
+    "Every cross-reference is declared authoritative or derived; no ambiguous bidirectional admission, sandbox, broker, quarantine, promotion, or teardown edge is accepted.",
+    "A registry entry alone is presence, not closure, and cannot satisfy this work item."
+  ],
+  "parallel_delivery_constraints": [
+    "This seam-independent track may proceed on a dedicated branch and reviewable PR separate from PR #133.",
+    "The mechanically generated M4 contract freeze must pass; this track may add families but may not change a frozen M4 registry entry, schema, invariant, or fixture while M4 is open.",
+    "Run canon-impact acceptance once at the end of the branch, with per-subject dispositions rather than blanket acceptance.",
+    "Regenerate architecture-contract-registry.v1.json with generate-architecture-contracts.mjs; never hand-merge registry conflicts."
   ],
   "consequential_effects_and_final_invokers": [
     "SCM publication v2 final invoker"
@@ -90,7 +121,10 @@
     "recovered"
   ],
   "ordered_product_operator_journey": [],
-  "metrics_and_frozen_thresholds": [],
+  "metrics_and_frozen_thresholds": [
+    "sandbox.required_isolation_host_fallbacks = 0",
+    "authority.unverified_final_invoker_calls = 0"
+  ],
   "compatibility_and_migration": [
     "Local trusted WorkRuns remain a distinct weaker profile and cannot satisfy this claim."
   ],

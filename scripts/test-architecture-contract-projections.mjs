@@ -1541,6 +1541,22 @@ function runRejectedRegistryProbe(
       temporarySchemaRoot,
       { recursive: true },
     );
+    // The checker validates canonical-owner existence and anchors before it
+    // reports consumer-binding failures. Keep this negative probe bounded to
+    // the attacked registry/consumer property by copying the exact owner set;
+    // otherwise unrelated missing-owner diagnostics can exhaust or obscure the
+    // subprocess output and make the expected refusal nondeterministic.
+    for (const ownerFile of new Set(
+      registry.contracts.map((contract) =>
+        contract.canonical_owner_ref
+          .slice("canon://".length)
+          .split("#", 1)[0],
+      ),
+    )) {
+      const target = path.join(temporaryRoot, ownerFile);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(path.join(root, ownerFile), target);
+    }
     fs.copyFileSync(
       path.join(root, "scripts/generate-architecture-contracts.mjs"),
       path.join(temporaryRoot, "scripts/generate-architecture-contracts.mjs"),

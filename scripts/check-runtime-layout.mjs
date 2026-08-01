@@ -1097,6 +1097,7 @@ assert(
       "node scripts/generate-architecture-contracts.mjs --write" &&
     packageJson.scripts["check:architecture-contract-bar"] ===
     [
+    "node scripts/check-m4-contract-freeze.mjs --check",
     "node scripts/generate-architecture-contracts.mjs --check",
     "npm run check:architecture-contracts",
     "npm run test:architecture-contract-projections",

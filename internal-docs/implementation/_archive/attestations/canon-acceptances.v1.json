@@ -8174,6 +8174,348 @@
       "baseline_subject_set_sha256_before": "e8d355bd220a58ed389e866ee24beeb5b9ebebebc96c0f212d871d8455793f27",
       "baseline_subject_set_sha256_after": "d3a2869696b1e091ef1780497c213b751fa6f86f50944fed75fb592f9339dade",
       "sequence": 20
+    },
+    {
+      "accepted_at_commit": "e0fdef269a21f305d94fd764a396499e4238374c",
+      "reviewer_ref": "reviewer://codex/m0-canon-feedback-convergence",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/52db7b1a4d531dfbe09f2529c4af6bae92961fe7e2c681599eaa9e5082f6acca.json",
+      "review_manifest_path_at_acceptance": "/tmp/m0-feedback-canon-review.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "52db7b1a4d531dfbe09f2529c4af6bae92961fe7e2c681599eaa9e5082f6acca",
+      "subject_count": 12,
+      "dispositions": {
+        "unaffected": 12
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+          "change": "changed",
+          "baseline_sha256": "5246ceb292ac58f232f06bb56a4089281cfa92b0d3ae9676c4ffe6adb01f739b",
+          "tree_sha256": "86eb17d3730158055e5c5f245fd52c2bf7b388db963e10a0182ab7037d91ac49",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/current-baselines.json",
+          "change": "changed",
+          "baseline_sha256": "2c8983506e07a24901431e1ae77cfe7b28e9c48d4b29a3538a03d3478f15dba1",
+          "tree_sha256": "d61e504de6685b50f97d9be20d059251de0ca0eddfe16bbc3615b52cedc2b761",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/effect-census.json",
+          "change": "changed",
+          "baseline_sha256": "c642257684879fff8437a2b8adf1581c7444c78c0876e92fdd1a679e99e4d3e0",
+          "tree_sha256": "6110059d518306199da028e4a49082671fbed9d3d2fe7bf00b64a39bda7a4ae5",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+          "change": "changed",
+          "baseline_sha256": "077cc94fca569c6799be0a4e7e8c1bc38e2bc8152ad74b5d64a02d7ecf69bec3",
+          "tree_sha256": "12ae7090f488a36f10ee611834f144eb1663eec68c74ea7f6831124f2c71839b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/manifest.json",
+          "change": "changed",
+          "baseline_sha256": "cc6391e280ae6fab43ef6336af336e9ed04b72a284bc657194c58295edfb58bd",
+          "tree_sha256": "92bff1e6a3e31efbac1a4a5d1501777ccc784c803366e1ed343709c9190fe85a",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+          "change": "changed",
+          "baseline_sha256": "2e5e1b3f71618a6f395c0e06edf5195f571a182919c67f4c77a02e344925cd01",
+          "tree_sha256": "95698ee08b60536bb5c3c22f432f69106ba9061a1dfa678dd24f2696da96956e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-control-source.json",
+          "change": "changed",
+          "baseline_sha256": "a32a025fa622bafeeb433d8ffcddf3f3691f35cfe871eca75c5de3ea8641955c",
+          "tree_sha256": "d455c9b6b7dcbc1f8b7a44b62bc91ef8a86d103fa5a3be78b6a560d6b1c6de8a",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+          "change": "changed",
+          "baseline_sha256": "57aef3af7157028c173b4d4e44abe7af8e3155da7a740efc4817d2a59a221b2e",
+          "tree_sha256": "9205a4909a65423abbf27ccac9f7938ea16a85faf1ac1c0c550420fbc5340a81",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/README.md",
+          "change": "changed",
+          "baseline_sha256": "146d31ef0742f6c95b2e1404b912756652633a274fe78b995534e8a938e3ae52",
+          "tree_sha256": "dff6704742b4d41dbe912f45d67e067fffa47a896914547eec635167a6a6c208",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/release-ladder.json",
+          "change": "changed",
+          "baseline_sha256": "d4cc1135bf9f53898274484f0eb05d5e71eac7534e6a10bc8a35f732b918d80e",
+          "tree_sha256": "63628bc49ba1b4995f8663fa7c6c02a0ac64089db7ac39833be2c374e57dab27",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+          "change": "changed",
+          "baseline_sha256": "00d775b29439f9718204fd802333d8fb50504cfbd20dc45518ac3625f9067a26",
+          "tree_sha256": "c59b67c06e6ad21d2409161beb4b1261a652fd44aa542c2768c82b4279142d3e",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/selected-profile.json",
+          "change": "changed",
+          "baseline_sha256": "ca2dde17f31459e8fcb7ad4f6be8c7195f51c0adb036446baa7aba8b416dece5",
+          "tree_sha256": "ac229daade214167a5d7606d79f1b0d9859f77ec3ba1e3a72fdff1eee4294f87",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "M0"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "mechanism-gates",
+          "proof-and-evidence",
+          "runtime-trust-boundary"
+        ],
+        "work_items": [
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock"
+        ],
+        "conformance_targets": [],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "d3a2869696b1e091ef1780497c213b751fa6f86f50944fed75fb592f9339dade",
+      "baseline_subject_set_sha256_after": "a298d371093e6abbf27219422b2aa3417ece55ca6a0344bfe2d09f3805967fe1",
+      "sequence": 21
+    },
+    {
+      "accepted_at_commit": "e0fdef269a21f305d94fd764a396499e4238374c",
+      "reviewer_ref": "reviewer://codex/auth-gate-source-review",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/124e6dd512382232a17c15f7d0263eaf233b94ebc4e3e9576f336aaa67789c59.json",
+      "review_manifest_path_at_acceptance": "/tmp/auth-records-m0-canon-review.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "124e6dd512382232a17c15f7d0263eaf233b94ebc4e3e9576f336aaa67789c59",
+      "subject_count": 12,
+      "dispositions": {
+        "unaffected": 12
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+          "change": "changed",
+          "baseline_sha256": "86eb17d3730158055e5c5f245fd52c2bf7b388db963e10a0182ab7037d91ac49",
+          "tree_sha256": "43e22d17bb83f5293fbd2a2952a982fa004d5e5df24ab07e787cb69a747ada28",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/current-baselines.json",
+          "change": "changed",
+          "baseline_sha256": "d61e504de6685b50f97d9be20d059251de0ca0eddfe16bbc3615b52cedc2b761",
+          "tree_sha256": "390a6af4ebe92b8f534ed78aea2a6a9df61dd106af184952c9b5abddc39d087d",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/effect-census.json",
+          "change": "changed",
+          "baseline_sha256": "6110059d518306199da028e4a49082671fbed9d3d2fe7bf00b64a39bda7a4ae5",
+          "tree_sha256": "79c76ff6c973b039c18aa9cea17e6bd660644bd3b63ac03fbe2bdd364973d302",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+          "change": "changed",
+          "baseline_sha256": "12ae7090f488a36f10ee611834f144eb1663eec68c74ea7f6831124f2c71839b",
+          "tree_sha256": "88ab9ad183df9dbfbad16d5b9697bdee5d20b035fe3bbbf5a25f3ac99531f613",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/manifest.json",
+          "change": "changed",
+          "baseline_sha256": "92bff1e6a3e31efbac1a4a5d1501777ccc784c803366e1ed343709c9190fe85a",
+          "tree_sha256": "b42d33987408ab6aab31958e857f62112a2e9bc17dcb5fbf0abe646f01f7f92b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+          "change": "changed",
+          "baseline_sha256": "95698ee08b60536bb5c3c22f432f69106ba9061a1dfa678dd24f2696da96956e",
+          "tree_sha256": "91e6b91b8f07b3fbeac777daeb3e2a55356a0f3cf990b3ae32ed9b330a2710d8",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-control-source.json",
+          "change": "changed",
+          "baseline_sha256": "d455c9b6b7dcbc1f8b7a44b62bc91ef8a86d103fa5a3be78b6a560d6b1c6de8a",
+          "tree_sha256": "9dd8595b8f452d2b25e9fded31c02ea9caddec77202207fccb25d146847befb9",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+          "change": "changed",
+          "baseline_sha256": "9205a4909a65423abbf27ccac9f7938ea16a85faf1ac1c0c550420fbc5340a81",
+          "tree_sha256": "da05a25ceae2cad143823516248173d345ca6129c91d3c3990294beffd1fb266",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/release-ladder.json",
+          "change": "changed",
+          "baseline_sha256": "63628bc49ba1b4995f8663fa7c6c02a0ac64089db7ac39833be2c374e57dab27",
+          "tree_sha256": "66e4037949ccca4d2ac89b7c7bd03b2b20bdac522c6be1c9bfea5420133b8728",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+          "change": "changed",
+          "baseline_sha256": "c59b67c06e6ad21d2409161beb4b1261a652fd44aa542c2768c82b4279142d3e",
+          "tree_sha256": "c9f7b649bf5da159a585b9bf6218d6c8f6532b04ed95248c10d44c642c87452b",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
+          "change": "changed",
+          "baseline_sha256": "d97b9f25be8bef7c4e22eda293aeb936c6ded44d2a47badca1df04ee2b54d743",
+          "tree_sha256": "0d163dfcb3f48f454def1d5ac5bd045f35a06e4d45872234ce1b604e4df3f9e6",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/selected-profile.json",
+          "change": "changed",
+          "baseline_sha256": "ac229daade214167a5d7606d79f1b0d9859f77ec3ba1e3a72fdff1eee4294f87",
+          "tree_sha256": "5f85518e76c281450f6d3b934cfd36c4651a4b855009a0d3acbee806988da620",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "M0"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "mechanism-gates",
+          "proof-and-evidence",
+          "runtime-trust-boundary"
+        ],
+        "work_items": [
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock"
+        ],
+        "conformance_targets": [],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "a298d371093e6abbf27219422b2aa3417ece55ca6a0344bfe2d09f3805967fe1",
+      "baseline_subject_set_sha256_after": "10a7ee8cf998a27ab06c6ec347bd3483b7c47fc876b528bd01e5810b0fb90ba5",
+      "sequence": 22
+    },
+    {
+      "accepted_at_commit": "e0fdef269a21f305d94fd764a396499e4238374c",
+      "reviewer_ref": "reviewer://codex/m4-surface-freeze-and-auth-followup",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/032b512dd58b44c26d29009e605776296cc702cef2e2e646a89a853f3603634f.json",
+      "review_manifest_path_at_acceptance": "/tmp/m4-freeze-m0-projection-review.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "032b512dd58b44c26d29009e605776296cc702cef2e2e646a89a853f3603634f",
+      "subject_count": 9,
+      "dispositions": {
+        "unaffected": 9
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+          "change": "changed",
+          "baseline_sha256": "43e22d17bb83f5293fbd2a2952a982fa004d5e5df24ab07e787cb69a747ada28",
+          "tree_sha256": "3abea7b79a7966ae13ebcaaf32932e9cf39a43b1a36f0129a9a997bf54cf61bb",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/current-baselines.json",
+          "change": "changed",
+          "baseline_sha256": "390a6af4ebe92b8f534ed78aea2a6a9df61dd106af184952c9b5abddc39d087d",
+          "tree_sha256": "62a4936b79af75db9eb21f4cbf705b13d423db603c39e82b642a731a66abf897",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/effect-census.json",
+          "change": "changed",
+          "baseline_sha256": "79c76ff6c973b039c18aa9cea17e6bd660644bd3b63ac03fbe2bdd364973d302",
+          "tree_sha256": "b725b0ded90710e92a878b55d5e727fc6633c17ebc2f14543492338815786b44",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+          "change": "changed",
+          "baseline_sha256": "88ab9ad183df9dbfbad16d5b9697bdee5d20b035fe3bbbf5a25f3ac99531f613",
+          "tree_sha256": "13ae65275e520bb291b9cbe553b3f919f9118f04ebea88c4954b77215f90e6b7",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/manifest.json",
+          "change": "changed",
+          "baseline_sha256": "b42d33987408ab6aab31958e857f62112a2e9bc17dcb5fbf0abe646f01f7f92b",
+          "tree_sha256": "d469c2e8eac4edc8c7810508933dbd5c1e27a73bd4565f3a06ccc8c51800e50a",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+          "change": "changed",
+          "baseline_sha256": "91e6b91b8f07b3fbeac777daeb3e2a55356a0f3cf990b3ae32ed9b330a2710d8",
+          "tree_sha256": "5d49fb791b07f0ffeccccf0a689f374b02d41d89945bdbe1ad4570929c0515b4",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+          "change": "changed",
+          "baseline_sha256": "da05a25ceae2cad143823516248173d345ca6129c91d3c3990294beffd1fb266",
+          "tree_sha256": "479b86943114fc7157ddee5c716f300025adec80781d58dcebe1ea9f262cad96",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/release-ladder.json",
+          "change": "changed",
+          "baseline_sha256": "66e4037949ccca4d2ac89b7c7bd03b2b20bdac522c6be1c9bfea5420133b8728",
+          "tree_sha256": "51fd51b7122c6bf763dd0384a626c9f27230c99dd9ab15dc78d097d121dcc74c",
+          "disposition": "unaffected"
+        },
+        {
+          "id": "docs/evidence/m0-program-control/selected-profile.json",
+          "change": "changed",
+          "baseline_sha256": "5f85518e76c281450f6d3b934cfd36c4651a4b855009a0d3acbee806988da620",
+          "tree_sha256": "5bcb08a9897fa7038b5994c1943c781548ccb7f27795d87ce60d465ca8e53c5b",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "M0"
+        ],
+        "modules": [
+          "adversarial-proof-matrix",
+          "mechanism-gates",
+          "proof-and-evidence",
+          "runtime-trust-boundary"
+        ],
+        "work_items": [
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-route-final-invoker-pg-census-maintenance",
+          "m0-selected-profile-baseline-evidence-and-claim-lock"
+        ],
+        "conformance_targets": [],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "10a7ee8cf998a27ab06c6ec347bd3483b7c47fc876b528bd01e5810b0fb90ba5",
+      "baseline_subject_set_sha256_after": "be79ba5aa52d12ab31548e9ff466d1a4aa67b52e2de3e7a29f5790419c9bf1e8",
+      "sequence": 23
     }
   ],
   "rule": "Append-only. One entry per baseline advance. Each entry binds the review manifest by digest, names an accountable reviewer, and enumerates every canon subject whose baseline identity moved, with the disposition its reviewer recorded. An entry claims that drift was reviewed and nothing else: no implementation proof, no stage closure, no status change. Entries are never rewritten or reordered; the sequence is dense."

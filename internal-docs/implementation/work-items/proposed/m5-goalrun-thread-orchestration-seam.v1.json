@@ -160,6 +160,8 @@
   "out_of_scope": [
     "M4 room admission, CAS, lineage, replay, projection, or literals",
     "M5 pairing, participant admission, frontier, claim, Attempt, Finding, VerifierChallenge, acceptance, export, or settlement lifecycles",
+    "General durable pub/sub, dynamic subscription creation, durable subscriber checkpoints, and accepted-event losslessness; those belong to m5-agentgres-durable-event-subscription-successor.",
+    "General untrusted-workload isolation or a strong-sandbox claim; those remain in M9.",
     "Deleting GoalRun, requiring a Session for a non-executing GoalRun, or granting authority through a thread, fork, Session, or harness binding",
     "Creating this proposed record does not implement behavior, close its literal, or change M4 status."
   ],

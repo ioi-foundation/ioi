@@ -2139,6 +2139,29 @@ test("tracked implementation sequencing is bound by the M0 fingerprint", () => {
     );
     assert.equal(ignored.status, 1, `${relativePath} remains ignored`);
   }
+  assert.deepEqual(snapshot.exclusion_rules, [
+    "internal-docs/implementation/_archive/attestations/canon-acceptances.v1.json",
+    "internal-docs/implementation/_archive/attestations/review-manifests/**",
+    "internal-docs/implementation/generated/canon-baseline.v1.json",
+  ]);
+  for (const relativePath of [
+    "internal-docs/implementation/_archive/attestations/canon-acceptances.v1.json",
+    "internal-docs/implementation/generated/canon-baseline.v1.json",
+  ]) {
+    assert.equal(trackedPaths.has(relativePath), false);
+    const tracked = spawnSync(
+      "git",
+      ["ls-files", "--error-unmatch", "--", relativePath],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    assert.equal(tracked.status, 0, `${relativePath} must remain Git-tracked`);
+  }
+  assert.equal(
+    snapshot.files.some((entry) => entry.path.startsWith(
+      "internal-docs/implementation/_archive/attestations/review-manifests/",
+    )),
+    false,
+  );
   assert.equal(
     programSource.canon_basis.some((entry) => (
       entry.source_file.startsWith("internal-docs/implementation/")
@@ -2181,6 +2204,10 @@ test("tracked implementation sequencing is bound by the M0 fingerprint", () => {
   assert.match(
     readme,
     /tracked implementation program is content-bound/iu,
+  );
+  assert.match(
+    readme,
+    /canon-review feedback artifacts remain tracked but are checked outside the M0\s+fingerprint/iu,
   );
 });
 

@@ -55,7 +55,58 @@
       }
     ]
   },
-  "contract_families": [],
+  "contract_families": [
+    {
+      "name": "AutonomousSystemManifest",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": ["schema://ioi/foundations/autonomous-system-manifest/v1"]
+    },
+    {
+      "name": "AutonomousSystemInitialProfileBundle",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": ["schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1"]
+    },
+    {
+      "name": "AutonomousSystemGenesis",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": ["schema://ioi/foundations/autonomous-system-genesis/v1"]
+    },
+    {
+      "name": "AutonomousSystemSequenceZeroMaterialization",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": ["schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"]
+    },
+    {
+      "name": "AutonomousSystemSequenceZeroMaterializationReceipt",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": ["schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"]
+    },
+    {
+      "name": "AutonomousSystemConstitution",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": ["schema://ioi/foundations/autonomous-system-constitution/v1"]
+    },
+    {
+      "name": "AutonomousSystemOperationLog",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": ["schema://ioi/foundations/autonomous-system-operation-log/v2"]
+    },
+    {
+      "name": "AutonomousSystemChain",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": ["schema://ioi/foundations/autonomous-system-chain/v1"]
+    },
+    {
+      "name": "OperationLogEntry",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": ["schema://ioi/components/agentgres/operation-log-entry/v1"]
+    },
+    {
+      "name": "ArtifactRef",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": ["schema://ioi/components/agentgres/artifact-ref/v1"]
+    }
+  ],
   "private_artifacts": [
     {
       "artifact_id": "work-item-record:m4-outcome-room-system-spine",

@@ -64,6 +64,21 @@ const REPOSITORY_ANCHOR_CONTEXT = Object.freeze({
 });
 
 const TRACKED_IMPLEMENTATION_PROGRAM_ROOT = "internal-docs/implementation/";
+const TRACKED_IMPLEMENTATION_FINGERPRINT_EXCLUSIONS = Object.freeze([
+  "internal-docs/implementation/_archive/attestations/canon-acceptances.v1.json",
+  "internal-docs/implementation/_archive/attestations/review-manifests/**",
+  "internal-docs/implementation/generated/canon-baseline.v1.json",
+]);
+
+function isCanonReviewFeedbackArtifact(relativePath) {
+  return relativePath
+      === "internal-docs/implementation/_archive/attestations/canon-acceptances.v1.json"
+    || relativePath.startsWith(
+      "internal-docs/implementation/_archive/attestations/review-manifests/",
+    )
+    || relativePath
+      === "internal-docs/implementation/generated/canon-baseline.v1.json";
+}
 
 // The signing ceremony was retired after sequence 6. Entries at or below this
 // sequence are retained legacy claims, never re-verified as signatures; every
@@ -6136,6 +6151,7 @@ export function trackedImplementationProgramSnapshot(repoRoot) {
     .toString("utf8")
     .split("\0")
     .filter((entry) => entry.length > 0)
+    .filter((entry) => !isCanonReviewFeedbackArtifact(entry))
     .sort();
   if (relativePaths.length === 0) {
     throw new Error("tracked implementation program is empty or unbound");
@@ -6155,6 +6171,7 @@ export function trackedImplementationProgramSnapshot(repoRoot) {
   });
   return {
     root: TRACKED_IMPLEMENTATION_PROGRAM_ROOT,
+    exclusion_rules: TRACKED_IMPLEMENTATION_FINGERPRINT_EXCLUSIONS,
     file_count: files.length,
     files_sha256: sha256(stableStringify(files)),
     files,

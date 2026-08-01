@@ -1,0 +1,108 @@
+{
+  "evidence_format": "ioi.program.canon_review_manifest.v1",
+  "manifest_role": "Content-bound enumeration of every canon subject pending baseline review, with the disposition and written reasoning of one accountable reviewer. Presenting this manifest to --accept advances the baseline. It closes no work item, certifies no stage, and changes no status.",
+  "claim": "canon_drift_reviewed_only",
+  "reviewer_ref": "reviewer://codex/m4-surface-freeze-and-auth-followup",
+  "emitted_at_commit": "e0fdef269a21f305d94fd764a396499e4238374c",
+  "instructions": [
+    "Fill reviewer_ref, and per subject a disposition (unaffected | successor_required | blocked) and a review_note that argues it from what actually changed.",
+    "`unaffected` must be ARGUED. Say why this subject's change does not reach the stages, modules, and work items named in review_required below. An unargued `unaffected` is a mechanical accept with extra steps.",
+    "Never rewrite a verified closure to absorb a semantic change: disposition it `successor_required` and open a successor record that states what must now be proven.",
+    "Do not edit the ids or digests. They bind this manifest to one exact revision, and --accept refuses if they drift."
+  ],
+  "review_required": {
+    "stages": [
+      "M0"
+    ],
+    "modules": [
+      "adversarial-proof-matrix",
+      "mechanism-gates",
+      "proof-and-evidence",
+      "runtime-trust-boundary"
+    ],
+    "work_items": [
+      "m0-literal-exit-evidence-contract",
+      "m0-program-control-selected-profile-exit-proof",
+      "m0-route-final-invoker-pg-census-maintenance",
+      "m0-selected-profile-baseline-evidence-and-claim-lock"
+    ],
+    "conformance_targets": [],
+    "contract_families": []
+  },
+  "subject_count": 9,
+  "subject_set_sha256": "189783e41cc4aff82ec66d874a0713a83bf29211bce3c6dab643db46ad76d66b",
+  "subjects": [
+    {
+      "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+      "change": "changed",
+      "baseline_sha256": "43e22d17bb83f5293fbd2a2952a982fa004d5e5df24ab07e787cb69a747ada28",
+      "tree_sha256": "3abea7b79a7966ae13ebcaaf32932e9cf39a43b1a36f0129a9a997bf54cf61bb",
+      "disposition": "unaffected",
+      "review_note": "The blocker ledger changed only because the deterministic program fingerprint now covers the added proposed successor records and M4 freeze authority; no M0 blocker state, waiver, or closure premise changed."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/current-baselines.json",
+      "change": "changed",
+      "baseline_sha256": "390a6af4ebe92b8f534ed78aea2a6a9df61dd106af184952c9b5abddc39d087d",
+      "tree_sha256": "62a4936b79af75db9eb21f4cbf705b13d423db603c39e82b642a731a66abf897",
+      "disposition": "unaffected",
+      "review_note": "The current-baselines projection carries the refreshed tracked-program fingerprint and reviewed source binding; it does not alter the selected M0 baseline, any retained literal, or any stage status."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/effect-census.json",
+      "change": "changed",
+      "baseline_sha256": "79c76ff6c973b039c18aa9cea17e6bd660644bd3b63ac03fbe2bdd364973d302",
+      "tree_sha256": "b725b0ded90710e92a878b55d5e727fc6633c17ebc2f14543492338815786b44",
+      "disposition": "unaffected",
+      "review_note": "The effect census was regenerated after the deny-by-default authentication guard change, but the route/effect population is unchanged and the guard strengthens rather than widens final-invoker reachability."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+      "change": "changed",
+      "baseline_sha256": "88ab9ad183df9dbfbad16d5b9697bdee5d20b035fe3bbbf5a25f3ac99531f613",
+      "tree_sha256": "13ae65275e520bb291b9cbe553b3f919f9118f04ebea88c4954b77215f90e6b7",
+      "disposition": "unaffected",
+      "review_note": "The M0 exit report projects the new deterministic fingerprint and reviewed source digest only; its verified result and historical literal binding are unchanged and no evidence literal was regenerated."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/manifest.json",
+      "change": "changed",
+      "baseline_sha256": "b42d33987408ab6aab31958e857f62112a2e9bc17dcb5fbf0abe646f01f7f92b",
+      "tree_sha256": "d469c2e8eac4edc8c7810508933dbd5c1e27a73bd4565f3a06ccc8c51800e50a",
+      "disposition": "unaffected",
+      "review_note": "The manifest rebinds generated M0 projection bytes after tracking new program records and the auth source review; it changes no M0 assertion, stage status, retained literal, or proof threshold."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+      "change": "changed",
+      "baseline_sha256": "91e6b91b8f07b3fbeac777daeb3e2a55356a0f3cf990b3ae32ed9b330a2710d8",
+      "tree_sha256": "5d49fb791b07f0ffeccccf0a689f374b02d41d89945bdbe1ad4570929c0515b4",
+      "disposition": "unaffected",
+      "review_note": "The PG gate map changed through deterministic fingerprint regeneration only; no PG assignment, gate state, threshold, or M0 closure disposition moved."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+      "change": "changed",
+      "baseline_sha256": "da05a25ceae2cad143823516248173d345ca6129c91d3c3990294beffd1fb266",
+      "tree_sha256": "479b86943114fc7157ddee5c716f300025adec80781d58dcebe1ea9f262cad96",
+      "disposition": "unaffected",
+      "review_note": "The evidence index now binds refreshed projection digests while preserving every retained evidence path and literal byte; no item was added as proof and no stale literal was restamped."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/release-ladder.json",
+      "change": "changed",
+      "baseline_sha256": "66e4037949ccca4d2ac89b7c7bd03b2b20bdac522c6be1c9bfea5420133b8728",
+      "tree_sha256": "51fd51b7122c6bf763dd0384a626c9f27230c99dd9ab15dc78d097d121dcc74c",
+      "disposition": "unaffected",
+      "review_note": "The release ladder changed only through the tracked-program fingerprint projection; M0 remains verified, M4 remains active, and no release or stage advancement is asserted."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/selected-profile.json",
+      "change": "changed",
+      "baseline_sha256": "5f85518e76c281450f6d3b934cfd36c4651a4b855009a0d3acbee806988da620",
+      "tree_sha256": "5bcb08a9897fa7038b5994c1943c781548ccb7f27795d87ce60d465ca8e53c5b",
+      "disposition": "unaffected",
+      "review_note": "The selected-profile projection rebinds the reviewed source and program fingerprint without changing the M0 profile, its claim boundary, its evidence reference, or its verified status."
+    }
+  ]
+}

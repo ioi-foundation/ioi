@@ -64,6 +64,18 @@
     {
       "name": "MemoryProjection",
       "registry_resolution": "reviewed_owner_locator"
+    },
+    {
+      "name": "MemoryNamespace",
+      "registry_resolution": "reviewed_owner_locator"
+    },
+    {
+      "name": "ContextProjectionReceipt",
+      "registry_resolution": "reviewed_owner_locator"
+    },
+    {
+      "name": "ContextPromotionOperation",
+      "registry_resolution": "reviewed_owner_locator"
     }
   ],
   "dependency_work_item_ids": [
@@ -73,6 +85,8 @@
   ],
   "in_scope": [
     "`LEARNING`, `AGENTGRES`, `DAEMON`, `STORAGE`, `SECURITY`; MemorySpace and MemoryProjection record families, working/core/archival layer ontology, thread and typed checkpoint mirrors, background enrichment outputs (summaries, facts, entities, embeddings), retrieval, compaction, and local evidence blobs.",
+    "Global durable memory means globally addressable and explicitly domain/org/project/agent/cell-owned; it never means globally readable or writable. MemoryNamespace inheritance is deny-first, entries are immutable and content-addressed, and only an Agentgres CAS advances a namespace head.",
+    "ContextProjectionReceipt binds exact included/excluded source revisions, query/filter/model/redaction hashes, rendered-context hash, and projection watermark. ContextPromotionOperation is the only short-term-to-long-term bridge and binds both the source cell revision and expected durable-memory head.",
     "The runtime-versus-admitted-truth boundary stated by ADR 0001: memory reads, checkpoints, retrieval and compaction are runtime/operational state; durable change is admitted through Agentgres operations; committed chain state remains authoritative for policy enforcement, firewall checks, and approval or gate readiness.",
     "Named disposition of every remaining SCS product-memory reference in the repository, including the explicit no-importer migration policy.",
     "The ADR's own open question recorded as a decision the canon owner must close: whether checkpoint enumeration belongs to the memory runtime or session discovery remains chain-state-driven.",
@@ -81,7 +95,7 @@
   "out_of_scope": [
     "Learning-boundary custody, source and route rights, egress eligibility, and portable vault export/import - owned by m8-learning-custody-memory-and-provider-rights.",
     "Agentgres operation/head/root, branch and staged-effect, and projection-as-truth refusal - owned by agentgres-production-readiness-and-branch-effects.",
-    "GoalRun context cells, leases and handoffs - owned by m3-goal-kernel-context-and-runtime-truth-spine.",
+    "GoalRun context-cell revision and lease enforcement - owned by m8-context-cell-version-and-lease-enforcement-successor.",
     "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
     "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
   ],
@@ -91,6 +105,31 @@
     "Implement or bind the layer, checkpoint, enrichment, and retrieval crossings needed for the declared claim, with each durable change admitted through an Agentgres operation.",
     "Build positive plus adversarial/fault runners that reject unadmitted memory reads, checkpoint-as-policy-input, secret-in-core-memory, adapter-local-cache-as-truth, and surviving SCS product-memory paths.",
     "Retain an evidence index and require the exact content-bound M8_PRODUCT_MEMORY_RUNTIME_SUCCESSOR_EXIT=0; never infer success from a task or process exit code."
+  ],
+  "pre_schema_admission_ownership_rulings": [
+    {
+      "family": "MemoryNamespace",
+      "ruling": "The family owns namespace identity, deny-first ownership/inheritance policy, and immutable entry addressing. It does not own or mint a sequence, decision, receipt, state root, receipt root, or transition chain; its mutable head is advanced only by and references a canonical Agentgres operation."
+    },
+    {
+      "family": "ContextProjectionReceipt",
+      "ruling": "Despite the vocabulary name, this is derived projection evidence over one canonical Agentgres operation and receipt. It binds included/excluded revisions and rendering hashes but cannot mint or persist independent admission, sequence, head, or root truth; rename it before registration if that cannot be made structural."
+    },
+    {
+      "family": "ContextPromotionOperation",
+      "ruling": "The family is an operation body proposed to Agentgres, binding a source cell revision and expected durable-memory head. It owns no acceptance decision, sequence, receipt, resulting root, or transition chain; only the canonical Agentgres operation can accept it."
+    }
+  ],
+  "contract_definition_of_done": [
+    "Each new family lands with a schema and invariants file, positive and negative fixtures, and a conformance owner that proves the named refusals.",
+    "Every cross-reference is declared authoritative or derived; no ambiguous bidirectional namespace, projection, promotion, or lineage edge is accepted.",
+    "A registry entry alone is presence, not closure, and cannot satisfy this work item."
+  ],
+  "parallel_delivery_constraints": [
+    "This seam-independent track may proceed on a dedicated branch and reviewable PR separate from PR #133.",
+    "The mechanically generated M4 contract freeze must pass; this track may add families but may not change a frozen M4 registry entry, schema, invariant, or fixture while M4 is open.",
+    "Run canon-impact acceptance once at the end of the branch, with per-subject dispositions rather than blanket acceptance.",
+    "Regenerate architecture-contract-registry.v1.json with generate-architecture-contracts.mjs; never hand-merge registry conflicts."
   ],
   "consequential_effects_and_final_invokers": [
     "effect: durable memory admission, compaction, or enrichment write | final_invoker: Agentgres operation admission path | authority_source: local/domain policy and applicable grant; the memory runtime originates no authority | receipt_or_evidence: operation log entry and receipt, with no memory-runtime-local receipt accepted as a substitute | negative_behavior: deny unadmitted write, deny secret-bearing core-memory injection, deny any checkpoint consumed as a policy input"
@@ -119,6 +158,7 @@
     "m8.unadmitted_durable_memory_writes: durable memory writes reaching a consumer without an admitted operation; threshold 0 writes; source memory admission invariant; frozen before observation",
     "m8.checkpoint_as_policy_input_events: runtime checkpoints consumed as policy, firewall, or approval-readiness inputs; threshold 0 events; source ADR 0001 authority boundary; frozen before observation",
     "m8.surviving_live_scs_product_memory_paths: surviving live SCS product-memory paths; threshold 0 paths; source ADR 0001 decision and migration policy; frozen before observation",
+    "memory.cross_owner_or_space_reads: reads crossing the exact domain/org/project/agent/cell owner boundary without an admitted projection lease; threshold 0 reads; source owner-qualified global-memory invariant; frozen before observation",
     "generic.exact_retained_successful_literal_exit_lines: exact retained successful literal exit lines; threshold 1 standalone line; source literal exit rule; frozen before observation"
   ],
   "evidence_index": [],

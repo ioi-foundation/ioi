@@ -58,7 +58,20 @@ paths and binds each path, file kind, executable bit, and content digest into
 the build fingerprint. A missing, modified, newly tracked, or removed program
 file therefore makes the deterministic projections stale. Ignored worktrees,
 caches, and regenerated orientation files remain outside that binding by
-construction. This does not promote implementation status into architecture
+construction.
+
+Canon-review feedback artifacts remain tracked but are checked outside the M0
+fingerprint: `_archive/attestations/canon-acceptances.v1.json`, retained
+`_archive/attestations/review-manifests/**`, and
+`generated/canon-baseline.v1.json`. Canon acceptance writes those three classes
+while reviewing generated M0 projections; hashing them into those projections
+would make acceptance self-invalidating and prevent a convergent checked tree.
+Their exclusion rules, rather than their changing member paths or bytes, are
+bound into the M0 snapshot. Git history plus the canon acceptance-integrity and
+canon-impact checks own their exact content. No status authority, stage, work
+item, module, retained literal, open-successor hold, or run evidence is excluded.
+
+This does not promote implementation status into architecture
 canon: tracked `docs/architecture/` canon named in `canon_basis` retains the
 committed architecture-evidence role, and tracked `docs/conformance/` entries
 retain the selected-profile conformance role.
