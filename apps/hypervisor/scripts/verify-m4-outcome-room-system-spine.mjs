@@ -4833,60 +4833,55 @@ try {
     predecessorOwnerProbeMarker,
     "system://ioi/outcome-room/predecessor-owner-probe",
   ]);
+  // Anonymous refusal codes are NOT per-case: deny-by-default (a5d88f3da) answers every
+  // anonymous /v1 probe with one uniform authentication_required body, asserted by exact
+  // byte equality below. Per-case codes exist only for authenticated phases.
   const ownerPointProbeCases = [
     {
       name: "goal-existing",
       path: `/v1/goal-orchestration/goal-runs/${encodeURIComponent(collectiveGoalRunId)}`,
-      anonymousCode: "goal_run_global_truth_authentication_required",
       managedCode: "goal_run_global_truth_owner_mismatch",
       localMissingCode: null,
     },
     {
       name: "goal-missing",
       path: `/v1/goal-orchestration/goal-runs/${encodeURIComponent(missingGoalRunProbeId)}`,
-      anonymousCode: "goal_run_global_truth_authentication_required",
       managedCode: "goal_run_global_truth_owner_mismatch",
       localMissingCode: "goal_run_not_found",
     },
     {
       name: "goal-events-missing",
       path: `/v1/goal-orchestration/goal-runs/${encodeURIComponent(missingGoalRunProbeId)}/events`,
-      anonymousCode: "goal_run_global_truth_authentication_required",
       managedCode: "goal_run_global_truth_owner_mismatch",
       localMissingCode: "goal_run_not_found",
     },
     {
       name: "result-existing",
       path: `/v1/hypervisor/work-results/${encodeURIComponent(admittedResult.work_result_id.replace("work-result://", ""))}`,
-      anonymousCode: "authentication_required",
       managedCode: "work_result_owner_mismatch",
       localMissingCode: null,
     },
     {
       name: "result-current-generic",
       path: `/v1/hypervisor/work-results/${encodeURIComponent(genericCurrentWorkResultId.replace("work-result://", ""))}`,
-      anonymousCode: "authentication_required",
       managedCode: "work_result_owner_mismatch",
       localMissingCode: null,
     },
     {
       name: "result-missing",
       path: `/v1/hypervisor/work-results/${encodeURIComponent(missingWorkResultProbeTail)}`,
-      anonymousCode: "authentication_required",
       managedCode: "work_result_owner_mismatch",
       localMissingCode: "not_found",
     },
     {
       name: "delta-existing",
       path: `/v1/hypervisor/outcome-deltas/${encodeURIComponent(admittedDelta.outcome_delta_id.replace("outcome-delta://", ""))}`,
-      anonymousCode: "authentication_required",
       managedCode: "outcome_delta_owner_mismatch",
       localMissingCode: null,
     },
     {
       name: "delta-missing",
       path: `/v1/hypervisor/outcome-deltas/${encodeURIComponent(missingOutcomeDeltaProbeTail)}`,
-      anonymousCode: "authentication_required",
       managedCode: "outcome_delta_owner_mismatch",
       localMissingCode: "not_found",
     },
@@ -4899,26 +4894,10 @@ try {
     `/v1/goal-orchestration/outcome-rooms/${predecessorOwnerProbeTail}/replay`,
   ];
   const ownerCollectionProbeCases = [
-    {
-      name: "goal-runs",
-      path: "/v1/goal-orchestration/goal-runs",
-      anonymousCode: "goal_run_global_truth_authentication_required",
-    },
-    {
-      name: "work-results",
-      path: "/v1/hypervisor/work-results",
-      anonymousCode: "authentication_required",
-    },
-    {
-      name: "work-results-overview",
-      path: "/v1/hypervisor/work-results/overview",
-      anonymousCode: "authentication_required",
-    },
-    {
-      name: "outcome-deltas",
-      path: "/v1/hypervisor/outcome-deltas",
-      anonymousCode: "authentication_required",
-    },
+    { name: "goal-runs", path: "/v1/goal-orchestration/goal-runs" },
+    { name: "work-results", path: "/v1/hypervisor/work-results" },
+    { name: "work-results-overview", path: "/v1/hypervisor/work-results/overview" },
+    { name: "outcome-deltas", path: "/v1/hypervisor/outcome-deltas" },
   ];
   const zeroResultRecordSchemaCounts = Object.fromEntries(
     RESULT_RECORD_SCHEMAS.map((schema) => [schema, 0]),
@@ -5169,6 +5148,41 @@ try {
       }),
     ),
   );
+  // Deny-by-default (a5d88f3da): the daemon's inbound auth ring answers every anonymous /v1
+  // probe with ONE refusal body, so auth errors cannot be used as an existence, method, or
+  // topology oracle. Probe each distinguishing class explicitly — wrong method on real owner
+  // routes, never-registered namespaces (the ring wraps the router fallback), and the product
+  // shell's verbatim /v1 proxy — and assert exact byte equality below, not status equality.
+  const exposedWrongMethodProbes = await Promise.all(
+    [
+      ["DELETE", roomPath, undefined],
+      ["PUT", graphPath, { frontier_item_refs: ["frontier://forged"] }],
+      ["PATCH", productPath, { forged: true }],
+      ["POST", replayPath, {}],
+    ].map(([method, path, body]) =>
+      call(method, path, body, { "x-ioi-forwarded": "m4-aggregate-verifier" }),
+    ),
+  );
+  const exposedUnroutedProbes = await Promise.all(
+    [
+      "/v1/goal-orchestration/never-registered-owner-family",
+      "/v1/future-namespace/resource",
+    ].map((path) =>
+      call("GET", path, undefined, { "x-ioi-forwarded": "m4-aggregate-verifier" }),
+    ),
+  );
+  const exposedServeProxyProbes = await Promise.all(
+    [
+      ["GET", roomPath, undefined],
+      ["GET", missingRoomPath, undefined],
+      ["DELETE", roomPath, undefined],
+      ["GET", eventPath, undefined],
+    ].map(([method, path, body]) =>
+      request(plane.serveUrl, method, path, body, {
+        "x-ioi-forwarded": "m4-aggregate-verifier",
+      }),
+    ),
+  );
   const exposedOwnerReadsDurableAfter =
     await quiescentRoomAdmissionSideEffectSnapshot(dataDir);
   const exposedOwnerProjectionResponses = [
@@ -5196,64 +5210,106 @@ try {
     ...exposedRoomWriteWrapperProbes,
     ...exposedUnreboundInternalSurfaces,
     ...exposedGenericWorkTruthMutations,
+    ...exposedWrongMethodProbes,
+    ...exposedUnroutedProbes,
+    ...exposedServeProxyProbes,
   ];
   const exposedOwnerBytesAbsent = exposedOwnerProjectionResponses.every(
     (response) => responseOmitsWireTokens(response, timelineOwnerForbidden),
   );
+  // Deny-by-default strengthening: the retired assertion proved a route-specific
+  // outcome_room_authentication_required refusal, which let an anonymous caller map which
+  // route family answered. The gate now proves the strictly stronger property: ONE
+  // byte-identical 401 authentication_required body across existing rooms, missing rooms,
+  // collections, wrong methods, never-registered namespaces, and the shell's /v1 proxy —
+  // an anonymous caller learns nothing about routes, methods, or topology from refusals.
+  const anonymousDaemonRefusals = [
+    exposedProduct,
+    exposedGraph,
+    exposedDiscussion,
+    exposedReplay,
+    ...exposedMissingReads,
+    ...exposedCurrentRoomWrappers,
+    ...exposedWrongMethodProbes,
+    ...exposedUnroutedProbes,
+    ...exposedServeProxyProbes,
+  ];
+  const anonymousUniformRefusalRaw = exposedProduct.raw;
+  const anonymousRoomRefusalBodies = new Set(
+    anonymousDaemonRefusals.map((response) => response.raw),
+  );
+  // The anchor is pinned on its own terms — exact declared key set, exact field values —
+  // before any equality comparison. Uniformity against an unpinned anchor would only prove
+  // the plane is consistently wrong together; pin plus byte-equality proves each response.
+  const anonymousRefusalAnchorKeys = Object.keys(exposedProduct.body || {})
+    .sort()
+    .join(",");
+  const anonymousRefusalAnchorPinned =
+    anonymousRefusalAnchorKeys === "needs_bootstrap,ok,reason" &&
+    exposedProduct.body.ok === false &&
+    exposedProduct.body.reason === "authentication_required" &&
+    typeof exposedProduct.body.needs_bootstrap === "boolean";
   check(
-    "OWNER PROJECTION REFUSAL: exposed anonymous caller receives the same typed 401 before existing, missing, collection, product, graph, discussion, or replay room truth",
-    [
-      exposedProduct,
-      exposedGraph,
-      exposedDiscussion,
-      exposedReplay,
-      ...exposedMissingReads,
-      ...exposedCurrentRoomWrappers,
-    ].every(
+    "OWNER PROJECTION REFUSAL: anonymous room-owner probes — existing, missing, collection, wrong-method, unrouted, and UI-proxied — return one identical 401 authentication_required body",
+    anonymousRefusalAnchorPinned &&
+      anonymousDaemonRefusals.every(
+        (response) =>
+          response.status === 401 &&
+          response.raw === anonymousUniformRefusalRaw &&
+          response.body.ok === false &&
+          response.body.reason === "authentication_required" &&
+          response.body.error === undefined,
+      ) &&
+      anonymousRoomRefusalBodies.size === 1,
+    `anchor_pinned=${anonymousRefusalAnchorPinned} anchor_keys=${anonymousRefusalAnchorKeys} statuses=${anonymousDaemonRefusals
+      .map((response) => response.status)
+      .join(",")} distinct_bodies=${anonymousRoomRefusalBodies.size} reason=${exposedProduct.body.reason}`,
+  );
+  // Same strengthening for invocation/work truth: the retired assertion accepted per-family
+  // anonymous codes (goal_run_global_truth_*, outcome_room_*), a route-classification oracle.
+  // Every anonymous daemon probe must now return the SAME bytes as the room-owner refusal
+  // above, and every serve-owned shell/helper surface must present that one reason.
+  const anonymousInvocationTruthRefusals = [
+    exposedEvents,
+    ...exposedLegacyOwnerReads,
+    exposedTranscriptWrite,
+    ...exposedOwnerPointProbes,
+    ...exposedOwnerCollectionProbes,
+    ...exposedPredecessorOwnerProbes,
+    ...exposedRoomWriteWrapperProbes,
+    ...exposedGenericWorkTruthMutations,
+  ];
+  const anonymousInvocationRefusalBodies = new Set(
+    anonymousInvocationTruthRefusals.map((response) => response.raw),
+  );
+  const htmlErrorCode = (body) =>
+    /data-error-code="([^"]*)"/u.exec(String(body))?.[1] ?? "none";
+  check(
+    "OWNER PROJECTION REFUSAL: anonymous invocation, work-truth, and shell probes present the identical authentication_required refusal without leaking owner truth",
+    anonymousInvocationTruthRefusals.every(
       (response) =>
         response.status === 401 &&
-        response.body.error?.code === "outcome_room_authentication_required",
-    ),
-    [
-      exposedProduct,
-      exposedGraph,
-      exposedDiscussion,
-      exposedReplay,
-      ...exposedMissingReads,
-      ...exposedCurrentRoomWrappers,
-    ]
-      .map((response) => `${response.status}/${response.body.error?.code}`)
-      .join(" "),
-  );
-  check(
-    "OWNER PROJECTION REFUSAL: exposed anonymous caller receives typed authentication refusal for invocation truth",
-    exposedEvents.status === 401 &&
-      exposedEvents.body.error?.code ===
-        "goal_run_global_truth_authentication_required" &&
-      exposedTimeline.status === 401 &&
-      exposedTimeline.body.includes(
-        'data-error-code="goal_run_global_truth_authentication_required"',
-      ) &&
-      exposedTimeline.body.includes(
-        "No owner GoalRun, invocation, result, receipt, or replay truth is shown.",
-      ) &&
+        response.raw === anonymousUniformRefusalRaw &&
+        response.body.reason === "authentication_required",
+    ) &&
+      anonymousInvocationRefusalBodies.size === 1 &&
       exposedGoalSpace.status === 401 &&
       exposedGoalSpace.body.includes(
-        'data-error-code="outcome_room_authentication_required"',
+        'data-error-code="authentication_required"',
       ) &&
       exposedGoalSpace.body.includes(
         "No OutcomeRoom, graph, discussion, GoalRun, WorkResult, OutcomeDelta, receipt, or replay owner truth is shown.",
       ) &&
-      exposedLegacyOwnerReads.every(
-        (response) =>
-          response.status === 401 &&
-          response.body.reason === "authentication_required",
+      exposedTimeline.status === 401 &&
+      exposedTimeline.body.includes(
+        'data-error-code="authentication_required"',
       ) &&
-      exposedTranscriptWrite.status === 401 &&
-      exposedTranscriptWrite.body.reason === "authentication_required" &&
+      exposedTimeline.body.includes(
+        "No owner GoalRun, invocation, result, receipt, or replay truth is shown.",
+      ) &&
       exposedReplayIndex.status === 401 &&
       exposedReplayIndex.body.includes(
-        'data-error-code="goal_run_global_truth_authentication_required"',
+        'data-error-code="authentication_required"',
       ) &&
       exposedWorkLedger.status === 401 &&
       exposedWorkLedger.body.includes(
@@ -5289,28 +5345,6 @@ try {
           response.status === 401 &&
           response.body.error?.code === "authentication_required",
       ) &&
-      exposedOwnerPointProbes.every(
-        (response, index) =>
-          response.status === 401 &&
-          (response.body.error?.code || response.body.reason) ===
-            ownerPointProbeCases[index].anonymousCode,
-      ) &&
-      exposedOwnerCollectionProbes.every(
-        (response, index) =>
-          response.status === 401 &&
-          (response.body.error?.code || response.body.reason) ===
-            ownerCollectionProbeCases[index].anonymousCode,
-      ) &&
-      exposedPredecessorOwnerProbes.every(
-        (response) =>
-          response.status === 401 &&
-          response.body.error?.code === "outcome_room_authentication_required",
-      ) &&
-      exposedRoomWriteWrapperProbes.every(
-        (response) =>
-          response.status === 401 &&
-          response.body.error?.code === "outcome_room_authentication_required",
-      ) &&
       exposedUnreboundInternalSurfaces.every(
         (response) =>
           response.status === 401 &&
@@ -5319,14 +5353,9 @@ try {
             "This unrebound internal surface has no principal-scoped projection",
           ),
       ) &&
-      exposedGenericWorkTruthMutations.every(
-        (response) =>
-          response.status === 401 &&
-          response.body.reason === "authentication_required",
-      ) &&
       exposedOwnerBytesAbsent &&
       exposedOwnerReadsDurableAfter === exposedOwnerReadsDurableBefore,
-    `${exposedEvents.status}/${exposedEvents.body.error?.code} goal_space=${exposedGoalSpace.status} goal_shell=${exposedTimeline.status} replay_index=${exposedReplayIndex.status} ledger=${exposedWorkLedger.status} transcript_shell=${exposedTranscriptTimeline.status} generic_aliases=${exposedGenericTimelineAliases.map((response) => response.status).join(",")} cache_helpers=${exposedCacheHelpers.map((response) => response.status).join(",")} cache_authorities=${exposedAgentCacheAuthorities.map((response, index) => `${agentCacheAuthorityProbeCases[index].name}:${response.status}/${response.body.error?.code}`).join(",")} managed_shape_fence=${exposedManagedRouteShapeProbes.map((response, index) => `${managedRouteShapeProbeCases[index].name}:${response.status}/${response.body.error?.code}`).join(",")} points=${exposedOwnerPointProbes.map((response, index) => `${ownerPointProbeCases[index].name}:${response.status}/${response.body.error?.code || response.body.reason}`).join(",")} collections=${exposedOwnerCollectionProbes.map((response, index) => `${ownerCollectionProbeCases[index].name}:${response.status}/${response.body.error?.code || response.body.reason}`).join(",")} predecessor=${exposedPredecessorOwnerProbes.map((response) => `${response.status}/${response.body.error?.code}`).join(",")} wrappers=${exposedRoomWriteWrapperProbes.map((response, index) => `${roomWriteWrapperCases[index].name}:${response.status}/${response.body.error?.code}`).join(",")} unrebound=${exposedUnreboundInternalSurfaces.map((response, index) => `${unreboundInternalSurfaceProbeCases[index].name}:${response.status}`).join(",")} work_truth_writes=${exposedGenericWorkTruthMutations.map((response, index) => `${genericWorkTruthMutationProbeCases[index].name}:${response.status}/${response.body.error?.code || response.body.reason}`).join(",")} direct=${exposedLegacyOwnerReads.map((response) => `${response.status}/${response.body.error?.code || response.body.reason}`).join(",")} write=${exposedTranscriptWrite.status}/${exposedTranscriptWrite.body.error?.code || exposedTranscriptWrite.body.reason} owner_bytes_absent=${exposedOwnerBytesAbsent}/whole_tree_unchanged=${exposedOwnerReadsDurableAfter === exposedOwnerReadsDurableBefore}`,
+    `uniform_statuses=${anonymousInvocationTruthRefusals.map((response) => response.status).join(",")} distinct_bodies=${anonymousInvocationRefusalBodies.size} matches_room_refusal=${anonymousInvocationTruthRefusals.every((response) => response.raw === anonymousUniformRefusalRaw)} goal_space=${exposedGoalSpace.status}/${htmlErrorCode(exposedGoalSpace.body)} goal_shell=${exposedTimeline.status}/${htmlErrorCode(exposedTimeline.body)} replay_index=${exposedReplayIndex.status}/${htmlErrorCode(exposedReplayIndex.body)} ledger=${exposedWorkLedger.status}/${htmlErrorCode(exposedWorkLedger.body)} transcript_shell=${exposedTranscriptTimeline.status} generic_aliases=${exposedGenericTimelineAliases.map((response) => `${response.status}/${htmlErrorCode(response.body)}`).join(",")} cache_helpers=${exposedCacheHelpers.map((response) => response.status).join(",")} cache_authorities=${exposedAgentCacheAuthorities.map((response, index) => `${agentCacheAuthorityProbeCases[index].name}:${response.status}/${response.body.error?.code}`).join(",")} managed_shape_fence=${exposedManagedRouteShapeProbes.map((response, index) => `${managedRouteShapeProbeCases[index].name}:${response.status}/${response.body.error?.code}`).join(",")} unrebound=${exposedUnreboundInternalSurfaces.map((response, index) => `${unreboundInternalSurfaceProbeCases[index].name}:${response.status}`).join(",")} owner_bytes_absent=${exposedOwnerBytesAbsent}/whole_tree_unchanged=${exposedOwnerReadsDurableAfter === exposedOwnerReadsDurableBefore}`,
   );
   const outsiderId = `m4_outsider_${Date.now().toString(16)}`;
   const outsiderEmail = `${outsiderId}@local`;

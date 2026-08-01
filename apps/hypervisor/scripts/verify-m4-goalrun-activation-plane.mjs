@@ -249,7 +249,16 @@ async function request(base, method, path, body, headers = {}) {
     headers: { "content-type": "application/json", ...headers },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  return { status: response.status, body: await response.json().catch(() => ({})) };
+  // raw retains the exact response bytes so anonymous-refusal uniformity can be
+  // asserted by byte equality, not status or parsed-field equality.
+  const raw = await response.text();
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = {};
+  }
+  return { status: response.status, raw, body: parsed };
 }
 
 function activationId(record) {
@@ -327,25 +336,62 @@ async function mintActivationGrant(challenge) {
 try {
   const builtDaemonRoot = buildCurrentDaemonBinary();
   console.log(`M4_GOALRUN_ACTIVATION_DAEMON_BINARY_SHA256=${builtDaemonRoot}`);
+  // Legacy-inertness INPUT: a record shaped like the retired ioi.foundations.work-result.v1
+  // schema, held inline because 77117ecd6 deleted the superseded v1/v2 registry fixtures
+  // (the registry owns current contracts only; the retired shape survives here solely as
+  // this lane's on-disk legacy input, proving startup neither resurrects nor deletes it).
+  // Bytes recovered verbatim from
+  // 77117ecd6~1:docs/architecture/_meta/schemas/fixtures/work-result-v1/positive-minimal.json.
   const legacyResult = {
-    ...JSON.parse(
-      readFileSync(
-        join(
-          REPO,
-          "docs",
-          "architecture",
-          "_meta",
-          "schemas",
-          "fixtures",
-          "work-result-v1",
-          "positive-minimal.json",
-        ),
-        "utf8",
-      ),
-    ),
+    schema_version: "ioi.foundations.work-result.v1",
     work_result_id: "work-result://m3/legacy-migration-proof",
     work_subject_ref: "goal://m3/legacy-migration-proof",
     goal_run_ref: "goal://m3/legacy-migration-proof",
+    outcome_room_ref: null,
+    room_admission: null,
+    produced_by_ref: "worker://research-1",
+    submitted_by_ref: "worker://research-1",
+    operator_and_affiliation_refs: [],
+    work_claim_ref: null,
+    attempt_ref: null,
+    invocation_or_run_ref: null,
+    result_profile: "research",
+    result_profile_ref: null,
+    result_payload_ref: "artifact://research/report-1",
+    producer_component_resolution: {
+      resolved_component_set_snapshot_ref: "artifact://goal-run/research-1/components",
+      resolved_component_set_hash:
+        "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      component_resolution_receipt_ref: "receipt://goal-run/research-1/profile-resolution",
+      resolver_kind: "harness_profile",
+      resolver_revision_ref: "harness-profile://research/revision/3",
+      resolver_content_hash:
+        "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    },
+    declared_method_and_lineage_refs: [],
+    information_flow_label_refs: [],
+    outcome_class: "inconclusive",
+    status: "challenged",
+    outcome_delta_refs: [],
+    finding_refs: [],
+    claim_refs: [],
+    uncertainty: ["evidence conflict"],
+    supporting_evidence_refs: ["evidence://paper/1"],
+    contradicting_evidence_refs: ["evidence://paper/2"],
+    artifact_receipt_and_trace_refs: [],
+    resource_and_cost_refs: [],
+    authority_and_policy_refs: [],
+    blocker_and_decision_request_refs: [],
+    verifier_refs: [],
+    license_disclosure_retention_and_export_refs: [],
+    reproduction_state: "unreviewed",
+    reproduction_refs: [],
+    acceptance_ref: null,
+    challenge_refs: ["evidence://challenge/1"],
+    supersedes_work_result_ref: null,
+    superseded_by_ref: null,
+    summary_ref: "artifact://research/summary-1",
+    next_action: "verify",
   };
   mkdirSync(join(dataDir, "work-results"), { recursive: true });
   writeFileSync(
@@ -365,19 +411,33 @@ try {
     console.error("BLOCKED: build target/debug/hypervisor-daemon first");
     process.exitCode = 2;
   } else {
-    const migratedLegacyResults = await request(
+    // Clean-slate strengthening: 77117ecd6 deleted the superseded work-result v1/v2 schemas
+    // AND migrate_legacy_goal_run_work_results — the retired assertion expected startup to
+    // fold legacy bytes into the canonical registry, which is exactly the resurrection the
+    // clean-slate cut retired. The current contract is inertness: retained legacy bytes are
+    // history, not truth — never listed, never folded, never rewritten, never deleted.
+    const legacyResultPath = join(
+      dataDir,
+      "work-results",
+      `${legacyResult.work_result_id.replace(/[^a-zA-Z0-9_-]/gu, "_")}.json`,
+    );
+    const legacyBytesAfterStartup = readFileSync(legacyResultPath, "utf8");
+    const canonicalResultsAfterStartup = await request(
       plane.daemonUrl,
       "GET",
       "/v1/hypervisor/work-results",
     );
     check(
-      "startup folds M3 legacy WorkResult bytes into the canonical registry without deleting history",
-      migratedLegacyResults.body?.work_results?.some(
-        (entry) => entry.work_result_id === legacyResult.work_result_id,
-      ) &&
-        familyCount("work-result-registry") === 1 &&
-        familyCount("work-results") === 1,
-      `canonical=${familyCount("work-result-registry")} legacy=${familyCount("work-results")}`,
+      "startup leaves retired M3 legacy WorkResult bytes inert: never listed, never folded into the canonical registry, never rewritten, never deleted",
+      canonicalResultsAfterStartup.status === 200 &&
+        Array.isArray(canonicalResultsAfterStartup.body?.work_results) &&
+        !canonicalResultsAfterStartup.body.work_results.some(
+          (entry) => entry.work_result_id === legacyResult.work_result_id,
+        ) &&
+        familyCount("work-result-registry") === 0 &&
+        familyCount("work-results") === 1 &&
+        legacyBytesAfterStartup === `${JSON.stringify(legacyResult, null, 2)}\n`,
+      `list=${canonicalResultsAfterStartup.status}/listed=${canonicalResultsAfterStartup.body?.work_results?.some((entry) => entry.work_result_id === legacyResult.work_result_id)} canonical=${familyCount("work-result-registry")} legacy=${familyCount("work-results")} legacy_bytes_unchanged=${legacyBytesAfterStartup === `${JSON.stringify(legacyResult, null, 2)}\n`}`,
     );
     const draftRequest = {
       schema_version: "ioi.goal-run-activation-draft-request.v1",
@@ -1158,7 +1218,10 @@ try {
       deltaCount: familyCount("outcome-delta-registry"),
     };
     await plane.stop();
-    plane = await startActivationPlane({ dataDir });
+    // serve:true — this plane also hosts the anonymous uniform-refusal probes below, whose
+    // UI-proxy class must prove the product shell's verbatim /v1 proxy returns the daemon's
+    // exact refusal bytes.
+    plane = await startActivationPlane({ dataDir, serve: true });
     const afterRestart = await request(
       plane.daemonUrl,
       "GET",
@@ -1454,12 +1517,25 @@ try {
       undefined,
       { "x-forwarded-host": "hypervisor.example.invalid" },
     );
+    // Deny-by-default (a5d88f3da): the retired assertion expected the route-specific
+    // goal_run_activation_authentication_required code. The gate now answers every anonymous
+    // /v1 probe with one uniform body; this first anonymous response anchors the exact bytes
+    // every later anonymous refusal in this plane must equal. The anchor itself is pinned on
+    // its own terms — exact declared key set and field values — so uniformity below compares
+    // against proven-correct bytes, not merely consistent bytes.
+    const anonymousUniformRefusalRaw = anonymousExposedRead.raw;
+    const anonymousRefusalAnchorKeys = Object.keys(anonymousExposedRead.body || {})
+      .sort()
+      .join(",");
+    const anonymousRefusalAnchorPinned =
+      anonymousRefusalAnchorKeys === "needs_bootstrap,ok,reason" &&
+      anonymousExposedRead.body?.ok === false &&
+      anonymousExposedRead.body?.reason === "authentication_required" &&
+      typeof anonymousExposedRead.body?.needs_bootstrap === "boolean";
     check(
       "exposed anonymous caller cannot read activation source, authority, or receipts",
-      anonymousExposedRead.status === 401 &&
-        anonymousExposedRead.body?.error?.code ===
-          "goal_run_activation_authentication_required",
-      `${anonymousExposedRead.status}/${anonymousExposedRead.body?.error?.code}`,
+      anonymousExposedRead.status === 401 && anonymousRefusalAnchorPinned,
+      `${anonymousExposedRead.status}/${anonymousExposedRead.body?.reason}/anchor_pinned=${anonymousRefusalAnchorPinned}/anchor_keys=${anonymousRefusalAnchorKeys}`,
     );
     const exposedHeaders = { "x-forwarded-host": "hypervisor.example.invalid" };
     const absentGoalRunId = "gr_m4_absent_auth_preflight_probe";
@@ -1515,6 +1591,40 @@ try {
         ),
       ),
     );
+    // Deny-by-default (a5d88f3da): anonymous refusals are uniform, so probe every class an
+    // anonymous caller could use as an oracle — wrong method on a real lifecycle route, a
+    // never-registered namespace (the auth ring wraps the router fallback), and the product
+    // shell's verbatim /v1 proxy — and assert exact byte equality, not per-route codes.
+    const anonymousLifecycleShapeProbes = await Promise.all([
+      request(
+        plane.daemonUrl,
+        "GET",
+        `/v1/goal-orchestration/goal-runs/${goalRunId}/start`,
+        undefined,
+        exposedHeaders,
+      ),
+      request(
+        plane.daemonUrl,
+        "GET",
+        "/v1/future-namespace/resource",
+        undefined,
+        exposedHeaders,
+      ),
+      request(
+        plane.serveUrl,
+        "POST",
+        `/v1/goal-orchestration/goal-runs/${goalRunId}/start`,
+        {},
+        exposedHeaders,
+      ),
+    ]);
+    const anonymousLifecycleRefusals = [
+      ...anonymousLifecycleMutations,
+      ...anonymousLifecycleShapeProbes,
+    ];
+    const anonymousLifecycleRefusalBodies = new Set(
+      anonymousLifecycleRefusals.map((response) => response.raw),
+    );
     const outsiderEvents = await request(
       plane.daemonUrl,
       "GET",
@@ -1536,17 +1646,19 @@ try {
           response.status === 403 &&
           response.body?.error?.code === "goal_run_mutation_owner_mismatch",
       ) &&
-        anonymousLifecycleMutations.every(
+        anonymousLifecycleRefusals.every(
           (response) =>
             response.status === 401 &&
-            response.body?.error?.code ===
-              "goal_run_global_truth_authentication_required",
+            response.raw === anonymousUniformRefusalRaw &&
+            response.body?.reason === "authentication_required" &&
+            response.body?.error === undefined,
         ) &&
+        anonymousLifecycleRefusalBodies.size === 1 &&
         outsiderEvents.status === 403 &&
         outsiderEvents.body?.error?.code ===
           "goal_run_global_truth_owner_mismatch" &&
         lifecycleStateBefore === lifecycleStateAfter,
-      `start=${outsiderStart.status}/${outsiderStart.body?.error?.code} reconcile=${outsiderReconcile.status}/${outsiderReconcile.body?.error?.code} recovery=${outsiderRecovery.status}/${outsiderRecovery.body?.error?.code} anonymous=${anonymousLifecycleMutations.map((response) => `${response.status}/${response.body?.error?.code}`).join(",")} events=${outsiderEvents.status}/${outsiderEvents.body?.error?.code}`,
+      `start=${outsiderStart.status}/${outsiderStart.body?.error?.code} reconcile=${outsiderReconcile.status}/${outsiderReconcile.body?.error?.code} recovery=${outsiderRecovery.status}/${outsiderRecovery.body?.error?.code} anonymous_statuses=${anonymousLifecycleRefusals.map((response) => response.status).join(",")} anonymous_distinct_bodies=${anonymousLifecycleRefusalBodies.size} anonymous_reason=${anonymousLifecycleRefusals[0].body?.reason} events=${outsiderEvents.status}/${outsiderEvents.body?.error?.code}`,
     );
     const unauthorizedResultCount = familyCount("work-result-registry");
     const unauthorizedDeltaCount = familyCount("outcome-delta-registry");
@@ -1617,6 +1729,18 @@ try {
       { goal_ref: goalRun.goal_ref },
       exposedHeaders,
     );
+    // Uniformity spans route families: goal-scoped and generic work-truth writes must return
+    // the same bytes as the lifecycle refusals above — one refusal body across the plane.
+    const anonymousWorkTruthRefusals = [
+      anonymousResultMutation,
+      anonymousDeltaMutation,
+      ...anonymousAbsentResultMutations,
+      anonymousGenericResultMutation,
+      anonymousGenericDeltaMutation,
+    ];
+    const anonymousWorkTruthRefusalBodies = new Set(
+      anonymousWorkTruthRefusals.map((response) => response.raw),
+    );
     check(
       "cross-owner and exposed anonymous callers cannot mutate GoalRun result or delta truth through either route family",
       [
@@ -1632,24 +1756,17 @@ try {
             "work_truth_goal_owner_mismatch",
           ].includes(response.body?.error?.code),
       ) &&
-        [
-          anonymousResultMutation,
-          anonymousDeltaMutation,
-          ...anonymousAbsentResultMutations,
-        ].every(
+        anonymousWorkTruthRefusals.every(
           (response) =>
             response.status === 401 &&
-            response.body?.error?.code ===
-              "goal_run_global_truth_authentication_required",
+            response.raw === anonymousUniformRefusalRaw &&
+            response.body?.reason === "authentication_required" &&
+            response.body?.error === undefined,
         ) &&
-        [anonymousGenericResultMutation, anonymousGenericDeltaMutation].every(
-          (response) =>
-            response.status === 401 &&
-            response.body?.reason === "authentication_required",
-        ) &&
+        anonymousWorkTruthRefusalBodies.size === 1 &&
         familyCount("work-result-registry") === unauthorizedResultCount &&
         familyCount("outcome-delta-registry") === unauthorizedDeltaCount,
-      `outsider=${outsiderResultMutation.status}/${outsiderResultMutation.body?.error?.code},${outsiderDeltaMutation.status}/${outsiderDeltaMutation.body?.error?.code},${outsiderGenericResultMutation.status}/${outsiderGenericResultMutation.body?.error?.code},${outsiderGenericDeltaMutation.status}/${outsiderGenericDeltaMutation.body?.error?.code} anonymous=${anonymousResultMutation.status}/${anonymousResultMutation.body?.error?.code},${anonymousDeltaMutation.status}/${anonymousDeltaMutation.body?.error?.code},missing=${anonymousAbsentResultMutations.map((response) => `${response.status}/${response.body?.error?.code}`).join(",")},${anonymousGenericResultMutation.status}/${anonymousGenericResultMutation.body?.reason},${anonymousGenericDeltaMutation.status}/${anonymousGenericDeltaMutation.body?.reason} resultDelta=${familyCount("work-result-registry") - unauthorizedResultCount}/${familyCount("outcome-delta-registry") - unauthorizedDeltaCount}`,
+      `outsider=${outsiderResultMutation.status}/${outsiderResultMutation.body?.error?.code},${outsiderDeltaMutation.status}/${outsiderDeltaMutation.body?.error?.code},${outsiderGenericResultMutation.status}/${outsiderGenericResultMutation.body?.error?.code},${outsiderGenericDeltaMutation.status}/${outsiderGenericDeltaMutation.body?.error?.code} anonymous_statuses=${anonymousWorkTruthRefusals.map((response) => response.status).join(",")} anonymous_distinct_bodies=${anonymousWorkTruthRefusalBodies.size} matches_lifecycle_refusal=${anonymousWorkTruthRefusals.every((response) => response.raw === anonymousUniformRefusalRaw)} resultDelta=${familyCount("work-result-registry") - unauthorizedResultCount}/${familyCount("outcome-delta-registry") - unauthorizedDeltaCount}`,
     );
     const exposedGoalList = await request(
       plane.daemonUrl,
@@ -1702,11 +1819,16 @@ try {
         exposedResultGet,
         exposedDeltaList,
         exposedDeltaGet,
-      ].every((response) => response.status === 401 || response.status === 403) &&
+      ].every(
+        (response) =>
+          response.status === 401 &&
+          response.raw === anonymousUniformRefusalRaw &&
+          response.body?.reason === "authentication_required",
+      ) &&
         exposedGoalList.body?.goal_runs === undefined &&
         exposedResultList.body?.work_results === undefined &&
         exposedDeltaList.body?.outcome_deltas === undefined,
-      `goal=${exposedGoalList.status}/${exposedGoalGet.status} result=${exposedResultList.status}/${exposedResultGet.status} delta=${exposedDeltaList.status}/${exposedDeltaGet.status}`,
+      `goal=${exposedGoalList.status}/${exposedGoalGet.status} result=${exposedResultList.status}/${exposedResultGet.status} delta=${exposedDeltaList.status}/${exposedDeltaGet.status} uniform=${[exposedGoalList, exposedGoalGet, exposedResultList, exposedResultGet, exposedDeltaList, exposedDeltaGet].every((response) => response.raw === anonymousUniformRefusalRaw)}`,
     );
 
     // Force the durable writer's post-rename uncertainty exactly at the GoalRun record. The first

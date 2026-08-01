@@ -118,15 +118,22 @@
     {
       "artifact_id": "future-exit-contract:M4_OUTCOME_ROOM_SYSTEM_SPINE_EXIT=0",
       "artifact_class": "private_future_literal_exit_contract",
-      "path": "internal-docs/implementation/evidence/M4/m4-outcome-room-system-spine.exit.v1.txt",
       "product_authority": false,
-      "architecture_canon": false
+      "architecture_canon": false,
+      "note": "Not yet produced. The expected retention path stays declared in evidence_index.expected_output_paths; the obsolete pre-ADR-0030 literal formerly at that path is preserved byte-exact under the archived historical bundle below and is not evidence."
     },
     {
       "artifact_id": "private-artifact:M4SelectedProfileEvidence",
       "artifact_class": "private_m4_aggregate_evidence_join",
       "candidate_name": "M4SelectedProfileEvidence",
-      "path": "internal-docs/implementation/evidence/M4/m4-selected-profile-evidence.v1.json",
+      "product_authority": false,
+      "architecture_canon": false,
+      "note": "Not yet produced for the restated aggregate. The pre-ADR-0030 join (proved at 287449463) is preserved byte-exact under the archived historical bundle below and is not evidence."
+    },
+    {
+      "artifact_id": "historical-evidence:m4-outcome-room-system-spine-pre-adr-0030",
+      "artifact_class": "private_superseded_historical_evidence",
+      "path": "internal-docs/implementation/_archive/evidence/m4-outcome-room-system-spine-pre-adr-0030/provenance.v1.json",
       "product_authority": false,
       "architecture_canon": false
     }

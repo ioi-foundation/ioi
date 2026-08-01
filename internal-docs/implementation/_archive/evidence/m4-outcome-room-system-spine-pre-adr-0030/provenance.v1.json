@@ -1,0 +1,33 @@
+{
+  "evidence_format": "ioi.program.archived_evidence_provenance.v1",
+  "archive_id": "m4-outcome-room-system-spine-pre-adr-0030",
+  "role": "Explicitly historical retention of the obsolete M4 aggregate evidence bundle. These bytes are preserved exactly as retained; they are NOT evidence of current or future closure of any work item, stage, or claim.",
+  "archived_from": [
+    {
+      "original_path": "internal-docs/implementation/evidence/M4/m4-outcome-room-system-spine.exit.v1.txt",
+      "archived_path": "internal-docs/implementation/_archive/evidence/m4-outcome-room-system-spine-pre-adr-0030/m4-outcome-room-system-spine.exit.v1.txt",
+      "sha256": "900e9d569947ba74054a5754f348ab335d74e8d05def7d20ce697f4ab7528569"
+    },
+    {
+      "original_path": "internal-docs/implementation/evidence/M4/m4-selected-profile-evidence.v1.json",
+      "archived_path": "internal-docs/implementation/_archive/evidence/m4-outcome-room-system-spine-pre-adr-0030/m4-selected-profile-evidence.v1.json",
+      "sha256": "6e5fbc03b2dc416eac3f135eac59a8c8868f3430bd1ac70103c8204f9e4c116a"
+    },
+    {
+      "original_path": "internal-docs/implementation/evidence/M4/runs/aggregate-outcome-room-system-spine.passed.log",
+      "archived_path": "internal-docs/implementation/_archive/evidence/m4-outcome-room-system-spine-pre-adr-0030/aggregate-outcome-room-system-spine.passed.log",
+      "sha256": "e963c2facb86c3f8e065efdb9f10171675f6f77de5fe267ea3921ce6138a1e2f"
+    }
+  ],
+  "proved_against": {
+    "commit": "287449463f42c2a0e55464b4c8230a9f6fa05dbe",
+    "note": "The selected-profile evidence join self-declares this checkout head. The run predates ADR 0030 (rooms are a composition; parallel admission spine deleted) and ADR 0031 (GoalRun execution composes thread orchestration)."
+  },
+  "import_provenance": "Tracked into version control by commit f3926f467 as part of importing a previously gitignored program directory. The bundle was already stale at import: its bound child record sha256 444b1df6c0bf240534765853cb4ddfa0f79f007c1808fea16b34796489be444f does not match the current m4-room-graph-truth-and-product-projection record bytes.",
+  "supersession_reason": [
+    "ADR 0030 restated the M4 aggregate contract after this run finished; the literal was never regenerated from a finished run at any post-ADR revision.",
+    "An independent fresh-process run of verify-m4-outcome-room-system-spine.mjs at commit 219154326 completed 96/98 with exit code 1, so the retained M4_OUTCOME_ROOM_SYSTEM_SPINE_EXIT=0 literal does not describe the current tree.",
+    "Deny-by-default authentication (commit a5d88f3da) made anonymous refusals uniform across /v1 namespaces; the two anonymous-refusal assertions this bundle's run satisfied proved the now-retired route-specific refusal shape."
+  ],
+  "nonclaim": "Tracked-ness is not validity, and retention is not closure. This bundle asserts nothing about the current state of m4-outcome-room-system-spine. A future closure requires a new finished fresh-process run, independent review, a new content-bound literal, and the typed active-to-verified transition; none of these may reuse, restore, or re-stamp these bytes."
+}
