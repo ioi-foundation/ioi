@@ -11,15 +11,15 @@
   },
   "universe": {
     "rule": "Subjects are discovered from the filesystem under the roots declared in tools/lib/canon-universe.mjs. No index file bounds the universe, so a new canon file is a detected addition rather than a silent omission.",
-    "discovered_subject_count": 1258,
-    "mappable_subject_count": 584,
-    "attachment_count": 674
+    "discovered_subject_count": 1219,
+    "mappable_subject_count": 576,
+    "attachment_count": 643
   },
   "classification_counts": {
     "non_build_doctrine": 55,
     "unresolved_canon_gap": 8,
     "actively_sequenced": 177,
-    "planned": 104,
+    "planned": 96,
     "future_gated": 1,
     "missing_implementation_coverage": 1,
     "conformance_only": 19
@@ -28,7 +28,7 @@
     "added": [],
     "removed": [],
     "changed": [],
-    "unchanged_count": 1258
+    "unchanged_count": 1219
   },
   "review_required": {
     "stages": [],
