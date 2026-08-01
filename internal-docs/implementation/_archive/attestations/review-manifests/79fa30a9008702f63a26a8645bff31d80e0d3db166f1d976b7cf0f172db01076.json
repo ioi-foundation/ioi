@@ -1,0 +1,108 @@
+{
+  "evidence_format": "ioi.program.canon_review_manifest.v1",
+  "manifest_role": "Content-bound enumeration of every canon subject pending baseline review, with the disposition and written reasoning of one accountable reviewer. Presenting this manifest to --accept advances the baseline. It closes no work item, certifies no stage, and changes no status.",
+  "claim": "canon_drift_reviewed_only",
+  "reviewer_ref": "reviewer://codex/post-commit-program-fingerprint-convergence",
+  "emitted_at_commit": "unknown",
+  "instructions": [
+    "Fill reviewer_ref, and per subject a disposition (unaffected | successor_required | blocked) and a review_note that argues it from what actually changed.",
+    "`unaffected` must be ARGUED. Say why this subject's change does not reach the stages, modules, and work items named in review_required below. An unargued `unaffected` is a mechanical accept with extra steps.",
+    "Never rewrite a verified closure to absorb a semantic change: disposition it `successor_required` and open a successor record that states what must now be proven.",
+    "Do not edit the ids or digests. They bind this manifest to one exact revision, and --accept refuses if they drift."
+  ],
+  "review_required": {
+    "stages": [
+      "M0"
+    ],
+    "modules": [
+      "adversarial-proof-matrix",
+      "mechanism-gates",
+      "proof-and-evidence",
+      "runtime-trust-boundary"
+    ],
+    "work_items": [
+      "m0-literal-exit-evidence-contract",
+      "m0-program-control-selected-profile-exit-proof",
+      "m0-route-final-invoker-pg-census-maintenance",
+      "m0-selected-profile-baseline-evidence-and-claim-lock"
+    ],
+    "conformance_targets": [],
+    "contract_families": []
+  },
+  "subject_count": 9,
+  "subject_set_sha256": "29eeb957f14b0479878bafdfdceae15aaa83dde606fd54dbe63ed895b7859efd",
+  "subjects": [
+    {
+      "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+      "change": "changed",
+      "baseline_sha256": "3abea7b79a7966ae13ebcaaf32932e9cf39a43b1a36f0129a9a997bf54cf61bb",
+      "tree_sha256": "a5387971cdaa4f866c3f2c0945a5bdab93223d96813ae32a2c9b2972d99ee5bd",
+      "disposition": "unaffected",
+      "review_note": "The blocker ledger changed only because files that were untracked during the prior projection became tracked in the program commit and therefore entered the program fingerprint; no blocker state or closure premise changed."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/current-baselines.json",
+      "change": "changed",
+      "baseline_sha256": "62a4936b79af75db9eb21f4cbf705b13d423db603c39e82b642a731a66abf897",
+      "tree_sha256": "cfbfcefb5d4687fc9a396fcc2ff8a5f0c91cb81f3f3caf28a2ad654d2500b007",
+      "disposition": "unaffected",
+      "review_note": "The current-baselines projection now binds the complete post-commit tracked file set; the selected M0 baseline, historical literal, and every stage status remain unchanged."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/effect-census.json",
+      "change": "changed",
+      "baseline_sha256": "b725b0ded90710e92a878b55d5e727fc6633c17ebc2f14543492338815786b44",
+      "tree_sha256": "b7764c1d023ca1266f1e590e218adcaa6d158157544685afdc3dc847d8ad973c",
+      "disposition": "unaffected",
+      "review_note": "The effect census changed only in its enclosing program fingerprint after the new program files became tracked; route identities, effects, and final-invoker classifications are byte-equivalent."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+      "change": "changed",
+      "baseline_sha256": "13ae65275e520bb291b9cbe553b3f919f9118f04ebea88c4954b77215f90e6b7",
+      "tree_sha256": "5ef04906d8082821f8f1fe2a48b5c299978f271a16efc307ccc9045e46ee14ef",
+      "disposition": "unaffected",
+      "review_note": "The M0 exit report projects the converged tracked-program fingerprint without changing its verified result, claim boundary, retained literal reference, or evidence status."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/manifest.json",
+      "change": "changed",
+      "baseline_sha256": "d469c2e8eac4edc8c7810508933dbd5c1e27a73bd4565f3a06ccc8c51800e50a",
+      "tree_sha256": "2dc99d3ce378d53e55b62fdaf46a1daf64b772531dc127419403764b7f583f4f",
+      "disposition": "unaffected",
+      "review_note": "The manifest rebinds hashes for the same nine deterministic projections after the new files entered Git's tracked set; it advances no proof, status, or literal."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+      "change": "changed",
+      "baseline_sha256": "5d49fb791b07f0ffeccccf0a689f374b02d41d89945bdbe1ad4570929c0515b4",
+      "tree_sha256": "a1de2e44b4db2a6a15d0c03b558914d318fcd1facf3078ec22158382843f7ee9",
+      "disposition": "unaffected",
+      "review_note": "The PG gate map differs only by the converged program fingerprint; no PG assignment, threshold, gate state, or disposition changed."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+      "change": "changed",
+      "baseline_sha256": "479b86943114fc7157ddee5c716f300025adec80781d58dcebe1ea9f262cad96",
+      "tree_sha256": "40e7aabaf957733b8236351a5bb93ad4e1f535dc010757cc2b6168bb1f3aac47",
+      "disposition": "unaffected",
+      "review_note": "The evidence index updates projection hashes for the post-commit tracked set while every retained evidence path and literal byte remains unchanged."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/release-ladder.json",
+      "change": "changed",
+      "baseline_sha256": "51fd51b7122c6bf763dd0384a626c9f27230c99dd9ab15dc78d097d121dcc74c",
+      "tree_sha256": "bbf9c2bf4cab57475f403eedd63867af34c49f0cf68eeee8b6495dd80238343d",
+      "disposition": "unaffected",
+      "review_note": "The release ladder rebinds the post-commit program fingerprint only; M0 remains verified, M4 remains active, and no advancement is asserted."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/selected-profile.json",
+      "change": "changed",
+      "baseline_sha256": "5bcb08a9897fa7038b5994c1943c781548ccb7f27795d87ce60d465ca8e53c5b",
+      "tree_sha256": "fa8580b3322dd6faf74dc0a21161710653974628f86bdd2c554acf0c9b586912",
+      "disposition": "unaffected",
+      "review_note": "The selected profile's program fingerprint now includes the newly tracked records and freeze manifest, but its profile, claim, evidence reference, and status are unchanged."
+    }
+  ]
+}
