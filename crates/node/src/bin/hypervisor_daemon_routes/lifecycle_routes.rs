@@ -7,8 +7,10 @@
 //! read/write the unified `state_dir` (`DaemonState::data_dir`) in the
 //! Agentgres record format the kernel planners expect.
 //!
-//! Lifecycle routes are unauthenticated (the JS daemon contract issues them with
-//! no bearer token), so handlers here do NOT call `authorize`.
+//! Lifecycle handlers do not each call `authorize`; the daemon's inbound auth
+//! middleware protects every `/v1/*` route by default when authentication policy
+//! is enforced. Only the explicit bootstrap/readiness and independently
+//! token-authenticated webhook paths bypass that principal gate.
 //!
 //! See `internal-docs/implementation/hypervisor-unified-rust-daemon-lifecycle-migration.md`.
 
@@ -13920,36 +13922,40 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
     None
 }
 
-/// Axum middleware: when auth-policy.require_authentication is ON, reject unauthenticated requests to
-/// the hypervisor data plane (401). Auth endpoints + non-hypervisor paths are always exempt so a
-/// client can still log in. Default policy is OFF → pure passthrough (local runtime untouched).
+const AUTH_GATE_EXEMPT_PATHS: &[&str] = &[
+    "/v1/hypervisor/auth/login",
+    "/v1/hypervisor/auth/logout",
+    "/v1/hypervisor/auth/whoami",
+    "/v1/hypervisor/auth/bootstrap",
+    "/v1/hypervisor/auth/bootstrap-status",
+    "/v1/hypervisor/auth/oidc/start",
+    "/v1/hypervisor/auth/oidc/callback",
+    "/v1/hypervisor/editor-targets",
+    "/v1/hypervisor/cron-preview",
+];
+
+fn auth_gate_exempt_path(path: &str) -> bool {
+    // Non-API surfaces retain their own protocol posture. Every present or
+    // future `/v1/*` namespace is principal-gated unless it is named here or
+    // authenticates through the automation webhook's exact trigger token.
+    if path != "/v1" && !path.starts_with("/v1/") {
+        return true;
+    }
+    AUTH_GATE_EXEMPT_PATHS.contains(&path)
+        || (path.starts_with("/v1/hypervisor/automations/") && path.ends_with("/webhook"))
+}
+
+/// Axum middleware: when auth policy is enforced, reject unauthenticated requests
+/// to every `/v1/*` API namespace (401). Only the explicit login/bootstrap/readiness
+/// paths and independently token-authenticated automation webhooks are exempt.
+/// Default policy is OFF, preserving the local-development posture.
 pub(crate) async fn auth_gate(
     State(st): State<Arc<DaemonState>>,
     req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> Response {
     let path = req.uri().path().to_string();
-    // Exempt ONLY the login-flow endpoints (so a client can authenticate/bootstrap) + the readiness
-    // probe — NOT /auth/policy or /principals, which must require auth so an unauthenticated caller
-    // can't disable enforcement or manage users.
-    const EXEMPT: &[&str] = &[
-        "/v1/hypervisor/auth/login",
-        "/v1/hypervisor/auth/logout",
-        "/v1/hypervisor/auth/whoami",
-        "/v1/hypervisor/auth/bootstrap",
-        "/v1/hypervisor/auth/bootstrap-status",
-        "/v1/hypervisor/auth/oidc/start",
-        "/v1/hypervisor/auth/oidc/callback",
-        "/v1/hypervisor/editor-targets",
-        "/v1/hypervisor/cron-preview",
-    ];
-    // The webhook trigger endpoint authenticates by its own per-automation trigger token (verified
-    // in the handler), so it bypasses the session/principal gate — external senders have no session.
-    let is_webhook_trigger =
-        path.starts_with("/v1/hypervisor/automations/") && path.ends_with("/webhook");
-    let exempt = !path.starts_with("/v1/hypervisor/")
-        || EXEMPT.contains(&path.as_str())
-        || is_webhook_trigger;
+    let exempt = auth_gate_exempt_path(&path);
     if !exempt && auth_enforced(&st.data_dir, req.headers()) {
         if resolve_principal(&st.data_dir, req.headers()).is_none() {
             let needs_bootstrap = !login_possible(&st.data_dir);
@@ -13957,6 +13963,42 @@ pub(crate) async fn auth_gate(
         }
     }
     next.run(req).await
+}
+
+#[cfg(test)]
+mod auth_gate_tests {
+    use super::{auth_gate_exempt_path, AUTH_GATE_EXEMPT_PATHS};
+
+    #[test]
+    fn every_v1_namespace_is_denied_by_default_outside_the_exact_exemption_list() {
+        for path in AUTH_GATE_EXEMPT_PATHS {
+            assert!(
+                auth_gate_exempt_path(path),
+                "explicit exemption must remain reachable: {path}"
+            );
+        }
+        assert!(auth_gate_exempt_path(
+            "/v1/hypervisor/automations/automation-1/webhook"
+        ));
+        assert!(auth_gate_exempt_path("/healthz"));
+
+        for path in [
+            "/v1",
+            "/v1/hypervisor/secrets",
+            "/v1/hypervisor/auth/policy",
+            "/v1/goal-orchestration/goal-runs",
+            "/v1/goal-orchestration/outcome-rooms",
+            "/v1/threads/thread-1/events",
+            "/v1/runs/run-1/events",
+            "/v1/applications/ioi-ai/future-surface",
+            "/v1/future-namespace/resource",
+        ] {
+            assert!(
+                !auth_gate_exempt_path(path),
+                "authority.unverified_final_invoker_calls must remain 0; {path} escaped the principal gate"
+            );
+        }
+    }
 }
 
 /// POST /v1/hypervisor/auth/login — local credential login. Returns an opaque session token (the
