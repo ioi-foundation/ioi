@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-08-01",
-  "build_fingerprint": "a0d37f0555de11a20e1b96080a932b1a7297446e20d812ec18b27ee4efb5381a",
+  "build_fingerprint": "6f4490175ec908cf36f1671cab4c736f724f0c7288b0deb487f6ebc271057c54",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -414,7 +414,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "c6aa28fbd55b9760ace3d27bcc84f3c5d6b164138fc794b5674421c801143d73",
+        "source_anchor_sha256": "16f924055ed7eb8427196983d073257ca9115376da13b7a914fccf6e4c47003b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
         "symbol": "root.sync_all"
       },
@@ -428,7 +428,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "c6aa28fbd55b9760ace3d27bcc84f3c5d6b164138fc794b5674421c801143d73",
+        "source_anchor_sha256": "16f924055ed7eb8427196983d073257ca9115376da13b7a914fccf6e4c47003b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
         "symbol": "root.sync_all"
       },
@@ -442,7 +442,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "c6aa28fbd55b9760ace3d27bcc84f3c5d6b164138fc794b5674421c801143d73",
+        "source_anchor_sha256": "16f924055ed7eb8427196983d073257ca9115376da13b7a914fccf6e4c47003b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
         "symbol": "root.sync_all"
       },
@@ -456,7 +456,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "c6aa28fbd55b9760ace3d27bcc84f3c5d6b164138fc794b5674421c801143d73",
+        "source_anchor_sha256": "16f924055ed7eb8427196983d073257ca9115376da13b7a914fccf6e4c47003b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
         "symbol": "root.sync_all"
       },

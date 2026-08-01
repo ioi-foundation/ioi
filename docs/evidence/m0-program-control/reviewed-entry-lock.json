@@ -12468,12 +12468,12 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "c6aa28fbd55b9760ace3d27bcc84f3c5d6b164138fc794b5674421c801143d73",
+        "source_anchor_sha256": "16f924055ed7eb8427196983d073257ca9115376da13b7a914fccf6e4c47003b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
         "symbol": "root.sync_all"
       },
       "handler": "outcome_room_system_routes::handle_collaborative_work_graph",
-      "handler_anchor_sha256": "28a9e7b39c7fe321f15b0d87fa9d666ec19005f70b2d45901be3b0ee5145444a",
+      "handler_anchor_sha256": "30f862b43c8236d5fae1dfcb63d74dfb247c35e789927045f664d78375fc8d63",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
       "handler_source_symbol": "handle_collaborative_work_graph",
@@ -12625,12 +12625,12 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "c6aa28fbd55b9760ace3d27bcc84f3c5d6b164138fc794b5674421c801143d73",
+        "source_anchor_sha256": "16f924055ed7eb8427196983d073257ca9115376da13b7a914fccf6e4c47003b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
         "symbol": "root.sync_all"
       },
       "handler": "outcome_room_system_routes::handle_discussion_projection",
-      "handler_anchor_sha256": "9c8508e3f620aea39a264d68afae468fd8a4076a6cf3166a0f3e3dcc299c220f",
+      "handler_anchor_sha256": "1e967a34356dcb5d92cba76d35a42fde3310f74f25313924a9082f03da3c9785",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
       "handler_source_symbol": "handle_discussion_projection",
@@ -12782,12 +12782,12 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "c6aa28fbd55b9760ace3d27bcc84f3c5d6b164138fc794b5674421c801143d73",
+        "source_anchor_sha256": "16f924055ed7eb8427196983d073257ca9115376da13b7a914fccf6e4c47003b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
         "symbol": "root.sync_all"
       },
       "handler": "outcome_room_system_routes::handle_product_projection",
-      "handler_anchor_sha256": "199eda4151683f1146a1a47cfa02ca4f281eb666871d5159d238df0ea5dceaf8",
+      "handler_anchor_sha256": "7ad60194432427700755eb810412262ec44164523c8a3ebdae273a84311f5e66",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
       "handler_source_symbol": "handle_product_projection",
@@ -12939,12 +12939,12 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "c6aa28fbd55b9760ace3d27bcc84f3c5d6b164138fc794b5674421c801143d73",
+        "source_anchor_sha256": "16f924055ed7eb8427196983d073257ca9115376da13b7a914fccf6e4c47003b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
         "symbol": "root.sync_all"
       },
       "handler": "outcome_room_system_routes::handle_replay",
-      "handler_anchor_sha256": "9592d91edb2721dba093011f57168105607eb852c1e7e2241c27ff32e7aeee51",
+      "handler_anchor_sha256": "3f94144fcf58677750253496fd8e37ef921f843eda45d04c46a848a4b0742e3b",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs",
       "handler_source_symbol": "handle_replay",
@@ -47253,7 +47253,7 @@
         "symbol": "std::fs::write"
       },
       "handler": "goalrun_routes::handle_goal_run_outcome_delta_create",
-      "handler_anchor_sha256": "552c8165909ca4f19ec94ee9133210618cca8484670180319a99f41a88e47ae0",
+      "handler_anchor_sha256": "42602608bc4a00bd08f37efc14b74fee99d2ed49d2e4939681ae91c07b4cbcb3",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
       "handler_source_symbol": "handle_goal_run_outcome_delta_create",
@@ -47528,7 +47528,7 @@
         "symbol": "std::fs::rename"
       },
       "handler": "goalrun_routes::handle_goal_run_result_create",
-      "handler_anchor_sha256": "fc0b7799cbdd8b33aa6a0240d3e2115b784b2e451a5ca100a8231b089f1d55b4",
+      "handler_anchor_sha256": "12041f377c1fff24325b5adca4da780c0ab32e6b48a418cf12786d73b06d9b96",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
       "handler_source_symbol": "handle_goal_run_result_create",
@@ -48307,7 +48307,7 @@
         "symbol": "directory.sync_all"
       },
       "handler": "outcome_room_routes::handle_outcome_room_create",
-      "handler_anchor_sha256": "c11131477617447764389e3ad9929c51633a97deaf913e8f1e2bdcb94026d945",
+      "handler_anchor_sha256": "60b19acbe295c56e4454e14836a88fdac1191f3bc0f74481a82caaaa2a62fe3a",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
       "handler_source_symbol": "handle_outcome_room_create",
@@ -48461,7 +48461,7 @@
         "symbol": "persist_record_durable"
       },
       "handler": "outcome_room_routes::handle_outcome_room_attach_goal_run",
-      "handler_anchor_sha256": "409864eb691b88b513ff5d31aad017bd37ba74660299a57d680905088e9011d0",
+      "handler_anchor_sha256": "cdf10a9d982cc600de83d47778c1aa5127d9a1f464756ca91ab395c4646049d3",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
       "handler_source_symbol": "handle_outcome_room_attach_goal_run",
@@ -48642,7 +48642,7 @@
         "symbol": "persist_record_durable"
       },
       "handler": "outcome_room_routes::handle_outcome_room_detach_goal_run",
-      "handler_anchor_sha256": "a57d8e693bb726c83b129b706d5d5b3ed105f68f6204c2493aa5630a692615b6",
+      "handler_anchor_sha256": "2d3875d718ec96248c25a396e48d78b328e4985ae4ccbe13bcbb7ec29e9252cf",
       "handler_resolution": "transitive_function_closure",
       "handler_source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
       "handler_source_symbol": "handle_outcome_room_detach_goal_run",
@@ -141025,10 +141025,10 @@
       {
         "epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
         "identity_set_sha256": "c91155d27942082beedc425184583f2c2f0c92c6744bea6dd34b1b33a4f18965",
-        "provenance": "Same-day append-visible review partition after the deny-by-default /v1 auth-gate defect fix and successor-record filing: 291 reviewed discovery/final-invoker commitments changed, 1421 entries form the complete current partition, and classifications/owners/blockers remain explicit. No retained literal or M4 claim changed.",
+        "provenance": "Same-day append-visible review partition after the deny-by-default /v1 auth-gate defect fix and successor-record filing: 291 reviewed discovery/final-invoker commitments changed, 1421 entries form the complete current partition, and classifications/owners/blockers remain explicit. No retained literal or M4 claim changed. Re-anchored 2026-08-01 (second pass): the agentgres::refs constructor migration moved outcome-room-system handler and final-invoker source anchors with byte-identical ref output and no identity, method, path, or classification change; each affected entry was materially re-reviewed against its new anchor by agent://claude-fable-5/session-0d2b65bc.",
         "reviewed_as_of": "2026-08-01",
         "reviewed_entry_count": 1421,
-        "reviewed_entry_set_sha256": "4307425cd264d433b3cfdb683a1714e41341f2e10bde143ea013a96a0148c0d0"
+        "reviewed_entry_set_sha256": "67af03a8d64416b5d86338b691c009ad1ce459b2a9d2938008dd9567e99ed290"
       }
     ],
     "review_groups": [

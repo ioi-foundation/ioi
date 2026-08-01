@@ -347,7 +347,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022"
+      "source_sha256": "9d839d9e78ad1139156c1d05e5e02b8572466932e5033b6c76ff5db88f72fd58"
     },
     {
       "role": "landed owner canon",
@@ -1657,17 +1657,17 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "9ff91f354ab3682c6d9e39a9604358b4a41ba810cb059312f0251070195f9827",
+    "program_source_material_sha256": "f02514a71ca358d3fce3c10cfe3ecf4eb323eaaec905b44d7dfa041a18d7f0ea",
     "review_epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
-    "review_lock_sha256": "0d163dfcb3f48f454def1d5ac5bd045f35a06e4d45872234ce1b604e4df3f9e6",
+    "review_lock_sha256": "909d06a7160849a9131d691d5f605a20af7533bfe25fee32b8e41be6fc3c0bdb",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
     "reviewed_as_of": "2026-08-01",
-    "reviewed_entry_set_sha256": "4307425cd264d433b3cfdb683a1714e41341f2e10bde143ea013a96a0148c0d0",
+    "reviewed_entry_set_sha256": "67af03a8d64416b5d86338b691c009ad1ce459b2a9d2938008dd9567e99ed290",
     "reviewed_identity_set_sha256": "c91155d27942082beedc425184583f2c2f0c92c6744bea6dd34b1b33a4f18965",
     "reviewer_label": "reviewer://ioi/m0-program-control-m4-agentgres-composition-review",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "eeef85dc3bf377358cd8da73fdf9e4ad8818640ae43d0a34d52c51820168831e",
+    "snapshot_head_entry_sha256": "65833d3a243c9eec4c666107d6099404de548e078fd356972787fc88b1f773cb",
     "snapshot_head_sequence": 29,
     "snapshot_predecessor_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
