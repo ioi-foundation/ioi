@@ -8616,6 +8616,69 @@
       "baseline_subject_set_sha256_before": "be79ba5aa52d12ab31548e9ff466d1a4aa67b52e2de3e7a29f5790419c9bf1e8",
       "baseline_subject_set_sha256_after": "563a48d66f203a3df6ac80de3e216a72dfe2098c3d440f97f86dff0836f17f1e",
       "sequence": 24
+    },
+    {
+      "accepted_at_commit": "125dc08861be099356c0a5fe87fe60c16ecc2083",
+      "reviewer_ref": "agent://claude-fable-5/session-0d2b65bc/m4-end-state-evidence-doctrine",
+      "claim": "canon_drift_reviewed_only",
+      "review_manifest_content_address": "_archive/attestations/review-manifests/5a2cc2ed0a783c9465d17103a9043ffd54d02432b44b0e13549211e4c6dd18cd.json",
+      "review_manifest_path_at_acceptance": "/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/lane-c-manifest.json",
+      "review_manifest_path_is_not_authoritative": true,
+      "review_manifest_sha256": "5a2cc2ed0a783c9465d17103a9043ffd54d02432b44b0e13549211e4c6dd18cd",
+      "subject_count": 1,
+      "dispositions": {
+        "unaffected": 1
+      },
+      "subjects_reviewed": [
+        {
+          "id": "docs/architecture/_meta/source-of-truth-map.md",
+          "change": "changed",
+          "baseline_sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022",
+          "tree_sha256": "9d839d9e78ad1139156c1d05e5e02b8572466932e5033b6c76ff5db88f72fd58",
+          "disposition": "unaffected"
+        }
+      ],
+      "review_required": {
+        "stages": [
+          "M0",
+          "M11",
+          "M14",
+          "M6",
+          "M9"
+        ],
+        "modules": [
+          "cooperation",
+          "docs-and-comms",
+          "embodied",
+          "mechanism-gates",
+          "network-and-l1",
+          "product-surface-ux-proof",
+          "product-ux",
+          "proof-and-evidence",
+          "runtime-fabric",
+          "runtime-trust-boundary",
+          "supply-and-commerce",
+          "wallet-authority"
+        ],
+        "work_items": [
+          "ecosystem-assurance-and-public-claim-estate",
+          "m0-canon-owner-coverage-and-orphan-verifier",
+          "m0-literal-exit-evidence-contract",
+          "m0-program-control-selected-profile-exit-proof",
+          "m0-selected-profile-baseline-evidence-and-claim-lock",
+          "m0-source-disposition-and-single-sequencer-verifier",
+          "m0-work-item-contract-completeness-and-owner-lint",
+          "m11-canonical-embodied-contract-alignment",
+          "m6-reference-shell-disposition-and-depth-ledger",
+          "m9-selected-profile-aggregate-exit-and-claim-publication",
+          "sdk-cli-adk-odk-builder-journey"
+        ],
+        "conformance_targets": [],
+        "contract_families": []
+      },
+      "baseline_subject_set_sha256_before": "563a48d66f203a3df6ac80de3e216a72dfe2098c3d440f97f86dff0836f17f1e",
+      "baseline_subject_set_sha256_after": "cfa3fddfc2a6746d1edf56fc4c48ff670407a0647d7c0e142db3169922a32586",
+      "sequence": 25
     }
   ],
   "rule": "Append-only. One entry per baseline advance. Each entry binds the review manifest by digest, names an accountable reviewer, and enumerates every canon subject whose baseline identity moved, with the disposition its reviewer recorded. An entry claims that drift was reviewed and nothing else: no implementation proof, no stage closure, no status change. Entries are never rewritten or reordered; the sequence is dense."

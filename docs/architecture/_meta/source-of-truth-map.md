@@ -476,6 +476,33 @@ copy procedure cannot preserve `system_id` by declaration.
   execution inputs only; promote their settled outcomes into canonical docs or
   ADRs before making them durable references.
 
+## Retained Evidence And Literal Exits
+
+Retained evidence is an authority artifact and obeys the same ownership
+discipline as any other source of truth. Three invariants govern it; each was
+written after a measured failure (a 62-literal audit found 33 of 34
+aggregate-to-record bindings stale while every check stayed green, and six
+imported binding sets were already stale at the commit that tracked them).
+
+- **An aggregate literal's child and dependency bindings MUST be content-bound
+  to the current record bytes.** A binding whose recorded digest does not match
+  the bytes it names is not evidence — not of the child, not of the aggregate,
+  not of the stage. A stale binding is dispositioned or superseded by a fresh
+  finished run; it is never edited into agreement.
+- **Tracked-ness is not validity.** Committing, importing, or versioning a
+  retained artifact asserts nothing about closure. Evidence is valid only
+  through its content bindings and the finished fresh-process run that produced
+  it; retention (including deliberate retention of stale or negative evidence)
+  asserts nothing beyond "these bytes existed."
+- **Every retained literal declares the commit its claim was proved against.**
+  A literal whose proof revision cannot be resolved cannot be adjudicated when
+  an accepted change later moves a contract family it depends on, so the
+  declaration is part of the literal's provenance, not an optional courtesy.
+
+A scheme, a path convention, or a name that merely resembles an authority
+artifact grants nothing: refusal-tested machine checks, not resemblance, decide
+whether evidence binds.
+
 ## Decision History Policy
 
 Accepted architecture decision history belongs in
