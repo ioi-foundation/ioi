@@ -65,6 +65,34 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-m4proof-${{ hashFiles('**/Cargo.lock') }}
 
+      # Environmental provisioning (owner directive 2026-08-01): the verifier
+      # hard-gates on a live wallet.network fixture and a live qwen2.5:7b model
+      # route. Provision, never relax: the first CI run crashed at
+      # M4_ENVIRONMENTAL_PREREQUISITE_FAILED=wallet_network_fixture_unready
+      # because the guardian cargo-builds the fixture cold inside its
+      # readiness window.
+      - name: Prebuild the daemon and the wallet.network fixture binaries
+        run: |
+          cargo build --bin hypervisor-daemon
+          cargo test -p ioi-cli --test hypervisor_wallet_network_fixture --no-run
+
+      - name: Cache the qwen2.5:7b model
+        uses: actions/cache@v3
+        with:
+          path: ~/.ollama/models
+          key: ollama-qwen2.5-7b-v1
+
+      - name: Provision Ollama and the pinned model route
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          (ollama serve > /tmp/ollama-serve.log 2>&1 &)
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:11434/api/tags > /dev/null && break
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:11434/api/tags > /dev/null
+          ollama pull qwen2.5:7b
+
       - name: Run the M4 aggregate verifier on an isolated fresh plane
         run: |
           set -o pipefail
@@ -75,6 +103,15 @@ jobs:
           grep -qx '98/98 passed' m4-aggregate.log
           grep -Eq '^M4_DAEMON_BINARY_SHA256=sha256:[0-9a-f]{64}$' m4-aggregate.log
           grep -q 'M4 outcome-room system spine: PASS' m4-aggregate.log
+
+      - name: Label an environmental prerequisite failure (never accepts it)
+        if: failure()
+        run: |
+          if grep -q '^M4_ENVIRONMENTAL_PREREQUISITE_FAILED=' m4-aggregate.log; then
+            echo "::error::environmental prerequisite failure — provisioning gap, not a proof regression: $(grep -m1 '^M4_ENVIRONMENTAL_PREREQUISITE_FAILED=' m4-aggregate.log)"
+          else
+            echo "::error::proof failure — the verifier ran and refused; read the retained log artifact"
+          fi
 
       - name: Retain the raw proof log
         if: always()

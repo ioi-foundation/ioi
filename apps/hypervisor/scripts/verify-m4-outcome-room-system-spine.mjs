@@ -6434,7 +6434,23 @@ try {
   completed = true;
 } catch (error) {
   console.error("VERIFIER CRASH:", error);
-  process.exitCode = String(error?.message || error).startsWith("BLOCKED:")
+  // Environmental prerequisite failures are labeled so a reader (or the CI
+  // failure-labeling step) can tell "the environment could not host the
+  // proof" from "the proof ran and an assertion failed". The label NEVER
+  // relaxes anything: the exit stays nonzero and the count enforcement still
+  // refuses — provisioning is the fix, not tolerance.
+  const crashText = String(error?.message || error);
+  const environmental = [
+    ["wallet.network fixture did not become ready", "wallet_network_fixture_unready"],
+    ["isolated daemon never became healthy", "isolated_daemon_unready"],
+    ["isolated serve never became healthy", "isolated_serve_unready"],
+    ["model_route", "model_route_unavailable"],
+    ["daemon binary", "daemon_binary_unavailable"],
+  ].find(([needle]) => crashText.includes(needle));
+  if (environmental) {
+    console.error(`M4_ENVIRONMENTAL_PREREQUISITE_FAILED=${environmental[1]}`);
+  }
+  process.exitCode = crashText.startsWith("BLOCKED:")
     ? 2
     : 1;
 } finally {
