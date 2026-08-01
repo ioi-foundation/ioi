@@ -147,6 +147,59 @@ export function partialSuccessors(hold) {
   return hold?.required_successor?.[PARTIAL_KEY] ?? [];
 }
 
+// --- per-predecessor claim-coverage dispositions (owner ruling 2026-08-01) ---
+//
+// Canon-acceptance holds auto-assign ONE required successor to every bound
+// predecessor with no check that the successor's claim covers each
+// predecessor's claim. That is how a room-truth closure ended up waiting on an
+// execution-seam proof: boundRecords ∪ verifiedByAcceptance derives the
+// predecessor set, and the singular successor is imposed on all of it.
+//
+// A hold may therefore carry `predecessor_coverage_dispositions`:
+//
+//   [ { "predecessor": "<work_item_id>",
+//       "coverage": "released" | "covered",
+//       "test": "<the decidable test applied>",
+//       "reasoning": "<why the successor's claim does or does not cover this predecessor's claim>",
+//       "ruled_by": "<the owner ruling that authorized it>",
+//       "recorded_at_commit": "<sha>" } ]
+//
+// A `released` disposition says: the required successor's claim does NOT cover
+// this predecessor's claim, so this hold stops qualifying that one closure.
+// The predecessor STAYS in predecessor_records — the disposition rides beside
+// the derived set, never edits it — so hold-predecessor-drift keeps firing on
+// any bare removal, justified or not. Releasing un-qualifies; it never deletes.
+// A `covered` disposition is an explicit positive coverage judgement; absence
+// of a disposition means covered (the pre-lane behavior, unchanged).
+//
+// A release changes no status, discharges no hold, and asserts nothing about
+// the predecessor's own proof. It is enforced, not decorative: the checker
+// rejects a release without reasoning, a ruling, and a named test, a
+// disposition over a predecessor the hold does not name, and duplicates.
+export const COVERAGE_KEY = "predecessor_coverage_dispositions";
+export const COVERAGE_STATES = new Set(["released", "covered"]);
+
+export function coverageDispositions(hold) {
+  return hold?.[COVERAGE_KEY] ?? [];
+}
+
+export function releasedPredecessors(hold) {
+  return new Set(
+    coverageDispositions(hold)
+      .filter((d) => d?.coverage === "released")
+      .map((d) => d?.predecessor)
+      .filter(Boolean),
+  );
+}
+
+// The predecessors a hold still QUALIFIES: the derived set minus owner-ruled
+// released ones. Every projection/refusal consumer asks this, so a release is
+// honored uniformly or not at all.
+export function effectivePredecessors(hold) {
+  const released = releasedPredecessors(hold);
+  return (hold.predecessor_records ?? []).filter((id) => !released.has(id));
+}
+
 export function emptyLedger() {
   return {
     evidence_format: FORMAT,
@@ -197,10 +250,11 @@ export function openHolds(ledger = readHoldLedger()) {
 
 // Every open hold that qualifies this record — either because the record is one
 // of the hold's predecessor closures, or because the record IS the withdrawn
-// verification the hold was opened over.
+// verification the hold was opened over. A predecessor released by an
+// owner-ruled coverage disposition is no longer qualified by that hold.
 export function openHoldsForRecord(workItemId, ledger = readHoldLedger()) {
   return openHolds(ledger).filter((h) =>
-    (h.predecessor_records ?? []).includes(workItemId)
+    effectivePredecessors(h).includes(workItemId)
   );
 }
 
@@ -224,7 +278,7 @@ export function projectedStatus(workItemId, status, ledger = readHoldLedger()) {
 export function qualifiedRecords(ledger = readHoldLedger()) {
   const out = new Map();
   for (const hold of openHolds(ledger)) {
-    for (const id of hold.predecessor_records ?? []) {
+    for (const id of effectivePredecessors(hold)) {
       if (!out.has(id)) out.set(id, []);
       out.get(id).push(hold.hold_id);
     }

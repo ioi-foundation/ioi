@@ -41,12 +41,16 @@ import {
   report,
 } from "./lib/estate.mjs";
 import {
+  coverageDispositions,
+  COVERAGE_STATES,
   derivedState,
   DIRECT_KEY,
+  effectivePredecessors,
   emptyLedger,
   graphCoverage,
   HOLD_STATES,
   isOpen,
+  openHoldsForRecord,
   PARTIAL_KEY,
   partialSuccessors,
   QUALIFIED_STATUS,
@@ -548,6 +552,57 @@ export function evaluate({ ledger, required, byId, statusOf }) {
       }
     }
 
+    // --- per-predecessor coverage dispositions: a release is a recorded
+    // coverage judgement, never a bare removal. The predecessor set itself
+    // stays derived — drift keeps firing on removals — and every disposition
+    // must name a predecessor the hold actually qualifies, carry its test,
+    // reasoning, and ruling, and appear at most once.
+    const seenCoverage = new Set();
+    for (const disposition of coverageDispositions(hold)) {
+      const predecessor = disposition?.predecessor ?? null;
+      if (!disposition?.coverage || !COVERAGE_STATES.has(disposition.coverage)) {
+        findings.push(
+          finding(
+            "error",
+            "hold-coverage-invalid",
+            `${where}: coverage disposition for ${predecessor ?? "(unnamed)"} declares "${disposition?.coverage ?? "(none)"}"; coverage is one of ${[...COVERAGE_STATES].join(" | ")}`,
+          ),
+        );
+      }
+      if (!predecessor || !(hold.predecessor_records ?? []).includes(predecessor)) {
+        findings.push(
+          finding(
+            "error",
+            "hold-coverage-not-a-predecessor",
+            `${where}: coverage disposition names ${predecessor ?? "(unnamed)"}, which this hold does not qualify. A disposition may judge the closures the hold names and no others.`,
+          ),
+        );
+        continue;
+      }
+      if (seenCoverage.has(predecessor)) {
+        findings.push(
+          finding(
+            "error",
+            "hold-coverage-duplicate",
+            `${where}: ${predecessor} carries more than one coverage disposition; it is judged once`,
+          ),
+        );
+      }
+      seenCoverage.add(predecessor);
+      if (
+        disposition.coverage === "released" &&
+        (!disposition.reasoning || !disposition.ruled_by || !disposition.test)
+      ) {
+        findings.push(
+          finding(
+            "error",
+            "hold-coverage-unexplained",
+            `${where}: release of ${predecessor} lacks ${["test", "reasoning", "ruled_by"].filter((k) => !disposition[k]).join(", ")}. A release is a recorded coverage judgement with its test, its reasoning, and the ruling that authorized it — never a bare removal.`,
+          ),
+        );
+      }
+    }
+
     // --- a discharge must be an admitted successor, not an assertion
     if (state === "successor_admitted") {
       const successorId = hold.required_successor?.work_item_id ?? null;
@@ -599,6 +654,8 @@ export function evaluate({ ledger, required, byId, statusOf }) {
 
     // --- an open hold is a failing bar, enumerated by name
     if (isOpen(hold)) {
+      const effective = effectivePredecessors(hold);
+      const releasedCount = (hold.predecessor_records ?? []).length - effective.length;
       findings.push(
         finding(
           "error",
@@ -608,8 +665,12 @@ export function evaluate({ ledger, required, byId, statusOf }) {
               ? `, acceptance sequence ${hold.source.acceptance_sequence}`
               : ""
           }); successor ${hold.required_successor?.work_item_id ?? "NOT YET NAMED"}; qualifies ${
-            (hold.predecessor_records ?? []).length
-          } predecessor closure(s) as ${QUALIFIED_STATUS}`,
+            effective.length
+          } predecessor closure(s) as ${QUALIFIED_STATUS}${
+            releasedCount > 0
+              ? ` (${releasedCount} released by recorded coverage disposition)`
+              : ""
+          }`,
           { hold_id: hold.hold_id, subject: hold.subject },
         ),
       );
@@ -796,6 +857,38 @@ function selfTest() {
       l.holds[0].state = "successor_admitted";
       l.holds[0].state_transitions = [{ from: "open", to: "successor_admitted" }];
     }],
+    // --- per-predecessor coverage dispositions
+    ["hold-coverage-invalid", (l) => {
+      l.holds[0].predecessor_coverage_dispositions = [
+        { predecessor: "self-test-record", coverage: "vibes", test: "t", reasoning: "r", ruled_by: "o" },
+      ];
+    }],
+    ["hold-coverage-not-a-predecessor", (l) => {
+      l.holds[0].predecessor_coverage_dispositions = [
+        { predecessor: "self-test-direct", coverage: "released", test: "t", reasoning: "r", ruled_by: "o" },
+      ];
+    }],
+    ["hold-coverage-duplicate", (l) => {
+      l.holds[0].predecessor_coverage_dispositions = [
+        { predecessor: "self-test-record", coverage: "covered", test: "t", reasoning: "r", ruled_by: "o" },
+        { predecessor: "self-test-record", coverage: "released", test: "t", reasoning: "r", ruled_by: "o" },
+      ];
+    }],
+    ["hold-coverage-unexplained", (l) => {
+      l.holds[0].predecessor_coverage_dispositions = [
+        { predecessor: "self-test-record", coverage: "released" },
+      ];
+    }],
+    // An unjustified removal fails closed even when a release disposition rides
+    // along: the disposition un-qualifies, it never deletes, so the removed
+    // predecessor both drifts (derivation still requires it) and orphans its
+    // disposition (which now names a predecessor the hold no longer lists).
+    ["hold-predecessor-drift", (l) => {
+      l.holds[0].predecessor_records = [];
+      l.holds[0].predecessor_coverage_dispositions = [
+        { predecessor: "self-test-record", coverage: "released", test: "t", reasoning: "r", ruled_by: "o" },
+      ];
+    }],
   ];
 
   SELF_TEST_CASE_COUNT = cases.length;
@@ -808,6 +901,52 @@ function selfTest() {
           "error",
           "self-test",
           `the ${expected} rejection did not fire against its synthetic bad input; this bar has lost its teeth (got: ${[...new Set(checks)].join(", ") || "nothing"})`,
+        ),
+      );
+    }
+  }
+
+  // A VALID release must actually release — and only its own predecessor.
+  // Uniformity lives in effectivePredecessors/openHoldsForRecord, which every
+  // refusal and projection consumer asks; test the behavior, not just the shape.
+  {
+    const ledger = { ...emptyLedger(), holds: [baseHold()] };
+    ledger.holds[0].predecessor_records = ["self-test-record", "self-test-direct"];
+    ledger.holds[0].predecessor_coverage_dispositions = [
+      { predecessor: "self-test-record", coverage: "released", test: "t", reasoning: "r", ruled_by: "o" },
+    ];
+    const releasedStillHeld = openHoldsForRecord("self-test-record", ledger).length;
+    const unreleasedHeld = openHoldsForRecord("self-test-direct", ledger).length;
+    if (releasedStillHeld !== 0) {
+      findings.push(
+        finding(
+          "error",
+          "self-test",
+          "a validly released predecessor is still qualified by its hold; the coverage lane does not release",
+        ),
+      );
+    }
+    if (unreleasedHeld !== 1) {
+      findings.push(
+        finding(
+          "error",
+          "self-test",
+          "an unreleased predecessor stopped being qualified when a sibling was released; a release may un-qualify exactly one closure",
+        ),
+      );
+    }
+    const shapeFindings = evaluate({
+      ledger,
+      required: [{ source_key: SELF_TEST_SOURCE_KEY, predecessor_records: ["self-test-record", "self-test-direct"] }],
+      byId,
+      statusOf,
+    }).map((f) => f.check).filter((c) => c.startsWith("hold-coverage"));
+    if (shapeFindings.length > 0) {
+      findings.push(
+        finding(
+          "error",
+          "self-test",
+          `a well-formed release was rejected: ${shapeFindings.join(", ")}. A lane that refuses the good case releases nothing.`,
         ),
       );
     }
@@ -890,7 +1029,7 @@ function main() {
   const holds = ledger.holds ?? [];
   const open = holds.filter(isOpen).length;
   const qualified = new Set(
-    holds.filter(isOpen).flatMap((h) => h.predecessor_records ?? []),
+    holds.filter(isOpen).flatMap((h) => effectivePredecessors(h)),
   );
   progress(
     `open-successor holds: ${holds.length} recorded, ${open} open, ${qualified.size} record(s) projected as ${QUALIFIED_STATUS}; ${

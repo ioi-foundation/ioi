@@ -1,0 +1,9 @@
+certify M4: 1 child(ren), 2 content-bound literal(s), 12 focused check(s)
+[ERROR] child-open-successor-hold: child m4-room-graph-truth-and-product-projection is held by osh-0079 (docs/architecture/components/daemon-runtime/doctrine.md) and projects as verified_historical_with_open_successor; the stage cannot certify on a closure whose successor is owed and unwritten
+[ERROR] child-open-successor-hold: child m4-room-graph-truth-and-product-projection is held by osh-0080 (docs/architecture/components/hypervisor/core-clients-surfaces.md) and projects as verified_historical_with_open_successor; the stage cannot certify on a closure whose successor is owed and unwritten
+[ERROR] child-open-successor-hold: child m4-room-graph-truth-and-product-projection is held by osh-0081 (docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md) and projects as verified_historical_with_open_successor; the stage cannot certify on a closure whose successor is owed and unwritten
+[ERROR] child-open-successor-hold: child m4-room-graph-truth-and-product-projection is held by osh-0082 (docs/architecture/domains/ioi-ai/control-plane.md) and projects as verified_historical_with_open_successor; the stage cannot certify on a closure whose successor is owed and unwritten
+[ERROR] child-open-successor-hold: child m4-room-graph-truth-and-product-projection is held by osh-0083 (docs/architecture/foundations/objects/goal-run-execution.md) and projects as verified_historical_with_open_successor; the stage cannot certify on a closure whose successor is owed and unwritten
+[ERROR] certification-input-drift: post-fresh-check: input digest moved from 5130cfe2a46c9dadf808a4e98a974c105ceaa4887331e62f9db0ad1ecd12d6bf to 48c59332c5c0c91e0f35597d64dc959f355ed8b9a5ff31a62d71a308ff84d17b
+[ERROR] certification-input-drift: post-fresh-check: complete stage-certification input payload moved
+certify-stage:M4: FAIL (7 error, 0 warn, 0 skip)
