@@ -71,10 +71,35 @@ jobs:
       # M4_ENVIRONMENTAL_PREREQUISITE_FAILED=wallet_network_fixture_unready
       # because the guardian cargo-builds the fixture cold inside its
       # readiness window.
+      - name: Cache the feature-isolated node builds
+        uses: actions/cache@v3
+        with:
+          path: target/test-node-builds
+          key: ${{ runner.os }}-test-node-builds-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Prebuild the daemon and the wallet.network fixture binaries
         run: |
           cargo build --bin hypervisor-daemon
           cargo test -p ioi-cli --test hypervisor_wallet_network_fixture --no-run
+          # The fixture test builds ioi-node into a feature-isolated target dir
+          # AT RUNTIME (crates/cli/src/testing/validator.rs); cold, that build
+          # alone exceeds the fixture's 10-minute readiness window — the exact
+          # labeled failure of the first two provisioned runs. Prebuild the
+          # same binaries into the same dir: feature string and FNV-1a dir
+          # hash replicate validator.rs resolve() for the fixture's
+          # Aft/IAVL/Hash profile (verified against a local ground-truth dir).
+          NODE_FEATURES="validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm"
+          NODE_DIR="target/test-node-builds/debug-$(python3 - "$NODE_FEATURES" <<'PYEOF'
+          import sys
+          h = 0xcbf29ce484222325
+          for b in sys.argv[1].encode():
+              h ^= b
+              h = (h * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF
+          print('%016x' % h)
+          PYEOF
+          )"
+          echo "prebuilding node binaries into $NODE_DIR"
+          CARGO_TARGET_DIR="$NODE_DIR" cargo build -p ioi-node --no-default-features --features "$NODE_FEATURES"
 
       - name: Cache the qwen2.5:7b model
         uses: actions/cache@v3
