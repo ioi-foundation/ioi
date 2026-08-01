@@ -17,6 +17,7 @@
 #![forbid(unsafe_code)]
 
 pub mod mux;
+pub mod refs;
 pub mod replica;
 
 use serde::{Deserialize, Serialize};

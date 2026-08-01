@@ -139,8 +139,13 @@ function main() {
   }
 
   const found = scan();
+  // Terminal-allowed files (the substrate's own constructors) are the
+  // boundary, not debt: they never enter the pinned manifest.
   const manifest = Object.fromEntries(
-    [...found.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([rel, sites]) => [rel, sites.length]),
+    [...found.entries()]
+      .filter(([rel]) => !TERMINAL_ALLOWED.some((pattern) => pattern.test(rel)))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([rel, sites]) => [rel, sites.length]),
   );
 
   if (writeBaseline) {

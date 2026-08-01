@@ -5,7 +5,6 @@
     "/^crates\\/agentgres\\//"
   ],
   "files": {
-    "crates/agentgres/src/bin/shadow.rs": 1,
     "crates/node/src/bin/hypervisor_daemon_routes/authority_routes.rs": 2,
     "crates/node/src/bin/hypervisor_daemon_routes/binding_routes.rs": 1,
     "crates/node/src/bin/hypervisor_daemon_routes/capability_lease_plan_routes.rs": 1,
@@ -24,7 +23,6 @@
     "crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs": 1,
     "crates/node/src/bin/hypervisor_daemon_routes/ontology_projection_routes.rs": 1,
     "crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs": 1,
-    "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs": 3,
     "crates/node/src/bin/hypervisor_daemon_routes/policy_bound_data_view_routes.rs": 1,
     "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs": 1,
     "crates/node/src/bin/hypervisor_daemon_routes/resource_routes.rs": 1,

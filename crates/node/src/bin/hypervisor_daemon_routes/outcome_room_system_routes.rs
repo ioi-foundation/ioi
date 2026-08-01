@@ -790,23 +790,17 @@ fn remove_intent(data_dir: &str, family: &str, key: &str) -> Result<(), VErr> {
     }
 }
 
-fn agentgres_room_receipt_ref(room_tail: &str, batch_seq: u64, root: &str) -> String {
-    format!(
-        "receipt://agentgres/outcome-room-system/{room_tail}/batch/{batch_seq}/{}",
-        root.strip_prefix("sha256:").unwrap_or(root)
-    )
-}
-
-fn agentgres_room_operation_ref(room_tail: &str, sequence: u64, head: &str) -> String {
-    format!("agentgres://operation/outcome-room-system/{room_tail}/sequence/{sequence}/head/{head}")
-}
-
-fn agentgres_room_transition_ref(room_tail: &str, head: &str) -> String {
-    format!(
-        "commitment://agentgres/outcome-room-system/{room_tail}/head/{}",
-        head.strip_prefix("sha256:").unwrap_or(head)
-    )
-}
+// Ref construction lives with the substrate (agentgres::refs): only the crate
+// that admits a fact may brand it. These aliases keep every call site reading
+// the same while the format! sites themselves move behind the enforced
+// minting boundary; byte-format compatibility is pinned by agentgres::refs
+// unit tests against the retired local formatters' exact output.
+use agentgres::refs::{
+    outcome_room_system_object_ref as agentgres_room_object_ref,
+    outcome_room_system_operation_ref as agentgres_room_operation_ref,
+    outcome_room_system_receipt_ref as agentgres_room_receipt_ref,
+    outcome_room_system_transition_ref as agentgres_room_transition_ref,
+};
 
 fn project_room_admission(
     room_tail: &str,
@@ -872,7 +866,7 @@ fn preflight_room_admission(
     append_unique(&mut room, "admission_and_replay_refs", json!(receipt_ref))?;
     let evidence = json!({
         "operation_ref":agentgres_room_operation_ref(room_tail, maximum_sequence, &maximum_root),
-        "object_ref":format!("agentgres://outcome-room-system-operations/{room_tail}"),
+        "object_ref":agentgres_room_object_ref(room_tail),
         "operation_kind":agentgres_operation_kind,
         "expected_head":expected_head,
         "expected_absent":expected_head.is_none(),
@@ -5017,7 +5011,7 @@ mod tests {
         agentgres::mux::ExactProjection {
             operation: agentgres::Operation {
                 domain: format!("outcome-room-system-operations.{room_tail}"),
-                object_ref: format!("agentgres://outcome-room-system-operations/{room_tail}"),
+                object_ref: agentgres_room_object_ref(room_tail),
                 op_kind: if sequence == 0 {
                     "outcome_room.room_genesis".to_owned()
                 } else {
