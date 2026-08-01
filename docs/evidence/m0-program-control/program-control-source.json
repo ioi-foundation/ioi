@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-31",
+  "as_of_date": "2026-08-01",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -337,12 +337,12 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/execution-horizons.md",
-      "source_sha256": "f3a87fb9251a343111a8369f196029248a3f792d1ae3cbfd1c89f3679b21d1c9"
+      "source_sha256": "77d40fb1f041fa6961b32f7f493707f334d0abbe099738f3d5aa70a23f0690cd"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "3d894c5296c429a9eafb1da9bf685facb575e9fe790175b719073c586b7d0dfe"
+      "source_sha256": "1b021ad92feefb1d43a295095d96c5a4ad3840a39cb00283703e59cf640d2666"
     },
     {
       "role": "landed owner canon",
@@ -357,7 +357,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/term-boundaries.md",
-      "source_sha256": "d31917694bc4a64f4d761166230caea0de75f0220ca7ad71f37c58e9c22ca537"
+      "source_sha256": "52bcdd1fceb6e2fe7da9f09c20806e02e3148d4983b29bba3b35c64c4b76dc8f"
     },
     {
       "role": "landed owner canon",
@@ -377,12 +377,12 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/objects/collaborative-pursuit.md",
-      "source_sha256": "b99954611bf629b11584ca212b89c5c60f39b5a0424a4d9982a017690fa14716"
+      "source_sha256": "5c219449e2d7dfaba013313bdaf5ac29f72cabdd6b86df454bbb72a5a975c201"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/objects/economics-and-settlement.md",
-      "source_sha256": "2567801960bd39635c8bbeaffedf73ef4e22352928b0dce91a1e94551958e1d2"
+      "source_sha256": "cf4a9254377baf277023d4a82d1899432c13677502317d21741667259ff36f5d"
     },
     {
       "role": "landed owner canon",
@@ -397,7 +397,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/objects/goal-pursuit.md",
-      "source_sha256": "9f7b8ce7791e409e303e4c0a180e8a9d4ad655288037f5056e0382026db26350"
+      "source_sha256": "4678fcf81213ae0b2501ee814e774b29cee41dfcf6c3366318c3a739164bb6dd"
     },
     {
       "role": "landed owner canon",
@@ -437,12 +437,12 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/objects/work-execution.md",
-      "source_sha256": "a95e976006d66a2a2dd3fb7eb37fa876408d2c5455fdb5503d4bdc9872712864"
+      "source_sha256": "af0ac355569c39eb72c378a0ef1c57dc4cc2c79898984c082bc8a3072a04c7fb"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
-      "source_sha256": "d6fdaed81f5611227f21c085cce6794f33cc710a02a66bdba82902433ba01d3a"
+      "source_sha256": "194f3246708d99be7e1b508279db666da6740087efd2cc6662eea4c77314f852"
     },
     {
       "role": "landed owner canon",
@@ -467,12 +467,12 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/api.md",
-      "source_sha256": "ce50d918d10db47c8fa5ea701e30e7d0f9fa84e553186958d252f52cb5f7acaa"
+      "source_sha256": "5e9a0641ded7319a89f9da162458165e82601fd0d7131606a4dd0774dbedfae3"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
-      "source_sha256": "f4979a1794ea940d890bcdccfef66a67f05d16ba8bb38991331ee19977d3d09e"
+      "source_sha256": "fcf9dc81832242c6b287d9f295fd0118392bacc88be3f1bbf44b46d721c18c63"
     },
     {
       "role": "landed owner canon",
@@ -497,12 +497,12 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/agentgres/doctrine.md",
-      "source_sha256": "5985e4485b93bbaebf8ec46d59b179860971087744d802588f24dd0f0323c48c"
+      "source_sha256": "b083eb85bded59f19e988f826101f66f512c2e68557425133c7e948bf5a4007e"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/agentgres/api-object-model.md",
-      "source_sha256": "c87c997f55170df50d555b40132c0f386aad945db642b2ff2434146e8245c9ef"
+      "source_sha256": "4f10d5e5e9f79c0395f558645aa7af028ea3076d741f1edd8ed2c41170fda2b8"
     },
     {
       "role": "landed owner canon",
@@ -522,7 +522,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
-      "source_sha256": "9ba2351820b042daa4a0c8dc970c010d9512617e047787bb2b22d9c743a9fee8"
+      "source_sha256": "9f7212615733863d842ce28103c98f907d308031025bb3f80905b0128d98938c"
     },
     {
       "role": "landed owner canon",
@@ -559,7 +559,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "5542f3826290ccf3c0d7576d943695c9a944833933558be121226e538adbbb12"
+            "source_sha256": "d257f60b39c3a901ffdecb0a62ba5faa782426e0e5af62cb832888a706d0e339"
           },
           {
             "note": "enumerated IBC HTTP registry",
@@ -694,7 +694,7 @@
           {
             "note": "ReplicaServer binds occur only in the cfg(test) module",
             "source_file": "crates/agentgres/src/mux.rs",
-            "source_sha256": "b4894234e688b50c5c80ecaea7aaf8f366f3241fe4fd5c977b146a903428fd0f"
+            "source_sha256": "981080e895898b655e08698a2197bf1208d04beb37b2a31a773646792056fba0"
           },
           {
             "note": "enumerated standalone AGRS2 replication wildcard",
@@ -734,7 +734,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "5542f3826290ccf3c0d7576d943695c9a944833933558be121226e538adbbb12"
+            "source_sha256": "d257f60b39c3a901ffdecb0a62ba5faa782426e0e5af62cb832888a706d0e339"
           },
           {
             "note": "enumerated signer POST /sign surface",
@@ -1103,7 +1103,7 @@
       "every discovered entry is explicitly reviewed and source-anchored",
       "every selected object has an owner",
       "every selected effect has a verified final invoker or explicit unavailable blocker",
-      "all legacy sequencing is non-authoritative",
+      "tracked implementation sequencing is content-bound by the build fingerprint",
       "all 58 PG ids are mapped exactly once without closure claims",
       "every baseline and evidence item is closed or honestly named"
     ]
@@ -1518,10 +1518,10 @@
         "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
       }
     ],
-    "external_definition_input": {
-      "evidence_binding": "not_read_not_hashed_not_bound",
-      "path": "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
-      "tracking_posture": "ignored_untracked"
+    "tracked_definition_input": {
+      "evidence_binding": "m0_build_fingerprint.tracked_implementation_program_snapshot",
+      "path": "internal-docs/implementation/program/pg-gate-map-successor.v1.json",
+      "tracking_posture": "tracked"
     },
     "tracked_selected_profile_authority": "docs/architecture/_meta/execution-horizons.md"
   },
@@ -1657,19 +1657,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "616680557f02138a8776c7760c13b9ef344972c675d404688dd0c65354dd3d94",
-    "review_epoch_id": "m4-outcome-room-final-source-review-2026-07-31",
-    "review_lock_sha256": "47f2e35e801226a520c014f7932ef48c9e713a5144d130d140e970da0759ee18",
+    "program_source_material_sha256": "8f9f26ffcf754261bfa19b98ded3214946c18ac2925ca3b0c9b0cfa4dbca9653",
+    "review_epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
+    "review_lock_sha256": "d97b9f25be8bef7c4e22eda293aeb936c6ded44d2a47badca1df04ee2b54d743",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
-    "reviewed_as_of": "2026-07-31",
-    "reviewed_entry_set_sha256": "ed8d8d13786e2b436f10940c71236b6d4c57001d1d45e07369184a7e2a37939c",
+    "reviewed_as_of": "2026-08-01",
+    "reviewed_entry_set_sha256": "061489de884d70e6b2cbafdf3f739e63304fd2ad6d4932a4c339305ddcff0fae",
     "reviewed_identity_set_sha256": "c91155d27942082beedc425184583f2c2f0c92c6744bea6dd34b1b33a4f18965",
-    "reviewer_label": "reviewer://ioi/m0-program-control-m4-final-source-review",
+    "reviewer_label": "reviewer://ioi/m0-program-control-m4-agentgres-composition-review",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
-    "snapshot_head_sequence": 28,
-    "snapshot_predecessor_entry_sha256": "5914db61625a203356284ddae5243dfde62d3877e6b8d13105d6d96915870db8",
+    "snapshot_head_entry_sha256": "f4e24e021f75fb9613ad569e06a462fdd434f76391a07f39e868931a373bcc67",
+    "snapshot_head_sequence": 29,
+    "snapshot_predecessor_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },
@@ -2036,24 +2036,8 @@
     ]
   },
   "sequencing_authority": {
-    "external_untracked_operator_inputs": [
-      {
-        "evidence_binding": "not_read_not_hashed_not_bound",
-        "input_id": "target_end_state_master_implementation_guide",
-        "path": "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
-        "role": "external operator sequencing input",
-        "tracking_posture": "ignored_untracked"
-      },
-      {
-        "evidence_binding": "not_read_not_hashed_not_bound",
-        "input_id": "canon_mechanism_hardening_action_plan",
-        "path": "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
-        "role": "external operator production-gate input",
-        "tracking_posture": "ignored_untracked"
-      }
-    ],
     "legacy_default": "non_authoritative",
-    "rule": "External untracked operator inputs may sequence work, but only tracked canon and conformance sources bound in canon_basis provide committed M0 evidence.",
+    "rule": "The tracked implementation program supplies sequencing and status authority and is content-bound by the M0 build fingerprint; tracked canon and conformance sources retain their separate committed evidence roles.",
     "tracked_architecture_evidence_authority": {
       "binding": "program_control_source.canon_basis_sha256",
       "role": "committed architecture and status evidence authority",
@@ -2063,6 +2047,12 @@
       "binding": "program_control_source.canon_basis_sha256",
       "role": "committed selected-profile conformance evidence",
       "root": "docs/conformance/"
+    },
+    "tracked_implementation_program": {
+      "evidence_binding": "m0_build_fingerprint.tracked_implementation_program_snapshot",
+      "role": "committed implementation sequencing and status authority",
+      "root": "internal-docs/implementation/",
+      "tracking_posture": "tracked"
     }
   }
 }

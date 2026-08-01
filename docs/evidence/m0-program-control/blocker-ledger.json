@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-31",
+  "as_of_date": "2026-08-01",
   "blockers": [
     {
       "blocker_id": "BLK-M0-SELECTED-PACKAGE-GENESIS",
@@ -1605,7 +1605,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "3e9e47bd6f75bafe74e2e739b1bd3e6624e06e645d3e7895c0df1ca0aae690c5",
+  "build_fingerprint": "f7b7669a4faef0514e8451ecd318850955be6ec95f3b6c9cf289997febf24784",
   "counts": {
     "by_state": {
       "open": 23,

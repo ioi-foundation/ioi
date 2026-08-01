@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -61,6 +62,8 @@ export const SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE = Object.freeze({
 const REPOSITORY_ANCHOR_CONTEXT = Object.freeze({
   repository_baseline: REPOSITORY_BASELINE_ANCHOR,
 });
+
+const TRACKED_IMPLEMENTATION_PROGRAM_ROOT = "internal-docs/implementation/";
 
 // The signing ceremony was retired after sequence 6. Entries at or below this
 // sequence are retained legacy claims, never re-verified as signatures; every
@@ -295,30 +298,16 @@ const CANON_BASIS_FILES = [
   "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
 ];
 
-const EXTERNAL_UNTRACKED_OPERATOR_INPUTS = [
-  {
-    input_id: "target_end_state_master_implementation_guide",
-    path:
-      "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
-    role: "external operator sequencing input",
-    tracking_posture: "ignored_untracked",
-    evidence_binding: "not_read_not_hashed_not_bound",
-  },
-  {
-    input_id: "canon_mechanism_hardening_action_plan",
-    path:
-      "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
-    role: "external operator production-gate input",
-    tracking_posture: "ignored_untracked",
-    evidence_binding: "not_read_not_hashed_not_bound",
-  },
-];
-
 function createSequencingAuthority() {
   return {
-    external_untracked_operator_inputs:
-      EXTERNAL_UNTRACKED_OPERATOR_INPUTS.map((entry) => ({ ...entry })),
     legacy_default: "non_authoritative",
+    tracked_implementation_program: {
+      root: TRACKED_IMPLEMENTATION_PROGRAM_ROOT,
+      tracking_posture: "tracked",
+      evidence_binding:
+        "m0_build_fingerprint.tracked_implementation_program_snapshot",
+      role: "committed implementation sequencing and status authority",
+    },
     tracked_architecture_evidence_authority: {
       root: "docs/architecture/",
       binding: "program_control_source.canon_basis_sha256",
@@ -330,17 +319,18 @@ function createSequencingAuthority() {
       role: "committed selected-profile conformance evidence",
     },
     rule:
-      "External untracked operator inputs may sequence work, but only tracked canon and conformance sources bound in canon_basis provide committed M0 evidence.",
+      "The tracked implementation program supplies sequencing and status authority and is content-bound by the M0 build fingerprint; tracked canon and conformance sources retain their separate committed evidence roles.",
   };
 }
 
 function createPgGateMetadata() {
   return {
-    external_definition_input: {
+    tracked_definition_input: {
       path:
-        "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
-      tracking_posture: "ignored_untracked",
-      evidence_binding: "not_read_not_hashed_not_bound",
+        "internal-docs/implementation/program/pg-gate-map-successor.v1.json",
+      tracking_posture: "tracked",
+      evidence_binding:
+        "m0_build_fingerprint.tracked_implementation_program_snapshot",
     },
     tracked_selected_profile_authority:
       "docs/architecture/_meta/execution-horizons.md",
@@ -4109,7 +4099,7 @@ export function createInitialProgramSource(repoRoot) {
         "every discovered entry is explicitly reviewed and source-anchored",
         "every selected object has an owner",
         "every selected effect has a verified final invoker or explicit unavailable blocker",
-        "all legacy sequencing is non-authoritative",
+        "tracked implementation sequencing is content-bound by the build fingerprint",
         "all 58 PG ids are mapped exactly once without closure claims",
         "every baseline and evidence item is closed or honestly named",
       ],
@@ -5501,7 +5491,7 @@ export function validateProgramSource(
     errors,
     stableStringify(programSource?.sequencing_authority)
       === stableStringify(createSequencingAuthority()),
-    "sequencing authority must keep ignored internal guides as unbound external operator inputs and tracked canon as committed evidence authority",
+    "sequencing authority must bind the tracked implementation program while preserving tracked canon and conformance evidence authority",
   );
   addError(
     errors,
@@ -5515,7 +5505,7 @@ export function validateProgramSource(
     canonBasis.every((entry) => (
       !entry.source_file.startsWith("internal-docs/implementation/")
     )),
-    "ignored internal implementation guidance cannot be bound as M0 evidence",
+    "implementation-program files must use their dedicated fingerprint binding rather than masquerading as canon basis",
   );
   let expectedDiscoveryCoverage;
   try {
@@ -5905,20 +5895,20 @@ export function validateProgramSource(
 
   const pgEntries = programSource?.pg_gate_map?.entries ?? [];
   const pgMetadata = {
-    external_definition_input:
-      programSource?.pg_gate_map?.external_definition_input,
+    tracked_definition_input:
+      programSource?.pg_gate_map?.tracked_definition_input,
     tracked_selected_profile_authority:
       programSource?.pg_gate_map?.tracked_selected_profile_authority,
   };
   addError(
     errors,
     stableStringify(pgMetadata) === stableStringify(createPgGateMetadata()),
-    "PG metadata must keep the ignored ledger as an unbound external pointer and tracked canon as selected-profile authority",
+    "PG metadata must bind the tracked implementation ledger and preserve tracked canon as selected-profile authority",
   );
   addError(
     errors,
     !Object.hasOwn(programSource?.pg_gate_map ?? {}, "definition_owner"),
-    "PG metadata cannot claim the ignored external ledger as a committed definition owner",
+    "PG metadata must not collapse implementation sequencing into the canonical selected-profile definition owner",
   );
   addError(
     errors,
@@ -6131,6 +6121,46 @@ function artifactEnvelope(asOfDate, fingerprint, artifact, body) {
   };
 }
 
+export function trackedImplementationProgramSnapshot(repoRoot) {
+  const listed = spawnSync(
+    "git",
+    ["ls-files", "-z", "--", TRACKED_IMPLEMENTATION_PROGRAM_ROOT],
+    { cwd: repoRoot, encoding: "buffer" },
+  );
+  if (listed.status !== 0) {
+    throw new Error(
+      `cannot enumerate tracked implementation program: ${listed.stderr.toString("utf8").trim()}`,
+    );
+  }
+  const relativePaths = listed.stdout
+    .toString("utf8")
+    .split("\0")
+    .filter((entry) => entry.length > 0)
+    .sort();
+  if (relativePaths.length === 0) {
+    throw new Error("tracked implementation program is empty or unbound");
+  }
+  const files = relativePaths.map((relativePath) => {
+    const absolutePath = path.join(repoRoot, relativePath);
+    const stat = fs.lstatSync(absolutePath);
+    const source = stat.isSymbolicLink()
+      ? Buffer.from(fs.readlinkSync(absolutePath))
+      : fs.readFileSync(absolutePath);
+    return {
+      path: relativePath,
+      kind: stat.isSymbolicLink() ? "symlink" : "file",
+      executable: (stat.mode & 0o111) !== 0,
+      sha256: sha256(source),
+    };
+  });
+  return {
+    root: TRACKED_IMPLEMENTATION_PROGRAM_ROOT,
+    file_count: files.length,
+    files_sha256: sha256(stableStringify(files)),
+    files,
+  };
+}
+
 export function buildM0Fingerprint(
   repoRoot,
   discoveredEntries,
@@ -6139,6 +6169,8 @@ export function buildM0Fingerprint(
   reviewAnchor = readJsonFile(repoRoot, REVIEW_ANCHOR_FILE),
 ) {
   const readmeSource = fs.readFileSync(path.join(repoRoot, README_FILE), "utf8");
+  const trackedProgram = programSource?.sequencing_authority
+    ?.tracked_implementation_program;
   return sha256(stableStringify({
     discovered_entries: discoveredEntries,
     program_source: programSource,
@@ -6148,6 +6180,9 @@ export function buildM0Fingerprint(
       sha256: sha256(readmeSource),
     },
     reviewed_entry_lock: reviewLock,
+    tracked_implementation_program_snapshot: trackedProgram === undefined
+      ? null
+      : trackedImplementationProgramSnapshot(repoRoot),
   }));
 }
 
@@ -6270,8 +6305,8 @@ export function buildM0Artifacts(
     })),
   }));
   documents.set("pg-gate-map.json", envelope("pg_gate_map", {
-    external_definition_input:
-      programSource.pg_gate_map.external_definition_input,
+    tracked_definition_input:
+      programSource.pg_gate_map.tracked_definition_input,
     tracked_selected_profile_authority:
       programSource.pg_gate_map.tracked_selected_profile_authority,
     closure_claimed: false,
@@ -6441,7 +6476,7 @@ export function buildM0Artifacts(
     nonclaims: [
       "M0 does not close any architecture production-status claim.",
       "M0 does not provide runtime capability, authority, product UX, or a canonical wire contract.",
-      "Ignored internal sequencing and PG inputs are external operator pointers, not read, hashed, or bound evidence.",
+      "The tracked implementation program is content-bound as sequencing and status authority; that binding does not promote it into architecture canon.",
       "The review anchor is development-workflow integrity evidence only: an unsigned hash chain with a self-declared reviewer label. It carries no cryptographic authorship and is not part of the bounded agency framework's authority model (wallet-network grants, sealed intents, receipts).",
       "The repository does not establish that the accepted snapshot head is current without an outside rollback-domain checkpoint.",
       "The repository does not establish resistance to rollback between internally coherent supplied snapshots.",

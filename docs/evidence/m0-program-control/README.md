@@ -6,10 +6,10 @@ capability, or close any production gate.
 
 `m0-exit-report.json` may report `verified` only for the M0 control conditions:
 the discovery census is explicitly reviewed, selected owners and unavailable
-effects are named, legacy sequencing is non-authoritative, all 58 `PG-*` ids
-are mapped without redefining them, and missing baseline evidence is recorded
-honestly. It never means that the selected journey or an architecture capability
-is terminal.
+effects are named, the tracked implementation program is content-bound, all 58
+`PG-*` ids are mapped without redefining them, and missing baseline evidence is
+recorded honestly. It never means that the selected journey or an architecture
+capability is terminal.
 
 ## Sources
 
@@ -46,20 +46,22 @@ is terminal.
 - `program-control-source.json` freezes the selected minimum-L0 profile, visible
   journey, owner sets, PG dispositions, baselines, release ladder, exclusions,
   blocker ledger, and tracked canon anchors. Its supplied-snapshot attestation
-  binds the complete program-source material hash to the supplied signed head
-  and projects the bounded assurance posture above.
+  binds the complete program-source material hash to the supplied head and
+  projects the bounded assurance posture above.
 - The other JSON files are deterministic projections. `manifest.json` binds
   their hashes to all three reviewed sources and the discovered repository
   state.
 
-The implementation guide and PG ledger paths under
-`internal-docs/implementation/` are external, ignored, untracked operator
-inputs. M0 does not read, hash, require, or bind them as evidence; they may be
-absent from a checkout. The path pointers are retained only to name the
-operator sequencing context. Tracked `docs/architecture/` canon named in
-`canon_basis` is the committed architecture and status evidence authority;
-tracked `docs/conformance/` entries provide the selected-profile conformance
-evidence.
+The authoritative files under `internal-docs/implementation/` are tracked
+implementation sequencing and status inputs. M0 enumerates their Git-tracked
+paths and binds each path, file kind, executable bit, and content digest into
+the build fingerprint. A missing, modified, newly tracked, or removed program
+file therefore makes the deterministic projections stale. Ignored worktrees,
+caches, and regenerated orientation files remain outside that binding by
+construction. This does not promote implementation status into architecture
+canon: tracked `docs/architecture/` canon named in `canon_basis` retains the
+committed architecture-evidence role, and tracked `docs/conformance/` entries
+retain the selected-profile conformance role.
 
 ## Commands
 

@@ -42,6 +42,7 @@ import {
   reviewAnchorEntrySha256,
   reviewSnapshotCommitments,
   stableStringify,
+  trackedImplementationProgramSnapshot,
   validateSuppliedReviewSnapshot,
   validateProgramSource,
   validateReviewAnchor,
@@ -238,20 +239,16 @@ test("M4 selected routes have one adjudicated journey placement", () => {
   }
 });
 
-function hashEvidenceTree() {
+function evidenceContentDigests() {
   const root = path.join(repoRoot, EVIDENCE_DIR);
   return Object.fromEntries(
     fs.readdirSync(root)
       .sort()
       .map((name) => {
         const source = fs.readFileSync(path.join(root, name));
-        const stat = fs.statSync(path.join(root, name), { bigint: true });
         return [
           name,
-          {
-            sha256: crypto.createHash("sha256").update(source).digest("hex"),
-            mtime_ns: stat.mtimeNs.toString(),
-          },
+          crypto.createHash("sha256").update(source).digest("hex"),
         ];
       }),
   );
@@ -2117,23 +2114,30 @@ test("program source review is a bounded supplied-snapshot material attestation"
   );
 });
 
-test("ignored internal sequencers remain unbound external pointers", () => {
-  const tracked = spawnSync(
-    "git",
-    ["ls-files", "--", "internal-docs/implementation"],
-    { cwd: repoRoot, encoding: "utf8" },
-  );
-  assert.equal(tracked.status, 0, tracked.stderr);
-  assert.equal(tracked.stdout, "");
-  for (const input of (
-    programSource.sequencing_authority.external_untracked_operator_inputs
-  )) {
-    const ignored = spawnSync(
+test("tracked implementation sequencing is bound by the M0 fingerprint", () => {
+  const snapshot = trackedImplementationProgramSnapshot(repoRoot);
+  assert.ok(snapshot.file_count > 0);
+  assert.match(snapshot.files_sha256, /^[a-f0-9]{64}$/u);
+  const trackedPaths = new Set(snapshot.files.map((entry) => entry.path));
+  for (const relativePath of [
+    "internal-docs/implementation/README.md",
+    "internal-docs/implementation/program/sequence.v1.json",
+    "internal-docs/implementation/stages/m4.md",
+    "internal-docs/implementation/program/pg-gate-map-successor.v1.json",
+  ]) {
+    assert.ok(trackedPaths.has(relativePath), `${relativePath} is not fingerprint-bound`);
+    const tracked = spawnSync(
       "git",
-      ["check-ignore", "--quiet", "--", input.path],
+      ["ls-files", "--error-unmatch", "--", relativePath],
       { cwd: repoRoot, encoding: "utf8" },
     );
-    assert.equal(ignored.status, 0, `${input.path} is not ignored`);
+    assert.equal(tracked.status, 0, tracked.stderr);
+    const ignored = spawnSync(
+      "git",
+      ["check-ignore", "--quiet", "--", relativePath],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    assert.equal(ignored.status, 1, `${relativePath} remains ignored`);
   }
   assert.equal(
     programSource.canon_basis.some((entry) => (
@@ -2141,10 +2145,10 @@ test("ignored internal sequencers remain unbound external pointers", () => {
     )),
     false,
   );
-  assert.deepEqual(
-    programSource.sequencing_authority.external_untracked_operator_inputs
-      .map((entry) => entry.evidence_binding),
-    ["not_read_not_hashed_not_bound", "not_read_not_hashed_not_bound"],
+  assert.equal(
+    programSource.sequencing_authority.tracked_implementation_program
+      .evidence_binding,
+    "m0_build_fingerprint.tracked_implementation_program_snapshot",
   );
   assert.equal(
     programSource.sequencing_authority
@@ -2153,43 +2157,42 @@ test("ignored internal sequencers remain unbound external pointers", () => {
   );
   expectProgramFailure(
     (fixture) => {
-      fixture.sequencing_authority.external_untracked_operator_inputs[0]
-        .evidence_binding = "read_and_bound";
+      fixture.sequencing_authority.tracked_implementation_program
+        .evidence_binding = "not_read_not_hashed_not_bound";
     },
-    /ignored internal guides as unbound external operator inputs/u,
+    /bind the tracked implementation program/u,
   );
   expectProgramFailure(
     (fixture) => {
-      fixture.pg_gate_map.external_definition_input.evidence_binding =
-        "read_and_bound";
+      fixture.pg_gate_map.tracked_definition_input.evidence_binding =
+        "not_read_not_hashed_not_bound";
     },
-    /ignored ledger as an unbound external pointer/u,
+    /bind the tracked implementation ledger/u,
   );
   expectProgramFailure(
     (fixture) => {
       fixture.pg_gate_map.definition_owner =
         "internal-docs/implementation/canon-mechanism-hardening-action-plan.md";
     },
-    /cannot claim the ignored external ledger as a committed definition owner/u,
+    /must not collapse implementation sequencing/u,
   );
 
   const readme = fs.readFileSync(path.join(repoRoot, README_FILE), "utf8");
-  assert.doesNotMatch(readme, /were read only/iu);
   assert.match(
     readme,
-    /does not read, hash, require, or bind them as evidence/iu,
+    /tracked implementation program is content-bound/iu,
   );
 });
 
 test("bare invocation exits 2 with usage and writes nothing", () => {
-  const before = hashEvidenceTree();
+  const before = evidenceContentDigests();
   const result = spawnSync(process.execPath, [cli], {
     cwd: repoRoot,
     encoding: "utf8",
   });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /^Usage:/u);
-  assert.deepEqual(hashEvidenceTree(), before);
+  assert.deepEqual(evidenceContentDigests(), before);
 });
 
 test("--attest-review accepts only the tracked supplied snapshot and never signs", () => {
@@ -2197,7 +2200,7 @@ test("--attest-review accepts only the tracked supplied snapshot and never signs
     ["--attest-review"],
     ["--attest-review", "self-issued-review.json"],
   ]) {
-    const before = hashEvidenceTree();
+    const before = evidenceContentDigests();
     const result = spawnSync(process.execPath, [cli, ...args], {
       cwd: repoRoot,
       encoding: "utf8",
@@ -2211,7 +2214,7 @@ test("--attest-review accepts only the tracked supplied snapshot and never signs
       REVIEW_ANCHOR_FILE.replaceAll(".", "\\."),
       "u",
     ));
-    assert.deepEqual(hashEvidenceTree(), before);
+    assert.deepEqual(evidenceContentDigests(), before);
   }
   const closure = javascriptImportClosure(cli);
   assert.ok(closure.size >= 3, "CLI import closure was not traversed");
@@ -2229,7 +2232,7 @@ test("--attest-review accepts only the tracked supplied snapshot and never signs
   assert.match(closure.get(cli), /REVIEW_ANCHOR_FILE/u);
 });
 
-test("snapshot checking does not auto-discover HOME checkpoints or ignored sequencer freshness", () => {
+test("snapshot checking ignores HOME checkpoints and binds only tracked sequencer content", () => {
   const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-m0-home-"));
   try {
     fs.mkdirSync(path.join(fakeHome, "internal-docs/implementation"), {
@@ -2444,6 +2447,39 @@ test("README tampering changes the fingerprint and fails the read-only check", (
   }
 });
 
+test("tracked implementation-program tampering changes the fingerprint and fails check", () => {
+  const relativePath = "internal-docs/implementation/README.md";
+  const absolutePath = path.join(repoRoot, relativePath);
+  const original = fs.readFileSync(absolutePath);
+  const originalFingerprint = buildM0Fingerprint(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    programSource,
+  );
+  try {
+    fs.writeFileSync(
+      absolutePath,
+      Buffer.concat([original, Buffer.from("\nfixture program tamper\n")]),
+    );
+    const tamperedFingerprint = buildM0Fingerprint(
+      repoRoot,
+      discoveredEntries,
+      reviewLock,
+      programSource,
+    );
+    assert.notEqual(tamperedFingerprint, originalFingerprint);
+    const result = spawnSync(process.execPath, [cli, "--check"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /stale generated artifact/u);
+  } finally {
+    fs.writeFileSync(absolutePath, original);
+  }
+});
+
 test("atomic writes clean temporary siblings after a failed replacement", () => {
   const root = temporaryRepository({ "target": "original\n" });
   try {
@@ -2476,14 +2512,14 @@ test("atomic writes clean temporary siblings after a failed replacement", () => 
   }
 });
 
-test("a second --write preserves every evidence byte and mtime", () => {
-  const beforeCheck = hashEvidenceTree();
+test("a second --write preserves every evidence content digest", () => {
+  const beforeCheck = evidenceContentDigests();
   const check = spawnSync(process.execPath, [cli, "--check"], {
     cwd: repoRoot,
     encoding: "utf8",
   });
   assert.equal(check.status, 0, `${check.stdout}\n${check.stderr}`);
-  assert.deepEqual(hashEvidenceTree(), beforeCheck);
+  assert.deepEqual(evidenceContentDigests(), beforeCheck);
 
   const first = spawnSync(process.execPath, [cli, "--write"], {
     cwd: repoRoot,
@@ -2491,27 +2527,27 @@ test("a second --write preserves every evidence byte and mtime", () => {
   });
   assert.equal(first.status, 0, `${first.stdout}\n${first.stderr}`);
   assert.match(first.stdout, /0 file\(s\) written/u);
-  assert.deepEqual(hashEvidenceTree(), beforeCheck);
+  assert.deepEqual(evidenceContentDigests(), beforeCheck);
 
-  const beforeSecond = hashEvidenceTree();
+  const beforeSecond = evidenceContentDigests();
   const second = spawnSync(process.execPath, [cli, "--write"], {
     cwd: repoRoot,
     encoding: "utf8",
   });
   assert.equal(second.status, 0, `${second.stdout}\n${second.stderr}`);
   assert.match(second.stdout, /0 file\(s\) written/u);
-  assert.deepEqual(hashEvidenceTree(), beforeSecond);
+  assert.deepEqual(evidenceContentDigests(), beforeSecond);
 });
 
 test("--check accepts current artifacts and remains read-only", () => {
-  const before = hashEvidenceTree();
+  const before = evidenceContentDigests();
   const result = spawnSync(process.execPath, [cli, "--check"], {
     cwd: repoRoot,
     encoding: "utf8",
   });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   assert.match(result.stdout, /M0 supplied-snapshot check passed/u);
-  assert.deepEqual(hashEvidenceTree(), before);
+  assert.deepEqual(evidenceContentDigests(), before);
 });
 
 
