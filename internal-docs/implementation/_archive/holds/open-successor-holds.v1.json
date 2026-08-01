@@ -3651,12 +3651,22 @@
       ],
       "bound_but_unverified_records": [],
       "required_successor": {
-        "work_item_id": null,
-        "requirement": "Re-prove the typed room families with SystemScopedObjectBinding and no RoomAdmittedObjectBase dependency. Prove shared-graph conflicts through Agentgres expected_head/expected_heads or expected_absent and the enclosing bounded-System predecessor condition. Prove that canonical decisions, sequences, transitions, receipts, state roots, and receipt roots are minted once by the Agentgres/System path and only referenced by room objects. Retain the original wrong-System, stale-head, direct-write, recovery, replay, label, lineage, and product-projection refusals."
+        "work_item_id": "m4-room-graph-truth-and-product-projection",
+        "requirement": "Re-prove the typed room families with SystemScopedObjectBinding and no RoomAdmittedObjectBase dependency. Prove shared-graph conflicts through Agentgres expected_head/expected_heads or expected_absent and the enclosing bounded-System predecessor condition. Prove that canonical decisions, sequences, transitions, receipts, state roots, and receipt roots are minted once by the Agentgres/System path and only referenced by room objects. Retain the original wrong-System, stale-head, direct-write, recovery, replay, label, lineage, and product-projection refusals.",
+        "successor_named_by": "owner ruling 2026-08-01: the successor is the record itself — its restated, post-ADR-0030 proof (SystemScopedObjectBinding room families, Agentgres expected-head admission, single canonical minting, retained refusals) re-proven on branch agent/hypervisor-m4-end-state with a digest-current literal and re-exercised by the 98/98 aggregate run at 932e7bf49f9341d3be34501a9a1ad100d72021f6."
       },
       "projection_qualification": "verified_historical_with_open_successor",
-      "state": "open",
-      "state_transitions": []
+      "state": "successor_admitted",
+      "state_transitions": [
+        {
+          "from": "open",
+          "to": "successor_admitted",
+          "successor_work_item_id": "m4-room-graph-truth-and-product-projection",
+          "at_commit": "ff38b2ca3a94f01f35596a8c8305d5a2e1a9b0c3",
+          "recorded_by": "owner ruling 2026-08-01, executed by implementer session (naming per ruling; transition.mjs did not fire because the successor already held verified under its own status authority)",
+          "claim": "A successor was admitted at `verified` under its own status authority and proof gate. This discharges the hold and asserts nothing further about the predecessor's original closure."
+        }
+      ]
     },
     {
       "hold_id": "osh-0077",

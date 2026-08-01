@@ -1,0 +1,24 @@
+PASS binding-registered
+PASS binding-exact-fields
+PASS binding-closed-shape
+PASS binding-has-no-parallel-spine
+PASS binding-negative-parallel-field-fixture
+PASS all-v3-families-registered
+PASS all-v3-schema-identities-exact
+PASS all-v3-families-require-system-binding-field
+PASS all-v3-families-embed-exact-binding
+PASS all-v3-families-omit-room-admission
+PASS all-v3-families-omit-parallel-evidence-fields
+PASS all-v3-families-have-no-live-predecessor
+PASS all-v3-families-delete-v1-v2-contracts
+PASS all-v3-positive-fixtures-retained
+PASS all-v3-adversarial-fixtures-retained
+PASS room-admission-base-unregistered
+PASS outcome-room-keeps-projection-roots-not-cas-spine
+PASS work-graph-is-derived-nonwritable
+PASS discussion-is-derived-nonwritable
+PASS ioi-ai-application-namespace-is-exact
+PASS foundations-contain-no-ioi-ai-family-aliases
+PASS substrate-contracts-use-generic-scope-origin-and-publication-vocabulary
+22/22 passed
+M4 room composition contract depth: OK
