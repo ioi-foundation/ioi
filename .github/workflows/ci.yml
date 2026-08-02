@@ -122,6 +122,22 @@ jobs:
       - name: Run the M4 aggregate verifier on an isolated fresh plane
         run: |
           set -o pipefail
+          # Keep the model upstream alive IN THIS STEP. A serve backgrounded in
+          # an earlier step is an orphan the runner may reap, and the daemon's
+          # harness probe TCP-connects to 127.0.0.1:11434 to decide
+          # runnability — an unreachable upstream leaves no eligible
+          # implementer, which is the labeled harness_no_runnable_implementer
+          # failure. Provisioning, not tolerance.
+          if ! curl -sf http://127.0.0.1:11434/api/tags > /dev/null; then
+            (nohup ollama serve > /tmp/ollama-serve-step.log 2>&1 &)
+            for i in $(seq 1 30); do
+              curl -sf http://127.0.0.1:11434/api/tags > /dev/null && break
+              sleep 2
+            done
+          fi
+          curl -sf http://127.0.0.1:11434/api/tags > /dev/null
+          echo "model upstream reachable: $(curl -sf http://127.0.0.1:11434/api/tags | head -c 200)"
+          command -v bwrap && bwrap --version
           node apps/hypervisor/scripts/verify-m4-outcome-room-system-spine.mjs 2>&1 | tee m4-aggregate.log
 
       - name: Enforce the exact count and pinned binary from log bytes (no exit-code-only acceptance)

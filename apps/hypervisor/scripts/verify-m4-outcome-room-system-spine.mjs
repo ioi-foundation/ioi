@@ -6434,6 +6434,24 @@ try {
   completed = true;
 } catch (error) {
   console.error("VERIFIER CRASH:", error);
+  // Diagnostic only: when nothing probed runnable, print the daemon's own
+  // probe evidence so the reason is read rather than guessed. Adds
+  // observability; asserts nothing and relaxes nothing.
+  if (String(error?.message || error).includes("goal_run_no_eligible_implementer") && plane) {
+    try {
+      const probes = await request(plane.daemonUrl, "GET", "/v1/hypervisor/harness-profiles");
+      for (const profile of probes.body?.profiles ?? probes.body?.harness_profiles ?? []) {
+        console.error(
+          `M4_HARNESS_PROBE profile=${profile.harness_profile_id ?? profile.id} ` +
+            `lifecycle=${profile.lifecycle_status} wiring=${profile.adapter?.execution_wiring} ` +
+            `runnability=${profile.runnability?.state ?? profile.runnability_state} ` +
+            `evidence=${JSON.stringify(profile.runnability?.evidence ?? {})}`,
+        );
+      }
+    } catch (diagnosticError) {
+      console.error("M4_HARNESS_PROBE unavailable:", String(diagnosticError?.message || diagnosticError));
+    }
+  }
   // Environmental prerequisite failures are labeled so a reader (or the CI
   // failure-labeling step) can tell "the environment could not host the
   // proof" from "the proof ran and an assertion failed". The label NEVER
