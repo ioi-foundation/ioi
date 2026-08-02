@@ -56,7 +56,9 @@
     "EventStream typed owner namespace, atomic Agentgres expected-head append, root, receipt, replay, and gap proof.",
     "ProjectionSubscriptionLease subscriber, projection/filter hash, permitted subjects/labels, expiry/revocation, durable acknowledged checkpoint, backpressure bounds, and typed gap/rebase outcomes.",
     "The canonical POST /v1/subscriptions owner and daemon PEP/delivery path, with SSE, WebSocket, local broadcast, libp2p, and storage as replaceable adapters.",
-    "Positive, unleased, lag, restart, replay, revocation, checkpoint-substitution, and adapter-loss proof."
+    "Positive, unleased, lag, restart, replay, revocation, checkpoint-substitution, and adapter-loss proof.",
+    "Genericity proven by a second customer: at least two distinct typed stream owner namespaces — one thread-orchestration owner and one deliberately non-GoalRun, non-thread owner — admitted, replayed, and subscribed through the identical canonical path, with no code branch keyed to either owner's vocabulary.",
+    "Per-owner-namespace event-class declaration: each stream owner declares its admitted-truth event kinds by owner-declared payload schema ref and its ephemeral delivery-only classes; admitted classes cross atomic Agentgres transitions, ephemeral classes mint no sequence, head, root, receipt, or truth."
   ],
   "out_of_scope": [
     "M5.0's bounded GoalRun thread/fork/session/harness composition; that cut explicitly makes no general pub/sub claim.",
@@ -77,6 +79,10 @@
     {
       "family": "ProjectionSubscriptionLease",
       "ruling": "The family defines subscriber scope, filters, expiry/revocation, backpressure policy, and an acknowledged-checkpoint projection. It mints no admission or checkpoint receipt and owns no transition chain; every lease transition and checkpoint advance references the canonical Agentgres operation and receipt."
+    },
+    {
+      "family": "EventStream",
+      "ruling": "Typing and event classes: event kinds are typed by owner-declared payload schema refs scoped to the stream owner namespace; the family defines no closed global event-kind enum and admits no consumer vocabulary — including M5.0 GoalRun/thread-orchestration fields — as an admission-required field. Each owner namespace declares its admitted-truth classes versus ephemeral delivery-only classes; the numeric interactive latency budget for the ephemeral path is owned by the canon pass recorded in stages/m5.md canon gaps, not by this record."
     }
   ],
   "contract_definition_of_done": [
@@ -95,14 +101,18 @@
   ],
   "ordered_product_operator_journey": [],
   "positive_proof": [
-    "One dynamically created leased subscription survives restart, resumes from its durable acknowledged checkpoint, and reconstructs exact accepted stream history."
+    "One dynamically created leased subscription survives restart, resumes from its durable acknowledged checkpoint, and reconstructs exact accepted stream history.",
+    "A second, non-thread-orchestration owner namespace admits, replays, and serves a leased subscription through the identical canonical path; genericity is proven by the second customer, never assumed from the first."
   ],
   "adversarial_or_fault_proof": [
-    "Unleased delivery, cross-owner filters, expired/revoked leases, lag, checkpoint substitution, dropped adapter frames, restart, and rebase ambiguity fail closed or emit typed outcomes."
+    "Unleased delivery, cross-owner filters, expired/revoked leases, lag, checkpoint substitution, dropped adapter frames, restart, and rebase ambiguity fail closed or emit typed outcomes.",
+    "An ephemeral-class event presented for truth admission and an admitted-class event delivered without admission both fail closed with typed outcomes; any consumer-vocabulary field required at admission is a contract defect."
   ],
   "metrics_and_frozen_thresholds": [
     "pubsub.unleased_deliveries = 0",
-    "pubsub.accepted_events_lost_to_lag = 0"
+    "pubsub.accepted_events_lost_to_lag = 0",
+    "pubsub.distinct_stream_owner_namespaces_proven >= 2",
+    "pubsub.admission_required_consumer_vocabulary_fields = 0"
   ],
   "compatibility_and_migration": [
     "Existing broadcast, JSONL, fixed libp2p topics, and SSE bodies remain adapters or historical inputs and cannot satisfy the durable-subscription claim."

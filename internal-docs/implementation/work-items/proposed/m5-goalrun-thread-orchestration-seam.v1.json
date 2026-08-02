@@ -195,7 +195,7 @@
     "Restart/replay reconstructs the same GoalRun-to-thread/fork/session/harness refs without application-local repair or duplicate effects.",
     "The retained evidence file contains exactly one line equal to M5_GOALRUN_THREAD_ORCHESTRATION_SEAM_EXIT=0 only after the full claim is independently reviewed."
   ],
-  "adversarial_or_fault_proof": "Remove or substitute each of the five kernel refs; attempt direct harness spawning, application-minted event/fork/session truth, wrong GoalRun/Session binding, stale fork head, widened authority, missing launch receipt, crash between fork and binding, duplicate replay, and peer self-admission. Every case fails closed or recovers through the owning daemon record.",
+  "adversarial_or_fault_proof": "Remove or substitute each of the five kernel refs; attempt direct harness spawning, application-minted event/fork/session truth, wrong GoalRun/Session binding, stale fork head, widened authority, missing launch receipt, crash between fork and binding, duplicate replay, peer self-admission, and composition through a private kernel entrypoint unavailable to other bounded clients. Every case fails closed or recovers through the owning daemon record.",
   "product_journey_and_states": [
     {
       "state": "loading_or_pending",
@@ -246,6 +246,14 @@
       "threshold": 0,
       "unit": "paths",
       "threshold_source": "ADR 0031 one orchestration spine",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m5.goalrun_private_kernel_entrypoints",
+      "metric": "kernel bindings consumed by the executing-GoalRun proof that cross an entrypoint unavailable to other bounded clients",
+      "threshold": 0,
+      "unit": "entrypoints",
+      "threshold_source": "ADR 0031 same-public-contracts consequence",
       "frozen_before_observation": true
     },
     {
@@ -329,6 +337,7 @@
   "rollback_or_stop_rule": "Stop on any missing named kernel owner, application-local orchestration truth, direct harness peer authority, stale GoalRun/Session/fork binding, missing launch/binding receipt, replay ambiguity, or failed independent review. Roll back through the owning daemon contracts; never restore a GoalRun-local execution spine.",
   "exit_criteria": [
     "All five ADR 0031 kernel owners are exactly consumed by the finished executing-GoalRun proof and no application-local orchestration truth path remains.",
+    "Every kernel binding consumed by the executing GoalRun crosses the same admitted daemon contracts available to any bounded client; no private in-process entrypoint, side-channel admission, or GoalRun-only contract variant exists (ADR 0031 same-public-contracts consequence, made a bar).",
     "Bounded harness-to-harness delegation passes positive, denial, substitution, crash/recovery, restart, replay, and authority-non-grant proof.",
     "Retained evidence contains exactly one literal M5_GOALRUN_THREAD_ORCHESTRATION_SEAM_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
   ],
