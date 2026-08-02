@@ -319,7 +319,7 @@
     },
     {
       "blocker_id": "BLK-M0-FINAL-INVOKER-PROOF",
-      "reference_count": 703,
+      "reference_count": 705,
       "references": [
         "http:hypervisor-daemon:DELETE /scim/v2/Groups/:id",
         "http:hypervisor-daemon:DELETE /scim/v2/Users/:id",
@@ -620,6 +620,8 @@
         "http:hypervisor-daemon:GET /v1/tasks/:id",
         "http:hypervisor-daemon:GET /v1/threads",
         "http:hypervisor-daemon:GET /v1/threads/:id/artifacts",
+        "http:hypervisor-daemon:GET /v1/threads/:id/events",
+        "http:hypervisor-daemon:GET /v1/threads/:id/events/stream",
         "http:hypervisor-daemon:GET /v1/threads/:id/managed-sessions",
         "http:hypervisor-daemon:GET /v1/threads/:id/memory",
         "http:hypervisor-daemon:GET /v1/threads/:id/memory/path",
@@ -1608,7 +1610,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "e3351efb58adf17f121cafa4601c2651c7d51642e254d1003c9641d8866d52dc",
+  "build_fingerprint": "12fb1e84f4a8ad487c8f29371a661e2eda5c80a071e213335b4860e52bb540cd",
   "counts": {
     "by_state": {
       "open": 23,

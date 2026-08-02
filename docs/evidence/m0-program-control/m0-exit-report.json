@@ -9,10 +9,10 @@
     "repository_baseline_present": true,
     "snapshot_head_binding": "verified"
   },
-  "build_fingerprint": "e3351efb58adf17f121cafa4601c2651c7d51642e254d1003c9641d8866d52dc",
+  "build_fingerprint": "12fb1e84f4a8ad487c8f29371a661e2eda5c80a071e213335b4860e52bb540cd",
   "census_counts": {
-    "consequential": 1024,
-    "partial_consequential": 992,
+    "consequential": 1026,
+    "partial_consequential": 994,
     "terminal_consequential": 0,
     "total": 1597,
     "unavailable_consequential": 32

@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-08-01",
-  "build_fingerprint": "e3351efb58adf17f121cafa4601c2651c7d51642e254d1003c9641d8866d52dc",
+  "build_fingerprint": "12fb1e84f4a8ad487c8f29371a661e2eda5c80a071e213335b4860e52bb540cd",
   "current_program_level": "M0 only; below P0 runtime proof",
   "evidence_format": "ioi.m0.release_ladder.v1",
   "ladder": [
