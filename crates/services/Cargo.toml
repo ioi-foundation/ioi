@@ -9,6 +9,9 @@ license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi-sdk"
 
 [dependencies]
+# Types only: the admission capability, its request shape, and its refusal
+# vocabulary are DEFINED in agentgres and redefined nowhere.
+agentgres = { path = "../agentgres" }
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
 ioi-macros = { path = "../macros" }

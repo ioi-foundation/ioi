@@ -571,6 +571,26 @@ async fn async_main() -> anyhow::Result<()> {
         editor_proxies: Mutex::new(HashMap::new()),
     });
 
+    // Inject the event-stream admission capability into the runtime side.
+    //
+    // The handle steward lives in this process and nowhere else: the library
+    // core cannot acquire a `MuxHandle` and the runtime crate has no
+    // substrate access at all. This is the wiring that makes runtime writers
+    // able to admit -- and its absence is precisely what the boundary below
+    // refuses on, rather than reverting to the legacy event log.
+    //
+    // A failed install is FATAL. It can only mean a second capability in one
+    // process, which would mean two stewards; a daemon that will not start is
+    // a better outcome than one that starts with two writers to one log.
+    if let Err(error) =
+        ioi_services::agentic::runtime::event_stream_admission::install(std::sync::Arc::new(
+            substrate_store::SubstrateEventStreamAdmission::new(state.data_dir.clone()),
+        ))
+    {
+        eprintln!("hypervisor-daemon: {error}");
+        std::process::exit(1);
+    }
+
     // Author the baseline provider + backend catalog as admitted records so the
     // snapshot/projection family lists them.
     seed_catalog(&state);

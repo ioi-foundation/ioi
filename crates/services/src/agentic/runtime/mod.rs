@@ -7,6 +7,7 @@ pub mod connectors;
 pub mod delegation_snapshot;
 pub mod enforcement_coverage;
 pub mod event_log_bridge;
+pub mod event_stream_admission;
 pub mod execution; // Points to execution/mod.rs now
 pub mod harness;
 pub mod kernel;

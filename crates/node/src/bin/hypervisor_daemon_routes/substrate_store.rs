@@ -2339,6 +2339,82 @@ pub(crate) fn admit_outcome_room_system_operation(
 // Agentgres transition with an exact expected head; a head conflict is a
 // refusal, never a silent retry.
 
+/// The daemon's implementation of the injected admission capability.
+///
+/// This is the only implementor in the process, and it is the only place a
+/// `MuxHandle` is reachable from: the library core cannot acquire one and the
+/// runtime side has no substrate access at all. The capability is what
+/// crosses the crate boundary; the handle never does.
+pub(crate) struct SubstrateEventStreamAdmission {
+    data_dir: String,
+}
+
+impl SubstrateEventStreamAdmission {
+    pub(crate) fn new(data_dir: impl Into<String>) -> Self {
+        Self {
+            data_dir: data_dir.into(),
+        }
+    }
+
+    fn admit_in_class(
+        &self,
+        request: agentgres::event_stream::EventAdmission<'_>,
+        class: agentgres::event_stream::OperationClass,
+    ) -> Result<ExactProjection, AdmissionRefusal> {
+        // Each capability method admits only its own operation class, so the
+        // four methods are four permissions rather than four spellings of one
+        // call. The rule is the library's; this only applies it.
+        agentgres::event_stream::require_operation_class(request.op_kind, class)?;
+        admit_event_stream_operation(
+            &self.data_dir,
+            request.owner_namespace,
+            request.stream_tail,
+            request.op_kind,
+            request.expected_head,
+            request.payload,
+            request.recorded_at_ms,
+            request.idem_key,
+        )
+    }
+}
+
+impl agentgres::event_stream::EventStreamAdmission for SubstrateEventStreamAdmission {
+    fn admit_event(
+        &self,
+        request: agentgres::event_stream::EventAdmission<'_>,
+    ) -> Result<ExactProjection, AdmissionRefusal> {
+        self.admit_in_class(request, agentgres::event_stream::OperationClass::Event)
+    }
+
+    fn read_head(
+        &self,
+        owner_namespace: &str,
+        stream_tail: &str,
+    ) -> Result<Option<ExactProjection>, AdmissionRefusal> {
+        read_event_stream_operation(&self.data_dir, owner_namespace, stream_tail)
+    }
+
+    fn admit_lease_transition(
+        &self,
+        request: agentgres::event_stream::EventAdmission<'_>,
+    ) -> Result<ExactProjection, AdmissionRefusal> {
+        self.admit_in_class(
+            request,
+            agentgres::event_stream::OperationClass::LeaseTransition,
+        )
+    }
+
+    fn advance_checkpoint(
+        &self,
+        request: agentgres::event_stream::EventAdmission<'_>,
+    ) -> Result<ExactProjection, AdmissionRefusal> {
+        self.admit_in_class(
+            request,
+            agentgres::event_stream::OperationClass::CheckpointAdvance,
+        )
+    }
+}
+
 /// Steward the process writer handle for one event-stream admission, then
 /// delegate the discipline to `agentgres::event_stream`.
 ///

@@ -179,6 +179,43 @@ pub trait EventStreamAdmission: Send + Sync {
     ) -> Result<ExactProjection, AdmissionRefusal>;
 }
 
+/// The operation class one capability method is permitted to admit.
+///
+/// This is what makes the four trait methods four PERMISSIONS rather than
+/// four aliases for the same call: a holder that may append events cannot
+/// silently transition a lease by passing a different `op_kind`. The check
+/// lives here so every implementor obeys it, not only the one that
+/// remembered to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OperationClass {
+    Event,
+    LeaseTransition,
+    CheckpointAdvance,
+}
+
+/// Refuse an operation kind that does not belong to the capability method
+/// admitting it.
+pub fn require_operation_class(
+    op_kind: &str,
+    class: OperationClass,
+) -> Result<(), AdmissionRefusal> {
+    let permitted = match class {
+        OperationClass::Event => op_kind.starts_with("event_stream."),
+        OperationClass::CheckpointAdvance => op_kind == "subscription_lease.checkpoint_advance",
+        OperationClass::LeaseTransition => {
+            op_kind.starts_with("subscription_lease.")
+                && op_kind != "subscription_lease.checkpoint_advance"
+        }
+    };
+    if permitted {
+        Ok(())
+    } else {
+        Err(AdmissionRefusal::CoordinatesNotCanonical(
+            "operation kind for this capability",
+        ))
+    }
+}
+
 /// Confirm the substrate log is durable on disk.
 ///
 /// The fault-injection hook travels WITH the discipline: a durability
@@ -367,6 +404,36 @@ mod tests {
 
     // Refusal codes appear in route responses, verifier assertions, and
     // retained evidence. Renaming one is a wire change, not a refactor.
+    // Each capability method is a distinct permission. A holder permitted to
+    // append events must not be able to transition a lease by changing the
+    // operation kind, and vice versa.
+    #[test]
+    fn capability_methods_are_distinct_permissions() {
+        assert!(require_operation_class("event_stream.append", OperationClass::Event).is_ok());
+        assert!(
+            require_operation_class("subscription_lease.admit", OperationClass::Event).is_err()
+        );
+        assert!(require_operation_class(
+            "subscription_lease.admit",
+            OperationClass::LeaseTransition
+        )
+        .is_ok());
+        assert!(require_operation_class(
+            "subscription_lease.checkpoint_advance",
+            OperationClass::LeaseTransition
+        )
+        .is_err());
+        assert!(require_operation_class(
+            "subscription_lease.checkpoint_advance",
+            OperationClass::CheckpointAdvance
+        )
+        .is_ok());
+        assert!(
+            require_operation_class("event_stream.append", OperationClass::CheckpointAdvance)
+                .is_err()
+        );
+    }
+
     #[test]
     fn refusal_codes_are_pinned() {
         assert_eq!(
