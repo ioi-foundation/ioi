@@ -528,23 +528,23 @@
     {
       "authorship_binding": "self_declared_unsigned",
       "epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
-      "latest_epoch_identity_set_sha256": "d5e000ef94d980e8eb0efbaf555bf469f87e8107756ab45c46fafc076162144c",
-      "latest_epoch_reviewed_entry_count": 1424,
-      "latest_epoch_reviewed_entry_set_sha256": "dfd409f5f4c163fd4e01645c74a7fcc6399ab3e75910062010c50b3668a4d9df",
+      "latest_epoch_identity_set_sha256": "2944d3e1b2dc31a95cdb0580d79f98df77de5f744686e90c9aa4908004d4f818",
+      "latest_epoch_reviewed_entry_count": 1429,
+      "latest_epoch_reviewed_entry_set_sha256": "0659b99fe9b769abd397ad3c2e566a9799871b77f9240531b969e072e43e5747",
       "predecessor_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
-      "program_source_material_sha256": "c1288cabaa765787feb198b8a823f92372f9969eba430f4db83195a432da8187",
-      "review_lock_sha256": "7a442b06ef6893f71968e9c9877837449da7a61ee93493a18ccc41e815d529ec",
+      "program_source_material_sha256": "52b4be4ab8306ff0f24e100ca3b1915dc63ef28d55b183692891896664a5b7a8",
+      "review_lock_sha256": "4fa3a88db043812fed54fdbdc86847ae3c0e5393f5e7bfd13dfb31ecf1bee1d4",
       "reviewed_as_of": "2026-08-01",
       "reviewer_id": "reviewer://ioi/m0-program-control-m4-agentgres-composition-review",
       "sequence": 29,
-      "total_reviewed_entry_count": 1597,
-      "total_reviewed_entry_set_sha256": "94503cef2317cf3974f1993eada0064c41fba184e23f9910b4832dec9b72b98d",
-      "total_reviewed_identity_set_sha256": "79d71d3f6ffdd30ae2eb2c164efac1fef850808ed17d21758627670377a8ccaa"
+      "total_reviewed_entry_count": 1602,
+      "total_reviewed_entry_set_sha256": "9c244eed58372a5ed6521f2069e9441b1eb5a0e63170bbeb3fc5c2279a669938",
+      "total_reviewed_identity_set_sha256": "8903802906af7dedd2ef22f09d6ba4edba9e836fc98a4d2a3e18e29f37cf8251"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "4c4e758d35c6262faf47db5dbbe8dc0c2a21c25a15132ef279fc31e4a70f0de3",
+    "entry_sha256": "f9cfd34803c30e82194df5a9dd7f3e8a44c145fc89e844f6e4717dc363f04a57",
     "epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
     "sequence": 29
   }

@@ -15,7 +15,7 @@
     },
     {
       "blocker_id": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "reference_count": 36,
+      "reference_count": 41,
       "references": [
         "http:hypervisor-daemon:GET /v1/event-streams/:owner_namespace/:stream_tail",
         "http:hypervisor-daemon:GET /v1/goal-orchestration/goal-run-activations/:id",
@@ -31,6 +31,9 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/work-results/*id",
         "http:hypervisor-daemon:GET /v1/runs/:id/inspect",
         "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+        "http:hypervisor-daemon:GET /v1/subscriptions/:owner_namespace/:lease_tail",
+        "http:hypervisor-daemon:GET /v1/subscriptions/:owner_namespace/:lease_tail/delivery",
+        "http:hypervisor-daemon:POST /v1/event-streams/:owner_namespace/:stream_tail",
         "http:hypervisor-daemon:POST /v1/event-streams/:owner_namespace/:stream_tail/events",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/attempts",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations",
@@ -47,6 +50,8 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight",
         "http:hypervisor-daemon:POST /v1/hypervisor/work-results",
         "http:hypervisor-daemon:POST /v1/subscriptions",
+        "http:hypervisor-daemon:POST /v1/subscriptions/:owner_namespace/:lease_tail/checkpoint",
+        "http:hypervisor-daemon:POST /v1/subscriptions/:owner_namespace/:lease_tail/revoke",
         "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/control",
         "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/detect",
         "selected-journey-step:3",
@@ -1610,7 +1615,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "12fb1e84f4a8ad487c8f29371a661e2eda5c80a071e213335b4860e52bb540cd",
+  "build_fingerprint": "b9a7a21d1d3cb0d76b26e12d04088821aabc4ca8d595515c1870c755c165b3a4",
   "counts": {
     "by_state": {
       "open": 23,

@@ -554,12 +554,12 @@
         "sources": [
           {
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-            "source_sha256": "7eb6215a588b95443091674c47c0b9ff980c6a71f49183e7b8f2d71c1f974140",
+            "source_sha256": "a523eef2368874f89d0f28b38bd7e72110dd0e8e92c002f78a106f06e23b5765",
             "note": "enumerated conditional session-preview registry"
           },
           {
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "6391d60b70ab2eb3fa7e84bbee923ea7ea3bbff56c405b3f6f09455911182862",
+            "source_sha256": "0b7d453547a3213929d41f5b38465cdeeed6a16c8a02c7d58b287e06066d4d8a",
             "note": "enumerated Hypervisor daemon registry"
           },
           {
@@ -729,12 +729,12 @@
           },
           {
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-            "source_sha256": "7eb6215a588b95443091674c47c0b9ff980c6a71f49183e7b8f2d71c1f974140",
+            "source_sha256": "a523eef2368874f89d0f28b38bd7e72110dd0e8e92c002f78a106f06e23b5765",
             "note": "enumerated conditional session-preview registry"
           },
           {
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "6391d60b70ab2eb3fa7e84bbee923ea7ea3bbff56c405b3f6f09455911182862",
+            "source_sha256": "0b7d453547a3213929d41f5b38465cdeeed6a16c8a02c7d58b287e06066d4d8a",
             "note": "enumerated Hypervisor daemon registry"
           },
           {
@@ -1654,16 +1654,16 @@
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
     "snapshot_head_sequence": 29,
-    "snapshot_head_entry_sha256": "4c4e758d35c6262faf47db5dbbe8dc0c2a21c25a15132ef279fc31e4a70f0de3",
+    "snapshot_head_entry_sha256": "f9cfd34803c30e82194df5a9dd7f3e8a44c145fc89e844f6e4717dc363f04a57",
     "snapshot_predecessor_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
     "reviewer_label": "reviewer://ioi/m0-program-control-m4-agentgres-composition-review",
     "reviewer_label_status": "self_declared_unsigned",
-    "review_lock_sha256": "7a442b06ef6893f71968e9c9877837449da7a61ee93493a18ccc41e815d529ec",
+    "review_lock_sha256": "4fa3a88db043812fed54fdbdc86847ae3c0e5393f5e7bfd13dfb31ecf1bee1d4",
     "review_epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
     "reviewed_as_of": "2026-08-01",
-    "reviewed_identity_set_sha256": "d5e000ef94d980e8eb0efbaf555bf469f87e8107756ab45c46fafc076162144c",
-    "reviewed_entry_set_sha256": "dfd409f5f4c163fd4e01645c74a7fcc6399ab3e75910062010c50b3668a4d9df",
-    "program_source_material_sha256": "c1288cabaa765787feb198b8a823f92372f9969eba430f4db83195a432da8187",
+    "reviewed_identity_set_sha256": "2944d3e1b2dc31a95cdb0580d79f98df77de5f744686e90c9aa4908004d4f818",
+    "reviewed_entry_set_sha256": "0659b99fe9b769abd397ad3c2e566a9799871b77f9240531b969e072e43e5747",
+    "program_source_material_sha256": "52b4be4ab8306ff0f24e100ca3b1915dc63ef28d55b183692891896664a5b7a8",
     "assurance_posture": {
       "chain_integrity_within_snapshot": "verified",
       "snapshot_head_binding": "verified",

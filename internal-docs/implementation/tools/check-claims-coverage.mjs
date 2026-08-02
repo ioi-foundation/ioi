@@ -145,9 +145,14 @@ export function evaluate({ recordId, record, manifest, readBytes }) {
     }
     // The named check must appear PASSING. Presence alone would let a failing
     // check satisfy the claim it was supposed to prove.
-    const passing = bytes
-      .split("\n")
-      .some((line) => line.includes(mapping.check_name) && /^\s*(PASS|ok\b)/.test(line));
+    // Recognise the PASS forms the estate's runners actually emit. A verifier
+    // prints "PASS <label>"; cargo prints "test <name> ... ok". Accepting both
+    // is recognising real transcript formats -- it is NOT loosening the bar,
+    // because a FAILING line in either format still does not match.
+    const passing = bytes.split("\n").some((line) => {
+      if (!line.includes(mapping.check_name)) return false;
+      return /^\s*PASS\b/.test(line) || /\.\.\.\s*ok\s*$/.test(line);
+    });
     if (!passing) {
       findings.push(
         finding(

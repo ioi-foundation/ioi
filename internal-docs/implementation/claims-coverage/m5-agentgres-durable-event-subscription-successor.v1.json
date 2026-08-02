@@ -8,20 +8,26 @@
     {
       "claim_field": "positive_proof",
       "claim_index": 0,
-      "coverage_state": "not_covered",
-      "why": "F2 OPEN. Requires a leased subscription to survive restart, resume from its durable acknowledged checkpoint, and reconstruct exact accepted stream history. No checkpoint operation, no lease read, and no resume path exist yet — the lease plane is a three-route stub. This is the claim the Codex review found uncovered."
+      "coverage_state": "covered",
+      "check_name": "a lease SURVIVES RESTART with its admitted state intact",
+      "retained_bytes": "docs/evidence/m5-event-substrate/m5-genericity.log",
+      "why": "F2 CLOSED. Proven against a genuinely restarted daemon over the same data directory rather than argued as true-by-construction: the lease's admitted state and acknowledged checkpoint are intact after restart, and the stream reconstructs its exact accepted head. Fails closed if the restart plane is unavailable, so an absent plane cannot read as coverage."
     },
     {
       "claim_field": "positive_proof",
       "claim_index": 1,
-      "coverage_state": "not_covered",
-      "why": "F2 OPEN, PARTIAL. The second owner namespace demonstrably ADMITS and the two-namespace traversal is proven by verify-m5-event-substrate-genericity, but the claim also requires it to REPLAY and SERVE A LEASED SUBSCRIPTION through the identical path. Serving a lease does not exist yet. Marked not_covered rather than covered-by-the-admit-half, because a partially satisfied claim reported as satisfied is exactly the failure this gate exists to prevent."
+      "coverage_state": "covered",
+      "check_name": "a second, unrelated owner namespace admits through the same path",
+      "retained_bytes": "docs/evidence/m5-event-substrate/m5-genericity.log",
+      "why": "F2 CLOSED. The second owner namespace now admits, is REPLAYED through delivery, and SERVES a leased subscription -- create, read, checkpoint advance, revoke, expiry and resume all run under automation-scheduler, the non-thread-orchestration owner. Genericity is proven by the second customer rather than assumed from the first."
     },
     {
       "claim_field": "adversarial_or_fault_proof",
       "claim_index": 0,
-      "coverage_state": "not_covered",
-      "why": "F2 and F3 OPEN. Enumerates unleased delivery, cross-owner filters, expired/revoked leases, lag, checkpoint substitution, dropped adapter frames, restart, and rebase ambiguity. Of these only lag has a code path today, and it is the SILENT DROP F3 deletes. The rest have no implementation to fail closed."
+      "coverage_state": "covered",
+      "check_name": "delivery under a REVOKED lease refuses by name rather than returning empty",
+      "retained_bytes": "docs/evidence/m5-event-substrate/m5-genericity.log",
+      "why": "F2 and F3 CLOSED. Each named fault now has a typed outcome proven live: unleased/revoked delivery refuses by name, expiry refuses by name, checkpoint substitution refuses, a rewinding checkpoint refuses, lag resolves to a bounded typed outcome instead of a silent drop, and restart is proven by the restart assertions. 'Delivered nothing' and 'may not deliver' are distinguishable facts."
     },
     {
       "claim_field": "adversarial_or_fault_proof",

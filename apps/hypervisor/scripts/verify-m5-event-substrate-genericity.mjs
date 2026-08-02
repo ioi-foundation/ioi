@@ -34,7 +34,7 @@ import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");
-const EXPECTED_CHECKS = 52;
+const EXPECTED_CHECKS = 54;
 
 let passed = 0;
 const failures = [];
@@ -718,6 +718,51 @@ async function main() {
       ),
       "uniform refusal envelope across six distinct refusals",
     );
+
+
+    // ---- 15. RESTART SURVIVAL (positive_proof[0]) -----------------------
+    // The record claims a leased subscription SURVIVES RESTART and resumes
+    // from its durable acknowledged checkpoint. Lease state being admitted in
+    // Agentgres makes that true by construction -- but "true by construction"
+    // is the kind of claim this review disposition exists to stop accepting,
+    // so it is proven against a genuinely restarted daemon over the same data
+    // directory.
+    const restarted = await startIsolatedPlane({ dataDir: plane.dataDir });
+    if (restarted) {
+      try {
+        const relogin = await request(restarted.daemonUrl, "POST", "/v1/hypervisor/auth/login", {
+          email: principal.email, password: principal.password,
+        });
+        const rauth = { authorization: `Bearer ${relogin.body?.session_token}` };
+        const afterRestart = await request(
+          restarted.daemonUrl, "GET", `/v1/subscriptions/${leaseNs}/sub_1`, undefined, rauth);
+        check(
+          "a lease SURVIVES RESTART with its admitted state intact",
+          afterRestart.status === 200 &&
+            afterRestart.body?.lease_state === revoked.body?.lease_state &&
+            afterRestart.body?.acknowledged_checkpoint?.acknowledged_seq === ackSeq,
+          `state=${afterRestart.body?.lease_state} ack=${afterRestart.body?.acknowledged_checkpoint?.acknowledged_seq}`,
+        );
+        const streamAfterRestart = await request(
+          restarted.daemonUrl, "GET", `/v1/event-streams/thread-orchestration/s1`, undefined, rauth);
+        check(
+          "the stream reconstructs EXACT accepted history across restart",
+          streamAfterRestart.status === 200 &&
+            streamAfterRestart.body?.admitted_head?.resulting_head_ref ===
+              planeMoved.body?.admitted_head?.resulting_head_ref,
+          `head unchanged=${streamAfterRestart.body?.admitted_head?.resulting_head_ref === planeMoved.body?.admitted_head?.resulting_head_ref}`,
+        );
+      } finally {
+        await restarted.stop();
+      }
+    } else {
+      // Fail closed. An unavailable restart plane must not silently reduce the
+      // assertion count and read as coverage.
+      check("a lease SURVIVES RESTART with its admitted state intact", false,
+        "restart plane unavailable — failing closed rather than skipping");
+      check("the stream reconstructs EXACT accepted history across restart", false,
+        "restart plane unavailable — failing closed rather than skipping");
+    }
 
     // NOTE — no anonymous-refusal assertions here, deliberately.
     //
