@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/agentgres/event-stream/v1",
+  "title": "EventStream",
+  "x-ioi-schema-version": "ioi.agentgres.event_stream.v1",
+  "description": "An owner-namespaced durable event stream and its typed event projection. The family mints NO sequence, admission decision, receipt, state root, receipt root, or transition chain: every chain-bearing value is a REFERENCE to the canonical Agentgres operation that admitted it (ADR 0030). Event kinds are typed by owner-declared payload schema refs scoped to the stream owner namespace; there is no closed global event-kind enum and no consumer vocabulary (GoalRun, thread, room, or otherwise) is an admission-required field. Each owner namespace declares which of its event classes are admitted truth and which are ephemeral delivery-only: an occurrence is admitted truth iff it changes durable state, authority, or obligation, is required for replay, or bars/enables a claim; samples of a changing value (token deltas, presence, cursor position, progress, per-line logs) are ephemeral. The structural bar, not the numeric one, is decisive: an ephemeral delivery awaits no Agentgres operation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "stream_id",
+    "owner_namespace",
+    "owner_ref",
+    "event_class_declaration",
+    "admitted_head"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.agentgres.event_stream.v1"
+    },
+    "stream_id": {
+      "type": "string",
+      "pattern": "^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$",
+      "description": "Owner-namespaced stream identity: event-stream://<owner_namespace>/<owner-scoped tail>."
+    },
+    "owner_namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "description": "The declaring owner's namespace. The substrate branches on no namespace value; it is an identity, never a switch."
+    },
+    "owner_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The canonical owner object this stream belongs to, in that owner's own vocabulary. Opaque to the substrate."
+    },
+    "event_class_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "admitted_truth_classes",
+        "ephemeral_delivery_classes"
+      ],
+      "description": "Per-owner-namespace classification. Declared by the owner, enforced by the substrate: an admitted class crosses an atomic Agentgres transition; an ephemeral class mints nothing and awaits no Agentgres operation.",
+      "properties": {
+        "admitted_truth_classes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/eventClass"
+          },
+          "description": "Occurrence classes that change durable state, authority, or obligation, are required for replay, or bar/enable a claim."
+        },
+        "ephemeral_delivery_classes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/eventClass"
+          },
+          "description": "Delivery-only classes: samples of a changing value. A heartbeat is ephemeral; the lapse transition it feeds is admitted truth."
+        },
+        "latency_budget_ref": {
+          "type": "string",
+          "description": "Reference to the canon-owned latency budget profile this stream's ephemeral path must meet (initial ratified values: p95 <= 150ms local ephemeral delivery, p95 <= 1000ms admitted-append acknowledgment). Referenced, never hardcoded, so the canon owner can tune without reopening this contract."
+        }
+      }
+    },
+    "admitted_head": {
+      "$ref": "#/$defs/agentgresOperationReference",
+      "description": "The stream's current admitted position, entirely by reference to the canonical Agentgres operation. The family owns no head scalar of its own."
+    },
+    "genesis_operation_ref": {
+      "type": "string",
+      "pattern": "^agentgres://[^\\s]{1,400}$",
+      "description": "Reference to the Agentgres operation that admitted this stream's first event, when one exists."
+    },
+    "retention_policy_ref": {
+      "type": "string",
+      "description": "Owner-declared retention policy reference; retention is policy, never a truth mutation."
+    }
+  },
+  "$defs": {
+    "eventClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class_id",
+        "payload_schema_ref"
+      ],
+      "properties": {
+        "class_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "description": "Owner-scoped class identity. Deliberately not a closed global enum: the substrate never enumerates consumer event kinds."
+        },
+        "payload_schema_ref": {
+          "type": "string",
+          "pattern": "^schema://[^\\s]{1,400}$",
+          "description": "The owner-declared payload schema for this class. Typing lives with the owner; the substrate validates the reference, not the vocabulary."
+        },
+        "classification_basis": {
+          "type": "string",
+          "description": "Why this class falls on its side of the admitted/ephemeral line, in the owner's words."
+        }
+      }
+    },
+    "agentgresOperationReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_ref"
+      ],
+      "description": "A reference to canonical Agentgres truth. Every chain-bearing value here is a ref string produced by the substrate's backed constructors; the family owns no sequence, root, head, or receipt scalar. Fabricated agentgres:// strings are not grandfathered.",
+      "properties": {
+        "operation_ref": {
+          "type": "string",
+          "pattern": "^agentgres://[^\\s]{1,400}$",
+          "description": "The canonical Agentgres operation reference."
+        },
+        "resulting_head_ref": {
+          "type": "string",
+          "pattern": "^agentgres://[^\\s]{1,400}$"
+        },
+        "admission_receipt_ref": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,400}$"
+        },
+        "admission_root_ref": {
+          "type": "string",
+          "pattern": "^(?:sha256:[0-9a-f]{64}|commitment://[^\\s]{1,400})$"
+        }
+      }
+    }
+  }
+}

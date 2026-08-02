@@ -532,7 +532,7 @@
       "latest_epoch_reviewed_entry_count": 1421,
       "latest_epoch_reviewed_entry_set_sha256": "67af03a8d64416b5d86338b691c009ad1ce459b2a9d2938008dd9567e99ed290",
       "predecessor_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
-      "program_source_material_sha256": "f02514a71ca358d3fce3c10cfe3ecf4eb323eaaec905b44d7dfa041a18d7f0ea",
+      "program_source_material_sha256": "fad7441f09632a0438b927f675e2c483892a31c06086848bc8da333ce877573a",
       "review_lock_sha256": "909d06a7160849a9131d691d5f605a20af7533bfe25fee32b8e41be6fc3c0bdb",
       "reviewed_as_of": "2026-08-01",
       "reviewer_id": "reviewer://ioi/m0-program-control-m4-agentgres-composition-review",
@@ -544,7 +544,7 @@
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "65833d3a243c9eec4c666107d6099404de548e078fd356972787fc88b1f773cb",
+    "entry_sha256": "711fa47f0b3111b547f3a3d5347772c67bdd39b4c58ac1c51734e971aa53a0ec",
     "epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
     "sequence": 29
   }

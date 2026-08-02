@@ -1,0 +1,18 @@
+{
+  "schema_version": "ioi.agentgres.event_stream.v1",
+  "stream_id": "event-stream://thread-orchestration/thr_bad02",
+  "owner_namespace": "thread-orchestration",
+  "owner_ref": "thread://thr_bad02",
+  "event_class_declaration": {
+    "admitted_truth_classes": [
+      {
+        "class_id": "turn.committed",
+        "payload_schema_ref": "schema://ioi/components/daemon-runtime/thread-turn-committed/v1"
+      }
+    ],
+    "ephemeral_delivery_classes": []
+  },
+  "admitted_head": {
+    "operation_ref": "runtime-events://thr_bad02/head/9"
+  }
+}

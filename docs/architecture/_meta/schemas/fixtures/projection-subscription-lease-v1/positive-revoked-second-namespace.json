@@ -1,0 +1,24 @@
+{
+  "schema_version": "ioi.agentgres.projection_subscription_lease.v1",
+  "lease_id": "subscription-lease://sub_aut_11",
+  "stream_id": "event-stream://automation-scheduler/aut_3d81ff40",
+  "subscriber_ref": "principal://ops-reader",
+  "lease_state": "revoked",
+  "projection_binding": {
+    "projection_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "permitted_event_class_ids": [
+      "schedule.fired"
+    ],
+    "permitted_subject_refs": [],
+    "information_flow_label_refs": []
+  },
+  "backpressure": {
+    "policy_ref": "policy://ioi/agentgres/backpressure/bounded-buffer/v1",
+    "max_undelivered_events": 256,
+    "lag_outcome": "typed_rebase"
+  },
+  "admitted_lease_transition": {
+    "operation_ref": "agentgres://operation/subscription-lease/sub_aut_11/sequence/4/head/sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "delivery_adapter_kind": "local_broadcast"
+}

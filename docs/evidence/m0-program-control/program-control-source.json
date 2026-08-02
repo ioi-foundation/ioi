@@ -497,7 +497,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/agentgres/doctrine.md",
-      "source_sha256": "b083eb85bded59f19e988f826101f66f512c2e68557425133c7e948bf5a4007e"
+      "source_sha256": "5016e0f51e855b4dd21c286e09d7371c4bcaceee45e5f3b76093ec258853964e"
     },
     {
       "role": "landed owner canon",
@@ -1657,7 +1657,7 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "f02514a71ca358d3fce3c10cfe3ecf4eb323eaaec905b44d7dfa041a18d7f0ea",
+    "program_source_material_sha256": "fad7441f09632a0438b927f675e2c483892a31c06086848bc8da333ce877573a",
     "review_epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
     "review_lock_sha256": "909d06a7160849a9131d691d5f605a20af7533bfe25fee32b8e41be6fc3c0bdb",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
@@ -1667,7 +1667,7 @@
     "reviewer_label": "reviewer://ioi/m0-program-control-m4-agentgres-composition-review",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "65833d3a243c9eec4c666107d6099404de548e078fd356972787fc88b1f773cb",
+    "snapshot_head_entry_sha256": "711fa47f0b3111b547f3a3d5347772c67bdd39b4c58ac1c51734e971aa53a0ec",
     "snapshot_head_sequence": 29,
     "snapshot_predecessor_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",

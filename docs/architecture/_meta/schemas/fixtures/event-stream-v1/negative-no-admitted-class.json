@@ -1,0 +1,18 @@
+{
+  "schema_version": "ioi.agentgres.event_stream.v1",
+  "stream_id": "event-stream://automation-scheduler/aut_bad03",
+  "owner_namespace": "automation-scheduler",
+  "owner_ref": "automation://aut_bad03",
+  "event_class_declaration": {
+    "admitted_truth_classes": [],
+    "ephemeral_delivery_classes": [
+      {
+        "class_id": "tick.sample",
+        "payload_schema_ref": "schema://ioi/components/daemon-runtime/automation-tick-sample/v1"
+      }
+    ]
+  },
+  "admitted_head": {
+    "operation_ref": "agentgres://operation/event-stream/automation-scheduler/aut_bad03/sequence/1/head/sha256:5555555555555555555555555555555555555555555555555555555555555555"
+  }
+}

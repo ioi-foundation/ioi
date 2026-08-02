@@ -1,0 +1,40 @@
+{
+  "schema_version": "ioi.agentgres.event_stream.v1",
+  "stream_id": "event-stream://thread-orchestration/thr_9f2c1a7b",
+  "owner_namespace": "thread-orchestration",
+  "owner_ref": "thread://thr_9f2c1a7b",
+  "event_class_declaration": {
+    "admitted_truth_classes": [
+      {
+        "class_id": "turn.committed",
+        "payload_schema_ref": "schema://ioi/components/daemon-runtime/thread-turn-committed/v1",
+        "classification_basis": "Changes durable thread state and is required for replay."
+      },
+      {
+        "class_id": "fork.admitted",
+        "payload_schema_ref": "schema://ioi/components/daemon-runtime/thread-fork-admitted/v1",
+        "classification_basis": "Creates a durable obligation on a second execution lineage."
+      }
+    ],
+    "ephemeral_delivery_classes": [
+      {
+        "class_id": "token.delta",
+        "payload_schema_ref": "schema://ioi/components/daemon-runtime/thread-token-delta/v1",
+        "classification_basis": "Sample of a changing value; the committed turn it feeds is the truth."
+      },
+      {
+        "class_id": "presence.heartbeat",
+        "payload_schema_ref": "schema://ioi/components/daemon-runtime/thread-presence-heartbeat/v1",
+        "classification_basis": "A heartbeat is ephemeral; the lapse transition it feeds is admitted truth."
+      }
+    ],
+    "latency_budget_ref": "policy://ioi/agentgres/event-delivery-latency-budget/v1"
+  },
+  "admitted_head": {
+    "operation_ref": "agentgres://operation/event-stream/thread-orchestration/thr_9f2c1a7b/sequence/12/head/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "resulting_head_ref": "agentgres://event-stream/thread-orchestration/thr_9f2c1a7b/head/aaaaaaaaaaaaaaaaaaaaaaaa",
+    "admission_receipt_ref": "receipt://agentgres/event-stream/thread-orchestration/thr_9f2c1a7b/batch/4/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "admission_root_ref": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "genesis_operation_ref": "agentgres://operation/event-stream/thread-orchestration/thr_9f2c1a7b/sequence/0/head/sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+}
