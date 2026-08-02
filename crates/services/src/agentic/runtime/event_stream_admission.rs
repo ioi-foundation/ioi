@@ -65,6 +65,69 @@ pub fn read_head(
     capability()?.read_head(owner_namespace, stream_tail)
 }
 
+/// The owner namespace thread orchestration admits under.
+///
+/// It is a VALUE, not a branch. Nothing in the substrate reads it and behaves
+/// differently; a second owner (`automation-scheduler`) traverses identical
+/// code, which is what the two-namespace proof asserts.
+pub const THREAD_ORCHESTRATION_NAMESPACE: &str = "thread-orchestration";
+
+/// The successor record that owns migrating pre-existing legacy streams.
+/// Named in the refusal so the refusal points at its own remedy.
+pub const LEGACY_STREAM_MIGRATION_SUCCESSOR: &str =
+    "m5-thread-event-legacy-stream-migration-successor";
+
+/// Derive the canonical Agentgres stream tail for one event stream id.
+///
+/// Event stream ids carry a colon (`thr_abc:events`), which is not a
+/// canonical coordinate component. The digest is the mapping the estate
+/// ALREADY uses for this identifier — the legacy log names its file
+/// `sha256(event_stream_id).jsonl` — so re-homing introduces no second naming
+/// scheme, and the original id travels in the admitted payload.
+pub fn stream_tail(event_stream_id: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(event_stream_id.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+/// Where one stream's truth lives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamHoming {
+    /// The stream has pre-existing append-only history. Writes are REFUSED
+    /// and pointed at the migration successor; the history is never
+    /// recomputed and never silently continued on a new spine.
+    Legacy,
+    /// The stream has no legacy history and admits through Agentgres.
+    Admitted,
+}
+
+/// Classify one stream before dispatching a write.
+///
+/// Classification is dispatch on a DETERMINED FACT — does legacy history
+/// exist for these coordinates — and never on a failure. That distinction is
+/// the whole difference between this and a fallback: no error on either path
+/// can change which path was taken, so a broken substrate surfaces as a
+/// refusal rather than as a quiet write to the old log.
+pub fn classify_stream(state_dir: &str, event_stream_id: &str) -> StreamHoming {
+    let path = std::path::Path::new(state_dir)
+        .join("events")
+        .join(format!("{}.jsonl", stream_tail(event_stream_id)));
+    match std::fs::metadata(&path) {
+        Ok(meta) if meta.len() > 0 => StreamHoming::Legacy,
+        _ => StreamHoming::Admitted,
+    }
+}
+
+/// The refusal a legacy stream's write receives.
+pub fn unmigrated_refusal(event_stream_id: &str) -> String {
+    format!(
+        "event stream {event_stream_id} still has pre-Agentgres history; \
+         migrating it is owned by {LEGACY_STREAM_MIGRATION_SUCCESSOR} and this \
+         write is refused rather than continued on the legacy spine"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

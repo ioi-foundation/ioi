@@ -398,6 +398,30 @@ pub fn read_event_stream_head(
         .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))
 }
 
+/// Read the fully rooted admitted history for one owner-namespaced stream,
+/// ordered by admission.
+///
+/// History is deliberately NOT on the `EventStreamAdmission` trait. That
+/// trait is the capability injected ACROSS a process boundary, bounded at
+/// four operations by owner ruling; history is read by the process that
+/// already holds the handle, so serving it needs no new permission. Adding a
+/// fifth method to satisfy an in-process reader would widen a cross-boundary
+/// capability for a caller that never crosses it.
+pub fn read_event_stream_history(
+    handle: &MuxHandle,
+    owner_namespace: &str,
+    stream_tail: &str,
+) -> Result<Vec<ExactProjection>, AdmissionRefusal> {
+    if validate_stream_coordinates(owner_namespace, stream_tail).is_err() {
+        return Ok(Vec::new());
+    }
+    let object_ref = crate::refs::event_stream_object_ref(owner_namespace, stream_tail);
+    let domain = crate::refs::event_stream_domain(owner_namespace, stream_tail);
+    handle
+        .project_exact_history(&domain, &object_ref)
+        .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
