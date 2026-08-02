@@ -34,7 +34,7 @@ import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");
-const EXPECTED_CHECKS = 46;
+const EXPECTED_CHECKS = 52;
 
 let passed = 0;
 const failures = [];
@@ -660,6 +660,63 @@ async function main() {
       sseSource.includes("x-ioi-resume-after-seq") &&
         sseSource.includes("x-ioi-delivery-source"),
       "resume point and source are read FROM the response, not reconstructed from it",
+    );
+
+
+    // ---- 14. WIRE BYTES, PINNED (F7) ------------------------------------
+    // Comparable to the M4 refusal-byte proof. A status code plus a code
+    // string leaves the rest of the body unpinned, so a field could be added,
+    // renamed, or dropped without any bar noticing. These pin the exact key
+    // set of each response shape and the exact bytes of each refusal.
+    const keysOf = (body) => Object.keys(body || {}).sort().join(",");
+
+    const PINNED_APPEND_KEYS =
+      "admitted_head,agentgres_sequence,class_id,delivery,owner_namespace,payload_schema_ref,replayed,stream_id";
+    check(
+      "admitted-append response keys are pinned byte-for-byte",
+      keysOf(first.body) === PINNED_APPEND_KEYS,
+      `keys=${keysOf(first.body)}`,
+    );
+    check(
+      "admitted_head sub-object keys are pinned",
+      keysOf(first.body?.admitted_head) ===
+        "admission_receipt_ref,admission_root_ref,operation_ref,resulting_head_ref",
+      `keys=${keysOf(first.body?.admitted_head)}`,
+    );
+    const PINNED_LEASE_KEYS =
+      "acknowledged_checkpoint,admitted_lease_transition,backpressure,delivery_adapter_kind,expires_at_ref,lease_id,lease_state,nonclaim,projection_binding,schema_version,stream_id,subscriber_ref";
+    check(
+      "lease response keys are pinned byte-for-byte",
+      keysOf(created.body) === PINNED_LEASE_KEYS,
+      `keys=${keysOf(created.body)}`,
+    );
+    check(
+      "delivery response keys are pinned byte-for-byte",
+      keysOf(deliverFirst.body) ===
+        "backpressure_window,delivered_from_checkpoint,delivery_outcome,events,lease_id,nonclaim,pending_total,resume_after_seq",
+      `keys=${keysOf(deliverFirst.body)}`,
+    );
+
+    // Refusal bodies, byte-exact. A refusal whose shape drifts is a refusal
+    // callers stop being able to branch on.
+    const PINNED_REFUSAL_BYTES = JSON.stringify({
+      error: {
+        code: "subscription_lease_revoked",
+        message:
+          "this lease is revoked; delivery under a revoked lease is unleased delivery",
+      },
+    });
+    check(
+      "a refusal body is byte-identical to its pinned bytes",
+      deliverRevoked.raw === PINNED_REFUSAL_BYTES,
+      `match=${deliverRevoked.raw === PINNED_REFUSAL_BYTES}`,
+    );
+    check(
+      "every refusal body carries exactly {error:{code,message}} and nothing else",
+      [bogusCheckpoint, rewind, deliverRevoked, deliverExpired, redeclare, bothSides].every(
+        (r) => keysOf(r.body) === "error" && keysOf(r.body?.error) === "code,message",
+      ),
+      "uniform refusal envelope across six distinct refusals",
     );
 
     // NOTE — no anonymous-refusal assertions here, deliberately.
