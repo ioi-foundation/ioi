@@ -6446,6 +6446,13 @@ try {
     ["isolated serve never became healthy", "isolated_serve_unready"],
     ["model_route", "model_route_unavailable"],
     ["daemon binary", "daemon_binary_unavailable"],
+    // No harness profile probed runnable, so the plane cannot host an
+    // execution proof at all. On a bare runner this is bwrap: a wired Lane A
+    // driver refuses to spawn unconfined and reports binary_missing. A code
+    // regression could in principle produce the same code, which is why the
+    // label stays diagnostic — the exit is still nonzero and the count
+    // enforcement still refuses.
+    ["goal_run_no_eligible_implementer", "harness_no_runnable_implementer"],
   ].find(([needle]) => crashText.includes(needle));
   if (environmental) {
     console.error(`M4_ENVIRONMENTAL_PREREQUISITE_FAILED=${environmental[1]}`);

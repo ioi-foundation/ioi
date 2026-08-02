@@ -38,7 +38,8 @@ jobs:
             libdbus-1-dev \
             protobuf-compiler \
             libxcb1-dev \
-            libxdo-dev
+            libxdo-dev \
+            bubblewrap
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
