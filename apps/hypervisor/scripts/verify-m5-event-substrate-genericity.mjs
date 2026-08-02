@@ -34,7 +34,7 @@ import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");
-const EXPECTED_CHECKS = 27;
+const EXPECTED_CHECKS = 32;
 
 let passed = 0;
 const failures = [];
@@ -203,6 +203,14 @@ async function main() {
       `login=${login.status}`,
     );
 
+    const declare = (namespace, tail, decl) =>
+      request(
+        plane.daemonUrl,
+        "POST",
+        `/v1/event-streams/${namespace}/${tail}`,
+        decl === undefined ? declaration({}) : { event_class_declaration: decl },
+        auth,
+      );
     const append = (namespace, tail, key, payload, expectedHead) =>
       request(
         plane.daemonUrl,
@@ -229,6 +237,68 @@ async function main() {
     // ---- 4. BOOT INJECTION IS LIVE ---------------------------------------
     // The un-injected unit proof shows the boundary refuses. Only a booted
     // daemon can show the wiring is actually present.
+    // ---- F1: the declaration is DURABLE STREAM TRUTH -------------------
+    const declared = await declare("thread-orchestration", "s1");
+    check(
+      "a stream is declared once, inside an expected-absent genesis operation",
+      declared.status === 200 && declared.body?.declared === true,
+      `status=${declared.status} seq=${declared.body?.agentgres_sequence}`,
+    );
+    const redeclare = await declare("thread-orchestration", "s1");
+    check(
+      "redeclaration is refused by the substrate's own compare-and-swap",
+      redeclare.status === 409 &&
+        redeclare.body?.error?.code === "event_stream_already_declared",
+      `status=${redeclare.status} code=${redeclare.body?.error?.code}`,
+    );
+    const bothSides = await declare("automation-scheduler", "both", {
+      admitted_truth_classes: [{ class_id: "x", payload_schema_ref: "schema://x/v1" }],
+      ephemeral_delivery_classes: [{ class_id: "x", payload_schema_ref: "schema://x/v1" }],
+    });
+    check(
+      "a class on BOTH sides of the event-class line refuses at declaration",
+      bothSides.status === 422 &&
+        bothSides.body?.error?.code === "event_class_on_both_sides",
+      `status=${bothSides.status} code=${bothSides.body?.error?.code}`,
+    );
+    const undeclaredStream = await append("automation-scheduler", "nodecl", "k", { n: 1 });
+    check(
+      "an append to an UNDECLARED stream refuses rather than defaulting a side",
+      undeclaredStream.status === 422 &&
+        undeclaredStream.body?.error?.code === "event_stream_undeclared",
+      `status=${undeclaredStream.status} code=${undeclaredStream.body?.error?.code}`,
+    );
+
+    // REVIEWER'S LIVE REPRODUCTION, verbatim as a regression test.
+    // The defect: classify(&body, ...) took the declaration from each append
+    // REQUEST, so a caller could assert which side of the event-class line its
+    // own event fell on. Here the stream's admitted declaration says
+    // demo.admitted is TRUTH; the request claims it is ephemeral. Durable
+    // truth must win, or the line is a claim rather than a fact.
+    const liar = await request(
+      plane.daemonUrl,
+      "POST",
+      "/v1/event-streams/thread-orchestration/s1/events",
+      {
+        class_id: "demo.admitted",
+        idempotency_key: "reviewer-repro",
+        recorded_at_ms: 1,
+        payload: { n: 0 },
+        event_class_declaration: {
+          admitted_truth_classes: [],
+          ephemeral_delivery_classes: [
+            { class_id: "demo.admitted", payload_schema_ref: "schema://demo/admitted/v1" },
+          ],
+        },
+      },
+      auth,
+    );
+    check(
+      "a request-supplied declaration CANNOT reclassify an admitted class (reviewer repro)",
+      liar.status === 200 && liar.body?.delivery === "admitted",
+      `delivery=${liar.body?.delivery} (request claimed ephemeral; stream truth says admitted)`,
+    );
+
     const first = await append("thread-orchestration", "s1", "k1", { n: 1 });
     check(
       "boot injection is LIVE: a real admission succeeds against a booted daemon",
@@ -281,6 +351,7 @@ async function main() {
     const threadSeqBeforeScheduler = planeMoved.body?.agentgres_sequence;
 
     // ---- 6. TWO NAMESPACES traverse identical code ------------------------
+    await declare("automation-scheduler", "s1");
     const scheduler = await append("automation-scheduler", "s1", "k1", { n: 1 });
     check(
       "a second, unrelated owner namespace admits through the same path",
@@ -364,6 +435,7 @@ async function main() {
     );
 
     // ---- 9. the event-class line is structural ---------------------------
+    const s2Genesis = await declare("automation-scheduler", "s2");
     const ephemeral = await request(
       plane.daemonUrl,
       "POST",
@@ -380,11 +452,20 @@ async function main() {
       `delivery=${ephemeral.body?.delivery}`,
     );
     const ephemeralStream = await readHead("automation-scheduler", "s2");
+    // A declared stream EXISTS -- its genesis is an admitted operation -- so
+    // "no stream" is no longer the right property. The property that survives
+    // declaration is that ephemeral delivery ADVANCES NOTHING: the head is
+    // still the genesis it was before the ephemeral event was delivered.
     check(
-      "ephemeral delivery left NO admitted stream behind",
-      ephemeralStream.status === 404,
-      `status=${ephemeralStream.status}`,
+      "ephemeral delivery advanced NOTHING: the head is still the genesis",
+      ephemeralStream.status === 200 &&
+        ephemeralStream.body?.agentgres_sequence ===
+          s2Genesis.body?.agentgres_sequence &&
+        ephemeralStream.body?.admitted_head?.resulting_head_ref ===
+          s2Genesis.body?.admitted_head?.resulting_head_ref,
+      `genesis seq=${s2Genesis.body?.agentgres_sequence} head seq=${ephemeralStream.body?.agentgres_sequence}`,
     );
+    await declare("automation-scheduler", "s3");
     const undeclared = await request(
       plane.daemonUrl,
       "POST",

@@ -2339,7 +2339,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/event-streams/:owner_namespace/:stream_tail",
-            get(event_stream_routes::handle_event_stream_get),
+            get(event_stream_routes::handle_event_stream_get)
+                .post(event_stream_routes::handle_event_stream_create),
         )
         .route(
             "/v1/event-streams/:owner_namespace/:stream_tail/events",

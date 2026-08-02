@@ -75,19 +75,87 @@ fn text<'a>(value: &'a Value, key: &str) -> &'a str {
     value.get(key).and_then(Value::as_str).unwrap_or_default()
 }
 
-/// The owner's declared class table for one stream, read from the request.
-/// The substrate validates SHAPE — that a class is declared and on exactly one
-/// side of the line — never the owner's vocabulary.
+/// Validate one declaration at ADMISSION time.
+///
+/// Exactly-one-side is enforced here, once, when the declaration becomes
+/// durable truth — not on every append against whatever the caller sent. A
+/// class appearing on both lists is a contradiction the substrate must refuse
+/// rather than resolve, because resolving it would mean choosing which side of
+/// the event-class line the owner meant.
+fn validate_declaration(declaration: &Value) -> Result<(), Refused> {
+    let list = |name: &str| -> Vec<String> {
+        declaration
+            .get(name)
+            .and_then(Value::as_array)
+            .map(|classes| {
+                classes
+                    .iter()
+                    .map(|class| text(class, "class_id").to_owned())
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let admitted = list("admitted_truth_classes");
+    let ephemeral = list("ephemeral_delivery_classes");
+    if admitted.is_empty() && ephemeral.is_empty() {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "event_class_declaration_empty",
+            "a stream declares at least one event class before it admits anything",
+        ));
+    }
+    for side in [&admitted, &ephemeral] {
+        for class_id in side.iter() {
+            if class_id.is_empty() {
+                return Err(bad(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "event_class_unnamed",
+                    "every declared class carries a class_id",
+                ));
+            }
+        }
+    }
+    if let Some(both) = admitted.iter().find(|id| ephemeral.contains(id)) {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "event_class_on_both_sides",
+            &format!(
+                "class {both} is declared as BOTH admitted truth and ephemeral delivery; \
+                 the event-class line admits no class on both sides"
+            ),
+        ));
+    }
+    for class_id in admitted.iter().chain(ephemeral.iter()) {
+        let payload_ref = ["admitted_truth_classes", "ephemeral_delivery_classes"]
+            .iter()
+            .filter_map(|list_name| declaration.get(*list_name).and_then(Value::as_array))
+            .flatten()
+            .find(|class| text(class, "class_id") == class_id)
+            .map(|class| text(class, "payload_schema_ref"))
+            .unwrap_or_default();
+        if payload_ref.is_empty() {
+            return Err(bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "event_class_untyped",
+                "a declared class types its payload by owner-declared schema ref",
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Classify one class against the stream's ADMITTED declaration.
+///
+/// The declaration argument comes from the stream's genesis operation read out
+/// of Agentgres — never from the append request. A request-supplied
+/// declaration would let any caller assert which side of the event-class line
+/// its own event falls on, which makes the line a claim rather than a fact.
 fn classify<'a>(body: &'a Value, class_id: &str) -> Option<(&'a str, bool)> {
     for (list, admitted) in [
         ("admitted_truth_classes", true),
         ("ephemeral_delivery_classes", false),
     ] {
-        if let Some(classes) = body
-            .get("event_class_declaration")
-            .and_then(|d| d.get(list))
-            .and_then(Value::as_array)
-        {
+        if let Some(classes) = body.get(list).and_then(Value::as_array) {
             for class in classes {
                 if text(class, "class_id") == class_id {
                     return Some((text(class, "payload_schema_ref"), admitted));
@@ -96,6 +164,105 @@ fn classify<'a>(body: &'a Value, class_id: &str) -> Option<(&'a str, bool)> {
         }
     }
     None
+}
+
+/// The operation kind that carries a stream's durable event-class declaration.
+const GENESIS_OP_KIND: &str = "event_stream.genesis";
+
+/// Read the stream's ADMITTED declaration out of its genesis operation.
+///
+/// This is the whole of F1: the declaration is a fact about the stream, held
+/// in the first admitted operation on its chain, and every append is judged
+/// against it. Returning `None` means the stream was never declared, which
+/// refuses the append rather than defaulting it to either side of the line.
+fn admitted_declaration(
+    st: &DaemonState,
+    owner_namespace: &str,
+    stream_tail: &str,
+) -> Result<Option<Value>, Refused> {
+    let history =
+        substrate_store::read_event_stream_history(&st.data_dir, owner_namespace, stream_tail)
+            .map_err(refused)?;
+    Ok(history
+        .into_iter()
+        .find(|projection| projection.operation.op_kind == GENESIS_OP_KIND)
+        .map(|projection| projection.operation.payload))
+}
+
+/// POST /v1/event-streams/:owner_namespace/:stream_tail
+///
+/// Declare one stream, once. The declaration is admitted inside an
+/// EXPECTED-ABSENT genesis operation, so redeclaration is refused by the
+/// substrate's own compare-and-swap rather than by a check that could be
+/// forgotten: a second genesis has a head where absence was required.
+pub(crate) async fn handle_event_stream_create(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((owner_namespace, stream_tail)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, Refused> {
+    let Some(declaration) = body.get("event_class_declaration") else {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "event_class_declaration_required",
+            "a stream is declared before it admits anything",
+        ));
+    };
+    validate_declaration(declaration)?;
+
+    // Refuse redeclaration explicitly. Leaving this to the expected-absent CAS
+    // is not enough: an identical redeclaration carries identical bytes under
+    // the same key and would REPLAY as success, which reads as "declared
+    // again" rather than "refused". The rule is one declaration per stream,
+    // so it is checked as one declaration per stream.
+    if admitted_declaration(&st, &owner_namespace, &stream_tail)?.is_some() {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "event_stream_already_declared",
+            "this stream already carries an admitted event-class declaration; \
+             redeclaration would rewrite truth callers have already been judged against",
+        ));
+    }
+
+    let admitted = substrate_store::admit_event_stream_operation(
+        &st.data_dir,
+        &owner_namespace,
+        &stream_tail,
+        GENESIS_OP_KIND,
+        None, // expected-absent: this stream must not already exist
+        declaration,
+        body.get("recorded_at_ms")
+            .and_then(Value::as_u64)
+            .unwrap_or_default(),
+        &format!("genesis-{owner_namespace}-{stream_tail}"),
+    )
+    .map_err(|refusal| match refusal {
+        AdmissionRefusal::HeadConflict => bad(
+            StatusCode::CONFLICT,
+            "event_stream_already_declared",
+            "this stream already carries an admitted event-class declaration; \
+             redeclaration would rewrite truth callers have already been judged against",
+        ),
+        other => refused(other),
+    })?;
+    let exact = &admitted.projection;
+
+    Ok(Json(json!({
+        "stream_id": format!("event-stream://{owner_namespace}/{stream_tail}"),
+        "owner_namespace": owner_namespace,
+        "declared": true,
+        "replayed": admitted.replayed,
+        "event_class_declaration": declaration,
+        "admitted_head": {
+            "operation_ref": agentgres::refs::event_stream_operation_ref(
+                &owner_namespace, &stream_tail, exact.seq, &exact.head),
+            "resulting_head_ref": exact.head,
+            "admission_receipt_ref": agentgres::refs::event_stream_receipt_ref(
+                &owner_namespace, &stream_tail, exact.admission_batch_seq, &exact.admission_root),
+            "admission_root_ref": exact.admission_root,
+        },
+        "agentgres_sequence": exact.seq,
+        "nonclaim": "The declaration is durable stream truth admitted once; appends are judged against it, never against request-supplied bytes.",
+    })))
 }
 
 /// POST /v1/event-streams/:owner_namespace/:stream_tail/events
@@ -116,7 +283,18 @@ pub(crate) async fn handle_event_stream_append(
             "an append names the owner-declared class it belongs to",
         ));
     }
-    let Some((payload_schema_ref, admitted)) = classify(&body, class_id) else {
+    // The declaration comes from the stream, not the request. A caller cannot
+    // assert which side of the event-class line its own event falls on.
+    let Some(declaration) = admitted_declaration(&st, &owner_namespace, &stream_tail)? else {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "event_stream_undeclared",
+            "this stream carries no admitted event-class declaration; declare it before appending",
+        ));
+    };
+    let Some((payload_schema_ref, admitted)) =
+        classify(&declaration, class_id).map(|(r, a)| (r.to_owned(), a))
+    else {
         return Err(bad(
             StatusCode::UNPROCESSABLE_ENTITY,
             "event_class_undeclared",
@@ -145,7 +323,17 @@ pub(crate) async fn handle_event_stream_append(
         })));
     }
 
-    let expected_head = body.get("expected_head").and_then(Value::as_str);
+    // A declared stream always has a head, so expected-absent is never the
+    // right precondition for an append. An explicit expected_head is honoured
+    // verbatim; otherwise the append CASes against the head read here.
+    let current_head =
+        substrate_store::read_event_stream_operation(&st.data_dir, &owner_namespace, &stream_tail)
+            .map_err(refused)?
+            .map(|projection| projection.head);
+    let expected_head = body
+        .get("expected_head")
+        .and_then(Value::as_str)
+        .or(current_head.as_deref());
     let idem_key = text(&body, "idempotency_key");
     if idem_key.is_empty() {
         return Err(bad(
