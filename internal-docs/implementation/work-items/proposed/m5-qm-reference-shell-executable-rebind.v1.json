@@ -95,7 +95,8 @@
   "aggregate_disposition": {
     "state": "deliberately_non_gating",
     "not_a_child_of": "m5-selected-profile-exit-proof",
-    "why": "Owner ruling 2026-08-02: apps/ioi-ai/ SCAFFOLDING gates M5, and the dormant adoption is the scaffolding. Binding the rebind would extend the M5 exit from 'the seed is adopted' to 'the seed runs against canonical owners' \u2014 a scope increase the ruling did not make. This is a decision, not a hedge: the scaffold is gating, its execution is not. The earlier transitive concern (that binding the rebind would pull in the seam) is moot now that the seam and the event successor are bound children in their own right.",
-    "ruled_on": "2026-08-02"
+    "why": "Owner ruling 2026-08-02: apps/ioi-ai/ SCAFFOLDING gates M5, and the dormant adoption is the scaffolding. Binding the rebind would extend the M5 exit from 'the seed is adopted' to 'the seed runs against canonical owners' \u2014 a scope increase the ruling did not make. This is a decision, not a hedge: the scaffold is gating, its execution is not. The earlier transitive concern (that binding the rebind would pull in the seam) is moot now that the seam and the event successor are bound children in their own right. AMENDED BY OWNER RULING 2026-08-02 (final): non-gating for M5 AND a named gating child of M6. The record is no longer merely excluded from one aggregate \u2014 it is bound into another, so the product intent (ioi-ai real, not parked) has a MECHANICAL home rather than an intention. m6-product-surface-and-typed-workspaces.aggregate_child_ids now names it, which means M6 cannot certify without ioi-ai executable against canonical owners, enforced by the same certify-stage machinery that governs every other child. Both dependencies are M5-gating children, so the moment M5 certifies this is immediately actionable as early M6 work.",
+    "ruled_on": "2026-08-02",
+    "gating_child_of": "m6-product-surface-and-typed-workspaces"
   }
 }

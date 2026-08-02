@@ -9,7 +9,7 @@
   "status": "proposed",
   "objective": "Plan the normalized daemon-admitted product surface compiler, honest Systems and Work views, alias retirement, package and extension lifecycle, UX-00, and frozen usability proof.",
   "falsifiable_claim": "One registered source can feed shell, catalog, palette, context, and API without fabricating membership or implementation depth, while policy, tenant, context, and alias substitutions fail closed.",
-  "selected_profile": "The canonical five-workspace Hypervisor shell and contract-pulled application registration over real M1–M5 reads.",
+  "selected_profile": "The canonical five-workspace Hypervisor shell and contract-pulled application registration over real M1\u2013M5 reads.",
   "canon_owners": [
     "docs/architecture/components/hypervisor/core-clients-surfaces.md",
     "docs/decisions/0028-reconcile-hypervisor-product-surface-contracts-and-cutover.md"
@@ -77,6 +77,7 @@
   ],
   "external_gates": [],
   "aggregate_child_ids": [
+    "m5-qm-reference-shell-executable-rebind",
     "m6-applications-workspace-operational-journey",
     "m6-automations-operational-journey",
     "m6-catalog-route-alias-migration-accessibility",
@@ -96,6 +97,14 @@
     "sdk-cli-adk-odk-builder-journey"
   ],
   "aggregate_child_dispositions": [
+    {
+      "child_work_item_id": "m5-qm-reference-shell-executable-rebind",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "owner ruling 2026-08-02",
+      "selection_evidence_refs": [],
+      "disposition_basis": "Owner ruling 2026-08-02. The rebind is NOT an M5 child: M5's falsifiable claims are participant/frontier/pairing/portable-exit truths, and an executable UX shell adds certification surface without adding proof value there. Rushing a rebind to inflate an M5 gate would be the route-present-is-not-proof theater this program exists to retire. It is an M6 child instead, so M6 cannot certify without ioi-ai executable against canonical owners \u2014 enforced by the same certify-stage machinery as every other child, not by intention. Its dependencies (m5-goalrun-thread-orchestration-seam, m5-participant-frontier-result-closeout) are M5-gating children, so the rebind becomes immediately actionable as early M6 work the moment M5 certifies."
+    },
     {
       "child_work_item_id": "m6-applications-workspace-operational-journey",
       "selection_state": "unconditional_active",

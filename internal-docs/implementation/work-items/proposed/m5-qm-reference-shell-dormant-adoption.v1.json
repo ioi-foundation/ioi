@@ -18,7 +18,7 @@
   "pg_gate_states": [],
   "work_item_id": "m5-qm-reference-shell-dormant-adoption",
   "required_work": [
-    "Adopt github.com/yc-software/qm (MIT) as the dormant ioi.ai reference-UX seed under apps/ioi-ai/: fork, strip YC branding, retain the MIT license and attribution, rebrand — stack VERBATIM (Lit/Vite; no React port). The tree lands inert: not served, not rebound, no parity or executable claim."
+    "Adopt github.com/yc-software/qm (MIT) as the dormant ioi.ai reference-UX seed under apps/ioi-ai/: fork, strip YC branding, retain the MIT license and attribution, rebrand \u2014 stack VERBATIM (Lit/Vite; no React port). The tree lands inert: not served, not rebound, no parity or executable claim."
   ],
   "objective": "Land the ratified ioi.ai reference-UX seed (QM) as preserved dormant evidence, exactly as the Palantir-derived Hypervisor seeds landed in PRs #93-#95: adopt-in-place so later surface convergence rebinds a real, bootable artifact instead of reauthoring a shell. M5_QM_DORMANT_ADOPTION_EXIT=0.",
   "falsifiable_claim": "The adopted tree under apps/ioi-ai/ carries the upstream stack verbatim (Lit/Vite, no React port), retains the MIT license and attribution with YC branding stripped, is reachable from no served route, binds no daemon truth, and asserts no parity, executable, or product-membership claim.",
@@ -29,7 +29,7 @@
     "Dormancy proof: no route serves the tree; no daemon or Agentgres binding references it."
   ],
   "out_of_scope": [
-    "Serving, rebinding, executable or parity claims — owned by m5-qm-reference-shell-executable-rebind.",
+    "Serving, rebinding, executable or parity claims \u2014 owned by m5-qm-reference-shell-executable-rebind.",
     "Any React port or stack substitution (the stack lands verbatim; surface-convergence stack choice is deferred).",
     "Any change to the protected Hypervisor ported seed or to m4.md."
   ],
@@ -89,5 +89,6 @@
         "sha256": "55a2e9986c1ac83e87327604f10627df132e3f85087845c0383ebe878989c2ef"
       }
     ]
-  }
+  },
+  "current_implementation_evidence": "CUT OPENED ON ITS OWN BRANCH 2026-08-02 per owner ruling. Branch `agent/hypervisor-m5-qm-dormant-adoption`, based at 966d2ba52. BASE CHOICE, STATED RATHER THAN ASSUMED: the ruling requires that this records change not ride on `agent/hypervisor-m5-event-substrate`, which is frozen for independent review. Branching FROM the frozen commit is not landing ON the frozen branch \u2014 that branch stays byte-identical at 966d2ba52. Branching from master was checked first and rejected on evidence: all three records this cut must amend (this one, the rebind, and m6-product-surface-and-typed-workspaces) exist ONLY on the M5 branch; master carries the M6 record in `_archive/pre-unification-baseline/` alone. A master base would have meant re-creating the records to amend them, which is not an amendment. THE M6 AMENDMENT LANDED HERE: m6-product-surface-and-typed-workspaces.aggregate_child_ids now names m5-qm-reference-shell-executable-rebind (17 -> 18 children) with an unconditional_active disposition, so M6 cannot certify without ioi-ai executable against canonical owners. The rebind record carries the reciprocal binding via `gating_child_of`. The product intent therefore has a mechanical home enforced by the certify-stage machinery rather than an intention. ADOPTION NOT YET PERFORMED. The upstream is github.com/yc-software/qm (MIT), which is not present in this repository and must be fetched from an external host. That is an outward-facing action, so it is being confirmed before it is taken rather than after. When it proceeds the discipline is: adopt-in-place under apps/ioi-ai/, stack VERBATIM (Lit/Vite, no React port), YC branding stripped, MIT license and attribution RETAINED, and the tree lands INERT \u2014 not served, not rebound, no parity or executable or product-membership claim. No literal before this cut's own independent review."
 }
