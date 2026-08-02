@@ -1,0 +1,42 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/outcome-room/bounded-system/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
+  "rules": [
+    {
+      "rule_id": "outcome_room.genesis.required_when_live",
+      "description": "A room beyond proposal binds its admitted genesis.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.genesis_ref",
+        "when_path": "$.status",
+        "values": ["open", "active", "paused", "blocked", "verifying", "accepted", "disputed", "settled", "closed", "revoked", "archived"]
+      }
+    },
+    {
+      "rule_id": "outcome_room.host.required_for_hosted_admission",
+      "description": "Hosted admission names the governed host domain.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.host_domain_ref",
+        "when_path": "$.coordination_topology",
+        "values": ["hosted_admission"]
+      }
+    },
+    {
+      "rule_id": "outcome_room.profile.deployment.required",
+      "description": "Every room binds an active deployment profile.",
+      "expression": { "operator": "non_empty", "path": "$.active_profile_refs.deployment_profile_ref" }
+    },
+    {
+      "rule_id": "outcome_room.profile.ordering.required",
+      "description": "Every room binds an ordering/admission/finality profile.",
+      "expression": { "operator": "non_empty", "path": "$.active_profile_refs.ordering_admission_finality_profile_ref" }
+    },
+    {
+      "rule_id": "outcome_room.profile.lifecycle.required",
+      "description": "Every room binds lifecycle continuity policy.",
+      "expression": { "operator": "non_empty", "path": "$.active_profile_refs.lifecycle_continuity_profile_ref" }
+    }
+  ]
+}

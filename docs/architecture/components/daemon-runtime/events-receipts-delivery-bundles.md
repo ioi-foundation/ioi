@@ -4,10 +4,10 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-07-31.
 Doctrine status: canonical
-Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, and `PhysicalActionExecutionReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, `TemporalVerificationProfile`/`TemporalValidityEvaluation` contracts, exact-action review/effect-admission receipt profiles, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipt profiles, OutcomeRoom/collective-pursuit receipt families, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
-Last implementation audit: 2026-07-20
+Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, `PhysicalActionExecutionReceipt` v1, and `GoalRunActivationReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, `TemporalVerificationProfile`/`TemporalValidityEvaluation` contracts, exact-action review/effect-admission receipt profiles, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipt profiles, full OutcomeRoom/collective-pursuit receipt production, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
+Last implementation audit: 2026-07-30
 
 ## Purpose
 
@@ -846,6 +846,7 @@ WorkResultReceipt
 OutcomeDeltaAdmissionReceipt
 BenchmarkRunReceipt
 EvaluationVerdictReceipt
+GoalRunActivationReceipt
 GoalRunProfileResolutionReceipt
 AutomationRunResolutionReceipt
 OrchestrationDecisionReceipt
@@ -1670,6 +1671,76 @@ decision and `transfer_status` must not claim
 receipt; it links forward through the applicable impact, recall, deletion, or
 access-rotation record.
 
+## GoalRun Activation Receipts
+
+A `GoalRunActivationReceipt` is emitted only after the daemon admits one
+`GoalRunActivationEnvelope`. It proves the narrow crossing fact: the exact
+activation draft and typed source context were evaluated under the named
+authority, review, and admission decisions and admitted or joined the named
+`goal://` identity at the retained Agentgres state root. It does not prove the
+goal is correct or complete, widen authority, declassify carried context, grant
+room membership, create budget, or discharge any later work receipt.
+
+```yaml
+GoalRunActivationReceipt:
+  schema_version: ioi.goal-run-activation-receipt.v1
+  receipt_id: receipt://...
+  receipt_ref: receipt://...
+  receipt_type: goal_run_activation
+  receipt_profile_ref: schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1
+  activation_ref: goal-run-activation://...
+  activation_mode: create | join_existing
+  source_context:
+    source_kind:
+      ioi_goal_draft | hypervisor_session | work_run | work_item |
+      outcome_room_claim | automation_workflow_step | gateway_adapter_context
+    source_ref:
+      intent://... | prompt://... | session://... | work-run://... | run://... |
+      work-item://... | work-claim://... | action://goal-run/activate/... |
+      adapter://...
+    source_owner_ref: org://... | project://... | system://... | user://...
+  draft_activation_hash: sha256:...
+  source_context_hash: sha256:...
+  requesting_principal_ref: wallet://... | user://... | agent://... | system://...
+  authority_decision_ref: grant://... | approval://...
+  review_decision_ref: receipt://... | approval://... | null
+  admission_decision_ref: agentgres://... | decision://...
+  admission_receipt_ref: receipt://...
+  admitted_goal_ref: goal://...
+  existing_goal_ref: goal://... | null
+  goal_run_profile_revision_ref: goal-run-profile://.../revision/... | null
+  goal_run_profile_content_hash: sha256:... | null
+  resolved_component_set_snapshot_ref: artifact://...
+  resolved_component_set_hash: sha256:...
+  profile_resolution_receipt_ref: receipt://...
+  receipt_obligations_hash: sha256:...
+  attested_boundary_fact_refs:
+    - goal-run-activation://... | intent://... | grant://... |
+      decision://... | goal://... | goal-run-profile://... |
+      artifact://... | receipt://... | agentgres://...
+  admitted_state_root_ref: agentgres://state-root/goal-run/...
+  admitted_at: timestamp
+  non_grants:
+    authority_widening: none
+    context_declassification: none
+    room_membership: none
+    budget_creation: none
+  receipt_root: sha256:...
+```
+
+`receipt_id` and `receipt_ref` are the same portable identity.
+`receipt_root` is SHA-256 over JCS of every field above except
+`receipt_root`. `source_context_hash` commits the complete source object the
+daemon resolved, while the typed `source_context` makes its kind, ref, and
+owner independently inspectable. The resolved-component tuple and profile-
+resolution receipt bind the admission-time dependency closure;
+`receipt_obligations_hash` commits the exact typed obligation set, and every
+required bound fact must appear in `attested_boundary_fact_refs`. In `create`
+mode the exact profile revision and content hash are required and
+`existing_goal_ref` is null. In
+`join_existing` mode the profile fields are null and `existing_goal_ref`
+names the same pre-existing goal identity the admission evaluator joins.
+
 ## GoalRun Profile Resolution Receipts
 
 A `GoalRunProfileResolutionReceipt` proves which immutable pursuit definition,
@@ -1684,6 +1755,13 @@ GoalRunProfileResolutionReceipt:
   goal_ref: goal://...
   goal_run_profile_revision_ref: goal-run-profile://.../revision/...
   goal_run_profile_content_hash: hash
+  goal_run_execution_ceiling_revision_ref: goal-run-execution-ceiling://.../revision/sha256:... | omitted
+  goal_run_execution_ceiling_content_hash: sha256:... | omitted
+  declared_invocation_budget:
+    max_total_invocations: integer
+    max_parallel_invocations: integer
+    # the complete tuple is omitted only for predecessor lanes that have not
+    # yet adopted the execution-ceiling contract
   admitted_override_set_ref: artifact://... | null
   admitted_override_set_hash: hash | null
   effective_constraint_envelope_ref: constraint://...
@@ -1726,6 +1804,12 @@ GoalRunProfileResolutionReceipt:
 ```
 
 When the override ref is null its hash is null; otherwise both are required.
+When any execution-ceiling field is present, all three ceiling revision/hash
+and declared-budget fields are required together, the ceiling revision is part
+of the resolved-component closure, and the receipt never fills a missing value
+from a default. The M4 `ioi_goal_draft` lane carries the exact immutable
+zero-execution ceiling and a `{0, 0}` declared budget; older partial lanes may
+omit the complete tuple until their own owner-approved adoption cut.
 Late-binding predicates may remain unresolved at run admission only when the
 profile permits them. Each actual worker, model, HarnessProfile, tool, runtime,
 context, and authority selection is then frozen by its owning
@@ -3120,18 +3204,20 @@ host or federated admission policy admits the relevant state change.
     "artifact://candidate-12"
   ],
   "verifier_rule_version_ref": "rubric://research-v3",
-  "expected_room_revision": 41,
-  "resulting_room_revision": 42,
-  "sequence": 42,
-  "expected_predecessor_commitment_ref": "commitment://outcome-room/research-123/41",
+  "expected_agentgres_heads": {
+    "frontier://question-7": "sha256:..."
+  },
+  "accepted_agentgres_sequence": 42,
+  "resulting_agentgres_heads": {
+    "frontier://question-7": "sha256:..."
+  },
   "operation_or_batch_commitment": "sha256:...",
-  "admission_decision_ref": "decision://room-admission/42",
-  "admission_proof_ref": "evidence://... | receipt://...",
-  "resulting_transition_commitment_ref": "commitment://outcome-room/research-123/42",
-  "predecessor_room_state_root": "sha256:...",
-  "resulting_room_state_root": "sha256:...",
-  "resulting_receipt_root": "sha256:...",
-  "agentgres_operation_refs": ["agentgres://operation/..."],
+  "policy_decision_ref": "decision://agentgres/42",
+  "agentgres_operation_ref": "agentgres://operation/...",
+  "agentgres_receipt_refs": ["receipt://agentgres/..."],
+  "bounded_system_predecessor_transition_ref": "commitment://system/research-123/41",
+  "bounded_system_transition_ref": "commitment://system/research-123/42",
+  "bounded_system_transition_receipt_ref": "receipt://system/research-123/42",
   "status": "proposed | admitted | challenged | superseded | rejected | revoked"
 }
 ```
@@ -3208,13 +3294,15 @@ and negative attempts, which findings were admitted or contradicted, verifier
 rule changes, affected re-verification, spend, authority, contribution lineage,
 and why the room changed direction.
 
-Every room-child receipt implements the `RoomAdmittedObjectBase` proof spine:
-exact participant lease or room-system issuer, expected room revision and
-predecessor transition commitment, payload/operation commitment, admission
-policy and decision, monotonic sequence, admission proof, resulting room
-revision, transition commitment, state root, and receipt root. Dependency refs
-to a worker, model, runtime, organization, or provider never replace the
-participant lease that accepted the room obligation.
+Every room-child receipt is the canonical receipt of the enclosing System's
+Agentgres operation. The typed payload contributes `SystemScopedObjectBinding`:
+exact room System, OutcomeRoom, participant lease or room-System issuer, and
+payload root. Agentgres owns expected-head comparison, resolved policy and
+decision, accepted sequence/head, and receipt refs; the bounded-System
+transition owns predecessor continuity, transition commitment, state root, and
+receipt root. No room-specific receipt family may duplicate those facts as a
+parallel chain. Dependency refs to a worker, model, runtime, organization, or
+provider never replace the participant lease that accepted the room obligation.
 
 ## Direct Improvement Gate Receipts
 

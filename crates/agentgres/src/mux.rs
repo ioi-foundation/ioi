@@ -1150,14 +1150,14 @@ impl MuxEngine {
     /// this path rejects every malformed, truncated, unrooted, or internally
     /// inconsistent log and proves the reconstructed terminal state agrees
     /// with the writer's in-memory heads and roots.
-    pub fn project_exact(
+    fn project_exact_history_internal(
         &self,
         domain: &str,
         object_ref: &str,
-    ) -> std::io::Result<Option<ExactProjection>> {
+    ) -> std::io::Result<Vec<ExactProjection>> {
         let mut reader = BufReader::new(File::open(self.dir.join("muxlog.bin"))?);
         let mut reconstructed: BTreeMap<String, StrictDomainState> = BTreeMap::new();
-        let mut latest = None;
+        let mut history = Vec::new();
         let mut reconstructed_epoch = 0u64;
         let mut frame_index = 0u64;
         let mut rooting_started = false;
@@ -1297,7 +1297,7 @@ impl MuxEngine {
                     }
                     for record in &state.pending_records {
                         if root_domain == domain && record.op.object_ref == object_ref {
-                            latest = Some(ExactProjection {
+                            history.push(ExactProjection {
                                 operation: record.op.clone(),
                                 seq: record.seq,
                                 head: record.new_head.clone(),
@@ -1377,8 +1377,8 @@ impl MuxEngine {
                 self.current_epoch
             )));
         }
-        let Some(mut exact) = latest else {
-            return Ok(None);
+        let Some(latest) = history.last() else {
+            return Ok(history);
         };
         let terminal = &reconstructed
             .get(domain)
@@ -1388,13 +1388,37 @@ impl MuxEngine {
                 ))
             })?
             .terminal;
-        if terminal.heads.get(object_ref) != Some(&exact.head) {
+        if terminal.heads.get(object_ref) != Some(&latest.head) {
             return Err(invalid_log(format!(
                 "mux exact projection head for '{object_ref}' is not the reconstructed terminal head"
             )));
         }
-        exact.terminal_root = terminal.root.clone();
-        Ok(Some(exact))
+        for exact in &mut history {
+            exact.terminal_root = terminal.root.clone();
+        }
+        Ok(history)
+    }
+
+    pub fn project_exact(
+        &self,
+        domain: &str,
+        object_ref: &str,
+    ) -> std::io::Result<Option<ExactProjection>> {
+        Ok(self
+            .project_exact_history_internal(domain, object_ref)?
+            .pop())
+    }
+
+    /// Strict, rooted admission history for one stable object key.
+    ///
+    /// This performs the same full-log validation as `project_exact`; it
+    /// differs only by retaining every admitted successor for the object.
+    pub fn project_exact_history(
+        &self,
+        domain: &str,
+        object_ref: &str,
+    ) -> std::io::Result<Vec<ExactProjection>> {
+        self.project_exact_history_internal(domain, object_ref)
     }
 
     /// Per-domain checkpoint — O(domain head-map), independent of log length.
@@ -1445,6 +1469,11 @@ pub enum MuxWriterMsg {
         String,
         mpsc::Sender<std::io::Result<Option<ExactProjection>>>,
     ),
+    ProjectExactHistory(
+        String,
+        String,
+        mpsc::Sender<std::io::Result<Vec<ExactProjection>>>,
+    ),
     Status(mpsc::Sender<std::io::Result<MuxStatusSnapshot>>),
     Shutdown(mpsc::Sender<std::io::Result<()>>),
 }
@@ -1484,6 +1513,22 @@ impl MuxHandle {
         let (tx, rx) = mpsc::channel();
         self.tx
             .send(MuxWriterMsg::ProjectExact(
+                domain.to_string(),
+                object_ref.to_string(),
+                tx,
+            ))
+            .map_err(|_| std::io::Error::other("mux writer gone"))?;
+        rx.recv()
+            .map_err(|_| std::io::Error::other("mux writer ack lost"))?
+    }
+    pub fn project_exact_history(
+        &self,
+        domain: &str,
+        object_ref: &str,
+    ) -> std::io::Result<Vec<ExactProjection>> {
+        let (tx, rx) = mpsc::channel();
+        self.tx
+            .send(MuxWriterMsg::ProjectExactHistory(
                 domain.to_string(),
                 object_ref.to_string(),
                 tx,
@@ -1617,6 +1662,11 @@ pub fn spawn_mux_writer_cfg(
                 String,
                 mpsc::Sender<std::io::Result<Option<ExactProjection>>>,
             )> = Vec::new();
+            let mut exact_histories: Vec<(
+                String,
+                String,
+                mpsc::Sender<std::io::Result<Vec<ExactProjection>>>,
+            )> = Vec::new();
             let mut statuses: Vec<mpsc::Sender<std::io::Result<MuxStatusSnapshot>>> = Vec::new();
             match first {
                 MuxWriterMsg::Admit(op, ack) => {
@@ -1626,6 +1676,9 @@ pub fn spawn_mux_writer_cfg(
                 MuxWriterMsg::ProjectLatest(domain, tx) => projections.push((domain, tx)),
                 MuxWriterMsg::ProjectExact(domain, object_ref, tx) => {
                     exact_projections.push((domain, object_ref, tx));
+                }
+                MuxWriterMsg::ProjectExactHistory(domain, object_ref, tx) => {
+                    exact_histories.push((domain, object_ref, tx));
                 }
                 MuxWriterMsg::Status(tx) => statuses.push(tx),
                 MuxWriterMsg::Shutdown(tx) => shutdown = Some(tx),
@@ -1642,6 +1695,9 @@ pub fn spawn_mux_writer_cfg(
                         }
                         Ok(MuxWriterMsg::ProjectExact(domain, object_ref, tx)) => {
                             exact_projections.push((domain, object_ref, tx));
+                        }
+                        Ok(MuxWriterMsg::ProjectExactHistory(domain, object_ref, tx)) => {
+                            exact_histories.push((domain, object_ref, tx));
                         }
                         Ok(MuxWriterMsg::Status(tx)) => statuses.push(tx),
                         Ok(MuxWriterMsg::Shutdown(tx)) => {
@@ -1750,6 +1806,9 @@ pub fn spawn_mux_writer_cfg(
             }
             for (domain, object_ref, tx) in exact_projections {
                 let _ = tx.send(engine.project_exact(&domain, &object_ref));
+            }
+            for (domain, object_ref, tx) in exact_histories {
+                let _ = tx.send(engine.project_exact_history(&domain, &object_ref));
             }
             for tx in statuses {
                 let _ = tx.send(engine.status_snapshot());

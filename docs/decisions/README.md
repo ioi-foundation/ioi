@@ -43,3 +43,5 @@ through gate identifiers.
 - [ADR 0027: Require Workload-Bound Isolation For Autonomous Execution](./0027-require-workload-bound-isolation-for-autonomous-execution.md) (refines ADRs 0010, 0013, and 0020)
 - [ADR 0028: Reconcile Hypervisor Product-Surface Contracts And Cutover](./0028-reconcile-hypervisor-product-surface-contracts-and-cutover.md) (refines ADRs 0013, 0016, 0021, 0022, and 0024)
 - [ADR 0029: Admit Direct GoalRun Paths Explicitly And Use Research For Non-Software Proof](./0029-goalrun-direct-path-admission-and-research-proof-profile.md) (refines ADRs 0017, 0020, and 0022)
+- [ADR 0030: Rooms Are A Composition, Not A Primitive Family](./0030-rooms-are-a-composition-not-a-primitive-family.md) (refines ADRs 0003, 0015, 0020, and 0022)
+- [ADR 0031: GoalRun Execution Composes Thread Orchestration](./0031-goalrun-execution-composes-thread-orchestration.md) (refines ADRs 0017, 0022, 0029, and 0030)

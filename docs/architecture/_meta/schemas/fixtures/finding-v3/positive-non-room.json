@@ -1,0 +1,38 @@
+{
+  "schema_version": "ioi.applications.ioi-ai.finding.v3",
+  "finding_id": "finding://direct/one",
+  "outcome_room_ref": null,
+  "system_binding": null,
+  "attempt_ref": "attempt://direct/one",
+  "work_result_ref": "work-result://direct/one",
+  "participant_ref": "participant-lease://direct/researcher",
+  "proposed_by_ref": "worker://direct/researcher",
+  "bound_coordinates": null,
+  "proposition": "A globally reusable Finding may leave room admission nullable.",
+  "finding_kind": "observation",
+  "confidence_or_uncertainty": null,
+  "valid_time": null,
+  "transaction_time": "2026-07-30T12:00:00Z",
+  "source_and_observation_context_refs": [
+    "observation://direct/one"
+  ],
+  "supporting_evidence_refs": [
+    "artifact://direct/one"
+  ],
+  "proof_refs": [
+    "evidence://direct/one"
+  ],
+  "contradicting_evidence_refs": [],
+  "applicability_and_counterexample_refs": [
+    "ontology://direct/one"
+  ],
+  "provenance_ontology_and_mapping_refs": [
+    "ontology-mapping://direct/one"
+  ],
+  "proposed_effect_refs": [
+    "capability://direct/one"
+  ],
+  "supersedes_ref": null,
+  "dispute_ref": null,
+  "status": "branch_local"
+}

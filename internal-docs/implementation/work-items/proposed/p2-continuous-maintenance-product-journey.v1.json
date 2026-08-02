@@ -1,0 +1,110 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "p2-continuous-maintenance-product-journey",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "status": "proposed",
+  "objective": "Prove the selected continuous-maintenance vertical signal to AutomationRun to WorkItem to optional GoalRun to isolated WorkRun to exact effect to outcome and recurrence without a new activation object; P2_CONTINUOUS_MAINTENANCE_PRODUCT_JOURNEY_EXIT=0.",
+  "falsifiable_claim": "The maintenance path bypasses the shared Work/authority/isolation/effect spine or invents a parallel activation truth owner.",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/decisions/0024-two-mode-flagship-composition.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "b82c7c4ed088a74a76de412e376ee663966bb31844be8c45c6754d0791018f8c",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/execution-horizons.md",
+        "sha256": "f3a87fb9251a343111a8369f196029248a3f792d1ae3cbfd1c89f3679b21d1c9"
+      },
+      {
+        "path": "docs/decisions/0024-two-mode-flagship-composition.md",
+        "sha256": "0ef57dfcf07a68848c7aea04848d4a2d186e28ca0de3a2692efe38beaf0e1924"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [
+    "m3-workrun-resource-isolation-contract",
+    "m6-work-workspace-operational-journey",
+    "m6-automations-operational-journey",
+    "m9-workrun-microvm-isolation-and-output-admission",
+    "scm-publication-effect-and-route-rebuild"
+  ],
+  "required_work": [
+    "Complete the exact selected recurring maintenance journey on the existing spine."
+  ],
+  "in_scope": [
+    "signal",
+    "automation",
+    "work",
+    "optional GoalRun",
+    "isolated WorkRun",
+    "effect",
+    "outcome",
+    "recurrence"
+  ],
+  "out_of_scope": [
+    "new activation object",
+    "new spine"
+  ],
+  "implementation_actions": [
+    "Bind existing owners into one product journey."
+  ],
+  "consequential_effects_and_final_invokers": [
+    "selected SCM v2 final invoker"
+  ],
+  "applicable_pg_ids": [
+    "PG-2.2",
+    "PG-4B.1",
+    "PG-4C.1",
+    "PG-4C.3"
+  ],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "One recurrence completes with shared identities, receipts, and outcome truth."
+  ],
+  "adversarial_or_fault_proof": [
+    "Duplicate signals, cancellation, stale authority, isolation loss, effect ambiguity, and recurrence replay converge without duplicate invocation."
+  ],
+  "product_journey_and_states": [
+    "scheduled",
+    "admitted",
+    "running",
+    "proposed",
+    "effected",
+    "measured",
+    "recurred"
+  ],
+  "ordered_product_operator_journey": [
+    "observe signal",
+    "inspect proposed work",
+    "authorize exact effect",
+    "verify outcome and next recurrence"
+  ],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [
+    "GoalRun remains optional and only appears through explicit run-on/graduation."
+  ],
+  "evidence_index": {
+    "literal_exit": "P2_CONTINUOUS_MAINTENANCE_PRODUCT_JOURNEY_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/p2-continuous-maintenance-product-journey.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+    "crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs"
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "The journey does not activate every future product profile."
+  ],
+  "rollback_or_stop_rule": "Stop on any parallel truth or bypass path.",
+  "source_provenance": "Owner-ratified P2 rung separation, 2026-07-29."
+}

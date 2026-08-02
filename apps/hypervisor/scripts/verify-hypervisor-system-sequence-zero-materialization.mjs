@@ -9217,7 +9217,20 @@ async function run() {
   }
 }
 
-run().catch((error) => {
-  console.error("VERIFIER CRASH:", error);
-  process.exitCode = 1;
-});
+export {
+  bootstrapActiveSystem,
+  exactGenesisBody,
+  jsonCall,
+  rebindGenesisBodySystem,
+  recomputeReleaseHashes,
+};
+
+if (
+  process.argv[1] &&
+  resolvePath(process.argv[1]) === resolvePath(VERIFIER_SOURCE)
+) {
+  run().catch((error) => {
+    console.error("VERIFIER CRASH:", error);
+    process.exitCode = 1;
+  });
+}

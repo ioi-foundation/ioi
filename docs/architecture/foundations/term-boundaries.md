@@ -91,6 +91,7 @@ observed in this canon and its implementation records.
 | Campaign | durable object | `ImprovementCampaign`: an optional multi-epoch improvement domain lifecycle coordinating GoalRuns and evidence. | A runtime, truth store, evaluator, promoter, or anything that can self-promote its own result. |
 | EvaluationEpoch | durable object | One protected evaluation regime inside a Campaign, with its own exposure ledger and cutoff. | A benchmark run, a scorecard, or something Search may redefine. |
 | Attempt | durable object | One participant's bounded try at a claimed frontier item inside a collaborative pursuit. | A WorkRun, a GoalRun iteration, or a receipt. |
+| SCM publication attempt | durable object | One bounded compare-and-swap dispatch or reconciliation try inside an SCM publication effect, identified by `publication_attempt_ref` using the `scm-publication-attempt://` scheme. | The collaborative-pursuit `Attempt` object or an `attempt://` reference. |
 | Finding | durable object | A reported result of an Attempt, including negative, inconclusive, invalid, and exploit findings. | Verified truth, acceptance, or settlement. |
 | VerifierChallenge | durable object | A typed challenge against a Finding or mapping decision. | An authority action, a policy, or a dispute settlement. |
 | WorkResult | durable object | The generic result contract of bounded work. `ImplementationResultPayload` is its software profile. | A coding-specific contract; files, diffs, and tests never enter the universal shape. |

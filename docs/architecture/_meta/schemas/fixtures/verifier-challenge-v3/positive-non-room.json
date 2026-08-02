@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.applications.ioi-ai.verifier-challenge.v3",
+  "verifier_challenge_id": "verifier-challenge://direct/one",
+  "outcome_room_ref": null,
+  "system_binding": null,
+  "challenger_ref": "user://direct/reviewer",
+  "challenged_ref": "rubric://direct/v1",
+  "challenge_kind": "rule",
+  "challenge_evidence_refs": [
+    "artifact://direct/challenge"
+  ],
+  "adjudicator_policy_ref": "policy://direct/adjudication",
+  "prior_rule_version_ref": "verifier-path://direct/v1",
+  "proposed_rule_version_ref": "rubric://direct/v2",
+  "affected_attempt_refs": [
+    "attempt://direct/one"
+  ],
+  "reverification_required": true,
+  "adjudication_ref": "dispute://direct/one",
+  "status": "proposed"
+}

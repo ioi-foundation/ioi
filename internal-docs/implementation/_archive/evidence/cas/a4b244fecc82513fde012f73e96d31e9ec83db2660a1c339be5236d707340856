@@ -1,0 +1,174 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-selected-profile-baseline-and-claim-lock-successor",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Successor to the verified closure m0-selected-profile-baseline-evidence-and-claim-lock, required because all four of the lock's content-bound sources moved after that closure was proven."
+  ],
+  "status": "evidence_ready",
+  "objective": "Re-derive the claim lock from current evidence and prove that the re-derivation moves no threshold, no nonclaim, and no claim. All four lock sources moved and the lock now reports four stale-source refusals. The movement is attributable: an as-of date, a build fingerprint, census counts that grew by the four admitted route identities, and selected-entry locators. No frozen threshold changed, no nonclaim was dropped, and the claim set was and remains empty. Re-derive only after every input this lock depends on is frozen, and freeze the P2 activation metrics here rather than by amending a verified predecessor. M0_SELECTED_PROFILE_BASELINE_AND_CLAIM_LOCK_SUCCESSOR_EXIT=0.",
+  "falsifiable_claim": "All four lock sources moved by exactly an as-of date, a build fingerprint, census counts consistent with four admitted and zero retired route identities, and selected-entry locators. Every frozen threshold, every frozen_as_of date, all six nonclaims, and the empty claim set are unchanged, so the successor lock narrows nothing and widens nothing.",
+  "selected_profile": "The selected first deployment profile whose baselines, exit report, release ladder, and permitted-claim set the lock freezes.",
+  "canon_owners": [
+    "docs/architecture/_meta/current-canon-defaults.md",
+    "docs/architecture/_meta/public-web-estate.md",
+    "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/start-here.md",
+    "docs/decisions/README.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "7fed61dc43b16ce249ef5efc15b1f568481ad9d897bf5bf56d726d43a2aaffc5",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/current-canon-defaults.md",
+        "sha256": "8ca50a056184538edd8a00ed4fbc251ff2afe1a1cbeb840fc2535eb962254e53"
+      },
+      {
+        "path": "docs/architecture/_meta/public-web-estate.md",
+        "sha256": "50ceba0331d4815147bacc1bdf837e79dd703dbd85ba5bb95af1c2d8d71239f0"
+      },
+      {
+        "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+        "sha256": "b19e5145fbcf809878ed0097e131dcbdbc87c0329b1ccaab9b42cd17d96be1dc"
+      },
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "8a8e48f7685046e0f66ccff127559c53182e92d18bb2d45df49ec930120ba60d"
+      },
+      {
+        "path": "docs/architecture/_meta/start-here.md",
+        "sha256": "0503f14fe8de1627e0d9d2a8aa0733550e72e58aabc69ef5c9f878c9cac22c9d"
+      },
+      {
+        "path": "docs/decisions/README.md",
+        "sha256": "b5a017a068d974c4d6ba40831d613d39762668b6b1bafccae731bcef380dbce9"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m0-selected-profile-baseline-and-claim-lock-successor",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/active/m0-selected-profile-baseline-and-claim-lock-successor.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M0_SELECTED_PROFILE_BASELINE_AND_CLAIM_LOCK_SUCCESSOR_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": [
+    "THE LIVE LOCK IS LEFT STALE ON PURPOSE. program/claim-lock.v1.json is the artifact of a VERIFIED closure. Re-deriving it in place would clear check-claim-lock's four stale-source refusals by refreshing a verified predecessor's artifact. The bar is RED and stays RED until this successor is admitted.",
+    "THE SOURCE MOVEMENT IS ATTRIBUTED, FIELD BY FIELD. Verified between 98d4f2281 and 7ee7acc2e: m0-exit-report.json moved as_of_date, build_fingerprint, and census_counts (total 1572 → 1576, consequential 997 → 1001, partial 979 → 983, unavailable 18 unchanged, terminal 0 unchanged); current-baselines.json and release-ladder.json moved only as_of_date and build_fingerprint; selected-profile.json moved those two plus selected-entry locators.",
+    "NOTHING THE LOCK EXISTS TO FREEZE MOVED. The four frozen baselines keep their thresholds, their frozen_as_of dates of 2026-07-18, and their honest not_measured status with open blockers. All six nonclaims are present and unchanged. The claim set was empty and remains empty. The re-derivation is a digest refresh over unchanged substance.",
+    "THE CENSUS GROWTH RECONCILES WITH THE ROUTE-CENSUS SUCCESSOR. The exit report's total moved by exactly four, matching the four admitted_identity rows and zero retired_identity rows in that record's typed delta. The two successors agree, which is the point of ordering this one last.",
+    "ORDERED LAST BY THE OWNER, AND FOR A REASON. A lock re-derived over inputs that are still moving is a lock that will be stale again before it is admitted. Its inputs — the archive root set, the overlay manifest, the guide registry, and the plan disposition — are frozen by _archive/manifests/estate-freeze.v1.json before this record's derivation is taken.",
+    "DEMONSTRATION PENDING. The re-derivation is not performed here, because performing it means writing the successor lock, and admitting one is a HELD ACTION."
+  ],
+  "dependency_work_item_ids": [
+    "m0-canonical-estate-and-baseline-binding-successor",
+    "m0-source-disposition-and-single-sequencer-successor",
+    "m0-canonical-enum-member-census-successor",
+    "m0-unsigned-review-anchor-successor",
+    "route-final-invoker-census-corrective-successor"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "A successor lock derived from the four current sources, at its own path, leaving program/claim-lock.v1.json untouched until admission.",
+    "A field-by-field statement of what moved in each source and what did not, with the explicit finding that no threshold, no frozen_as_of date, no nonclaim, and no claim moved.",
+    "Re-proving the predecessor's five rejections over the successor lock: a mutable threshold, a moved frozen_as_of, a missing nonclaim, a baseline reported measured with no observed value, and claim widening.",
+    "The P2 activation metrics frozen HERE, in the successor lock, with their numeric values fixed at derivation and never written into canon prose. The predecessor is verified and held and is never amended in place, so the successor lock is the only honest home for a new frozen threshold.",
+    "An ordering rule stated in the record: the derivation is taken only after every input the lock depends on is frozen."
+  ],
+  "out_of_scope": [
+    "Re-deriving program/claim-lock.v1.json in place. That is the refresh this record exists instead of.",
+    "Amending m0-selected-profile-baseline-evidence-and-claim-lock. A verified, held closure is never amended to absorb a later change.",
+    "Measuring any of the four M0 baselines. No qualifying cohort exists, the honest status is not_measured with open blockers, and manufacturing a cohort would forge evidence.",
+    "Widening the claim set. The lock's claims may only narrow; widening requires a successor lock plus the owning stage's own proof, and this record supplies no such proof.",
+    "Re-certifying stage M0."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The successor lock's four source digests match the current artifacts, every frozen threshold and frozen_as_of date is byte-identical to the predecessor's, all six nonclaims are present, the claim set is empty, all five predeclared rejections still fire against their synthetic inputs, and the retained literal appears exactly once."
+  ],
+  "adversarial_or_fault_proof": [
+    "Predeclared refusals, each self-tested by the bar on every run: a lock threshold differing from the frozen baseline definition; a frozen_as_of date that moved; a nonclaim present in the exit report and absent from the lock; a baseline reported measured with no observed value or date, so that a status cannot pass as a measurement; a non-empty claim set while the exit report closes no capability claim; and a source digest that no longer matches its artifact.",
+    "Two retained baselines. First, the failure itself: four stale sources today, left uncleared. Second, the ordering trap — a lock derived before its inputs were frozen would be stale again before admission, which is why the derivation is gated on the freeze rather than on convenience."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric": "P2 activation metrics",
+      "state": "to_be_frozen_in_the_successor_lock",
+      "rule": "Numeric values are fixed at the moment the successor lock is derived and live only in the lock. They are never written into canon prose, and they are never introduced by amending the verified predecessor.",
+      "why_here": "Extracted from the external planning document's H2 obligation during that document's disposition. Frozen thresholds belong in a claim lock; the predecessor lock is verified and held, so its successor is the only honest home."
+    }
+  ],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "M0_SELECTED_PROFILE_BASELINE_AND_CLAIM_LOCK_SUCCESSOR_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/_archive/manifests/estate-freeze.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m0-selected-profile-baseline-and-claim-lock-successor.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_every_input_is_frozen_and_the_hold_releases",
+    "historical_status_preserved": true,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "internal-docs/implementation/tools/check-claim-lock.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the bar reporting four stale sources today; its current failure is this record's baseline, not its proof"
+    },
+    {
+      "path": "internal-docs/implementation/program/claim-lock.v1.json",
+      "present_when": "current_precedent",
+      "evidence_scope": "the verified predecessor's artifact, deliberately left stale; presence is not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "M0 closes no architecture or production capability claim. The honest claim set is empty and this successor does not change that.",
+    "The four baselines remain not_measured with open blockers. A re-derived lock measures nothing.",
+    "A matching source digest proves the lock is derived from the current evidence. It proves nothing about whether that evidence is right.",
+    "Freezing the P2 activation metrics fixes numbers. It does not measure them, and it grants the P2 rung nothing.",
+    "This record does not reopen, weaken, or restate the predecessor's certified closure.",
+    "Until the certification hold releases and the `verified` transition is taken, this record closes nothing and discharges no hold."
+  ],
+  "rollback_or_stop_rule": "Stop if the re-derivation would move any frozen threshold, any frozen_as_of date, any nonclaim, or the claim set. The lock may only narrow; a re-derivation that widens it is not a refresh but a new claim, and it requires the owning stage's own proof, which this record does not supply. Stop also if the derivation is reached while any declared input is unfrozen — a lock built on moving inputs is stale on arrival.",
+  "exit_criteria": [
+    "Every input frozen; the successor lock derived from the four current sources with every difference attributed; no threshold, date, nonclaim, or claim moved; all five predeclared rejections firing; the P2 activation metrics frozen in the lock and nowhere else; and the retained literal appearing exactly once."
+  ],
+  "pr": null,
+  "source_provenance": "Authored 2026-07-29 under an owner-directed repair pass while _archive/holds/certification-hold.v1.json is OPEN, as step 7 of the owner's revised M0 order — deliberately last among the input successors, because a claim lock derived before its inputs are frozen is stale before it is admitted. Its predecessor is held by osh-0001, osh-0004, osh-0005, osh-0012, and osh-0015.",
+  "last_status_transaction": {
+    "from": "proposed",
+    "to": "evidence_ready",
+    "at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "certification_result_sha256": null,
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

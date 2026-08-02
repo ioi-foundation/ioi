@@ -1,0 +1,551 @@
+{
+  "evidence_format": "ioi.program.live_state.v1",
+  "authority": "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
+  "status_owners": {
+    "work_items": "internal-docs/implementation/work-items/*.v1.json",
+    "selected_status_layer": {
+      "kind": "private_workspace",
+      "label": "ignored internal implementation estate",
+      "record_count": 43
+    },
+    "stage_exit_proofs": "committed evidence artifacts named by each verified stage",
+    "projection": "internal-docs/implementation/program-state.json"
+  },
+  "rule": "This is a derived, read-only machine-local projection, not a second sequencer. It grants nothing and closes nothing. The master guide owns M0-M14 sequence and exit definitions; work-item records own cut status; a stage is verified only by its committed stage-exit proof. Development-workflow review evidence is an unsigned hash chain with honest nonclaims. Product authority remains wallet-network grants, sealed intents, and receipts.",
+  "as_of": {
+    "date": "2026-07-22",
+    "master_ref": "origin/master",
+    "master_commit": "69592149186cb29383a397ad0aa3ad6f5ab4ab7b",
+    "derived_from": [
+      "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
+      "internal-docs/implementation/work-items/*.v1.json",
+      "docs/evidence/m0-program-control/m0-exit-report.json",
+      "internal-docs/implementation/evidence/m0-exit.v1.txt",
+      "selected status layer: ignored internal implementation estate (43 records)",
+      "ignored private workspace records only; no tracked or remote-ref status discovery"
+    ]
+  },
+  "stages": [
+    {
+      "stage_id": "M0",
+      "title": "Program Control And Claim Lock",
+      "state": "verified",
+      "status_basis": {
+        "kind": "stage_exit_proof",
+        "ref": "docs/evidence/m0-program-control/m0-exit-report.json",
+        "literal_exit": {
+          "ref": "internal-docs/implementation/evidence/m0-exit.v1.txt",
+          "literal": "M0_EXIT=0",
+          "artifact_ref": "docs/evidence/m0-program-control/m0-exit-report.json",
+          "artifact_sha256": "7ab89aca879d5e7e91cdeaa675207cd76461d25d7bd92be8a5c5ee6bde47efa2"
+        }
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m0-literal-exit-evidence-contract",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m0-literal-exit-evidence-contract.v1.json"
+        },
+        {
+          "work_item_id": "m0-unsigned-review-anchor",
+          "status": "verified",
+          "record_ref": "internal-docs/implementation/work-items/m0-unsigned-review-anchor.v1.json"
+        }
+      ],
+      "evidence": [
+        "docs/evidence/m0-program-control/m0-exit-report.json",
+        "internal-docs/implementation/evidence/m0-exit.v1.txt",
+        "docs/evidence/m0-program-control/program-evidence-index.json",
+        "docs/evidence/m0-program-control/blocker-ledger.json"
+      ],
+      "cross_check": {
+        "m0_exit_state": "verified",
+        "literal_exit": "M0_EXIT=0",
+        "literal_exit_artifact_sha256": "7ab89aca879d5e7e91cdeaa675207cd76461d25d7bd92be8a5c5ee6bde47efa2",
+        "as_of": "2026-07-22",
+        "architecture_or_production_capability_closure": false
+      },
+      "nonclaims": [
+        "M0 does not close any architecture production-status claim.",
+        "M0 does not provide runtime capability, authority, product UX, or a canonical wire contract.",
+        "Ignored internal sequencing and PG inputs are external operator pointers, not read, hashed, or bound evidence.",
+        "The review anchor is development-workflow integrity evidence only: an unsigned hash chain with a self-declared reviewer label. It carries no cryptographic authorship and is not part of the bounded agency framework's authority model (wallet-network grants, sealed intents, receipts).",
+        "The repository does not establish that the accepted snapshot head is current without an outside rollback-domain checkpoint.",
+        "The repository does not establish resistance to rollback between internally coherent supplied snapshots."
+      ]
+    },
+    {
+      "stage_id": "M1",
+      "title": "Bounded-System Constitutional Core",
+      "state": "active",
+      "status_basis": {
+        "kind": "current_work_items",
+        "work_items": [
+          {
+            "work_item_id": "m1-5b-generic-protected-transitions",
+            "status": "evidence_ready"
+          },
+          {
+            "work_item_id": "m1-5c-amendment-execution",
+            "status": "active"
+          }
+        ]
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m1-5-protected-transitions",
+          "status": "scoped",
+          "record_ref": "internal-docs/implementation/work-items/m1-5-protected-transitions.v1.json"
+        },
+        {
+          "work_item_id": "m1-5b-generic-protected-transitions",
+          "status": "evidence_ready",
+          "record_ref": "internal-docs/implementation/work-items/m1-5b-generic-protected-transitions.v1.json"
+        },
+        {
+          "work_item_id": "m1-5c-amendment-execution",
+          "status": "active",
+          "record_ref": "internal-docs/implementation/work-items/m1-5c-amendment-execution.v1.json"
+        },
+        {
+          "work_item_id": "m1-dual-genesis-and-read-projection",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m1-dual-genesis-and-read-projection.v1.json"
+        },
+        {
+          "work_item_id": "m1-genesis-admission",
+          "status": "verified",
+          "record_ref": "internal-docs/implementation/work-items/m1-genesis-admission.v1.json"
+        },
+        {
+          "work_item_id": "m1-governed-initialize-activate",
+          "status": "verified",
+          "record_ref": "internal-docs/implementation/work-items/m1-governed-initialize-activate.v1.json"
+        },
+        {
+          "work_item_id": "m1-sequence-zero-materialization",
+          "status": "verified",
+          "record_ref": "internal-docs/implementation/work-items/m1-sequence-zero-materialization.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M2",
+      "title": "Deployment, Membership, Fencing, And Transition Truth",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m2-membership-readiness-plane",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m2-membership-readiness-plane.v1.json"
+        },
+        {
+          "work_item_id": "m2-route-restore-activation-cleanup",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m2-route-restore-activation-cleanup.v1.json"
+        },
+        {
+          "work_item_id": "m2-selected-profile-exit-proof",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m2-selected-profile-exit-proof.v1.json"
+        },
+        {
+          "work_item_id": "m2-writer-fence-and-lost-suffix",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m2-writer-fence-and-lost-suffix.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M3",
+      "title": "Generic Pursuit And Result Seam",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m3-direct-path-and-exit-proof",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m3-direct-path-and-exit-proof.v1.json"
+        },
+        {
+          "work_item_id": "m3-pursuit-definition-resolution",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m3-pursuit-definition-resolution.v1.json"
+        },
+        {
+          "work_item_id": "m3-result-lifecycle-negative-retention",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m3-result-lifecycle-negative-retention.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M4",
+      "title": "OutcomeRoom As The Flagship Bounded DAS",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m4-outcome-room-system-spine",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m4-outcome-room-system-spine.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M5",
+      "title": "Participants, Local Agents, And Shared Frontier",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m5-local-agent-pairing",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m5-local-agent-pairing.v1.json"
+        },
+        {
+          "work_item_id": "m5-p0-readiness-verifier",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m5-p0-readiness-verifier.v1.json"
+        },
+        {
+          "work_item_id": "m5-participant-frontier-result-closeout",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m5-participant-frontier-result-closeout.v1.json"
+        },
+        {
+          "work_item_id": "m5-portable-exit-independent-clients",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m5-portable-exit-independent-clients.v1.json"
+        },
+        {
+          "work_item_id": "m5-selected-profile-exit-proof",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m5-selected-profile-exit-proof.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M6",
+      "title": "Honest Product Workspaces And Application Catalog",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m6-product-surface-and-typed-workspaces",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m6-product-surface-and-typed-workspaces.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M7",
+      "title": "Local Ontology And Action Semantics",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m7-semantic-definition-action-plane",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m7-semantic-definition-action-plane.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M8",
+      "title": "Enterprise Learning And Bounded Improvement",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m8-learning-boundary-provider-exit",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m8-learning-boundary-provider-exit.v1.json"
+        },
+        {
+          "work_item_id": "m8-order-zero-improvement-and-direct-path",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m8-order-zero-improvement-and-direct-path.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M9",
+      "title": "Single-Node Undeniable Product Proof",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m9-authority-gateway-equivalence-and-coverage",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m9-authority-gateway-equivalence-and-coverage.v1.json"
+        },
+        {
+          "work_item_id": "m9-lifecycle-evidence-operator-proof",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m9-lifecycle-evidence-operator-proof.v1.json"
+        },
+        {
+          "work_item_id": "m9-managed-optionality-overlay",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m9-managed-optionality-overlay.v1.json"
+        },
+        {
+          "work_item_id": "m9-sovereign-local-terminal-journey",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m9-sovereign-local-terminal-journey.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M10",
+      "title": "Two-Failure-Domain Continuity",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m10-two-failure-domain-continuity",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m10-two-failure-domain-continuity.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M11",
+      "title": "Useful Same-System Distributed Work And Embodied Pre-Live Proof",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m11-embodied-nonlive-graph-proof",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m11-embodied-nonlive-graph-proof.v1.json"
+        },
+        {
+          "work_item_id": "m11-selected-profile-exit-proof",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m11-selected-profile-exit-proof.v1.json"
+        },
+        {
+          "work_item_id": "m11-useful-same-system-distribution",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m11-useful-same-system-distribution.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M12",
+      "title": "AIIP Federation Contract",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m12-aiip-channel-envelope-profile",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m12-aiip-channel-envelope-profile.v1.json"
+        },
+        {
+          "work_item_id": "m12-federated-admission-portable-exit-and-bindings",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m12-federated-admission-portable-exit-and-bindings.v1.json"
+        },
+        {
+          "work_item_id": "m12-selected-profile-exit-proof",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m12-selected-profile-exit-proof.v1.json"
+        },
+        {
+          "work_item_id": "m12-terms-discovery-semantic-negotiation",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m12-terms-discovery-semantic-negotiation.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M13",
+      "title": "Two-Sovereign Internet-Of-Intelligence Proof",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m13-sovereignty-trial-preregistration",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m13-sovereignty-trial-preregistration.v1.json"
+        },
+        {
+          "work_item_id": "m13-two-sovereign-surplus-and-decline-proof",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m13-two-sovereign-surplus-and-decline-proof.v1.json"
+        }
+      ]
+    },
+    {
+      "stage_id": "M14",
+      "title": "Connected/Secured Services And Demand-Gated L1",
+      "state": "pending",
+      "status_basis": {
+        "kind": "no_stage_exit_proof",
+        "note": "Work-item status alone does not verify a stage."
+      },
+      "work_item_refs": [
+        {
+          "work_item_id": "m14-demand-security-economics",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m14-demand-security-economics.v1.json"
+        },
+        {
+          "work_item_id": "m14-l1-authorization-decision",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m14-l1-authorization-decision.v1.json"
+        },
+        {
+          "work_item_id": "m14-network-service-devnet",
+          "status": "proposed",
+          "record_ref": "internal-docs/implementation/work-items/m14-network-service-devnet.v1.json"
+        }
+      ]
+    }
+  ],
+  "current_cuts": [
+    {
+      "work_item_id": "m1-5b-generic-protected-transitions",
+      "stage_id": "M1",
+      "status": "evidence_ready",
+      "objective": "Generic protected operational lifecycle transitions: 14 ops over the canonized chain states via proposal/decision contracts with closed authority-effect objects, lifecycle-state envelope, a parameterized transitions route pair over the sealed-intent machinery, and an unsigned census epoch.",
+      "pr": null,
+      "branch": "private-workspace",
+      "record_sha256": "22c9542a335f973edddf6f36d12ad719b148a17e113ce24be6a3d5c3dff05118",
+      "source_refs": [],
+      "source_commits": {},
+      "evidence_refs": [
+        "apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs",
+        "crates/node/src/bin/hypervisor_daemon_routes/system_protected_transition_routes.rs",
+        "crates/types/src/app/system_lifecycle_transitions.rs",
+        "docs/architecture/_meta/schemas/autonomous-system-protected-transition-proposal.v1.schema.json",
+        "docs/architecture/_meta/schemas/autonomous-system-operation-log.v2.schema.json",
+        "docs/evidence/m0-program-control/review-epoch-anchor.json",
+        "docs/evidence/m0-program-control/reviewed-entry-lock.json"
+      ],
+      "remaining_nonclaims": [
+        "Amendment execution, migration/succession, dissolution, and enrollment remain named-owner slices (m1-5c/d).",
+        "No membership/topology (M2), consensus, or product Systems UX beyond pulled read projections.",
+        "degraded is an observed posture, never an op target."
+      ],
+      "last_status_transaction": "2026-07-22"
+    },
+    {
+      "work_item_id": "m1-5c-amendment-execution",
+      "stage_id": "M1",
+      "status": "active",
+      "objective": "Protected constitutional amendment execution: an approved amendment executes on the live chain exactly once, swapping the active constitution to its successor revision under the constitution's own declared amendment governance, with protected clauses unamendable and the predecessor retained as superseded evidence.",
+      "pr": null,
+      "branch": "private-workspace",
+      "record_sha256": "91970e61678ba255b42b8f118659c09792e3edf6c0b0ad979b1bd67c7a8b55e5",
+      "source_refs": [],
+      "source_commits": {},
+      "evidence_refs": [],
+      "remaining_nonclaims": [
+        "Migration/succession, dissolution, and enrollment remain m1-5d.",
+        "Notice/challenge time-window enforcement is declared governance evidence, not clock-enforced in the single-authority M1 profile; recorded honestly in canon.",
+        "No membership/topology (M2), consensus, or multi-node claims."
+      ],
+      "last_status_transaction": "2026-07-22"
+    }
+  ],
+  "p0_protocol": {
+    "state": "planned_not_activated",
+    "owner_work_item_id": "m5-p0-readiness-verifier",
+    "readiness_prerequisite_stages": [
+      "M3",
+      "M4",
+      "M5"
+    ],
+    "direct_path_preservation_required": true,
+    "claim_gate_stage_id": "M9",
+    "note": "This projection claims no P0 readiness manifest, cohort evidence, or activation. The named M5 work item owns the future readiness verifier and direct-path preservation proof; claim-bearing qualification remains gated at M9."
+  },
+  "next_work_item_ids": [
+    "m0-literal-exit-evidence-contract",
+    "m1-5-protected-transitions",
+    "m1-5b-generic-protected-transitions",
+    "m1-5c-amendment-execution",
+    "m1-dual-genesis-and-read-projection",
+    "m2-membership-readiness-plane",
+    "m2-route-restore-activation-cleanup",
+    "m2-selected-profile-exit-proof",
+    "m2-writer-fence-and-lost-suffix",
+    "m3-direct-path-and-exit-proof",
+    "m3-pursuit-definition-resolution",
+    "m3-result-lifecycle-negative-retention",
+    "m4-outcome-room-system-spine",
+    "m5-local-agent-pairing",
+    "m5-p0-readiness-verifier",
+    "m5-participant-frontier-result-closeout",
+    "m5-portable-exit-independent-clients",
+    "m5-selected-profile-exit-proof",
+    "m6-product-surface-and-typed-workspaces",
+    "m7-semantic-definition-action-plane",
+    "m8-learning-boundary-provider-exit",
+    "m8-order-zero-improvement-and-direct-path",
+    "m9-authority-gateway-equivalence-and-coverage",
+    "m9-lifecycle-evidence-operator-proof",
+    "m9-managed-optionality-overlay",
+    "m9-sovereign-local-terminal-journey",
+    "m10-two-failure-domain-continuity",
+    "m11-embodied-nonlive-graph-proof",
+    "m11-selected-profile-exit-proof",
+    "m11-useful-same-system-distribution",
+    "m12-aiip-channel-envelope-profile",
+    "m12-federated-admission-portable-exit-and-bindings",
+    "m12-selected-profile-exit-proof",
+    "m12-terms-discovery-semantic-negotiation",
+    "m13-sovereignty-trial-preregistration",
+    "m13-two-sovereign-surplus-and-decline-proof",
+    "m14-demand-security-economics",
+    "m14-l1-authorization-decision",
+    "m14-network-service-devnet"
+  ],
+  "session_start_ritual": [
+    "Regenerate with node scripts/generate-program-state.mjs and validate with node internal-docs/implementation/check-program-state.mjs.",
+    "Read every current private work-item record, then read each master-guide stage and exit definition.",
+    "Treat verified work items as cut evidence only; never infer stage verification without the committed stage-exit proof.",
+    "Keep multi-node, federation, and claim-bearing cohort language gated to their M9-M13 owners."
+  ]
+}

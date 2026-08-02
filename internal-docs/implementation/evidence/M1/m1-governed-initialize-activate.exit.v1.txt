@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m1-governed-initialize-activate
+ARTIFACT=internal-docs/implementation/evidence/M1/system-verifier-certification-run.v1.log
+ARTIFACT_SHA256=6d45f1652df4dbd6517621735916a2f32556cbf1f08b10b07e2f2fbb728d5972
+M1_GOVERNED_INITIALIZE_ACTIVATE_EXIT=0
+NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

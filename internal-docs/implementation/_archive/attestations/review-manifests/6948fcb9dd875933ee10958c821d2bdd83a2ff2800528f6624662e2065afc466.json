@@ -1,0 +1,284 @@
+{
+  "evidence_format": "ioi.program.canon_review_manifest.v1",
+  "manifest_role": "Content-bound enumeration of every canon subject pending baseline review, with the disposition and written reasoning of one accountable reviewer. Presenting this manifest to --accept advances the baseline. It closes no work item, certifies no stage, and changes no status.",
+  "claim": "canon_drift_reviewed_only",
+  "reviewer_ref": "agent://claude-fable-5/session-5a92602f/scm-v2-canon-landing",
+  "emitted_at_commit": "cb2684b0d4560c504dd0719c66142754a000c3f5",
+  "instructions": [
+    "Fill reviewer_ref, and per subject a disposition (unaffected | successor_required | blocked) and a review_note that argues it from what actually changed.",
+    "`unaffected` must be ARGUED. Say why this subject's change does not reach the stages, modules, and work items named in review_required below. An unargued `unaffected` is a mechanical accept with extra steps.",
+    "Never rewrite a verified closure to absorb a semantic change: disposition it `successor_required` and open a successor record that states what must now be proven.",
+    "Do not edit the ids or digests. They bind this manifest to one exact revision, and --accept refuses if they drift."
+  ],
+  "review_required": {
+    "stages": [
+      "FUTURE",
+      "M0",
+      "M11",
+      "M14",
+      "M3",
+      "M5",
+      "M6",
+      "M9"
+    ],
+    "modules": [
+      "cooperation",
+      "docs-and-comms",
+      "embodied",
+      "mechanism-gates",
+      "network-and-l1",
+      "product-surface-ux-proof",
+      "product-ux",
+      "proof-and-evidence",
+      "runtime-fabric",
+      "runtime-trust-boundary",
+      "supply-and-commerce",
+      "wallet-authority"
+    ],
+    "work_items": [
+      "ecosystem-assurance-and-public-claim-estate",
+      "m0-canon-owner-coverage-and-orphan-verifier",
+      "m0-literal-exit-evidence-contract",
+      "m0-program-control-selected-profile-exit-proof",
+      "m0-route-final-invoker-pg-census-maintenance",
+      "m0-selected-profile-baseline-evidence-and-claim-lock",
+      "m0-source-disposition-and-single-sequencer-verifier",
+      "m0-work-item-contract-completeness-and-owner-lint",
+      "m11-canonical-embodied-contract-alignment",
+      "m14-cross-plane-correlated-failure-injection",
+      "m3-goal-kernel-context-and-runtime-truth-spine",
+      "m3-pursuit-definition-resolution",
+      "m3-result-lifecycle-negative-retention",
+      "m5-local-agent-pairing",
+      "m5-pairing-identity-and-gateway-scope",
+      "m5-participant-frontier-result-closeout",
+      "m5-portable-exit-independent-clients",
+      "m6-automations-operational-journey",
+      "m6-consequential-action-authority-receipt-unification",
+      "m6-developer-workspace-operational-journey",
+      "m6-reference-shell-disposition-and-depth-ledger",
+      "m9-authority-gateway-equivalence-and-coverage",
+      "m9-developer-console-operational-journey",
+      "m9-selected-profile-aggregate-exit-and-claim-publication",
+      "production-information-flow-and-declassification",
+      "scm-publication-effect-and-route-rebuild",
+      "sdk-cli-adk-odk-builder-journey"
+    ],
+    "conformance_targets": [],
+    "contract_families": [
+      "RuntimeToolContract"
+    ]
+  },
+  "subject_count": 26,
+  "subject_set_sha256": "7b8422cebc5912f8c2464b521ffeb726204a1dfde56271d031cdfd751d08ac5c",
+  "subjects": [
+    {
+      "id": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "change": "changed",
+      "baseline_sha256": "29f91b62f209a9884d98dd6a8dcf851946be1b93aede71159622f4af605870fa",
+      "tree_sha256": "b19e5145fbcf809878ed0097e131dcbdbc87c0329b1ccaab9b42cd17d96be1dc",
+      "disposition": "unaffected",
+      "review_note": "architecture-contract-registry.v1.json changed by ADDING the v2 entry and setting v1's evolution.successor_contract_id to it (the checker requires that link). v1's schema, invariants, fixtures and its three nonclaims are byte-identical and were NOT mutated, per the owner's migration ruling. Records depending on v1 are therefore unaffected: v1 remains registered, valid, and non-retracted."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-converged-recovery-reinvoked-remote-effect.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "48071b73b7a5dc4aa6cf57de799a4a243be28b55499dba5f971b663131a6ad77",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-moved-head-fresh-child-commit.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "235c436c12c6da7e94f45fa2cb864271e3a73baebae8e7dfeaa6f0718e9eadea",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "ecd731d871cef08f4ae87e8351b9070cd47621dc685c32a2d6cc0d300f817811",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-observed-head-in-operation-identity.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "1f3dd858eae2b0ce7b03472fbe79842fadc238281a0f45cf6220abf2d12cf118",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-operation-key-bound-to-observed-head.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "fd87b66afb0c1038e3e63f80c79fd40ffc80b3c3fc29750edc73b42a48853b4d",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-overwrite-remote-head-requested.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "95b6a6a100f1ee1a109e4765ed5a32e0b50d26bb4ca27bbe843d8fae98b1b12f",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "7bda9b11d55443f6f1aaaa13c1476cf23dad6c706a42fe959efa6c3a33144c87",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-remote-effect-before-prepared-persistence.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "835784324b94808bd7a2a2f8871cdb6ec324b7de19ebba1af4862fe58fb0af6e",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-replay-without-prior-terminal-effect.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "4575790a1f317a41569135bb5444f500148c1e5d74dca779d14a16a0ffd14a16",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-retry-recomputed-cas-onto-moved-head.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "36dcc879e067d196132a71a404db3bacb6f73c45d5859d691c8669e0308c91fa",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-ambiguity-absorbed-into-publication.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "2ca44c1e70a59ae388f63990ad48ebe59da7f068fe3680f0d71df4be6404eb19",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "b066f50327b1db40ecc8be3a120939c5ee6ef7b5ba48ab32a78d04624e3ec381",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-shared-effect-receipt.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "f2f46d38977b86663a030688e129b5a915b75546ba76eb0e05dc4d384be08134",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-unbound-destination.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "3c6c09969f2ca22a88cb4b564009633e45a84d18e46d6674d8f03ba9e8bba10f",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-whole-workspace-change-set.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "775f3935e017705c7294f5ca9b25f61994f65b5ffba84115c8648c9a62fe2cec",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-first-dispatch-published-with-review-request.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "1c3686dbe723ae029dc2841c53caaf5ced66a27ace6f6e7841cf85db688c7501",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-dispatch-before-persistence-recovered.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "c5f3003b6f082a937f9c83271433a7f3281c9929e4b9d62b1f532f290c0c2cef",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-persistence-replayed-terminal.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "94c612ef073f3daf0d3f22cc76a085c587d458b137a993dcf4b3848218f120a3",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-before-dispatch-retry-same-frozen-cas.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "4994f72156e5fbda7c4bee7c4c6ee6fe46c28ccabab026a0a5b1e9997930ac3b",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-moved-head-ambiguity-reconciliation-required.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "69cff1294a98050b946230348182fe751b2683296e6f669b0b44b4b6839e99a0",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-new-target-ref-must-not-exist.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "5c03a9746d8609f101f1163f10b92c17ebd26c1dd623254c90fac7f747938a27",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-review-request-ambiguity-independent-reconciliation.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "687ebc802eb298d95f509757ab90edcfa2539480032ff659e98f3aa6ccd688bf",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/scm-publication-effect.v2.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "5142d5abfce25bfc311fe3af460652e94a6becd0c8e18fcd341c740f93289c60",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/scm-publication-effect.v2.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "80203973f08882db9a672b7a6373a90a7a4994c880dee0a43687d33cc91956ff",
+      "disposition": "unaffected",
+      "review_note": "New v2 contract material added by PR #128 and reviewed as part of authoring and landing it: the v2 schema, its 22 invariant rules, and the fixture corpus covering all five owner-named fault cases plus the two observation-independence refusals. This is ADDITIVE - it introduces a successor contract that nothing implements yet. No existing record's claims depend on it, because no route compiles against v2 and the merged v1 route remains in force."
+    },
+    {
+      "id": "docs/architecture/components/connectors-tools/contracts.md",
+      "change": "changed",
+      "baseline_sha256": "f0ec4d69aecfd72f36f942975813e884bea9375bf04902d42920b8bc3b6ef379",
+      "tree_sha256": "2296bc26155d6519cc357b0fcfb718cb58ce1b43052c90e5481d7509c7274b0f",
+      "disposition": "unaffected",
+      "review_note": "contracts.md changed by ADDING the v2 owner section and the v1/v2 claim boundary, retaining the v1 section as historical evidence with its narrower nonclaim intact, and recording an honest 'not implemented' status for v2. Records citing this owner were separately dispositioned in the canon review ledger; this particular delta is additive and retracts nothing, so it does not by itself invalidate any existing claim. NOTE: this file also crossed the 800-line review threshold and its SIZE_WAIVERS entry landed in the same change."
+    }
+  ]
+}

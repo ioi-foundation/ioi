@@ -1,0 +1,94 @@
+{
+  "evidence_format": "ioi.program.m4_selected_profile_evidence.v1",
+  "candidate_name": "M4SelectedProfileEvidence",
+  "evidence_role": "Exact join of the verified unconditional M4 child and a fresh post-child aggregate runtime proof. This join prevents umbrella-only certification and is the proof body bound by the aggregate literal.",
+  "stage_id": "M4",
+  "aggregate_work_item_id": "m4-outcome-room-system-spine",
+  "selected_profile": "One hosted OutcomeRoom compiled as a bounded System; no external participant or federation claim.",
+  "checkout": {
+    "head": "287449463f42c2a0e55464b4c8230a9f6fa05dbe",
+    "branch": "agent/hypervisor-m4-end-state"
+  },
+  "unconditional_child": {
+    "work_item_id": "m4-room-graph-truth-and-product-projection",
+    "status": "verified",
+    "record_sha256": "444b1df6c0bf240534765853cb4ddfa0f79f007c1808fea16b34796489be444f",
+    "literal": {
+      "expected": "M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0",
+      "path": "internal-docs/implementation/evidence/M4/m4-room-graph-truth-and-product-projection.exit.v1.txt",
+      "sha256": "7676df9365822b7fa4bcea565dfd88b9aad24ab314493b1437e9c45100305a63"
+    },
+    "evidence_join": {
+      "path": "internal-docs/implementation/evidence/M4/m4-room-graph-truth-and-product-projection.evidence.v1.json",
+      "sha256": "f0194c0996e1782677e291bacc6ab276ed8ac685afcb149fe785a510899fd40b"
+    },
+    "aggregate_binding_payload_sha256": "aa8ec0ca1d2ef4fdde7b381498f7b491a0bc224efaea7b28bcb93cef7b9ef8b7",
+    "binding_status": "verified",
+    "binding_literal_valid": true
+  },
+  "fresh_aggregate_run": {
+    "command": "node apps/hypervisor/scripts/verify-m4-outcome-room-system-spine.mjs",
+    "exit_code": 0,
+    "assertions": 98,
+    "daemon_binary_sha256": "sha256:9f4da8f7251fbb2f2c78809220c8a2b03bd350f43820e522fac40cfba318f2d2",
+    "log": {
+      "path": "internal-docs/implementation/evidence/M4/runs/aggregate-outcome-room-system-spine.passed.log",
+      "sha256": "e963c2facb86c3f8e065efdb9f10171675f6f77de5fe267ea3921ce6138a1e2f"
+    }
+  },
+  "proven": [
+    "The reusable OutcomeRoom package compiles through genesis into one active bounded System with exact package, genesis, constitution, profile, host-domain, and owner coordinates.",
+    "Room genesis and every shared transition are operation-backed through Agentgres with compare-and-swap heads, resulting roots, and receipts.",
+    "OutcomeRoom and GoalRun membership is reciprocal; detach/reattach recovery converges one canonical sequence without duplicate operations.",
+    "Minimum WorkResult and OutcomeDelta truth plus graph, discussion, product, and replay projections reconstruct at the exact state and receipt roots after restart.",
+    "The unconditional room-truth/product child is independently verified with a literal-valid binding; the aggregate is not an umbrella-only claim."
+  ],
+  "exercised_refusals": [
+    {
+      "name": "direct_ui_graph_writes",
+      "result": "POST/PUT/PATCH/DELETE graph and discussion mutations returned 405/404, preserved the owner head, and held m4.direct_client_shared_graph_writes at zero."
+    },
+    {
+      "name": "wrong_system_children",
+      "result": "absent/wrong/substituted System coordinates and deep child mutations refused before publication with durable bytes unchanged."
+    },
+    {
+      "name": "stale_verdicts",
+      "result": "stale room/GoalRun heads, stale child verdicts, changed create bodies, and post-terminal delta retries refused without advancing owner truth."
+    },
+    {
+      "name": "export_leakage",
+      "result": "product and replay exports omitted payload refs, payload bytes, and admitted objects; unavailable custody paths leaked no forbidden bytes."
+    },
+    {
+      "name": "constitution_and_agentgres_bypass",
+      "result": "room admission required an already-active bounded System and retained Agentgres intent/operation/receipt recovery; direct and generic child routes could not bypass either owner."
+    }
+  ],
+  "frozen_metrics": {
+    "m4.direct_client_shared_graph_writes": 0
+  },
+  "reconstruction": {
+    "room_revision": 5,
+    "operation_count": 6,
+    "receipt_count": 6,
+    "member_goal_runs": 1,
+    "work_results": 1,
+    "outcome_deltas": 1,
+    "discussion_messages": 0,
+    "discussion_redactions": 0,
+    "owner_coordinates_preserved": true,
+    "state_and_receipt_roots_preserved": true
+  },
+  "named_gaps": [
+    "External participants, federation, cross-sovereign admission, AIIP discovery, settlement, and wallet authority are not implemented or claimed.",
+    "M5 participant/frontier/claim/attempt/finding/challenge lifecycles remain honest-empty.",
+    "M6 app-by-app journeys and apps/ioi-ai remain out of scope.",
+    "M4 does not alone close P0, M9 product proof, release, or another stage."
+  ],
+  "nonclaims": [
+    "The aggregate literal and stage transition are separate machine gates and are not implied by this JSON.",
+    "No historical predecessor literal or proof log was regenerated.",
+    "A process exit code alone is not proof; the retained raw log and child literal are content-bound here."
+  ]
+}

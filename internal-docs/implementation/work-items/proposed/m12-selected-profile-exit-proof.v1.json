@@ -1,0 +1,521 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m12-selected-profile-exit-proof",
+  "stage_id": "M12",
+  "record_role": "aggregate_exit",
+  "required_work": [
+    "M12 aggregate exit"
+  ],
+  "status": "proposed",
+  "objective": "Plan the selected-profile aggregate M12 verifier over the AIIP channel, terms and semantic negotiation, federated admission, recovery, and portable exit slices.",
+  "falsifiable_claim": "The selected M12 profile preserves each System's local completeness, prevents peer truth or authority mutation and direct foreign physical control, and exports permitted participant state without host trust, or fails without advancing the M13 prerequisite.",
+  "selected_profile": "Two separately sovereign Systems negotiating exact-root AIIP terms; no surplus or M13 claim.",
+  "canon_owners": [
+    "docs/architecture/foundations/aiip.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-25",
+    "captured_at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "4310a324545c6bae44e85486572e1e5158b8fdd4245c20225dae31c35a4a586c",
+    "owners": [
+      {
+        "path": "docs/architecture/foundations/aiip.md",
+        "sha256": "1dcf1af6fc0ed06bb61089355f15fc6e81e1bf856f71642882db9d5f52401221"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m12-selected-profile-exit-proof",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m12-selected-profile-exit-proof.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M12_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:M12SelectedProfileEvidence",
+      "artifact_class": "private_m12_aggregate_evidence_join",
+      "candidate_name": "M12SelectedProfileEvidence",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Pre-migration record status is preserved as proposed. Existing anchors and refs prove only their original named scope. Missing checkout refs: none. Newly populated schema, proof-shape, journey, metric, gate, and exit-contract fields are planning metadata and are not covered by the historical status. This migration adds no runtime or stage claim.",
+  "dependency_work_item_ids": [
+    "dispute-adjudication-remedy-kernel",
+    "m12-aiip-channel-envelope-profile",
+    "m12-federated-admission-portable-exit-and-bindings",
+    "m12-federation-product-and-operator-journey",
+    "m12-ifc-disclosure-receipt-and-settlement-binding",
+    "m12-terms-discovery-semantic-negotiation"
+  ],
+  "external_gates": [
+    {
+      "gate_id": "applicable-pg-profile-gates",
+      "owner": "internal-docs/implementation/modules/mechanism-gates.md",
+      "activation_condition": "Every applicable gate is selected and evidenced in the owning work-item records; planning creates no closure."
+    }
+  ],
+  "aggregate_child_ids": [
+    "dispute-adjudication-remedy-kernel",
+    "m12-aiip-channel-envelope-profile",
+    "m12-federated-admission-portable-exit-and-bindings",
+    "m12-federation-product-and-operator-journey",
+    "m12-ifc-disclosure-receipt-and-settlement-binding",
+    "m12-terms-discovery-semantic-negotiation"
+  ],
+  "aggregate_child_dispositions": [
+    {
+      "child_work_item_id": "dispute-adjudication-remedy-kernel",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m12-aiip-channel-envelope-profile",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m12-federated-admission-portable-exit-and-bindings",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m12-federation-product-and-operator-journey",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m12-ifc-disclosure-receipt-and-settlement-binding",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m12-terms-discovery-semantic-negotiation",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    }
+  ],
+  "aggregate_verification_binding": {
+    "schema_version": "ioi.program.aggregate-verification-binding.v1",
+    "child_dispositions": [
+      {
+        "child_work_item_id": "dispute-adjudication-remedy-kernel",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m12-aiip-channel-envelope-profile",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m12-federated-admission-portable-exit-and-bindings",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m12-federation-product-and-operator-journey",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m12-ifc-disclosure-receipt-and-settlement-binding",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m12-terms-discovery-semantic-negotiation",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      }
+    ],
+    "child_bindings": [
+      {
+        "work_item_id": "dispute-adjudication-remedy-kernel",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "c0f2a1125042bf7c0fd7979c2f25453567219bbf1370b5b602ddf041b88246c5",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "DISPUTE_ADJUDICATION_REMEDY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "7a26a9dd294e0cbd5018e252a8ad9fc3f4ecc0a3b7e7b3d210db14bd1be14ffa"
+        }
+      },
+      {
+        "work_item_id": "m12-aiip-channel-envelope-profile",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "fefe94aeca2837db3baade4ab6b2c8b46a855ea05a2887fcfecd6fa7302045c8",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M12_AIIP_CHANNEL_ENVELOPE_PROFILE_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "1709411f7eea0e51519340e916bef6fdabea1fbfa82afdb9fdcbe81a20908d58"
+        }
+      },
+      {
+        "work_item_id": "m12-federated-admission-portable-exit-and-bindings",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "7932c62388b591fb651c32c749d9b99b83d7ca50ba856b75dcfd1d5dcaf82701",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M12_FEDERATED_ADMISSION_PORTABLE_EXIT_AND_BINDINGS_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "cc402455417e6df1aaad439b050d69ee8234689ac0efab2d67ffeaaebd63b258"
+        }
+      },
+      {
+        "work_item_id": "m12-federation-product-and-operator-journey",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "81cb2a206219b319b339be44cbd0e4182b163cb387aec217f2793a4d7e7dc25c",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M12_FEDERATION_PRODUCT_JOURNEY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "c4321972892b41eab6f04fbc19e6843eb54533ff73c13c2552eb2c73cf2fe808"
+        }
+      },
+      {
+        "work_item_id": "m12-ifc-disclosure-receipt-and-settlement-binding",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "d8dd9bcc4a78f1aa93a24e9db9ebf7e8fbc2fcba09bad9581dd4b959a9f62e63",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M12_IFC_DISCLOSURE_SETTLEMENT_BINDING_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "bd9f14b743e878b06813585e980ffa5820c574a7211850267c5bc4f4a6d15ca8"
+        }
+      },
+      {
+        "work_item_id": "m12-terms-discovery-semantic-negotiation",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "dc19caca7dda6057165f76acd42a0947877e37443c7dc9f484c0fe0c5954a738",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M12_TERMS_DISCOVERY_SEMANTIC_NEGOTIATION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "231e84bd749b817c32d71851ebef047e57175f387e77eebb1ec66ed326ad921a"
+        }
+      }
+    ],
+    "dependency_bindings": [
+      {
+        "work_item_id": "dispute-adjudication-remedy-kernel",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "c0f2a1125042bf7c0fd7979c2f25453567219bbf1370b5b602ddf041b88246c5",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "DISPUTE_ADJUDICATION_REMEDY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "7a26a9dd294e0cbd5018e252a8ad9fc3f4ecc0a3b7e7b3d210db14bd1be14ffa"
+        }
+      },
+      {
+        "work_item_id": "m12-aiip-channel-envelope-profile",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "fefe94aeca2837db3baade4ab6b2c8b46a855ea05a2887fcfecd6fa7302045c8",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M12_AIIP_CHANNEL_ENVELOPE_PROFILE_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "1709411f7eea0e51519340e916bef6fdabea1fbfa82afdb9fdcbe81a20908d58"
+        }
+      },
+      {
+        "work_item_id": "m12-federated-admission-portable-exit-and-bindings",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "7932c62388b591fb651c32c749d9b99b83d7ca50ba856b75dcfd1d5dcaf82701",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M12_FEDERATED_ADMISSION_PORTABLE_EXIT_AND_BINDINGS_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "cc402455417e6df1aaad439b050d69ee8234689ac0efab2d67ffeaaebd63b258"
+        }
+      },
+      {
+        "work_item_id": "m12-federation-product-and-operator-journey",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "81cb2a206219b319b339be44cbd0e4182b163cb387aec217f2793a4d7e7dc25c",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M12_FEDERATION_PRODUCT_JOURNEY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "c4321972892b41eab6f04fbc19e6843eb54533ff73c13c2552eb2c73cf2fe808"
+        }
+      },
+      {
+        "work_item_id": "m12-ifc-disclosure-receipt-and-settlement-binding",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "d8dd9bcc4a78f1aa93a24e9db9ebf7e8fbc2fcba09bad9581dd4b959a9f62e63",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M12_IFC_DISCLOSURE_SETTLEMENT_BINDING_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "bd9f14b743e878b06813585e980ffa5820c574a7211850267c5bc4f4a6d15ca8"
+        }
+      },
+      {
+        "work_item_id": "m12-terms-discovery-semantic-negotiation",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "dc19caca7dda6057165f76acd42a0947877e37443c7dc9f484c0fe0c5954a738",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M12_TERMS_DISCOVERY_SEMANTIC_NEGOTIATION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "231e84bd749b817c32d71851ebef047e57175f387e77eebb1ec66ed326ad921a"
+        }
+      }
+    ],
+    "aggregate_evidence_binding": {
+      "expected_literal": "M12_EXIT=0",
+      "evidence_files": [],
+      "exact_literal_line_count": 0,
+      "literal_valid": false,
+      "evidence_bundle_sha256": "a39cfcb00885491456d12e73b991f586e754abf4806d4d5a60b72701da6459b1"
+    },
+    "binding_payload_sha256": "c236eda0d10a1bc1d79075ae57ffe57766d7d5898a0ababfd2e4b48010e35f69",
+    "nonclaim": "This exact-digest binding is a private closure precondition. It does not promote a child, dependency, proof gate, aggregate, work item, or stage and cannot substitute for literal-valid retained evidence."
+  },
+  "in_scope": [
+    "`PROGRAM`, `AIIP`; private child/evidence/nonclaim join",
+    "Closed M12 evidence manifest; existing literal M12 exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Reject missing/duplicate child, unresolved dispute, stale literal, task-code success or any M13/two-sovereign claim",
+    "AIIP completion establishes no verification, acceptance, settlement, correctness, positive-surplus, marketplace, network-effect, or Internet-of-Intelligence claim.",
+    "This proposed verifier activates no M13 work and closes no stage.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `PROGRAM`, `AIIP`; private child/evidence/nonclaim join.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Closed M12 evidence manifest; existing literal M12 exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Reject missing/duplicate child, unresolved dispute, stale literal, task-code success or any M13/two-sovereign claim.",
+    "Retain an evidence index and require the exact content-bound M12_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "AIIP packet admission, restricted disclosure, terms, dispute, or exit transition",
+      "final_invoker": "each sovereign System's local AIIP/domain admission path",
+      "authority_source": "each local policy/authority plane independently; peer traffic grants nothing",
+      "receipt_or_evidence": "signed packet/local admission/disclosure receipt",
+      "negative_behavior": "deny replay, wrong root, missing terms, undisclosed context, premature settlement, or foreign direct control"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded m12-selected-profile-exit-proof journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M12_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Run the aggregate channel, terms, semantic, federated-admission, recovery, disconnect, decline, peer-mutation, authority-widening, foreign-control, protocol-claim, and portable-exit matrices with exact predecessor and root substitutions.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m12-selected-profile-exit-proof; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Reject missing/duplicate child, unresolved dispute, stale literal, task-code success or any M13/two-sovereign claim; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M12_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m12.foreign_direct_truth_or_authority_mutations",
+      "metric": "foreign direct truth or authority mutations",
+      "threshold": 0,
+      "unit": "mutations",
+      "threshold_source": "M12 AIIP sovereignty floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m12.required_federation_journey_transition_coverage",
+      "metric": "discovery through portable-exit transition coverage",
+      "threshold": "100_percent",
+      "unit": "declared transitions",
+      "threshold_source": "M12 federation journey floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M12_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M12/m12-selected-profile-exit-proof.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/types/src/app/generated/architecture_contracts.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "AIIP completion establishes no verification, acceptance, settlement, correctness, positive-surplus, marketplace, network-effect, or Internet-of-Intelligence claim.",
+    "This proposed verifier activates no M13 work and closes no stage.",
+    "No M13 two-sovereign proof, surplus, correctness, acceptance, or settlement claim.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Reject missing/duplicate child, unresolved dispute, stale literal, task-code success or any M13/two-sovereign claim. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Closed M12 evidence manifest; existing literal M12 exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M12_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Plan-level proposal derived from internal-docs/implementation/m0-m14-plan-gap-audit.md at origin/master 69592149186cb29383a397ad0aa3ad6f5ab4ab7b; status transaction 2026-07-22. Enriched under approved SA-2/SA-7/SA-9 private migration on 2026-07-22; status preserved.",
+  "last_status_transaction": "2026-07-22"
+}

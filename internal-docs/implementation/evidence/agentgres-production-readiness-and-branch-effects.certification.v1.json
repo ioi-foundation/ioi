@@ -1,0 +1,10 @@
+{
+  "literal_exit": {
+    "expected": "AGENTGRES_PRODUCTION_BRANCH_EFFECTS_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M3/agentgres-production-readiness-and-branch-effects.exit.v1.txt",
+    "artifact_sha256": "c561fad55531a27c7c4ae6b068e3fc4c12b40b2d42d276ef9ef952bb48385996"
+  },
+  "adversarial_or_fault_proof": [
+    "The retained M3 selected-profile artifact includes positive, denial, stale-head, tamper, omission, replay, restart, and non-overclaim evidence for this cut."
+  ]
+}

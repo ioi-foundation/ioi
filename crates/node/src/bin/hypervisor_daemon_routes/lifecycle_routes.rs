@@ -7,8 +7,10 @@
 //! read/write the unified `state_dir` (`DaemonState::data_dir`) in the
 //! Agentgres record format the kernel planners expect.
 //!
-//! Lifecycle routes are unauthenticated (the JS daemon contract issues them with
-//! no bearer token), so handlers here do NOT call `authorize`.
+//! Lifecycle handlers do not each call `authorize`; the daemon's inbound auth
+//! middleware protects every `/v1/*` route by default when authentication policy
+//! is enforced. Only the explicit bootstrap/readiness and independently
+//! token-authenticated webhook paths bypass that principal gate.
 //!
 //! See `internal-docs/implementation/hypervisor-unified-rust-daemon-lifecycle-migration.md`.
 
@@ -117,6 +119,11 @@ use jsonwebtoken::{
     encode as jwt_encode, Algorithm as JwtAlgorithm, EncodingKey, Header as JwtHeader,
 };
 
+use super::durable_fs::{
+    enumerate_pinned, open_dir_pinned, open_family_dir_pinned, persist_receipt_no_clobber,
+    persist_record_durable, read_contained, CommitFailure as DurableCommitFailure, PersistFailure,
+    ReadRefusal,
+};
 use super::{
     build_route_decision, debug_string, iso_now, persist_record, read_record_dir, remove_record,
     route_selection, sha256_hex_str, short_hash, AppError, DaemonState, PreviewServer,
@@ -8173,6 +8180,19 @@ const SESSION_RECORD_SCHEMA_VERSION: &str = "ioi.hypervisor.session_record.v1";
 const SESSION_CREATE_PROJECTION_SCHEMA_VERSION: &str =
     "ioi.hypervisor.session_create_projection.v1";
 const SESSION_EXECUTE_DECISION_SCHEMA_VERSION: &str = "ioi.hypervisor.session_execute_decision.v1";
+const MAX_SESSION_INITIAL_INPUT_BYTES: usize = 32_768;
+const MAX_SESSION_REF_BYTES: usize = 512;
+const SESSION_CREATE_INTENT_SCHEMA_VERSION: &str = "ioi.hypervisor.session_create_intent.v1";
+const SESSION_CREATE_INTENT_FAMILY: &str = "session-create-intents";
+const SESSION_CREATE_LOCK_FAMILY: &str = "session-create-locks";
+const MAX_SESSION_CREATE_INTENTS: usize = 4_096;
+const MAX_SESSION_CREATE_INTENT_BYTES: u64 = 1_048_576;
+const MAX_SESSION_CREATE_INTENT_TOTAL_BYTES: u64 = 32 * 1_048_576;
+const SESSION_EXECUTION_PENDING_SCHEMA_VERSION: &str =
+    "ioi.hypervisor.session_execution_pending.v1";
+const MAX_SESSION_RECORDS: usize = 16_384;
+const MAX_SESSION_RECORD_BYTES: u64 = 2 * 1_048_576;
+const MAX_SESSION_RECORD_TOTAL_BYTES: u64 = 128 * 1_048_576;
 
 /// Harness binaries the Lane A adapter can drive (host-PTY lane). Probed on PATH.
 const HARNESS_BINARIES: &[&str] = &[
@@ -8773,34 +8793,6 @@ fn sessions_root() -> std::path::PathBuf {
     base.join("ioi-hypervisor-sessions")
 }
 
-/// Real `mkdtemp`-equivalent: create a fresh unique dir `{tag}-{token}` under the
-/// sessions root, retrying on collision. Returns the absolute workspace path.
-fn mkdtemp_session(session_tag: &str) -> std::io::Result<std::path::PathBuf> {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-    let root = sessions_root();
-    std::fs::create_dir_all(&root)?;
-    let pid = std::process::id();
-    for _ in 0..64 {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
-        let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let token = format!("{pid:x}{nanos:x}{seq:x}");
-        let candidate = root.join(format!("{session_tag}-{token}"));
-        match std::fs::create_dir(&candidate) {
-            Ok(()) => return Ok(candidate),
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(error) => return Err(error),
-        }
-    }
-    Err(std::io::Error::new(
-        std::io::ErrorKind::AlreadyExists,
-        "exhausted unique workspace name attempts",
-    ))
-}
-
 struct ProvisionOutcome {
     workspace_root: String,
     workspace_artifact_ref: String,
@@ -8810,12 +8802,13 @@ struct ProvisionOutcome {
     initializer: Value,
 }
 
-/// Provision a REAL isolated session workspace from a typed initializer. mkdtemp
-/// an isolated dir, then realize git specs by shallow-cloning when a remote is
-/// given and the clone succeeds; otherwise record the spec deferred (no fake
-/// clone). Mirrors `runtime-workspace-provisioner.mjs`.
-fn provision_session_workspace(
+/// Provision the single reserved workspace for a canonical Session identity. The full digest
+/// path is deterministic, so crash recovery and same-ref concurrency can only ever address one
+/// workspace; an existing non-directory/symlink is refused by the pinned open. Git realization is
+/// replay-aware and never fabricates a clone.
+fn provision_session_workspace_reserved(
     session_ref: &str,
+    request_hash: &str,
     initializer: &Value,
 ) -> Result<ProvisionOutcome, AppError> {
     let custody_posture = initializer
@@ -8823,13 +8816,40 @@ fn provision_session_workspace(
         .and_then(Value::as_str)
         .unwrap_or("public_trunk")
         .to_string();
-    let session_tag: String = safe_session_tag(session_ref);
-    let workspace_path = mkdtemp_session(&session_tag).map_err(|error| {
+    let root = sessions_root();
+    std::fs::create_dir_all(&root).map_err(|error| {
         AppError(
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("workspace mkdtemp failed: {error}"),
+            format!("workspace family creation failed: {error}"),
         )
     })?;
+    let workspace_path = root.join(format!("session-{}", session_identity_digest(session_ref)));
+    match std::fs::create_dir(&workspace_path) {
+        Ok(()) => {
+            std::fs::File::open(&root)
+                .and_then(|directory| directory.sync_all())
+                .map_err(|error| {
+                    AppError(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("workspace family durability failed: {error}"),
+                    )
+                })?;
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            open_dir_pinned(&workspace_path).map_err(|error| {
+                AppError(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    format!("reserved workspace cannot be pinned for recovery: {error}"),
+                )
+            })?;
+        }
+        Err(error) => {
+            return Err(AppError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("reserved workspace creation failed: {error}"),
+            ))
+        }
+    }
 
     // Never operate on a filesystem root.
     if workspace_path.parent().is_none() {
@@ -8861,11 +8881,12 @@ fn provision_session_workspace(
                         .to_string_lossy()
                         .into_owned()
                 };
-                let cloned = std::process::Command::new("git")
-                    .args(["clone", "--depth", "1", remote_uri, clone_into.as_str()])
-                    .output()
-                    .map(|output| output.status.success())
-                    .unwrap_or(false);
+                let cloned = std::path::Path::new(&clone_into).join(".git").is_dir()
+                    || std::process::Command::new("git")
+                        .args(["clone", "--depth", "1", remote_uri, clone_into.as_str()])
+                        .output()
+                        .map(|output| output.status.success())
+                        .unwrap_or(false);
                 if cloned {
                     realized_specs.push(json!({ "git": remote_uri, "realized": true }));
                 } else {
@@ -8885,7 +8906,7 @@ fn provision_session_workspace(
 
     let artifact_digest = {
         let payload = format!(
-            "{workspace_root}\n{}",
+            "{workspace_root}\n{request_hash}\n{}",
             serde_json::to_string(initializer).unwrap_or_default()
         );
         let hex = sha256_hex_str(&payload);
@@ -8913,26 +8934,73 @@ fn bind_env_workspace(
     data_dir: &str,
     env_id: &str,
     initializer: &Value,
-) -> Option<ProvisionOutcome> {
+    owner_ref: &str,
+) -> Result<ProvisionOutcome, String> {
     let safe = env_id.replace(
         |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
         "_",
     );
-    let path = std::path::Path::new(data_dir)
-        .join("environments")
-        .join(format!("{safe}.json"));
-    let v: Value = serde_json::from_str(&std::fs::read_to_string(&path).ok()?).ok()?;
+    if safe != env_id || env_id.is_empty() || env_id.len() > 256 {
+        return Err("environment_id is not a canonical bounded identity".into());
+    }
+    let family = open_family_dir_pinned(data_dir, "environments")
+        .map_err(|error| format!("environment registry cannot be pinned ({error})"))?;
+    let bytes = read_contained(
+        &family,
+        Path::new(&format!("{safe}.json")),
+        MAX_SESSION_CREATE_INTENT_BYTES,
+    )
+    .map_err(|error| {
+        format!(
+            "environment record is unavailable ({})",
+            read_refusal_detail(error)
+        )
+    })?;
+    let v: Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("environment record is malformed ({error})"))?;
+    if v.get("id").and_then(Value::as_str) != Some(env_id) {
+        return Err(
+            "environment record identity does not match the requested environment_id".into(),
+        );
+    }
+    let environment_owner = v
+        .get("owner_ref")
+        .or_else(|| v.pointer("/spec/owner_ref"))
+        .and_then(Value::as_str);
+    let legacy_local_single_user = environment_owner.is_none()
+        && owner_ref == "user://local-operator"
+        && v.pointer("/status/tenant_posture").and_then(Value::as_str) == Some("single_user");
+    if environment_owner.is_some_and(|owner| owner != owner_ref)
+        || (environment_owner.is_none() && !legacy_local_single_user)
+    {
+        return Err("environment workspace is not owned by the resolved Session principal".into());
+    }
     let workspace_root = v
         .get("status")
         .and_then(|status| status.get("workspace_root"))
         .and_then(Value::as_str)
-        .filter(|root| !root.trim().is_empty())?
+        .filter(|root| !root.trim().is_empty())
+        .ok_or_else(|| "environment has no admitted workspace_root".to_string())?
         .to_string();
+    let pinned_workspace = open_dir_pinned(Path::new(&workspace_root))
+        .map_err(|error| format!("environment workspace cannot be pinned no-follow ({error})"))?;
+    let metadata = pinned_workspace
+        .metadata()
+        .map_err(|error| format!("environment workspace metadata is unavailable ({error})"))?;
+    if !metadata.is_dir() {
+        return Err("environment workspace is not a directory".into());
+    }
+    let canonical_workspace = std::fs::canonicalize(&workspace_root)
+        .map_err(|error| format!("environment workspace cannot be canonicalized ({error})"))?;
+    if canonical_workspace.parent().is_none() {
+        return Err("environment workspace may not be a filesystem root".into());
+    }
+    let workspace_root = canonical_workspace.to_string_lossy().into_owned();
     let artifact_digest = sha256_hex_str(&workspace_root)
         .chars()
         .take(24)
         .collect::<String>();
-    Some(ProvisionOutcome {
+    Ok(ProvisionOutcome {
         workspace_root,
         workspace_artifact_ref: format!("agentgres://artifact/workspace/{artifact_digest}"),
         component_phases: json!({ "provisioner": "ready", "workspace_content": "ready" }),
@@ -8946,23 +9014,1249 @@ fn bind_env_workspace(
     })
 }
 
-/// A filesystem-safe, length-bounded session tag for the workspace dir name.
-fn safe_session_tag(session_ref: &str) -> String {
-    let mut out = String::with_capacity(session_ref.len());
-    let mut in_run = false;
-    for ch in session_ref.chars() {
-        if ch.is_ascii_alphanumeric() || matches!(ch, '_' | '.' | '-') {
-            out.push(ch);
-            in_run = false;
-        } else if !in_run {
-            out.push('_');
-            in_run = true;
+fn canonical_session_ref(session_ref: &str) -> bool {
+    let Some(tail) = session_ref.strip_prefix("session:") else {
+        return false;
+    };
+    !tail.is_empty()
+        && session_ref.len() <= MAX_SESSION_REF_BYTES
+        && !session_ref.contains("..")
+        && session_ref.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, ':' | '/' | '.' | '_' | '-')
+        })
+}
+
+fn session_identity_digest(session_ref: &str) -> String {
+    sha256_hex_bytes(session_ref.as_bytes())
+}
+
+fn session_create_intent_key(session_ref: &str) -> String {
+    format!("session_create_{}", session_identity_digest(session_ref))
+}
+
+fn session_record_key(session_ref: &str) -> String {
+    format!("session_{}", session_identity_digest(session_ref))
+}
+
+fn session_receipt_key(receipt_ref: &str) -> String {
+    format!(
+        "session_receipt_{}",
+        sha256_hex_bytes(receipt_ref.as_bytes())
+    )
+}
+
+fn session_create_request_hash(value: &Value) -> Result<String, String> {
+    let bytes = serde_jcs::to_vec(value)
+        .map_err(|error| format!("Session-create request is not canonical JSON ({error})"))?;
+    if bytes.len() > MAX_SESSION_CREATE_INTENT_BYTES as usize {
+        return Err("Session-create request exceeds the bounded WAL intake".to_string());
+    }
+    Ok(format!("sha256:{}", sha256_hex_bytes(&bytes)))
+}
+
+fn canonical_sha256(value: &str) -> bool {
+    value.strip_prefix("sha256:").is_some_and(|tail| {
+        tail.len() == 64
+            && tail
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+    })
+}
+
+#[derive(Debug)]
+enum SessionCreateCommitError {
+    Persist {
+        stage: &'static str,
+        failure: PersistFailure,
+    },
+    NoClobber {
+        stage: &'static str,
+        failure: DurableCommitFailure,
+    },
+    WalUnavailable(String),
+    InvalidIntent(String),
+    Workspace(String),
+    LockUnavailable(String),
+}
+
+impl SessionCreateCommitError {
+    fn wire_code(&self) -> &'static str {
+        match self {
+            Self::Persist { failure, .. } if failure.visible() => {
+                "session_create_durability_unconfirmed"
+            }
+            Self::Persist { .. } => "session_create_persist_failed",
+            Self::NoClobber { .. } => "session_create_reservation_failed",
+            Self::WalUnavailable(_) => "session_create_wal_unavailable",
+            Self::InvalidIntent(_) => "session_create_recovery_intent_invalid",
+            Self::Workspace(_) => "session_create_workspace_recovery_failed",
+            Self::LockUnavailable(_) => "session_create_commit_lock_unavailable",
         }
     }
-    if out.is_empty() {
-        out.push_str("session");
+
+    fn detail(&self) -> String {
+        match self {
+            Self::Persist { stage, failure } => format!("{stage}: {}", failure.detail()),
+            Self::NoClobber { stage, failure } => format!("{stage}: {failure:?}"),
+            Self::WalUnavailable(detail)
+            | Self::InvalidIntent(detail)
+            | Self::Workspace(detail)
+            | Self::LockUnavailable(detail) => detail.clone(),
+        }
     }
-    out.chars().take(48).collect()
+}
+
+fn session_request_owner(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    let posture = deployment_auth_posture(data_dir, headers);
+    if posture == "exposed_untrusted" {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(
+                json!({"error":{"code":"session_authenticated_principal_required","message":"An exposed Session endpoint requires enforced identity."}}),
+            ),
+        ));
+    }
+    if let Some(principal) = resolve_principal(data_dir, headers) {
+        let Some(id) = principal
+            .get("principal_id")
+            .and_then(Value::as_str)
+            .filter(|id| !id.is_empty())
+        else {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(json!({"error":{"code":"session_principal_unresolved"}})),
+            ));
+        };
+        return Ok(format!("user://{id}"));
+    }
+    if auth_enforced(data_dir, headers) {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(
+                json!({"error":{"code":"session_authentication_required","message":"Authenticate before accessing Session truth."}}),
+            ),
+        ));
+    }
+    Ok("user://local-operator".to_string())
+}
+
+/// Cross-process registry lock. Its name is fixed and its directory is independently pinned;
+/// the lock serializes strict WAL census, reservation, provisioning, and recovery across daemon
+/// processes sharing one data directory.
+fn lock_session_create_registry(data_dir: &str) -> Result<std::fs::File, SessionCreateCommitError> {
+    use std::os::fd::{AsRawFd, FromRawFd};
+    super::durable_fs::precreate_family_dirs_durable(
+        data_dir,
+        &[SESSION_CREATE_INTENT_FAMILY, SESSION_CREATE_LOCK_FAMILY],
+    )
+    .map_err(|error| {
+        SessionCreateCommitError::LockUnavailable(format!(
+            "Session-create registry families cannot be pinned durably ({error})"
+        ))
+    })?;
+    let directory =
+        open_family_dir_pinned(data_dir, SESSION_CREATE_LOCK_FAMILY).map_err(|error| {
+            SessionCreateCommitError::LockUnavailable(format!(
+                "Session-create lock directory cannot be pinned ({error})"
+            ))
+        })?;
+    let name = std::ffi::CString::new("registry.lock").expect("static lock name");
+    let fd = unsafe {
+        libc::openat(
+            directory.as_raw_fd(),
+            name.as_ptr(),
+            libc::O_CREAT | libc::O_RDWR | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            0o600,
+        )
+    };
+    if fd < 0 {
+        return Err(SessionCreateCommitError::LockUnavailable(format!(
+            "Session-create registry lock cannot be opened ({})",
+            std::io::Error::last_os_error()
+        )));
+    }
+    let file = unsafe { std::fs::File::from_raw_fd(fd) };
+    if !file
+        .metadata()
+        .map(|metadata| metadata.is_file())
+        .unwrap_or(false)
+    {
+        return Err(SessionCreateCommitError::LockUnavailable(
+            "Session-create registry lock is not a regular file".to_string(),
+        ));
+    }
+    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } != 0 {
+        return Err(SessionCreateCommitError::LockUnavailable(format!(
+            "Session-create registry lock cannot be acquired ({})",
+            std::io::Error::last_os_error()
+        )));
+    }
+    Ok(file)
+}
+
+fn read_refusal_detail(error: ReadRefusal) -> String {
+    match error {
+        ReadRefusal::Escape(error) => format!("containment refusal ({error})"),
+        ReadRefusal::NotRegular(kind) => format!("non-regular slot ({kind})"),
+        ReadRefusal::TooLarge(bytes) => format!("slot exceeds bound ({bytes} bytes)"),
+        ReadRefusal::Io(error) => format!("I/O refusal ({error})"),
+    }
+}
+
+fn validate_session_create_intent(
+    key: &str,
+    intent: &Value,
+) -> Result<(), SessionCreateCommitError> {
+    if intent.get("schema_version").and_then(Value::as_str)
+        != Some(SESSION_CREATE_INTENT_SCHEMA_VERSION)
+    {
+        return Err(SessionCreateCommitError::InvalidIntent(format!(
+            "Session-create WAL slot '{key}' has an unsupported schema_version"
+        )));
+    }
+    let session_ref = intent
+        .get("session_ref")
+        .and_then(Value::as_str)
+        .filter(|value| canonical_session_ref(value))
+        .ok_or_else(|| {
+            SessionCreateCommitError::InvalidIntent(format!(
+                "Session-create WAL slot '{key}' has no canonical session_ref"
+            ))
+        })?;
+    if session_create_intent_key(session_ref) != key
+        || intent.get("intent_key").and_then(Value::as_str) != Some(key)
+    {
+        return Err(SessionCreateCommitError::InvalidIntent(format!(
+            "Session-create WAL slot '{key}' fails digest-key identity binding"
+        )));
+    }
+    if !intent
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .is_some_and(|owner| owner.starts_with("user://") && owner.len() <= 256)
+        || !intent
+            .get("request_hash")
+            .and_then(Value::as_str)
+            .is_some_and(canonical_sha256)
+    {
+        return Err(SessionCreateCommitError::InvalidIntent(format!(
+            "Session-create WAL slot '{key}' lacks canonical owner/request coordinates"
+        )));
+    }
+    let status = intent.get("status").and_then(Value::as_str);
+    if !matches!(status, Some("reserved" | "prepared" | "committed")) {
+        return Err(SessionCreateCommitError::InvalidIntent(format!(
+            "Session-create WAL slot '{key}' has an unsupported status"
+        )));
+    }
+    let normalized_request = intent
+        .get("normalized_request")
+        .filter(|value| value.is_object())
+        .ok_or_else(|| {
+            SessionCreateCommitError::InvalidIntent(format!(
+                "Session-create WAL slot '{key}' has no normalized request"
+            ))
+        })?;
+    let request_hash = intent
+        .get("request_hash")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if session_create_request_hash(normalized_request).as_deref() != Ok(request_hash)
+        || normalized_request
+            .get("session_ref")
+            .and_then(Value::as_str)
+            != Some(session_ref)
+        || normalized_request
+            .get("resolved_owner_ref")
+            .and_then(Value::as_str)
+            != intent.get("owner_ref").and_then(Value::as_str)
+    {
+        return Err(SessionCreateCommitError::InvalidIntent(format!(
+            "Session-create WAL slot '{key}' fails normalized-request binding"
+        )));
+    }
+    let create_inputs = intent
+        .get("create_inputs")
+        .filter(|value| value.is_object())
+        .ok_or_else(|| {
+            SessionCreateCommitError::InvalidIntent(format!(
+                "Session-create WAL slot '{key}' has no create_inputs"
+            ))
+        })?;
+    if !create_inputs
+        .get("initializer")
+        .is_some_and(Value::is_object)
+        || !create_inputs
+            .get("environment_ref")
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.is_empty())
+        || !create_inputs
+            .get("initializer_ref")
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.is_empty())
+        || !matches!(
+            create_inputs.get("initial_input"),
+            Some(Value::Null | Value::String(_))
+        )
+        || !intent
+            .get("reserved_at")
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.is_empty())
+    {
+        return Err(SessionCreateCommitError::InvalidIntent(format!(
+            "Session-create WAL slot '{key}' has incomplete reserved inputs"
+        )));
+    }
+    if matches!(status, Some("prepared" | "committed")) {
+        validate_session_create_bundle_shape(intent)?;
+        if !intent
+            .get("prepared_at")
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.is_empty())
+        {
+            return Err(SessionCreateCommitError::InvalidIntent(format!(
+                "Session-create WAL slot '{key}' has no prepared_at marker"
+            )));
+        }
+    }
+    if status == Some("committed")
+        && !intent
+            .get("committed_at")
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.is_empty())
+    {
+        return Err(SessionCreateCommitError::InvalidIntent(format!(
+            "Session-create WAL slot '{key}' has no committed_at marker"
+        )));
+    }
+    Ok(())
+}
+
+/// Complete, bounded, descriptor-relative census. Every name in the WAL family is authoritative:
+/// malformed JSON, an unexpected filename, a symlink/FIFO, a vanished slot, or any read error
+/// makes the whole projection unavailable. No partial/false-empty Session view is returned.
+fn strict_session_create_intents(
+    data_dir: &str,
+) -> Result<Vec<(String, Value)>, SessionCreateCommitError> {
+    let directory = match open_family_dir_pinned(data_dir, SESSION_CREATE_INTENT_FAMILY) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => {
+            return Err(SessionCreateCommitError::WalUnavailable(format!(
+                "Session-create WAL cannot be pinned ({error})"
+            )))
+        }
+    };
+    let mut names = enumerate_pinned(&directory).map_err(|error| {
+        SessionCreateCommitError::WalUnavailable(format!(
+            "Session-create WAL cannot be completely enumerated ({error})"
+        ))
+    })?;
+    if names.len() > MAX_SESSION_CREATE_INTENTS {
+        return Err(SessionCreateCommitError::WalUnavailable(format!(
+            "Session-create WAL contains {} slots, above the {} bound",
+            names.len(),
+            MAX_SESSION_CREATE_INTENTS
+        )));
+    }
+    names.sort();
+    let mut total_bytes = 0u64;
+    let mut records = Vec::with_capacity(names.len());
+    let mut identities = std::collections::HashSet::new();
+    for name in names {
+        let Some(key) = name.strip_suffix(".json") else {
+            return Err(SessionCreateCommitError::WalUnavailable(format!(
+                "Session-create WAL contains non-record entry '{name}'"
+            )));
+        };
+        let Some(digest) = key.strip_prefix("session_create_") else {
+            return Err(SessionCreateCommitError::WalUnavailable(format!(
+                "Session-create WAL slot '{name}' has a non-canonical name"
+            )));
+        };
+        if digest.len() != 64
+            || !digest
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+        {
+            return Err(SessionCreateCommitError::WalUnavailable(format!(
+                "Session-create WAL slot '{name}' has a non-canonical digest key"
+            )));
+        }
+        let bytes = read_contained(
+            &directory,
+            Path::new(&name),
+            MAX_SESSION_CREATE_INTENT_BYTES,
+        )
+        .map_err(|error| {
+            SessionCreateCommitError::WalUnavailable(format!(
+                "Session-create WAL slot '{name}' is unreadable: {}",
+                read_refusal_detail(error)
+            ))
+        })?;
+        total_bytes = total_bytes.saturating_add(bytes.len() as u64);
+        if total_bytes > MAX_SESSION_CREATE_INTENT_TOTAL_BYTES {
+            return Err(SessionCreateCommitError::WalUnavailable(
+                "Session-create WAL exceeds the aggregate byte bound".to_string(),
+            ));
+        }
+        let record: Value = serde_json::from_slice(&bytes).map_err(|error| {
+            SessionCreateCommitError::WalUnavailable(format!(
+                "Session-create WAL slot '{name}' is malformed ({error})"
+            ))
+        })?;
+        validate_session_create_intent(key, &record)?;
+        let session_ref = record
+            .get("session_ref")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        if !identities.insert(session_ref.clone()) {
+            return Err(SessionCreateCommitError::WalUnavailable(format!(
+                "Session-create identity '{session_ref}' resolves more than once"
+            )));
+        }
+        records.push((key.to_string(), record));
+    }
+    Ok(records)
+}
+
+fn selected_session_create_fault(stage: &str, kind: &str, allow: bool) -> bool {
+    allow
+        && std::env::var("IOI_TEST_SESSION_CREATE_DURABILITY_FAULT")
+            .ok()
+            .as_deref()
+            == Some(format!("{kind}:{stage}").as_str())
+}
+
+fn reserve_session_create_intent(
+    data_dir: &str,
+    key: &str,
+    intent: &Value,
+    allow_test_fault: bool,
+) -> Result<(), SessionCreateCommitError> {
+    if selected_session_create_fault("prepare_intent", "fail", allow_test_fault) {
+        return Err(SessionCreateCommitError::NoClobber {
+            stage: "prepare_intent",
+            failure: DurableCommitFailure::NotCommitted(
+                "test-forced failure before Session-create reservation".to_string(),
+            ),
+        });
+    }
+    persist_receipt_no_clobber(data_dir, SESSION_CREATE_INTENT_FAMILY, key, intent).map_err(
+        |failure| SessionCreateCommitError::NoClobber {
+            stage: "prepare_intent",
+            failure,
+        },
+    )?;
+    if selected_session_create_fault("prepare_intent", "crash", allow_test_fault) {
+        std::process::exit(86);
+    }
+    Ok(())
+}
+
+fn persist_session_create_stage(
+    data_dir: &str,
+    family: &str,
+    key: &str,
+    record: &Value,
+    stage: &'static str,
+    allow_test_fault: bool,
+) -> Result<(), SessionCreateCommitError> {
+    if selected_session_create_fault(stage, "fail", allow_test_fault) {
+        return Err(SessionCreateCommitError::Persist {
+            stage,
+            failure: PersistFailure::NotCommitted(std::io::Error::other(format!(
+                "test-forced Session-create failure before {stage}"
+            ))),
+        });
+    }
+    persist_record_durable(data_dir, family, key, record)
+        .map_err(|failure| SessionCreateCommitError::Persist { stage, failure })?;
+    if selected_session_create_fault(stage, "crash", allow_test_fault) {
+        std::process::exit(86);
+    }
+    Ok(())
+}
+
+fn session_create_intent_member(
+    intent: &Value,
+    field: &str,
+) -> Result<(String, Value), SessionCreateCommitError> {
+    let member = intent.get(field).ok_or_else(|| {
+        SessionCreateCommitError::InvalidIntent(format!(
+            "Session-create intent is missing '{field}'"
+        ))
+    })?;
+    let key = member
+        .get("record_key")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            SessionCreateCommitError::InvalidIntent(format!(
+                "Session-create intent member '{field}' has no record_key"
+            ))
+        })?
+        .to_string();
+    let record = member.get("record").cloned().ok_or_else(|| {
+        SessionCreateCommitError::InvalidIntent(format!(
+            "Session-create intent member '{field}' has no record"
+        ))
+    })?;
+    Ok((key, record))
+}
+
+/// Pure shape/key/owner/request validation used by the complete WAL census before recovery
+/// mutates any member. This prevents one later semantic-corruption slot from allowing earlier
+/// reserved transactions to advance before the corruption is discovered.
+fn validate_session_create_bundle_shape(intent: &Value) -> Result<(), SessionCreateCommitError> {
+    let session_ref = intent
+        .get("session_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| SessionCreateCommitError::InvalidIntent("missing session_ref".into()))?;
+    let owner_ref = intent.get("owner_ref").and_then(Value::as_str);
+    let request_hash = intent.get("request_hash").and_then(Value::as_str);
+    let (provision_key, provision_receipt) =
+        session_create_intent_member(intent, "provisioning_receipt")?;
+    let (session_key, session_record) = session_create_intent_member(intent, "session_record")?;
+    let provision_ref = provision_receipt
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if provision_key != session_receipt_key(provision_ref)
+        || session_key != session_record_key(session_ref)
+        || provision_receipt.get("session_ref").and_then(Value::as_str) != Some(session_ref)
+        || session_record.get("session_ref").and_then(Value::as_str) != Some(session_ref)
+        || provision_receipt.get("owner_ref").and_then(Value::as_str) != owner_ref
+        || session_record.get("owner_ref").and_then(Value::as_str) != owner_ref
+        || provision_receipt
+            .get("request_hash")
+            .and_then(Value::as_str)
+            != request_hash
+        || session_record.get("request_hash").and_then(Value::as_str) != request_hash
+        || !session_record
+            .get("latest_receipt_refs")
+            .and_then(Value::as_array)
+            .is_some_and(|refs| {
+                refs.iter()
+                    .any(|candidate| candidate.as_str() == Some(provision_ref))
+            })
+    {
+        return Err(SessionCreateCommitError::InvalidIntent(
+            "Session-create bundle fails record-key/session/owner/request binding".into(),
+        ));
+    }
+    let create_inputs = intent
+        .get("create_inputs")
+        .ok_or_else(|| SessionCreateCommitError::InvalidIntent("missing create_inputs".into()))?;
+    let route_ref = create_inputs.get("model_route_ref").and_then(Value::as_str);
+    let retained_binding = create_inputs
+        .get("model_route_binding")
+        .unwrap_or(&Value::Null);
+    let session_binding = session_record
+        .get("model_route_binding")
+        .unwrap_or(&Value::Null);
+    match route_ref {
+        Some(route_ref) => {
+            let binding_receipt = retained_binding
+                .get("receipt_ref")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let harness_binding_id = session_record
+                .pointer("/harness_binding/binding_id")
+                .and_then(Value::as_str);
+            if !retained_binding.is_object()
+                || retained_binding != session_binding
+                || retained_binding.get("session_ref").and_then(Value::as_str) != Some(session_ref)
+                || retained_binding.get("route_ref").and_then(Value::as_str) != Some(route_ref)
+                || retained_binding
+                    .get("harness_binding_ref")
+                    .and_then(Value::as_str)
+                    != harness_binding_id
+                || binding_receipt.is_empty()
+                || !session_record
+                    .get("latest_receipt_refs")
+                    .and_then(Value::as_array)
+                    .is_some_and(|refs| {
+                        refs.iter()
+                            .any(|candidate| candidate.as_str() == Some(binding_receipt))
+                    })
+            {
+                return Err(SessionCreateCommitError::InvalidIntent(
+                    "Session-create bundle fails exact model-route binding/receipt binding".into(),
+                ));
+            }
+        }
+        None if !retained_binding.is_null() || !session_binding.is_null() => {
+            return Err(SessionCreateCommitError::InvalidIntent(
+                "Session-create bundle retains a model-route binding without a route".into(),
+            ));
+        }
+        None => {}
+    }
+    if intent
+        .get("initial_input_receipt")
+        .is_some_and(|member| !member.is_null())
+    {
+        let (input_key, input_receipt) =
+            session_create_intent_member(intent, "initial_input_receipt")?;
+        let input_ref = input_receipt
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if input_key != session_receipt_key(input_ref)
+            || input_receipt.get("session_ref").and_then(Value::as_str) != Some(session_ref)
+            || input_receipt.get("owner_ref").and_then(Value::as_str) != owner_ref
+            || input_receipt.get("request_hash").and_then(Value::as_str) != request_hash
+            || !session_record
+                .get("latest_receipt_refs")
+                .and_then(Value::as_array)
+                .is_some_and(|refs| {
+                    refs.iter()
+                        .any(|candidate| candidate.as_str() == Some(input_ref))
+                })
+            || session_record.pointer("/initial_input_projection/receipt_ref")
+                != input_receipt.get("id")
+        {
+            return Err(SessionCreateCommitError::InvalidIntent(
+                "Session-create input member fails record-key/session/owner/request binding".into(),
+            ));
+        }
+    } else if !session_record
+        .get("initial_input_projection")
+        .is_some_and(Value::is_null)
+    {
+        return Err(SessionCreateCommitError::InvalidIntent(
+            "Session-create bundle has transcript projection without its input receipt".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn prepare_session_create_bundle(
+    st: &DaemonState,
+    intent: &Value,
+    allow_test_fault: bool,
+) -> Result<Value, SessionCreateCommitError> {
+    let session_ref = intent
+        .get("session_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| SessionCreateCommitError::InvalidIntent("missing session_ref".into()))?;
+    let request_hash = intent
+        .get("request_hash")
+        .and_then(Value::as_str)
+        .ok_or_else(|| SessionCreateCommitError::InvalidIntent("missing request_hash".into()))?;
+    let owner_ref = intent
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| SessionCreateCommitError::InvalidIntent("missing owner_ref".into()))?;
+    let inputs = intent
+        .get("create_inputs")
+        .ok_or_else(|| SessionCreateCommitError::InvalidIntent("missing create_inputs".into()))?;
+    let initializer = inputs.get("initializer").cloned().ok_or_else(|| {
+        SessionCreateCommitError::InvalidIntent("missing workspace initializer".into())
+    })?;
+    let bound_env_id = inputs.get("bound_env_id").and_then(Value::as_str);
+    let provision = match bound_env_id {
+        Some(env_id) => bind_env_workspace(&st.data_dir, env_id, &initializer, owner_ref)
+            .map_err(SessionCreateCommitError::Workspace)?,
+        None => provision_session_workspace_reserved(session_ref, request_hash, &initializer)
+            .map_err(|error| SessionCreateCommitError::Workspace(error.1))?,
+    };
+    let environment_ref = inputs
+        .get("environment_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| SessionCreateCommitError::InvalidIntent("missing environment_ref".into()))?;
+    let initializer_ref = inputs
+        .get("initializer_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| SessionCreateCommitError::InvalidIntent("missing initializer_ref".into()))?;
+    let created_at = intent
+        .get("reserved_at")
+        .and_then(Value::as_str)
+        .ok_or_else(|| SessionCreateCommitError::InvalidIntent("missing reserved_at".into()))?;
+    let initial_input = inputs.get("initial_input").and_then(Value::as_str);
+    let mut harness_binding = inputs
+        .get("harness_binding")
+        .cloned()
+        .unwrap_or(Value::Null);
+    if harness_binding.is_null() {
+        if let Some(profile_ref) = inputs
+            .get("harness_profile_ref")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+        {
+            let model_route_ref = inputs.get("model_route_ref").and_then(Value::as_str);
+            let candidates: Vec<Value> =
+                read_record_dir(&st.data_dir, "harness-profile-session-bindings")
+                    .into_iter()
+                    .filter(|binding| {
+                        binding.get("session_ref").and_then(Value::as_str) == Some(session_ref)
+                            && binding.get("profile_ref").and_then(Value::as_str)
+                                == Some(profile_ref)
+                            && model_route_ref.is_none_or(|route| {
+                                binding.get("model_route_ref").and_then(Value::as_str)
+                                    == Some(route)
+                            })
+                    })
+                    .collect();
+            harness_binding = match candidates.as_slice() {
+                [binding] => binding.clone(),
+                [] => {
+                    let profile_id = profile_ref
+                        .strip_prefix("harness-profile:")
+                        .unwrap_or(profile_ref);
+                    super::harness_routes::bind_profile_for_session_recoverable(
+                        st,
+                        profile_id,
+                        session_ref,
+                        model_route_ref,
+                        true,
+                    )
+                    .map_err(|(_, body)| {
+                        SessionCreateCommitError::Workspace(format!(
+                            "reserved harness binding could not be recovered ({})",
+                            body.pointer("/error/code")
+                                .and_then(Value::as_str)
+                                .unwrap_or("binding_refused")
+                        ))
+                    })?
+                    .get("binding")
+                    .cloned()
+                    .unwrap_or(Value::Null)
+                }
+                _ => {
+                    return Err(SessionCreateCommitError::InvalidIntent(
+                        "reserved Session resolves multiple harness bindings".into(),
+                    ))
+                }
+            };
+            if harness_binding.is_null() {
+                return Err(SessionCreateCommitError::InvalidIntent(
+                    "reserved Session harness binding recovery produced no binding".into(),
+                ));
+            }
+        }
+    }
+    let effective_model_route_ref = inputs
+        .get("model_route_ref")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            harness_binding
+                .get("model_route_ref")
+                .and_then(Value::as_str)
+                .filter(|value| !value.is_empty())
+        })
+        .map(str::to_string);
+    let model_route_binding = if let Some(route_ref) = effective_model_route_ref.as_deref() {
+        let harness_binding_ref = harness_binding
+            .get("binding_id")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty());
+        let recovered = super::model_routes::bind_route_for_session_recoverable(
+            &st.data_dir,
+            session_ref,
+            route_ref,
+            harness_binding_ref,
+            created_at,
+            true,
+        )
+        .map_err(|detail| {
+            SessionCreateCommitError::Workspace(format!(
+                "reserved model-route binding could not be recovered ({detail})"
+            ))
+        })?;
+        if let Some(retained) = inputs
+            .get("model_route_binding")
+            .filter(|value| !value.is_null())
+        {
+            if retained != &recovered {
+                return Err(SessionCreateCommitError::InvalidIntent(
+                    "reserved Session model-route binding changed during recovery".into(),
+                ));
+            }
+        }
+        recovered
+    } else {
+        if inputs
+            .get("model_route_binding")
+            .is_some_and(|value| !value.is_null())
+        {
+            return Err(SessionCreateCommitError::InvalidIntent(
+                "reserved Session retains a model-route binding without a route".into(),
+            ));
+        }
+        Value::Null
+    };
+    let substrate = ExecutionSubstrate::probe();
+    let environment_status = project_session_environment_status(
+        environment_ref,
+        &provision.workspace_root,
+        &provision.custody_posture,
+        initializer_ref,
+        &provision.workspace_artifact_ref,
+        &provision.component_phases,
+        &substrate,
+        &json!([]),
+    );
+    let identity = session_identity_digest(session_ref);
+    let receipt_ref = format!("receipt://hypervisor/session-provision/{identity}");
+    let initial_input_projection = initial_input.map(|input| {
+        json!({
+            "schema_version": "ioi.hypervisor.session_initial_input.v1",
+            "transcript_ref": format!("session-transcript://{identity}"),
+            "entry_ref": format!("session-transcript-entry://{identity}/initial"),
+            "role": "user",
+            "content": input,
+            "content_hash": format!("sha256:{}", sha256_hex_bytes(input.as_bytes())),
+            "created_at": created_at,
+            "receipt_ref": format!("receipt://hypervisor/session-initial-input/{identity}"),
+            "truth_class": "session_transcript",
+            "disposition": "session_only_non_goal",
+            "goal_run_ref": Value::Null,
+            "goal_run_activation_ref": Value::Null,
+            "owner_ref": owner_ref,
+            "runtimeTruthSource": "daemon-runtime"
+        })
+    });
+    let initial_input_receipt = initial_input_projection.as_ref().map(|projection| {
+        json!({
+            "id": projection.get("receipt_ref"),
+            "kind": "hypervisor.session.initial_input",
+            "session_ref": session_ref,
+            "transcript_ref": projection.get("transcript_ref"),
+            "entry_ref": projection.get("entry_ref"),
+            "content_hash": projection.get("content_hash"),
+            "disposition": "session_only_non_goal",
+            "goal_run_ref": Value::Null,
+            "goal_run_activation_ref": Value::Null,
+            "owner_ref": owner_ref,
+            "request_hash": request_hash,
+            "non_grants": {"goal_identity":"none","goal_activation":"none","authority_widening":"none"},
+            "created_at": created_at,
+            "runtimeTruthSource": "daemon-runtime"
+        })
+    });
+    let provision_receipt = json!({
+        "id": receipt_ref,
+        "kind": "hypervisor.session.provision",
+        "session_ref": session_ref,
+        "environment_ref": environment_ref,
+        "workspace_root": provision.workspace_root,
+        "workspace_artifact_ref": provision.workspace_artifact_ref,
+        "state_root_ref": environment_status.get("state_root_ref"),
+        "initial_input_receipt_ref": initial_input_projection.as_ref().and_then(|projection| projection.get("receipt_ref")).cloned().unwrap_or(Value::Null),
+        "owner_ref": owner_ref,
+        "request_hash": request_hash,
+        "created_at": created_at,
+        "runtimeTruthSource": "daemon-runtime"
+    });
+    let mut latest_receipt_refs = vec![json!(receipt_ref)];
+    if let Some(reference) = initial_input_projection
+        .as_ref()
+        .and_then(|projection| projection.get("receipt_ref"))
+        .cloned()
+    {
+        latest_receipt_refs.push(reference);
+    }
+    if let Some(reference) = model_route_binding
+        .get("receipt_ref")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+    {
+        latest_receipt_refs.push(json!(reference));
+    }
+    let session_record = json!({
+        "schema_version": SESSION_RECORD_SCHEMA_VERSION,
+        "session_ref": session_ref,
+        "project_ref": inputs.get("project_ref").cloned().unwrap_or(Value::Null),
+        "environment_ref": environment_ref,
+        "lifecycle_state": "provisioned",
+        "cwd": provision.workspace_root,
+        "workspace_root": provision.workspace_root,
+        "workspace_artifact_ref": provision.workspace_artifact_ref,
+        "custody_posture": provision.custody_posture,
+        "initializer": provision.initializer,
+        "initializer_ref": initializer_ref,
+        "component_phases": provision.component_phases,
+        "realized_specs": provision.realized_specs,
+        "environment_status": environment_status,
+        "harness_binding": harness_binding,
+        "model_route_binding": model_route_binding,
+        "editor_target_ref": inputs.get("editor_target_ref").cloned().unwrap_or(Value::Null),
+        "initial_input_projection": initial_input_projection,
+        "latest_receipt_refs": latest_receipt_refs,
+        "owner_ref": owner_ref,
+        "request_hash": request_hash,
+        "created_at": created_at,
+        "runtimeTruthSource": "daemon-runtime"
+    });
+    let initial_input_member = initial_input_receipt
+        .as_ref()
+        .map_or(Value::Null, |receipt| {
+            let reference = receipt
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            json!({"record_key":session_receipt_key(reference),"record":receipt})
+        });
+    let mut prepared = intent.clone();
+    let object = prepared.as_object_mut().ok_or_else(|| {
+        SessionCreateCommitError::InvalidIntent("Session-create intent is not an object".into())
+    })?;
+    object.insert("status".into(), json!("prepared"));
+    object.insert("prepared_at".into(), json!(iso_now()));
+    if let Some(create_inputs) = object
+        .get_mut("create_inputs")
+        .and_then(Value::as_object_mut)
+    {
+        create_inputs.insert(
+            "harness_binding".into(),
+            session_record
+                .get("harness_binding")
+                .cloned()
+                .unwrap_or(Value::Null),
+        );
+        create_inputs.insert(
+            "model_route_ref".into(),
+            effective_model_route_ref.map_or(Value::Null, |value| json!(value)),
+        );
+        create_inputs.insert(
+            "model_route_binding".into(),
+            session_record
+                .get("model_route_binding")
+                .cloned()
+                .unwrap_or(Value::Null),
+        );
+    }
+    object.insert(
+        "provisioning_receipt".into(),
+        json!({"record_key":session_receipt_key(&receipt_ref),"record":provision_receipt}),
+    );
+    object.insert("initial_input_receipt".into(), initial_input_member);
+    object.insert(
+        "session_record".into(),
+        json!({"record_key":session_record_key(session_ref),"record":session_record}),
+    );
+    let intent_key = session_create_intent_key(session_ref);
+    persist_session_create_stage(
+        &st.data_dir,
+        SESSION_CREATE_INTENT_FAMILY,
+        &intent_key,
+        &prepared,
+        "provision_bundle",
+        allow_test_fault,
+    )?;
+    Ok(prepared)
+}
+
+/// Complete a reserved/prepared transaction. The deterministic workspace is recovered first,
+/// receipts are durable before the Session record that cites them, and the committed marker is
+/// the only state from which create/list/get may report success.
+fn apply_session_create_intent(
+    st: &DaemonState,
+    intent: &Value,
+    allow_test_fault: bool,
+) -> Result<Value, SessionCreateCommitError> {
+    let mut working = intent.clone();
+    validate_session_create_intent(
+        intent
+            .get("intent_key")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        intent,
+    )?;
+    if intent.get("status").and_then(Value::as_str) == Some("reserved") {
+        working = prepare_session_create_bundle(st, intent, allow_test_fault)?;
+    }
+    let already_committed = working.get("status").and_then(Value::as_str) == Some("committed");
+    let session_ref = working
+        .get("session_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| SessionCreateCommitError::InvalidIntent("missing session_ref".into()))?
+        .to_string();
+    let owner_ref = working
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let (provision_key, provision_receipt) =
+        session_create_intent_member(&working, "provisioning_receipt")?;
+    let (session_key, session_record) = session_create_intent_member(&working, "session_record")?;
+    if provision_key
+        != session_receipt_key(
+            provision_receipt
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+        )
+        || session_key != session_record_key(&session_ref)
+        || provision_receipt.get("session_ref").and_then(Value::as_str)
+            != Some(session_ref.as_str())
+        || session_record.get("session_ref").and_then(Value::as_str) != Some(session_ref.as_str())
+        || session_record.get("owner_ref").and_then(Value::as_str) != owner_ref.as_deref()
+    {
+        return Err(SessionCreateCommitError::InvalidIntent(
+            "Session-create bundle fails record-key/session/owner binding".into(),
+        ));
+    }
+    let request_hash = working.get("request_hash").and_then(Value::as_str);
+    if provision_receipt
+        .get("request_hash")
+        .and_then(Value::as_str)
+        != request_hash
+        || session_record.get("request_hash").and_then(Value::as_str) != request_hash
+    {
+        return Err(SessionCreateCommitError::InvalidIntent(
+            "Session-create bundle fails request-hash binding".into(),
+        ));
+    }
+    let initial_input_member = if working
+        .get("initial_input_receipt")
+        .is_some_and(|member| !member.is_null())
+    {
+        let (input_key, input_receipt) =
+            session_create_intent_member(&working, "initial_input_receipt")?;
+        let input_ref = input_receipt
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if input_key != session_receipt_key(input_ref)
+            || input_receipt.get("session_ref").and_then(Value::as_str)
+                != Some(session_ref.as_str())
+            || input_receipt.get("owner_ref").and_then(Value::as_str) != owner_ref.as_deref()
+        {
+            return Err(SessionCreateCommitError::InvalidIntent(
+                "Session-create initial-input receipt fails key/session/owner binding".into(),
+            ));
+        }
+        if input_receipt.get("request_hash").and_then(Value::as_str) != request_hash {
+            return Err(SessionCreateCommitError::InvalidIntent(
+                "Session-create initial-input receipt fails request-hash binding".into(),
+            ));
+        }
+        Some((input_key, input_receipt))
+    } else {
+        None
+    };
+
+    // A committed WAL marker is not an umbrella assertion. Prove its immutable receipts and
+    // mutable Session projection still exist at the exact no-follow slots before permitting any
+    // list/get/idempotent-create projection. Do not replay the original Session record here: a
+    // later lifecycle mutation may have legitimately advanced it.
+    if already_committed {
+        let stored_provision =
+            super::durable_fs::read_record_durable(&st.data_dir, "receipts", &provision_key)
+                .map_err(SessionCreateCommitError::WalUnavailable)?
+                .ok_or_else(|| {
+                    SessionCreateCommitError::WalUnavailable(format!(
+                        "Committed Session-create receipt slot '{provision_key}' is absent"
+                    ))
+                })?;
+        if stored_provision != provision_receipt {
+            return Err(SessionCreateCommitError::InvalidIntent(
+                "Committed Session-create provisioning receipt does not match its WAL member"
+                    .into(),
+            ));
+        }
+        if let Some((input_key, input_receipt)) = &initial_input_member {
+            let stored_input =
+                super::durable_fs::read_record_durable(&st.data_dir, "receipts", input_key)
+                    .map_err(SessionCreateCommitError::WalUnavailable)?
+                    .ok_or_else(|| {
+                        SessionCreateCommitError::WalUnavailable(format!(
+                            "Committed Session-create input receipt slot '{input_key}' is absent"
+                        ))
+                    })?;
+            if stored_input != *input_receipt {
+                return Err(SessionCreateCommitError::InvalidIntent(
+                    "Committed Session-create input receipt does not match its WAL member".into(),
+                ));
+            }
+        }
+        let stored_session =
+            super::durable_fs::read_record_durable(&st.data_dir, "sessions", &session_key)
+                .map_err(SessionCreateCommitError::WalUnavailable)?
+                .ok_or_else(|| {
+                    SessionCreateCommitError::WalUnavailable(format!(
+                        "Committed Session-create record slot '{session_key}' is absent"
+                    ))
+                })?;
+        let receipt_refs = stored_session
+            .get("latest_receipt_refs")
+            .and_then(Value::as_array);
+        let provision_ref = provision_receipt.get("id").and_then(Value::as_str);
+        let input_ref = initial_input_member
+            .as_ref()
+            .and_then(|(_, receipt)| receipt.get("id"))
+            .and_then(Value::as_str);
+        let immutable_session_fields_match = [
+            "workspace_root",
+            "workspace_artifact_ref",
+            "environment_ref",
+            "initializer_ref",
+            "model_route_binding",
+            "created_at",
+        ]
+        .into_iter()
+        .all(|field| stored_session.get(field) == session_record.get(field));
+        if stored_session.get("session_ref").and_then(Value::as_str) != Some(session_ref.as_str())
+            || stored_session.get("owner_ref").and_then(Value::as_str) != owner_ref.as_deref()
+            || stored_session.get("request_hash").and_then(Value::as_str) != request_hash
+            || stored_session.get("initial_input_projection")
+                != session_record.get("initial_input_projection")
+            || !immutable_session_fields_match
+            || !provision_ref.is_some_and(|reference| {
+                receipt_refs.is_some_and(|refs| {
+                    refs.iter()
+                        .any(|candidate| candidate.as_str() == Some(reference))
+                })
+            })
+            || input_ref.is_some_and(|reference| {
+                !receipt_refs.is_some_and(|refs| {
+                    refs.iter()
+                        .any(|candidate| candidate.as_str() == Some(reference))
+                })
+            })
+        {
+            return Err(SessionCreateCommitError::InvalidIntent(
+                "Committed Session-create projection fails session/owner/request/receipt binding"
+                    .into(),
+            ));
+        }
+        if let Some(route_ref) = working
+            .pointer("/create_inputs/model_route_ref")
+            .and_then(Value::as_str)
+        {
+            let binding_id = session_record
+                .pointer("/model_route_binding/binding_id")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    SessionCreateCommitError::InvalidIntent(
+                        "Committed Session has no exact model-route binding identity".into(),
+                    )
+                })?;
+            super::model_routes::resolve_session_route_binding_strict(
+                &st.data_dir,
+                &session_ref,
+                Some(route_ref),
+                Some(binding_id),
+            )
+            .map_err(|detail| {
+                SessionCreateCommitError::WalUnavailable(format!(
+                    "Committed Session model-route binding is unavailable ({detail})"
+                ))
+            })?;
+        }
+        return Ok(working);
+    }
+
+    persist_session_create_stage(
+        &st.data_dir,
+        "receipts",
+        &provision_key,
+        &provision_receipt,
+        "provisioning_receipt",
+        allow_test_fault,
+    )?;
+    if let Some((input_key, input_receipt)) = initial_input_member {
+        persist_session_create_stage(
+            &st.data_dir,
+            "receipts",
+            &input_key,
+            &input_receipt,
+            "initial_input_receipt",
+            allow_test_fault,
+        )?;
+    }
+    persist_session_create_stage(
+        &st.data_dir,
+        "sessions",
+        &session_key,
+        &session_record,
+        "session_record",
+        allow_test_fault,
+    )?;
+    let object = working.as_object_mut().ok_or_else(|| {
+        SessionCreateCommitError::InvalidIntent("Session-create intent is not an object".into())
+    })?;
+    object.insert("status".into(), json!("committed"));
+    object.insert("committed_at".into(), json!(iso_now()));
+    let intent_key = session_create_intent_key(&session_ref);
+    persist_session_create_stage(
+        &st.data_dir,
+        SESSION_CREATE_INTENT_FAMILY,
+        &intent_key,
+        &working,
+        "commit_intent",
+        allow_test_fault,
+    )?;
+    Ok(working)
+}
+
+fn recover_session_create_intents_locked(
+    st: &DaemonState,
+) -> Result<Vec<Value>, SessionCreateCommitError> {
+    let intents = strict_session_create_intents(&st.data_dir)?;
+    let mut recovered = Vec::with_capacity(intents.len());
+    for (_key, intent) in intents {
+        recovered.push(apply_session_create_intent(st, &intent, false)?);
+    }
+    Ok(recovered)
+}
+
+fn recover_session_create_intents(
+    st: &DaemonState,
+) -> Result<Vec<Value>, SessionCreateCommitError> {
+    let _lock = lock_session_create_registry(&st.data_dir)?;
+    recover_session_create_intents_locked(st)
+}
+
+fn session_create_commit_failure_response(
+    transaction_ref: &str,
+    error: &SessionCreateCommitError,
+) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(json!({
+            "error": {
+                "code": error.wire_code(),
+                "message": "Session creation/projection did not reach a fully durable, owner-bound commit; no success is reported.",
+                "detail": error.detail(),
+                "transaction_ref": transaction_ref,
+                "retryable": false,
+                "recovery_action": "Read or list Session truth after restart/recovery; never assume an uncertain POST was absent."
+            }
+        })),
+    )
+}
+
+fn session_create_projection(intent: &Value, idempotent_replay: bool) -> Value {
+    let record = intent
+        .pointer("/session_record/record")
+        .unwrap_or(&Value::Null);
+    json!({
+        "schema_version": SESSION_CREATE_PROJECTION_SCHEMA_VERSION,
+        "session_ref": intent.get("session_ref"),
+        "environment_ref": record.get("environment_ref"),
+        "environment_status": record.get("environment_status"),
+        "workspace_initializer": record.get("initializer"),
+        "harness_binding": record.get("harness_binding"),
+        "model_route_binding": record.get("model_route_binding"),
+        "editor_target_ref": record.get("editor_target_ref"),
+        "receipt_ref": intent.pointer("/provisioning_receipt/record/id"),
+        "initial_input_projection": record.get("initial_input_projection"),
+        "latest_receipt_refs": record.get("latest_receipt_refs"),
+        "goal_run_ref": Value::Null,
+        "goal_run_activation_ref": Value::Null,
+        "idempotent_replay": idempotent_replay,
+        "owner_ref": intent.get("owner_ref"),
+        "request_hash": intent.get("request_hash"),
+        "runtimeTruthSource": "daemon-runtime"
+    })
 }
 
 /// Build the real environment-status projection for a session from its stored
@@ -9078,11 +10372,664 @@ fn walk_workspace_records(root: &str) -> Vec<Value> {
     out
 }
 
+fn selected_session_lifecycle_fault(stage: &str, kind: &str, allow: bool) -> bool {
+    allow
+        && std::env::var("IOI_TEST_SESSION_LIFECYCLE_DURABILITY_FAULT")
+            .ok()
+            .as_deref()
+            == Some(format!("{kind}:{stage}").as_str())
+}
+
+fn persist_session_lifecycle_stage(
+    data_dir: &str,
+    family: &str,
+    key: &str,
+    record: &Value,
+    stage: &'static str,
+    allow_test_fault: bool,
+) -> Result<(), String> {
+    if selected_session_lifecycle_fault(stage, "fail", allow_test_fault) {
+        return Err(format!("test-forced failure before {stage}"));
+    }
+    persist_record_durable(data_dir, family, key, record)
+        .map_err(|failure| format!("{stage}: {}", failure.detail()))?;
+    if selected_session_lifecycle_fault(stage, "crash", allow_test_fault) {
+        std::process::exit(87);
+    }
+    Ok(())
+}
+
+fn session_lifecycle_failure_response(
+    operation: &str,
+    detail: impl Into<String>,
+) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(json!({"error":{
+            "code":"session_lifecycle_durability_unconfirmed",
+            "message":"The Session lifecycle operation did not reach a fully durable commit; no success is reported.",
+            "operation":operation,
+            "detail":detail.into(),
+            "recovery_action":"Read the Session from a fresh process to drive pending-operation recovery."
+        }})),
+    )
+}
+
+fn selected_session_execution_fault(stage: &str, kind: &str, allow: bool) -> bool {
+    allow
+        && std::env::var("IOI_TEST_SESSION_EXECUTE_DURABILITY_FAULT")
+            .ok()
+            .as_deref()
+            == Some(format!("{kind}:{stage}").as_str())
+}
+
+fn persist_session_execution_stage(
+    data_dir: &str,
+    family: &str,
+    key: &str,
+    record: &Value,
+    stage: &'static str,
+    allow_test_fault: bool,
+) -> Result<(), String> {
+    if selected_session_execution_fault(stage, "fail", allow_test_fault) {
+        return Err(format!("test-forced failure before {stage}"));
+    }
+    persist_record_durable(data_dir, family, key, record)
+        .map_err(|failure| format!("{stage}: {}", failure.detail()))?;
+    if selected_session_execution_fault(stage, "crash", allow_test_fault) {
+        std::process::exit(88);
+    }
+    Ok(())
+}
+
+fn session_execution_failure_response(detail: impl Into<String>) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(json!({"error":{
+            "code":"session_execute_durability_unconfirmed",
+            "message":"The Session execution did not reach a fully durable outcome commit; no success is reported.",
+            "detail":detail.into(),
+            "recovery_action":"Read the Session from a fresh process to converge its prepared execution without replaying the external effect."
+        }})),
+    )
+}
+
+/// Persist a replay anchor before a Session execution can mutate its workspace or open a port.
+/// Recovery never re-executes the intent: a pre-outcome crash becomes an explicit unconfirmed
+/// interruption, while a retained outcome is completed byte-for-byte.
+fn prepare_session_execution(
+    data_dir: &str,
+    session_ref: &str,
+    record: &Value,
+    lane: &str,
+    intent: &str,
+    capability_lease_ref: &str,
+    receipt_ref: &str,
+    started_at: &str,
+) -> Result<Value, String> {
+    if record.get("pending_execution_commit").is_some()
+        || record.get("pending_port_revoke").is_some()
+        || record.get("pending_teardown").is_some()
+    {
+        return Err("another Session operation is still pending recovery".to_string());
+    }
+    let mut prepared = record.clone();
+    let owner_ref = record
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("user://local-operator");
+    if let Some(object) = prepared.as_object_mut() {
+        object.insert(
+            "pending_execution_commit".into(),
+            json!({
+                "schema_version":SESSION_EXECUTION_PENDING_SCHEMA_VERSION,
+                "phase":"prepared",
+                "session_ref":session_ref,
+                "owner_ref":owner_ref,
+                "lane":lane,
+                "intent_hash":sha256_hex_bytes(intent.as_bytes()),
+                "capability_lease_ref":capability_lease_ref,
+                "receipt_ref":receipt_ref,
+                "started_at":started_at
+            }),
+        );
+    }
+    persist_session_execution_stage(
+        data_dir,
+        "sessions",
+        &session_record_key(session_ref),
+        &prepared,
+        "execute_session_prepared",
+        true,
+    )?;
+    Ok(prepared)
+}
+
+fn validate_pending_execution(
+    session_ref: &str,
+    record: &Value,
+    pending: &Value,
+) -> Result<(), String> {
+    if pending.get("schema_version").and_then(Value::as_str)
+        != Some(SESSION_EXECUTION_PENDING_SCHEMA_VERSION)
+        || pending.get("session_ref").and_then(Value::as_str) != Some(session_ref)
+        || pending.get("owner_ref").and_then(Value::as_str)
+            != record
+                .get("owner_ref")
+                .and_then(Value::as_str)
+                .or(Some("user://local-operator"))
+        || !matches!(
+            pending.get("phase").and_then(Value::as_str),
+            Some("prepared" | "outcome_ready")
+        )
+        || !pending
+            .get("receipt_ref")
+            .and_then(Value::as_str)
+            .is_some_and(|reference| reference.starts_with("receipt://hypervisor/session-"))
+    {
+        return Err("pending Session execution fails its identity or schema binding".to_string());
+    }
+    Ok(())
+}
+
+fn abort_session_preview_for_recovery(st: &DaemonState, session_ref: &str) {
+    let server = st
+        .preview_servers
+        .lock()
+        .ok()
+        .and_then(|mut servers| servers.remove(session_ref));
+    if let Some(server) = server {
+        let _ = server.shutdown.send(());
+        server.join.abort();
+    }
+}
+
+fn reconcile_recovered_execution_ports(st: &DaemonState, session_ref: &str, record: &mut Value) {
+    let listener_live = st
+        .preview_servers
+        .lock()
+        .map(|servers| servers.contains_key(session_ref))
+        .unwrap_or(false);
+    if !listener_live {
+        let ports = mark_session_ports_revoked(record);
+        if let Some(object) = record.as_object_mut() {
+            object.insert("environment_ports".into(), json!(ports));
+        }
+    }
+}
+
+fn persist_execution_materials(
+    data_dir: &str,
+    receipt_ref: &str,
+    receipt: &Value,
+    final_session: &Value,
+    auxiliary_records: &[Value],
+    allow_test_fault: bool,
+) -> Result<(), String> {
+    if auxiliary_records.len() > 4_096 {
+        return Err("pending Session execution exceeds the bounded auxiliary-record census".into());
+    }
+    for item in auxiliary_records {
+        let family = item
+            .get("family")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| "pending execution auxiliary record has no family".to_string())?;
+        let key = item
+            .get("key")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| "pending execution auxiliary record has no key".to_string())?;
+        let value = item
+            .get("record")
+            .filter(|value| value.is_object())
+            .ok_or_else(|| {
+                "pending execution auxiliary record has no object payload".to_string()
+            })?;
+        persist_session_execution_stage(
+            data_dir,
+            family,
+            key,
+            value,
+            "execute_auxiliary_record",
+            allow_test_fault,
+        )?;
+    }
+    persist_session_execution_stage(
+        data_dir,
+        "receipts",
+        &session_receipt_key(receipt_ref),
+        receipt,
+        "execute_receipt_final",
+        allow_test_fault,
+    )?;
+    let session_ref = final_session
+        .get("session_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "final execution Session has no session_ref".to_string())?;
+    persist_session_execution_stage(
+        data_dir,
+        "sessions",
+        &session_record_key(session_ref),
+        final_session,
+        "execute_session_final",
+        allow_test_fault,
+    )
+}
+
+fn commit_session_execution_outcome(
+    data_dir: &str,
+    session_ref: &str,
+    prepared: &Value,
+    receipt_ref: &str,
+    receipt: &Value,
+    final_session: &Value,
+    auxiliary_records: &[Value],
+) -> Result<(), String> {
+    let pending = prepared
+        .get("pending_execution_commit")
+        .ok_or_else(|| "Session execution has no prepared recovery anchor".to_string())?;
+    validate_pending_execution(session_ref, prepared, pending)?;
+    if pending.get("phase").and_then(Value::as_str) != Some("prepared")
+        || receipt.get("id").and_then(Value::as_str) != Some(receipt_ref)
+        || final_session.get("session_ref").and_then(Value::as_str) != Some(session_ref)
+        || final_session.get("pending_execution_commit").is_some()
+    {
+        return Err("Session execution outcome does not match its prepared anchor".into());
+    }
+    let mut outcome_ready = prepared.clone();
+    if let Some(object) = outcome_ready.as_object_mut() {
+        let mut retained = pending.clone();
+        if let Some(pending_object) = retained.as_object_mut() {
+            pending_object.insert("phase".into(), json!("outcome_ready"));
+            pending_object.insert("receipt".into(), receipt.clone());
+            pending_object.insert("final_session".into(), final_session.clone());
+            pending_object.insert("auxiliary_records".into(), json!(auxiliary_records));
+        }
+        object.insert("pending_execution_commit".into(), retained);
+    }
+    persist_session_execution_stage(
+        data_dir,
+        "sessions",
+        &session_record_key(session_ref),
+        &outcome_ready,
+        "execute_outcome_prepared",
+        true,
+    )?;
+    persist_execution_materials(
+        data_dir,
+        receipt_ref,
+        receipt,
+        final_session,
+        auxiliary_records,
+        true,
+    )
+}
+
+fn recover_pending_session_execution(st: &DaemonState, mut record: Value) -> Result<Value, String> {
+    let Some(pending) = record.get("pending_execution_commit").cloned() else {
+        return Ok(record);
+    };
+    let session_ref = record
+        .get("session_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "pending execution Session has no session_ref".to_string())?
+        .to_string();
+    validate_pending_execution(&session_ref, &record, &pending)?;
+    let receipt_ref = pending
+        .get("receipt_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "pending execution has no receipt_ref".to_string())?
+        .to_string();
+    if pending.get("phase").and_then(Value::as_str) == Some("outcome_ready") {
+        let receipt = pending
+            .get("receipt")
+            .filter(|value| value.is_object())
+            .ok_or_else(|| "outcome-ready execution has no receipt".to_string())?;
+        let mut final_session = pending
+            .get("final_session")
+            .filter(|value| value.is_object())
+            .cloned()
+            .ok_or_else(|| "outcome-ready execution has no final Session".to_string())?;
+        let auxiliary_records = pending
+            .get("auxiliary_records")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        if receipt.get("id").and_then(Value::as_str) != Some(receipt_ref.as_str())
+            || final_session.get("session_ref").and_then(Value::as_str)
+                != Some(session_ref.as_str())
+            || final_session.get("owner_ref") != record.get("owner_ref")
+            || final_session.get("pending_execution_commit").is_some()
+        {
+            return Err("outcome-ready execution fails its retained byte binding".into());
+        }
+        reconcile_recovered_execution_ports(st, &session_ref, &mut final_session);
+        persist_execution_materials(
+            &st.data_dir,
+            &receipt_ref,
+            receipt,
+            &final_session,
+            &auxiliary_records,
+            false,
+        )?;
+        return Ok(final_session);
+    }
+
+    // The effect may or may not have begun. Never execute it again and never infer success from
+    // workspace bytes. Retain an explicit interruption receipt and revoke any live preview.
+    abort_session_preview_for_recovery(st, &session_ref);
+    let receipt = json!({
+        "id":receipt_ref,
+        "kind":"hypervisor.session.execute",
+        "session_ref":session_ref,
+        "lane":pending.get("lane").cloned().unwrap_or(Value::Null),
+        "intent_hash":pending.get("intent_hash").cloned().unwrap_or(Value::Null),
+        "capability_lease_ref":pending.get("capability_lease_ref").cloned().unwrap_or(Value::Null),
+        "exit_status":"interrupted_unconfirmed",
+        "status":"recovered_without_reexecution",
+        "started_at":pending.get("started_at").cloned().unwrap_or(Value::Null),
+        "recovered_at":iso_now(),
+        "runtimeTruthSource":"daemon-runtime"
+    });
+    let mut refs = record
+        .get("latest_receipt_refs")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if !refs
+        .iter()
+        .any(|value| value.as_str() == Some(receipt_ref.as_str()))
+    {
+        refs.push(json!(receipt_ref));
+    }
+    let revoked_ports = mark_session_ports_revoked(&record);
+    if let Some(object) = record.as_object_mut() {
+        object.remove("pending_execution_commit");
+        object.insert(
+            "lifecycle_state".into(),
+            json!("execution_interrupted_unconfirmed"),
+        );
+        object.insert("environment_ports".into(), json!(revoked_ports));
+        object.insert("latest_receipt_refs".into(), json!(refs));
+        object.insert(
+            "last_execution_recovery".into(),
+            json!({
+                "decision":"interrupted_unconfirmed",
+                "receipt_ref":receipt_ref,
+                "reexecuted":false,
+                "recovered_at":iso_now()
+            }),
+        );
+    }
+    persist_execution_materials(&st.data_dir, &receipt_ref, &receipt, &record, &[], false)?;
+    Ok(record)
+}
+
+/// Finish a prepared port-revoke or teardown after restart/final-write failure. The pending
+/// Session record is the replay anchor written before either external effect.
+fn recover_pending_session_lifecycle(st: &DaemonState, mut record: Value) -> Result<Value, String> {
+    record = recover_pending_session_execution(st, record)?;
+    let session_ref = record
+        .get("session_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "pending lifecycle record has no session_ref".to_string())?
+        .to_string();
+    if let Some(pending) = record.get("pending_port_revoke").cloned() {
+        let receipt_ref = pending
+            .get("receipt_ref")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "pending port revoke has no receipt_ref".to_string())?;
+        let ports = mark_session_ports_revoked(&record);
+        let receipt = json!({
+            "id": receipt_ref, "kind": "hypervisor.session.port_revoke",
+            "session_ref": session_ref,
+            "revoked_port": pending.get("revoked_port").cloned().unwrap_or(Value::Null),
+            "status": "committed",
+            "created_at": pending.get("created_at").cloned().unwrap_or(Value::Null),
+            "committed_at": iso_now(), "runtimeTruthSource": "daemon-runtime"
+        });
+        persist_session_lifecycle_stage(
+            &st.data_dir,
+            "receipts",
+            &session_receipt_key(receipt_ref),
+            &receipt,
+            "port_receipt_final",
+            false,
+        )?;
+        if let Some(object) = record.as_object_mut() {
+            object.remove("pending_port_revoke");
+            object.insert("environment_ports".into(), json!(ports));
+        }
+        persist_session_lifecycle_stage(
+            &st.data_dir,
+            "sessions",
+            &session_record_key(&session_ref),
+            &record,
+            "port_session_final",
+            false,
+        )?;
+    }
+    if let Some(pending) = record.get("pending_teardown").cloned() {
+        let receipt_ref = pending
+            .get("receipt_ref")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "pending teardown has no receipt_ref".to_string())?;
+        let workspace_root = pending
+            .get("workspace_root")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let present_before = pending
+            .get("workspace_present_before")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let _ = remove_session_workspace(workspace_root);
+        let workspace_removed = present_before && !Path::new(workspace_root).exists();
+        let receipt = json!({
+            "id": receipt_ref, "kind": "hypervisor.session.teardown",
+            "session_ref": session_ref,
+            "revoked_port": pending.get("revoked_port").cloned().unwrap_or(Value::Null),
+            "workspace_removed": workspace_removed, "status": "committed",
+            "created_at": pending.get("created_at").cloned().unwrap_or(Value::Null),
+            "committed_at": iso_now(), "runtimeTruthSource": "daemon-runtime"
+        });
+        persist_session_lifecycle_stage(
+            &st.data_dir,
+            "receipts",
+            &session_receipt_key(receipt_ref),
+            &receipt,
+            "teardown_receipt_final",
+            false,
+        )?;
+        if let Some(object) = record.as_object_mut() {
+            object.remove("pending_teardown");
+            object.insert("lifecycle_state".into(), json!("torn_down"));
+            object.insert("environment_ports".into(), json!([]));
+            object.insert("workspace_removed".into(), json!(workspace_removed));
+        }
+        persist_session_lifecycle_stage(
+            &st.data_dir,
+            "sessions",
+            &session_record_key(&session_ref),
+            &record,
+            "teardown_session_final",
+            false,
+        )?;
+    }
+    Ok(record)
+}
+
+/// Strict, bounded, no-follow census for the Hypervisor Session projection. The historical
+/// `sessions` family also contains authentication sessions, so well-formed non-Hypervisor records
+/// are ignored; unreadable or non-JSON slots are uncertainty and block the projection rather than
+/// becoming a false-empty or partial list.
+fn enumerate_hypervisor_sessions_strict(st: &DaemonState) -> Result<Vec<Value>, String> {
+    let directory = match open_family_dir_pinned(&st.data_dir, "sessions") {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(format!("Session family cannot be pinned ({error})")),
+    };
+    let mut names = enumerate_pinned(&directory)
+        .map_err(|error| format!("Session family cannot be enumerated ({error})"))?;
+    names.sort();
+    if names.len() > MAX_SESSION_RECORDS {
+        return Err(format!(
+            "Session family exceeds its bounded census ({}/{MAX_SESSION_RECORDS})",
+            names.len()
+        ));
+    }
+    let mut total_bytes = 0u64;
+    let mut owners = HashMap::<String, String>::new();
+    let mut sessions = Vec::new();
+    for name in names {
+        if !name.ends_with(".json") {
+            return Err(format!("Session family contains unexpected slot '{name}'"));
+        }
+        let bytes = read_contained(&directory, Path::new(&name), MAX_SESSION_RECORD_BYTES)
+            .map_err(|error| {
+                format!(
+                    "Session slot '{name}' is unavailable ({})",
+                    read_refusal_detail(error)
+                )
+            })?;
+        total_bytes = total_bytes
+            .checked_add(bytes.len() as u64)
+            .ok_or_else(|| "Session family byte census overflowed".to_string())?;
+        if total_bytes > MAX_SESSION_RECORD_TOTAL_BYTES {
+            return Err(format!(
+                "Session family exceeds its aggregate byte bound ({total_bytes}/{MAX_SESSION_RECORD_TOTAL_BYTES})"
+            ));
+        }
+        let record: Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("Session slot '{name}' is malformed ({error})"))?;
+        if record.get("schema_version").and_then(Value::as_str)
+            != Some(SESSION_RECORD_SCHEMA_VERSION)
+        {
+            continue;
+        }
+        let session_ref = record
+            .get("session_ref")
+            .and_then(Value::as_str)
+            .filter(|reference| canonical_session_ref(reference))
+            .ok_or_else(|| format!("Hypervisor Session slot '{name}' has no canonical identity"))?
+            .to_string();
+        let expected_name = format!("{}.json", session_record_key(&session_ref));
+        if name != expected_name {
+            return Err(format!(
+                "Hypervisor Session '{session_ref}' occupies non-authoritative slot '{name}' instead of '{expected_name}'"
+            ));
+        }
+        let owner_ref = record
+            .get("owner_ref")
+            .and_then(Value::as_str)
+            .unwrap_or("user://local-operator")
+            .to_string();
+        if let Some(prior_owner) = owners.insert(session_ref.clone(), owner_ref.clone()) {
+            return Err(format!(
+                "Hypervisor Session '{session_ref}' is duplicated across owners '{prior_owner}' and '{owner_ref}'"
+            ));
+        }
+        sessions.push(recover_pending_session_lifecycle(st, record)?);
+    }
+    Ok(sessions)
+}
+
 /// Load a persisted session record by session_ref.
+pub(crate) fn load_session_record_strict(
+    st: &DaemonState,
+    session_ref: &str,
+) -> Result<Option<Value>, String> {
+    recover_session_create_intents(st)
+        .map_err(|error| format!("Session create recovery failed ({error:?})"))?;
+    if !canonical_session_ref(session_ref) {
+        return Err("Session ref is not a canonical bounded session: identity".to_string());
+    }
+    match super::durable_fs::read_record_durable(
+        &st.data_dir,
+        "sessions",
+        &session_record_key(session_ref),
+    ) {
+        Ok(Some(record))
+            if record.is_object()
+                && record.get("session_ref").and_then(Value::as_str) == Some(session_ref) =>
+        {
+            recover_pending_session_lifecycle(st, record).map(Some)
+        }
+        Ok(Some(_)) => Err("Session slot fails its full-digest identity binding".to_string()),
+        Ok(None) => Ok(None),
+        Err(error) => Err(format!("Session slot is unreadable ({error})")),
+    }
+}
+
+/// Compatibility resolver for pre-transaction local Session records. New authority-sensitive
+/// consumers use `load_session_record_strict` and never fall back to a permissive census.
 pub(crate) fn load_session_record(st: &DaemonState, session_ref: &str) -> Option<Value> {
+    // A Session record is the final data member of its write-ahead bundle. Replay any prepared
+    // bundle before projecting it; on recovery failure, fail closed as not loadable rather than
+    // exposing a possibly partial transaction to downstream mutation handlers.
+    if recover_session_create_intents(st).is_err() {
+        return None;
+    }
+    if canonical_session_ref(session_ref) {
+        match super::durable_fs::read_record_durable(
+            &st.data_dir,
+            "sessions",
+            &session_record_key(session_ref),
+        ) {
+            Ok(Some(record))
+                if record.get("session_ref").and_then(Value::as_str) == Some(session_ref) =>
+            {
+                return recover_pending_session_lifecycle(st, record).ok()
+            }
+            Err(_) => return None,
+            _ => {}
+        }
+    }
+    // Backward-compatible local resolver for pre-transaction Session records. New records never
+    // use normalized filenames; their full digest slot above is authoritative.
     read_record_dir(&st.data_dir, "sessions")
         .into_iter()
         .find(|record| record.get("session_ref").and_then(Value::as_str) == Some(session_ref))
+        .and_then(|record| recover_pending_session_lifecycle(st, record).ok())
+}
+
+fn load_owned_session_record(
+    st: &DaemonState,
+    headers: &HeaderMap,
+    session_ref: &str,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let owner_ref = session_request_owner(&st.data_dir, headers)?;
+    let record = match load_session_record_strict(st, session_ref) {
+        Ok(Some(record)) => record,
+        Ok(None) => {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(
+                    json!({"error":{"code":"session_not_found","message":"Unknown Session.","session_ref":session_ref}}),
+                ),
+            ))
+        }
+        Err(detail) => {
+            return Err((
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error":{"code":"session_record_unavailable","message":detail}})),
+            ))
+        }
+    };
+    if record
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("user://local-operator")
+        != owner_ref
+    {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({"error":{"code":"session_not_found","message":"Unknown Session.","session_ref":session_ref}}),
+            ),
+        ));
+    }
+    Ok(record)
 }
 
 /// Build a one-shot `text/event-stream` response from canonical session-event frames.
@@ -9102,15 +11049,52 @@ fn session_events_response(frames: &[(&str, Value)]) -> Response {
 
 /// POST /v1/hypervisor/sessions — create + provision a real session workspace.
 ///
-/// Body: `{ project_ref?, session_ref?, workspace_mount_policy?, context_url?,
+/// Body: `{ project_ref?, session_ref?, initial_input?, workspace_mount_policy?, context_url?,
 /// git?:{remote_uri,clone_target,target_mode}, authority_scope_refs? }`.
 /// Provisions a REAL workspace (mkdtemp / clone-deferred), projects a real
 /// `HypervisorEnvironmentStatus` (model_mount/harness honestly degraded with no
-/// substrate), persists the session + a provisioning receipt, and returns 202.
+/// substrate), persists the session + provisioning receipts, and returns 202. `initial_input`
+/// is retained only as Session transcript truth; it never creates or activates a GoalRun.
 pub(crate) async fn handle_session_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let owner_ref = match session_request_owner(&st.data_dir, &headers) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    if !body.is_object()
+        || body.get("owner_ref").is_some()
+        || body.get("resolved_owner_ref").is_some()
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({"error":{"code":"session_create_request_invalid","message":"The Session owner is daemon-resolved and the request must be an object."}}),
+            ),
+        );
+    }
+    let initial_input = match body.get("initial_input") {
+        None => None,
+        Some(Value::String(value))
+            if !value.trim().is_empty()
+                && value.len() <= MAX_SESSION_INITIAL_INPUT_BYTES
+                && !value.chars().any(|character| {
+                    character.is_control() && !matches!(character, '\n' | '\r' | '\t')
+                }) =>
+        {
+            Some(value.clone())
+        }
+        Some(_) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(
+                    json!({"error":{"code":"session_initial_input_invalid","message":format!("initial_input must be a non-empty string of at most {MAX_SESSION_INITIAL_INPUT_BYTES} bytes without unsupported control characters.")}}),
+                ),
+            )
+        }
+    };
     let now = iso_now();
     let project_ref = body
         .get("project_ref")
@@ -9122,78 +11106,146 @@ pub(crate) async fn handle_session_create(
         .filter(|value| !value.trim().is_empty())
         .map(str::to_string)
         .unwrap_or_else(|| {
-            let seed = format!("{}:{now}", project_ref.as_deref().unwrap_or("session"));
-            format!("session:hyp-{}", short_hash(&seed))
+            let entropy = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos();
+            let seed = format!(
+                "{owner_ref}:{}:{now}:{entropy}",
+                project_ref.as_deref().unwrap_or("session")
+            );
+            format!("session:hyp-{}", sha256_hex_bytes(seed.as_bytes()))
         });
-    // Optional harness selection (the New Session / Agent Studio axis): a requested
-    // harness_profile_ref is admitted through the harness-profile registry BEFORE any workspace
-    // side effect — planner/registry rejections abort the create (fail-closed). Absent selection
-    // keeps the legacy behavior byte-identical (no binding, Lane A default at execute time).
-    let mut harness_binding = Value::Null;
-    if let Some(profile_ref) = body
+    if !canonical_session_ref(&session_ref) {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(
+                json!({"error":{"code":"session_ref_invalid","message":format!("session_ref must be a bounded canonical session: identity (max {MAX_SESSION_REF_BYTES} bytes).")}}),
+            ),
+        );
+    }
+    let mut normalized_request = body.clone();
+    if let Some(object) = normalized_request.as_object_mut() {
+        object.insert("session_ref".into(), json!(session_ref));
+        object.insert("resolved_owner_ref".into(), json!(owner_ref));
+    }
+    let request_hash = match session_create_request_hash(&normalized_request) {
+        Ok(hash) => hash,
+        Err(detail) => {
+            return (
+                StatusCode::PAYLOAD_TOO_LARGE,
+                Json(json!({"error":{"code":"session_create_request_unbounded","message":detail}})),
+            )
+        }
+    };
+    let identity = session_identity_digest(&session_ref);
+    let intent_key = session_create_intent_key(&session_ref);
+    let transaction_ref = format!("session-create-intent://{identity}");
+    let _registry_lock = match lock_session_create_registry(&st.data_dir) {
+        Ok(lock) => lock,
+        Err(error) => return session_create_commit_failure_response(&transaction_ref, &error),
+    };
+    let intents = match recover_session_create_intents_locked(&st) {
+        Ok(intents) => intents,
+        Err(error) => return session_create_commit_failure_response(&transaction_ref, &error),
+    };
+    if let Some(existing) = intents.iter().find(|intent| {
+        intent.get("session_ref").and_then(Value::as_str) == Some(session_ref.as_str())
+    }) {
+        let same_owner =
+            existing.get("owner_ref").and_then(Value::as_str) == Some(owner_ref.as_str());
+        let same_body =
+            existing.get("request_hash").and_then(Value::as_str) == Some(request_hash.as_str());
+        if !same_owner || !same_body {
+            return (
+                StatusCode::CONFLICT,
+                Json(
+                    json!({"error":{"code":"session_create_idempotency_conflict","message":"The canonical Session identity is already reserved for a different owner or request body."}}),
+                ),
+            );
+        }
+        return (
+            StatusCode::ACCEPTED,
+            Json(session_create_projection(existing, true)),
+        );
+    }
+
+    // Derived selections run only for the no-existing-intent winner while the cross-process
+    // registry lock is held. Harness binding itself is deliberately deferred until AFTER the
+    // reservation is durable; prepare/recovery owns that side effect.
+    let harness_profile_ref = body
         .get("harness_profile_ref")
         .and_then(Value::as_str)
         .filter(|value| !value.trim().is_empty())
-    {
+        .map(str::to_string);
+    let model_route_ref = body
+        .get("model_route_ref")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string);
+    if let Some(route_ref) = model_route_ref.as_deref() {
+        if let Err(detail) = super::model_routes::bind_route_for_session_recoverable(
+            &st.data_dir,
+            &session_ref,
+            route_ref,
+            None,
+            &now,
+            false,
+        ) {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error":{
+                    "code":"session_model_route_binding_refused",
+                    "message":"The requested model route could not be strictly and uniquely preflighted before Session reservation.",
+                    "detail":detail
+                }})),
+            );
+        }
+    }
+    if let Some(profile_ref) = harness_profile_ref.as_deref() {
         let profile_id = profile_ref
             .strip_prefix("harness-profile:")
             .unwrap_or(profile_ref);
-        let model_route_ref = body.get("model_route_ref").and_then(Value::as_str);
-        match super::harness_routes::bind_profile_for_session(
+        if let Err((status, body)) = super::harness_routes::bind_profile_for_session_recoverable(
             &st,
             profile_id,
             &session_ref,
-            model_route_ref,
-        )
-        .await
-        {
-            Ok(response) => {
-                harness_binding = response.get("binding").cloned().unwrap_or(Value::Null);
-            }
-            Err((status, error_body)) => return (status, Json(error_body)),
+            model_route_ref.as_deref(),
+            false,
+        ) {
+            return (status, Json(body));
         }
     }
-
-    // Optional editor-target selection (the New Session editor axis): the chosen editor must be a
-    // REAL currently-openable registry target — a session may not name an editor that cannot open
-    // on this host (fail-closed, before provisioning). Absent selection defaults to the always-
-    // openable native workbench.
     let editor_target_id = body
         .get("editor_target_ref")
         .and_then(Value::as_str)
-        .map(|v| {
-            v.strip_prefix("editor-target:")
-                .unwrap_or(v)
+        .map(|value| {
+            value
+                .strip_prefix("editor-target:")
+                .unwrap_or(value)
                 .trim()
                 .to_string()
         })
-        .filter(|v| !v.is_empty())
+        .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "workbench-native".to_string());
     if !super::editor_routes::editor_target_openable(&editor_target_id) {
         return (
             StatusCode::PRECONDITION_FAILED,
-            Json(json!({ "error": {
-                "code": "editor_target_not_openable",
-                "message": "The selected editor target is not currently openable on this host.",
-                "editor_target": editor_target_id
-            } })),
+            Json(
+                json!({"error":{"code":"editor_target_not_openable","message":"The selected editor target is not currently openable on this host.","editor_target":editor_target_id}}),
+            ),
         );
     }
     let editor_target_ref = format!("editor-target:{editor_target_id}");
-
-    // A session may bind to an EXISTING started environment's workspace so agent execution and
-    // the editor host operate on the SAME files (the app's compose→run→open-editor loop).
     let bound_env_id = body
         .get("environment_id")
         .and_then(Value::as_str)
         .filter(|value| !value.trim().is_empty())
         .map(str::to_string);
-    let environment_ref = match &bound_env_id {
-        Some(env_id) => format!("environment:{env_id}"),
-        None => format!("environment:{}", safe_session_tag(&session_ref)),
-    };
-
-    // Typed workspace initializer (camelCase input mirrors the JS builder args).
+    let environment_ref = bound_env_id
+        .as_ref()
+        .map(|env_id| format!("environment:{env_id}"))
+        .unwrap_or_else(|| format!("environment:session-{identity}"));
     let initializer = RuntimeKernelService::new().derive_hypervisor_workspace_initializer(&json!({
         "contextUrl": body.get("context_url"),
         "gitSpec": body.get("git"),
@@ -9205,93 +11257,54 @@ pub(crate) async fn handle_session_create(
         .and_then(Value::as_str)
         .unwrap_or("workspace-initializer:session")
         .to_string();
-
-    let provision = match bound_env_id
-        .as_deref()
-        .and_then(|env_id| bind_env_workspace(&st.data_dir, env_id, &initializer))
-    {
-        Some(outcome) => outcome,
-        None => match provision_session_workspace(&session_ref, &initializer) {
-            Ok(outcome) => outcome,
-            Err(error) => {
-                return (
-                    error.0,
-                    Json(
-                        json!({ "error": { "code": "workspace_provision_failed", "message": error.1 } }),
-                    ),
-                );
-            }
-        },
-    };
-
-    let substrate = ExecutionSubstrate::probe();
-    let environment_status = project_session_environment_status(
-        &environment_ref,
-        &provision.workspace_root,
-        &provision.custody_posture,
-        &initializer_ref,
-        &provision.workspace_artifact_ref,
-        &provision.component_phases,
-        &substrate,
-        // No preview port at provision time — a session has not executed yet.
-        &json!([]),
-    );
-
-    // Real provisioning receipt (id + kind so it passes the receipt reader).
-    let receipt_ref = format!(
-        "receipt://hypervisor/session-provision/{}",
-        safe_session_tag(&session_ref)
-    );
-    let receipt = json!({
-        "id": receipt_ref,
-        "kind": "hypervisor.session.provision",
+    // Caller-selected existing workspaces are read-only-preflighted before the WAL write and are
+    // revalidated during replay. Unknown, cross-owner, symlinked, or root paths refuse; they never
+    // silently fall back to a fresh workspace under the requested environment identity.
+    if let Some(env_id) = bound_env_id.as_deref() {
+        if let Err(detail) = bind_env_workspace(&st.data_dir, env_id, &initializer, &owner_ref) {
+            return (
+                StatusCode::PRECONDITION_FAILED,
+                Json(
+                    json!({"error":{"code":"session_environment_binding_refused","message":detail}}),
+                ),
+            );
+        }
+    }
+    let reserved = json!({
+        "schema_version": SESSION_CREATE_INTENT_SCHEMA_VERSION,
+        "transaction_ref": transaction_ref,
+        "intent_key": intent_key,
         "session_ref": session_ref,
-        "environment_ref": environment_ref,
-        "workspace_root": provision.workspace_root,
-        "workspace_artifact_ref": provision.workspace_artifact_ref,
-        "state_root_ref": environment_status.get("state_root_ref").cloned().unwrap_or(Value::Null),
-        "created_at": now,
-        "runtimeTruthSource": "daemon-runtime",
-    });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
-
-    let record = json!({
-        "schema_version": SESSION_RECORD_SCHEMA_VERSION,
-        "session_ref": session_ref,
-        "project_ref": project_ref,
-        "environment_ref": environment_ref,
-        "lifecycle_state": "provisioned",
-        "cwd": provision.workspace_root,
-        "workspace_root": provision.workspace_root,
-        "workspace_artifact_ref": provision.workspace_artifact_ref,
-        "custody_posture": provision.custody_posture,
-        "initializer": provision.initializer,
-        "initializer_ref": initializer_ref,
-        "component_phases": provision.component_phases,
-        "realized_specs": provision.realized_specs,
-        "environment_status": environment_status,
-        "harness_binding": harness_binding,
-        "editor_target_ref": editor_target_ref,
-        "latest_receipt_refs": [receipt_ref],
-        "created_at": now,
-        "runtimeTruthSource": "daemon-runtime",
-    });
-    let _ = persist_record(&st.data_dir, "sessions", &session_ref, &record);
-
-    (
-        StatusCode::ACCEPTED,
-        Json(json!({
-            "schema_version": SESSION_CREATE_PROJECTION_SCHEMA_VERSION,
-            "session_ref": session_ref,
+        "owner_ref": owner_ref,
+        "request_hash": request_hash,
+        "normalized_request": normalized_request,
+        "status": "reserved",
+        "create_inputs": {
+            "project_ref": project_ref,
+            "bound_env_id": bound_env_id,
             "environment_ref": environment_ref,
-            "environment_status": environment_status,
-            "workspace_initializer": provision.initializer,
-            "harness_binding": record.get("harness_binding").cloned().unwrap_or(Value::Null),
-            "editor_target_ref": record.get("editor_target_ref").cloned().unwrap_or(Value::Null),
-            "receipt_ref": receipt_ref,
-            "runtimeTruthSource": "daemon-runtime",
-        })),
-    )
+            "initializer": initializer,
+            "initializer_ref": initializer_ref,
+            "harness_profile_ref": harness_profile_ref,
+            "model_route_ref": model_route_ref,
+            "harness_binding": Value::Null,
+            "model_route_binding": Value::Null,
+            "editor_target_ref": editor_target_ref,
+            "initial_input": initial_input
+        },
+        "reserved_at": now,
+        "runtimeTruthSource": "daemon-runtime"
+    });
+    if let Err(error) = reserve_session_create_intent(&st.data_dir, &intent_key, &reserved, true) {
+        return session_create_commit_failure_response(&transaction_ref, &error);
+    }
+    match apply_session_create_intent(&st, &reserved, true) {
+        Ok(committed) => (
+            StatusCode::ACCEPTED,
+            Json(session_create_projection(&committed, false)),
+        ),
+        Err(error) => session_create_commit_failure_response(&transaction_ref, &error),
+    }
 }
 
 /// GET /v1/hypervisor/sessions/:id/events — canonical session-events SSE.
@@ -9303,14 +11316,12 @@ pub(crate) async fn handle_session_create(
 /// execution persisted one (never fabricated). 404 if the session is unknown.
 pub(crate) async fn handle_session_events(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(session_id): AxumPath<String>,
 ) -> Response {
-    let Some(record) = load_session_record(&st, &session_id) else {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } })),
-        )
-            .into_response();
+    let record = match load_owned_session_record(&st, &headers, &session_id) {
+        Ok(record) => record,
+        Err(response) => return response.into_response(),
     };
     let workspace_root = record
         .get("workspace_root")
@@ -9415,7 +11426,7 @@ fn execution_gate_decision(session_ref: &str, substrate: &ExecutionSubstrate) ->
         )
     };
     json!({
-        "readiness_id": format!("readiness:{}", safe_session_tag(session_ref)),
+        "readiness_id": format!("readiness:{}", session_identity_digest(session_ref)),
         "decision": decision,
         "reason": reason,
         "message": message,
@@ -11911,36 +13922,40 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
     None
 }
 
-/// Axum middleware: when auth-policy.require_authentication is ON, reject unauthenticated requests to
-/// the hypervisor data plane (401). Auth endpoints + non-hypervisor paths are always exempt so a
-/// client can still log in. Default policy is OFF → pure passthrough (local runtime untouched).
+const AUTH_GATE_EXEMPT_PATHS: &[&str] = &[
+    "/v1/hypervisor/auth/login",
+    "/v1/hypervisor/auth/logout",
+    "/v1/hypervisor/auth/whoami",
+    "/v1/hypervisor/auth/bootstrap",
+    "/v1/hypervisor/auth/bootstrap-status",
+    "/v1/hypervisor/auth/oidc/start",
+    "/v1/hypervisor/auth/oidc/callback",
+    "/v1/hypervisor/editor-targets",
+    "/v1/hypervisor/cron-preview",
+];
+
+fn auth_gate_exempt_path(path: &str) -> bool {
+    // Non-API surfaces retain their own protocol posture. Every present or
+    // future `/v1/*` namespace is principal-gated unless it is named here or
+    // authenticates through the automation webhook's exact trigger token.
+    if path != "/v1" && !path.starts_with("/v1/") {
+        return true;
+    }
+    AUTH_GATE_EXEMPT_PATHS.contains(&path)
+        || (path.starts_with("/v1/hypervisor/automations/") && path.ends_with("/webhook"))
+}
+
+/// Axum middleware: when auth policy is enforced, reject unauthenticated requests
+/// to every `/v1/*` API namespace (401). Only the explicit login/bootstrap/readiness
+/// paths and independently token-authenticated automation webhooks are exempt.
+/// Default policy is OFF, preserving the local-development posture.
 pub(crate) async fn auth_gate(
     State(st): State<Arc<DaemonState>>,
     req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> Response {
     let path = req.uri().path().to_string();
-    // Exempt ONLY the login-flow endpoints (so a client can authenticate/bootstrap) + the readiness
-    // probe — NOT /auth/policy or /principals, which must require auth so an unauthenticated caller
-    // can't disable enforcement or manage users.
-    const EXEMPT: &[&str] = &[
-        "/v1/hypervisor/auth/login",
-        "/v1/hypervisor/auth/logout",
-        "/v1/hypervisor/auth/whoami",
-        "/v1/hypervisor/auth/bootstrap",
-        "/v1/hypervisor/auth/bootstrap-status",
-        "/v1/hypervisor/auth/oidc/start",
-        "/v1/hypervisor/auth/oidc/callback",
-        "/v1/hypervisor/editor-targets",
-        "/v1/hypervisor/cron-preview",
-    ];
-    // The webhook trigger endpoint authenticates by its own per-automation trigger token (verified
-    // in the handler), so it bypasses the session/principal gate — external senders have no session.
-    let is_webhook_trigger =
-        path.starts_with("/v1/hypervisor/automations/") && path.ends_with("/webhook");
-    let exempt = !path.starts_with("/v1/hypervisor/")
-        || EXEMPT.contains(&path.as_str())
-        || is_webhook_trigger;
+    let exempt = auth_gate_exempt_path(&path);
     if !exempt && auth_enforced(&st.data_dir, req.headers()) {
         if resolve_principal(&st.data_dir, req.headers()).is_none() {
             let needs_bootstrap = !login_possible(&st.data_dir);
@@ -11948,6 +13963,42 @@ pub(crate) async fn auth_gate(
         }
     }
     next.run(req).await
+}
+
+#[cfg(test)]
+mod auth_gate_tests {
+    use super::{auth_gate_exempt_path, AUTH_GATE_EXEMPT_PATHS};
+
+    #[test]
+    fn every_v1_namespace_is_denied_by_default_outside_the_exact_exemption_list() {
+        for path in AUTH_GATE_EXEMPT_PATHS {
+            assert!(
+                auth_gate_exempt_path(path),
+                "explicit exemption must remain reachable: {path}"
+            );
+        }
+        assert!(auth_gate_exempt_path(
+            "/v1/hypervisor/automations/automation-1/webhook"
+        ));
+        assert!(auth_gate_exempt_path("/healthz"));
+
+        for path in [
+            "/v1",
+            "/v1/hypervisor/secrets",
+            "/v1/hypervisor/auth/policy",
+            "/v1/goal-orchestration/goal-runs",
+            "/v1/goal-orchestration/outcome-rooms",
+            "/v1/threads/thread-1/events",
+            "/v1/runs/run-1/events",
+            "/v1/applications/ioi-ai/future-surface",
+            "/v1/future-namespace/resource",
+        ] {
+            assert!(
+                !auth_gate_exempt_path(path),
+                "authority.unverified_final_invoker_calls must remain 0; {path} escaped the principal gate"
+            );
+        }
+    }
 }
 
 /// POST /v1/hypervisor/auth/login — local credential login. Returns an opaque session token (the
@@ -14667,6 +16718,23 @@ fn run_native_local_lane(
     capability_lease_ref: &str,
 ) -> (StatusCode, Json<Value>) {
     let started_at = iso_now();
+    let receipt_ref = format!(
+        "receipt://hypervisor/session-lane-b/{}",
+        session_identity_digest(session_id)
+    );
+    let prepared = match prepare_session_execution(
+        &st.data_dir,
+        session_id,
+        record,
+        "native_local",
+        intent,
+        capability_lease_ref,
+        &receipt_ref,
+        &started_at,
+    ) {
+        Ok(record) => record,
+        Err(detail) => return session_execution_failure_response(detail),
+    };
     let (files_written, transcript) = run_native_local_decision_step(workspace_root, intent);
     let finished_at = iso_now();
     let ok = !files_written.is_empty();
@@ -14683,10 +16751,6 @@ fn run_native_local_lane(
         .collect();
 
     let exit_status = if ok { "success" } else { "failure" };
-    let receipt_ref = format!(
-        "receipt://hypervisor/session-lane-b/{}",
-        safe_session_tag(session_id)
-    );
     let receipt = json!({
         "id": receipt_ref,
         "kind": "hypervisor.session.lane_b_native_local_step",
@@ -14701,9 +16765,8 @@ fn run_native_local_lane(
         "finished_at": finished_at,
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
 
-    let mut receipt_refs: Vec<Value> = record
+    let mut receipt_refs: Vec<Value> = prepared
         .get("latest_receipt_refs")
         .and_then(Value::as_array)
         .cloned()
@@ -14715,8 +16778,9 @@ fn run_native_local_lane(
         receipt_refs.push(json!(receipt_ref));
     }
 
-    let mut updated = record.clone();
+    let mut updated = prepared.clone();
     if let Some(object) = updated.as_object_mut() {
+        object.remove("pending_execution_commit");
         object.insert(
             "lifecycle_state".into(),
             json!(if ok {
@@ -14728,7 +16792,17 @@ fn run_native_local_lane(
         object.insert("terminal_events".into(), json!(terminal_events));
         object.insert("latest_receipt_refs".into(), json!(receipt_refs.clone()));
     }
-    let _ = persist_record(&st.data_dir, "sessions", session_id, &updated);
+    if let Err(detail) = commit_session_execution_outcome(
+        &st.data_dir,
+        session_id,
+        &prepared,
+        &receipt_ref,
+        &receipt,
+        &updated,
+        &[],
+    ) {
+        return session_execution_failure_response(detail);
+    }
 
     (
         StatusCode::OK,
@@ -15026,16 +17100,15 @@ pub(crate) async fn handle_github_app_installation(
 /// Both lanes are wallet-gated; failure paths stay honest (nothing invented).
 pub(crate) async fn handle_session_execute(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(session_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(record) = load_session_record(&st, &session_id) else {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(
-                json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } }),
-            ),
-        );
+    // Ownership is resolved before intent parsing and, critically, before the wallet gate can
+    // disclose policy/request hashes for another principal's Session.
+    let record = match load_owned_session_record(&st, &headers, &session_id) {
+        Ok(record) => record,
+        Err(response) => return response,
     };
     let workspace_root = record
         .get("workspace_root")
@@ -15226,7 +17299,24 @@ pub(crate) async fn handle_session_execute(
         .pointer("/harness_binding/profile_ref")
         .and_then(Value::as_str)
         .map(str::to_string);
+    let lane_receipt_ref = format!(
+        "receipt://hypervisor/session-execute/{}",
+        session_identity_digest(&session_id)
+    );
     let started_at = iso_now();
+    let prepared = match prepare_session_execution(
+        &st.data_dir,
+        &session_id,
+        &record,
+        &format!("host_spawn:{harness_label}"),
+        &intent,
+        &capability_lease_ref,
+        &lane_receipt_ref,
+        &started_at,
+    ) {
+        Ok(record) => record,
+        Err(detail) => return session_execution_failure_response(detail),
+    };
     let outcome =
         run_host_spawn_lane(&argv, &workspace_root, &intent, model_endpoint.as_deref()).await;
     let finished_at = iso_now();
@@ -15265,8 +17355,9 @@ pub(crate) async fn handle_session_execute(
 
     // Persist the driver's normalized adapter events as daemon records (Run Timeline /
     // Work Ledger evidence). The full raw stream stays in terminal_events.
-    let run_tag = format!("{}_{:x}", safe_session_tag(&session_id), nanos_now());
+    let run_tag = format!("{}_{:x}", session_identity_digest(&session_id), nanos_now());
     let mut adapter_event_refs: Vec<String> = Vec::new();
+    let mut auxiliary_records: Vec<Value> = Vec::new();
     for (index, event) in outcome.adapter_events.iter().enumerate() {
         let event_id = event
             .get("event_id")
@@ -15277,16 +17368,16 @@ pub(crate) async fn handle_session_execute(
         stored["session_ref"] = json!(session_id);
         stored["run_tag"] = json!(run_tag);
         stored["sequence"] = json!(index + 1);
-        let _ = persist_record(&st.data_dir, "harness-adapter-events", &event_id, &stored);
+        auxiliary_records.push(json!({
+            "family":"harness-adapter-events",
+            "key":event_id,
+            "record":stored
+        }));
         adapter_event_refs.push(format!("agentgres://harness-adapter-event/{event_id}"));
     }
 
     // Real lane execution receipt.
     let exit_status = if outcome.ok { "success" } else { "failure" };
-    let lane_receipt_ref = format!(
-        "receipt://hypervisor/session-execute/{}",
-        safe_session_tag(&session_id)
-    );
     let lane_receipt = json!({
         "id": lane_receipt_ref,
         "kind": "hypervisor.session.execute",
@@ -15312,9 +17403,8 @@ pub(crate) async fn handle_session_execute(
         "finished_at": finished_at,
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, "receipts", &lane_receipt_ref, &lane_receipt);
 
-    let mut receipt_refs: Vec<Value> = record
+    let mut receipt_refs: Vec<Value> = prepared
         .get("latest_receipt_refs")
         .and_then(Value::as_array)
         .cloned()
@@ -15328,8 +17418,9 @@ pub(crate) async fn handle_session_execute(
 
     // Persist the execution outcome onto the session record so the events SSE
     // surfaces the real transcript + receipts.
-    let mut updated = record.clone();
+    let mut updated = prepared.clone();
     if let Some(object) = updated.as_object_mut() {
+        object.remove("pending_execution_commit");
         object.insert(
             "lifecycle_state".into(),
             json!(if outcome.ok {
@@ -15356,7 +17447,17 @@ pub(crate) async fn handle_session_execute(
         object.insert("latest_receipt_refs".into(), json!(receipt_refs));
         object.insert("environment_ports".into(), json!(environment_ports));
     }
-    let _ = persist_record(&st.data_dir, "sessions", &session_id, &updated);
+    if let Err(detail) = commit_session_execution_outcome(
+        &st.data_dir,
+        &session_id,
+        &prepared,
+        &lane_receipt_ref,
+        &lane_receipt,
+        &updated,
+        &auxiliary_records,
+    ) {
+        return session_execution_failure_response(detail);
+    }
 
     // Adapter runs post an agent-run-transcript so the run carries a tamper-evident
     // state_root in Run Timeline / Work Ledger (best-effort; outcome reported honestly).
@@ -15448,13 +17549,26 @@ fn remove_session_workspace(workspace_root: &str) -> bool {
     if workspace_root.is_empty() {
         return false;
     }
-    let root = sessions_root();
-    let target = std::path::Path::new(workspace_root);
-    let under_sessions_root = target.starts_with(&root) && target != root;
-    if !under_sessions_root {
+    let Ok(root) = std::fs::canonicalize(sessions_root()) else {
+        return false;
+    };
+    let target_path = std::path::Path::new(workspace_root);
+    if std::fs::symlink_metadata(target_path)
+        .map(|metadata| metadata.file_type().is_symlink() || !metadata.is_dir())
+        .unwrap_or(true)
+    {
         return false;
     }
-    std::fs::remove_dir_all(target).is_ok()
+    let Ok(target) = std::fs::canonicalize(target_path) else {
+        return false;
+    };
+    // A Session workspace is one direct child of the configured family. Canonicalizing both
+    // sides before the equality check rejects traversal spellings, symlink escapes, the family
+    // root itself, and nested arbitrary paths before the destructive operation.
+    if target.parent() != Some(root.as_path()) {
+        return false;
+    }
+    std::fs::remove_dir_all(&target).is_ok()
 }
 
 /// Mark every recorded environment port as `revoked` (the listener is gone).
@@ -15480,33 +17594,32 @@ fn mark_session_ports_revoked(record: &Value) -> Vec<Value> {
 /// itself stays; only the port exposure is revoked.
 pub(crate) async fn handle_session_ports_revoke(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(session_id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(record) = load_session_record(&st, &session_id) else {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(
-                json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } }),
-            ),
-        );
+    let record = match load_owned_session_record(&st, &headers, &session_id) {
+        Ok(record) => record,
+        Err(response) => return response,
     };
-    let revoked_port = revoke_session_preview(&st, &session_id).await;
-    let ports = mark_session_ports_revoked(&record);
-
     let receipt_ref = format!(
         "receipt://hypervisor/session-port-revoke/{}",
-        safe_session_tag(&session_id)
+        session_identity_digest(&session_id)
     );
-    let receipt = json!({
+    let created_at = iso_now();
+    let expected_port = st
+        .preview_servers
+        .lock()
+        .ok()
+        .and_then(|servers| servers.get(&session_id).map(|server| server.port));
+    let prepared_receipt = json!({
         "id": receipt_ref,
         "kind": "hypervisor.session.port_revoke",
         "session_ref": session_id,
-        "revoked_port": revoked_port,
-        "created_at": iso_now(),
+        "revoked_port": expected_port,
+        "status": "prepared",
+        "created_at": created_at,
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
-
     let mut receipt_refs: Vec<Value> = record
         .get("latest_receipt_refs")
         .and_then(Value::as_array)
@@ -15518,13 +17631,67 @@ pub(crate) async fn handle_session_ports_revoke(
     {
         receipt_refs.push(json!(receipt_ref));
     }
-
-    let mut updated = record.clone();
-    if let Some(object) = updated.as_object_mut() {
-        object.insert("environment_ports".into(), json!(ports));
+    if let Err(detail) = persist_session_lifecycle_stage(
+        &st.data_dir,
+        "receipts",
+        &session_receipt_key(&receipt_ref),
+        &prepared_receipt,
+        "port_receipt_prepared",
+        true,
+    ) {
+        return session_lifecycle_failure_response("port_revoke", detail);
+    }
+    let mut pending = record.clone();
+    if let Some(object) = pending.as_object_mut() {
+        object.insert(
+            "pending_port_revoke".into(),
+            json!({"receipt_ref":receipt_ref,"revoked_port":expected_port,"created_at":created_at}),
+        );
         object.insert("latest_receipt_refs".into(), json!(receipt_refs.clone()));
     }
-    let _ = persist_record(&st.data_dir, "sessions", &session_id, &updated);
+    if let Err(detail) = persist_session_lifecycle_stage(
+        &st.data_dir,
+        "sessions",
+        &session_record_key(&session_id),
+        &pending,
+        "port_session_prepared",
+        true,
+    ) {
+        return session_lifecycle_failure_response("port_revoke", detail);
+    }
+    let revoked_port = revoke_session_preview(&st, &session_id).await;
+    let ports = mark_session_ports_revoked(&pending);
+    let final_receipt = json!({
+        "id": receipt_ref, "kind": "hypervisor.session.port_revoke",
+        "session_ref": session_id, "revoked_port": revoked_port,
+        "status": "committed", "created_at": created_at, "committed_at": iso_now(),
+        "runtimeTruthSource": "daemon-runtime"
+    });
+    if let Err(detail) = persist_session_lifecycle_stage(
+        &st.data_dir,
+        "receipts",
+        &session_receipt_key(&receipt_ref),
+        &final_receipt,
+        "port_receipt_final",
+        true,
+    ) {
+        return session_lifecycle_failure_response("port_revoke", detail);
+    }
+    let mut updated = pending;
+    if let Some(object) = updated.as_object_mut() {
+        object.remove("pending_port_revoke");
+        object.insert("environment_ports".into(), json!(ports));
+    }
+    if let Err(detail) = persist_session_lifecycle_stage(
+        &st.data_dir,
+        "sessions",
+        &session_record_key(&session_id),
+        &updated,
+        "port_session_final",
+        true,
+    ) {
+        return session_lifecycle_failure_response("port_revoke", detail);
+    }
 
     (
         StatusCode::OK,
@@ -15547,9 +17714,39 @@ pub(crate) async fn handle_session_ports_revoke(
 /// GET /v1/hypervisor/sessions — slim list projection of the persisted session records (newest
 /// first): refs, lifecycle, workspace, and the admitted harness binding when one was recorded.
 /// Read-only daemon truth for the Workbench sessions panel / session-details consumers.
-pub(crate) async fn handle_sessions_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    let mut sessions: Vec<Value> = read_record_dir(&st.data_dir, "sessions")
+pub(crate) async fn handle_sessions_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let owner_ref = match session_request_owner(&st.data_dir, &headers) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    if let Err(error) = recover_session_create_intents(&st) {
+        return session_create_commit_failure_response("session-create-recovery://pending", &error);
+    }
+    let records = match enumerate_hypervisor_sessions_strict(&st) {
+        Ok(records) => records,
+        Err(detail) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error":{
+                    "code":"session_registry_unavailable",
+                    "message":"The complete Session registry cannot be proven; no partial list is projected.",
+                    "detail":detail
+                }})),
+            )
+        }
+    };
+    let mut sessions: Vec<Value> = records
         .into_iter()
+        .filter(|record| {
+            record
+                .get("owner_ref")
+                .and_then(Value::as_str)
+                .unwrap_or("user://local-operator")
+                == owner_ref
+        })
         .map(|r| {
             let hb = r.get("harness_binding").cloned().unwrap_or(Value::Null);
             let slim_hb = if hb.is_null() {
@@ -15583,12 +17780,16 @@ pub(crate) async fn handle_sessions_list(State(st): State<Arc<DaemonState>>) -> 
     });
     let total = sessions.len();
     sessions.truncate(50);
-    Json(json!({
-        "schema_version": "ioi.hypervisor.sessions-list.v1",
-        "total": total,
-        "sessions": sessions,
-        "runtimeTruthSource": "daemon-runtime"
-    }))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.hypervisor.sessions-list.v1",
+            "owner_ref": owner_ref,
+            "total": total,
+            "sessions": sessions,
+            "runtimeTruthSource": "daemon-runtime"
+        })),
+    )
 }
 
 /// GET /v1/hypervisor/sessions/:id — read projection of one persisted session record (the
@@ -15597,60 +17798,70 @@ pub(crate) async fn handle_sessions_list(State(st): State<Arc<DaemonState>>) -> 
 /// `session:` prefix.
 pub(crate) async fn handle_session_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
+    let _owner_ref = match session_request_owner(&st.data_dir, &headers) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    if let Err(error) = recover_session_create_intents(&st) {
+        return session_create_commit_failure_response("session-create-recovery://pending", &error);
+    }
     let want = if id.starts_with("session:") {
         id.clone()
     } else {
         format!("session:{id}")
     };
-    match read_record_dir(&st.data_dir, "sessions")
-        .into_iter()
-        .find(|r| r.get("session_ref").and_then(Value::as_str) == Some(want.as_str()))
-    {
-        Some(record) => (StatusCode::OK, Json(json!({ "session": record }))),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(json!({ "error": { "code": "not_found", "session": want } })),
-        ),
+    if !canonical_session_ref(&want) {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error":{"code":"session_ref_invalid"}})),
+        );
+    }
+    match load_owned_session_record(&st, &headers, &want) {
+        Ok(record) => (StatusCode::OK, Json(json!({ "session": record }))),
+        Err(response) => response,
     }
 }
 
 pub(crate) async fn handle_session_teardown(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(session_id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(record) = load_session_record(&st, &session_id) else {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(
-                json!({ "error": { "code": "session_not_found", "message": "Unknown session.", "session_ref": session_id } }),
-            ),
-        );
+    let record = match load_owned_session_record(&st, &headers, &session_id) {
+        Ok(record) => record,
+        Err(response) => return response,
     };
-    let revoked_port = revoke_session_preview(&st, &session_id).await;
     let workspace_root = record
         .get("workspace_root")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    let workspace_removed = remove_session_workspace(&workspace_root);
-
     let receipt_ref = format!(
         "receipt://hypervisor/session-teardown/{}",
-        safe_session_tag(&session_id)
+        session_identity_digest(&session_id)
     );
-    let receipt = json!({
+    let created_at = iso_now();
+    let expected_port = st
+        .preview_servers
+        .lock()
+        .ok()
+        .and_then(|servers| servers.get(&session_id).map(|server| server.port));
+    let workspace_present_before = std::fs::symlink_metadata(&workspace_root)
+        .map(|metadata| metadata.is_dir() && !metadata.file_type().is_symlink())
+        .unwrap_or(false);
+    let prepared_receipt = json!({
         "id": receipt_ref,
         "kind": "hypervisor.session.teardown",
         "session_ref": session_id,
-        "revoked_port": revoked_port,
-        "workspace_removed": workspace_removed,
-        "created_at": iso_now(),
+        "revoked_port": expected_port,
+        "workspace_removed": Value::Null,
+        "status": "prepared",
+        "created_at": created_at,
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
-
     let mut receipt_refs: Vec<Value> = record
         .get("latest_receipt_refs")
         .and_then(Value::as_array)
@@ -15662,14 +17873,76 @@ pub(crate) async fn handle_session_teardown(
     {
         receipt_refs.push(json!(receipt_ref));
     }
-
-    let mut updated = record.clone();
-    if let Some(object) = updated.as_object_mut() {
-        object.insert("lifecycle_state".into(), json!("torn_down"));
-        object.insert("environment_ports".into(), json!([]));
+    if let Err(detail) = persist_session_lifecycle_stage(
+        &st.data_dir,
+        "receipts",
+        &session_receipt_key(&receipt_ref),
+        &prepared_receipt,
+        "teardown_receipt_prepared",
+        true,
+    ) {
+        return session_lifecycle_failure_response("teardown", detail);
+    }
+    let mut pending = record.clone();
+    if let Some(object) = pending.as_object_mut() {
+        object.insert(
+            "pending_teardown".into(),
+            json!({
+                "receipt_ref":receipt_ref, "revoked_port":expected_port,
+                "workspace_root":workspace_root,
+                "workspace_present_before":workspace_present_before,
+                "created_at":created_at
+            }),
+        );
         object.insert("latest_receipt_refs".into(), json!(receipt_refs.clone()));
     }
-    let _ = persist_record(&st.data_dir, "sessions", &session_id, &updated);
+    if let Err(detail) = persist_session_lifecycle_stage(
+        &st.data_dir,
+        "sessions",
+        &session_record_key(&session_id),
+        &pending,
+        "teardown_session_prepared",
+        true,
+    ) {
+        return session_lifecycle_failure_response("teardown", detail);
+    }
+    let revoked_port = revoke_session_preview(&st, &session_id).await;
+    let _ = remove_session_workspace(&workspace_root);
+    let workspace_removed = workspace_present_before && !Path::new(&workspace_root).exists();
+    let final_receipt = json!({
+        "id": receipt_ref, "kind": "hypervisor.session.teardown",
+        "session_ref": session_id, "revoked_port": revoked_port,
+        "workspace_removed": workspace_removed, "status": "committed",
+        "created_at": created_at, "committed_at": iso_now(),
+        "runtimeTruthSource": "daemon-runtime"
+    });
+    if let Err(detail) = persist_session_lifecycle_stage(
+        &st.data_dir,
+        "receipts",
+        &session_receipt_key(&receipt_ref),
+        &final_receipt,
+        "teardown_receipt_final",
+        true,
+    ) {
+        return session_lifecycle_failure_response("teardown", detail);
+    }
+    let mut updated = pending;
+    if let Some(object) = updated.as_object_mut() {
+        object.remove("pending_teardown");
+        object.insert("lifecycle_state".into(), json!("torn_down"));
+        object.insert("environment_ports".into(), json!([]));
+        object.insert("workspace_removed".into(), json!(workspace_removed));
+    }
+    if let Err(detail) = persist_session_lifecycle_stage(
+        &st.data_dir,
+        "sessions",
+        &session_record_key(&session_id),
+        &updated,
+        "teardown_session_final",
+        true,
+    ) {
+        return session_lifecycle_failure_response("teardown", detail);
+    }
 
     (
         StatusCode::OK,

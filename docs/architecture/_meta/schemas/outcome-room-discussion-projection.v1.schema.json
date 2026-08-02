@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "schema://ioi/foundations/outcome-room-discussion-projection/v1",
+  "$id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
   "title": "OutcomeRoomDiscussionProjection",
-  "x-ioi-schema-version": "ioi.foundations.outcome-room-discussion-projection.v1",
+  "x-ioi-schema-version": "ioi.applications.ioi-ai.outcome-room-discussion-projection.v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -23,7 +23,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "ioi.foundations.outcome-room-discussion-projection.v1"
+      "const": "ioi.applications.ioi-ai.outcome-room-discussion-projection.v1"
     },
     "projection_id": {
       "type": "string",
@@ -44,6 +44,7 @@
     },
     "source_admission_receipt_refs": {
       "type": "array",
+      "maxItems": 128,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -56,6 +57,7 @@
     },
     "information_flow_label_refs": {
       "type": "array",
+      "maxItems": 64,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -64,6 +66,7 @@
     },
     "permitted_subject_refs": {
       "type": "array",
+      "maxItems": 67,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -72,6 +75,7 @@
     },
     "message_refs": {
       "type": "array",
+      "maxItems": 64,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -80,6 +84,7 @@
     },
     "redaction_summary_refs": {
       "type": "array",
+      "maxItems": 64,
       "uniqueItems": true,
       "items": {
         "type": "string",

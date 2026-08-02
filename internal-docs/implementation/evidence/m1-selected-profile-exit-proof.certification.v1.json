@@ -1,0 +1,11 @@
+{
+  "literal_exit": {
+    "expected": "M1_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M1/m1-selected-profile-exit-proof.exit.v1.txt",
+    "artifact_sha256": "3fbfb807aa289963e52910f8b4277e64f966c9979e22fffb39b0f750f30d1950"
+  },
+  "adversarial_or_fault_proof": [
+    "Stage aggregate over six verified M1 children, each with its own content-bound retained literal: certify-stage M1 dry-run PASS (6 children, 6 literals, 11 focused checks, 0 error) with the cached content-keyed certification; the aggregate manufactures no child status (every child verified under its own status authority: private estate for five, tracked merged record for m1-5-protected-transitions adopted via ledgered reconciliation).",
+    "Held-bar evidence: retained full 14-journey certification run internal-docs/implementation/evidence/M1/system-verifier-certification-run.v1.log (140/140, CERT_EXIT=0, certification mode, real-wallet authority, teardown 45/45) — malformed/mismatched/stale/ordinary-authority attempts admit nothing; protected fields change only through declared authority paths; both admitted Systems reconstruct byte-exactly after restart; genesis product journey retained at 30/30 PJ_EXIT=0. Missing/duplicate child and stale literal are refused by certify-stage's own census (child-missing/child-status/literal-exit findings); the incompatible-profile branch is closed by the selected-profile pin in every child record."
+  ]
+}

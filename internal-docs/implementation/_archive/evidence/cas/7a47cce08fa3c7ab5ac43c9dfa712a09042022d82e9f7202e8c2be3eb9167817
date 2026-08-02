@@ -1,0 +1,48 @@
+# Final Conversation Artifact Canvas Verdict
+
+Verdict: `conversation_artifact_canvas_target_proven`
+
+Target achieved: yes
+
+## Evidence
+
+- Final manifest: `docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/conversation-artifact-final-manifest.json`
+- GUI core proof: `docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/gui-core/2026-05-27T20-52-00-108Z`
+- GUI long-tail proof: `docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/gui-long-tail/2026-05-27T20-39-12-640Z`
+- GUI website regression proof: `docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/gui-website-preview-final/2026-05-27T22-05-14-520Z`
+- Headless lifecycle proof: `docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/campaign-2026-05-27T22-09-07-101Z/headless-lifecycle/headless-artifact-records.json`
+- Support commands: `docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/campaign-2026-05-27T22-09-07-101Z/support/support-command-evidence.json`
+- Cleanup proof: `docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/campaign-2026-05-27T22-09-07-101Z/cleanup/process-cleanup-conversation-artifact-final.json`
+
+## Product Decisions
+
+- Conversation artifact canvas is separate from workflow compositor canvas.
+- Artifacts are daemon-owned records/revisions/actions; GUI renders state and sends typed action requests.
+- Receipts, raw paths, JSON payloads, build logs, and conversion logs stay in Runs/Tracing/evidence.
+- Imported document fidelity is explicit: original bytes are preserved, deterministic projection/export is provided, exact layout fidelity is not overclaimed.
+- Cursor-style canvas product feel is absorbed as sandboxed, manifest-backed, chat-embedded artifacts instead of Cursor-specific `.canvas.tsx` runtime semantics.
+
+## Rows
+
+| Row | Status | Title |
+| --- | --- | --- |
+| CONV-ARTIFACT-000 | supporting_pass | Conversation artifact boundary is distinct from workflow compositor canvas |
+| CONV-ARTIFACT-001 | headless_pass | Daemon-owned artifact records, revisions, refs, receipts, policy refs, and actions |
+| CONV-ARTIFACT-002 | fixed_then_pass | Agent Studio chat renders clean artifact embeds without raw receipt/path/JSON leaks |
+| CONV-ARTIFACT-003 | live_pass | Markdown/HTML report artifact preview |
+| CONV-ARTIFACT-004 | live_pass | Static HTML/CSS/JS standalone artifact preview |
+| CONV-ARTIFACT-005 | fixed_then_pass | Generated React/Vite app artifact with rebuild after Agent edit |
+| CONV-ARTIFACT-006 | fixed_then_pass | Imported ODT/DOCX artifact preserves original, projection, compare, and export |
+| CONV-ARTIFACT-007 | live_pass | PDF/read-only document preview and editable summary artifact |
+| CONV-ARTIFACT-008 | policy_gate_pass | Diff/patch artifact with approval and rollback |
+| CONV-ARTIFACT-009 | live_pass | Dataset/table/chart artifact |
+| CONV-ARTIFACT-010 | live_pass | Browser/computer observation artifact integrated with managed live session UX |
+| CONV-ARTIFACT-011 | fixed_then_pass | Typed artifact actions and Agent iteration remain daemon-governed |
+| CONV-ARTIFACT-012 | live_pass | Artifact export and promotion flow |
+| CONV-ARTIFACT-013 | cross_client_pass | Cross-client SDK/headless contract consumes the same artifact lifecycle |
+| CONV-ARTIFACT-014 | policy_gate_pass | Generated UI sandbox and typed action security soak |
+| CONV-ARTIFACT-015 | live_pass | Integrated product soak and cleanup proof |
+
+## Remaining Blockers
+
+None.

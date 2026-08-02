@@ -1,0 +1,79 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "standing-authority-clause-composition-v3",
+  "stage_id": "FUTURE",
+  "record_role": "conditional_future",
+  "status": "proposed",
+  "objective": "If and only if a v3 freeze or selected profile requires heterogeneous reusable authority, define a standing_envelope whose clause-local associations and explicit disjunction-of-conjunction composition cannot imply a Cartesian product.",
+  "falsifiable_claim": "A v3 standing envelope can admit an effect assembled from sibling clauses or undeclared composition, or delegation can merge, split, reassociate, or add a required clause.",
+  "canon_owners": [
+    "docs/architecture/foundations/objects/authority-and-access.md",
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/components/wallet-network/api-authority-scopes.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "52c479d973802f267de9edb32a3d959e75159485fbdb977138c3addfa1807576",
+    "owners": [
+      {
+        "path": "docs/architecture/foundations/objects/authority-and-access.md",
+        "sha256": "204fa490cb9f39fb2d37965fdacc82db189981763565a0280129d60f42b7b4b1"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/doctrine.md",
+        "sha256": "8b5c6c5ea1eaee29d4fb5488d5b3ae4f136c35a8a2a3647504aa1d39391dd580"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "sha256": "5a77e3506857e4f670a03da32b83af10634a79ed1b64f74ab5006bf6970503ca"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [],
+  "in_scope": [
+    "Canonically sorted clause IDs; clause-local action/effect, scope, primitive, resource/destination, budget, call, time, risk, and caveat bindings; normalized disjunction-of-conjunction branches; exact one-branch admission; signed attenuation; chain-wide meter identity shared by every delegated descendant; disjoint mutable meters; complete admission evidence."
+  ],
+  "out_of_scope": [
+    "Changing or reinterpreting v1/v2 fields, bytes, semantics, exact_effect, or batch_manifest.",
+    "Blocking an exact-effect-only P2 release."
+  ],
+  "implementation_actions": [
+    "On activation only: source-neutral ADR, authority object, wallet doctrine/API, receipts, v3 schemas and projections, security/conformance, runtime evaluator, attenuation verifier, usage ledger, PEP evidence, and offline verifier—in that order."
+  ],
+  "consequential_effects_and_final_invokers": [
+    "No present effect; this record is dormant until its explicit activation condition is selected."
+  ],
+  "ordered_product_operator_journey": [
+    "Select v3 condition; freeze semantics; implement owner state and evidence; prove exact-one-branch admission and attenuation; enable only the selected profile."
+  ],
+  "metrics_and_frozen_thresholds": [
+    "No match, multiple matches, missing context, unknown implication, undeclared composition, sibling union, and Cartesian product all fail closed."
+  ],
+  "compatibility_and_migration": [
+    "Retained v2 fields are signed global ceilings only and never tuples; v1/v2 historical evidence is untouched. A delegated child retains the parent's signed meter-family identity and consumes against the same clause-local and envelope-global owner heads; delegation never creates a fresh budget or call pool."
+  ],
+  "positive_proof": [
+    "One effect matches exactly one complete named branch and every clause-local and envelope-global constraint and meter head."
+  ],
+  "adversarial_or_fault_proof": [
+    "Permutation, duplicate branch, ambiguous branch, clause smuggling, sibling union, reassociation, meter overlap, stale head, delegation widening, descendant meter substitution, and parent/child concurrent budget multiplication refuse."
+  ],
+  "evidence_index": [],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This record does not activate v3 and is not selected by current exact-effect work."
+  ],
+  "rollback_or_stop_rule": "Do not begin or select this record unless an owner-approved v3 freeze or selected profile explicitly requires heterogeneous standing authority.",
+  "source_provenance": "Owner-ratified future-gated source-neutral semantic profile, 2026-07-29.",
+  "standing_envelope_semantics": {
+    "subject": "sole reusable-authority commitment",
+    "composition": "canonically normalized disjunction of nonempty conjunction branches over sorted clause IDs",
+    "admission": "exactly one complete branch",
+    "delegation": "signed attenuation may drop alternatives and narrow retained clauses/ceilings only",
+    "meters": "each root envelope defines a signed meter-family identity; every delegated descendant retains it and atomically consumes the same applicable clause-local and envelope-global exact-head owner state, so delegation cannot multiply calls or budgets"
+  }
+}

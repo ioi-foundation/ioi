@@ -1,0 +1,198 @@
+{
+  "evidence_format": "ioi.program.stage_certification.v1",
+  "stage_id": "M3",
+  "aggregate_work_item_id": "m3-direct-path-and-exit-proof",
+  "input_digest": "d2e4cf6c31aae85a1a4bea703f7f671f9c82f799d0fc2fbfa075f612d8c0b395",
+  "children": [
+    {
+      "id": "agentgres-production-readiness-and-branch-effects",
+      "status": "verified"
+    },
+    {
+      "id": "m3-affected-route-authority-census-and-fence",
+      "status": "verified"
+    },
+    {
+      "id": "m3-authorized-issuer-and-atomic-authority-consumption",
+      "status": "verified"
+    },
+    {
+      "id": "m3-goal-kernel-context-and-runtime-truth-spine",
+      "status": "verified"
+    },
+    {
+      "id": "m3-pursuit-definition-resolution",
+      "status": "verified"
+    },
+    {
+      "id": "m3-result-lifecycle-negative-retention",
+      "status": "verified"
+    },
+    {
+      "id": "m3-work-session-automation-product-journey",
+      "status": "verified"
+    },
+    {
+      "id": "production-information-flow-and-declassification",
+      "status": "verified"
+    },
+    {
+      "id": "production-receipt-checkpoint-and-offline-proof",
+      "status": "verified"
+    }
+  ],
+  "literal_exits": [
+    {
+      "work_item_id": "agentgres-production-readiness-and-branch-effects",
+      "expected": "AGENTGRES_PRODUCTION_BRANCH_EFFECTS_EXIT=0",
+      "artifact_path": "internal-docs/implementation/evidence/M3/agentgres-production-readiness-and-branch-effects.exit.v1.txt",
+      "artifact_sha256": "c561fad55531a27c7c4ae6b068e3fc4c12b40b2d42d276ef9ef952bb48385996"
+    },
+    {
+      "work_item_id": "m3-affected-route-authority-census-and-fence",
+      "expected": "M3_AFFECTED_ROUTE_AUTHORITY_CENSUS_AND_FENCE_EXIT=0",
+      "artifact_path": "internal-docs/implementation/evidence/M3/m3-affected-route-authority-census-and-fence.exit.v1.txt",
+      "artifact_sha256": "321f0e1c915ba2debd13ec37d4d869d9cbaf0ef1e2fc48a6840a8a414f1cc7c7"
+    },
+    {
+      "work_item_id": "m3-authorized-issuer-and-atomic-authority-consumption",
+      "expected": "M3_AUTHORIZED_ISSUER_AND_ATOMIC_AUTHORITY_CONSUMPTION_EXIT=0",
+      "artifact_path": "internal-docs/implementation/evidence/M3/m3-authorized-issuer-and-atomic-authority-consumption.exit.v1.txt",
+      "artifact_sha256": "df909dde0dfe2033cacb276d0b09215c41a415285443a9f498adf8b0faa9445c"
+    },
+    {
+      "work_item_id": "m3-goal-kernel-context-and-runtime-truth-spine",
+      "expected": "M3_GOAL_KERNEL_CONTEXT_RUNTIME_TRUTH_EXIT=0",
+      "artifact_path": "internal-docs/implementation/evidence/M3/m3-goal-kernel-context-and-runtime-truth-spine.exit.v1.txt",
+      "artifact_sha256": "7860f108c2bccb0dc48d7c9a89096587a0694004d4886b3d1584257d9d19ac5f"
+    },
+    {
+      "work_item_id": "m3-pursuit-definition-resolution",
+      "expected": "M3_PURSUIT_DEFINITION_RESOLUTION_EXIT=0",
+      "artifact_path": "internal-docs/implementation/evidence/M3/m3-pursuit-definition-resolution.exit.v1.txt",
+      "artifact_sha256": "fdeed8017829ec17c72337ccef40078e80a7f880974f4cd9dc277260c15ec105"
+    },
+    {
+      "work_item_id": "m3-result-lifecycle-negative-retention",
+      "expected": "M3_RESULT_LIFECYCLE_NEGATIVE_RETENTION_EXIT=0",
+      "artifact_path": "internal-docs/implementation/evidence/M3/m3-result-lifecycle-negative-retention.exit.v1.txt",
+      "artifact_sha256": "f2f0666e48d6d404ecd561e228613f1b534d9c79a746046614ec287a4f160745"
+    },
+    {
+      "work_item_id": "m3-work-session-automation-product-journey",
+      "expected": "M3_WORK_SESSION_AUTOMATION_PRODUCT_EXIT=0",
+      "artifact_path": "internal-docs/implementation/evidence/M3/m3-work-session-automation-product-journey.exit.v1.txt",
+      "artifact_sha256": "d26ec89b3ba03e5af8b15c6713982204bc4811af2fae1bb9f7a2ce83b497df37"
+    },
+    {
+      "work_item_id": "production-information-flow-and-declassification",
+      "expected": "INFORMATION_FLOW_DECLASSIFICATION_EXIT=0",
+      "artifact_path": "internal-docs/implementation/evidence/M3/production-information-flow-and-declassification.exit.v1.txt",
+      "artifact_sha256": "d2115714706df4becdc285ebf8ad5374ef8e2bad11ede63b75ebd5bd3504a709"
+    },
+    {
+      "work_item_id": "production-receipt-checkpoint-and-offline-proof",
+      "expected": "RECEIPT_CHECKPOINT_OFFLINE_PROOF_EXIT=0",
+      "artifact_path": "internal-docs/implementation/evidence/M3/production-receipt-checkpoint-and-offline-proof.exit.v1.txt",
+      "artifact_sha256": "33bf1c93bcf8e3b6df264bfb31df5ee290557b43c9bd882e772cbfdd0e7acc72"
+    },
+    {
+      "work_item_id": "m3-direct-path-and-exit-proof",
+      "expected": "M3_DIRECT_PATH_AND_EXIT_PROOF_EXIT=0",
+      "artifact_path": "internal-docs/implementation/evidence/M3/m3-direct-path-and-exit-proof.exit.v1.txt",
+      "artifact_sha256": "8feba76e5330af5d8adcc08aed760a84c1e8736fb6862bf0b70b480488f6a663"
+    }
+  ],
+  "focused_checks": [
+    {
+      "command": "npm run check:work-items",
+      "exit": 0,
+      "seconds": 0.09
+    },
+    {
+      "command": "npm run generate:architecture-contracts",
+      "exit": 0,
+      "seconds": 2.251
+    },
+    {
+      "command": "npm run check:architecture-contracts",
+      "exit": 0,
+      "seconds": 4.887
+    },
+    {
+      "command": "npm run test:architecture-contract-projections",
+      "exit": 0,
+      "seconds": 242.077
+    },
+    {
+      "command": "npm run check:architecture-contract-bar",
+      "exit": 0,
+      "seconds": 426.977
+    },
+    {
+      "command": "cargo test -p ioi-types architecture_contracts",
+      "exit": 0,
+      "seconds": 200.95
+    },
+    {
+      "command": "npm run check:architecture-docs",
+      "exit": 0,
+      "seconds": 0.662
+    },
+    {
+      "command": "npm run check:conformance-docs",
+      "exit": 0,
+      "seconds": 0.352
+    },
+    {
+      "command": "npm run hypervisor-conformance:receipts",
+      "exit": 0,
+      "seconds": 0.24
+    },
+    {
+      "command": "npm run hypervisor-conformance:bridge",
+      "exit": 0,
+      "seconds": 0.352
+    },
+    {
+      "command": "npm run hypervisor-conformance:negative",
+      "exit": 0,
+      "seconds": 0.263
+    },
+    {
+      "command": "npm run test:rust-daemon-runtime-api",
+      "exit": 0,
+      "seconds": 42.452
+    },
+    {
+      "command": "npm run test:mcp-skills-hooks",
+      "exit": 0,
+      "seconds": 0.237
+    },
+    {
+      "command": "npm run check:runtime-layout",
+      "exit": 0,
+      "seconds": 0.192
+    },
+    {
+      "command": "npm run check:pre-next-leg",
+      "exit": 0,
+      "seconds": 646.893
+    }
+  ],
+  "result": "PASS",
+  "nonclaims": [
+    "A passing focused check proves only its own scope.",
+    "This certification closes the stage exit gate only when every child is verified under its own status authority and every retained literal is content-bound."
+  ],
+  "literal_exit": {
+    "work_item_id": "m3-direct-path-and-exit-proof",
+    "expected": "M3_DIRECT_PATH_AND_EXIT_PROOF_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M3/m3-direct-path-and-exit-proof.exit.v1.txt",
+    "artifact_sha256": "8feba76e5330af5d8adcc08aed760a84c1e8736fb6862bf0b70b480488f6a663"
+  },
+  "adversarial_or_fault_proof": [
+    "Attempt to force a direct-eligible job through room genesis, plurality, Campaign, or System-only paths; replace direct-path result, lifecycle, or evidence roots.",
+    "Refuse mutable or unhashed definition references before persistence; retain negative WorkResult truth; detect lifecycle, checkpoint, authority, label, branch-head, omission, and replay faults; reconstruct the same GoalRun head and result lineage after restart."
+  ]
+}

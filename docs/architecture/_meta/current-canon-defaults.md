@@ -106,10 +106,12 @@ synchronized.
   objective, participant leases, work frontier, claim leases, resource and
   capability offers, attempts, findings, verifier challenges, contribution
   lineage, admission policy, discussion projections, and replay. It is not a
-  peer runtime or a globally mutable Agentgres graph. Every consequential room
-  child uses `RoomAdmittedObjectBase` with exact participant lease or room-
-  system issuer, predecessor/revision, decision, sequence, commitments, proof,
-  state root, and receipt root;
+  peer runtime, admission plane, or globally mutable Agentgres graph. Every
+  room-scoped payload uses `SystemScopedObjectBinding` for its exact room System,
+  room, issuer, and payload root. Agentgres expected-head conditions and the
+  enclosing bounded-System predecessor supply compare-and-swap; the canonical
+  operation/transition owns decisions, sequence, commitments, receipts, state
+  roots, and receipt roots;
 - the minimum Internet-of-Intelligence network proof is an independently
   operated external Worker discovering eligible work through a versioned,
   policy-bound `OutcomeRoomDiscovery`, negotiating semantic/action profiles,

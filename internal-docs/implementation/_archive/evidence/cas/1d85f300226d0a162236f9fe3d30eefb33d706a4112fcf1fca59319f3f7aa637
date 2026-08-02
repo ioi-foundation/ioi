@@ -1,0 +1,215 @@
+---
+module_id: stage-m13
+module_class: stage
+title: Two-Sovereign Internet-Of-Intelligence Proof
+sequencer: program/sequence.v1.json
+status_owner: work-item records
+stage_ids: [M13]
+canon_owners:
+  - docs/architecture/_meta/execution-horizons.md
+  - docs/architecture/foundations/aiip.md
+  - docs/architecture/foundations/common-objects-and-envelopes.md
+  - docs/architecture/foundations/invariants.md
+  - docs/architecture/foundations/mixture-of-workers.md
+  - docs/architecture/foundations/worker-training-lifecycle.md
+  - docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md
+  - docs/architecture/domains/marketplace-neutrality.md
+  - docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md
+  - docs/architecture/domains/ioi-ai/control-plane.md
+  - docs/architecture/domains/aiagent/digital-worker-ontology.md
+  - docs/architecture/domains/aiagent/integration-surface-taxonomy.md
+  - docs/architecture/domains/aiagent/managed-agent-console-contract.md
+  - docs/architecture/domains/aiagent/managed-worker-instance-lifecycle.md
+  - docs/architecture/domains/aiagent/vertical-ontology-packs.md
+  - docs/architecture/domains/aiagent/worker-endpoints.md
+  - docs/architecture/domains/aiagent/worker-marketplace.md
+  - docs/architecture/components/agentgres/artifact-ref-plane.md
+  - docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md
+  - docs/architecture/components/storage-backends/doctrine.md
+  - docs/architecture/components/storage-backends/filecoin-cas.md
+  - docs/architecture/components/wallet-network/doctrine.md
+  - docs/architecture/components/wallet-network/api-authority-scopes.md
+  - docs/architecture/components/wallet-network/product-exchange-risk.md
+  - docs/conformance/hypervisor-core/sovereign-local-completeness.md
+  - docs/conformance/hypervisor-core/dispute-rails.md
+  - docs/conformance/hypervisor-core/work-lifecycle.md
+  - docs/conformance/hypervisor-core/managed-work-billing.md
+  - docs/decisions/0015-bounded-distributed-autonomous-systems-and-network-enrollment.md
+  - docs/decisions/0004-worker-mow-and-training-doctrine.md
+  - docs/decisions/0006-capability-authority-and-work-graph-vocabulary.md
+---
+
+# M13 — Two-Sovereign Internet-Of-Intelligence Proof
+
+Demonstrate useful, voluntary, positive-surplus cooperation between sovereign
+institutions while preserving credible exit.
+
+## Why this is next
+
+The single `depends_on` edge is `M12`, which defines the AIIP federation contract — envelopes, terms
+discovery and semantic negotiation, federated admission, IFC/disclosure/receipt/settlement binding, dispute
+kernel, and portable exit — as contract shape rather than as demonstrated cooperation between separately
+administered institutions. M13 exercises that contract across a real sovereignty boundary and prices the
+result per participant. `sequence.v1.json` also declares the external gate `independently operated Systems`,
+so contract completeness alone does not open this stage.
+
+## Canon owners
+
+| Canon owner | Obligation this stage must satisfy |
+| --- | --- |
+| [`_meta/execution-horizons.md`](../../../docs/architecture/_meta/execution-horizons.md) | Horizon 3 minimum credible Internet-of-Intelligence proof: each DAS keeps its own `system_id`, membership, truth, coordinator, admission, and exit; full external-Worker lifecycle; subsidy disclosed; sponsor value above an eligible same-domain or direct-local baseline; every required external participant benefits after declared cost and risk. |
+| [`foundations/aiip.md`](../../../docs/architecture/foundations/aiip.md) | Packet classes, envelope, protocol profiles, dispute rail, routing receipts; AIIP begins only at an independently governed system boundary; end-to-end demonstration across two independently operated Hypervisor/Agentgres domains with no shared raw operational database and no mandatory L1 dependency. |
+| [`foundations/common-objects-and-envelopes.md`](../../../docs/architecture/foundations/common-objects-and-envelopes.md) | Reviewed shapes for `AIIPEnvelope`, `AIIPChannelEnvelope`, `CollaborationTerms`, `OutcomeRoom`, `ParticipantStateBundleEnvelope`, `TaskOfferEnvelope`, `TaskAcceptanceEnvelope`, `WorkClaimLeaseEnvelope`, `AcceptanceDecisionEnvelope`, `WorkResult`, `CapabilityDescriptorEnvelope`, `InstitutionalIntelligenceExportBundleEnvelope`, `ManagedWorkBillingLedgerBundle`, `DisputeRailBundle`. |
+| [`foundations/invariants.md`](../../../docs/architecture/foundations/invariants.md) · [ADR 0015](../../../docs/decisions/0015-bounded-distributed-autonomous-systems-and-network-enrollment.md) (Accepted) | `INV-32`: same-system coordination uses native L0 contracts; AIIP applies only across distinct independently governed `system_id` values. Supersedes ADR 0011 and ADR 0012. |
+| [`domains/ioi-ai/collaborative-outcome-pattern.md`](../../../docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md) · [`control-plane.md`](../../../docs/architecture/domains/ioi-ai/control-plane.md) | Invited cross-organization and Network/Open Goal Space participation as room and control-plane policy, with contributor scope, participant state, and private valuation — not as new products. |
+| [`domains/marketplace-neutrality.md`](../../../docs/architecture/domains/marketplace-neutrality.md) · [`foundations/economic-flywheel-and-pricing-boundaries.md`](../../../docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md) | Contribution accounting and attribution; verification independent enough for the declared risk; no independence claim hiding common publisher/operator/runtime; `WorkCredit` and pricing boundaries for subsidy disclosure. |
+| [`foundations/mixture-of-workers.md`](../../../docs/architecture/foundations/mixture-of-workers.md) · [`worker-training-lifecycle.md`](../../../docs/architecture/foundations/worker-training-lifecycle.md) · [ADR 0004](../../../docs/decisions/0004-worker-mow-and-training-doctrine.md) (Accepted) | Worker as the accountable actor, composition and routing across the boundary, and supply-lifecycle bounds for an external Worker. |
+| [`domains/aiagent/digital-worker-ontology.md`](../../../docs/architecture/domains/aiagent/digital-worker-ontology.md) · [`worker-marketplace.md`](../../../docs/architecture/domains/aiagent/worker-marketplace.md) · [`worker-endpoints.md`](../../../docs/architecture/domains/aiagent/worker-endpoints.md) · [`managed-worker-instance-lifecycle.md`](../../../docs/architecture/domains/aiagent/managed-worker-instance-lifecycle.md) | `DigitalWorkerOntology`, `WorkerComposition`, `WorkerPackage`, `ManagedWorkerInstance`: discovery, hiring, endpoint binding, lease, revocation, retirement. |
+| [`domains/aiagent/managed-agent-console-contract.md`](../../../docs/architecture/domains/aiagent/managed-agent-console-contract.md) · [`integration-surface-taxonomy.md`](../../../docs/architecture/domains/aiagent/integration-surface-taxonomy.md) · [`vertical-ontology-packs.md`](../../../docs/architecture/domains/aiagent/vertical-ontology-packs.md) | Operator console contract, which integration surfaces may participate, and the domain packs the trial work is drawn from. |
+| [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../../../docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md) · [`components/agentgres/artifact-ref-plane.md`](../../../docs/architecture/components/agentgres/artifact-ref-plane.md) · [`storage-backends/doctrine.md`](../../../docs/architecture/components/storage-backends/doctrine.md) · [`filecoin-cas.md`](../../../docs/architecture/components/storage-backends/filecoin-cas.md) | `ContributionReceipt` and delivery-bundle form; `ArtifactRef` custody and restricted views; durable custody for the portable participant-state and evidence-export bundles. |
+| [`components/wallet-network/doctrine.md`](../../../docs/architecture/components/wallet-network/doctrine.md) · [`api-authority-scopes.md`](../../../docs/architecture/components/wallet-network/api-authority-scopes.md) · [`product-exchange-risk.md`](../../../docs/architecture/components/wallet-network/product-exchange-risk.md) · [ADR 0006](../../../docs/decisions/0006-capability-authority-and-work-graph-vocabulary.md) (Accepted) | Each sovereign's own authority scopes the crossing; neither party's grant widens the other's; exchange risk stays disclosed. |
+| [`conformance/hypervisor-core/sovereign-local-completeness.md`](../../../docs/conformance/hypervisor-core/sovereign-local-completeness.md) · [`dispute-rails.md`](../../../docs/conformance/hypervisor-core/dispute-rails.md) · [`work-lifecycle.md`](../../../docs/conformance/hypervisor-core/work-lifecycle.md) · [`managed-work-billing.md`](../../../docs/conformance/hypervisor-core/managed-work-billing.md) | Local completeness on decline or disconnect; rail separation, evidence/appeal retention, remedy; work-lifecycle transitions; billing-ledger truth for contracted benefit. |
+
+Pulled modules, per `pulled_modules` in [`sequence.v1.json`](../program/sequence.v1.json): `cooperation`
+(legacy `WP-COOP`) and `proof-and-evidence` (legacy `WP-PROOF`); the records' `applicable-pg-profile-gates`
+gate resolves through `mechanism-gates`. Rails `R-CONTRACT`, `R-RUNTIME`, `R-TRUTH`, `R-AUTH`, `R-PRODUCT`,
+and `R-OPS` advance inside this stage under [`rules.md`](../program/rules.md) §7.
+
+## In scope
+
+- `M13.1` run one customer/data-owner System and one independently governed coordinator/worker System, then
+  add an independent provider or verifier.
+- `M13.2` freeze each participant's outside option, private valuation method, costs, risks, rights, and
+  contracted benefit before the trial.
+- `M13.3` repeat useful work across the sovereignty boundary without collapsing identities, truth,
+  admission, or authority.
+- `M13.4` preserve verification, acceptance, attribution, dispute, and exit.
+- `M13.5` disclose subsidy and compare against eligible same-domain/direct-local baselines.
+- `M13.6` run a negative-surplus control in which a System safely declines and continues locally.
+- Preregister System independence, identities, control dependencies, terms root, comparator, and stop rule,
+  naming the independent provider or verifier before observation.
+- Two-admin product/evidence-export journey over nine ordered transitions — `discover_worker`, `negotiate`,
+  `admit_lease`, `perform_work`, `contribute`, `verify_and_accept`, `revoke_or_retire`, `portable_exit`,
+  `repeat_and_independence_audit` — each with honest loading, empty, ready, denied/revoked,
+  unavailable/degraded, stale/ambiguous, recovery, and completed states, advancing only on canonical owner
+  state plus receipt or read-only projection evidence.
+- Pulled product: invited cross-organization and Network/Open Goal Space modes, aiagent/sas participation
+  surfaces, cross-domain Governance and Provenance.
+- Thresholds frozen before observation: full outside-option, cost, risk, and contracted-benefit coverage for
+  every required party; positive surplus for every required party and sponsor value above the frozen outside
+  option; at least two accepted cross-sovereign cycles; zero independence violations; full subsidy and
+  eligible-baseline coverage; at least one safe-decline control; zero unauthorized final-invoker calls and
+  zero status-inferred effects.
+
+## Out of scope
+
+- Every M14 obligation: connected/secured services, external demand evidence, network effects, native
+  asset, and demand-gated optional L1.
+- Definition of the AIIP contract, federated admission modes, and the dispute-adjudication-remedy kernel,
+  which M12 owns and M13 only exercises.
+- Live embodied promotion, which remains a conditional `FUTURE` record.
+- Any configuration where a shared runtime, database, administrator, authority, or continued hosted trust
+  supplies the cooperation.
+- Cohort-scale or one-shot generalization from a single trial.
+
+## Work items
+
+| Work item id | Role | What it owns |
+| --- | --- | --- |
+| `m13-selected-profile-aggregate-exit` | **aggregate_exit** (stage exit gate) | Aggregate manifest joining all three children as `unconditional_active` members; the `M13_EXIT=0` literal contract; rejection of one-shot/cohort overclaim, hidden sponsor, missing independent evidence, and M14 service claims. |
+| `m13-sovereignty-trial-preregistration` | implementation_cut | `M13.1`–`M13.2`: frozen System independence, independent provider/verifier, identities, control dependencies, terms, outside options, costs, risks, rights, benefits, subsidy disclosure; `M13_SOVEREIGNTY_TRIAL_PREREGISTRATION_EXIT=0`. |
+| `m13-two-sovereign-surplus-and-decline-proof` | implementation_cut | `M13.3`–`M13.6`: repeated useful AIIP work, participant-specific surplus evaluation, full external-Worker lifecycle, portable exit, negative decline control; `M13_TWO_SOVEREIGN_SURPLUS_AND_DECLINE_PROOF_EXIT=0`. |
+| `m13-independent-operation-and-external-worker-product-proof` | implementation_cut | Independent-operation evidence, external-worker packets, custody/dispute/portable-exit families, and the two-admin product/evidence-export journey; `M13_INDEPENDENT_OPERATION_WORKER_PRODUCT_EXIT=0`. |
+
+## Code surfaces likely affected
+
+- `crates/api/`, `crates/services/`, `crates/node/` — cross-sovereign admission, offer/claim/acceptance
+  handling, final-invoker revalidation.
+- `crates/agentgres/`, `crates/storage/` — operation/head/root linkage, `ArtifactRef` custody, restricted
+  views across the boundary.
+- `apps/hypervisor/` — operator console, Governance and Provenance surfaces, evidence-export journey;
+  `apps/aiagent-xyz/`, `apps/sas-xyz/` — external participation surfaces.
+- `apps/hypervisor/scripts/serve-product-ui.mjs` — the source-owned daemon projection boundary carried as adjacent
+  implementation precedent only, never as proof of this stage.
+- `docs/architecture/_meta/schemas/` — cooperation envelope schemas and registry entries (to be created;
+  see Canon gaps).
+- `internal-docs/implementation/evidence/M13/` (to be created) — the four declared exit files, one per
+  record.
+
+## Focused checks during development
+
+- `npm run check:work-items` — record shape, owner lint, dependency edges.
+- `npm run check:architecture-docs` — canon-owner integrity for the cited files.
+- `npm run check:conformance-docs` — conformance-doc integrity for the local-completeness, dispute-rail,
+  work-lifecycle, and billing obligations.
+- `npm run check:architecture-contract-bar` — contract generation, projections, and
+  `cargo test --locked -p ioi-types architecture_contracts`.
+- `npm run hypervisor-conformance:receipts` / `:wallet` / `:negative` — receipt-path, authority-scope, and
+  denial/decline conformance.
+- `npm run check:pre-next-leg` — cross-tier literal check before promotion.
+
+## Exit proof
+
+Bound to `m13-selected-profile-aggregate-exit`, the `aggregate_exit` named in `sequence.v1.json`. The stage
+exit requires all of:
+
+- every required party receives measurable contracted benefit after declared cost and risk;
+- the sponsor gains measurable value above the frozen outside option;
+- an external Worker completes discovery, negotiation, admission, leased work, contribution, verification,
+  revocation/retirement, and portable exit;
+- no proof step requires shared runtime, database, administrator, or continued hosted trust.
+
+The M13 exit requires an explicit aggregate exit record distinct from the trial records it joins. Each child
+must retain exactly one line equal to its own declared literal, and the aggregate exactly one line equal to
+`M13_EXIT=0`, only after independent review. Closing `P5` follows from that proof, never from the aggregate
+record's existence.
+
+## Blocks advancement
+
+- The `M12` dependency, expressed as `m12-selected-profile-exit-proof`, not closing for every M13 child that
+  declares it.
+- The `sequence.v1.json` external gate `independently operated Systems`.
+- The record-declared gate `independent-operation-preregistration` (owner
+  `docs/architecture/foundations/aiip.md`) not freezing independent administration, custody, outside
+  options, costs, risks, and valuation before observation.
+- The record-declared gate `applicable-pg-profile-gates`: the M13 records carry an empty
+  `applicable_pg_ids`, so applicable `PG-*` gates must be selected and evidenced against the chosen profile
+  before admission.
+- Any adversarial branch failing: same-admin provider/verifier, subsidy concealment, verifier conflict,
+  unsafe decline, data-custody loss, terms drift, result or acceptance substitution, dispute suppression,
+  portable-exit failure, cost/risk omission, failed baseline, negative-control coercion, or the stale-state,
+  substitution, denial, dependency-loss, retry/ambiguity, restart, and recovery branches.
+- Any unresolved canon gap below.
+
+## Nonclaims
+
+- No claim of broad network effects, live marketplace economics, or L1 demand; no M14
+  connected/secured-service, demand, network-effect, native-asset, or L1 claim.
+- The preregistration protocol is unsigned, self-declared workflow evidence, not product authority;
+  preregistration is not cooperation success, positive surplus, demand, or stage closure.
+- Subsidy remains disclosed; no universal-surplus, marketplace-economics, or stage-closure claim follows
+  from the trial.
+- These docs-and-orchestration records close no work item, stage, runtime capability, application, or public
+  claim; creating a record does not implement behavior, activate work, close a literal exit, or change a
+  stage.
+
+## Canon gaps
+
+- The cooperation contract families this stage exercises resolve only by `reviewed_owner_locator` with no
+  `contract_id` or `schema_version`. Only `DisputeRailBundle` and `ManagedWorkBillingLedgerBundle` appear in
+  [`_meta/schemas/architecture-contract-registry.v1.json`](../../../docs/architecture/_meta/schemas/architecture-contract-registry.v1.json);
+  `AIIPEnvelope`, `AIIPChannelEnvelope`, `CollaborationTerms`, `ParticipantStateBundleEnvelope`,
+  `ContributionReceipt`, `WorkCredit`, `OutcomeRoom`, `WorkerPackage`, `WorkResult`, `ArtifactRef`, and the
+  offer / claim / acceptance envelopes do not. Owner to resolve:
+  [`common-objects-and-envelopes.md`](../../../docs/architecture/foundations/common-objects-and-envelopes.md)
+  with that registry.
+- `M13.1` requires a provider or verifier operationally independent of *both* System administrations, and
+  the adversarial branch must reject one controlled by either.
+  [`marketplace-neutrality.md`](../../../docs/architecture/domains/marketplace-neutrality.md) supplies
+  advisory factors — affiliation, shared model/provider/runtime dependencies, reciprocal review, economic
+  conflict — but no frozen, checkable independence criterion. Owner to resolve:
+  `marketplace-neutrality.md` with [`aiip.md`](../../../docs/architecture/foundations/aiip.md).
+- Canon does not state whether the `M13.6` safe-decline control is discharged by existing
+  sovereign-local-completeness conformance behavior or is a separate M13 obligation with its own fixtures.
+  Owner to resolve:
+  [`sovereign-local-completeness.md`](../../../docs/conformance/hypervisor-core/sovereign-local-completeness.md).

@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use axum::extract::{Path as AxumPath, Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use ioi_services::agentic::runtime::kernel::emergency_containment::{
     admit_cache_path, admit_cache_scope, admit_isolated_execution, close_deletion,
@@ -28,6 +28,39 @@ use super::{
 
 const ENV_SCHEMA: &str = "ioi.hypervisor.environment.v1";
 const PROVIDER: &str = "local_workspace_provider_v0";
+
+// The retained v1 transcript records predate principal ownership coordinates. They remain a
+// local-operator projection, but must never become global managed-deployment truth merely because
+// an authenticated request passed the generic auth gate. Refuse before enumerating, opening, or
+// mutating the family until a later contract supplies owner coordinates and migration semantics.
+fn agent_run_transcript_access_refusal(
+    st: &DaemonState,
+    headers: &HeaderMap,
+) -> Option<(StatusCode, Json<Value>)> {
+    match super::lifecycle_routes::deployment_auth_posture(&st.data_dir, headers) {
+        "local_development" => None,
+        "exposed_untrusted" => Some((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "agent_run_transcript_exposed_untrusted_refused",
+                    "message": "Run transcript truth is unavailable on an exposed deployment without enforceable principal ownership."
+                }
+            })),
+        )),
+        _ => Some((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "agent_run_transcript_principal_scope_unavailable",
+                    "message": "The retained transcript family has no principal ownership coordinates and cannot be accessed on a managed deployment."
+                }
+            })),
+        )),
+    }
+}
 
 // WS-1 — canon EnvironmentStatus component set + shared phase taxonomy
 // (docs/architecture/components/hypervisor/providers-and-environments.md §Environment Status Object).
@@ -1014,11 +1047,18 @@ pub(crate) async fn handle_env_pr_draft(
 /// POST /v1/hypervisor/agent-run-transcripts/:id — upsert the durable run-transcript record.
 pub(crate) async fn handle_agent_run_upsert(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Json(mut body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    if let Some(refusal) = agent_run_transcript_access_refusal(&st, &headers) {
+        return refusal;
+    }
     if !body.is_object() {
-        return Json(json!({ "ok": false, "reason": "expected a run-transcript object" }));
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": "expected a run-transcript object" })),
+        );
     }
     {
         let obj = body.as_object_mut().unwrap();
@@ -1042,27 +1082,43 @@ pub(crate) async fn handle_agent_run_upsert(
     );
     body["state_root"] = json!(state_root);
     let _ = persist_record(&st.data_dir, "agent-run-transcripts", &id, &body);
-    Json(
-        json!({ "ok": true, "run_id": id, "state_root": state_root, "recorded_at": body["recorded_at"] }),
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "run_id": id, "state_root": state_root, "recorded_at": body["recorded_at"] }),
+        ),
     )
 }
 
 /// GET /v1/hypervisor/agent-run-transcripts/:id — read one durable run-transcript.
 pub(crate) async fn handle_agent_run_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    if let Some(refusal) = agent_run_transcript_access_refusal(&st, &headers) {
+        return refusal;
+    }
     match read_record_dir(&st.data_dir, "agent-run-transcripts")
         .into_iter()
         .find(|r| r["run_id"].as_str() == Some(id.as_str()))
     {
-        Some(run) => Json(json!({ "ok": true, "run": run })),
-        None => Json(json!({ "ok": false, "reason": "run-transcript not found" })),
+        Some(run) => (StatusCode::OK, Json(json!({ "ok": true, "run": run }))),
+        None => (
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": "run-transcript not found" })),
+        ),
     }
 }
 
 /// GET /v1/hypervisor/agent-run-transcripts — list durable run-transcripts (newest-first).
-pub(crate) async fn handle_agent_run_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+pub(crate) async fn handle_agent_run_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    if let Some(refusal) = agent_run_transcript_access_refusal(&st, &headers) {
+        return refusal;
+    }
     let mut runs = read_record_dir(&st.data_dir, "agent-run-transcripts");
     runs.sort_by(|a, b| {
         a["created_at"]
@@ -1070,7 +1126,7 @@ pub(crate) async fn handle_agent_run_list(State(st): State<Arc<DaemonState>>) ->
             .unwrap_or("")
             .cmp(b["created_at"].as_str().unwrap_or(""))
     });
-    Json(json!({ "ok": true, "runs": runs }))
+    (StatusCode::OK, Json(json!({ "ok": true, "runs": runs })))
 }
 
 /// `HypervisorEnvironmentResourceIsolationProfile` — for a microVM the cpu/mem limits are REALLY

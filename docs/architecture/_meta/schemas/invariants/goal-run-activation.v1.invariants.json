@@ -1,0 +1,47 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/goal-run-activation/crossing/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
+  "rules": [
+    {
+      "rule_id": "goal_run_activation.create.profile_revision.required",
+      "description": "Create mode binds one exact GoalRunProfile revision.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.requested_goal_run_profile_revision_ref",
+        "when_path": "$.activation_mode",
+        "values": ["create"]
+      }
+    },
+    {
+      "rule_id": "goal_run_activation.create.profile_hash.required",
+      "description": "Create mode binds the exact GoalRunProfile content hash.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.requested_goal_run_profile_content_hash",
+        "when_path": "$.activation_mode",
+        "values": ["create"]
+      }
+    },
+    {
+      "rule_id": "goal_run_activation.join.goal.required",
+      "description": "Join mode names exactly one existing GoalRun.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.existing_goal_ref",
+        "when_path": "$.activation_mode",
+        "values": ["join_existing"]
+      }
+    },
+    {
+      "rule_id": "goal_run_activation.admitted.receipt.required",
+      "description": "An admitted crossing is receipt-backed.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.activation_receipt_ref",
+        "when_path": "$.status",
+        "values": ["admitted", "superseded"]
+      }
+    }
+  ]
+}

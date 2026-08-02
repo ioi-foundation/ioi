@@ -9,15 +9,18 @@ Supersedes: product prose that treats multi-model goal pursuit as a separate
 Hypervisor product, room UI, fixed swarm, public leaderboard, or benchmark-only
 workflow.
 Superseded by: none.
-Last alignment pass: 2026-07-12.
+Last alignment pass: 2026-07-31.
 Doctrine status: canonical
-Implementation status: partial (the M3 direct GoalRun/WorkResult seam and
-hosted room-family route implementations exist, but the 2026-07-30 fresh
-runtime re-audit remains red on terminal participation replay and eligibility
-retry idempotency and did not admit an M4 aggregate proof; collaboration-terms
-negotiation, federated and cross-domain admission, local-agent pairing,
+Implementation status: partial (the M3 direct GoalRun/WorkResult seam exists.
+The current hosted M4 implementation demonstrates package/genesis binding,
+reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph, but
+its room-owned admission, transition, receipt, and root spine is migration input
+under ADR 0030 and cannot close the restated M4 contract. Participation,
+frontier/claim, offer, Attempt/Finding, and VerifierChallenge lifecycles remain
+on hold. Collaboration-terms negotiation,
+federated and cross-domain admission, local-agent pairing,
 acceptance/verdict/settlement, product-level attempt comparison, and the
-visible ioi.ai Goal Space client remain planned)
+complete visible ioi.ai Goal Space client remain planned.)
 Last implementation audit: 2026-07-30
 
 ## Canonical Definition
@@ -35,18 +38,25 @@ the substrate.
 When a goal is simple, ioi.ai may route it to one model, one worker, one
 automation, one service, or one Hypervisor session.
 
+The conversation surface preserves an explicit durability boundary. Sending a
+prompt may start an ephemeral bounded Session, but it does not itself create a
+GoalRun or Goal Space. A user must separately invoke and review the typed goal
+activation act; that act crosses `GoalRunActivationEnvelope`, and only daemon
+admission produces durable goal identity and receipts. A Session or transcript
+may then project or attach to that identity, never originate or repair it.
+
 When a goal benefits from multiple models, harnesses, tools, verifier paths,
 attempt strategies, or independent contributors, ioi.ai may materialize an
 `OutcomeRoom` bounded-DAS instance from the reusable OutcomeRoom package, with a
 `CollaborativeWorkGraph` over Hypervisor. Genesis binds that durable room's
 stable `system_id`, constitution, active profiles, and cryptographic origin. The room is the
 shared objective, participation, frontier, claim, attempt, finding, challenge,
-admission, and replay profile. It is not a new runtime or a globally mutable
+policy, and replay profile. It is not a new runtime, admission plane, or globally mutable
 database. Hypervisor executes bounded work; authority providers and
 local/domain governance authorize as required; wallet.network supplies portable
 delegated/high-risk authority; each Agentgres domain retains admitted
-operational truth; and a declared room admission topology governs shared-room
-state.
+operational truth; and the room System's declared ordering/admission profile
+governs shared-room state through ordinary Agentgres operations.
 
 Collective pursuit is conditional, not the default. A room should materialize
 only when specialization, parallel exploration, independent verification,
@@ -90,6 +100,13 @@ operator-plane contracts, wallet authority, Agentgres truth, and receipts. It is
 not privileged substrate. A user or organization should be able to build an
 ioi.ai-like coordinator through Hypervisor without receiving host authority or a
 separate runtime bypass.
+
+That dogfooding applies inside each GoalRun as well as around each OutcomeRoom.
+ioi.ai owns pursuit choices and shared-graph projections, while actual thread
+events, forks, managed Sessions, launch recipes, harness bindings, readiness,
+and terminal attachment remain Hypervisor daemon primitives. A GoalRun or room
+may reference and coordinate those records but may not recreate their execution
+spine (ADR 0031).
 
 The reusable OutcomeRoom package is the first flagship/reference bounded-DAS
 profile because it pressure-tests local-agent ingress, typed workgraphs,
@@ -680,7 +697,7 @@ without the normal governance and daemon gates.
 ## Collaborative Work Graph And Shared-State Admission
 
 An OutcomeRoom composes existing owner objects; it does not create a peer
-runtime. Its minimum shared-frontier lifecycle is:
+runtime or admission spine. Its minimum shared-frontier lifecycle is:
 
 ```text
 RoomParticipantLease
@@ -720,18 +737,22 @@ Contribution lineage may credit execution, derivation, debugging, review,
 independent replication, integrity reporting, resource provision, negative
 information, curation, and synthesis—not only the winning output or top score.
 
-Every room declares one shared-state admission topology:
+Every room declares one shared-state coordination topology over its canonical
+System/Agentgres admission:
 
-1. **Hosted admission:** one named governed domain orders and admits room-level
-   frontier, attempt, finding, evaluation, and decision updates. This is the
-   first implementation target.
+1. **Hosted admission:** one named governed System/domain orders room-level
+   frontier, attempt, finding, evaluation, and decision operations through its
+   ordinary Agentgres-backed transition chain. This is the first implementation
+   target.
 2. **Federated admission:** a versioned policy names participating domains,
    ordering/merge rules, quorum or adjudicator requirements, conflict handling,
    and failover. This is a later AIIP profile.
 
 Each party retains local operational truth and private context. AIIP carries
-signed, sequenced, idempotent permitted refs and updates; the room host or
-declared federation policy admits shared-room state.
+signed, sequenced, idempotent permitted refs and updates; the room host admits
+hosted shared state through its System operation path. A later federated profile
+must define its cross-System ordering explicitly and may not be inferred from
+the retired hosted-room spine.
 `MultiPartyCollaborationEnvelope` owns cross-party visibility, allowed refs,
 restricted views, authority, revocation, proof, license/export, and settlement
 context. A message board, inbox, digest, leaderboard, and replay remain

@@ -1,0 +1,394 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m5-attribution-acceptance-and-challenge-boundary",
+  "stage_id": "M5",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Approved plan-level gap closure: m5-attribution-acceptance-and-challenge-boundary"
+  ],
+  "status": "proposed",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Acceptance-boundary plan; M5_ATTRIBUTION_ACCEPTANCE_CHALLENGE_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if Attribution is not acceptance, challenged result cannot settle, stale lease/reassignment, retained negative loss.",
+  "selected_profile": "Hosted room participation with one proposal-only local agent, bounded leases, and portable filtered exit.",
+  "canon_owners": [
+    "docs/architecture/components/daemon-runtime/api.md",
+    "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+    "docs/architecture/components/daemon-runtime/doctrine.md",
+    "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
+    "docs/architecture/components/hypervisor/evaluations.md",
+    "docs/architecture/components/wallet-network/api-authority-scopes.md",
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/components/wallet-network/product-exchange-risk.md",
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    "docs/architecture/domains/ioi-ai/control-plane.md",
+    "docs/architecture/domains/marketplace-neutrality.md",
+    "docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md",
+    "docs/architecture/foundations/objects/collaborative-pursuit.md",
+    "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+    "docs/architecture/foundations/objects/work-results-and-lifecycle.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "7efffaf3a3ee92237de9d1fbe9804acba60336a6039b4758d340ac4bd84208df",
+    "owners": [
+      {
+        "path": "docs/architecture/components/daemon-runtime/api.md",
+        "sha256": "a761ead62c929a90ff3ce4ff0958869301afe081bec91c0aa9d9ec67661b7d52"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+        "sha256": "8922d339c9e492a0e1e8ce657264af2b904a48c771d56f8296902ca8c826299f"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/doctrine.md",
+        "sha256": "27a34c7bcf9035fc13607150cfce10b10a3320eaeba0de6fbbf17b8cb46101b1"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+        "sha256": "1e318e51a9ce2b9ae5b3323e7d891c6519a204b9b69cec36e0f4d83bf122be98"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+        "sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/evaluations.md",
+        "sha256": "f6d309aefe1302c9acb79a2862754a4f3cdc31a1f371a879af4068c148c0299e"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "sha256": "5a77e3506857e4f670a03da32b83af10634a79ed1b64f74ab5006bf6970503ca"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/doctrine.md",
+        "sha256": "8b5c6c5ea1eaee29d4fb5488d5b3ae4f136c35a8a2a3647504aa1d39391dd580"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/product-exchange-risk.md",
+        "sha256": "e5e658ec32802e6f6857835f5f8b57e8ceab25919ef9ea24a00c3ea8aec9bb15"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "sha256": "4b36e978235c09cfe035fa263e7a78305041935b426274850ddc2e43884312f0"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/control-plane.md",
+        "sha256": "f19df1dc772e34311acca6cdaa8b2fe80bf7dbf1efb80c05500664d05e4f7455"
+      },
+      {
+        "path": "docs/architecture/domains/marketplace-neutrality.md",
+        "sha256": "966c0ea3c482e9c8e4e5236fb49cc1e545a453a7fddfca602211523094ce20cd"
+      },
+      {
+        "path": "docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md",
+        "sha256": "1453e309eb2acbd0c98eaf56a9eda6d6bf41c30d58507b8ed6cbe678b3cdd1fd"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+        "sha256": "35c4f3b13bdcd7defabd8878493357920dd8443a4772e32fd47754f46927a11a"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+        "sha256": "78f0414fc63525ee914e102f8b4058971d2b2426227cade64c80311cd6b70c17"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+        "sha256": "52409562e711e9d763a53f76c4734c0cd6523a85e2fcbb730e4c20b6e8a01a07"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "WorkFrontierItemEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkClaimLeaseEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "Attempt",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "Finding",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "docs/architecture/components/hypervisor/evaluations.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "VerifierChallenge",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "docs/architecture/components/hypervisor/evaluations.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkResult",
+      "owner_path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "OutcomeDelta",
+      "owner_path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ContributionReceipt",
+      "owner_path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "DisputeEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m5-attribution-acceptance-and-challenge-boundary",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m5-attribution-acceptance-and-challenge-boundary.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M5_ATTRIBUTION_ACCEPTANCE_CHALLENGE_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "m4-outcome-room-system-spine",
+    "m5-participant-frontier-result-closeout",
+    "m5-portable-exit-independent-clients"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`ROOMS`, `ECON`, `WALLET`, `DAEMON`; ResourceOffer/CapabilityOffer, WorkFrontierItem, claim/attempt/finding/challenge/result, acceptance/dispute",
+    "Acceptance-boundary plan; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Attribution is not acceptance, challenged result cannot settle, stale lease/reassignment, retained negative loss",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `ROOMS`, `ECON`, `WALLET`, `DAEMON`; ResourceOffer/CapabilityOffer, WorkFrontierItem, claim/attempt/finding/challenge/result, acceptance/dispute.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Acceptance-boundary plan; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Attribution is not acceptance, challenged result cannot settle, stale lease/reassignment, retained negative loss.",
+    "Retain an evidence index and require the exact content-bound M5_ATTRIBUTION_ACCEPTANCE_CHALLENGE_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "participant, claim, result, challenge, or closeout transition",
+      "final_invoker": "room participant/frontier/result owner admission path",
+      "authority_source": "explicit participant/claim/authority leases; pairing grants none",
+      "receipt_or_evidence": "admission/acceptance receipt and room root",
+      "negative_behavior": "deny replay, expired/revoked lease, wrong origin, self-acceptance, or disputed settlement"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded m5-attribution-acceptance-and-challenge-boundary journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M5_ATTRIBUTION_ACCEPTANCE_CHALLENGE_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for Attribution is not acceptance, challenged result cannot settle, stale lease/reassignment, retained negative loss; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m5-attribution-acceptance-and-challenge-boundary; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Attribution is not acceptance, challenged result cannot settle, stale lease/reassignment, retained negative loss; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M5_ATTRIBUTION_ACCEPTANCE_CHALLENGE_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m5.accepted_participant_effects_without_current_lease",
+      "metric": "accepted participant effects without current identity, claim, and authority lease",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "M5 participant/frontier floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M5_ATTRIBUTION_ACCEPTANCE_CHALLENGE_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M5/m5-attribution-acceptance-and-challenge-boundary.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/src/data/productSurface.ts",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Attribution is not acceptance, challenged result cannot settle, stale lease/reassignment, retained negative loss. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Acceptance-boundary plan; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M5_ATTRIBUTION_ACCEPTANCE_CHALLENGE_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": "2026-07-22"
+}

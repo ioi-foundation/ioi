@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m3-work-session-automation-product-journey
+ARTIFACT=internal-docs/implementation/evidence/M3/m3-selected-profile-e2e.v1.json
+ARTIFACT_SHA256=b98970054aa2778bfeab8378985d4a6237a6d27ea5781dc7ddb133c9497b0fe7
+M3_WORK_SESSION_AUTOMATION_PRODUCT_EXIT=0
+NONCLAIM=Typed Work and Sessions GoalRun projections are proven for the selected path; M3 does not take ownership of the Work, Sessions, or Automations applications.

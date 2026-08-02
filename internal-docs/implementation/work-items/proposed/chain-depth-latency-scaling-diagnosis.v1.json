@@ -1,0 +1,117 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "chain-depth-latency-scaling-diagnosis",
+  "stage_id": "FUTURE",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Candidate leg for owner consideration: diagnose whether committed-transaction latency degrades super-linearly with chain depth, and whether that degradation is a product scaling defect or a test-harness artifact."
+  ],
+  "status": "proposed",
+  "objective": "Measure committed-transaction latency as a function of chain depth on the selected single-node profile, and determine whether the observed super-linear growth is a product-path defect (per-block work proportional to accumulated state) or an artifact of the debug-profile test harness. Produce the growth curve first; propose a fix only if the curve implicates the product path.",
+  "falsifiable_claim": "Committed-transaction latency on the selected profile is bounded independently of accumulated chain depth; any observed growth is attributable to the debug build profile and disappears under the release profile.",
+  "selected_profile": "The selected single-node deployment whose journeys commit real wallet-authority transactions against a local validator.",
+  "canon_owners": [
+    "docs/architecture/components/agentgres/doctrine.md",
+    "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+    "docs/architecture/foundations/ioi-l1-mainnet.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "06e574d5d1def11866e7fcb97031e380ee82ef56baa9301b93841ed541d2e39c",
+    "owners": [
+      {
+        "path": "docs/architecture/components/agentgres/doctrine.md",
+        "sha256": "4a8b06374f7b0a415eaab12841347c3e7d1e1acde2084dd8be23b4f1f838370b"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+        "sha256": "fdc0f94961a2d3f7cf29a766f29a37dc291b28248bb9109da685ada643fe1e6c"
+      },
+      {
+        "path": "docs/architecture/foundations/ioi-l1-mainnet.md",
+        "sha256": "103434f865842b607f58592a5612f12fe69ba679d4512e78e6b77a03d753e535"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+        "sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [],
+  "current_implementation_evidence": [
+    "Measured 2026-07-28 on the selected profile, dual-system-projection capture (bootstrap-dominated, includes real wallet consumptions): debug 868s; release warm 329s, exit 0, 21/21. Release mode is therefore a real 2.6x improvement and the cost is substantially COMPUTE-bound, not wait-bound. The client commit-wait poll was separately measured healthy at 500ms (crates/cli/src/testing/rpc.rs).",
+    "Cold release run measured 1285s and failed one fixture self-test (malformed-readiness reap); the warm re-run passed 21/21 at exit 0, establishing that the cold failure was in-test release BUILD cost, not a defect in the IOI_WALLET_FIXTURE_RELEASE flag. Any future use of that flag should pre-build to keep build cost out of the self-test window.",
+    "UNMEASURED and the open question this record exists to answer: whether the same 2.6x holds on the DEEP consumption ladder. named-continuity restore measured ~5h10m against a 365s capture, and its cost profile (growth with chain depth) may differ from bootstrap. If release yields only a constant-factor 2.6x there, certification lands near 2h rather than the 30-60m target and the residual growth is still unexplained."
+  ],
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": {},
+  "in_scope": [
+    "Instrument per-consumption wall time against chain depth across a journey that commits many sequential wallet transactions (named-continuity's M1.5d dissolution ladder is the natural probe).",
+    "Compare the debug and release fixture profiles (IOI_WALLET_FIXTURE_RELEASE=1) over the identical journey to separate compute cost from structural cost.",
+    "Attribute the dominant cost to a named code path with evidence before proposing any change."
+  ],
+  "out_of_scope": [
+    "Any optimization committed before the growth curve exists.",
+    "Weakening, sampling, or skipping any held-bar proof to reduce runtime.",
+    "Changing the certification-mode refusal of the checkpoint lane (that refusal is deliberate and needs its own owner ruling)."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "A retained latency-versus-depth curve for both build profiles, with the dominant cost attributed to a named code path."
+  ],
+  "adversarial_or_fault_proof": [
+    "Predeclared: a flat release-profile curve falsifies the product-defect hypothesis and closes this record as a harness-profile finding; a curve that stays super-linear under release must name the per-block work whose cost scales with accumulated state, and is then re-filed as a defect record against its owning plane rather than fixed opportunistically here. The 2026-07-28 bootstrap measurement already establishes a 2.6x constant-factor compute component, so the surviving question is specifically the GROWTH term, not the constant."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "CHAIN_DEPTH_LATENCY_SCALING_DIAGNOSIS_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/FUTURE/chain-depth-latency-scaling-diagnosis.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/cli/src/testing/rpc.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "commit-wait poll loop (500ms, measured healthy); adjacent implementation precedent only; not proof of this work item"
+    },
+    {
+      "path": "crates/cli/src/testing/cluster.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "harness cluster/profile construction incl. the documented inert checkpoint_interval_blocks finding; adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This record claims no fix and no performance target; it produces a measurement and an attribution.",
+    "Certification wall-clock is a merge-time cost, not an iteration cost; the unit/fast proof lane already owns iteration speed.",
+    "The checkpoint lane is proven but bounded: it accelerates bootstrap-dominated journeys only (868s to 133s measured) and does not address post-checkpoint consumption cost (named-continuity restore measured at about 5h10m)."
+  ],
+  "rollback_or_stop_rule": "Stop and report if the release-profile curve is flat: the observation is then a harness-profile artifact and no product change is warranted.",
+  "exit_criteria": [
+    "The growth curve exists for both build profiles, the dominant cost is attributed to a named code path, and the outcome is either closed as a harness finding or re-filed as a defect record against its owning plane."
+  ],
+  "pr": null,
+  "source_provenance": "Deferred from the proof-infrastructure leg (PRs #122-#124, master bd2dfc5f2) at owner direction, for consideration as a future leg. That leg delivered true chain resume and measured, and refuted, the premise that checkpointing could reduce certification wall-clock; it also eliminated checkpoint_interval_blocks (inert under GuardianMajority) and the client commit-wait poll (500ms) as candidate drivers. Updated 2026-07-28 with measured evidence: release mode delivers 2.6x on the bootstrap-dominated journey (868s to 329s, exit 0), so the remaining question is narrowed from 'compute or wait' to 'does the growth term survive under release'.",
+  "last_status_transaction": "2026-07-28"
+}

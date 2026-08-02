@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-canonical-estate-and-baseline-binding-successor
+ARTIFACT=internal-docs/implementation/tools/check-canonical-estate.mjs
+ARTIFACT_SHA256=3080a29272f50e22c315299332db669490d93d09f0e49378891f9d5368d4192d
+M0_CANONICAL_ESTATE_AND_BASELINE_BINDING_EXIT=0
+NONCLAIM=This proves the canonical-estate contract and its adversarial self-tests over the frozen inputs; it does not admit the successor baseline or judge overlay claims.

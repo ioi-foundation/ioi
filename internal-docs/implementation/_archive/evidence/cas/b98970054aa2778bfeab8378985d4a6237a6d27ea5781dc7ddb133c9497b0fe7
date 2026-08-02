@@ -1,0 +1,142 @@
+{
+  "evidence_format": "ioi.program.m3_selected_profile_e2e.v1",
+  "stage_id": "M3",
+  "selected_lane": "m3-direct-non-system",
+  "proof_profile": "research",
+  "reviewed_commit": "88ab49f5a80a756ffe48193b260b30122a25b4fc",
+  "implementation_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_goal_pursuit.rs",
+      "sha256": "2943b5bf389f76ccb8df3faa091259aa47bf64e417b6eeee6105f2b1812d0c46"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_goal_run_admission.rs",
+      "sha256": "e1f0a089d76bbd0cb337d32215a7e3a74c6fca9cd70a06d613693c10d5b8a0be"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+      "sha256": "d0a37b9321fa98846866ebcbe6c87e67699f873895ab51c2a9e798f14802fef5"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-m3-goalrun-plane.mjs",
+      "sha256": "4c2e0c699d47e6dabebe27d7180bb55c88289aa7ec3f64e1547281c03e498148"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "sha256": "6b547ee695a03df407816a4530938b5cb75fb6f24730c8d3822d669ad0aae6dd"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "sha256": "83e8b3f9e03e3fec1122effeab04ca0712bf34b30eaf22e7e7737df19b0a6ad7"
+    },
+    {
+      "path": "apps/hypervisor/surfaces/missions/index.mjs",
+      "sha256": "e1277b4f7a8271af67af13feee2f6c2c2c78273c49b83d337c5ea9b6741f6226"
+    },
+    {
+      "path": "apps/hypervisor/ported-seed-preservation.v1.json",
+      "sha256": "56ca7ef672df2d0099de7af4850b82207ca874ea98ad512d88aec133670df272"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
+      "sha256": "0d25bb6c4f5b1f280f37de7d90d210bdad37a07e4bd59670e60eeab6d2d89363"
+    }
+  ],
+  "contract_registry": {
+    "contracts": 137,
+    "fixtures": 494,
+    "m3_families_admitted": 23,
+    "canonical_write_side_reference_schemes": true,
+    "generated_rust_and_typescript_projection_parity": true
+  },
+  "checks": [
+    {
+      "command": "npm run check:architecture-contract-bar",
+      "exit_code": 0,
+      "result": "137 contracts, 494 fixtures, 612 differential cases, 14 Rust contract tests; generated projections current"
+    },
+    {
+      "command": "npm run check:architecture-docs",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run check:conformance-docs",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run hypervisor-conformance:receipts",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run hypervisor-conformance:bridge",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run hypervisor-conformance:negative",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run test:rust-daemon-runtime-api",
+      "exit_code": 0,
+      "result": "41 tests passed"
+    },
+    {
+      "command": "npm run test:mcp-skills-hooks",
+      "exit_code": 0,
+      "result": "2 tests passed"
+    },
+    {
+      "command": "npm run check:runtime-layout",
+      "exit_code": 0
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs --live",
+      "exit_code": 0,
+      "result": "477 of 477 static and fresh-port live seed-preservation assertions passed"
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-hypervisor-surface-modules.mjs",
+      "exit_code": 0,
+      "result": "64 of 64 app-module, truth-state, and cross-plane assertions passed"
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-m3-goalrun-plane.mjs",
+      "exit_code": 0,
+      "result": "6 of 6 isolated daemon and restart assertions passed"
+    },
+    {
+      "command": "cargo test -p ioi-services runtime_goal_pursuit --lib",
+      "exit_code": 0,
+      "result": "18 of 18 focused kernel tests passed"
+    },
+    {
+      "command": "npm run check:m0-program-control",
+      "exit_code": 0,
+      "result": "60 of 60 adversarial control tests and supplied-snapshot check passed"
+    }
+  ],
+  "positive_proof": [
+    "The daemon selects the direct non-System path from the complete canonical predicate set and mints the GoalRun identity itself.",
+    "Exact immutable workflow, skill, harness, tool, constraint, policy, and profile revisions and hashes produce a component snapshot, active-skill snapshot, and profile-resolution receipt.",
+    "Draft and active WorkLifecycleRecord entries persist with exact heads before the active GoalRun is admitted.",
+    "A generic research WorkResult with negative outcome is retained without success coercion.",
+    "Restart reconstructs the same GoalRun identity, lifecycle head, admitted state root, and WorkResult lineage.",
+    "The owned ported Workbench, Missions, run-timeline, and incident surfaces consume typed GoalRun and result projections from daemon truth.",
+    "A fresh-port live gate proves protected app routes still serve rich ported UX and refuses a RouteRefusal substitute; no stale listener can satisfy the proof."
+  ],
+  "adversarial_and_fault_proof": [
+    "Mutable or unhashed definitions refuse before any GoalRun persistence.",
+    "Invalid result profile, missing provenance, illegal lifecycle transition, changed-body replay, stale head, and unreconciled cancellation refuse.",
+    "Information-flow destinations outside policy and implicit, foreign, stale, or effect-mismatched declassification and authority receipts refuse.",
+    "Receipt omission, mutation, signature tamper, and revocation fail offline verification.",
+    "Agentgres split-head merge, unlabeled staged effect, empty checkpoint, and post-merge mutation refuse; staged effects do not apply before exact-head merge.",
+    "Projection definitions remain derived views and cannot become operation truth."
+  ],
+  "nonclaims": [
+    "This closes the M3 selected direct path and its shared mechanism proof only; it does not close P0, M4, collective pursuit, OutcomeRoom, Campaign, or System-bound release claims.",
+    "No result receives acceptance authority from a profile, skill, workflow, harness, tool, client, or UI.",
+    "No independent-party, multi-node, conditional hardware-profile, App-primary, or production-release claim is made.",
+    "No M6 app-by-app normalized surface compiler cutover, whole-bundle retirement, or parallel replacement-client claim is made.",
+    "The Internet of Intelligence/Web4 category, Hypervisor topology, primitive ownership, Work ownership, and GoalRun placement are unchanged."
+  ]
+}

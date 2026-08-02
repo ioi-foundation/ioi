@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-canonical-enum-member-set-binding-and-legacy-string-census
+ARTIFACT=internal-docs/implementation/generated/enum-member-census.v1.json
+ARTIFACT_SHA256=272be11f0c07dcaf866488840153870cd70431d0d0c1aaf737a033dbd45104ce
+M0_CANONICAL_ENUM_BINDING_EXIT=0
+NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

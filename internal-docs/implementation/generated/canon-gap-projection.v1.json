@@ -1,0 +1,112 @@
+{
+  "format": "ioi.program.canon_gap_projection.v1",
+  "role": "Generated orientation only. program/canon-map.v1.json owns current subject classifications; program/canon-gaps.v1.json is an immutable dated discovery snapshot; program/canon-gap-dispositions.v1.json owns later dispositions against snapshots or stage prose; program/known-gaps.v1.json owns explicit checker waivers. This projection changes none of them and is not a second gap authority.",
+  "sources": {
+    "current_classification_owner": "program/canon-map.v1.json",
+    "historical_snapshot": "program/canon-gaps.v1.json",
+    "disposition_ledger": "program/canon-gap-dispositions.v1.json",
+    "checker_waiver_owner": "program/known-gaps.v1.json"
+  },
+  "historical_snapshot": {
+    "found_at_commit": "ba7513bac458cc6bfa398d3a814d65b963c6a287",
+    "found_on": "2026-07-25",
+    "gap_count": 24,
+    "immutable": true
+  },
+  "disposition_count": 11,
+  "current_gap_count": 9,
+  "current_gaps": [
+    {
+      "subject_id": "docs/architecture/_meta/canon-to-code-delta.md",
+      "classification": "unresolved_canon_gap",
+      "reason": "Classified non_build_doctrine on the strength of its index role, but its body is the densest object-by-object statement of what canon requires versus what the code holds, and its line 61 narrates M1.x cut status. Whether a _meta index may carry build obligations and cut status is a canon placement question, not one this estate may settle.",
+      "stages": [],
+      "work_items": []
+    },
+    {
+      "subject_id": "docs/architecture/_meta/execution-horizons.md",
+      "classification": "unresolved_canon_gap",
+      "reason": "Named a Canonical Reference by ADR 0015 and ADR 0016 and cited as a canon_owner by zero work-item records, while lines 592-676 carry a real 14-step ordered build sequence that program/sequence.v1.json operationalises. Whether a _meta note may co-own sequencing is a canon placement question. Recorded as a gap rather than settled here, so canon-map no longer contradicts canon-gaps.v1.json on the same two files.",
+      "stages": [],
+      "work_items": []
+    },
+    {
+      "subject_id": "docs/architecture/foundations/objects/model-foundry-and-training.md",
+      "classification": "missing_implementation_coverage",
+      "reason": "Shared-object module extracted from common-objects-and-envelopes.md in the 2026-07 modularization; no record cites the module path yet — citations still bind the family index, so coverage is inherited informally. Honest gap: re-point record citations at the module in the next record pass.",
+      "stages": [],
+      "work_items": []
+    },
+    {
+      "subject_id": "docs/commitment/tree/iavl/README.md",
+      "classification": "unresolved_canon_gap",
+      "reason": "Hard, byte-exact build obligations with no canonical owner and a self-contradicting migration section. It declares \"Canonical Hashing Rules\" whose deviation \"will cause consensus failures\": SHA-256, fixed-width little-endian integers, 32-byte zero hash for a missing child, leaf hash SHA256(0x00 || version || height || size || len(key) || key || len(value) || value) and inner hash SHA256(0x01 || ...), plus ICS-23-inspired existence/non-existence proof structure and a named stateless verifier signature verify_iavl_proof_bytes(root, key, expected_value, proof_bytes). Canon does not own IAVL anywhere: the substrate owner (agentgres/doctrine.md) commits to a different structure family (\"Merkleization is incremental and content-addressed ... Prolly-tree / JMT-class structures when the dedicated engine lands\") and never mentions IAVL; domain-kernels.md claims \"state transition and replay conventions\" for L0 but names no tree; source-of-truth-map.md has no row. Binding this to a stage would require inventing doctrine about whether IAVL is part of the estate's commitment story, which rule 1 forbids. Canon owners that must resolve it: docs/architecture/_meta/doc-classes.md, docs/architecture/_meta/source-of-truth-map.md, docs/architecture/components/agentgres/doctrine.md, docs/architecture/foundations/domain-kernels.md. Additional concrete defect: the Migration Guide's target symbol does not exist in code.",
+      "stages": [],
+      "work_items": []
+    },
+    {
+      "subject_id": "docs/commitment/tree/mhnsw/README.md",
+      "classification": "unresolved_canon_gap",
+      "reason": "Nearly a clean retained record, but not classifiable as one because a live section contradicts shipped code. Most of the file is explicitly self-retired (\"Historical note: this document describes the retired certifying retrieval path that used to sit behind the removed SCS crate\", repeated \"Historical implementation: retired with the removal of the SCS crate\", benchmark harness removed) and I confirmed the retirement in code. But the \"Retrieval Receipt Contract\" section is NOT marked historical, names three live files, and states that WorkloadMemoryRetrieveReceipt records certificate_mode = \"single_level_lb\" — while the shipped emitters set certificate_mode: Some(\"none\"). The \"Index Commitment Semantics\" and \"Search Policy\" sections likewise describe live symbols in the present tense. So an implementer touching memory-retrieval receipts is told to emit a value the runtime does not emit, for a mechanism that no longer exists, and no canonical owner exists to settle whether the retired certifying contract is being restored or the doc must be corrected. Canon owners that must resolve it: docs/architecture/_meta/doc-classes.md, docs/architecture/_meta/source-of-truth-map.md, docs/architecture/components/agentgres/doctrine.md (state/commitment substrate), docs/architecture/foundations/institutional-learning-boundary.md (memory/retrieval boundary).",
+      "stages": [],
+      "work_items": []
+    },
+    {
+      "subject_id": "docs/crypto/Falcon.md",
+      "classification": "unresolved_canon_gap",
+      "reason": "Not classified with Dilithium.md because this one leaves an implementer with a contradictory, security-relevant answer. Falcon.md states plainly that \"the implementation provided in this codebase is a simplified version that demonstrates the API... The actual cryptographic operations are simplified for demonstration purposes\", while docs/security/post_quantum.md lists Falcon in the Signatures row of its live primitives table (used for \"validator identities, block headers, transaction signing\") and names FALCON as a governance-addable IdentityHub allowed_target_suite. The code makes the contradiction concrete: SignatureSuite::FALCON_512 is a real selectable constant grouped with the post-quantum suites, and batch verification returns false with the comment \"Not implemented\". An implementer asking \"may Falcon be selected for identity rotation or block signing today?\" gets three different answers from canon-adjacent docs and code, and no canonical owner exists to settle it. Canon owners that must resolve it: docs/architecture/_meta/doc-classes.md and docs/architecture/_meta/source-of-truth-map.md (placement/class), docs/architecture/components/wallet-network/doctrine.md (Cryptography Positioning, which owns the hybrid-signature posture and the anti-pattern list about blanket PQ claims).",
+      "stages": [],
+      "work_items": []
+    },
+    {
+      "subject_id": "docs/security/cim_assist_determinism.md",
+      "classification": "unresolved_canon_gap",
+      "reason": "Same family and same defect as pii_review_contract.md. The file declares a \"consensus-bound Stage A -> A' assist contract\", a hard determinism bar (no wall clock, no RNG, no external I/O, no locale dependence, no float/thread-scheduling dependence), an allowed/forbidden transformation set, identity commitments (assist_kind cim_v0, assist_version cim-v0.1, config/module hash derivation) that feed decision-hash material, and a single-writer scoped-exception usage rule where validator/ingestion are verify-only. It also states a deployment-wide consensus caveat: \"all environments must run the same CIM identity for desktop/service and validator/ingestion parity\". No canonical architecture owner exists for any of it, no status axis, and no doc-class home. Classified unresolved_canon_gap rather than missing_implementation_coverage because the missing thing is a canon ruling on whether docs/security/ is canon and who owns it, not merely an unassigned owner. Canon owners that must resolve it: docs/architecture/_meta/doc-classes.md, docs/architecture/_meta/source-of-truth-map.md, docs/architecture/foundations/security-privacy-policy-invariants.md.",
+      "stages": [],
+      "work_items": []
+    },
+    {
+      "subject_id": "docs/security/pii_review_contract.md",
+      "classification": "unresolved_canon_gap",
+      "reason": "Obligation-bearing and live, but canon never says it is canon or who owns it. The file declares itself \"Consensus-Critical\" and fail-closed, fixes state-key namespaces, pins request_version = 3 and the CIM assist identity triple, states six deterministic invariants, a three-action resume matrix, nine fail-closed rejection conditions, and a Parity Requirement naming three enforcement sites. Canon has no owner for any of it: docs/architecture/foundations/security-privacy-policy-invariants.md (the canonical security/privacy/policy owner) never mentions PII gates, review requests, or scoped exceptions; source-of-truth-map.md has no row for this subject; doc-classes.md defines 12 classes and none has docs/security/ as a primary home; and the file carries none of the two-axis status front matter doc-classes.md requires of every canon file. Per rule 1 I will not invent a placement or a stage owner. Canon owners that must resolve it: docs/architecture/_meta/doc-classes.md and docs/architecture/_meta/source-of-truth-map.md (placement and class), docs/architecture/foundations/security-privacy-policy-invariants.md (adopt as security-domain canon or explicitly disclaim). Two locators in the file are already stale against merged master.",
+      "stages": [],
+      "work_items": []
+    },
+    {
+      "subject_id": "docs/security/post_quantum.md",
+      "classification": "unresolved_canon_gap",
+      "reason": "Obligation-bearing architecture prose living outside the architecture corpus, with a competing roadmap and no owner. It specifies the hybrid post-handshake KEM model for all validator-component mTLS (ECDH+Kyber, TLS-exporter binding, HKDF/HMAC-SHA256 combination, ChaCha20Poly1305 AEAD), the IdentityHub Ed25519 -> Dilithium2 rotation ladder with RotationProof, grace period and sole-active promotion, a state-commitment PQ readiness assessment (IAVL/SMT quantum-resistant, Verkle/KZG explicitly not), and a five-phase roadmap carrying its own status column (Phases 1-2 Complete, Phases 3-4 Planned, Phase 5 Research). That status column is a second, unsequenced claim ladder competing with program/sequence.v1.json, which is exactly what the estate's status discipline forbids, and no stage owns it. Canon touches the topic only as posture, never as ownership: wallet-network/doctrine.md \"Cryptography Positioning\" states a target hybrid profile and lists blanket-PQ claims as anti-patterns, and agentgres/doctrine.md says the public claim should be conservative for \"hybrid post-quantum sealed state archives\"; neither claims the kernel mTLS handshake or IdentityHub. Canon owners that must resolve it: docs/architecture/_meta/doc-classes.md, docs/architecture/_meta/source-of-truth-map.md, docs/architecture/components/wallet-network/doctrine.md, docs/architecture/components/agentgres/doctrine.md.",
+      "stages": [],
+      "work_items": []
+    }
+  ],
+  "open_checker_waiver_count": 3,
+  "open_checker_waivers": [
+    {
+      "id": "GAP-M0-UNSIGNED-REVIEW-ANCHOR-OWNERS",
+      "check": "work-item-shape",
+      "subjects": [
+        "m0-unsigned-review-anchor: missing or empty \"canon_owners\""
+      ],
+      "closes_when": "the record declares the canon owner that governs review-epoch anchoring, or record_role gains a workflow_control value that is exempt by definition"
+    },
+    {
+      "id": "GAP-M1-LITERAL-ARTIFACTS-UNRETAINED",
+      "check": "literal-artifact",
+      "subjects": [
+        "m1-genesis-admission",
+        "m1-governed-initialize-activate",
+        "m1-sequence-zero-materialization"
+      ],
+      "closes_when": "the three exit artifacts are retained under internal-docs/implementation/evidence/M1/, or the records re-point expected_output_paths at a retained artifact that exists"
+    },
+    {
+      "id": "GAP-ENFORCEMENT-COVERAGE-CONTRACT-UNREGISTERED",
+      "check": "unresolved-contract-family",
+      "subjects": [
+        "EnforcementCoverageDeclaration"
+      ],
+      "closes_when": "the M2 membership-readiness cut (re)registers schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1 with schema, invariants, fixtures, and generated projections"
+    }
+  ]
+}

@@ -12,7 +12,7 @@ Implementation status: mixed (bounded GoalRun and the hosted Hypervisor
 OutcomeRoom object graph are partial; the ioi.ai Goal Space product,
 federated collaboration, and thin account/device/restore control plane remain
 planned)
-Last implementation audit: 2026-07-19
+Last implementation audit: 2026-07-30
 
 ## Canonical Definition
 
@@ -99,6 +99,17 @@ direct and do not need a room-shaped experience. When collective pursuit is
 useful, Goal Space projects an `OutcomeRoom`/`CollaborativeWorkGraph` whose
 bounded claims execute as Hypervisor GoalRuns.
 
+Conversation-first entry does not make text entry an admission primitive. The
+current first-party seed reuses the product shell's ported composer at
+`/ai#new-session` without changing the canonical Hypervisor Home placement at
+`/ai`: ordinary submit/Enter remains a bounded Session act, while a distinct
+**Activate Goal** review act drafts and submits `GoalRunActivationEnvelope`
+with `source_kind: ioi_goal_draft`. The product must show the requested source,
+principal, profile revision/hash, authority posture, and review state before
+that submission. Only the daemon may admit the activation and GoalRun; denied,
+parked, stale, or changed-body activation stays visibly non-admitted, and a
+transcript or attached Session never substitutes for Goal Space truth.
+
 The same OutcomeRoom is rendered as Goal Space in ioi.ai and Work / Rooms in
 Hypervisor. These are projections over one governed object composition, not two
 stores or two products. An optional Mission label has no independent identity,
@@ -108,6 +119,16 @@ When product copy offers a reusable adaptive-pursuit **Recipe**, its canonical
 backing object is an immutable `GoalRunProfile` revision. Admission resolves
 that revision into a bounded `GoalRun`; Goal Space does not turn Recipe into a
 generic object family or retain live pursuit state in the profile.
+
+GoalRun is application-domain pursuit truth, not a second execution plane. A
+GoalRun may choose roles, attempts, verifier paths, topology, and course
+corrections, but every actual execution leg must resolve through Hypervisor's
+daemon-owned thread event, fork, managed-session, session-launch-recipe, and
+harness-session-binding primitives. Goal Space projects their exact refs and
+receipts; it does not mint its own event stream, fork graph, Session lifecycle,
+or harness launch/binding truth. This preserves zero-Session GoalRuns while
+making harness-to-harness coordination an explicit bounded daemon request
+rather than ambient application authority (ADR 0031).
 
 It may:
 

@@ -1,0 +1,159 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "p2-launcher-catalog-availability-check",
+  "stage_id": "M9",
+  "record_role": "private_verifier",
+  "required_work": [
+    "Establish catalog and availability truth for the application launcher inside the P2-reachable closure."
+  ],
+  "status": "proposed",
+  "objective": "Prove catalog and availability truth for the application launcher reachable on the P2 journey: every row it renders compiles from IOI's canonical application catalog, its categories and groupings are IOI-owned taxonomy, and anything not operationally bound is either omitted from the catalog or rendered in the product's honest unavailable state rather than presented as a working application. A catalog need not implement every entry — it must never imply that it does. P2_LAUNCHER_CATALOG_AVAILABILITY_CHECK_EXIT=0.",
+  "falsifiable_claim": "The reachable application launcher compiles its rows and categories from an externally derived catalog rather than IOI's canonical one, and presents entries that are not operationally bound as if they were available applications.",
+  "selected_profile": "The selected external design-partner profile: the application launcher and its sidebar and modal projections as an independent user reaches them on the P2 journey.",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/decisions/0013-hypervisor-core-clients-surfaces-and-adapters.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "d3904fae0820fa2180e111339d07fce2307d05b9",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "e0da0db96c9b9c6e074ff20ea37ab62ac5cb19ff831abf6c5d174b31ab96b3c8",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/execution-horizons.md",
+        "sha256": "f3a87fb9251a343111a8369f196029248a3f792d1ae3cbfd1c89f3679b21d1c9"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "f65af24abe2b05c2174cfba292c4f21d793aec50e81cb8a6f9688ba490544f4b"
+      },
+      {
+        "path": "docs/decisions/0013-hypervisor-core-clients-surfaces-and-adapters.md",
+        "sha256": "30b5adb28cec6d82325e83013a93227e361ed2e3ca99c20edb884bdc9eb153ca"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "HypervisorApplicationSurfaceRegistration",
+      "owner_path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/_meta/execution-horizons.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:p2-launcher-catalog-availability-check",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/p2-launcher-catalog-availability-check.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "external-reference-residue-census:2026-07-28-leg0-v2",
+      "artifact_class": "private_noncanonical_defect_baseline_inventory",
+      "path": "internal-docs/prompts/architecture-relative-comparison/runs/2026-07-28-leg0-v2-external-reference-residue-census.md",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:P2_LAUNCHER_CATALOG_AVAILABILITY_CHECK_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": null,
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "Resolve every rendered launcher row — name, description, glyph, and destination — to an entry in IOI's canonical application catalog, and resolve the launcher's category rail to IOI-owned taxonomy. Both the sidebar projection and the searchable modal projection are in scope, because both compile from the same catalog and both are reachable.",
+    "Prove availability truth per row: an entry that is not operationally bound is omitted from the catalog, or rendered in the product's existing honest unavailable/named-gap state with the reason legible. A row that launches nothing, or that opens an externally derived capture, is a finding.",
+    "Prove there is no second launcher source: the catalog has one canonical owner, and no injected, hardcoded, or fallback list contributes rows the canonical catalog does not name.",
+    "State and verify the rule source-neutrally: a row is a finding because its provenance or its availability claim is untrue, never because it matches a list of external names."
+  ],
+  "out_of_scope": [
+    "Proving that every application the canonical catalog names is implemented. The catalog may legitimately list entries that are not yet bound; the P2 bar is a canonical IOI catalog, IOI-owned taxonomy, and honest availability, and an unbound entry that is omitted or rendered visibly unavailable satisfies it.",
+    "The rest of the P2-reachable closure. Provenance truth for surfaces generally is owned by p2-surface-provenance-integrity-check; this record owns the launcher only.",
+    "Properly licensed and attributed third-party dependencies used to render the launcher, whose notices stay in place.",
+    "Launcher information architecture, ranking, favorites, search quality, or any presentation decision that carries no truth claim."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "Every rendered launcher row and category resolves to IOI's canonical application catalog and IOI-owned taxonomy, and every entry that is not operationally bound is either absent or rendered in the product's honest unavailable state with a legible reason."
+  ],
+  "adversarial_or_fault_proof": [
+    "Predeclared branches, each of which must be found and refused by name: a launcher compiled from an externally derived catalog; a category rail carrying externally derived taxonomy; a row present in the rendered launcher but absent from the canonical catalog, contributed by an injected or hardcoded fallback list; an unbound entry rendered as available; a row whose destination resolves to an externally derived capture or to nothing at all; a row marked unavailable with no legible reason; the sidebar and modal projections disagreeing about the same entry; a pass obtained by matching a frozen list of external names while unnamed prohibited rows survive.",
+    "The live defect this check repairs is retained as its baseline: the census records a live application launcher, rendered in both a sidebar section and a searchable category-railed modal, whose sixty entries and nine categories are compiled wholesale from an externally derived catalog and taxonomy, with no canonical IOI catalog behind them."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "P2_LAUNCHER_CATALOG_AVAILABILITY_CHECK_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/p2-launcher-catalog-availability-check.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/src/main.tsx",
+      "present_when": "current_precedent",
+      "evidence_scope": "the launcher catalog, its category list, and the sidebar and modal projections that render them; current content is the defect baseline, not proof of this work item"
+    },
+    {
+      "path": "apps/hypervisor/scripts/app-catalog.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the existing catalog projection precedent the canonical catalog would be compiled through; precedent only, not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "A pass proves the launcher's catalog is IOI's and its availability claims are honest. It proves nothing about how many applications exist, how good they are, or whether any of them is operationally bound.",
+    "An entry marked unavailable is an honest product state, not a deferred obligation discharged. Binding each entry belongs to that application's own owner record.",
+    "The retained census is non-canonical inventory supplying the defect baseline only; the pass condition is recomputed against the canonical catalog, never read from it.",
+    "This check never decides whether the launcher is in the P2 profile. That disposition is owned by p2-external-surface-integrity-gate's launcher_disposition, defaults to `included`, and changes only under the recorded removal-conditions test."
+  ],
+  "rollback_or_stop_rule": "Stop if the launcher's rendered rows cannot be resolved to a single canonical IOI catalog owner, because a launcher with two sources cannot be proven honest about either. The launcher is NOT dropped from the P2 profile because it cannot meet this bar: a failing check and inconvenient, expensive, or slow remediation are both explicitly not grounds for removal, and a failing check closes by repairing the launcher, not by deleting the subject. The launcher's disposition is `included` by default and is owned by p2-external-surface-integrity-gate's launcher_disposition. It becomes `excluded` only under that record's removal-conditions test: a genuine pre-cohort profile decision that removes every sidebar, modal, Home, alias, redirect, and deep-link path to the launcher, updates the P2-reachable closure digest, and passes a negative-reachability verifier. Removal is never an outcome of this check and is never reported as a pass of it.",
+  "exit_criteria": [
+    "Every rendered launcher row and category resolves to IOI's canonical catalog and IOI-owned taxonomy, every unbound entry is omitted or honestly marked unavailable, every predeclared adversarial branch refuses by name, and the retained literal P2_LAUNCHER_CATALOG_AVAILABILITY_CHECK_EXIT=0 appears exactly once.",
+    "The bar is a canonical IOI catalog, IOI-owned taxonomy, and honest availability. Completing the application estate is not part of it: an entry that is omitted or rendered visibly unavailable satisfies this check, and refusing the launcher for not implementing every application it could list is a defect in this check.",
+    "This check makes no claim at all only when p2-external-surface-integrity-gate's launcher_disposition records `excluded` under its removal-conditions test. The launcher is out of the P2-reachable closure only when that disposition says so; the absence of a launcher is never inferred from the absence of a finding, and a failing check never changes the disposition."
+  ],
+  "pr": null,
+  "source_provenance": "Authored 2026-07-29 as one of the two subordinate checks named by p2-external-surface-integrity-gate, under the owner ruling that bounds that gate to the P2-reachable surface closure and that permits removing the launcher from the P2 profile rather than expanding P2 to prove the whole application estate. The defect baseline is the retained read-only census at internal-docs/prompts/architecture-relative-comparison/runs/2026-07-28-leg0-v2-external-reference-residue-census.md. Stop rule rewritten 2026-07-29 under the owner ruling that the launcher stays in the selected P2 profile: it is no longer a dropped-if-it-cannot-meet-the-bar escape hatch but the owner's removal-conditions test, and removal on the grounds of a failed check or inconvenient remediation is explicitly refused.",
+  "last_status_transaction": "2026-07-29",
+  "aggregate_membership": {
+    "closing_record_id": "p2-selected-profile-external-surface-closure",
+    "closing_scope": "P2",
+    "basis": "This check closes into the P2-specific selected-profile closing record through the joining gate; it carries no P1 or P3 obligation.",
+    "not_a_member_of": [
+      "m9-selected-profile-aggregate-exit-and-claim-publication"
+    ],
+    "not_a_member_basis": "M9's aggregate exit closes P1, P2, and P3 together; P2's surface obligation closes in its own record instead."
+  }
+}

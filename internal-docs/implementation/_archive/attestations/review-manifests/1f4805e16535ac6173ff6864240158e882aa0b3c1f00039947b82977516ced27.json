@@ -1,0 +1,1406 @@
+{
+  "evidence_format": "ioi.program.canon_review_manifest.v1",
+  "manifest_role": "Content-bound enumeration of every canon subject pending baseline review, with the disposition and written reasoning of one accountable reviewer. Presenting this manifest to --accept advances the baseline. It closes no work item, certifies no stage, and changes no status.",
+  "claim": "canon_drift_reviewed_only",
+  "reviewer_ref": "reviewer://codex/m4-end-state-director-authorized",
+  "emitted_at_commit": "287449463f42c2a0e55464b4c8230a9f6fa05dbe",
+  "instructions": [
+    "Fill reviewer_ref, and per subject a disposition (unaffected | successor_required | blocked) and a review_note that argues it from what actually changed.",
+    "`unaffected` must be ARGUED. Say why this subject's change does not reach the stages, modules, and work items named in review_required below. An unargued `unaffected` is a mechanical accept with extra steps.",
+    "Never rewrite a verified closure to absorb a semantic change: disposition it `successor_required` and open a successor record that states what must now be proven.",
+    "Do not edit the ids or digests. They bind this manifest to one exact revision, and --accept refuses if they drift."
+  ],
+  "review_required": {
+    "stages": [
+      "FUTURE",
+      "M0",
+      "M1",
+      "M10",
+      "M11",
+      "M12",
+      "M13",
+      "M14",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M7",
+      "M8",
+      "M9"
+    ],
+    "modules": [
+      "adversarial-proof-matrix",
+      "campaign-experiment-method",
+      "cooperation",
+      "docs-and-comms",
+      "embodied",
+      "improvement",
+      "learning-boundary",
+      "mechanism-gates",
+      "network-and-l1",
+      "product-surface-ux-proof",
+      "product-ux",
+      "proof-and-evidence",
+      "runtime-fabric",
+      "runtime-trust-boundary",
+      "supply-and-commerce",
+      "wallet-authority"
+    ],
+    "work_items": [
+      "agentgres-production-readiness-and-branch-effects",
+      "connected-worker-capability-supply-and-hiring",
+      "dispute-adjudication-remedy-kernel",
+      "ecosystem-assurance-and-public-claim-estate",
+      "foundry-evaluations-production-loop",
+      "hypervisoros-ctee-task-capsule-attestation",
+      "live-embodied-promotion",
+      "m0-canon-owner-coverage-and-orphan-verifier",
+      "m0-literal-exit-evidence-contract",
+      "m0-program-control-selected-profile-exit-proof",
+      "m0-route-final-invoker-pg-census-maintenance",
+      "m0-selected-profile-baseline-evidence-and-claim-lock",
+      "m0-source-disposition-and-single-sequencer-verifier",
+      "m0-work-item-contract-completeness-and-owner-lint",
+      "m1-5-protected-transitions",
+      "m1-5b-generic-protected-transitions",
+      "m1-5c-amendment-execution",
+      "m1-dual-genesis-and-read-projection",
+      "m1-genesis-admission",
+      "m1-governed-initialize-activate",
+      "m1-protected-migration-dissolution-enrollment",
+      "m1-selected-profile-exit-proof",
+      "m1-sequence-zero-materialization",
+      "m1-system-genesis-product-journey",
+      "m10-attestation-temporal-floor-and-revocation-continuity",
+      "m10-operations-operational-journey",
+      "m10-topology-chaos-and-operator-product-proof",
+      "m10-two-failure-domain-continuity",
+      "m11-canonical-contract-registry-and-legacy-ref-migration",
+      "m11-canonical-embodied-contract-alignment",
+      "m11-embodied-nonlive-graph-proof",
+      "m11-embodied-systems-nonlive-operational-journey",
+      "m11-foundry-promotion-safety-case-and-product-journey",
+      "m11-useful-same-system-distribution",
+      "m12-aiip-channel-envelope-profile",
+      "m12-federated-admission-portable-exit-and-bindings",
+      "m12-federation-product-and-operator-journey",
+      "m12-ifc-disclosure-receipt-and-settlement-binding",
+      "m12-terms-discovery-semantic-negotiation",
+      "m13-independent-operation-and-external-worker-product-proof",
+      "m13-sovereignty-trial-preregistration",
+      "m13-two-sovereign-surplus-and-decline-proof",
+      "m14-cross-plane-correlated-failure-injection",
+      "m14-network-service-devnet",
+      "m14-service-family-owner-contract-and-product-surfaces",
+      "m2-agentgres-replay-recovery-and-product-topology",
+      "m2-membership-readiness-plane",
+      "m2-node-attestation-identity-secret-readiness",
+      "m2-route-restore-activation-cleanup",
+      "m2-selected-profile-exit-proof",
+      "m2-writer-fence-and-lost-suffix",
+      "m3-direct-path-and-exit-proof",
+      "m3-goal-kernel-context-and-runtime-truth-spine",
+      "m3-pursuit-definition-resolution",
+      "m3-result-lifecycle-negative-retention",
+      "m3-work-session-automation-product-journey",
+      "m4-outcome-room-system-spine",
+      "m4-room-graph-truth-and-product-projection",
+      "m5-attribution-acceptance-and-challenge-boundary",
+      "m5-local-agent-pairing",
+      "m5-p0-readiness-verifier",
+      "m5-pairing-identity-and-gateway-scope",
+      "m5-participant-frontier-result-closeout",
+      "m5-portable-exit-independent-clients",
+      "m5-selected-profile-exit-proof",
+      "m6-applications-workspace-operational-journey",
+      "m6-automations-operational-journey",
+      "m6-catalog-route-alias-migration-accessibility",
+      "m6-consequential-action-authority-receipt-unification",
+      "m6-developer-workspace-operational-journey",
+      "m6-home-workspace-operational-journey",
+      "m6-owner-application-registration-and-shell-state-coverage",
+      "m6-packages-operational-journey",
+      "m6-product-surface-and-typed-workspaces",
+      "m6-production-truth-fallback-retirement",
+      "m6-projects-workspace-operational-journey",
+      "m6-reference-shell-disposition-and-depth-ledger",
+      "m6-settings-workspace-operational-journey",
+      "m6-surface-compiler-and-source-convergence",
+      "m6-systems-work-projection-and-mission-alias-migration",
+      "m6-systems-workspace-operational-journey",
+      "m6-work-workspace-operational-journey",
+      "m7-data-operational-journey",
+      "m7-data-transformation-provenance-replay",
+      "m7-ontology-action-final-invoker-and-product-proof",
+      "m7-ontology-operational-journey",
+      "m7-studio-operational-journey",
+      "m8-evaluations-operational-journey",
+      "m8-foundry-operational-journey",
+      "m8-improvement-operational-journey",
+      "m8-learning-boundary-provider-exit",
+      "m8-learning-custody-memory-and-provider-rights",
+      "m8-order-zero-improvement-and-direct-path",
+      "m9-authority-gateway-equivalence-and-coverage",
+      "m9-compact-advanced-object-hash-parity",
+      "m9-developer-console-operational-journey",
+      "m9-environments-operational-journey",
+      "m9-governance-operational-journey",
+      "m9-lifecycle-evidence-operator-proof",
+      "m9-managed-optionality-overlay",
+      "m9-provenance-operational-journey",
+      "m9-selected-profile-aggregate-exit-and-claim-publication",
+      "m9-sovereign-local-terminal-journey",
+      "m9-terminal-product-state-and-release-supply-chain",
+      "marketplace-neutral-routing-contribution-accounting",
+      "platform-operability-observability-and-incidents",
+      "production-information-flow-and-declassification",
+      "production-receipt-checkpoint-and-offline-proof",
+      "project-discovery-startup-and-session-chain",
+      "sdk-cli-adk-odk-builder-journey",
+      "storage-profile-repair-and-availability",
+      "worker-training-and-local-marketplace-supply"
+    ],
+    "conformance_targets": [
+      "docs/conformance/hypervisor-core/outcome-room-admission.md"
+    ],
+    "contract_families": [
+      "AgentExecutionBranch",
+      "ArtifactAvailabilityIncident",
+      "ArtifactRef",
+      "ArtifactRepairReceipt",
+      "Attempt",
+      "AuthorityEffectAdmissionReceipt",
+      "AuthorityReviewReceipt",
+      "BranchCheckpoint",
+      "BranchMergePlan",
+      "CollaborativeWorkGraph",
+      "ContributionReceipt",
+      "DeclassificationReceipt",
+      "Finding",
+      "GoalRun",
+      "GoalRunActivationEnvelope",
+      "GoalRunActivationReceipt",
+      "GoalRunAdmittedState",
+      "GoalRunProfileResolutionReceipt",
+      "HarnessSessionBinding",
+      "HarnessSessionBindingAdmission",
+      "HarnessSessionLaunch",
+      "HarnessSessionReadiness",
+      "HarnessSessionSpawn",
+      "HarnessSessionTerminalAttach",
+      "HypervisorApplicationSurfaceRegistration",
+      "HypervisorAutomationInstallationBinding",
+      "HypervisorAutomationRun",
+      "HypervisorAutomationSpec",
+      "HypervisorProductSurfaceProjection",
+      "HypervisorRouteAliasRegistration",
+      "HypervisorSessionLaunchRecipeAdmission",
+      "HypervisorSurfaceInstallationBinding",
+      "HypervisorSurfaceReleaseRecord",
+      "HypervisorSurfaceServingBinding",
+      "HypervisorSystemInterfaceBinding",
+      "HypervisorWorkFacetProjection",
+      "HypervisorWorkSubjectProjection",
+      "InformationFlowDecisionReceipt",
+      "LearningEgressReceipt",
+      "OperationLogEntry",
+      "OutcomeDelta",
+      "OutcomeRoom",
+      "OutcomeRoomDiscussionProjection",
+      "ParticipantStateBundle",
+      "PayloadRef",
+      "PhysicalActionExecutionReceipt",
+      "ProjectionDefinition",
+      "ReceiptCheckpoint",
+      "ReceiptProofBundle",
+      "RoomAdmittedObjectBase",
+      "ServiceCompositionReceiptBundle",
+      "StagedEffect",
+      "VerifierChallenge",
+      "WorkClaimLease",
+      "WorkFrontierItem",
+      "WorkResult"
+    ]
+  },
+  "subject_count": 147,
+  "subject_set_sha256": "89b97388d1481c10c768491131ec79ebf4f6d867e3c5ac3a9ae5913841623489",
+  "subjects": [
+    {
+      "id": "docs/architecture/_meta/canon-to-code-delta.md",
+      "change": "changed",
+      "baseline_sha256": "4d71a89b3ec917a628bbd5922a0e65ea45a2889cc4e127923f2ce1a5e8910f4f",
+      "tree_sha256": "1a38b5b6deb38c02012a31973d092a2dd00804c7d2658a8f0af993c119190073",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/canon-to-code-delta.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/implementation-matrix.md",
+      "change": "changed",
+      "baseline_sha256": "900c1a570aabb81d583a3ced596b2bbb213c2f79e3bbfcde42a5646e3a11789e",
+      "tree_sha256": "3d894c5296c429a9eafb1da9bf685facb575e9fe790175b719073c586b7d0dfe",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/implementation-matrix.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "change": "changed",
+      "baseline_sha256": "6b547ee695a03df407816a4530938b5cb75fb6f24730c8d3822d669ad0aae6dd",
+      "tree_sha256": "6c34a729fd2ca5caa44fecb56acd0d223ee9e4806efc9e8fc85fec0c0b27b500",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/architecture-contract-registry.v1.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/attempt.v2.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "f43eed3ea83e8f80c17b2aabae9e7f4fce196f2fde344c01743d084e52efbe5c",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/attempt.v2.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/collaborative-work-graph.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "179e98ef0ddbcc6a521de501d7215d033edb47cb1b05f11e5727c713f4777875",
+      "tree_sha256": "fe1d176e78a84129792965160b3b39cebf9dd4ce38850953f02463ffa5ae677d",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/collaborative-work-graph.v1.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/finding.v2.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "d6bcb83e6b081a516f2c8e7a0a960ffcb8a19d402ba820b0cc21de7ac644d21f",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/finding.v2.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-admission-lease-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "4d89df8270c6598addb4a49a5d3cecde8cb738b9581b03a4d42522f0de79c56e",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-admission-lease-substitution.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-non-room-bound-coordinates.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "b26efcb760c1c7ba92ac705a911c8969df80d5a918f35b2f99dc32ab1d0b1308",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-non-room-bound-coordinates.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-proposed-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "5e428992d8f2a0d25e198d07811c78719ce8d90cd6f56dcf2e52cbdb9da12436",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-proposed-carries-admitted-roots.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-stale-bound-goal.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "1cd40ca98ed9422cea0bca5360090c09670c21a5190fcf695995518a696fe394",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-stale-bound-goal.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-wrong-work-subject-scheme.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "479f229fc91c3aa4baa25492fcf6c38cb9d8f41dedc09e3230f71397c704b7a1",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-wrong-work-subject-scheme.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-hosted-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "10bbc65f9c17ed1292afdc1bff042d19da43efd56cea6d60211cd2477d688217",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-hosted-admitted.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-non-room.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "18ef3e2e18e6785f1971e7564edd8439eb5603e957fece8b583ab15bdb5f1afd",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-non-room.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "8fca1da3b01cb0db2ff5e9b640e47f35687c496f1cb4e04a5b6c51dc46a70661",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "a7fb47bc2366d315be727c23c59d29aa319d3ff067b8497e49ff8ea531c68278",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-admission-lease-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "ddf3f73f01259cf658295d7a2dbd605278e18d59919de8e37aeb96c845c86f8d",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/finding-v2/negative-admission-lease-substitution.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-evaluating-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "6749c16247eafa88e54fe758057ab31922634f83aef836d2cab5f520e688e7ea",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/finding-v2/negative-evaluating-carries-admitted-roots.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-non-room-bound-coordinates.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "8d336861aa0ed3a5089c1bcc7d2c6827df355ec5beac5f42f28b2bb6a0cc930b",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/finding-v2/negative-non-room-bound-coordinates.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-proposer-principal-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "7db17da89ddd56730d786eb04ed0d9087e64505285b3dbc80d86a29eee257adc",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/finding-v2/negative-proposer-principal-substitution.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-stale-attempt-coordinate.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "562ca026f19a4becdf40acc6d22ddafb417186bf172c3919e10d12dfa21c7d61",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/finding-v2/negative-stale-attempt-coordinate.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-wrong-source-scheme.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "7a26d45bfca9a8f931943bc86d81791bb04e215087173fb2bb5ceda51a6c3f15",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/finding-v2/negative-wrong-source-scheme.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/positive-hosted-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "9ecab55df8a9e20e87602c9c8874783ba3700466f78fd6db37e21a0663cdda3a",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/finding-v2/positive-hosted-admitted.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/positive-non-room.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "d27dfae8768e7101010366a9dc2ebfc57844ec3c983c5e793d59b2155db4cb06",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/finding-v2/positive-non-room.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-admitted-goal-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "0c6fa63e5b4a295eff94c88d5a7e5ce377fea2f3431a4b2cac2b6a1da2ad15fc",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-admitted-goal-substitution.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-receipt-identity-mismatch.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "6b132e6f76e3e21519622dbb64311074eafeadca2643de77b1ac9d70e445c9e8",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-receipt-identity-mismatch.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-source-kind-ref-mismatch.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "acca71321c905809d5f93469898538634f3c2da597556da591978433bac3ca00",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-source-kind-ref-mismatch.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "1d9e8f25032818c18df425cfd6db63a24a460bba125cba00fd0e0fa303572eb0",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-admitted-without-receipt.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "57da2786014649ac1f6105afcbd82b54a7785d88a436cf5105f6116a832e5132",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-admitted-without-receipt.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-create-missing-profile-hash.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "515bbb957d93a2cebe61bd94e524f49fc9c7333e4d726f5fe2468474028d500c",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-create-missing-profile-hash.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-source-kind-ref-mismatch.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "05c0c61e07b1751d33ac7ee0ac59627327d99b3a8e7d4990239243312de81c85",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-source-kind-ref-mismatch.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/positive-admitted-create.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "5d4a9fc0fc980bf7e93eb79f9b1c4891f8493361d7b16a1aaeb282946e5cf370",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/positive-admitted-create.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-prefix-only-state-root.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "69e0e585e312459738ddfffe2c3e482cc13b2e97c7a65db3122998d9e22f65af",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-prefix-only-state-root.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-tampered-source-context.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "f975052b7f7719029c043bca868134a7299575a3846e51529d50e6131667b5ba",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-tampered-source-context.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/positive-admitted-create.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "ca173396ef9322c53ff5778f5343369e6acdb0c69c1c5df1ca5760a954f291d2",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/positive-admitted-create.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-tampered-hash.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "1ce7dd5e45648d50df305dc2246a24fe7ee62baa2827f4afba93ca6624af0c15",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-tampered-hash.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "de326522692d0c1dbcd4e73fef947bae4bfc5b070e95193c02c040132e2ee198",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-widened-parallel.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "c23d925d314a8788509e859f43ffafb7d1a7803074269f33188ebc3eb80f9875",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-widened-parallel.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/positive-zero.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "077f5af366684b5c51056232de88ef4eff926c97280e3c0245a126a41bdb6ec0",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/positive-zero.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "a5b0c32ddce0d1150e304a0ba3186d15bea03beca5b7c40f2ad056821cc3152d",
+      "tree_sha256": "031c798133da91379f9c653a962661422648bf626dc19ba25a4dbb151c1b6585",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "98e71f22013dbff96f2a55e28622ca7e304214ff974a65ef783e13edac500133",
+      "tree_sha256": "e71a5c9df41408aa30932fbdd5df5ca69c71d761d6ec13aed57995769c18ff8e",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "d64fdb8c4d57656b2bfa46eafe2d1081db02abb8ba6048e5b8f7dd00c4483e7b",
+      "tree_sha256": "1499f66fb3a248772098e3132a286056e3fac28fe4efeacd93332a50a34af674",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-v1/negative-unknown-field.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "dffdaf6bb2e744ded1706fe6ed29129e61133651a13dfd0d0b383543551690d1",
+      "tree_sha256": "caf77e544f10a2bae7c16de659be63c636c68f039a06b2a673b2102dfbb4e5da",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-over-cardinality.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "9a6065d1d0008a39a445fbd25787828a703fa37a38b07bf403d1a2db73195824",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-over-cardinality.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-rejected-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "99ad43d1fbc9c0a5825ca2e96ddecce6622d0369cee74c880783bbfbd9d77709",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-rejected-carries-admitted-roots.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-unsupported-proposer-kind.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "d22e781b63cd745ff759756e64d1c9ac11ac84bf380819fe282db14d7f6833ec",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-unsupported-proposer-kind.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-direct-non-room.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "748183c61720ccd259507010b35728337dde516cfda661cc9ec84f937b268765",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-direct-non-room.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-hosted-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "59d5dd7bafb119216531f6dccb7108d88ea6b1043fc52e8ac04b2ae3bee4f9bf",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-hosted-admitted.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-permitted-subjects.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "8fc2ef79750d504a837ddb5b8cd569ab57563c972f9adc6df5342e4a85fd67d2",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-permitted-subjects.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-source-receipts.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "e76f28d140e0920050a93896361b39d79a2e628f587afb678967191295043577",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-source-receipts.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-hosted-without-host-domain.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "43cc19bfb914da0db8068b211b2b434dfbe2efa73d9c3b5735a5b4c1833de41a",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-hosted-without-host-domain.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-max-sequence.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "3d075f6011101408ece318c552a7706ac26b89bd0b16215f6f4b1d4ca26eb338",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-max-sequence.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-cardinality.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "e1f836407b0acaaf0bd6ab03a2d683b0d64107def44c20cd2ad63bd0638b201d",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-cardinality.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-objective.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "3dc015154e0807eb6acd998cb080e2aa653b871f33e7ca3dd9f5e8bacd445f92",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-objective.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-replay-cardinality.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "06c2153f589598ed69e0acc41f9c26d893d3e47e3ff4ad360972b8651e9b5d53",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-replay-cardinality.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-owner-scheme.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "649e55ea247f73ebaf75b07a0d8d09c06ebe02796c45f0c45c728fd759b399ef",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-owner-scheme.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "86e8d27c8152f0b3beb460337ac756832a14f6860cfef9765964564b2b8f3011",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-database-access-leakage.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "3fd61201265df9e71bc2dc432255f1f68353af715467ec2179c0e00e7ca71e57",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-database-access-leakage.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-encrypted-ref-smuggling.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "4ae0a52e8b2ee2f7f1c008c02cfa2e7802592ba6d333e096d100ecd2af84bf6b",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-encrypted-ref-smuggling.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-foreign-system-issuer.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "a7f114436abab75811e6c0c4777276ffb63d62b9d85de7b0838a9b6b4ea2c9cf",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-foreign-system-issuer.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-proposed-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "cd85a5b3856789f9bc567c6384e30eb6d332bff42e1379592a56ea84cf023773",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-proposed-carries-admitted-roots.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-hosted-export.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "c03f04101d1a98506b222b475db106478cb51cae8a7a0bf2b0ad9730b2c4c5b7",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-hosted-export.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-system-issued-expiry.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "4ddec10913cefb317d5ccb2055b0f9f1bbc2719c9da9279e6a588759a99cef46",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-system-issued-expiry.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-admitted-missing-cas-position.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "33a31d40be4a6cf3f203c70ade2af5128173788259882b0574438c1ab0b8b4af",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-admitted-missing-cas-position.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-admitted-missing-receipt.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "85133db18de6038d3ba0fa1bac646b23e5b9c9bd98fc568ad539e03fdcbe3686",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-admitted-missing-receipt.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-agentgres-decision-ref.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "7659aff485558c61902748f70330c0792545cada8516e0d0ba9891bb04868c0e",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-agentgres-decision-ref.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-proposed-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "967ca77295ba83c3a48a20ba17407ecefebd096817bfca796ffbc967dee7b832",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-proposed-carries-admitted-roots.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/positive-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "a153566f08bc53bffb1f51254ffd857c5b7ea65af864bd804438324be6bce463",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/positive-admitted.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/positive-proposed-zero-revision.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "73fee822f4baecb199fc6acb75f8bbcc7ba49c18afbb58528e734ffcf9b82c22",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/positive-proposed-zero-revision.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-rejected-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "c74b045d306e5ec48702b685efcdb02299d5b54f66d938b1318e2ac7d8bbe8fe",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-rejected-carries-admitted-roots.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-room-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "0962f04511143e89294a63a13935d091fec41d2e9a1869a629af17795e5f5f35",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-room-substitution.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-unsupported-challenger-kind.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "26a2ec43af0dcda7280d850b2ef476ca7480b6aade4e0c0a4572a73e66f988d3",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-unsupported-challenger-kind.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-hosted-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "45b22fa19cd2a46c8d8a11611d8a330155ddc10841e1132d627a7baee09af8bf",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-hosted-admitted.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-non-room.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "96d4de00cd6f3a676cce2988955a3ce219f3426c6b15698ed35e060294b2ccc8",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-non-room.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-participant-lease-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "e23d912fcc53ecda0f5295cad175bfb376f2fb3b35e09a739ccbc6b75e806c6e",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-participant-lease-substitution.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-rejected-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "e8d43072e9c19f3bb2050c071404d152b05dc07d59767f9cfa25ddcd1c45fc7f",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-rejected-carries-admitted-roots.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-room-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "cce6df48bd32530216f9522d40bb94ecbff2c23b3490b3e26dffe0cd61b41bca",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-room-substitution.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-wrong-task-offer-scheme.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "222b60acc2398537498cec5318c9cf51f30d95ea37f0cf58da59c32d582ac20b",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-wrong-task-offer-scheme.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-active-room-claim.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "472658b7b24a21d440f6073cba463bb9b1906f502d9fd8b7108b2c8c305e9d27",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-active-room-claim.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-direct-bilateral.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "9a14f59c61a88cadc7ebc7f214229f7d59acb46b2b6b7fe6829fb63b3506c1c4",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-direct-bilateral.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-evaluating-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "f2c103567344414bb815f9e74838f36ad338d76ce0002439583c7a88190e9752",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-evaluating-carries-admitted-roots.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-room-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "ab8aaf5d91aad98a154ed8b30b3e9ac783340cff24f48d0b610b47753a6cdd12",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-room-substitution.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/positive-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "9c200ed07a378a0286b47e28262bbf0fd2585fcd6739019b4adb0d7dcaa1c9f1",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/positive-admitted.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-actor-without-admission-lease-lineage.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "bb386e87c8a17c0111b17bf60328b65692b139f49d53140058d31c733b4ecc2f",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-actor-without-admission-lease-lineage.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-array-uncertainty.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "f5419b8bb8b969f4bcd6a3022ea5a21da69bd48bea3bb8f216acef360e486439",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-array-uncertainty.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-evaluating-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "0284a6405668165af6d2d8aadeb7b19332299811418ea44fdef5dacfe01f9835",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-evaluating-carries-admitted-roots.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-over-cardinality.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "9f7dde278a1abf44d2f00ede3bd26bbe3645b236371479b1a15c071548164673",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-over-cardinality.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-room-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "e3c4c2f1ab16ec2e3042146225136d914975cf780ce7b9c5e16d1cc9b94abff3",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-room-substitution.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-direct-non-room.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "227621b38a27248f5eb72af4c46c1ae8ce1c00c38abccb0c91b766b9f5fe2b41",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-direct-non-room.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-hosted-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "38a0544f378c24ee6d68576957c2cf1a622d155ba14aa7f2a8893727acfcfaac",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-hosted-admitted.json is an adversarial or positive fixture admitted with the M4 OutcomeRoom contract set. The active M4 cuts own exercising its current boundary; this digest review changes no predecessor literal and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run-activation-receipt.v1.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "71a21b8a8c6c1cfe1cd1278e14040d0f5b5ae46619afcbee883b8954573c7a32",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/goal-run-activation-receipt.v1.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run-activation.v1.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "2a6591a20a48d7f37b52da57bedb358311fd5d9a8066a382d718f17c79b57d21",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/goal-run-activation.v1.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run-admitted-state.v1.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "787807e53532df53d763745b4db671e8666fdf852232204fc538e4ec43ae61fb",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/goal-run-admitted-state.v1.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run-execution-ceiling.v1.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "2bd4f828ce9fc89df55e717a165a429cb452c4f93fcb3688598ec65668c7614d",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/goal-run-execution-ceiling.v1.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run-profile-resolution-receipt.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "1cc196f3a02f56f00219690063a39709c4354cb1b1e0b337eb31e4e56e9cdb72",
+      "tree_sha256": "e6dbb614ec55b31d2258737f15db9febff4ddf991603d3e9cf10b28d298a64c4",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/goal-run-profile-resolution-receipt.v1.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "d0898f26e8030c55ecd36e9002839d61feed0c4bd701a79d4c535502b7bcbe22",
+      "tree_sha256": "9e9665299ed24e88b1cb0b20b0ec2d29e2e2c7e382338c5d4857764eff7f669d",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/goal-run.v1.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/attempt.v2.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "5819e76ab3a6b8d2a97c664b2c6dacf4cd8fb159bb33fa6230c6f8dce744d415",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/attempt.v2.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/finding.v2.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "a520bf2a7193bdd14f7c0b0783e0785e33e365dc9157b9b18dff2feb6cb08108",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/finding.v2.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/goal-run-activation-receipt.v1.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "f06b1e90820203819f4607f10a65cfab3d9805aaa4f941a43be865bb97fe2ed8",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/goal-run-activation-receipt.v1.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/goal-run-activation.v1.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "eff5eb0a7c2ff3f3e5ec38de19b43d456c0b23a45a8df1758d1bbbb966062d51",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/goal-run-activation.v1.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/goal-run-admitted-state.v1.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "8a796e32808e9e310ca7c0f20dbe27e95f1411a254063dc81a909e6aaa2e6a39",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/goal-run-admitted-state.v1.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/goal-run-execution-ceiling.v1.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "89474ae355211f65edcb5739548fe2f7b8de64b3c607b0ae1fa3a4cc415ead76",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/goal-run-execution-ceiling.v1.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/outcome-delta.v2.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "28245c4c25fa39b0f524e177592ae6d7b1cc254e7faa0dd513bd4bd04a05f332",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/outcome-delta.v2.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/outcome-room.v2.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "2ce9686b76dcd93be8a7a2201dd128da599e640c08663d08a66f841915d1788d",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/outcome-room.v2.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/participant-state-bundle.v2.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "6c37183287fa2af4511b93f68944c5de58c51f4680e0f9399f38a75cc5691dae",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/participant-state-bundle.v2.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/room-admitted-object-base.v2.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "2dcce79cba5cad20938d17debbe5d6022166e1a8d9d20c6d2cc3f5cca0857a91",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/room-admitted-object-base.v2.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/verifier-challenge.v2.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "4cc385c36c1b547083e25d1cd78f04415a381b3929168a22c398fe7f74606a69",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/verifier-challenge.v2.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/work-claim-lease.v2.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "b94aad1f99ee16c821a9c7fac1e0c7245cab107a6edbe06f6fec1f3423b8bd88",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/work-claim-lease.v2.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/work-frontier-item.v2.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "397866aaffa90707d29a64a8674d410072c7303cb84726bc7c9ec7a9963c74ec",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/work-frontier-item.v2.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/work-result.v2.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "dbda80fcf8ec6101f3a546c5ecc84acbd870adf6d1009652093256850a8b6650",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/invariants/work-result.v2.invariants.json machine-binds cross-field invariants for the M4 OutcomeRoom admission set. The two existing M4 cuts own implementation and negative proof at this revision; no other stage is closed and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/outcome-delta.v2.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "94b0c710cf4ce40e5e148e92af4bceaf01acc73aa2e2de8d2ed9dfca93fd4fc1",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/outcome-delta.v2.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/outcome-room-discussion-projection.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "f496732adb514f22d14c1f9ee801b74df9c8d21d4d77588a55b349cc9e99f84c",
+      "tree_sha256": "94d4b5b665c4c37265d72a8c4a365306862635872f78ffb096aeaddb6ae32e2b",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/outcome-room-discussion-projection.v1.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/outcome-room.v2.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "77077cf22d76613524ed55bd00708046a6b7410f4268ad8c12b8daf5542d0044",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/outcome-room.v2.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/participant-state-bundle.v2.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "9b71ed184b268faf729c569ab9543ce4b6ee7c39a5556670588c6a86caa95639",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/participant-state-bundle.v2.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/room-admitted-object-base.v2.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "3e5701016245e202bd7b12fac2512536193cf7b580dfd56a2660a82cbac3340d",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/room-admitted-object-base.v2.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/verifier-challenge.v2.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "7a0d0c19b25d727d0e5cbb9bde15a430c0e2ebda9b753726577cb5e9d341f25c",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/verifier-challenge.v2.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-claim-lease.v2.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "44cb71cfb49a5c0b28a00f12c43b7e3a6c1f9a1aff9c042255208be6dacf8da3",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/work-claim-lease.v2.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-frontier-item.v2.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "2488879ff67ecde34887b999efb01ac5a72da0d3b36a0dfc4b34abea8e45dd99",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/work-frontier-item.v2.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-result.v2.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "903e017cd294878f15b2aad5da9ec090329e152a756cc3ae256e718dfc87d75b",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/_meta/schemas/work-result.v2.schema.json is part of the registered M4 OutcomeRoom readiness contract admission. The existing M4 implementation cut and aggregate cut own its field-depth, conformance, and adversarial proof obligations; this review grants no closure to any referenced stage and requires no additional successor."
+    },
+    {
+      "id": "docs/architecture/components/agentgres/api-object-model.md",
+      "change": "changed",
+      "baseline_sha256": "a79905a481217eef9f8eefd9a4b9d7cb026b7a62183096072824f83422575fd7",
+      "tree_sha256": "c87c997f55170df50d555b40132c0f386aad945db642b2ff2434146e8245c9ef",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/components/agentgres/api-object-model.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/components/agentgres/artifact-ref-plane.md",
+      "change": "changed",
+      "baseline_sha256": "8bdf076fba386f3b62a4fceccf55d9aaed8150a8aff127230d49edb6d5c00b92",
+      "tree_sha256": "19c4f9863fd51a7f8e77561561b7a2a4bafcebf3bbf18d38d8eca9b5f4f0c78e",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/components/agentgres/artifact-ref-plane.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/components/agentgres/doctrine.md",
+      "change": "changed",
+      "baseline_sha256": "4a8b06374f7b0a415eaab12841347c3e7d1e1acde2084dd8be23b4f1f838370b",
+      "tree_sha256": "5985e4485b93bbaebf8ec46d59b179860971087744d802588f24dd0f0323c48c",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/components/agentgres/doctrine.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/components/daemon-runtime/api.md",
+      "change": "changed",
+      "baseline_sha256": "cd4e99e3403d69e23024c350e36afb3709ca408ac27bba6a4971ea411459d31d",
+      "tree_sha256": "ce50d918d10db47c8fa5ea701e30e7d0f9fa84e553186958d252f52cb5f7acaa",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/components/daemon-runtime/api.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+      "change": "changed",
+      "baseline_sha256": "1e318e51a9ce2b9ae5b3323e7d891c6519a204b9b69cec36e0f4d83bf122be98",
+      "tree_sha256": "f4979a1794ea940d890bcdccfef66a67f05d16ba8bb38991331ee19977d3d09e",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "change": "changed",
+      "baseline_sha256": "f65af24abe2b05c2174cfba292c4f21d793aec50e81cb8a6f9688ba490544f4b",
+      "tree_sha256": "7d567da3bcfd38f990db58a5b8d5b5e3c8b1c678cc8bc5245a512bfc207fbe91",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/components/hypervisor/core-clients-surfaces.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+      "change": "changed",
+      "baseline_sha256": "be0450425fd3b243e27ef3d8253b3ef38e2efa3486646be7727a6218afe7726a",
+      "tree_sha256": "9ba2351820b042daa4a0c8dc970c010d9512617e047787bb2b22d9c743a9fee8",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/domains/ioi-ai/control-plane.md",
+      "change": "changed",
+      "baseline_sha256": "f19df1dc772e34311acca6cdaa8b2fe80bf7dbf1efb80c05500664d05e4f7455",
+      "tree_sha256": "efe1b9bc96caef8f7f85a4ebb8b8b8a919c24b3801c043f3c1a26be28d58a7f2",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/domains/ioi-ai/control-plane.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/foundations/governed-autonomous-systems.md",
+      "change": "changed",
+      "baseline_sha256": "172d5522c76a48860c9449c893fc4aea72d8647c8d76ad42aff785b21d1c2746",
+      "tree_sha256": "b937bf0fe9a749565b415a03355769036469aa643c1d77734ede9ee27ec8b47c",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/foundations/governed-autonomous-systems.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "change": "changed",
+      "baseline_sha256": "7ca2e2b3b73f50c6e89db9bb98bcfc794a4fabda782dd1bb42a5723beb844893",
+      "tree_sha256": "b99954611bf629b11584ca212b89c5c60f39b5a0424a4d9982a017690fa14716",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/foundations/objects/collaborative-pursuit.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/foundations/objects/goal-pursuit.md",
+      "change": "changed",
+      "baseline_sha256": "57ee7a8e1349e3a69831bdb9de0549c01b583a356b505cdf942804c40e5383fa",
+      "tree_sha256": "9f7b8ce7791e409e303e4c0a180e8a9d4ad655288037f5056e0382026db26350",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/foundations/objects/goal-pursuit.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/foundations/objects/goal-run-execution.md",
+      "change": "changed",
+      "baseline_sha256": "51bdd6e7c0f2fd5aefad2a1c49f7f9d8d1fba7bcb50f4a6a73ed66b9c7dbcad3",
+      "tree_sha256": "ffa7834eab42dc84b61b4767ef854f21366f593d037c8b1240915e7762c77d60",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/foundations/objects/goal-run-execution.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "change": "changed",
+      "baseline_sha256": "52409562e711e9d763a53f76c4734c0cd6523a85e2fcbb730e4c20b6e8a01a07",
+      "tree_sha256": "d6fdaed81f5611227f21c085cce6794f33cc710a02a66bdba82902433ba01d3a",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/foundations/objects/work-results-and-lifecycle.md was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/architecture/whitepaper.tex",
+      "change": "changed",
+      "baseline_sha256": "6eb35ae20e588140c4b536796b870a6fef8f838ad7fd2ff61d35b0f56068b23d",
+      "tree_sha256": "52497e04b5abf02f2ab933f79ae00500d51092a8049696a9be3037f504a556ab",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/architecture/whitepaper.tex was changed by the M4 OutcomeRoom contract admission to align semantic or program metadata with the registered hosted-room boundary. The existing M4 cuts own the resulting implementation/proof delta; cross-references do not close other stages and no additional successor is required."
+    },
+    {
+      "id": "docs/conformance/hypervisor-core/goal-run-admission-and-activation.md",
+      "change": "changed",
+      "baseline_sha256": "5cb419af92f933369d2b203cf131cfab5967ff6fb8bb6489deff21e7386f252e",
+      "tree_sha256": "9528cc4c138d019eef50aefd53bf69948e5adce7d1f8d629d13339ce851015cb",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/conformance/hypervisor-core/goal-run-admission-and-activation.md records the M4 hosted admission or GoalRun activation conformance boundary. The existing M4 cuts own implementation and exercised refusal proof; referenced future or predecessor stages remain unchanged, so no additional successor is required."
+    },
+    {
+      "id": "docs/conformance/hypervisor-core/outcome-room-admission.md",
+      "change": "changed",
+      "baseline_sha256": "bb54ebb7d96a843670b4cb2d5d535863ac7af194528436049499f6cf1350880e",
+      "tree_sha256": "2e55beb3b27f280965e0e3ab0d1205f7341eae541210e4b80c12c0bf99c9b3e0",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/conformance/hypervisor-core/outcome-room-admission.md records the M4 hosted admission or GoalRun activation conformance boundary. The existing M4 cuts own implementation and exercised refusal proof; referenced future or predecessor stages remain unchanged, so no additional successor is required."
+    },
+    {
+      "id": "docs/conformance/README.md",
+      "change": "changed",
+      "baseline_sha256": "58d1dd0d4bee795712c63dfe45727f35d3a2f3613c9e7d218dfd55b4a39e5447",
+      "tree_sha256": "c9c68e0d425d78a51b0ffbbcbad41d3d11ab220c232f14cf63e2f136af42710e",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/conformance/README.md records the M4 hosted admission or GoalRun activation conformance boundary. The existing M4 cuts own implementation and exercised refusal proof; referenced future or predecessor stages remain unchanged, so no additional successor is required."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+      "change": "changed",
+      "baseline_sha256": "66dd5871791c8c637c64545dec9f6cbea6b80df88bedb8bafad4f8c9d1a0a6eb",
+      "tree_sha256": "66c953099098fec0ba8bd4473d946c73ed61105898ccbaaf1cd6c258991fea86",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/evidence/m0-program-control/blocker-ledger.json was regenerated as a program-control projection after the M4 contract admission. M4 accepts this exact digest without re-stamping historical proof; the pre-existing M0 staleness and required re-derivation are already assigned to m0-authority-admission-census-epoch-successor in M9, so no additional successor is introduced here."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/current-baselines.json",
+      "change": "changed",
+      "baseline_sha256": "944ca6e410a72a044d6fee5d6c9b65625499bdca2f1b8d70c8acf4120b9f4740",
+      "tree_sha256": "b2dfc334e2a29c9ff79286746010a6d3afe60ebb8a64dccc1be60d8e379250bb",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/evidence/m0-program-control/current-baselines.json was regenerated as a program-control projection after the M4 contract admission. M4 accepts this exact digest without re-stamping historical proof; the pre-existing M0 staleness and required re-derivation are already assigned to m0-authority-admission-census-epoch-successor in M9, so no additional successor is introduced here."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/effect-census.json",
+      "change": "changed",
+      "baseline_sha256": "d1264e86038bcf1f516c7d46687b7667a593c2449236b45a013bb9ad0b660393",
+      "tree_sha256": "cc0d6386058c41559c11ba49a51e4b9b5a0167f5bdd545343bc27126cf25b95b",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/evidence/m0-program-control/effect-census.json was regenerated as a program-control projection after the M4 contract admission. M4 accepts this exact digest without re-stamping historical proof; the pre-existing M0 staleness and required re-derivation are already assigned to m0-authority-admission-census-epoch-successor in M9, so no additional successor is introduced here."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+      "change": "changed",
+      "baseline_sha256": "a3cd9113bfa4e6b60244bc85f109e7974de7d519b995e391ac2bd9d26704b32b",
+      "tree_sha256": "de8b59f569d3994adc37e881282efd34110183fc97fa23e1d377f29df24e789a",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/evidence/m0-program-control/m0-exit-report.json was regenerated as a program-control projection after the M4 contract admission. M4 accepts this exact digest without re-stamping historical proof; the pre-existing M0 staleness and required re-derivation are already assigned to m0-authority-admission-census-epoch-successor in M9, so no additional successor is introduced here."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/manifest.json",
+      "change": "changed",
+      "baseline_sha256": "08b84bf0e1ae826d434ac10185cfe783d2ad9957de761c01b31fffa79f5789f6",
+      "tree_sha256": "237876d48040b552a7a6a4b84584a38a4f7f69caec4da64d3a1848e6c0d18edc",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/evidence/m0-program-control/manifest.json was regenerated as a program-control projection after the M4 contract admission. M4 accepts this exact digest without re-stamping historical proof; the pre-existing M0 staleness and required re-derivation are already assigned to m0-authority-admission-census-epoch-successor in M9, so no additional successor is introduced here."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+      "change": "changed",
+      "baseline_sha256": "f1043411c47c577207a4c07bd2d0cf73eff46679b1f252510de39e9ef4055f65",
+      "tree_sha256": "77d03fc79e6ae6b7b08b71fe311b174abc578411ba33ade6aa4162fe74c7eb87",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/evidence/m0-program-control/pg-gate-map.json was regenerated as a program-control projection after the M4 contract admission. M4 accepts this exact digest without re-stamping historical proof; the pre-existing M0 staleness and required re-derivation are already assigned to m0-authority-admission-census-epoch-successor in M9, so no additional successor is introduced here."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/program-control-source.json",
+      "change": "changed",
+      "baseline_sha256": "46c907c1c184bd8bbe443715c610aa73450f3a5d1c02c6e132ca6cbe6526b213",
+      "tree_sha256": "e19d00201a25d54261e169869a2630c704b038e173356d2178dfe4554102e3b0",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/evidence/m0-program-control/program-control-source.json was regenerated as a program-control projection after the M4 contract admission. M4 accepts this exact digest without re-stamping historical proof; the pre-existing M0 staleness and required re-derivation are already assigned to m0-authority-admission-census-epoch-successor in M9, so no additional successor is introduced here."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+      "change": "changed",
+      "baseline_sha256": "32783241ec70c280af1c351a31e514dbcbe9e592921330ae506983255322ea6e",
+      "tree_sha256": "3cf4661cadfa225cc91e4e599ceeb796d7919e2834417c5d4a25cfc4c0fed747",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/evidence/m0-program-control/program-evidence-index.json was regenerated as a program-control projection after the M4 contract admission. M4 accepts this exact digest without re-stamping historical proof; the pre-existing M0 staleness and required re-derivation are already assigned to m0-authority-admission-census-epoch-successor in M9, so no additional successor is introduced here."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/release-ladder.json",
+      "change": "changed",
+      "baseline_sha256": "0632cd7b558a788a685bfb7084325c311c11a2a237d7a47ed65547140727e969",
+      "tree_sha256": "43b642cc10d91ea81e3af96f4df298e7e8b2796a9e4de9d841df86a75575cc2c",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/evidence/m0-program-control/release-ladder.json was regenerated as a program-control projection after the M4 contract admission. M4 accepts this exact digest without re-stamping historical proof; the pre-existing M0 staleness and required re-derivation are already assigned to m0-authority-admission-census-epoch-successor in M9, so no additional successor is introduced here."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+      "change": "changed",
+      "baseline_sha256": "ba89ad822abeb96bbffc8646f2fd26f46abed0162e4006f67c37ddf4a78e2831",
+      "tree_sha256": "182c250d2b4eaccba4b54c1cadb01e2d6c325c12618befe17a014c1ef6cf83bb",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/evidence/m0-program-control/review-epoch-anchor.json was regenerated as a program-control projection after the M4 contract admission. M4 accepts this exact digest without re-stamping historical proof; the pre-existing M0 staleness and required re-derivation are already assigned to m0-authority-admission-census-epoch-successor in M9, so no additional successor is introduced here."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
+      "change": "changed",
+      "baseline_sha256": "ba01002a614224cdf00612f94d1d52dff34d328244d111da8e447c63361a3b8f",
+      "tree_sha256": "47f2e35e801226a520c014f7932ef48c9e713a5144d130d140e970da0759ee18",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/evidence/m0-program-control/reviewed-entry-lock.json was regenerated as a program-control projection after the M4 contract admission. M4 accepts this exact digest without re-stamping historical proof; the pre-existing M0 staleness and required re-derivation are already assigned to m0-authority-admission-census-epoch-successor in M9, so no additional successor is introduced here."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/selected-profile.json",
+      "change": "changed",
+      "baseline_sha256": "b47c440fd56ddc97167bb2a8f4c2a398ddb965eeffa0f01c31ca1eade3756340",
+      "tree_sha256": "e9a6fd1695f059837c7b2c4f861b9baa536bdac6f4a8b215f2ae1016cdae14ef",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: docs/evidence/m0-program-control/selected-profile.json was regenerated as a program-control projection after the M4 contract admission. M4 accepts this exact digest without re-stamping historical proof; the pre-existing M0 staleness and required re-derivation are already assigned to m0-authority-admission-census-epoch-successor in M9, so no additional successor is introduced here."
+    }
+  ]
+}

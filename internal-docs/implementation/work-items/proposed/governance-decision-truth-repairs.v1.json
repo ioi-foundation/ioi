@@ -1,0 +1,193 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "governance-decision-truth-repairs",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Repair two confirmed live defects on the governance decision plane: unbound reviewer attribution, and discarded durable writes reported as success."
+  ],
+  "status": "proposed",
+  "objective": "Repair two confirmed live defects on the governance decision plane. (a) Approval and marketplace-admission decision routes copy a caller-supplied reviewer reference verbatim into the durable record and into the durable receipt with no principal derivation, no registry lookup, and no type check; derive it server-side from the authenticated principal and refuse the transition when none resolves, and until that identity plane exists rename the field to an honest attribution-claim name in record, receipt, and UI. (b) The durable-write result is discarded on twelve paths in the governance handler and two in marketplace admission, each of which still returns success; every durable write must be checked before any success is reported, and the receipt-construction comment that asserts a property the code violates must become true or be removed. GOVERNANCE_DECISION_TRUTH_REPAIRS_EXIT=0.",
+  "falsifiable_claim": "A governance receipt records who decided, and a governance create or patch that returns success has durably persisted. Neither holds: any client that can reach the decision route writes an arbitrary reviewer attribution — including another person's identifier, or a non-string value — into a durable governance record and receipt, and a failed durable write is reported to the caller as a successful create on fourteen paths, one of them a kill-switch enforce receipt.",
+  "selected_profile": "The selected single-node deployment whose operators review, approve, reject, revoke, enforce, and export governance decisions through the daemon's governance and marketplace-admission routes.",
+  "canon_owners": [
+    "docs/architecture/foundations/objects/evidence-and-delivery.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md",
+    "docs/architecture/foundations/verifiable-bounded-agency.md",
+    "docs/architecture/components/hypervisor/identity-access-and-metering.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "c2dd57050c543f22f14b006b502df57415713c27",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "394972829e96af958511f823798a20271757debd20db93120d00c9ffd9011582",
+    "owners": [
+      {
+        "path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+        "sha256": "fc222a6a52751c148ea82498e19a7d2a98e6c96cbd57bfce308efc1703454bd3"
+      },
+      {
+        "path": "docs/architecture/foundations/governed-autonomous-systems.md",
+        "sha256": "172d5522c76a48860c9449c893fc4aea72d8647c8d76ad42aff785b21d1c2746"
+      },
+      {
+        "path": "docs/architecture/foundations/verifiable-bounded-agency.md",
+        "sha256": "51a657cb3c0547598dc1dafc97341c10bbad45478bcc0da511a3184939ee8ce7"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/identity-access-and-metering.md",
+        "sha256": "2f5d11705494ec21b97449a95a91e5141bcf2773e028e4b443a82a22c5d52fc1"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "7d567da3bcfd38f990db58a5b8d5b5e3c8b1c678cc8bc5245a512bfc207fbe91"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "ReceiptEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#receiptenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-envelope/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-envelope.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "LifecycleTransition",
+      "owner_path": "docs/architecture/foundations/objects/bounded-system-genesis.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#lifecycletransitionenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/lifecycle-transition/v1"
+      ],
+      "schema_versions": [
+        "ioi.lifecycle-transition.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:governance-decision-truth-repairs",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/governance-decision-truth-repairs.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "product-truth-verification:2026-07-28-leg0-v1",
+      "artifact_class": "private_noncanonical_defect_baseline_verification",
+      "path": "internal-docs/prompts/architecture-relative-comparison/runs/2026-07-28-leg0-v1-product-truth-verification.md",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:GOVERNANCE_DECISION_TRUTH_REPAIRS_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": null,
+  "dependency_work_item_ids": [
+    "m3-authorized-issuer-and-atomic-authority-consumption"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "Defect (a), reviewer attribution. crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs:718 hands the raw request-body field to the transition builder; :644 writes it into the durable receipt as reviewer_ref.cloned().unwrap_or(Value::Null); :652-654 writes it into the durable record. The non-transition lane repeats the copy inside a blind allowlist loop at :740-751. Marketplace admission review duplicates the pattern at crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs:861 and :905-909. There is no principal derivation, no registry lookup, and no type check — .cloned() on a &Value admits an object, array, number, or boolean into a governance receipt. The same file already validates subject_ref through a resolver a few lines earlier at governance_routes.rs:578-581 and refuses on failure; reviewer_ref gets no equivalent. The route carries no auth extractor: crates/node/src/bin/hypervisor-daemon.rs:1880-1885 registers the PATCH with none, and handle_approval_patch at governance_routes.rs:702-706 takes only State, Path, and Json(body).",
+    "Defect (a), fix direction. Derive the reviewer server-side from the request's authenticated principal — the daemon already computes deployment auth posture from inbound headers via the forwarded-auth machinery at governance_routes.rs:34-41 — and refuse the transition when no principal resolves. Until that identity plane exists, rename the field to a name that cannot be misread as bound identity (an attribution claim, not a reviewer reference) in the durable record, the receipt, and every product surface that renders it, and constrain it to a string.",
+    "Defect (b), discarded durable writes. persist_record returns a Result and is used correctly in the transition lane at governance_routes.rs:691 with .map_err(...). It is discarded on twelve other write paths in the same file — :600, :753, :838, :908, :1010, :1062, :1102, :1157, :1236, :1250, :1293, :1335 — each followed by an ok:true response, and :1236 is a kill-switch enforce receipt. Marketplace admission repeats it at marketplace_routes.rs:867 and :911. Check every durable write before reporting any outcome; the correct pattern already exists in finalize_approval_transition at governance_routes.rs:683-700, which is what makes this a defect rather than a design choice.",
+    "Defect (b), the contradicted invariant. The doc comment at governance_routes.rs:612-616 states the receipt carries only record-derived fields plus the transition and never request headers, cookies, tokens, or arbitrary form data, while :644 inside that very function places caller-supplied request-body JSON into the receipt. Make the code satisfy the comment, or delete the comment; a stated invariant that the code beneath it violates is itself a product-truth defect.",
+    "Retain the honest refusal path in both repairs: no resolvable principal refuses the transition rather than recording an unbound claim, and a failed durable write refuses rather than returning a fabricated success."
+  ],
+  "out_of_scope": [
+    "Building the identity plane itself. This cut derives from whatever authenticated principal the deployment already establishes and refuses when there is none; it does not invent an identity provider, a principal registry, or an authority path.",
+    "Approval semantics, decision policy, quorum, or delegation. Recording who decided is not deciding, and this cut changes no governance outcome.",
+    "Any widening of what a governance receipt asserts. A receipt evidences that a transition happened and what it changed; it never becomes evidence that a decision was correct or that an approval was justified.",
+    "The remaining discarded-Result sites elsewhere in the daemon that this record does not enumerate; they are a separate obligation and are not silently claimed by this cut."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [
+    "Governance approval transition: authenticated-principal-derived reviewer attribution, durable governance record finalizer, and durable decision receipt finalizer.",
+    "Marketplace admission review: authenticated-principal-derived reviewer attribution, durable admission record finalizer, and its receipt finalizer.",
+    "All enumerated create, patch, kill-switch, and receipt writes: persist-and-read-back finalizer; no successful response precedes confirmed durability."
+  ],
+  "applicable_pg_ids": [
+    "PG-2.1",
+    "PG-2.2",
+    "PG-2.3",
+    "PG-2.4"
+  ],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "A decision transition records an attribution derived server-side from the authenticated principal, or refuses; and every create, patch, and receipt path reports success only after its durable write is confirmed, with the retained record readable back at the reported identity."
+  ],
+  "adversarial_or_fault_proof": [
+    "Predeclared branches, each of which must refuse by name: a request supplying a reviewer reference for a principal other than the authenticated one; a request supplying an object, array, number, or boolean where a reviewer attribution is expected; a request with no resolvable principal at all; the non-transition allowlist lane used to write the field the transition lane now derives; the same substitution attempted through marketplace admission review; a durable write that fails, on each of the fourteen enumerated paths, including the kill-switch enforce receipt path; a durable write that succeeds partially and is read back as a different record; a receipt constructed with any caller-supplied body field while the stated receipt invariant remains in place.",
+    "The live defect this cut repairs is retained as its baseline, verified in code at commit 106e2ac797d0949fa463a27680a6255745ea730b and recorded at internal-docs/prompts/architecture-relative-comparison/runs/2026-07-28-leg0-v1-product-truth-verification.md: any client that can reach the decision route writes an arbitrary reviewer attribution into a durable governance receipt, and fourteen write paths report success over a discarded persistence result."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "GOVERNANCE_DECISION_TRUTH_REPAIRS_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/governance-decision-truth-repairs.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the approval decision routes this cut repairs (:578-581 the resolver that exists, :612-616 the contradicted receipt comment, :644 and :652-654 the verbatim copy, :683-700 the correct persistence pattern, :691 the one checked write, :702-706 the extractor-free handler, :718 the raw hand-off, :740-751 the blind allowlist lane, and the twelve discarded writes at :600, :753, :838, :908, :1010, :1062, :1102, :1157, :1236, :1250, :1293, :1335); current behavior is the defect baseline, not proof of this work item"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the duplicated admission-review pattern (:861 verbatim copy, :905-909 allowlist lane, :867 and :911 discarded writes); current behavior is the defect baseline, not proof of this work item"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor-daemon.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the route registration at :1880-1885 that carries no auth or principal extractor; precedent and defect baseline, not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "A repaired receipt evidences that the transition happened, what it changed, and which authenticated principal the deployment resolved. It never proves the decision was correct, nor that the principal was authorized beyond what the deployment's own auth posture establishes.",
+    "Renaming the field to an honest attribution-claim name is a truth repair, not an identity plane. Until server-side derivation lands, the record is explicit that the value is a claim and not bound identity.",
+    "Confirming a durable write proves the write returned success at the storage boundary. It is not a durability, replication, or crash-consistency claim.",
+    "This cut enumerates fourteen discarded-write paths in two files. It makes no claim about discarded results anywhere else in the tree."
+  ],
+  "rollback_or_stop_rule": "Stop if the deployment cannot resolve an authenticated principal for the decision route at all: in that case the honest outcome is the rename plus a refusal path, not a derived value synthesized from headers the deployment does not actually authenticate. Never close this cut by making the receipt comment weaker while leaving caller-supplied data in the receipt, and never close the persistence half by removing the ok:true instead of checking the write.",
+  "exit_criteria": [
+    "Every reviewer attribution in a durable governance record or receipt is either derived server-side from an authenticated principal or is named as an unbound attribution claim and type-constrained; no decision route accepts a non-string or foreign-principal value.",
+    "All fourteen enumerated write paths check their durable write before reporting an outcome, the receipt-construction comment and the code beneath it agree, every predeclared adversarial branch refuses by name, and the retained literal GOVERNANCE_DECISION_TRUTH_REPAIRS_EXIT=0 appears exactly once."
+  ],
+  "pr": null,
+  "source_provenance": "Authored 2026-07-29 from a read-only product-truth verification pass that confirmed both defects in code before any record was written; every file:line cited here was re-verified at commit 106e2ac797d0949fa463a27680a6255745ea730b. The verification artifact is retained at internal-docs/prompts/architecture-relative-comparison/runs/2026-07-28-leg0-v1-product-truth-verification.md and is non-canonical: it supplies the defect baseline and is never cited as authority.",
+  "last_status_transaction": "2026-07-29"
+}

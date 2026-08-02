@@ -1,7 +1,7 @@
 {
   "schema_version": "ioi.scm-publication-effect.v2",
   "publication_effect_id": "scm-publication-effect://ioi/hypervisor/eff-recovered-convergence",
-  "publication_effect_hash": "sha256:9acd0c147c13b2f104c6ae341b6e95ad8a0f93046c637f870e2350a36e4a7981",
+  "publication_effect_hash": "sha256:162494996e0484a509f57361b831bf77ddadd836f5408498bf22354ad16d34b1",
   "execution_semantics": "at_most_once_execution_plus_reconciliation",
   "operation": {
     "operation_ref": "scm-publication-operation://ioi/hypervisor/op-0007",
@@ -64,7 +64,7 @@
     "prepared_persistence_evidence_ref": "receipt://ioi/hypervisor/prepared-persist-0007"
   },
   "attempt": {
-    "attempt_ref": "scm-publication-attempt://ioi/hypervisor/att-0007-2",
+    "publication_attempt_ref": "scm-publication-attempt://ioi/hypervisor/att-0007-2",
     "attempt_number": 2,
     "cas": {
       "mechanism": "expected_head_compare_and_swap",

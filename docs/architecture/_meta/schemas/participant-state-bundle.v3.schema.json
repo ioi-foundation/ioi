@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
+  "title": "ParticipantStateBundle",
+  "x-ioi-schema-version": "ioi.applications.ioi-ai.participant-state-bundle.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "participant_state_bundle_id",
+    "outcome_room_ref",
+    "system_binding",
+    "participant_lease_ref",
+    "participant_and_home_domain_refs",
+    "coordination_topology",
+    "bundle_reason",
+    "source_admission_watermark_ref",
+    "released_or_reassigned_claim_refs",
+    "preserved_contribution_attempt_finding_and_result_refs",
+    "preserved_receipt_acceptance_settlement_and_dispute_refs",
+    "portable_artifact_and_view_refs",
+    "lineage_and_supersession_refs",
+    "export_license_retention_and_recall_policy_refs",
+    "excluded_context_classes",
+    "released_future_access_refs",
+    "revocation_or_supersession_refs",
+    "revocation_effect",
+    "bundle_artifact_ref",
+    "bundle_root",
+    "room_database_access_required",
+    "issued_at",
+    "signature",
+    "status"
+  ],
+  "$defs": {
+    "systemBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "system_id",
+        "parent_scope_ref",
+        "proposed_or_issued_by_ref",
+        "payload_root",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
+        },
+        "system_id": {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,500}$"
+        },
+        "parent_scope_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "proposed_or_issued_by_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "payload_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "ioi.applications.ioi-ai.participant-state-bundle.v3"
+    },
+    "participant_state_bundle_id": {
+      "type": "string",
+      "pattern": "^participant-state://[^\\s]{1,500}$"
+    },
+    "outcome_room_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "system_binding": {
+      "$ref": "#/$defs/systemBinding"
+    },
+    "participant_lease_ref": {
+      "type": "string",
+      "pattern": "^participant-lease://[^\\s]{1,500}$"
+    },
+    "participant_and_home_domain_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:worker|service|org|domain|system)://[^\\s]{1,500}$"
+      }
+    },
+    "coordination_topology": {
+      "enum": [
+        "hosted_admission",
+        "federated_admission"
+      ]
+    },
+    "bundle_reason": {
+      "enum": [
+        "checkpoint",
+        "voluntary_retirement",
+        "lease_expiry",
+        "revocation",
+        "quarantine",
+        "room_close"
+      ]
+    },
+    "source_admission_watermark_ref": {
+      "type": "string",
+      "pattern": "^(?:(?:receipt|agentgres)://[^\\s]{1,500}|sha256:[0-9a-f]{64})$"
+    },
+    "released_or_reassigned_claim_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:work-claim|decision|receipt)://[^\\s]{1,500}$"
+      }
+    },
+    "preserved_contribution_attempt_finding_and_result_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$"
+      }
+    },
+    "preserved_receipt_acceptance_settlement_and_dispute_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:receipt|acceptance|settlement-intent|dispute|decision)://[^\\s]{1,500}$"
+      }
+    },
+    "portable_artifact_and_view_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:artifact|restricted-view|redacted-summary|evidence|replay)://[^\\s]{1,500}$"
+      }
+    },
+    "lineage_and_supersession_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:contribution|attempt|finding|work-result)://[^\\s]{1,500}$"
+      }
+    },
+    "export_license_retention_and_recall_policy_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:policy|license|revocation)://[^\\s]{1,500}$"
+      }
+    },
+    "excluded_context_classes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "raw_secret",
+          "protected_plaintext",
+          "unauthorized_connector_payload",
+          "unrelated_private_memory",
+          "private_room_database_state",
+          "revoked_restricted_view",
+          "non_opted_in_training_trace"
+        ]
+      }
+    },
+    "released_future_access_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:revocation|context-lease|grant|receipt)://[^\\s]{1,500}$"
+      }
+    },
+    "revocation_or_supersession_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:revocation|participant-state|decision|receipt)://[^\\s]{1,500}$"
+      }
+    },
+    "revocation_effect": {
+      "enum": [
+        "none",
+        "future_access_only",
+        "restricted_view_keys_revoked",
+        "erroneous_export_superseded"
+      ]
+    },
+    "bundle_artifact_ref": {
+      "type": "string",
+      "pattern": "^(?:(?:artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"
+    },
+    "bundle_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "room_database_access_required": {
+      "const": false
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16000
+    },
+    "status": {
+      "enum": [
+        "prepared",
+        "exported",
+        "acknowledged",
+        "superseded",
+        "revoked"
+      ]
+    }
+  }
+}

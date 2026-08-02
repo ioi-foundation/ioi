@@ -73,6 +73,7 @@ const SYSTEM_ACTIVATE_SCOPE: &str = "scope:autonomous_system.lifecycle.activate"
 const SYSTEM_AMENDMENT_SCOPE: &str = "scope:autonomous_system.lifecycle.amend_constitution";
 const SYSTEM_AMENDMENT_APPROVAL_SCOPE: &str =
     "scope:autonomous_system.governance.approve_constitution_amendment";
+const GOAL_RUN_CREATE_SCOPE: &str = "scope:goal.run.create";
 const SYSTEM_GENESIS_APPROVAL_REASON: &str = "System genesis admission fixture approval";
 const SYSTEM_SEQUENCE_ZERO_APPROVAL_REASON: &str =
     "System sequence-zero materialization fixture approval";
@@ -87,6 +88,7 @@ const NAMED_CONTINUITY_APPROVAL_REASON: &str =
     "System named continuity transition fixture approval";
 const LIVE_ROUTE_APPROVAL_REASON: &str = "Hypervisor live-route authority fixture approval";
 const APPLICATION_GOVERNANCE_APPROVAL_REASON: &str = "Application governed-effect fixture approval";
+const GOAL_RUN_CREATE_APPROVAL_REASON: &str = "GoalRun creation fixture approval";
 const UNKNOWN_GOVERNED_SCOPE_ERROR: &str =
     "record_approval target_scope is not one of the fixture's recognized governed scopes";
 const APPLICATION_GOVERNANCE_SCOPE_PREFIXES: [&str; 9] = [
@@ -286,6 +288,7 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
             SYSTEM_ACTIVATE_SCOPE.to_string(),
             SYSTEM_AMENDMENT_SCOPE.to_string(),
             SYSTEM_AMENDMENT_APPROVAL_SCOPE.to_string(),
+            GOAL_RUN_CREATE_SCOPE.to_string(),
         ]
         .into_iter()
         .chain(
@@ -697,6 +700,7 @@ async fn submit_record_approval(
         SYSTEM_ACTIVATE_SCOPE => SYSTEM_ACTIVATE_APPROVAL_REASON,
         SYSTEM_AMENDMENT_SCOPE => SYSTEM_AMENDMENT_APPROVAL_REASON,
         SYSTEM_AMENDMENT_APPROVAL_SCOPE => SYSTEM_AMENDMENT_GOVERNANCE_APPROVAL_REASON,
+        GOAL_RUN_CREATE_SCOPE => GOAL_RUN_CREATE_APPROVAL_REASON,
         scope if protected_transition_scope(scope) => PROTECTED_TRANSITION_APPROVAL_REASON,
         scope if named_continuity_scope(scope) => NAMED_CONTINUITY_APPROVAL_REASON,
         scope if live_route_scope(scope) => LIVE_ROUTE_APPROVAL_REASON,
@@ -1104,6 +1108,10 @@ fn fixture_command_contract_is_canonical_and_bounded() {
         .scope_allowlist
         .iter()
         .any(|scope| scope == SYSTEM_ACTIVATE_SCOPE));
+    assert!(host
+        .scope_allowlist
+        .iter()
+        .any(|scope| scope == GOAL_RUN_CREATE_SCOPE));
 }
 
 #[tokio::test]

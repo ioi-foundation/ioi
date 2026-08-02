@@ -1,0 +1,20 @@
+{
+  "schema_version": "ioi.program.pre-correction-review-archive.v1",
+  "document_class": "archive",
+  "schedules_work": false,
+  "carries_status": false,
+  "entries": [
+    {
+      "source_path": "audits/reconciliation/2026-07-22-delegated-self-review.md",
+      "preserved_body_path": "_archive/pre-correction-reviews/2026-07-22-delegated-self-review.md.pre-correction",
+      "sha256": "0f65f6616b64d8e4d3b978c5786bf2172cd1511b0ec54d69bf58bbfc4613dd56"
+    },
+    {
+      "source_path": "audits/reconciliation/2026-07-22-implementation-directory-unification-execution-report.md",
+      "preserved_body_path": "_archive/pre-correction-reviews/2026-07-22-implementation-directory-unification-execution-report.md.pre-correction",
+      "sha256": "500210faf98b95b824534e29948201923df3afe62b3fa262deb4e613925749e2"
+    }
+  ],
+  "reason": "The earlier report and delegated review were preserved byte-for-byte before correcting their disproven tracked-verifier premise and rerunning the full private acceptance review.",
+  "nonclaim": "These inert historical bytes own no current result, status, sequence, or product claim."
+}

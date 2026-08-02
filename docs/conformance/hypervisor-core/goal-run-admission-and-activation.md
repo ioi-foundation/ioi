@@ -1,9 +1,13 @@
 # GoalRun Admission And Activation Conformance Contract
 
-Status: target conformance contract. No current admission evaluator, activation
-route, or crossing receipt exists; the current runtime enforces a narrower
-admission subset whose preconditions are partly satisfied by route-supplied
-constants, which this contract exists to forbid.
+Status: `active_invariant` for the selected M4 `create` +
+`ioi_goal_draft` slice only. Registered activation, admitted-state,
+execution-ceiling, and activation-receipt schemas, adversarial fixtures,
+generated projections, daemon owner paths, and a count-pinned 44-assertion
+fresh-process verifier make violations fail an executable gate. `join_existing`,
+every other source kind, and the broader unified-admission cases remain target
+behavior. This document does not own retained stage evidence, M4 status, or
+product and release claims.
 Canonical inputs:
 [`../../architecture/foundations/objects/goal-run-execution.md`](../../architecture/foundations/objects/goal-run-execution.md)
 (the orchestration application's admission contract and `GoalRunEnvelope`
@@ -16,7 +20,7 @@ admission bindings; placement per ADR 0022),
 (`ReceiptObligation`),
 [`../../architecture/foundations/invariants.md`](../../architecture/foundations/invariants.md)
 (INV-8, INV-12, INV-16, INV-17, INV-37).
-Last audited: 2026-07-25.
+Last audited: 2026-07-30.
 
 ## Scope and honest implementation posture
 
@@ -30,12 +34,45 @@ This contract tests one end-to-end proposition:
 > pointer field, origin tag, subscription, facilitator selection, untyped
 > `activation_evidence` payload, or route-supplied constants.
 
-Honest posture: current master admits GoalRuns through
-`runtime_goal_run_admission.rs` with a boolean receipt flag, a prefix-checked
-state-root string the durable record drops, session verification performed
-only in the route, and admission-core checks whose inputs the route itself
-writes. None of the cases below passes today, and no product surface may claim
-this profile.
+Honest posture: the M4 activation path is judged by these cases, not by route
+presence or schema acceptance. A green fresh isolated run proves the applicable
+evaluator, retained state, typed obligations, idempotency, authority,
+receipt-profile conformance, access control, and recovery behavior together for
+this one lane. Only the implementation-program owner may retain that result or
+use it in an M4 status decision. No broader admission or product-surface claim
+follows.
+
+## Active selected M4 slice
+
+The isolated runner
+`apps/hypervisor/scripts/verify-m4-goalrun-activation-plane.mjs` is intentionally
+narrow. It exercises `activation_mode: create` from
+`source_kind: ioi_goal_draft` under the daemon-resolved source owner, the
+immutable built-in research profile, and an independently resolved and consumed
+wallet authority grant for the exact reviewed activation. Its positive path
+retains a non-granting draft before goal identity, requires explicit review over
+the exact draft hash, obtains current wallet admission for
+`scope:goal.run.create`, admits one GoalRun, binds the activation, authority
+admission, state root, lifecycle head, profile closure, and three receipt
+classes, then reconstructs those bytes after restart.
+
+The same runner refuses caller profile injection, changed content under a reused
+idempotency key, missing approval, stale reviewed bytes, durable source
+substitution, daemon-resolved authority substitution, absent or expired wallet
+authority, malformed or duplicate GoalRun registry truth, cross-owner
+projection/lifecycle access, cross-owner result/delta mutation, and exposed
+anonymous read/mutation. It also injects durability uncertainty at the GoalRun
+write, refuses the uncertain success, and requires fresh-process recovery to
+converge on the same identity. A green fresh run is implementation proof for
+this slice; it is not a retained M4 literal or stage transition.
+
+This slice does not implement or prove `join_existing`,
+`hypervisor_session`, `work_run`, `work_item`, `outcome_room_claim`,
+`automation_workflow_step`, or `gateway_adapter_context`. It also does not by
+itself close GRA-1 through GRA-4 for every GoalRun admission source or establish
+a shipped conversation surface. The activation-created GoalRun is durable
+admitted identity/state/receipt truth; it does not provision a Session and is
+not independently runnable through `/start` in this slice.
 
 ## Cases
 
@@ -87,10 +124,14 @@ never skipped or passed.
 
 ## Open live gates
 
-- No admission evaluator or `goal-run-admission` conformance tier exists.
-- `GoalRunActivationEnvelope` has no registered schema, route family, store,
-  or receipt type.
-- The activation receipt type is unregistered in the receipt registry.
-- The current GoalRun record neither retains a state root nor carries typed
-  receipt obligations; the delta is recorded in
+- This active invariant is not a general `goal-run-admission` conformance tier;
+  it covers only the create-mode ioi.ai-draft source lane.
+- The broader GoalRun admission path does not yet freeze every GRA-1 through
+  GRA-4 profile-resolution and typed-`ReceiptObligation` requirement across all
+  sources; that delta remains recorded in
   [`../../architecture/_meta/canon-to-code-delta.md`](../../architecture/_meta/canon-to-code-delta.md).
+- `join_existing` and all six non-`ioi_goal_draft` source kinds remain
+  unimplemented and unproven.
+- No M4-stage, product-release, or conversation-surface claim follows from this
+  focused verifier alone; those claims require their own retained evidence and
+  owning gates.

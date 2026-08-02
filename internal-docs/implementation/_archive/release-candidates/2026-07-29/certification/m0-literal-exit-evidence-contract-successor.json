@@ -1,0 +1,13 @@
+{
+  "literal_exit": {
+    "expected": "M0_LITERAL_EXIT_EVIDENCE_CONTRACT_SUCCESSOR_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M9/m0-literal-exit-evidence-contract-successor.exit.v1.txt",
+    "artifact_sha256": "2bd64d2df7f98d4bc8ff24fcf1e456df446994521308fe789b163c30a33b577c"
+  },
+  "adversarial_or_fault_proof": [
+    "The shared validator rejects the exact withdrawn prose artifact that the former gate accepted, rejects missing and mismatched historical dispositions, and proves a conforming machine log still passes so fail-closed cannot mean refuse-all."
+  ],
+  "positive_proof": [
+    "transition.mjs and check-literal-exit-contract.mjs consume the same validator and the seven historical failures are individually content-bound to their corrective successors."
+  ]
+}

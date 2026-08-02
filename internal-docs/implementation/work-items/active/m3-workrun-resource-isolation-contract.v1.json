@@ -1,0 +1,118 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m3-workrun-resource-isolation-contract",
+  "stage_id": "M3",
+  "record_role": "implementation_cut",
+  "status": "verified",
+  "objective": "Propagate compiled workload-isolation requirements and one immutable runtime binding through WorkRun admission, replay, cancellation, replacement, and terminal state without claiming containment from object presence; M3_WORKRUN_RESOURCE_ISOLATION_CONTRACT_EXIT=0.",
+  "falsifiable_claim": "A worker can weaken, replace, omit, or lose the admitted isolation binding across a WorkRun lifecycle.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
+    "docs/architecture/foundations/objects/work-execution.md",
+    "docs/decisions/0027-require-workload-bound-isolation-for-autonomous-execution.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "b37afaeff2b76d9c11cb5d0f60457caae6708f6a4532359aee9cbd454ccd4c22",
+    "owners": [
+      {
+        "path": "docs/architecture/components/hypervisor/providers-and-environments.md",
+        "sha256": "cf2f1f6fb8cca834864f50ed3e69b7a6e4376f358bd74dafceacfd2eabbbdad5"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/work-execution.md",
+        "sha256": "a95e976006d66a2a2dd3fb7eb37fa876408d2c5455fdb5503d4bdc9872712864"
+      },
+      {
+        "path": "docs/decisions/0027-require-workload-bound-isolation-for-autonomous-execution.md",
+        "sha256": "0ad9ec90e6af5ba63579d9a4a1bd283d3e455ea1e4e87db372cfbe5b9fcf10a7"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "HypervisorWorkloadIsolationRequirements",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": [
+        "schema://ioi/components/hypervisor/workload-isolation-requirements/v1"
+      ]
+    },
+    {
+      "name": "HypervisorWorkloadIsolationBinding",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": [
+        "schema://ioi/components/hypervisor/workload-isolation-binding/v1"
+      ]
+    }
+  ],
+  "dependency_work_item_ids": [
+    "project-discovery-startup-and-session-chain",
+    "m3-work-session-automation-product-journey",
+    "m3-goal-kernel-context-and-runtime-truth-spine",
+    "m3-authorized-issuer-and-atomic-authority-consumption"
+  ],
+  "required_work": [
+    "Compile, bind, propagate, and refuse weaker substitution."
+  ],
+  "in_scope": [
+    "WorkRun and RuntimeAssignment refs",
+    "startup admission",
+    "replay/cancel/replacement binding preservation"
+  ],
+  "out_of_scope": [
+    "Claiming live containment from a schema",
+    "Workstation breadth",
+    "HypervisorOS"
+  ],
+  "implementation_actions": [
+    "Adopt generated contracts in WorkRun admission and runtime assignment."
+  ],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [
+    "PG-4C.1"
+  ],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "One admitted WorkRun preserves the same content-bound requirements and binding through terminal state."
+  ],
+  "adversarial_or_fault_proof": [
+    "Caller downgrade, backend substitution, stale evidence, replay, cancellation, and replacement refuse or preserve the binding."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [
+    "No GoalRun or existing authority contract changes."
+  ],
+  "evidence_index": {
+    "literal_exit": "M3_WORKRUN_RESOURCE_ISOLATION_CONTRACT_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/evidence/m3-workrun-resource-isolation-contract.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M3/m3-workrun-resource-isolation-contract.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    "crates/services/src/agentic/runtime/kernel/runtime_goal_pursuit.rs",
+    "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs"
+  ],
+  "evidence_refs": [
+    "internal-docs/implementation/evidence/M3/m3-workrun-resource-isolation-contract.v1.json"
+  ],
+  "remaining_nonclaims": [
+    "Contract propagation does not prove an escape-proof boundary."
+  ],
+  "rollback_or_stop_rule": "Stop if an admitted lifecycle path can lose or weaken the binding.",
+  "source_provenance": "Owner-ratified governed-compute restructuring, 2026-07-29.",
+  "last_status_transaction": {
+    "from": "active",
+    "to": "verified",
+    "at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "certification_result_sha256": "5564baefc5fdbf33a8706fa811064a0648da87260bdf852c489540333e7cf291",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

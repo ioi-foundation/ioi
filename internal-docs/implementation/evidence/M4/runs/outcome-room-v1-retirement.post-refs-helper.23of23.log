@@ -1,0 +1,28 @@
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2724810 port=36145 inode=55283967 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2724841 port=32833 inode=55252686 owned=true
+  PASS  non-v2 canonical create returns 410 outcome_room_v1_write_retired  (410/outcome_room_v1_write_retired/wire_nonleak=true)
+  PASS  retired create writes no durable product state  (82855553fbbf4b7d0a38cfd61186c58af9a970589784d3991136bdf2e36bb731)
+  PASS  live: canonical list is v2-only and excludes the historical v1 record  (200/ioi.applications.ioi-ai.outcome-room.v2/0/wire_nonleak=true)
+  PASS  live: canonical overview counts only v2 rooms  (200/v2/0/wire_nonleak=true)
+  PASS  live: canonical GET returns the stable v1 read-retired refusal  (410/outcome_room_v1_read_retired/wire_nonleak=true)
+  PASS  live: canonical and retired lifecycle writes return their stable typed retirement refusals  (410/outcome_room_v1_write_retired/expected=outcome_room_v1_write_retired/wire_nonleak=true,410/outcome_room_transition_route_retired/expected=outcome_room_transition_route_retired/wire_nonleak=true)
+  PASS  live: membership attach and detach writes return their stable typed retirement refusals  (410/outcome_room_v1_write_retired/expected=outcome_room_v1_write_retired/wire_nonleak=true,410/outcome_room_v1_write_retired/expected=outcome_room_v1_write_retired/wire_nonleak=true)
+  PASS  live: canonical replay returns the stable v1 read-retired refusal  (410/outcome_room_v1_read_retired/wire_nonleak=true)
+  PASS  live: canonical collaborative-work-graph returns the stable v1 read-retired refusal  (410/outcome_room_v1_read_retired/wire_nonleak=true)
+  PASS  live: canonical discussion-projection returns the stable v1 read-retired refusal  (410/outcome_room_v1_read_retired/wire_nonleak=true)
+  PASS  live: canonical product-projection returns the stable v1 read-retired refusal  (410/outcome_room_v1_read_retired/wire_nonleak=true)
+  PASS  live: every retirement refusal leaves all durable bytes unchanged  (18179421002775301e663b00556967d69b0a92d6e8dccd18b3e0fe680189aa6c/01aded26438d2c3ea6e844055f6caa4a7c083981219ab5e2e26ea6ac0f63403f)
+  PASS  restart: canonical list is v2-only and excludes the historical v1 record  (200/ioi.applications.ioi-ai.outcome-room.v2/0/wire_nonleak=true)
+  PASS  restart: canonical overview counts only v2 rooms  (200/v2/0/wire_nonleak=true)
+  PASS  restart: canonical GET returns the stable v1 read-retired refusal  (410/outcome_room_v1_read_retired/wire_nonleak=true)
+  PASS  restart: canonical and retired lifecycle writes return their stable typed retirement refusals  (410/outcome_room_v1_write_retired/expected=outcome_room_v1_write_retired/wire_nonleak=true,410/outcome_room_transition_route_retired/expected=outcome_room_transition_route_retired/wire_nonleak=true)
+  PASS  restart: membership attach and detach writes return their stable typed retirement refusals  (410/outcome_room_v1_write_retired/expected=outcome_room_v1_write_retired/wire_nonleak=true,410/outcome_room_v1_write_retired/expected=outcome_room_v1_write_retired/wire_nonleak=true)
+  PASS  restart: canonical replay returns the stable v1 read-retired refusal  (410/outcome_room_v1_read_retired/wire_nonleak=true)
+  PASS  restart: canonical collaborative-work-graph returns the stable v1 read-retired refusal  (410/outcome_room_v1_read_retired/wire_nonleak=true)
+  PASS  restart: canonical discussion-projection returns the stable v1 read-retired refusal  (410/outcome_room_v1_read_retired/wire_nonleak=true)
+  PASS  restart: canonical product-projection returns the stable v1 read-retired refusal  (410/outcome_room_v1_read_retired/wire_nonleak=true)
+  PASS  restart: every retirement refusal leaves all durable bytes unchanged  (18179421002775301e663b00556967d69b0a92d6e8dccd18b3e0fe680189aa6c/d7fbd2e25e92146a2c1cd77e4926de4fdfc648a37cf9b00917c746901ba9b88b)
+  PASS  restart preserves non-v2 create retirement with zero additional durable records  (410/outcome_room_v1_write_retired/wire_nonleak=true/d7fbd2e25e92146a2c1cd77e4926de4fdfc648a37cf9b00917c746901ba9b88b)
+
+23/23 passed
+M4 OutcomeRoom v1 retirement: OK

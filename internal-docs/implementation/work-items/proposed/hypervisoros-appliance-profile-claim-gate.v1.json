@@ -1,0 +1,83 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "hypervisoros-appliance-profile-claim-gate",
+  "stage_id": "FUTURE",
+  "record_role": "conditional_future",
+  "status": "proposed",
+  "objective": "Bind the exact single-node node-root/Type-1 market claim to an installable release and passing operational profile; HYPERVISOROS_APPLIANCE_PROFILE_CLAIM_GATE_EXIT=0.",
+  "falsifiable_claim": "IOI claims a node-root or Type-1 product from schemas, plans, or attestation objects without the bound appliance journey.",
+  "canon_owners": [
+    "docs/architecture/_meta/public-web-estate.md",
+    "docs/conformance/hypervisor-core/hypervisoros-node-root.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "0696d05490b292d1412d92577abde6353d354809860afb5b97e8b70854942b0c",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/public-web-estate.md",
+        "sha256": "14d9d70df2089f98f9f081bbb66ee7f0695ac0a06ae0dae5ba55ab75e654b353"
+      },
+      {
+        "path": "docs/conformance/hypervisor-core/hypervisoros-node-root.md",
+        "sha256": "fee1583f28634cb1d1c59c9f02259d6a09e5f3646326dd62607dcc6da13b45b7"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [
+    "hypervisoros-appliance-install-update-recovery",
+    "hypervisoros-single-node-virtualization-journey"
+  ],
+  "required_work": [
+    "Publish only the exact passing single-node claim and its nonclaims."
+  ],
+  "in_scope": [
+    "single-node appliance claim"
+  ],
+  "out_of_scope": [
+    "clustered/datacenter replacement"
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [
+    "PG-4C.4",
+    "PG-4C.6"
+  ],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "Claim binds one content-bound passing release."
+  ],
+  "adversarial_or_fault_proof": [
+    "Missing installer, stale evidence, unsupported hardware, or broader wording withdraws claim."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "external_gates": [
+    {
+      "gate_id": "hypervisoros-claim-activation",
+      "owner": "accountable product owner",
+      "condition": "The supported release passes node-root conformance and claim review.",
+      "status": "unmet"
+    }
+  ],
+  "evidence_index": {
+    "literal_exit": "HYPERVISOROS_APPLIANCE_PROFILE_CLAIM_GATE_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/FUTURE/hypervisoros-appliance-profile-claim-gate.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "No cluster or universal Type-1 replacement claim."
+  ],
+  "rollback_or_stop_rule": "Withdraw on any bound release or conformance regression.",
+  "source_provenance": "Owner-ratified conditional future record, 2026-07-29."
+}

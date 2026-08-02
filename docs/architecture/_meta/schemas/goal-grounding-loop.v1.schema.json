@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "schema://ioi/foundations/goal-grounding-loop/v1",
+  "$id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1",
   "title": "GoalGroundingLoop",
   "x-ioi-schema-version": "ioi.goal-grounding-loop.v1",
   "type": "object",

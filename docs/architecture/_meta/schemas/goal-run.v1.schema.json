@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "schema://ioi/foundations/goal-run/v1",
+  "$id": "schema://ioi/applications/ioi-ai/goal-run/v1",
   "title": "GoalRun",
   "x-ioi-schema-version": "ioi.goal-run.v1",
   "type": "object",
@@ -15,6 +15,7 @@
     "resolved_component_set_snapshot_ref",
     "resolved_component_set_hash",
     "active_skill_set_snapshot_ref",
+    "active_skill_set_hash",
     "goal_run_profile_resolution_receipt_ref",
     "origin_surface",
     "normalized_goal",
@@ -48,6 +49,23 @@
     "goal_run_profile_content_hash": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "goal_run_execution_ceiling_revision_ref": {
+      "type": "string",
+      "pattern": "^goal-run-execution-ceiling://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "goal_run_execution_ceiling_content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "declared_invocation_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_total_invocations", "max_parallel_invocations"],
+      "properties": {
+        "max_total_invocations": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "max_parallel_invocations": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+      }
     },
     "admitted_override_set_ref": {
       "anyOf": [
@@ -90,6 +108,31 @@
     "goal_run_profile_resolution_receipt_ref": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "admission_path_decision": {
+      "type": "object"
+    },
+    "admission_path_fact_resolution": {
+      "anyOf": [
+        { "type": "object" },
+        { "type": "null" }
+      ]
+    },
+    "admission_path_status": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "target_system_id": {
+      "anyOf": [
+        { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" },
+        { "type": "null" }
+      ]
+    },
+    "result_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
     },
     "origin_surface": {
       "enum": [
@@ -364,7 +407,47 @@
     "receipt_obligations": {
       "type": "array",
       "items": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "obligation_id",
+          "boundary_event",
+          "receipt_type",
+          "receipt_profile_ref",
+          "bound_fact_requirement_refs",
+          "required"
+        ],
+        "properties": {
+          "obligation_id": {
+            "type": "string",
+            "pattern": "^receipt-obligation://[^\\s]{1,500}$"
+          },
+          "boundary_event": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "receipt_type": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,159}$"
+          },
+          "receipt_profile_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "bound_fact_requirement_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+            }
+          },
+          "required": {
+            "type": "boolean"
+          }
+        }
       }
     },
     "admitted_state_root_ref": {
@@ -394,6 +477,41 @@
         "superseded"
       ]
     },
+    "lifecycle_head": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "lifecycle_record_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "creation_provenance": {
+      "enum": [
+        "explicit_activation",
+        "direct_substrate_activation",
+        "goal_run_activation_envelope"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "runtimeTruthSource": {
+      "const": "daemon-runtime"
+    },
     "status": {
       "enum": [
         "draft",
@@ -404,5 +522,29 @@
         "revoked"
       ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["origin_surface"],
+        "properties": { "origin_surface": { "const": "ioi_goal_chat" } }
+      },
+      "then": {
+        "properties": {
+          "goal_run_execution_ceiling_revision_ref": {},
+          "goal_run_execution_ceiling_content_hash": {},
+          "declared_invocation_budget": {},
+          "admitted_override_set_ref": {},
+          "admitted_override_set_hash": {}
+        },
+        "required": [
+          "goal_run_execution_ceiling_revision_ref",
+          "goal_run_execution_ceiling_content_hash",
+          "declared_invocation_budget",
+          "admitted_override_set_ref",
+          "admitted_override_set_hash"
+        ]
+      }
+    }
+  ]
 }

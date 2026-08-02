@@ -6,7 +6,7 @@ Supersedes: the same object definitions when they were carried inside the single
 Superseded by: none.
 Last alignment pass: 2026-07-25.
 Doctrine status: canonical
-Implementation status: partial (room, participation, frontier, claim, offer, Attempt/Finding, and challenge routes exist in the daemon; the 2026-07-30 fresh runtime re-audit remains red on terminal participation replay and eligibility retry idempotency, and no M4 aggregate proof is admitted; collaborative AIIP federation and cross-domain assurance remain planned)
+Implementation status: partial (the current hosted v2 M4 slice admits one bounded-System-backed OutcomeRoom, reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with payload/label custody and reconstructable projections. Current v2 participation, frontier/claim, offer, Attempt/Finding, and VerifierChallenge lifecycles are not started and project honest-empty sets. Mounted v1 predecessor routes remain historical executable/source disposition and are generation-fenced from current v2 rooms. Collaborative AIIP federation, cross-domain assurance, acceptance/verdict, settlement, and portable participant-state export remain planned.)
 Last implementation audit: 2026-07-30
 
 ## Purpose
@@ -44,7 +44,7 @@ lease semantics apply in both cases; only ordering/admission ownership differs.
 OutcomeRoomDiscoveryEnvelope:
   room_discovery_id: room-discovery://...
   outcome_room_ref: outcome-room://...
-  room_admission: RoomAdmittedObjectBase
+  system_binding: SystemScopedObjectBinding
   publication_version: semver_or_hash
   published_by_ref: system://... | domain://... | org://... | service://...
   public_goal_ref: goal://... | task://... | service://...
@@ -172,8 +172,8 @@ machinery.
 
 Every room declares who orders and admits its shared state:
 
-- `hosted_admission`: one named governed domain orders and admits room-level
-  frontier, attempt, finding, evaluation, and decision updates;
+- `hosted_admission`: one named governed System or domain orders and admits
+  room-level frontier, attempt, finding, evaluation, and decision updates;
 - `federated_admission`: a versioned policy names participating domains,
   ordering/merge rules, quorum or adjudicator requirements, conflict behavior,
   failover, and dispute handling.
@@ -263,10 +263,44 @@ OutcomeRoomEnvelope:
     - contribution://... | receipt://...
   participant_state_bundle_refs:
     - participant-state://...
+  latest_sequence: nonnegative_integer
+  latest_transition_commitment_ref: commitment://...
+  room_state_root: hash
+  room_receipt_root: hash
   status:
     proposed | open | active | paused | blocked | verifying |
     accepted | disputed | settled | closed | revoked | archived
 ```
+
+The four room-head fields are admitted-plane truth, not caller-authored
+metadata. `latest_sequence` is the exact monotonic sequence of the current
+room transition; `latest_transition_commitment_ref` identifies that transition;
+`room_state_root` commits the resulting room state; and `room_receipt_root`
+commits the receipted transition prefix. Clients and projections may display
+those coordinates but cannot mint, repair, or advance them.
+
+The selected hosted M4 profile is deliberately finite. Its `objective` is at
+most 4,096 characters; every semantic repeated ref set in
+`OutcomeRoomEnvelope`, including the active oracle-profile set, contains at
+most 64 unique refs. The sequence-complete `admission_and_replay_refs` set may
+contain 128 refs (genesis sequence zero through sequence 127), and
+`latest_sequence` is at most 127. A daemon admits at most 50 hosted v2 room
+records in this selected profile. One canonical room record and each replay,
+graph, discussion, or product response serialize to at most 1 MiB. Admission
+refuses a candidate before any durable effect when the candidate would cross a
+bound. Census and read paths refuse a typed unavailable/over-cap result on
+tampered or already-over-cap truth; they never truncate a ref set, omit a room,
+or return a false-empty projection. General cursor pagination remains owned by
+the Hypervisor collection contract and its later application-surface cut; M4
+does not emulate or claim that wider contract.
+
+The M4 WorkResult and OutcomeDelta repeated ref sets and every generated
+collaborative-graph semantic ref or summary set contain at most 64 entries. A
+graph or discussion projection may carry at most 128 source-admission receipt
+refs. A discussion projection may carry at most 67 permitted subjects: the
+System, owner, and host coordinates plus at most 64 participant leases, with
+set deduplication. Any source census beyond those bounds is typed-unavailable;
+no projection truncates or silently omits the excess truth.
 
 Room membership is a reciprocal, atomically admitted relation. The
 `OutcomeRoomEnvelope.member_goal_run_refs` set is authoritative for the room's
@@ -308,7 +342,7 @@ creating a second credential system.
 RoomParticipantLeaseEnvelope:
   participant_lease_id: participant-lease://...
   outcome_room_ref: outcome-room://...
-  room_admission: RoomAdmittedObjectBase
+  system_binding: SystemScopedObjectBinding
   participant_ref:
     system://... | agent://... | worker://... | service://... | org://... | domain://...
   admitted_role:
@@ -396,7 +430,7 @@ lineage; historical proof cannot depend on later host availability.
 ParticipantStateBundleEnvelope:
   participant_state_bundle_id: participant-state://...
   outcome_room_ref: outcome-room://...
-  room_admission: RoomAdmittedObjectBase
+  system_binding: SystemScopedObjectBinding
   participant_lease_ref: participant-lease://...
   participant_and_home_domain_refs:
     - worker://... | service://... | org://... | domain://... | system://...
@@ -448,44 +482,40 @@ specialist work, tools, or other capabilities to a room. Offers are typed
 profiles over existing provider inventory, worker manifests, capability
 discovery, and resource-allocation objects; they are not a second marketplace.
 
-## RoomAdmittedObjectBase
+## SystemScopedObjectBinding
 
-Every mutable child of a room uses one admission spine:
+Every typed child of a bounded System scope carries a non-authoritative binding
+to that System, parent scope, and the proposer or issuer whose operation contains
+it. OutcomeRoom uses its room ref as the parent scope; the binding itself is not
+room vocabulary:
 
 ```yaml
-RoomAdmittedObjectBase:
-  room_system_id: system://...
-  outcome_room_ref: outcome-room://...
-  proposed_or_issued_by_ref: participant-lease://... | system://...
-  expected_room_revision: nonnegative_integer
-  expected_predecessor_commitment_ref: commitment://...
+SystemScopedObjectBinding:
+  system_id: system://...
+  parent_scope_ref: scheme://...
+  proposed_or_issued_by_ref: scheme://...
   payload_root: hash
-  admission_policy_ref: policy://...
-  admission_decision_ref: decision://... | null
-  admission_receipt_ref: receipt://... | null
-  admitted_sequence: nonnegative_integer | null
-  resulting_room_revision: nonnegative_integer | null
-  resulting_transition_commitment_ref: commitment://... | null
-  resulting_room_state_root: hash | null
-  resulting_receipt_root: hash | null
   created_at: timestamp
   updated_at: timestamp | null
-  admission_status: proposed | evaluating | admitted | rejected | superseded | revoked
 ```
 
 An external agent, Worker, service, organization, or sovereign system acts in a
 room only through a current `participant-lease://` ref. `system://` is valid as
 issuer only for a room-system-authored scheduling, expiry, or policy transition.
-Expected revision and predecessor commitment are compare-and-swap inputs. A
-payload becomes shared room truth only when the declared policy/decision emits
-an admission receipt and resulting commitment; proposal/workgraph structure
-therefore makes untrusted local-agent work useful without treating it as trusted
-runtime truth.
+The room application requires the parent scope to be its exact `outcome-room://`
+ref and resolves eligible issuers under room policy. The substrate binding scopes
+and hashes the typed payload; it owns no verdict, sequence,
+head, transition, receipt, state root, or receipt root. A payload becomes shared
+truth only when the daemon resolves its issuer and policy evidence and Agentgres
+admits the enclosing bounded-System operation. Compare-and-swap binds the
+expected Agentgres object head or heads and, when required, the enclosing
+System's predecessor transition commitment. A derived product revision may be
+used as a request precondition but is not stored as room-owned truth.
 
 ```yaml
 ResourceOfferEnvelope:
   resource_offer_id: resource-offer://...
-  room_admission: RoomAdmittedObjectBase
+  system_binding: SystemScopedObjectBinding
   provider_participant_lease_ref: participant-lease://...
   backing_provider_ref: provider://... | org://... | domain://... | system://...
   resource_profile_ref: resource://... | runtime://... | node://...
@@ -514,7 +544,7 @@ ResourceOfferEnvelope:
 ```yaml
 CapabilityOfferEnvelope:
   capability_offer_id: capability-offer://...
-  room_admission: RoomAdmittedObjectBase
+  system_binding: SystemScopedObjectBinding
   participant_lease_ref: participant-lease://...
   backing_worker_or_service_ref: worker://... | service://... | system://...
   capability_descriptor_refs:
@@ -598,7 +628,7 @@ taskforces under one contract.
 ```yaml
 WorkFrontierItemEnvelope:
   frontier_item_id: frontier://...
-  room_admission: RoomAdmittedObjectBase
+  system_binding: SystemScopedObjectBinding
   item_kind:
     question | problem | hypothesis | task | review_need |
     verification_need | resource_need | synthesis_need
@@ -632,7 +662,7 @@ WorkFrontierItemEnvelope:
 WorkClaimLeaseEnvelope:
   work_claim_id: work-claim://...
   outcome_room_ref: outcome-room://... | null
-  room_admission: RoomAdmittedObjectBase | null
+  system_binding: SystemScopedObjectBinding | null
   frontier_item_ref: frontier://... | null
   claimant_ref:
     participant-lease://... | system://... | domain://... |
@@ -672,7 +702,7 @@ an admitted `CollaborationTermsAcceptanceReceipt`, any selected task response
 and routing decision, the required context/resource/tool/budget leases,
 applicable authority, and a room/domain admission receipt.
 Room-scoped claims additionally require a current participant lease and
-non-null room admission bound to the same room/frontier; its terms-acceptance
+non-null room binding bound to the same room/frontier; its terms-acceptance
 receipt must be the one bound by that participant lease. Direct bilateral AIIP
 work leaves those room fields null but requires a claimant-bound terms-
 acceptance receipt and receiving-domain admission. Discovery, terms acceptance,
@@ -719,7 +749,7 @@ transitioning it does not launch work or grant execution authority.
 AttemptEnvelope:
   attempt_id: attempt://...
   outcome_room_ref: outcome-room://... | null
-  room_admission: RoomAdmittedObjectBase | null
+  system_binding: SystemScopedObjectBinding | null
   work_subject_ref:
     goal://... | automation-run://... | work_run://... | run://... |
     invocation://... | work-claim://...
@@ -728,7 +758,7 @@ AttemptEnvelope:
   work_claim_ref: work-claim://... | null
   participant_ref:
     participant-lease://... | system://... | worker://... | agent://...
-  bound_coordinates:
+  bound_coordinates:  # null for non-room work; otherwise the hosted coordinates below
     outcome_room: { record_ref: outcome-room://..., host_domain_ref: domain://..., control_hash: hash }
     frontier_item: { record_ref: frontier://..., outcome_room_ref: outcome-room://..., revision: integer, record_hash: hash }
     work_claim: { record_ref: work-claim://..., outcome_room_ref: outcome-room://..., frontier_item_ref: frontier://..., claimant_ref: participant-lease://..., revision: integer, record_hash: hash }
@@ -766,6 +796,12 @@ AttemptEnvelope:
   status: draft | running | submitted | admitted | challenged | accepted | rejected | superseded
 ```
 
+`bound_coordinates` is non-null only for a room-scoped Attempt. A non-room
+Attempt sets it to `null`; it MUST NOT fabricate an OutcomeRoom, frontier,
+claim, participant lease, or room-bound GoalRun merely to satisfy a shape. When
+`outcome_room_ref` is non-null, `system_binding` and every hosted coordinate
+shown above are non-null and mutually bound.
+
 ## FindingEnvelope
 
 Operational admission of a finding proves that the domain admitted a
@@ -788,14 +824,14 @@ still an admission state, not acceptance or a verifier verdict.
 FindingEnvelope:
   finding_id: finding://...
   outcome_room_ref: outcome-room://... | null
-  room_admission: RoomAdmittedObjectBase | null
+  system_binding: SystemScopedObjectBinding | null
   attempt_ref: attempt://...
   work_result_ref: work-result://...
   participant_ref: participant-lease://...
   proposed_by_ref:
     participant-lease://... | system://... | worker://... |
     service://... | org://... | domain://...
-  bound_coordinates:
+  bound_coordinates:  # null for non-room work; otherwise the hosted coordinates below
     attempt: { record_ref: attempt://..., outcome_room_ref: outcome-room://..., participant_ref: participant-lease://..., work_result_ref: work-result://..., revision: integer, record_hash: hash }
     work_result: { record_ref: work-result://..., outcome_room_ref: outcome-room://..., goal_run_ref: goal://..., goal_ref: goal://..., updated_at: timestamp | null, record_hash: hash }
     participant_lease: { record_ref: participant-lease://..., outcome_room_ref: outcome-room://..., principal_ref: worker://... | agent://..., revision: integer, record_hash: hash }
@@ -828,13 +864,19 @@ FindingEnvelope:
     disputed | rejected | archived
 ```
 
+`bound_coordinates` is non-null only for a room-scoped Finding. A non-room
+Finding sets it to `null`; it MUST NOT invent room, participant-lease, Attempt,
+or WorkResult room coordinates. When `outcome_room_ref` is non-null,
+`system_binding` and the hosted coordinate set above are non-null and mutually
+bound.
+
 ## VerifierChallengeEnvelope
 
 ```yaml
 VerifierChallengeEnvelope:
   verifier_challenge_id: verifier-challenge://...
   outcome_room_ref: outcome-room://... | null
-  room_admission: RoomAdmittedObjectBase | null
+  system_binding: SystemScopedObjectBinding | null
   challenger_ref: participant-lease://... | system://... | worker://... | org://... | user://...
   challenged_ref:
     attempt://... | finding://... | verifier_path://... | benchmark://... |

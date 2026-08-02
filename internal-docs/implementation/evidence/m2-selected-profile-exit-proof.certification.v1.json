@@ -1,0 +1,11 @@
+{
+  "literal_exit": {
+    "expected": "M2_SELECTED_PROFILE_EXIT_PROOF_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M2/m2-selected-profile-exit-proof.exit.v1.txt",
+    "artifact_sha256": "27032fdbe572ea3fe336731f946199573950573bb1df356cce743b68ce75856f"
+  },
+  "adversarial_or_fault_proof": [
+    "Stage aggregate over seven verified M2 children, each with its own content-bound retained literal bound by sha256 to the merged-master proof artifact (internal-docs/implementation/evidence/M2/m2-wave-proofs-master.v1.log, M2_PROOF_SWEEP_EXIT=0: ioi-types 348/348, hypervisor-daemon 374/374, session-chain 22/22, storage 14/14 at commit decf9ffc2). The aggregate manufactures no child status; certify-stage's own census refuses missing/duplicate children and stale literals.",
+    "Stage-wide honesty rails held: nineteen new governed routes admitted to the reviewed-entry census at anchor seq 21 (60/60); thirty-one registered wave schemas classified in canon-map (286 subjects); registry 85 contracts with adversarial fixtures and TS+Rust differential projections; honest deferrals recorded in canon for TaskCapsule, StorageProfile, ArtifactRef/PayloadRef full objects, five canon-only startup families, HarnessSessionLaunch, the failover-profile JSON contract, and the retention-hold enforcement gap; the three box-environmental ioi-services failures are excluded BY NAME in the stage module with their disposition rather than silently."
+  ]
+}

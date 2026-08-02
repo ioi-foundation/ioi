@@ -1,0 +1,13 @@
+{
+  "literal_exit": {
+    "expected": "M2_PROVIDER_ISOLATION_CLOSURE_SUCCESSOR_AGGREGATE_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M9/m2-provider-isolation-closure-successor-aggregate.exit.v1.txt",
+    "artifact_sha256": "4449ac86f03057e56e8b42d1daba561c4da323d6594dd38a595f17633a561475"
+  },
+  "adversarial_or_fault_proof": [
+    "The successor graph checker rejects a missing child, a child not independently admitted, an unqualified predecessor, and any predecessor closure counted zero or more than once."
+  ],
+  "positive_proof": [
+    "The aggregate joins the independently evidenced containment and provider-teardown successors and exhaustively maps the qualified M2 predecessor set without claiming live-cloud provisioning or broader provider correctness."
+  ]
+}

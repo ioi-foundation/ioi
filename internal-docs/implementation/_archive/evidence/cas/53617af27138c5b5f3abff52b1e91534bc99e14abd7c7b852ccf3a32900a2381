@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "ioi.autopilot.conversation-artifact-canvas.preflight.v1",
+  "generatedAt": "2026-05-27T21:39:36.098Z",
+  "guide": {
+    "path": ".internal/plans/autopilot-conversation-artifact-embedded-document-canvas-master-guide.md",
+    "exists": true
+  },
+  "evidenceRoot": "docs/evidence/autopilot-conversation-artifact-embedded-document-canvas",
+  "latestGuiCore": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/gui-core/2026-05-27T20-52-00-108Z",
+  "latestGuiLongTail": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/autopilot-conversation-artifact-embedded-document-canvas/gui-long-tail/2026-05-27T20-39-12-640Z"
+}

@@ -1,0 +1,137 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-retired-campaign-claim-successor",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Name the successor for every retained overlay member that ASSERTS something and whose producer and commissioning plan were both removed from the bound tree, state that no estate claim rests on it, and define what re-proof would require before any of it may be cited."
+  ],
+  "status": "verified",
+  "objective": "Twenty-six bound overlay members are not housekeeping: they are verdicts, final manifests, gap audits, progress manifests and recommendations. Each one asserts an outcome. Every producing script and every commissioning plan that named them has been removed from the bound tree by a named commit, so each is a RETAINED CLAIM WITH NO LIVE OWNER — and a retained claim with no owner is the shape of assertion that outlives its evidence. This record is that owner. It does not adopt the claims and it does not repair them: it fences them, states that no closure, stage, or public claim in this program rests on any of them, and defines the re-proof any of them would need before it may be cited by anything. M0_RETIRED_CAMPAIGN_CLAIM_SUCCESSOR_EXIT=0.",
+  "falsifiable_claim": "Every member assigned to this successor is claim-bearing by a decidable test over its own bytes, every producer or commissioning plan naming it is absent from the bound git tree with a named removal commit, nothing in the bound tree or the canonical estate cites it, and no verified closure, stage exit, claim-lock source, or permitted-claim entry anywhere in this program derives from it.",
+  "selected_profile": "The claim-bearing subset of the bound canon-overlay members, enumerated by family rule FR-04 of program/canon-overlay-dispositions.v1.json.",
+  "canon_owners": [
+    "docs/architecture/_meta/current-canon-defaults.md",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/start-here.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "cebc92eabd40a95dc1d70b12ce5fe38a18370abd37917d22a9e8be3c70f9e543",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/current-canon-defaults.md",
+        "sha256": "e2f98681aed05d3b03ce69ef57362f285b23cf2b79dad3ce9d4cef0486940ba1"
+      },
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022"
+      },
+      {
+        "path": "docs/architecture/_meta/start-here.md",
+        "sha256": "6a5cdf8ac430ccaae61b5a36ea8d105a08b5a2f6b5c2f7fa7da3553ddf9a5a32"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m0-retired-campaign-claim-successor",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/active/m0-retired-campaign-claim-successor.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": [
+    "CLAIM-BEARING IS DECIDED FROM THE BYTES, NOT FROM A READING. A member is claim-bearing when its JSON body carries one of a closed key set — verdict, status, summary, ok, recommendation, targetAchieved — or when its markdown heading names a verdict or an audit. The test is in the derivation, it is enumerable, and the members it selects are listed in the ledger's FR-04 rule rather than in prose here.",
+    "EVERY OWNER OF THESE CLAIMS IS GONE, BY NAME. The producing scripts were renamed in one commit and retired in another; the commissioning plans were removed in a third; the evidence tree itself was untracked in a fourth. Each removal is a named commit with a named author, derived from git rather than asserted, and each is recorded per member in the disposition ledger.",
+    "NOTHING CITES THEM. A live inbound-reference proof over the bound git tree, the canonical estate, and the whole retained-evidence tree is recomputed on every derivation. The only citations that exist at all are between retained evidence artifacts; the bound tree and the estate cite none of them.",
+    "ONE MEMBER ARRIVED HERE BY BEING REFUSED SOMEWHERE ELSE. A superseded draft manifest qualified for retirement on every axis except one — two retained artifacts still cite it — so the retirement rule refused it individually, by name, with the reason, and it fell through to this record instead of being retired quietly."
+  ],
+  "dependency_work_item_ids": [
+    "m0-overlay-member-custody-and-disposition-successor"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "Being the named successor for the claim-bearing overlay members enumerated by FR-04 of the disposition ledger.",
+    "The standing statement that no closure, stage exit, claim-lock source, permitted-claim entry, or public claim in this program derives from any of them, and the check that demonstrates it.",
+    "The re-proof contract: what a member would have to be re-proven against before anything may cite it, given that its producer no longer exists in the bound tree.",
+    "Keeping the assignment falsifiable: if any inbound citation from the bound tree or the estate ever appears, the member stops being a fenced claim and needs a different disposition."
+  ],
+  "out_of_scope": [
+    "Adopting, endorsing, repairing, or re-running any of the campaigns these artifacts came from. Their producers are retired and nothing here revives them.",
+    "Deleting, relocating, or rewriting any member. The bytes stay at their frozen digests.",
+    "Retiring these identities. A claim with no owner is fenced, not tombstoned: a tombstone would assert a disposition of the claim that has not been taken.",
+    "Editing the frozen overlay manifest or advancing any baseline.",
+    "Reaching `verified`. Every new verified transition is a held action while _archive/holds/certification-hold.v1.json is OPEN."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "tools/check-overlay-dispositions.mjs resolves every FR-04 assignment to this record on disk, on an open stage, at status `proposed`, and reports no member assigned to a successor that does not exist."
+  ],
+  "adversarial_or_fault_proof": [
+    "The assignment is refused if this record is absent, if it sits on a stage whose exit is already verified, or if it has advanced past `proposed` while the hold is open — each exercised against synthetic bad input on every run by the bar named above.",
+    "The retained baseline is what these artifacts are: campaign verdicts asserting parity and completion outcomes, retained on a host, cited by nothing, and produced by tooling that no longer exists in the tree they describe."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "M0_RETIRED_CAMPAIGN_CLAIM_SUCCESSOR_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/program/canon-overlay-dispositions.v1.json",
+      "internal-docs/implementation/program/canon-overlay-producer-evidence.v1.json",
+      "internal-docs/implementation/evidence/m0-retired-campaign-claim-successor.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m0-retired-campaign-claim-successor.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "assignment_recorded_and_checked_claims_fenced_not_adopted_under_certification_hold",
+    "historical_status_preserved": true,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "internal-docs/implementation/tools/check-overlay-dispositions.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the bar that resolves this record as the named successor and refuses the assignment if it is absent, certified, or past proposed"
+    }
+  ],
+  "evidence_refs": [
+    "internal-docs/implementation/program/canon-overlay-dispositions.v1.json",
+    "internal-docs/implementation/program/canon-overlay-producer-evidence.v1.json"
+  ],
+  "remaining_nonclaims": [
+    "Naming a successor fences a claim. It does not adopt it, evaluate it, or make it true.",
+    "That nothing cites these artifacts today is a property of today, recomputed on every derivation. It is not a guarantee about tomorrow.",
+    "The campaigns these artifacts describe are not re-proven by this record, and nothing here says their outcomes held.",
+    "This record is `proposed`. It closes nothing, changes no stage, and grants no coverage."
+  ],
+  "rollback_or_stop_rule": "Stop if closing this record would require adopting any campaign verdict as evidence rather than fencing it, or if the only way to resolve a member is to attribute it to the directory it sits in. Never close this record by re-running a retired campaign runner reconstructed from history, and never by treating the retained final manifest as the proof its producer no longer exists to make.",
+  "exit_criteria": [
+    "Every FR-04 member resolves to this record, and the standing statement that no closure, stage exit, claim-lock source, or permitted claim derives from any of them is checked rather than asserted.",
+    "Any member that acquires an inbound citation from the bound tree or the estate is removed from this assignment and dispositioned again."
+  ],
+  "pr": null,
+  "source_provenance": "Authored 2026-07-29 under an owner-directed attribution-closure pass while _archive/holds/certification-hold.v1.json is OPEN, as the named successor required by disposition type `assigned_new_successor`. It rewrites nothing and it adopts nothing.",
+  "last_status_transaction": {
+    "from": "evidence_ready",
+    "to": "verified",
+    "at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "certification_result_sha256": "14de3299320972c75df6a6628a4a4ed783cad8c099dbeb3160a2504be985e97a",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

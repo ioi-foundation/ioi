@@ -1,0 +1,557 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "decentralized-profile-admission-and-exit",
+  "stage_id": "M14",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Approved plan-level gap closure: decentralized-profile-admission-and-exit"
+  ],
+  "status": "proposed",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Conditional profile plan; DECENTRALIZED_PROFILE_ADMISSION_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if No implicit enrollment/profile availability, rights/risk bypass, unsettled exit, demand or network overclaim.",
+  "selected_profile": "Demand-gated connected/secured service planning with an explicit valid no-L1 branch and no mainnet/native-asset claim.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/byo-provider-plane.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
+    "docs/architecture/components/model-router/api-byok-mounting.md",
+    "docs/architecture/components/model-router/doctrine.md",
+    "docs/architecture/components/wallet-network/api-authority-scopes.md",
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/components/wallet-network/product-exchange-risk.md",
+    "docs/architecture/domains/decentralized/README.md",
+    "docs/architecture/domains/decentralized/cloud.md",
+    "docs/architecture/domains/decentralized/exchange.md",
+    "docs/architecture/domains/decentralized/trade.md",
+    "docs/architecture/domains/marketplace-neutrality.md",
+    "docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md",
+    "docs/architecture/foundations/objects/authority-and-access.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "69285eba4ffa7ff1efe8f34ec54c102ce98649926889b495a25b9a54e1a77499",
+    "owners": [
+      {
+        "path": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+        "sha256": "c25f5dc4835d643829e79eb1915c89f4f157dafcee1cb400bfd0a644f2910aa6"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/providers-and-environments.md",
+        "sha256": "cf2f1f6fb8cca834864f50ed3e69b7a6e4376f358bd74dafceacfd2eabbbdad5"
+      },
+      {
+        "path": "docs/architecture/components/model-router/api-byok-mounting.md",
+        "sha256": "71f4a924aaa5755f676f5357a251a91bbf343d55fa6bea957b2d1134d37fe73a"
+      },
+      {
+        "path": "docs/architecture/components/model-router/doctrine.md",
+        "sha256": "5da1a0eae984f6f88b38fdce432b0b4d91692d4c4ce1cf6b3c130081303d95a8"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "sha256": "5a77e3506857e4f670a03da32b83af10634a79ed1b64f74ab5006bf6970503ca"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/doctrine.md",
+        "sha256": "8b5c6c5ea1eaee29d4fb5488d5b3ae4f136c35a8a2a3647504aa1d39391dd580"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/product-exchange-risk.md",
+        "sha256": "e5e658ec32802e6f6857835f5f8b57e8ceab25919ef9ea24a00c3ea8aec9bb15"
+      },
+      {
+        "path": "docs/architecture/domains/decentralized/README.md",
+        "sha256": "ce94e22afb07c2203ec1ad2eabd4f43a63f66c99d00222a52e733ee1b3f5596e"
+      },
+      {
+        "path": "docs/architecture/domains/decentralized/cloud.md",
+        "sha256": "3585c0cff919c4926b83c3ecdf8b9069fa645f49c53b54d0e4fc39fccad5c74b"
+      },
+      {
+        "path": "docs/architecture/domains/decentralized/exchange.md",
+        "sha256": "000f1df2a039053b712753258e885eb5d1fdb5429fea1f3213d1e55d3a2a37d9"
+      },
+      {
+        "path": "docs/architecture/domains/decentralized/trade.md",
+        "sha256": "98ca5e9ad770a272a6c6c9aac2aea8d618a8fe678681a0c0dfd3ac61d41a0199"
+      },
+      {
+        "path": "docs/architecture/domains/marketplace-neutrality.md",
+        "sha256": "966c0ea3c482e9c8e4e5236fb49cc1e545a453a7fddfca602211523094ce20cd"
+      },
+      {
+        "path": "docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md",
+        "sha256": "1453e309eb2acbd0c98eaf56a9eda6d6bf41c30d58507b8ed6cbe678b3cdd1fd"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/authority-and-access.md",
+        "sha256": "204fa490cb9f39fb2d37965fdacc82db189981763565a0280129d60f42b7b4b1"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "CandidateEvidence",
+      "owner_path": "docs/architecture/components/wallet-network/product-exchange-risk.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CloudResourceIntent",
+      "owner_path": "docs/architecture/domains/decentralized/cloud.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CloudResourceCandidate",
+      "owner_path": "docs/architecture/domains/decentralized/cloud.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "PlacementDecision",
+      "owner_path": "docs/architecture/domains/decentralized/cloud.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ResourceLease",
+      "owner_path": "docs/architecture/domains/decentralized/cloud.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CustodyPlan",
+      "owner_path": "docs/architecture/domains/decentralized/cloud.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "FailoverPlan",
+      "owner_path": "docs/architecture/domains/decentralized/cloud.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "SpendEstimate",
+      "owner_path": "docs/architecture/domains/decentralized/cloud.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "PlacementDecisionReceipt",
+      "owner_path": "docs/architecture/domains/decentralized/cloud.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "RouteCandidate",
+      "owner_path": "docs/architecture/domains/decentralized/exchange.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ExchangeIntent",
+      "owner_path": "docs/architecture/domains/decentralized/exchange.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "TradeCandidate",
+      "owner_path": "docs/architecture/domains/decentralized/trade.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "TradeIntent",
+      "owner_path": "docs/architecture/domains/decentralized/trade.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "PositionReceipt",
+      "owner_path": "docs/architecture/components/wallet-network/product-exchange-risk.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ModelRoute",
+      "owner_path": "docs/architecture/components/model-router/api-byok-mounting.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ModelRouteRightsContract",
+      "owner_path": "docs/architecture/components/model-router/doctrine.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AuthorityGrantEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/authority-and-access.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "docs/architecture/components/wallet-network/doctrine.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authoritygrantenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/authority-grant-envelope/v1",
+        "schema://ioi/foundations/authority-grant-envelope/v2"
+      ],
+      "schema_versions": [
+        "ioi.foundations.authority-grant-envelope.v1",
+        "ioi.foundations.authority-grant-envelope.v2"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "SettlementEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/economics-and-settlement.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:decentralized-profile-admission-and-exit",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/decentralized-profile-admission-and-exit.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:DECENTRALIZED_PROFILE_ADMISSION_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "m13-selected-profile-aggregate-exit",
+    "m14-service-family-owner-contract-and-product-surfaces"
+  ],
+  "external_gates": [
+    {
+      "gate_id": "applicable-pg-profile-gates",
+      "owner": "internal-docs/implementation/modules/mechanism-gates.md",
+      "activation_condition": "Every applicable gate is selected and evidenced in the owning work-item records; planning creates no closure."
+    },
+    {
+      "gate_id": "commercial-legal-assurance-demand-approval",
+      "owner": "docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+      "activation_condition": "Repeated M13 evidence and explicit legal, commercial, assurance, demand, security, and economics decisions exist."
+    },
+    {
+      "gate_id": "selected-decentralized-profile",
+      "owner": "internal-docs/implementation/program/sequence.v1.json",
+      "activation_condition": "A decentralized profile is explicitly selected for the M14 service posture; candidate intelligence alone does not pull the profile into the aggregate exit."
+    }
+  ],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`DECENTRALIZED`, `ENVIRONMENTS`, `MODELS`, `WALLET`, `ECON`; selected cloud/exchange/trade profile, enrollment, route/rights/risk, settlement/exit families",
+    "Conditional profile plan; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "No implicit enrollment/profile availability, rights/risk bypass, unsettled exit, demand or network overclaim",
+    "The valid no-L1 branch remains available; planning proves no demand, mainnet, native asset, or recurring external cohort.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `DECENTRALIZED`, `ENVIRONMENTS`, `MODELS`, `WALLET`, `ECON`; selected cloud/exchange/trade profile, enrollment, route/rights/risk, settlement/exit families.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Conditional profile plan; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: No implicit enrollment/profile availability, rights/risk bypass, unsettled exit, demand or network overclaim.",
+    "Retain an evidence index and require the exact content-bound DECENTRALIZED_PROFILE_ADMISSION_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "selected connected service, settlement, enrollment, suspension, or exit effect",
+      "final_invoker": "selected service/settlement owner final invoker after all gates",
+      "authority_source": "explicit enrollment plus local/domain and applicable portable/high-risk authority",
+      "receipt_or_evidence": "service/payment/dispute/exit receipt",
+      "negative_behavior": "deny implicit enrollment, unmet demand/security/legal gate, unresolved dispute, or unselected L1"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded decentralized-profile-admission-and-exit journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to DECENTRALIZED_PROFILE_ADMISSION_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for No implicit enrollment/profile availability, rights/risk bypass, unsettled exit, demand or network overclaim; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for decentralized-profile-admission-and-exit; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for No implicit enrollment/profile availability, rights/risk bypass, unsettled exit, demand or network overclaim; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact DECENTRALIZED_PROFILE_ADMISSION_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.unrelated_external_organizations",
+      "metric": "unrelated external organizations with recurring paid or risk-bearing demand",
+      "threshold": ">=3",
+      "unit": "organizations",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.public_service_families",
+      "metric": "public service families carrying recurring paid or risk-bearing demand",
+      "threshold": ">=2",
+      "unit": "service families",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.sustained_declared_period",
+      "metric": "recurring demand observation over a preregistered sustained declared period",
+      "threshold": "one_nonzero_preregistered_sustained_period",
+      "unit": "declared period",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.willingness_to_pay_or_bear_risk",
+      "metric": "counted external demand backed by payment or explicit risk bearing",
+      "threshold": "100_percent_of_counted_demand",
+      "unit": "demand observations",
+      "threshold_source": "M14.3 and exit proof",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.independent_service_supply",
+      "metric": "selected service families with independent operator supply commitment",
+      "threshold": "100_percent_of_selected_service_families",
+      "unit": "selected service families",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.attack_cost_and_security_budget_coverage",
+      "metric": "modeled fees and bonded value covering selected attack, security, and availability budget",
+      "threshold": ">=100_percent_of_budget",
+      "unit": "modeled value",
+      "threshold_source": "M14.3 and exit proof",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.frozen_safety_margin",
+      "metric": "frozen margin above selected security and availability budget",
+      "threshold": ">0",
+      "unit": "preregistered margin",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.zero_appreciation_viability",
+      "metric": "connected/secured-service value with token-price appreciation set to zero",
+      "threshold": "value_persists_at_appreciation=0",
+      "unit": "scenario",
+      "threshold_source": "M14.4",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.no_l1_compatible_alternative",
+      "metric": "valid no-L1 branch unless sovereign L1 beats the mature compatible alternative",
+      "threshold": "no_l1_remains_valid_until_l1_strictly_beats_compatible_alternative",
+      "unit": "selected settlement posture",
+      "threshold_source": "M14.5 and no-L1 rule",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "DECENTRALIZED_PROFILE_ADMISSION_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M14/decentralized-profile-admission-and-exit.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/types/src/app/generated/architecture_contracts.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "The valid no-L1 branch remains available; planning proves no demand, mainnet, native asset, or recurring external cohort.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: No implicit enrollment/profile availability, rights/risk bypass, unsettled exit, demand or network overclaim. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Conditional profile plan; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal DECENTRALIZED_PROFILE_ADMISSION_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": "2026-07-22"
+}

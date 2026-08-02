@@ -44,6 +44,7 @@ test("pre-next-leg propagates a compositor-tier failure", () => {
     "hypervisor-ported-seed-invariant",
     "m0-program-control",
     "architecture-contract-bar",
+    "agentgres-ref-minting-boundary",
     "system-genesis-compiler",
     "architecture-docs",
     "work-items",

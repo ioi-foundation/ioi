@@ -1,0 +1,459 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "production-information-flow-and-declassification",
+  "stage_id": "M3",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Approved plan-level gap closure: production-information-flow-and-declassification"
+  ],
+  "status": "verified",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Evaluator/propagation/PEP/product-state plan; INFORMATION_FLOW_DECLASSIFICATION_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if No unlabeled egress, client-side enforcement, implicit declassification, or claim before assigned aggregate.",
+  "selected_profile": "Generic direct and System-bound GoalRun pursuit with replaceable Sessions, workers, models, and harnesses.",
+  "canon_owners": [
+    "docs/architecture/components/connectors-tools/contracts.md",
+    "docs/architecture/components/connectors-tools/doctrine.md",
+    "docs/architecture/components/daemon-runtime/api.md",
+    "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+    "docs/architecture/components/daemon-runtime/doctrine.md",
+    "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
+    "docs/architecture/components/model-router/api-byok-mounting.md",
+    "docs/architecture/components/model-router/doctrine.md",
+    "docs/architecture/components/wallet-network/api-authority-scopes.md",
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    "docs/architecture/domains/ioi-ai/control-plane.md",
+    "docs/architecture/foundations/security-privacy-policy-invariants.md",
+    "docs/architecture/foundations/verifiable-bounded-agency.md",
+    "docs/architecture/foundations/objects/evidence-and-delivery.md",
+    "docs/architecture/foundations/objects/goal-run-execution.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "431cff8f84c6d8bbe346c0e631d05ded0fe3e9a2e8c0812cf821b698983d87b8",
+    "owners": [
+      {
+        "path": "docs/architecture/components/connectors-tools/contracts.md",
+        "sha256": "2296bc26155d6519cc357b0fcfb718cb58ce1b43052c90e5481d7509c7274b0f"
+      },
+      {
+        "path": "docs/architecture/components/connectors-tools/doctrine.md",
+        "sha256": "28915ebbf084413b6af4a94c014a8f9436e84056c7c1e8be23969b51fb24cd31"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/api.md",
+        "sha256": "a761ead62c929a90ff3ce4ff0958869301afe081bec91c0aa9d9ec67661b7d52"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+        "sha256": "8922d339c9e492a0e1e8ce657264af2b904a48c771d56f8296902ca8c826299f"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/doctrine.md",
+        "sha256": "27a34c7bcf9035fc13607150cfce10b10a3320eaeba0de6fbbf17b8cb46101b1"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+        "sha256": "1e318e51a9ce2b9ae5b3323e7d891c6519a204b9b69cec36e0f4d83bf122be98"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+        "sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5"
+      },
+      {
+        "path": "docs/architecture/components/model-router/api-byok-mounting.md",
+        "sha256": "71f4a924aaa5755f676f5357a251a91bbf343d55fa6bea957b2d1134d37fe73a"
+      },
+      {
+        "path": "docs/architecture/components/model-router/doctrine.md",
+        "sha256": "5da1a0eae984f6f88b38fdce432b0b4d91692d4c4ce1cf6b3c130081303d95a8"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "sha256": "5a77e3506857e4f670a03da32b83af10634a79ed1b64f74ab5006bf6970503ca"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/doctrine.md",
+        "sha256": "8b5c6c5ea1eaee29d4fb5488d5b3ae4f136c35a8a2a3647504aa1d39391dd580"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "sha256": "4b36e978235c09cfe035fa263e7a78305041935b426274850ddc2e43884312f0"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/control-plane.md",
+        "sha256": "f19df1dc772e34311acca6cdaa8b2fe80bf7dbf1efb80c05500664d05e4f7455"
+      },
+      {
+        "path": "docs/architecture/foundations/security-privacy-policy-invariants.md",
+        "sha256": "a6a88ac7cda56eb98482f148e7d95813e3e4c25b415631eb8424aaaf6b329060"
+      },
+      {
+        "path": "docs/architecture/foundations/verifiable-bounded-agency.md",
+        "sha256": "51a657cb3c0547598dc1dafc97341c10bbad45478bcc0da511a3184939ee8ce7"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+        "sha256": "fc222a6a52751c148ea82498e19a7d2a98e6c96cbd57bfce308efc1703454bd3"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/goal-run-execution.md",
+        "sha256": "51bdd6e7c0f2fd5aefad2a1c49f7f9d8d1fba7bcb50f4a6a73ed66b9c7dbcad3"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "InformationFlowLabel",
+      "owner_path": "docs/architecture/foundations/objects/goal-run-execution.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/security-privacy-policy-invariants.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#informationflowlabel-and-declassificationapproval",
+      "contract_ids": [
+        "schema://ioi/foundations/information-flow-label/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.information-flow-label.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "DeclassificationApproval",
+      "owner_path": "docs/architecture/foundations/objects/goal-run-execution.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/security-privacy-policy-invariants.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#informationflowlabel-and-declassificationapproval",
+      "contract_ids": [
+        "schema://ioi/foundations/declassification-approval/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.declassification-approval.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "InformationFlowDecisionReceipt",
+      "owner_path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/security-privacy-policy-invariants.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#information-flow-decision-receipts",
+      "contract_ids": [
+        "schema://ioi/components/daemon-runtime/information-flow-decision-receipt/v1"
+      ],
+      "schema_versions": [
+        "ioi.components.daemon-runtime.information-flow-decision-receipt.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "DeclassificationReceipt",
+      "owner_path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/security-privacy-policy-invariants.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#information-flow-decision-receipts",
+      "contract_ids": [
+        "schema://ioi/components/daemon-runtime/declassification-receipt/v1"
+      ],
+      "schema_versions": [
+        "ioi.components.daemon-runtime.declassification-receipt.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "RuntimeToolContract",
+      "owner_path": "docs/architecture/components/connectors-tools/contracts.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#runtimetoolcontract",
+      "contract_ids": [
+        "schema://ioi/components/connectors-tools/runtime-tool-contract/v1"
+      ],
+      "schema_versions": [
+        "ioi.components.connectors-tools.runtime-tool-contract.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AuthorityEffectAdmissionReceipt",
+      "owner_path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "docs/architecture/components/wallet-network/doctrine.md",
+        "docs/architecture/foundations/security-privacy-policy-invariants.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#authority-effect-admission-receipt",
+      "contract_ids": [
+        "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1"
+      ],
+      "schema_versions": [
+        "ioi.components.daemon-runtime.authority-effect-admission-receipt.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ReceiptEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#receiptenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-envelope/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-envelope.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:production-information-flow-and-declassification",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/active/production-information-flow-and-declassification.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:INFORMATION_FLOW_DECLASSIFICATION_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "M3 implementation is present at the declared code anchors, registered contract fixtures and generated projections validate, the isolated daemon journey proves direct admission/result retention/restart reconstruction, and the focused Rust suite retains denial, stale-head, tamper, omission, revocation, label-loss, and exact-head evidence.",
+  "dependency_work_item_ids": [
+    "m0-route-final-invoker-pg-census-maintenance",
+    "m2-selected-profile-exit-proof",
+    "m3-goal-kernel-context-and-runtime-truth-spine"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`SECURITY`, `DAEMON`, `CONNECTORS`, `MODELS`, `ROOMS`; labels, decisions, declassification/disclosure/refusal receipts, PEP coverage",
+    "Evaluator/propagation/PEP/product-state plan; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "No unlabeled egress, client-side enforcement, implicit declassification, or claim before assigned aggregate",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `SECURITY`, `DAEMON`, `CONNECTORS`, `MODELS`, `ROOMS`; labels, decisions, declassification/disclosure/refusal receipts, PEP coverage.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Evaluator/propagation/PEP/product-state plan; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: No unlabeled egress, client-side enforcement, implicit declassification, or claim before assigned aggregate.",
+    "Retain an evidence index and require the exact content-bound INFORMATION_FLOW_DECLASSIFICATION_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "runtime work/tool invocation or lifecycle transition",
+      "final_invoker": "daemon RuntimeToolContract/work-lifecycle final invoker",
+      "authority_source": "local/domain policy and applicable grant; harness/MCP transports grant nothing",
+      "receipt_or_evidence": "invocation/result operation and ReceiptEnvelope",
+      "negative_behavior": "deny stale context, widened lease, duplicate idempotency key, or cancelled ancestor"
+    }
+  ],
+  "applicable_pg_ids": [
+    "PG-3.1",
+    "PG-3.3",
+    "PG-3.4"
+  ],
+  "pg_gate_states": [
+    {
+      "pg_id": "PG-3.1",
+      "applicability": "required_now",
+      "closure_stage_id": "M3",
+      "profile_selection": "selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    },
+    {
+      "pg_id": "PG-3.3",
+      "applicability": "conditional",
+      "closure_stage_id": "M3",
+      "profile_selection": "not_selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    },
+    {
+      "pg_id": "PG-3.4",
+      "applicability": "required_now",
+      "closure_stage_id": "M3",
+      "profile_selection": "selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    }
+  ],
+  "positive_proof": [
+    "The selected profile completes the bounded production-information-flow-and-declassification journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to INFORMATION_FLOW_DECLASSIFICATION_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for No unlabeled egress, client-side enforcement, implicit declassification, or claim before assigned aggregate; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for production-information-flow-and-declassification; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for No unlabeled egress, client-side enforcement, implicit declassification, or claim before assigned aggregate; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact INFORMATION_FLOW_DECLASSIFICATION_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m3.direct_path_substitution_failures",
+      "metric": "selected direct-path substitutions that change authority, truth, or accepted effect",
+      "threshold": 0,
+      "unit": "substitutions",
+      "threshold_source": "M3 direct-path preservation floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "INFORMATION_FLOW_DECLASSIFICATION_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/evidence/production-information-flow-and-declassification.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M3/production-information-flow-and-declassification.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_goal_pursuit.rs",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/information-flow-decision-receipt.v1.schema.json",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/declassification-receipt.v1.schema.json",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/authority-effect-admission-receipt.v1.schema.json",
+      "present_when": "implementation",
+      "evidence_scope": "selected-profile implementation and retained verification anchor"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "No collective pursuit, OutcomeRoom acceptance authority, P0 readiness, independent-party operation, public production claim, or later-stage closure is inferred from this M3 selected-profile proof."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: No unlabeled egress, client-side enforcement, implicit declassification, or claim before assigned aggregate. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Evaluator/propagation/PEP/product-state plan; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal INFORMATION_FLOW_DECLASSIFICATION_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": {
+    "from": "active",
+    "to": "verified",
+    "at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "certification_result_sha256": "e90d5bfcecb210d8f533b9db6dbbc7cac1cce5c9c18212b17537634ed4643df3",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

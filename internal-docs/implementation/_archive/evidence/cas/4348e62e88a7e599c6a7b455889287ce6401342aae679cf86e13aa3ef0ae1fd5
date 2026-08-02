@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=agentgres-production-readiness-and-branch-effects
+ARTIFACT=internal-docs/implementation/evidence/M3/m3-selected-profile-e2e.v1.json
+ARTIFACT_SHA256=b98970054aa2778bfeab8378985d4a6237a6d27ea5781dc7ddb133c9497b0fe7
+AGENTGRES_PRODUCTION_BRANCH_EFFECTS_EXIT=0
+NONCLAIM=Exact-head operation, branch, staged-effect, checkpoint, merge, and derived-projection behavior are proven for the selected kernel; multi-node production readiness is not claimed.

@@ -1,0 +1,45 @@
+{
+  "schema_version": "ioi.goal-run-admitted-state.v1",
+  "state_root_ref": "agentgres://state-root/goal-run/gr_demo",
+  "state_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "goal_run_ref": "goal://gr_demo",
+  "activation_ref": "goal-run-activation://gra_demo",
+  "source_context_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "requesting_principal_ref": "user://demo",
+  "authority_decision_ref": "approval://goal-run-activation/gra_demo/principal-scope-resolution",
+  "goal_run_profile_revision_ref": "goal-run-profile://generic-adaptive/revision/sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "goal_run_profile_content_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "goal_run_execution_ceiling_revision_ref": "goal-run-execution-ceiling://ioi-goal-draft-zero/revision/sha256:e852c32fd91b25c34a3388329392bf8746f61fef350d618921b03f5c43ee2d91",
+  "goal_run_execution_ceiling_content_hash": "sha256:e852c32fd91b25c34a3388329392bf8746f61fef350d618921b03f5c43ee2d91",
+  "declared_invocation_budget": {
+    "max_total_invocations": 0,
+    "max_parallel_invocations": 0
+  },
+  "admitted_override_set_ref": null,
+  "admitted_override_set_hash": null,
+  "resolved_component_set_snapshot_ref": "artifact://goal-run/gr_demo/resolved-components",
+  "resolved_component_set_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "profile_resolution_receipt_ref": "receipt://goal-run/gr_demo/profile-resolution",
+  "admission_decision_ref": "decision://goal-run/gr_demo/direct",
+  "admission_receipt_ref": "receipt://goal-run/gr_demo/direct-admission",
+  "receipt_obligations": [
+    {
+      "obligation_id": "receipt-obligation://goal-run-activation/gra_demo/0",
+      "boundary_event": "activation",
+      "receipt_type": "goal_run_activation",
+      "receipt_profile_ref": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
+      "bound_fact_requirement_refs": [
+        "goal://gr_demo",
+        "goal-run-activation://gra_demo"
+      ],
+      "required": true
+    }
+  ],
+  "admitted_at": "2026-07-30T16:00:00Z",
+  "non_grants": {
+    "authority_widening": "none",
+    "context_declassification": "none",
+    "room_membership": "none",
+    "budget_creation": "none"
+  }
+}

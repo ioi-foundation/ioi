@@ -1,0 +1,133 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "upgrade-proposal-owner-qualified-target-binding",
+  "stage_id": "M8",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Carry the owner-qualified target binding on the upgrade-proposal envelope from canon into generated projections, fixtures, and admission checks."
+  ],
+  "status": "proposed",
+  "objective": "Canon now qualifies the upgrade-proposal envelope's target by owner reference rather than hard-requiring a system identifier, which is what lets a project-scoped maintenance profile exist without a fabricated System genesis. Nothing downstream of canon carries that yet: the generated projections, the positive and negative fixtures, and the admission checks still encode the older required-system shape. Bind the qualified target across the registry projections and admission path, and prove that an envelope naming a non-system owner is admitted for exactly the owners canon qualifies and refused for every other. UPGRADE_PROPOSAL_OWNER_QUALIFIED_TARGET_BINDING_EXIT=0.",
+  "falsifiable_claim": "Canon's owner-qualified target binding is expressible end to end: the generated projections carry the qualified target, an envelope naming a qualified non-system owner is admitted, an envelope naming an unqualified owner is refused by name, and no path reintroduces a required system identifier.",
+  "selected_profile": "The selected single-node deployment's improvement plane: the upgrade-proposal envelope, its registry projections, and the admission path that accepts or refuses one.",
+  "canon_owners": [
+    "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md",
+    "docs/architecture/foundations/bounded-recursive-improvement.md",
+    "docs/architecture/foundations/invariants.md",
+    "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "c2dd57050c543f22f14b006b502df57415713c27",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "4df7ee08498d6db6d66e298da02a7cab314433a9c8c4f5553438e4ced26d5f43",
+    "owners": [
+      {
+        "path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+        "sha256": "78f0414fc63525ee914e102f8b4058971d2b2426227cade64c80311cd6b70c17"
+      },
+      {
+        "path": "docs/architecture/foundations/governed-autonomous-systems.md",
+        "sha256": "172d5522c76a48860c9449c893fc4aea72d8647c8d76ad42aff785b21d1c2746"
+      },
+      {
+        "path": "docs/architecture/foundations/bounded-recursive-improvement.md",
+        "sha256": "b8ce77f010f6aebbf7e4282522257dd3a93c8a8bf92fa0fe4f927916b9b04966"
+      },
+      {
+        "path": "docs/architecture/foundations/invariants.md",
+        "sha256": "754c322a2dbc2287d02220ca2309c4b6d213cad92814ef7c92cb9b833e94148a"
+      },
+      {
+        "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+        "sha256": "9470f12113b349df7b23af7443c6696f1f8049df37c29207d5d3683d4af433cf"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:upgrade-proposal-owner-qualified-target-binding",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/upgrade-proposal-owner-qualified-target-binding.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:UPGRADE_PROPOSAL_OWNER_QUALIFIED_TARGET_BINDING_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": [
+    "EXTRACTED OBLIGATION. This record exists because an external planning document held an active, unratified-into-the-estate obligation with no canonical record. Its canon half landed; its program half did not, and an obligation that lives only in a plan outside the estate is a competing guide. The plan was reclassified historical once this record was written; see _archive/manifests/external-plan-disposition.v1.json.",
+    "Verified at 7ee7acc2e: the canon owner carries the owner-qualified target binding, and no work-item record in the estate names it. The gap is the program half, not the canon half."
+  ],
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "Generated projections for the upgrade-proposal envelope updated to the owner-qualified target binding, derived from the contract registry rather than hand-edited.",
+    "Positive fixtures for every owner kind canon qualifies, and negative fixtures for an unqualified owner kind, a missing target binding, and a target whose admission domain does not match its owner kind.",
+    "The admission check that refuses an envelope whose target binding is absent or unqualified, refusing by a stable name that a test can assert and a record can cite.",
+    "A sweep of the three foundation owners canon named for residual assumptions that a target is always a system, recording any that cannot be removed as a named gap rather than silently leaving them."
+  ],
+  "out_of_scope": [
+    "Changing what a system-scoped upgrade proposal means. System-scoped semantics are unchanged; this widens who may be named as a target, not what happens to a system.",
+    "Implementing project-scoped maintenance behaviour. This cut makes the target expressible; it activates no profile and grants no capability.",
+    "Any canon edit. The canon half of this obligation has landed and is not reopened here."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "An envelope naming each owner kind canon qualifies is admitted, its projection round-trips through the registry-generated types, and the retained literal appears exactly once."
+  ],
+  "adversarial_or_fault_proof": [
+    "Predeclared refusals, each by name: an envelope with no target binding; an envelope naming an owner kind outside the qualified set; an envelope whose admission domain contradicts its owner kind; an envelope carrying both a legacy required system identifier and a qualified target, which must refuse rather than silently prefer one; a projection regenerated from a registry entry that still encodes the required-system shape, which must fail closed rather than emit a stale type.",
+    "The baseline is that no fixture, projection, or admission check exercises a non-system target today, so the qualified binding is unproven downstream of canon."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "UPGRADE_PROPOSAL_OWNER_QUALIFIED_TARGET_BINDING_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M8/upgrade-proposal-owner-qualified-target-binding.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "present_when": "merged",
+      "evidence_scope": "the registry entry the projections and fixtures must be regenerated from; presence is not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "Admitting a non-system target is not a claim that any project-scoped maintenance profile exists, is bounded, or is safe. It makes the target expressible and nothing else.",
+    "This record closes no stage, grants no capability, and publishes no claim.",
+    "Extraction from a plan is not ratification of that plan. Only this record's own proof closes this record."
+  ],
+  "rollback_or_stop_rule": "Stop if the qualified target cannot be admitted without reintroducing a required system identifier anywhere on the path, or if a projection can only be made to compile by hand-editing generated output. In either case the honest outcome is a named gap against the canon owner, never a hand-maintained projection or a fixture that pins the older shape.",
+  "exit_criteria": [
+    "Projections, fixtures, and admission checks all carry the owner-qualified target binding; every predeclared refusal fires by name; no path requires a system identifier; and the retained literal appears exactly once."
+  ],
+  "pr": null,
+  "source_provenance": "Extracted 2026-07-29 from the 2026-07-28 external productization action plan (its A6 canon obligation and its C3 implementation obligation) during the owner-directed disposition of that plan. The canon obligation was verified as already landed at 7ee7acc2e; the implementation obligation had no record anywhere in the estate, so it is admitted here as a bounded proposed cut rather than left in a document outside the estate.",
+  "last_status_transaction": "2026-07-29"
+}

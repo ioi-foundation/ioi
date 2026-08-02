@@ -1,0 +1,102 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-hold-predecessor-claim-coverage-successor",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Give canon-acceptance holds a per-predecessor claim-coverage disposition: hold creation records, per bound predecessor, whether the named successor's claim covers that predecessor's claim, and the ledger supports an owner-ruled per-predecessor release that the drift derivation honors instead of silently re-adding."
+  ],
+  "status": "proposed",
+  "objective": "Canon-acceptance holds auto-assign one required successor to every bound predecessor with no check that the successor's claim covers each predecessor's claim. boundRecords() unions the canon map, canon_owners citations, and literal-artifact bindings; verifiedByAcceptance() then names every pre-acceptance verified closure a predecessor of one hold with one successor. The result measured on 2026-08-01: osh-0079..osh-0083 name 16 distinct closures under the single successor m5-goalrun-thread-orchestration-seam, while the ADR 0031 per-predecessor test shows only three of them (m3-direct-path-and-exit-proof, m3-goal-kernel-context-and-runtime-truth-spine, m3-work-session-automation-product-journey) have claims that depend on the execution semantics that successor re-proves. The other thirteen are qualified by a successor whose claim does not cover theirs, and the ledger offers no release lane narrower than wholesale withdrawal or full-graph discharge: hold-predecessor-drift re-adds any removed pre-acceptance predecessor by derivation. M0_HOLD_PREDECESSOR_CLAIM_COVERAGE_EXIT=0.",
+  "falsifiable_claim": "The claim fails if a canon-acceptance hold can qualify a predecessor with no recorded coverage test between the successor's claim and that predecessor's claim, if an owner-ruled per-predecessor release is re-added by the drift derivation, if release requires wholesale hold withdrawal, or if the coverage disposition can change a status, discharge a hold, or weaken the projection of any predecessor the successor genuinely covers.",
+  "selected_profile": "The open-successor-hold ledger, its seeding/drift derivation in check-open-successor-holds.mjs, and the five sequence-20 holds osh-0079..osh-0083 as the measured case.",
+  "canon_owners": [
+    "docs/architecture/_meta/current-canon-defaults.md",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/start-here.md"
+  ],
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m0-hold-predecessor-claim-coverage-successor",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m0-hold-predecessor-claim-coverage-successor.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "MECHANISM (measured 2026-08-01, tools/check-open-successor-holds.mjs): requiredHolds() derives each canon-acceptance hold's predecessors as boundRecords(subject) — canon-map work_items ∪ records citing the subject in canon_owners ∪ literal-artifact bindings — filtered to closures verified before the acceptance commit (verifiedByAcceptance). One required_successor per hold; no per-predecessor field exists; hold-predecessor-drift re-adds any derived predecessor removed from an open hold; the only narrower states are wholesale requirement_withdrawn_by_owner or successor_admitted on the full graph. PER-PREDECESSOR ADR-0031 TEST (owner ruling 2026-08-01, test: did ADR 0031 change a contract family this record's claim depends on?): KEEP the seam successor — m3-direct-path-and-exit-proof (the direct GoalRun execution path is what ADR 0031 recomposes; runtime_goal_pursuit.rs is the measured zero-reference baseline), m3-goal-kernel-context-and-runtime-truth-spine (goal kernel, runtime truth, harness/context injection are execution semantics), m3-work-session-automation-product-journey (work sessions, harness availability, restart races sit on the managed-session/harness-binding layer ADR 0031 names). RELEASE (claims do not depend on execution semantics) — m4-room-graph-truth-and-product-projection (room admission/graph/projection; m4.md rules the seam outside M4's exit contract; director pre-ruled NO), agentgres-production-readiness-and-branch-effects (substrate head/branch/replay semantics unchanged by ADR 0031), m0-route-final-invoker-pg-census-maintenance (route census; ADR 0031 adds no routes), m1-dual-genesis-and-read-projection and m1-system-genesis-product-journey (genesis identity and journey), m2-agentgres-replay-recovery-and-product-topology (replay/writer-fence/restore), m3-result-lifecycle-negative-retention (result retention and effect fences), m3-pursuit-definition-resolution (RESOLVED RELEASE 2026-08-01, formerly borderline: its claim owns definition immutability, reuse without shared live state, identity preservation across replacement, and definitions-cannot-execute — properties of the PursuitDefinition/component-resolution/Skill/tool-contract families. ADR 0031 recomposed the execution path over five kernel primitives and explicitly left GoalRun placement/identity unchanged; the seam consumes resolved definitions unchanged. Its GoalKernel-grounding aspect feeds definition truth INTO the kernel context; kernel/runtime-truth execution semantics themselves are owned and kept by m3-goal-kernel-context-and-runtime-truth-spine), m9-compute-substrate-canon-successor (hold-mapping meta-record), production-information-flow-and-declassification (labels/egress), production-receipt-checkpoint-and-offline-proof (receipt checkpointing), project-discovery-startup-and-session-chain (RESOLVED RELEASE 2026-08-01, formerly borderline: its claim owns project-discovery/startup predecessor-product-recovery chain integrity — missing predecessor, wrong project/System, orphan resources, fabricated readiness. Its 'session chain' is startup session lineage, not runtime managed-session control; its canon_owners do not include goal-run-execution.md, and ADR 0031's managed-session/harness-binding primitives govern runtime browser/sandbox control and harness-launch admission, not startup chains), scm-publication-effect-and-route-rebuild (publish effect). MECHANICAL BLOCK — CLOSED 2026-08-01: the coverage-disposition lane now exists (holds.mjs predecessor_coverage_dispositions + effectivePredecessors; check-open-successor-holds validations hold-coverage-invalid/-not-a-predecessor/-duplicate/-unexplained; 32 predeclared rejections self-tested including an unjustified removal that drifts even when a release disposition rides along; a valid release un-qualifies exactly its own predecessor). Releases are applied only under the owner ruling, each carrying its test, reasoning, and ruling; predecessor_records stay derived and drift-guarded. This filing changes no status, discharges no hold, and re-stamps nothing.",
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "in_scope": [
+    "A per-predecessor coverage disposition recorded at hold creation and honored by seeding, drift, projection, and certification consumers.",
+    "An owner-ruled release lane narrower than wholesale withdrawal, append-only and content-bound to the ruling that authorized it.",
+    "Fail-closed self-tests for every new rejection, per the ledger's existing discipline."
+  ],
+  "out_of_scope": [
+    "Discharging or weakening any hold whose successor genuinely covers a predecessor's claim.",
+    "Rewriting hold identities, predecessor history, or any review ledger.",
+    "The M5 seam and durable-event-subscription successors' own proof obligations."
+  ],
+  "implementation_actions": [
+    "Extend the hold shape with a per-predecessor coverage/disposition list validated against the hold's predecessor set.",
+    "Teach requiredHolds()/seed()/drift to honor owner-ruled releases without permitting silent under-qualification.",
+    "Apply the recorded 2026-08-01 test table to osh-0079..osh-0083 through the new lane and retain the release evidence."
+  ],
+  "consequential_effects_and_final_invokers": [],
+  "ordered_product_operator_journey": [],
+  "positive_proof": [
+    "A hold created over a multi-predecessor acceptance carries a coverage disposition per predecessor; an owner-ruled release survives derivation; every release names its ruling and its reasoning."
+  ],
+  "adversarial_or_fault_proof": "Reject silent under-qualification, a release without a named ruling, a coverage disposition that flips a status or discharges a hold, and a drift pass that re-adds an owner-released predecessor.",
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [
+    "The ledger stays append-only; existing holds gain coverage dispositions without rewriting their identities or transitions."
+  ],
+  "evidence_index": {
+    "literal_exit": "M0_HOLD_PREDECESSOR_CLAIM_COVERAGE_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m0-hold-predecessor-claim-coverage-successor.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "internal-docs/implementation/tools/check-open-successor-holds.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the boundRecords/verifiedByAcceptance derivation and hold-predecessor-drift rejection this successor extends"
+    },
+    {
+      "path": "internal-docs/implementation/tools/lib/holds.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "hold shape, states, and append-only discipline the coverage disposition must preserve"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "Filing this record releases nothing: osh-0079..osh-0083 keep qualifying every currently named predecessor until the coverage lane exists and the owner's release is executed through it."
+  ],
+  "rollback_or_stop_rule": "Stop if any change would discharge a hold, alter a predecessor's projection without an owner-ruled coverage disposition, or rewrite ledger history; roll back by reverting the tooling change, leaving the ledger bytes untouched.",
+  "source_provenance": "Owner ruling 2026-08-01 (director session): re-disposition osh-0079..osh-0083 per predecessor by the ADR-0031 dependency test; FILE the auto-assignment mechanism defect, do not fix it in that leg. Test executed and recorded by the implementer session on branch agent/hypervisor-m4-end-state.",
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "ff38b2ca3a94f01f35596a8c8305d5a2e1a9b0c3",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "d9df5c77bd6d3d69a8446bdbf49769945665bdc043d44fa99bd5416a57168e9c",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/current-canon-defaults.md",
+        "sha256": "d5d41f47a58e2f75fbec91e43c3f536a0ddb9561bf67c0f504c733ad1488c846"
+      },
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022"
+      },
+      {
+        "path": "docs/architecture/_meta/start-here.md",
+        "sha256": "6a5cdf8ac430ccaae61b5a36ea8d105a08b5a2f6b5c2f7fa7da3553ddf9a5a32"
+      }
+    ]
+  }
+}

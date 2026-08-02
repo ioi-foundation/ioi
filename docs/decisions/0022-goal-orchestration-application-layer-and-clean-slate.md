@@ -90,6 +90,14 @@ Consequential sub-rulings:
    `ReceiptObligation` element, idempotent receipted crossings, and the
    admission-evidence discipline of ADR 0020 are the substrate's rules that
    the application's admissions must satisfy.
+7. **Contract identifiers follow ownership.** Contracts owned by the openly
+   packaged ioi.ai orchestration application use
+   `schema://ioi/applications/ioi-ai/*`; `schema://ioi/foundations/*` is
+   reserved for substrate-generic contracts. Re-homing is deletion-and-move,
+   with no foundation aliases. WorkResult and OutcomeDelta remain in
+   foundations and therefore carry only generic work-subject, bounded-System
+   scope, lineage, and origin coordinates—not GoalRun, OutcomeRoom, Attempt,
+   Finding, frontier, or room-family fields.
 
 ## Decision 2 — Clean slate: strip compatibility machinery
 

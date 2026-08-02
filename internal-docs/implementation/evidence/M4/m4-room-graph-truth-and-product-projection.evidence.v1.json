@@ -1,0 +1,215 @@
+{
+  "evidence_format": "ioi.program.m4_room_graph_truth_product_evidence.v1",
+  "evidence_role": "Content-bound join over fresh cut-1 runtime, refusal, recovery, product-state, seed, predecessor-regression, canon, and work-item checks. This artifact is the proof body bound by the cut-1 literal; it is not itself a status transition.",
+  "work_item_id": "m4-room-graph-truth-and-product-projection",
+  "stage_id": "M4",
+  "selected_profile": "One hosted OutcomeRoom compiled as a bounded System; no external participant or federation claim.",
+  "checkout": {
+    "head": "287449463f42c2a0e55464b4c8230a9f6fa05dbe",
+    "branch": "agent/hypervisor-m4-end-state",
+    "record_path": "internal-docs/implementation/work-items/active/m4-room-graph-truth-and-product-projection.v1.json",
+    "record_sha256": "e90548fb147dbbfc3b6cd52338667897f50e2fc4cd222e8dba5745de0f809a35"
+  },
+  "canon_review": {
+    "accept_exit_code": 0,
+    "check_exit_code": 0,
+    "reviewer_ref": "reviewer://codex/m4-end-state-director-authorized",
+    "subject_count": 147,
+    "dispositions": {
+      "unaffected": 147
+    },
+    "review_manifest_content_address": "_archive/attestations/review-manifests/1f4805e16535ac6173ff6864240158e882aa0b3c1f00039947b82977516ced27.json",
+    "review_manifest_sha256": "1f4805e16535ac6173ff6864240158e882aa0b3c1f00039947b82977516ced27",
+    "claim": "canon_drift_reviewed_only"
+  },
+  "fresh_runs": [
+    {
+      "command": "node apps/hypervisor/scripts/verify-hypervisor-outcome-room-plane.mjs",
+      "exit_code": 1,
+      "admission": "retained_failure_not_proof",
+      "reason": "real model route unavailable before the owned Ollama process was started",
+      "log": {
+        "path": "internal-docs/implementation/evidence/M4/runs/cut1-outcome-room-plane.attempt1-model-unavailable.log",
+        "sha256": "bb25606be56e51fa71c1ca7f84c5a21cc8b468b6118cfa7ebee62b781d045d0e"
+      }
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-hypervisor-outcome-room-plane.mjs",
+      "exit_code": 0,
+      "admission": "proof",
+      "assertions": {
+        "runtime": 98,
+        "contract_depth": 19,
+        "v1_retirement": 23,
+        "total": 140
+      },
+      "support": {
+        "architecture_contract_bar": {
+          "exit_code": 0,
+          "output_sha256": "aa6180c9f7704ba81f2eebdf13e01acd3f839979b93a35cd95334be6208af14a"
+        },
+        "ported_surface_modules": {
+          "exit_code": 0
+        },
+        "isolated_listener_ownership": {
+          "exit_code": 0
+        }
+      },
+      "log": {
+        "path": "internal-docs/implementation/evidence/M4/runs/cut1-outcome-room-plane.passed.log",
+        "sha256": "f00a7b7c893bb67ad0b484afb727f3cc86d91905b1a98c5b7d604358986d67fb"
+      }
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-m3-goalrun-plane.mjs",
+      "exit_code": 0,
+      "assertions": 6,
+      "historical_literals_regenerated": false,
+      "log": {
+        "path": "internal-docs/implementation/evidence/M4/runs/cut1-m3-goalrun-plane.log",
+        "sha256": "bd6775706ac6c5e960348559d0c5655c9cdebd8429141a81e78e5950a86a1ccf"
+      }
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
+      "exit_code": 0,
+      "assertions": 413,
+      "log": {
+        "path": "internal-docs/implementation/evidence/M4/runs/cut1-ported-seed-static.log",
+        "sha256": "0dcd759b58ec0feb9b6f63a07bd776ff706647c4650119cd58b073bec7be57ef"
+      }
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs --live",
+      "exit_code": 0,
+      "assertions": 477,
+      "log": {
+        "path": "internal-docs/implementation/evidence/M4/runs/cut1-ported-seed-live.log",
+        "sha256": "efbca6301c8583fc0624ca7eaa037f6f9b806fdc38a42a66a7cf91c10f19f0a1"
+      }
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-m4-goalrun-activation-plane.mjs",
+      "exit_code": 0,
+      "assertions": 44,
+      "log": {
+        "path": "internal-docs/implementation/evidence/M4/runs/cut1-goalrun-activation.log",
+        "sha256": "b76a2f86b913d780d1c3d3e1e733576c3b96649b2fff7a136ca569235cc6daac"
+      }
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-m4-session-initial-input-plane.mjs",
+      "exit_code": 0,
+      "assertions": 111,
+      "log": {
+        "path": "internal-docs/implementation/evidence/M4/runs/cut1-session-initial-input.log",
+        "sha256": "66af356d98faffef79c550616e569868665f9b5e726eda3911f123c8e156a35b"
+      }
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-m4-ported-composer-goal-activation.mjs",
+      "exit_code": null,
+      "admission": "retained_inconclusive_not_proof",
+      "reason": "wrapper lost the exit handle despite a 17/17 sentinel; rerun required",
+      "log": {
+        "path": "internal-docs/implementation/evidence/M4/runs/cut1-ported-composer-activation.inconclusive-exit.log",
+        "sha256": "9d82b0f286cd3656cde01891156df2b35aae9b9a734e281888914d4aef5a5cd1"
+      }
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-m4-ported-composer-goal-activation.mjs",
+      "exit_code": 0,
+      "assertions": 17,
+      "admission": "proof",
+      "log": {
+        "path": "internal-docs/implementation/evidence/M4/runs/cut1-ported-composer-activation.passed.log",
+        "sha256": "2402f6abc79a2b7adfffa7ebe57aad4ce1bbaa4068775b4d64ef47d323b7db28"
+      }
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-hypervisor-work-result-plane.mjs",
+      "exit_code": 0,
+      "assertions": 63,
+      "log": {
+        "path": "internal-docs/implementation/evidence/M4/runs/cut1-work-result-plane.log",
+        "sha256": "c11c25411533f2f59a4847aebf3080012c5d3726d1323b76c305b7ec97b7ed23"
+      }
+    },
+    {
+      "command": "node internal-docs/implementation/tools/canon-impact.mjs --check --json",
+      "exit_code": 0,
+      "log": {
+        "path": "internal-docs/implementation/evidence/M4/runs/cut1-canon-impact.json",
+        "sha256": "c0da97e8591f8ba7db077fab091fdee4a72f154fdf9449a8e75f27b3d30dc79f"
+      }
+    },
+    {
+      "command": "npm run check:work-items",
+      "exit_code": 0,
+      "log": {
+        "path": "internal-docs/implementation/evidence/M4/runs/cut1-check-work-items.log",
+        "sha256": "5913202c7fc85b212aa41de02374c2242ef60fd0f0715c869ef4b040b683b865"
+      }
+    }
+  ],
+  "exercised_refusals": [
+    {
+      "name": "direct_ui_graph_writes",
+      "proof": "POST/PUT/PATCH/DELETE against graph and discussion routes returned 405 or 404; the owner state root and durable tree were unchanged.",
+      "log": "internal-docs/implementation/evidence/M4/runs/cut1-outcome-room-plane.passed.log"
+    },
+    {
+      "name": "wrong_system_children",
+      "proof": "caller System-coordinate substitution and deep canon-valid wrong-System child mutations reached typed owner guards before publication with durable truth unchanged.",
+      "log": "internal-docs/implementation/evidence/M4/runs/cut1-outcome-room-plane.passed.log"
+    },
+    {
+      "name": "stale_verdicts",
+      "proof": "deep child owner candidates reached the exact stale-verdict guard; stale room/GoalRun heads and post-terminal retries were refused without mutation.",
+      "log": "internal-docs/implementation/evidence/M4/runs/cut1-outcome-room-plane.passed.log"
+    },
+    {
+      "name": "export_leakage",
+      "proof": "product projection exported neither payload refs nor payload bytes; replay omitted payload bytes/admitted objects; custody failures returned typed unavailable projections without leaked forbidden bytes.",
+      "log": "internal-docs/implementation/evidence/M4/runs/cut1-outcome-room-plane.passed.log"
+    },
+    {
+      "name": "activation_and_session_substitution",
+      "proof": "ordinary Enter created one Session and zero GoalRun activations; changed reviewed body, stale source, authority/profile substitution, missing review, and cross-owner access all refused before GoalRun admission.",
+      "logs": [
+        "internal-docs/implementation/evidence/M4/runs/cut1-goalrun-activation.log",
+        "internal-docs/implementation/evidence/M4/runs/cut1-session-initial-input.log",
+        "internal-docs/implementation/evidence/M4/runs/cut1-ported-composer-activation.passed.log"
+      ]
+    },
+    {
+      "name": "fault_recovery_and_replay",
+      "proof": "post-Agentgres, membership, result, delta, Session WAL, and durability interruptions retained typed recovery anchors; fresh processes converged one canonical operation/receipt/head without duplicate effects.",
+      "logs": [
+        "internal-docs/implementation/evidence/M4/runs/cut1-outcome-room-plane.passed.log",
+        "internal-docs/implementation/evidence/M4/runs/cut1-session-initial-input.log"
+      ]
+    }
+  ],
+  "frozen_metrics": {
+    "m4.direct_client_shared_graph_writes": 0
+  },
+  "proven": [
+    "One hosted OutcomeRoom is compiled through package/genesis into one active bounded System with exact package, genesis, constitution, profile, host-domain, and owner coordinates.",
+    "Room and GoalRun membership is reciprocal and changes only through exact-head compare-and-swap Agentgres operations and receipts.",
+    "Minimum room WorkResult and OutcomeDelta truth, graph/discussion/product/replay projections, owner refs, state roots, receipt roots, and payload custody reconstruct after restart.",
+    "The existing ported composer preserves Session-default submission and exposes a separate reviewed ioi_goal_draft activation act whose admission is daemon-owned.",
+    "M5 lifecycle collections remain honest-empty and predecessor writes fail closed; no M5 lifecycle implementation is claimed."
+  ],
+  "named_gaps": [
+    "External participants, federation, cross-sovereign admission, AIIP discovery, settlement, and wallet authority remain out of scope.",
+    "Complete M6 application journeys and any apps/ioi-ai workspace remain unimplemented by M4.",
+    "M4 alone does not close P0, M9 product proof, release, or any other stage.",
+    "M5 participant/frontier/claim/attempt/finding/challenge lifecycles remain honest-empty and are not implemented by this cut."
+  ],
+  "nonclaims": [
+    "A process exit code alone is not the retained literal.",
+    "The historical M3 literal was not regenerated or rewritten.",
+    "The failed and inconclusive attempts are retained but excluded from the proof join."
+  ]
+}

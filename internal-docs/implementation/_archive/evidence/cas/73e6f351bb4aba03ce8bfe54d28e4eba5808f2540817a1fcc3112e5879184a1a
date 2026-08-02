@@ -1,0 +1,10 @@
+{
+  "literal_exit": {
+    "expected": "INFORMATION_FLOW_DECLASSIFICATION_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M3/production-information-flow-and-declassification.exit.v1.txt",
+    "artifact_sha256": "d2115714706df4becdc285ebf8ad5374ef8e2bad11ede63b75ebd5bd3504a709"
+  },
+  "adversarial_or_fault_proof": [
+    "The retained M3 selected-profile artifact includes positive, denial, stale-head, tamper, omission, replay, restart, and non-overclaim evidence for this cut."
+  ]
+}

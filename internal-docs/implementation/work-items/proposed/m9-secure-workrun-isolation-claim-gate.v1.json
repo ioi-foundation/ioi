@@ -1,0 +1,82 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m9-secure-workrun-isolation-claim-gate",
+  "stage_id": "M9",
+  "record_role": "private_verifier",
+  "status": "proposed",
+  "objective": "Bind exact secure-agent-sandbox wording to the selected current isolation capability, coverage, conformance, freshness, and nonclaims; M9_SECURE_WORKRUN_ISOLATION_CLAIM_GATE_EXIT=0.",
+  "falsifiable_claim": "Public wording exceeds or outlives the selected isolation evidence.",
+  "canon_owners": [
+    "docs/architecture/_meta/public-web-estate.md",
+    "docs/conformance/hypervisor-core/workrun-isolation.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "84a5a221abfccdc0786d6a1ad306b8e2dc59ff27cac5ca3477d7d0338791e120",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/public-web-estate.md",
+        "sha256": "14d9d70df2089f98f9f081bbb66ee7f0695ac0a06ae0dae5ba55ab75e654b353"
+      },
+      {
+        "path": "docs/conformance/hypervisor-core/workrun-isolation.md",
+        "sha256": "88b6b3b395bb1ecd24fa9c4696a97941c9226094af3a6e9efd8c14810e6c2f4e"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [
+    "m9-workrun-microvm-isolation-and-output-admission",
+    "m9-backend-capability-and-coverage-evidence"
+  ],
+  "required_work": [
+    "Generate or withdraw exact claim wording from fresh selected evidence."
+  ],
+  "in_scope": [
+    "secure WorkRun claim"
+  ],
+  "out_of_scope": [
+    "Workstation",
+    "Infrastructure",
+    "HypervisorOS",
+    "escape-proof claim"
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [
+    "PG-4C.1",
+    "PG-4C.2",
+    "PG-4C.3",
+    "PG-4C.6"
+  ],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "Claim resolves to one passing current selected profile."
+  ],
+  "adversarial_or_fault_proof": [
+    "Stale, simulated, missing, drifted, or broader evidence withdraws the claim."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "M9_SECURE_WORKRUN_ISOLATION_CLAIM_GATE_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m9-secure-workrun-isolation-claim-gate.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    "apps/hypervisor-web/src/site/RuntimeSecurity.jsx"
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "No absolute escape-impossibility claim."
+  ],
+  "rollback_or_stop_rule": "Withdraw immediately on stale or missing selected evidence.",
+  "source_provenance": "Owner-ratified governed-compute restructuring, 2026-07-29."
+}

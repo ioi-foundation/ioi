@@ -1,0 +1,439 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m2-writer-fence-and-lost-suffix",
+  "stage_id": "M2",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "M2.3",
+    "M2.4",
+    "M2.5",
+    "M2.6"
+  ],
+  "status": "verified",
+  "objective": "Plan the active-writer epoch, final-invoker fence, ambiguous-outcome custody, and lost-suffix reconciliation plane.",
+  "falsifiable_claim": "Caller-authored, stale, foreign, deposed, or mismatched membership, epoch, resource, grant, root, or effect state reaches zero selected final invokers, and ambiguous outcomes remain retained for reconciliation.",
+  "selected_profile": "The selected single-node deployment with explicit observed membership, writer epoch, routes, restore, and cleanup truth.",
+  "canon_owners": [
+    "docs/architecture/components/agentgres/api-object-model.md",
+    "docs/architecture/components/agentgres/artifact-ref-plane.md",
+    "docs/architecture/components/agentgres/doctrine.md",
+    "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+    "docs/architecture/components/agentgres/projection-system-reference.md",
+    "docs/architecture/components/daemon-runtime/hypervisoros.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
+    "docs/architecture/components/daemon-runtime/private-workspace-ctee.md",
+    "docs/architecture/components/daemon-runtime/runtime-nodes-tee-depin.md",
+    "docs/architecture/components/daemon-runtime/task-capsule-protocol.md",
+    "docs/architecture/components/hypervisor/byo-provider-plane.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
+    "docs/architecture/foundations/domain-kernels.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md",
+    "docs/architecture/foundations/invariants.md",
+    "docs/architecture/foundations/objects/evidence-and-delivery.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "d3904fae0820fa2180e111339d07fce2307d05b9",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "682cdd11b199603be1282a8bc309c7a9fe4153fa958727e54e9ed79a78c36f4b",
+    "owners": [
+      {
+        "path": "docs/architecture/components/agentgres/api-object-model.md",
+        "sha256": "a79905a481217eef9f8eefd9a4b9d7cb026b7a62183096072824f83422575fd7"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/artifact-ref-plane.md",
+        "sha256": "8bdf076fba386f3b62a4fceccf55d9aaed8150a8aff127230d49edb6d5c00b92"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/doctrine.md",
+        "sha256": "4a8b06374f7b0a415eaab12841347c3e7d1e1acde2084dd8be23b4f1f838370b"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+        "sha256": "fdc0f94961a2d3f7cf29a766f29a37dc291b28248bb9109da685ada643fe1e6c"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/projection-system-reference.md",
+        "sha256": "036fff0ebff79633bd4418b50208554f81adc5876dd978888ff75b24b8edce47"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+        "sha256": "625e3c2b05b890513fa84c4cac55631b378f29203f935c4fde5b7cd3e8f00243"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+        "sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/private-workspace-ctee.md",
+        "sha256": "4eb541c11dea7db68d69e52ddd7dc2f04740fcae71797a68873bc49f3842d879"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/runtime-nodes-tee-depin.md",
+        "sha256": "cdedc5fb481477179cf29b93a0f0a437976f8579774bab22557a106f4a71f35c"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/task-capsule-protocol.md",
+        "sha256": "8181e646dbb5a0f4c0e7647bf51dd0d7781f40171d6f4c5c0e181c0d45308b58"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+        "sha256": "c25f5dc4835d643829e79eb1915c89f4f157dafcee1cb400bfd0a644f2910aa6"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/providers-and-environments.md",
+        "sha256": "cf2f1f6fb8cca834864f50ed3e69b7a6e4376f358bd74dafceacfd2eabbbdad5"
+      },
+      {
+        "path": "docs/architecture/foundations/domain-kernels.md",
+        "sha256": "6fa8f82e617f410255aabb07fca966a6cfa57027293deaae2877717dafd507ff"
+      },
+      {
+        "path": "docs/architecture/foundations/governed-autonomous-systems.md",
+        "sha256": "172d5522c76a48860c9449c893fc4aea72d8647c8d76ad42aff785b21d1c2746"
+      },
+      {
+        "path": "docs/architecture/foundations/invariants.md",
+        "sha256": "754c322a2dbc2287d02220ca2309c4b6d213cad92814ef7c92cb9b833e94148a"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+        "sha256": "fc222a6a52751c148ea82498e19a7d2a98e6c96cbd57bfce308efc1703454bd3"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "AutonomousSystemNodeMembershipEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/bounded-system-genesis.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/domain-kernels.md",
+        "docs/architecture/foundations/governed-autonomous-systems.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AutonomousSystemWriterEpochTransitionEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/bounded-system-genesis.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/domain-kernels.md",
+        "docs/architecture/foundations/governed-autonomous-systems.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ConsequentialEffectFenceContext",
+      "owner_path": "docs/architecture/foundations/objects/bounded-system-genesis.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "OrderingFinalityRecoveryEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/bounded-system-genesis.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/domain-kernels.md",
+        "docs/architecture/foundations/governed-autonomous-systems.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "LostSuffixRecordEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/bounded-system-genesis.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/domain-kernels.md",
+        "docs/architecture/foundations/governed-autonomous-systems.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "TemporalVerificationProfile",
+      "owner_path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "OperationLogEntry",
+      "owner_path": "docs/architecture/components/agentgres/api-object-model.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/agentgres/doctrine.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ReceiptEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#receiptenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-envelope/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-envelope.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m2-writer-fence-and-lost-suffix",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/active/m2-writer-fence-and-lost-suffix.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M2_WRITER_FENCE_AND_LOST_SUFFIX_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Pre-migration record status is preserved as proposed. Existing anchors and refs prove only their original named scope. Missing checkout refs: none. Newly populated schema, proof-shape, journey, metric, gate, and exit-contract fields are planning metadata and are not covered by the historical status. This migration adds no runtime or stage claim.",
+  "dependency_work_item_ids": [
+    "m1-selected-profile-exit-proof",
+    "m2-membership-readiness-plane"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "The canonical owner and contract crossings declared by m2-writer-fence-and-lost-suffix",
+    "Plan the active-writer epoch, final-invoker fence, ambiguous-outcome custody, and lost-suffix reconciliation plane",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Inject stale epoch, deposed writer, foreign System, caller-authored fence, mismatched grant/resource/effect, crash-after-admission, timeout, duplicate retry, and missing-suffix cases",
+    "No two-node continuity or automated leader election.",
+    "Fencing is not consensus and creates no authority beyond wallet grants and sealed intents.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: Plan the active-writer epoch, final-invoker fence, ambiguous-outcome custody, and lost-suffix reconciliation plane.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Plan the active-writer epoch, final-invoker fence, ambiguous-outcome custody, and lost-suffix reconciliation plane.",
+    "Build positive plus adversarial/fault runners that reject: Inject stale epoch, deposed writer, foreign System, caller-authored fence, mismatched grant/resource/effect, crash-after-admission, timeout, duplicate retry, and missing-suffix cases.",
+    "Retain an evidence index and require the exact content-bound M2_WRITER_FENCE_AND_LOST_SUFFIX_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "membership, writer-fence, route, restore, activation, or cleanup transition",
+      "final_invoker": "daemon owner-qualified membership/environment change-plan invoker",
+      "authority_source": "System governance and applicable exact authority; node placement grants nothing",
+      "receipt_or_evidence": "transition operation, head/root, and effect receipt",
+      "negative_behavior": "zero final-invoker calls for foreign/stale/deposed/caller-authored context"
+    }
+  ],
+  "applicable_pg_ids": [
+    "PG-4A.3",
+    "PG-4A.4"
+  ],
+  "pg_gate_states": [
+    {
+      "pg_id": "PG-4A.3",
+      "applicability": "required_now",
+      "closure_stage_id": "M2",
+      "profile_selection": "selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    },
+    {
+      "pg_id": "PG-4A.4",
+      "applicability": "required_now",
+      "closure_stage_id": "M2",
+      "profile_selection": "selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    }
+  ],
+  "positive_proof": [
+    "The selected profile completes the bounded m2-writer-fence-and-lost-suffix journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M2_WRITER_FENCE_AND_LOST_SUFFIX_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Inject stale epoch, deposed writer, foreign System, caller-authored fence, mismatched grant/resource/effect, crash-after-admission, timeout, duplicate retry, and missing-suffix cases.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m2-writer-fence-and-lost-suffix; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Inject stale epoch, deposed writer, foreign System, caller-authored fence, mismatched grant/resource/effect, crash-after-admission, timeout, duplicate retry, and missing-suffix cases; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M2_WRITER_FENCE_AND_LOST_SUFFIX_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m2.simultaneous_effective_writers_per_system",
+      "metric": "simultaneous effective writers per bounded System",
+      "threshold": "<=1",
+      "unit": "writers per System",
+      "threshold_source": "M2 membership/fencing floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M2_WRITER_FENCE_AND_LOST_SUFFIX_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/evidence/m2-writer-fence-and-lost-suffix.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M2/m2-writer-fence-and-lost-suffix.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/agentgres/src/replica.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "writer-epoch/watermark substrate; adjacent implementation precedent only; not proof of this work item"
+    },
+    {
+      "path": "crates/storage/src/redb_epoch_store.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "epoch durability precedent; adjacent implementation precedent only; not proof of this work item"
+    },
+    {
+      "path": "crates/types/src/app/system_activation.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "chain-writer reservation precedent; adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "No two-node continuity or automated leader election.",
+    "Fencing is not consensus and creates no authority beyond wallet grants and sealed intents.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Inject stale epoch, deposed writer, foreign System, caller-authored fence, mismatched grant/resource/effect, crash-after-admission, timeout, duplicate retry, and missing-suffix cases. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Plan the active-writer epoch, final-invoker fence, ambiguous-outcome custody, and lost-suffix reconciliation plane",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M2_WRITER_FENCE_AND_LOST_SUFFIX_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Plan-level proposal derived from internal-docs/implementation/m0-m14-plan-gap-audit.md at origin/master 69592149186cb29383a397ad0aa3ad6f5ab4ab7b; status transaction 2026-07-22. Enriched under approved SA-2/SA-7/SA-9 private migration on 2026-07-22; status preserved.",
+  "last_status_transaction": {
+    "from": "active",
+    "to": "verified",
+    "at_commit": "decf9ffc27847106894e8d90d83eb78dc206f8b3",
+    "certification_result_sha256": "10b230a38ccdf362c4d2672afead1175567b9ccd42f47928b26e4d959f930e6b",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  },
+  "conformance_owner_docs": {
+    "note": "Machine-readable binding of the conformance owners m2.md names in prose (added 2026-07-26; the stage module remains the acceptance-contract owner).",
+    "refs": [
+      "docs/conformance/hypervisor-core/effect-execution.md",
+      "docs/conformance/hypervisor-core/platform-operability.md"
+    ]
+  }
+}

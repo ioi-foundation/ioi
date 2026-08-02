@@ -6,8 +6,8 @@ Supersedes: older Agentgres-as-generic-store wording when runtime truth ownershi
 Superseded by: none.
 Last alignment pass: 2026-07-15.
 Doctrine status: reference
-Implementation status: partial (object catalog; families land with their planes. Agent Execution Branch remains planned over existing fork/replay/snapshot substrate. Receipt-checkpoint/proof schemas, invariants, fixtures, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. Hosted OutcomeRoom participation, frontier/claim, offer/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge planes are merged; room discovery, portable exit, federation, acceptance/verdict/settlement, NetworkGoalBudget, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
-Last implementation audit: 2026-07-05
+Implementation status: partial (object catalog; families land with their planes. Agent Execution Branch remains planned over existing fork/replay/snapshot substrate. Receipt-checkpoint/proof schemas, invariants, fixtures, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. The current hosted v2 OutcomeRoom slice admits one bounded-System-backed room, reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with payload/label custody and reconstructable projections. Current v2 participation, frontier/claim, offer/matching, Attempt/Finding, and VerifierChallenge lifecycles are not started; mounted v1 predecessor planes remain historical executable/source disposition and are fenced from v2 rooms. Room discovery, portable exit, federation, acceptance/verdict/settlement, NetworkGoalBudget, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
+Last implementation audit: 2026-07-30
 
 ## Purpose
 
@@ -1542,14 +1542,17 @@ not canonical state classes. Their durable room-specific form is the
 [`collaborative-pursuit.md`](../../foundations/objects/collaborative-pursuit.md):
 it binds one exact room revision/root, source receipts, visibility policy, and
 information-flow labels, and is neither authoritative nor client-writable.
-Participant inputs remain tainted until the
-declared room admission path accepts an object or delta. Every mutable relation
-implements `RoomAdmittedObjectBase`: exact participant lease or room-system
-issuer, expected room revision and predecessor transition commitment, payload/
-operation commitment, policy/decision, monotonic sequence, admission proof,
-and resulting revision, transition commitment, state root, and receipt root.
-Agentgres preserves rejected and superseded proposals without rewriting
-history.
+Participant inputs remain tainted until the enclosing room System's Agentgres
+operation path accepts an object or delta. Every room-scoped typed payload binds
+the exact room System, OutcomeRoom, participant lease or room-System issuer, and
+payload root through `SystemScopedObjectBinding`. The binding is vocabulary, not
+an admission envelope. The Agentgres operation owns the expected object head or
+heads, resolved policy and authority, accepted sequence, resulting head, state
+root, and receipt refs; the bounded-System transition owns predecessor and
+transition continuity plus its state and receipt roots. Domain objects may
+reference those canonical records as evidence but never mint parallel room
+decisions, receipts, sequences, transitions, or roots. Agentgres preserves
+rejected and superseded proposals without rewriting history.
 
 For a federated room, a local domain stores its own object heads plus signed
 remote refs and the last admitted federation watermark. It must not import a

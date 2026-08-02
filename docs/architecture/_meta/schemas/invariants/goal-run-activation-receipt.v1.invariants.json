@@ -1,0 +1,54 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/goal-run-activation-receipt/admission/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
+  "rules": [
+    {
+      "rule_id": "goal_run_activation_receipt.identity.matches",
+      "description": "The activation admission has one portable receipt identity.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.receipt_id", "$.receipt_ref"]
+      }
+    },
+    {
+      "rule_id": "goal_run_activation_receipt.root.recomputes",
+      "description": "The receipt root commits every typed activation, source, authority, admission, GoalRun, profile, state, time, and non-grant field carried by the receipt.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "schema_version": { "path": "$.schema_version" },
+          "receipt_id": { "path": "$.receipt_id" },
+          "receipt_ref": { "path": "$.receipt_ref" },
+          "receipt_type": { "path": "$.receipt_type" },
+          "receipt_profile_ref": { "path": "$.receipt_profile_ref" },
+          "activation_ref": { "path": "$.activation_ref" },
+          "activation_mode": { "path": "$.activation_mode" },
+          "source_context": { "path": "$.source_context" },
+          "draft_activation_hash": { "path": "$.draft_activation_hash" },
+          "source_context_hash": { "path": "$.source_context_hash" },
+          "requesting_principal_ref": { "path": "$.requesting_principal_ref" },
+          "authority_decision_ref": { "path": "$.authority_decision_ref" },
+          "review_decision_ref": { "path": "$.review_decision_ref" },
+          "admission_decision_ref": { "path": "$.admission_decision_ref" },
+          "admission_receipt_ref": { "path": "$.admission_receipt_ref" },
+          "admitted_goal_ref": { "path": "$.admitted_goal_ref" },
+          "existing_goal_ref": { "path": "$.existing_goal_ref" },
+          "goal_run_profile_revision_ref": { "path": "$.goal_run_profile_revision_ref" },
+          "goal_run_profile_content_hash": { "path": "$.goal_run_profile_content_hash" },
+          "resolved_component_set_snapshot_ref": { "path": "$.resolved_component_set_snapshot_ref" },
+          "resolved_component_set_hash": { "path": "$.resolved_component_set_hash" },
+          "profile_resolution_receipt_ref": { "path": "$.profile_resolution_receipt_ref" },
+          "receipt_obligations_hash": { "path": "$.receipt_obligations_hash" },
+          "attested_boundary_fact_refs": { "path": "$.attested_boundary_fact_refs" },
+          "admitted_state_root_ref": { "path": "$.admitted_state_root_ref" },
+          "admitted_at": { "path": "$.admitted_at" },
+          "non_grants": { "path": "$.non_grants" }
+        },
+        "expected_path": "$.receipt_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

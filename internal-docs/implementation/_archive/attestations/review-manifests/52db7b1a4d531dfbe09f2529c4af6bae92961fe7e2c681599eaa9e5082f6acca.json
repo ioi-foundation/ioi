@@ -1,0 +1,132 @@
+{
+  "evidence_format": "ioi.program.canon_review_manifest.v1",
+  "manifest_role": "Content-bound enumeration of every canon subject pending baseline review, with the disposition and written reasoning of one accountable reviewer. Presenting this manifest to --accept advances the baseline. It closes no work item, certifies no stage, and changes no status.",
+  "claim": "canon_drift_reviewed_only",
+  "reviewer_ref": "reviewer://codex/m0-canon-feedback-convergence",
+  "emitted_at_commit": "e0fdef269a21f305d94fd764a396499e4238374c",
+  "instructions": [
+    "Fill reviewer_ref, and per subject a disposition (unaffected | successor_required | blocked) and a review_note that argues it from what actually changed.",
+    "`unaffected` must be ARGUED. Say why this subject's change does not reach the stages, modules, and work items named in review_required below. An unargued `unaffected` is a mechanical accept with extra steps.",
+    "Never rewrite a verified closure to absorb a semantic change: disposition it `successor_required` and open a successor record that states what must now be proven.",
+    "Do not edit the ids or digests. They bind this manifest to one exact revision, and --accept refuses if they drift."
+  ],
+  "review_required": {
+    "stages": [
+      "M0"
+    ],
+    "modules": [
+      "adversarial-proof-matrix",
+      "mechanism-gates",
+      "proof-and-evidence",
+      "runtime-trust-boundary"
+    ],
+    "work_items": [
+      "m0-literal-exit-evidence-contract",
+      "m0-program-control-selected-profile-exit-proof",
+      "m0-route-final-invoker-pg-census-maintenance",
+      "m0-selected-profile-baseline-evidence-and-claim-lock"
+    ],
+    "conformance_targets": [],
+    "contract_families": []
+  },
+  "subject_count": 12,
+  "subject_set_sha256": "a827ac0224cc85f2c5d0552df76e6b38ddc6de2f2f8f767ab6d49711d868d88a",
+  "subjects": [
+    {
+      "id": "docs/evidence/m0-program-control/blocker-ledger.json",
+      "change": "changed",
+      "baseline_sha256": "5246ceb292ac58f232f06bb56a4089281cfa92b0d3ae9676c4ffe6adb01f739b",
+      "tree_sha256": "86eb17d3730158055e5c5f245fd52c2bf7b388db963e10a0182ab7037d91ac49",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: projects the unchanged M0 blocker population under the convergent fingerprint. The M0 63-test suite and full pre-next-leg bar pass against these exact bytes, so the change does not alter the four named M0 work-item claims or reach M1+ stages."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/current-baselines.json",
+      "change": "changed",
+      "baseline_sha256": "2c8983506e07a24901431e1ae77cfe7b28e9c48d4b29a3538a03d3478f15dba1",
+      "tree_sha256": "d61e504de6685b50f97d9be20d059251de0ca0eddfe16bbc3615b52cedc2b761",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: projects unchanged baseline statuses under the convergent fingerprint. The M0 63-test suite and full pre-next-leg bar pass against these exact bytes, so the change does not alter the four named M0 work-item claims or reach M1+ stages."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/effect-census.json",
+      "change": "changed",
+      "baseline_sha256": "c642257684879fff8437a2b8adf1581c7444c78c0876e92fdd1a679e99e4d3e0",
+      "tree_sha256": "6110059d518306199da028e4a49082671fbed9d3d2fe7bf00b64a39bda7a4ae5",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: projects the unchanged reviewed effect census under the convergent fingerprint. The M0 63-test suite and full pre-next-leg bar pass against these exact bytes, so the change does not alter the four named M0 work-item claims or reach M1+ stages."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/m0-exit-report.json",
+      "change": "changed",
+      "baseline_sha256": "077cc94fca569c6799be0a4e7e8c1bc38e2bc8152ad74b5d64a02d7ecf69bec3",
+      "tree_sha256": "12ae7090f488a36f10ee611834f144eb1663eec68c74ea7f6831124f2c71839b",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: projects the existing M0-only verified control claim under the convergent fingerprint and raises no later-stage claim. The M0 63-test suite and full pre-next-leg bar pass against these exact bytes, so the change does not alter the four named M0 work-item claims or reach M1+ stages."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/manifest.json",
+      "change": "changed",
+      "baseline_sha256": "cc6391e280ae6fab43ef6336af336e9ed04b72a284bc657194c58295edfb58bd",
+      "tree_sha256": "92bff1e6a3e31efbac1a4a5d1501777ccc784c803366e1ed343709c9190fe85a",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: content-binds the regenerated M0 projection set and the exact fixed exclusion rules. The M0 63-test suite and full pre-next-leg bar pass against these exact bytes, so the change does not alter the four named M0 work-item claims or reach M1+ stages."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/pg-gate-map.json",
+      "change": "changed",
+      "baseline_sha256": "2e5e1b3f71618a6f395c0e06edf5195f571a182919c67f4c77a02e344925cd01",
+      "tree_sha256": "95698ee08b60536bb5c3c22f432f69106ba9061a1dfa678dd24f2696da96956e",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: projects the unchanged 58 PG dispositions under the convergent fingerprint. The M0 63-test suite and full pre-next-leg bar pass against these exact bytes, so the change does not alter the four named M0 work-item claims or reach M1+ stages."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/program-control-source.json",
+      "change": "changed",
+      "baseline_sha256": "a32a025fa622bafeeb433d8ffcddf3f3691f35cfe871eca75c5de3ea8641955c",
+      "tree_sha256": "d455c9b6b7dcbc1f8b7a44b62bc91ef8a86d103fa5a3be78b6a560d6b1c6de8a",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: updates only source attestation and deterministic fingerprint material; no selected profile, status, or literal changes. The M0 63-test suite and full pre-next-leg bar pass against these exact bytes, so the change does not alter the four named M0 work-item claims or reach M1+ stages."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/program-evidence-index.json",
+      "change": "changed",
+      "baseline_sha256": "57aef3af7157028c173b4d4e44abe7af8e3155da7a740efc4817d2a59a221b2e",
+      "tree_sha256": "9205a4909a65423abbf27ccac9f7938ea16a85faf1ac1c0c550420fbc5340a81",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: projects the same retained evidence inventory under the convergent fingerprint. The M0 63-test suite and full pre-next-leg bar pass against these exact bytes, so the change does not alter the four named M0 work-item claims or reach M1+ stages."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/README.md",
+      "change": "changed",
+      "baseline_sha256": "146d31ef0742f6c95b2e1404b912756652633a274fe78b995534e8a938e3ae52",
+      "tree_sha256": "dff6704742b4d41dbe912f45d67e067fffa47a896914547eec635167a6a6c208",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: documents the exact three canon-review feedback artifact classes excluded from M0 fingerprinting and assigns their bytes to tracked Git plus acceptance-integrity/canon-impact checks; no sequencer/status/evidence authority is excluded. The M0 63-test suite and full pre-next-leg bar pass against these exact bytes, so the change does not alter the four named M0 work-item claims or reach M1+ stages."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/release-ladder.json",
+      "change": "changed",
+      "baseline_sha256": "d4cc1135bf9f53898274484f0eb05d5e71eac7534e6a10bc8a35f732b918d80e",
+      "tree_sha256": "63628bc49ba1b4995f8663fa7c6c02a0ac64089db7ac39833be2c374e57dab27",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: projects the unchanged release ladder and nonclaims under the convergent fingerprint. The M0 63-test suite and full pre-next-leg bar pass against these exact bytes, so the change does not alter the four named M0 work-item claims or reach M1+ stages."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+      "change": "changed",
+      "baseline_sha256": "00d775b29439f9718204fd802333d8fb50504cfbd20dc45518ac3625f9067a26",
+      "tree_sha256": "c59b67c06e6ad21d2409161beb4b1261a652fd44aa542c2768c82b4279142d3e",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: rebinds the supplied head to the corrected program-source material without changing a retained literal or claiming currentness/authorship. The M0 63-test suite and full pre-next-leg bar pass against these exact bytes, so the change does not alter the four named M0 work-item claims or reach M1+ stages."
+    },
+    {
+      "id": "docs/evidence/m0-program-control/selected-profile.json",
+      "change": "changed",
+      "baseline_sha256": "ca2dde17f31459e8fcb7ad4f6be8c7195f51c0adb036446baa7aba8b416dece5",
+      "tree_sha256": "ac229daade214167a5d7606d79f1b0d9859f77ec3ba1e3a72fdff1eee4294f87",
+      "disposition": "unaffected",
+      "review_note": "authored_by_this_branch: projects the unchanged selected M0 profile under the convergent fingerprint. The M0 63-test suite and full pre-next-leg bar pass against these exact bytes, so the change does not alter the four named M0 work-item claims or reach M1+ stages."
+    }
+  ]
+}

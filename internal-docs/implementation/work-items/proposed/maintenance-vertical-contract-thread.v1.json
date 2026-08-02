@@ -1,0 +1,149 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "maintenance-vertical-contract-thread",
+  "stage_id": "M9",
+  "record_role": "aggregate_exit",
+  "required_work": [
+    "Name, in one place, the exact contract set the self-maintaining-software vertical depends on, so its readiness is visible and its breadth cannot creep silently."
+  ],
+  "status": "proposed",
+  "objective": "The self-maintaining-software vertical draws on contracts owned by records across several stages. Nothing names that set, so its readiness is invisible and any record can quietly widen it. Name the set exactly once, as a TRACKING aggregate that closes nothing: it joins the named children for visibility only, grants no claim, promotes no stage state, and refuses when a child is added to the vertical without being named here. MAINTENANCE_VERTICAL_CONTRACT_THREAD_EXIT=0.",
+  "falsifiable_claim": "The vertical's contract set is exactly the enumerated children; adding a contract to the vertical without naming it here is detectable, and closing this record changes no stage, no claim, and no child's status.",
+  "selected_profile": "The selected single-node deployment's self-maintaining-software vertical, viewed as the set of contracts it requires rather than as any one stage's work.",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/decisions/0024-two-mode-flagship-composition.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "b82c7c4ed088a74a76de412e376ee663966bb31844be8c45c6754d0791018f8c",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/execution-horizons.md",
+        "sha256": "f3a87fb9251a343111a8369f196029248a3f792d1ae3cbfd1c89f3679b21d1c9"
+      },
+      {
+        "path": "docs/decisions/0024-two-mode-flagship-composition.md",
+        "sha256": "0ef57dfcf07a68848c7aea04848d4a2d186e28ca0de3a2692efe38beaf0e1924"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:maintenance-vertical-contract-thread",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/maintenance-vertical-contract-thread.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:MAINTENANCE_VERTICAL_CONTRACT_THREAD_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": [
+    "EXTRACTED OBLIGATION. Verified at 7ee7acc2e: no record, stage module, or program file names the vertical's contract set. The obligation lived only in a planning document outside the estate, where it could order work without being subject to any bar.",
+    "This aggregate is a sub-aggregate inside a stage, not a stage exit. The precedent for a non-closing aggregate inside a stage is the P2 external-surface closure record, and the precedent for a sub-aggregate is the protected-transitions record in M1."
+  ],
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "aggregate_child_ids": [
+    "continuous-activation-lane-first-admitted-signal",
+    "m3-affected-route-authority-census-and-fence",
+    "m3-authorized-issuer-and-atomic-authority-consumption",
+    "product-signal-sensing-automation-family",
+    "scm-publication-effect-and-route-rebuild",
+    "upgrade-proposal-owner-qualified-target-binding"
+  ],
+  "aggregate_child_dispositions": [
+    {
+      "work_item_id": "m3-affected-route-authority-census-and-fence",
+      "disposition": "named_for_visibility",
+      "why": "The vertical traverses censused authority routes; its exact child set must expose the release fences rather than inherit them invisibly."
+    },
+    {
+      "work_item_id": "m3-authorized-issuer-and-atomic-authority-consumption",
+      "disposition": "named_for_visibility",
+      "why": "Every selected maintenance effect must use the generic current-issuer and atomic-consumption repair before SCM or activation leaves."
+    },
+    {
+      "work_item_id": "continuous-activation-lane-first-admitted-signal",
+      "disposition": "named_for_visibility",
+      "why": "The vertical's second activation lane. Without it the vertical has one entry mode, not two."
+    },
+    {
+      "work_item_id": "product-signal-sensing-automation-family",
+      "disposition": "named_for_visibility",
+      "why": "Where a product-plane signal is allowed to originate, and the discipline it originates under."
+    },
+    {
+      "work_item_id": "scm-publication-effect-and-route-rebuild",
+      "disposition": "named_for_visibility",
+      "why": "The publication crossing every maintained change must pass through. Already owned by its own record on this stage; naming it here adds no obligation to it."
+    },
+    {
+      "work_item_id": "upgrade-proposal-owner-qualified-target-binding",
+      "disposition": "named_for_visibility",
+      "why": "What lets the vertical target something other than a system without fabricating a genesis."
+    }
+  ],
+  "aggregate_verification_binding": "NONE. This aggregate binds no child's verification and derives no state from one. It is a tracking join: it reports which named contracts are ready and refuses to be closed while its enumeration is stale. A child's status is owned by that child's own status authority, and reaching verified here promotes nothing.",
+  "in_scope": [
+    "The exact enumeration of the vertical's contract set, one child per contract, each with a written reason it is in the set.",
+    "A staleness rule: a record that declares itself part of the vertical while absent from this enumeration is a finding, and so is a child named here that no longer belongs.",
+    "A statement, in the record and in its literal exit, that closing this aggregate closes nothing else."
+  ],
+  "out_of_scope": [
+    "Closing any stage, promoting any stage state, or granting any claim. This aggregate is deliberately incapable of all three.",
+    "Owning any child's proof. Each child proves itself.",
+    "Sequencing. Dependency edges live in the sequencer; this record introduces none."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The enumeration matches the set of records that declare themselves part of the vertical, in both directions, and the retained literal appears exactly once."
+  ],
+  "adversarial_or_fault_proof": [
+    "Predeclared refusals: a record declaring itself part of the vertical while absent from this enumeration; a child named here that no longer declares itself part of the vertical; an attempt to derive any child's status from this aggregate; an attempt to promote a stage on this aggregate's literal; a claim published that cites this aggregate as its evidence.",
+    "The baseline is that the set is currently unnamed anywhere, so today breadth creep is undetectable by construction."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "MAINTENANCE_VERTICAL_CONTRACT_THREAD_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/maintenance-vertical-contract-thread.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This aggregate closes no stage, grants no claim, promotes no state, and binds no child's verification. Those are not omissions; they are the point of it.",
+    "A complete enumeration is not a ready vertical. Every child named here can be unproven and this record can still be accurate.",
+    "Naming a child here adds no obligation to that child and changes nothing about its own record."
+  ],
+  "rollback_or_stop_rule": "Stop if closing this aggregate would require binding a child's verification or promoting any state. A tracking aggregate that starts closing things is a second exit gate, which is exactly the drift the estate's single-sequencer rule exists to prevent.",
+  "exit_criteria": [
+    "The enumeration is complete in both directions, every predeclared refusal fires by name, the record demonstrably promotes nothing, and the retained literal appears exactly once."
+  ],
+  "pr": null,
+  "source_provenance": "Extracted 2026-07-29 from the 2026-07-28 external productization action plan (its D2 stance and its golden-thread obligation) during the owner-directed disposition of that plan. The plan explicitly required this aggregate to close no stage and grant no claim; that constraint is carried into the record rather than left as prose in a document outside the estate.",
+  "last_status_transaction": "2026-07-29"
+}

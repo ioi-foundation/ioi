@@ -1,0 +1,57 @@
+{
+  "format": "ioi.program.pg-gate-map-successor.v1",
+  "role": "Append-only successor delta for mechanism gates added after the reviewed M0 map. The reviewed predecessor remains byte-intact; this file cannot revise or delete a predecessor entry.",
+  "base_map": "docs/evidence/m0-program-control/pg-gate-map.json",
+  "base_map_sha256": "369ae444bb75fbf7463a11b2b0e1faaa8f1cbb29348f092640c0b3eb922da894",
+  "closure_claimed": false,
+  "entries": [
+    {
+      "pg_id": "PG-4C.1",
+      "disposition": "required_now",
+      "closure_claimed": false,
+      "closure_owner_work_item_id": "m9-workrun-microvm-isolation-and-output-admission",
+      "evidence_or_blocker_ref": "BLK-M9-WORKRUN-ISOLATION-NOT-CLOSED",
+      "selected_profile_rationale": "The selected autonomous software-change profile must compile risk-selected isolation requirements and bind exact current backend capability before launch."
+    },
+    {
+      "pg_id": "PG-4C.2",
+      "disposition": "required_now",
+      "closure_claimed": false,
+      "closure_owner_work_item_id": "m9-workrun-microvm-isolation-and-output-admission",
+      "evidence_or_blocker_ref": "BLK-M9-WORKRUN-ISOLATION-NOT-CLOSED",
+      "selected_profile_rationale": "The selected high-risk WorkRun path requires per-job identity and brokered mount, credential, dependency, and network access."
+    },
+    {
+      "pg_id": "PG-4C.3",
+      "disposition": "required_now",
+      "closure_claimed": false,
+      "closure_owner_work_item_id": "m9-workrun-microvm-isolation-and-output-admission",
+      "evidence_or_blocker_ref": "BLK-M9-WORKRUN-ISOLATION-NOT-CLOSED",
+      "selected_profile_rationale": "The selected high-risk WorkRun path requires quarantined output admission and owner-controlled terminal teardown."
+    },
+    {
+      "pg_id": "PG-4C.4",
+      "disposition": "conditional",
+      "closure_claimed": false,
+      "closure_owner_work_item_id": "m9-workstation-virtual-machine-operational-journey",
+      "evidence_or_blocker_ref": "COND-M9-WORKSTATION-PROFILE-SELECTION",
+      "selected_profile_rationale": "The ordinary virtual-machine lifecycle is required only when the independently closable Workstation profile is selected."
+    },
+    {
+      "pg_id": "PG-4C.5",
+      "disposition": "conditional",
+      "closure_claimed": false,
+      "closure_owner_work_item_id": "m9-infrastructure-estate-operational-journey",
+      "evidence_or_blocker_ref": "COND-M9-INFRASTRUCTURE-PROFILE-SELECTION",
+      "selected_profile_rationale": "Live attached-estate evidence is required only when the independently closable Infrastructure profile is selected."
+    },
+    {
+      "pg_id": "PG-4C.6",
+      "disposition": "required_now",
+      "closure_claimed": false,
+      "closure_owner_work_item_id": "m9-workrun-microvm-isolation-and-output-admission",
+      "evidence_or_blocker_ref": "BLK-M9-WORKRUN-ISOLATION-NOT-CLOSED",
+      "selected_profile_rationale": "The selected high-risk WorkRun claim requires correlated guest, broker, VMM, daemon, restore, output, and teardown fault evidence."
+    }
+  ]
+}

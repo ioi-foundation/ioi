@@ -1,0 +1,10 @@
+{
+  "literal_exit": {
+    "expected": "M0_SOURCE_DISPOSITION_SINGLE_SEQUENCER_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M0/m0-source-disposition-and-single-sequencer-verifier.exit.v1.txt",
+    "artifact_sha256": "c70876b03aa254a5cd797b4f534710831de30b6d081e39dcd09a80e552b4511a"
+  },
+  "adversarial_or_fault_proof": [
+    "tools/check-source-dispositions.mjs self-test on every run: synthetic deletion-without-tombstone, archive-as-owner, plan-status-voice, second-sequence-file, and non-deferring-stage-module inputs are each rejected; the live run also proves the ledger reproduces from the registry and that check-no-competing-guides passes with the one retained tombstone"
+  ]
+}

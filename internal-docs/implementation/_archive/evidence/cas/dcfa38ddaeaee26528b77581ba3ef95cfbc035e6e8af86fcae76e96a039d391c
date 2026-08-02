@@ -1,0 +1,54 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m2-provider-teardown-truth-successor",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "status": "proposed",
+  "objective": "Re-prove provider cleanup and teardown truth after removing unconditional success evidence. M2_PROVIDER_TEARDOWN_TRUTH_SUCCESSOR_EXIT=0.",
+  "falsifiable_claim": "Provider teardown distinguishes verified absence, live-or-pending exposure, and torn-down-unverified cleanup; a cleanup obligation persists until independently discharged, and no adapter can emit verified teardown merely because delete returned.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/byo-provider-plane.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "aggregate_sha256": "d6540891cf62e61174e06ed78a48cb76af692fd195d44601ee78fafaef710105",
+    "owners": [
+      {"path": "docs/architecture/components/hypervisor/byo-provider-plane.md", "sha256": "95c1a5502c83b1ed63e658d3406119c6ef983a84e3f7196916126947020e6ed9"},
+      {"path": "docs/architecture/components/hypervisor/providers-and-environments.md", "sha256": "500e807fec7a172a548dc1f750d76d6e6def872015a168ff77913449a7146ca2"}
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": ["Provider-neutral teardown tri-state", "Durable cleanup obligations", "Credential-free reachable failure branches and explicit unreachable-branch nonclaims"],
+  "out_of_scope": ["Cloud-provider availability", "Claiming an unexercised provider branch", "Re-certifying predecessor stages"],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": ["Every locally reachable teardown branch is executed against the shared disposition contract and all provider scripts consume that contract rather than hard-coded success."],
+  "adversarial_or_fault_proof": ["Exercise proven-absent, failed remote cleanup, retry-to-discharge, and unsupported local branch; require the verifier to state when a branch is genuinely unreachable."],
+  "code_anchors": [
+    {"path": "apps/hypervisor/scripts/lib/teardown-disposition.mjs", "present_when": "current_precedent", "evidence_scope": "shared teardown truth contract"},
+    {"path": "apps/hypervisor/scripts/verify-hypervisor-byo-provider-plane.mjs", "present_when": "current_precedent", "evidence_scope": "provider-neutral proof consumer"}
+  ],
+  "compatibility_and_migration": [],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "evidence_refs": [],
+  "evidence_index": {
+    "literal_exit": "M2_PROVIDER_TEARDOWN_TRUTH_SUCCESSOR_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": ["internal-docs/implementation/evidence/M9/m2-provider-teardown-truth-successor.exit.v1.txt"],
+    "task_exit_code_is_proof": false
+  },
+  "remaining_nonclaims": ["A local failure-injection proof does not establish availability or cleanup behavior of a provider endpoint that was not contacted."],
+  "rollback_or_stop_rule": "Stop if any adapter can report torn_down or cleanup_verified without proving every cleanup half, or if a verifier substitutes a synthetic success branch for one it cannot reach.",
+  "source_provenance": "Owner-ordered provider-truth successor authored 2026-07-29 under the open certification hold; predecessor bytes and statuses remain untouched.",
+  "last_status_transaction": "2026-07-29"
+}

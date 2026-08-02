@@ -7,7 +7,7 @@
   "display_name": "Generic adaptive",
   "orchestration_policy_ref": "orchestration-policy://bounded",
   "input_contract_ref": "schema://ioi/input/research/v1",
-  "output_contract_ref": "schema://ioi/foundations/work-result/v1",
+  "output_contract_ref": "schema://ioi/foundations/work-result/v3",
   "stop_policy_ref": "policy://bounded-stop",
   "recovery_policy_ref": "policy://bounded-recovery",
   "escalation_policy_ref": "policy://bounded-escalation",

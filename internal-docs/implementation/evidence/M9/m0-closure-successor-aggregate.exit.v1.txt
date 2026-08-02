@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-closure-successor-aggregate
+ARTIFACT=docs/evidence/m0-program-control/manifest.json
+ARTIFACT_SHA256=a9730bac5f77b68d1f8359a421e47507f4484057fe57c9d9383ca4466663e2b1
+M0_CLOSURE_SUCCESSOR_AGGREGATE_EXIT=0
+NONCLAIM=This binds the current M0 evidence-set manifest and joins independently proven successors; joining is not stage recertification or proof substitution.

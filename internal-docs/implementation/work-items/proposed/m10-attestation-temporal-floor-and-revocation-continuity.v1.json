@@ -1,0 +1,449 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m10-attestation-temporal-floor-and-revocation-continuity",
+  "stage_id": "M10",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Approved plan-level gap closure: m10-attestation-temporal-floor-and-revocation-continuity"
+  ],
+  "status": "proposed",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Continuity-floor mechanism plan; M10_ATTESTATION_TEMPORAL_FLOOR_CONTINUITY_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if Stale/forged candidate, rollback-domain capture, revoked key, incomplete catch-up.",
+  "selected_profile": "One logical System across two admitted failure domains; no consensus or useful-distribution claim.",
+  "canon_owners": [
+    "docs/architecture/components/agentgres/api-object-model.md",
+    "docs/architecture/components/agentgres/artifact-ref-plane.md",
+    "docs/architecture/components/agentgres/doctrine.md",
+    "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+    "docs/architecture/components/agentgres/projection-system-reference.md",
+    "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+    "docs/architecture/components/daemon-runtime/hypervisoros.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
+    "docs/architecture/components/daemon-runtime/private-workspace-ctee.md",
+    "docs/architecture/components/daemon-runtime/runtime-nodes-tee-depin.md",
+    "docs/architecture/components/daemon-runtime/task-capsule-protocol.md",
+    "docs/architecture/components/wallet-network/api-authority-scopes.md",
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/components/wallet-network/product-exchange-risk.md",
+    "docs/architecture/foundations/domain-kernels.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md",
+    "docs/architecture/foundations/invariants.md",
+    "docs/architecture/foundations/objects/authority-and-access.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "c2dd57050c543f22f14b006b502df57415713c27",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "085f945621bc2f2d6e9989dc8f192bbc4b29a7fc2a5534f835d29626c9afd8df",
+    "owners": [
+      {
+        "path": "docs/architecture/components/agentgres/api-object-model.md",
+        "sha256": "a79905a481217eef9f8eefd9a4b9d7cb026b7a62183096072824f83422575fd7"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/artifact-ref-plane.md",
+        "sha256": "8bdf076fba386f3b62a4fceccf55d9aaed8150a8aff127230d49edb6d5c00b92"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/doctrine.md",
+        "sha256": "4a8b06374f7b0a415eaab12841347c3e7d1e1acde2084dd8be23b4f1f838370b"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+        "sha256": "fdc0f94961a2d3f7cf29a766f29a37dc291b28248bb9109da685ada643fe1e6c"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/projection-system-reference.md",
+        "sha256": "036fff0ebff79633bd4418b50208554f81adc5876dd978888ff75b24b8edce47"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+        "sha256": "92ce02d9c14a0fc5dfdf99b338e94f584d638b6202e9bbdac0227bc3068fab20"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+        "sha256": "625e3c2b05b890513fa84c4cac55631b378f29203f935c4fde5b7cd3e8f00243"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+        "sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/private-workspace-ctee.md",
+        "sha256": "4eb541c11dea7db68d69e52ddd7dc2f04740fcae71797a68873bc49f3842d879"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/runtime-nodes-tee-depin.md",
+        "sha256": "cdedc5fb481477179cf29b93a0f0a437976f8579774bab22557a106f4a71f35c"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/task-capsule-protocol.md",
+        "sha256": "8181e646dbb5a0f4c0e7647bf51dd0d7781f40171d6f4c5c0e181c0d45308b58"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "sha256": "5a77e3506857e4f670a03da32b83af10634a79ed1b64f74ab5006bf6970503ca"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/doctrine.md",
+        "sha256": "8b5c6c5ea1eaee29d4fb5488d5b3ae4f136c35a8a2a3647504aa1d39391dd580"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/product-exchange-risk.md",
+        "sha256": "e5e658ec32802e6f6857835f5f8b57e8ceab25919ef9ea24a00c3ea8aec9bb15"
+      },
+      {
+        "path": "docs/architecture/foundations/domain-kernels.md",
+        "sha256": "6fa8f82e617f410255aabb07fca966a6cfa57027293deaae2877717dafd507ff"
+      },
+      {
+        "path": "docs/architecture/foundations/governed-autonomous-systems.md",
+        "sha256": "172d5522c76a48860c9449c893fc4aea72d8647c8d76ad42aff785b21d1c2746"
+      },
+      {
+        "path": "docs/architecture/foundations/invariants.md",
+        "sha256": "754c322a2dbc2287d02220ca2309c4b6d213cad92814ef7c92cb9b833e94148a"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/authority-and-access.md",
+        "sha256": "204fa490cb9f39fb2d37965fdacc82db189981763565a0280129d60f42b7b4b1"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "AutonomousSystemNodeMembershipEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/bounded-system-genesis.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/domain-kernels.md",
+        "docs/architecture/foundations/governed-autonomous-systems.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AutonomousSystemWriterEpochTransitionEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/bounded-system-genesis.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/domain-kernels.md",
+        "docs/architecture/foundations/governed-autonomous-systems.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "TemporalVerificationProfile",
+      "owner_path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "TemporalValidityEvaluation",
+      "owner_path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AuthorityKeySet",
+      "owner_path": "docs/architecture/foundations/objects/authority-and-access.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/common-objects-and-envelopes.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authoritygrantenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/authority-key-set/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.authority-key-set.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AuthorityRevocationSnapshot",
+      "owner_path": "docs/architecture/foundations/objects/authority-and-access.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/common-objects-and-envelopes.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authoritygrantenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/authority-revocation-snapshot/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.authority-revocation-snapshot.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ReceiptCheckpoint",
+      "owner_path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#receipt-checkpoints-and-offline-proofs",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-checkpoint/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-checkpoint.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "EnforcementCoverageDeclaration",
+      "owner_path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/hypervisoros.md#node-enforcement-profile",
+      "contract_ids": [
+        "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"
+      ],
+      "schema_versions": [
+        "ioi.components.daemon-runtime.enforcement-coverage-declaration.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m10-attestation-temporal-floor-and-revocation-continuity",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m10-attestation-temporal-floor-and-revocation-continuity.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M10_ATTESTATION_TEMPORAL_FLOOR_CONTINUITY_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:OutsideRollbackDomainFloor",
+      "artifact_class": "private_outside_rollback_domain_floor_proof",
+      "candidate_name": "OutsideRollbackDomainFloor",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "m9-selected-profile-aggregate-exit-and-claim-publication"
+  ],
+  "external_gates": [
+    {
+      "gate_id": "applicable-pg-profile-gates",
+      "owner": "internal-docs/implementation/modules/mechanism-gates.md",
+      "activation_condition": "Every applicable gate is selected and evidenced in the owning work-item records; planning creates no closure."
+    }
+  ],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`MEASURED`, `SYSTEM`, `AGENTGRES`, `WALLET`; node attestation, epoch/floor, checkpoint/key/revocation families",
+    "Continuity-floor mechanism plan; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Stale/forged candidate, rollback-domain capture, revoked key, incomplete catch-up",
+    "Node count or placement grants no authority, consensus, sovereign independence, or federation.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `MEASURED`, `SYSTEM`, `AGENTGRES`, `WALLET`; node attestation, epoch/floor, checkpoint/key/revocation families.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Continuity-floor mechanism plan; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Stale/forged candidate, rollback-domain capture, revoked key, incomplete catch-up.",
+    "Retain an evidence index and require the exact content-bound M10_ATTESTATION_TEMPORAL_FLOOR_CONTINUITY_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "writer promotion, fencing, rejoin, or recovery effect",
+      "final_invoker": "daemon continuity/fencing final invoker and resource-side fence",
+      "authority_source": "System governance plus current epoch/floor/authority facts",
+      "receipt_or_evidence": "promotion/fence/recovery receipt and root",
+      "negative_behavior": "one effective writer or fail closed; never infer success from timeout"
+    }
+  ],
+  "applicable_pg_ids": [
+    "PG-4A.2",
+    "PG-7.3"
+  ],
+  "pg_gate_states": [
+    {
+      "pg_id": "PG-4A.2",
+      "applicability": "conditional",
+      "closure_stage_id": "M10",
+      "profile_selection": "not_selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    },
+    {
+      "pg_id": "PG-7.3",
+      "applicability": "required_now",
+      "closure_stage_id": "M10",
+      "profile_selection": "selected",
+      "closure_status": "open",
+      "evidence_refs": [],
+      "literal_exit": null,
+      "status_basis": "No gate-specific retained literal exit evidence is present; planning and reference-mechanism evidence do not close a production-integration gate."
+    }
+  ],
+  "positive_proof": [
+    "The selected profile completes the bounded m10-attestation-temporal-floor-and-revocation-continuity journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M10_ATTESTATION_TEMPORAL_FLOOR_CONTINUITY_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for Stale/forged candidate, rollback-domain capture, revoked key, incomplete catch-up; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m10-attestation-temporal-floor-and-revocation-continuity; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Stale/forged candidate, rollback-domain capture, revoked key, incomplete catch-up; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M10_ATTESTATION_TEMPORAL_FLOOR_CONTINUITY_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m10.dual_effective_writer_intervals",
+      "metric": "dual-effective-writer intervals",
+      "threshold": 0,
+      "unit": "intervals",
+      "threshold_source": "M10 continuity floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m10.unfrozen_rpo_rto_trials",
+      "metric": "continuity trials observed before RPO/RTO floors were frozen",
+      "threshold": 0,
+      "unit": "trials",
+      "threshold_source": "M10 continuity floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M10_ATTESTATION_TEMPORAL_FLOOR_CONTINUITY_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M10/m10-attestation-temporal-floor-and-revocation-continuity.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "Node count or placement grants no authority, consensus, sovereign independence, or federation.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Stale/forged candidate, rollback-domain capture, revoked key, incomplete catch-up. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Continuity-floor mechanism plan; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M10_ATTESTATION_TEMPORAL_FLOOR_CONTINUITY_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": "2026-07-22"
+}

@@ -1,0 +1,86 @@
+# Final Contextual Streaming Harness UX Verdict
+
+Verdict: `contextual_streaming_harness_ux_target_proven`
+
+Date: 2026-05-29
+
+## Result
+
+Autopilot Agent Studio now proves the target contextual streaming harness UX through the real GUI:
+
+- Product pending state shows concrete tool/work rows and real streaming deltas, not abstract harness narration.
+- Removed progress tags such as `Thinking / Using tools / Preparing response`.
+- Ask remains direct model answer mode.
+- Agent remains governed harness execution.
+- Provider thinking streams when exposed.
+- Agent tool rows stream sequentially as concrete tool calls occur.
+- Website artifact turns stream generated HTML source, then render clean artifact deliverables.
+- Completed work collapses into human summary rows.
+- Raw trace payloads, fixture backend ids, receipt ids, JSON, and daemon scaffolding stay in Runs/Tracing/evidence.
+
+## Primary Evidence
+
+- Stage 3 currentness/retrieval gate fixed and passed:
+  `docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/2026-05-29T13-22-54-407Z/proof.json`
+- Stage 4 repo-aware read/search pending rows passed:
+  `docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/2026-05-29T12-30-19-770Z/proof.json`
+- Website artifact source streaming and embed passed:
+  `docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/2026-05-29T12-33-38-853Z/proof.json`
+- Thinking/reasoning stream passed:
+  `docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/2026-05-29T12-59-26-826Z/proof.json`
+- Ask direct answer path passed:
+  `docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/2026-05-29T12-50-40-388Z/proof.json`
+
+## Latest Defect Closed
+
+The screenshot complaint was valid: the pending rail must not show abstract copy like “Preparing governed Agent run” or “Starting daemon session.”
+
+Fixes applied:
+
+- Extension projection filters abstract pending rows before state is persisted.
+- Webview projection also filters abstract pending rows defensively.
+- Concrete pending rows now require an actual tool identity and exclude `chat__reply`.
+- Static UI tests assert the removed phrases are absent.
+- Live GUI proof observed `Thinking about your request · 1sUsed tool: file__read` and `Thinking about your request · 5sUsed tool: web__search` with `progressTagCount: 0`.
+
+## Currentness Regression Closed
+
+During final validation, the currentness retrieval scenario reproduced a no-reply/completion-gate failure after product copy cleanup. Root cause: the Rust web success gate still recognized the old fixture-flavored source phrase and rejected the cleaned current-source wording.
+
+Fixes applied:
+
+- Updated the currentness gate to recognize product-clean current-source/current-evidence language.
+- Removed product-visible `chat__reply` wording from the readable currentness source path.
+- Updated validation to reject `chat__reply` and old fixture phrases in product chat.
+- Rebuilt `ioi-runtime-bridge`.
+- Reran Stage 3 through the GUI successfully.
+
+## Verification
+
+- `node --test apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs` passed, 27/27.
+- `node --check apps/autopilot/openvscode-extension/ioi-workbench/studio/studio-panel-html.js` passed.
+- `node --check apps/autopilot/openvscode-extension/ioi-workbench/extension.js` passed.
+- `node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs` passed.
+- `cargo test -q -p ioi-services --lib currentness_parity_source` passed, 2/2.
+- `cargo check -q -p ioi-services --lib` passed.
+- `cargo build -q -p ioi-node --bin ioi-runtime-bridge --features local-mode` passed.
+
+## Reference Products
+
+Unsloth was used as reference only, not as an Autopilot engine dependency. The fresh local Unsloth launch reached a login/password state and could not run the matched prompt without operator credentials:
+
+`docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/unsloth-reference/unsloth-reference-observations.json`
+
+This does not block the Autopilot target because the user-provided Unsloth screenshots and LM Studio observations were used as reference behavior, while the product proof was Autopilot-native through Agent Studio.
+
+## Cleanup
+
+Final cleanup proof:
+
+`docs/evidence/autopilot-agent-studio-contextual-streaming-harness-ux/process-cleanup-after-stage3-clean-source-gate-pass.json`
+
+No Autopilot GUI, runtime bridge, daemon, or model-worker leftovers were observed.
+
+## Remaining Blockers
+
+None for `contextual_streaming_harness_ux_target_proven`.

@@ -20,7 +20,7 @@ use std::collections::HashSet;
 
 pub const GOAL_RUN_ADMISSION_SCHEMA_VERSION: &str = "ioi.runtime.goal_run_admission.v1";
 pub const GOAL_RUN_ADMISSION_PATH_DECISION_SCHEMA_VERSION: &str =
-    "ioi.foundations.goal-run-admission-path-decision.v1";
+    "ioi.applications.ioi-ai.goal-run-admission-path-decision.v1";
 
 /// The first orchestration policy: parallel implementation + verifier reconciliation.
 pub const GOAL_RUN_POLICY_PARALLEL_IMPLEMENT_RECONCILE: &str = "parallel_implement_reconcile";
@@ -103,6 +103,98 @@ impl RuntimeGoalRunAdmissionCore {
             ));
         }
         let profile_hash = sha256_text(request, "goal_run_profile_content_hash")?;
+        // Execution-ceiling adoption is an all-or-nothing closure. The activation-backed M4
+        // lane always supplies it and its route separately requires the exact zero ceiling.
+        // Older M3 direct/System-bound callers remain viable with the entire tuple omitted;
+        // omission is retained as partial truth and is never interpreted as any budget.
+        const EXECUTION_BOUND_FIELDS: &[&str] = &[
+            "goal_run_execution_ceiling_revision_ref",
+            "goal_run_execution_ceiling_content_hash",
+            "goal_run_execution_ceiling",
+            "declared_invocation_budget",
+        ];
+        let execution_bound_field_count = EXECUTION_BOUND_FIELDS
+            .iter()
+            .filter(|field| request.get(**field).is_some())
+            .count();
+        let execution_bounds = match execution_bound_field_count {
+            0 => None,
+            count if count == EXECUTION_BOUND_FIELDS.len() => {
+                let execution_ceiling_ref = prefixed_string(
+                    request,
+                    "goal_run_execution_ceiling_revision_ref",
+                    "goal-run-execution-ceiling://",
+                )?;
+                if !execution_ceiling_ref.contains("/revision/sha256:") {
+                    return Err(RuntimeGoalRunAdmissionError::new(
+                        400,
+                        "goal_run_execution_ceiling_revision_required",
+                        "GoalRun admission requires an exact content-addressed execution-ceiling revision.",
+                        json!({ "goal_run_execution_ceiling_revision_ref": execution_ceiling_ref }),
+                    ));
+                }
+                let execution_ceiling_hash =
+                    sha256_text(request, "goal_run_execution_ceiling_content_hash")?;
+                if !execution_ceiling_ref.ends_with(&execution_ceiling_hash) {
+                    return Err(RuntimeGoalRunAdmissionError::new(
+                        409,
+                        "goal_run_execution_ceiling_binding_mismatch",
+                        "The execution-ceiling revision does not bind the declared content hash.",
+                        json!({}),
+                    ));
+                }
+                let execution_ceiling = closed_invocation_ceiling(request)?;
+                if execution_ceiling.0 != execution_ceiling_ref
+                    || execution_ceiling.1 != execution_ceiling_hash
+                {
+                    return Err(RuntimeGoalRunAdmissionError::new(
+                        409,
+                        "goal_run_execution_ceiling_substitution_refused",
+                        "The resolved execution ceiling differs from the exact revision and hash selected for admission.",
+                        json!({}),
+                    ));
+                }
+                let declared_invocation_budget = closed_invocation_budget(request)?;
+                if declared_invocation_budget.0 > execution_ceiling.2
+                    || declared_invocation_budget.1 > execution_ceiling.3
+                {
+                    return Err(RuntimeGoalRunAdmissionError::new(
+                        422,
+                        "goal_run_invocation_budget_widens_ceiling",
+                        "The declared invocation budget cannot widen the selected immutable ceiling.",
+                        json!({
+                            "declared_max_total_invocations": declared_invocation_budget.0,
+                            "declared_max_parallel_invocations": declared_invocation_budget.1,
+                            "ceiling_max_total_invocations": execution_ceiling.2,
+                            "ceiling_max_parallel_invocations": execution_ceiling.3,
+                        }),
+                    ));
+                }
+                Some((
+                    execution_ceiling_ref,
+                    execution_ceiling_hash,
+                    declared_invocation_budget,
+                ))
+            }
+            _ => {
+                let present = EXECUTION_BOUND_FIELDS
+                    .iter()
+                    .filter(|field| request.get(**field).is_some())
+                    .copied()
+                    .collect::<Vec<_>>();
+                let missing = EXECUTION_BOUND_FIELDS
+                    .iter()
+                    .filter(|field| request.get(**field).is_none())
+                    .copied()
+                    .collect::<Vec<_>>();
+                return Err(RuntimeGoalRunAdmissionError::new(
+                    400,
+                    "goal_run_execution_ceiling_closure_incomplete",
+                    "Execution-ceiling revision, hash, resolved record, and declared budget must be supplied together; no partial tuple or default is admitted.",
+                    json!({ "present_fields": present, "missing_fields": missing }),
+                ));
+            }
+        };
         let constraint_hash = sha256_text(request, "effective_constraint_hash")?;
         let result_profile = enum_value(request, "result_profile", RESULT_PROFILES)?;
         let policy_refs = uri_refs(request, "policy_refs", false)?;
@@ -209,7 +301,7 @@ impl RuntimeGoalRunAdmissionCore {
         };
         let safe_goal = safe_id(&goal_ref);
 
-        Ok(json!({
+        let mut decision = json!({
             "schema_version": GOAL_RUN_ADMISSION_PATH_DECISION_SCHEMA_VERSION,
             "decision_ref": format!("decision://goal-run/{safe_goal}/admission-path"),
             "goal_run_ref": goal_ref,
@@ -239,7 +331,18 @@ impl RuntimeGoalRunAdmissionCore {
             "reason_codes": reasons,
             "decision_receipt_ref": format!("receipt://goal-run/{safe_goal}/admission-path"),
             "decided_at": now_iso,
-        }))
+        });
+        if let Some((execution_ceiling_ref, execution_ceiling_hash, declared_budget)) =
+            execution_bounds
+        {
+            decision["goal_run_execution_ceiling_revision_ref"] = json!(execution_ceiling_ref);
+            decision["goal_run_execution_ceiling_content_hash"] = json!(execution_ceiling_hash);
+            decision["declared_invocation_budget"] = json!({
+                "max_total_invocations": declared_budget.0,
+                "max_parallel_invocations": declared_budget.1
+            });
+        }
+        Ok(decision)
     }
 
     /// goal_run_admit — validate + canonicalize a GoalRun creation request.
@@ -382,8 +485,18 @@ impl RuntimeGoalRunAdmissionCore {
         let goal_ref = prefixed_string(request, "goal_ref", "goal://")?;
         let role = enum_value(request, "role", ROLE_KINDS)?;
         let profile_ref = prefixed_string(request, "profile_ref", "harness-profile:")?;
-        let task_brief_ref = prefixed_string(request, "task_brief_ref", "task_brief://")?;
-        let context_cell_ref = prefixed_string(request, "context_cell_ref", "context_cell://")?;
+        let task_brief_ref = prefixed_string_with_legacy_aliases(
+            request,
+            "task_brief_ref",
+            "task-brief://",
+            &["task_brief://"],
+        )?;
+        let context_cell_ref = prefixed_string_with_legacy_aliases(
+            request,
+            "context_cell_ref",
+            "context-cell://",
+            &["context_cell://"],
+        )?;
         let session_ref = prefixed_string(request, "session_ref", "session:")?;
         let model_route_ref = prefixed_string(request, "model_route_ref", "model-route:")?;
         let lifecycle_status = required_text(request, "lifecycle_status", 1)?;
@@ -434,7 +547,12 @@ impl RuntimeGoalRunAdmissionCore {
             }
         }
 
-        let invocation_ref = prefixed_string(request, "invocation_ref", "harness_invocation://")?;
+        let invocation_ref = prefixed_string_with_legacy_aliases(
+            request,
+            "invocation_ref",
+            "harness-invocation://",
+            &["harness_invocation://"],
+        )?;
         let admission_id = format!(
             "goal-run-admission:{}:invoke_{}",
             safe_id(&goal_ref),
@@ -470,23 +588,20 @@ impl RuntimeGoalRunAdmissionCore {
     pub fn admit_reconciliation(&self, request: &Value, now_iso: &str) -> AdmitResult<Value> {
         let goal_ref = prefixed_string(request, "goal_ref", "goal://")?;
         let merge_strategy = enum_value(request, "merge_strategy", MERGE_STRATEGIES)?;
-        let selected = string_refs(request.get("selected_candidate_refs"));
-        let rejected = string_refs(request.get("rejected_candidate_refs"));
+        let selected = reconciliation_candidate_refs(
+            string_refs(request.get("selected_candidate_refs")),
+            "selected_candidate_refs",
+        )?;
+        let rejected = reconciliation_candidate_refs(
+            string_refs(request.get("rejected_candidate_refs")),
+            "rejected_candidate_refs",
+        )?;
         let verifier_evidence_refs = prefixed_refs(
             request,
             "verifier_evidence_refs",
             "agentgres://goal-run-verification/",
             false,
         )?;
-        for candidate in selected.iter().chain(rejected.iter()) {
-            if !candidate.starts_with("implementation_result://") {
-                return Err(admission_error(
-                    "goal_run_reconciliation_candidate_ref_invalid",
-                    "Reconciliation candidates are implementation_result:// refs.",
-                    json!({ "ref": candidate }),
-                ));
-            }
-        }
         match merge_strategy.as_str() {
             "none_blocked" => {
                 if !selected.is_empty() {
@@ -545,6 +660,179 @@ impl RuntimeGoalRunAdmissionCore {
             "runtimeTruthSource": "daemon-runtime",
         }))
     }
+}
+
+fn closed_invocation_budget(request: &Value) -> AdmitResult<(u64, u64)> {
+    let budget = request
+        .get("declared_invocation_budget")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            RuntimeGoalRunAdmissionError::new(
+                400,
+                "goal_run_declared_invocation_budget_required",
+                "GoalRun admission requires an explicit closed invocation budget; no default is inferred.",
+                json!({ "field": "declared_invocation_budget" }),
+            )
+        })?;
+    const FIELDS: &[&str] = &["max_total_invocations", "max_parallel_invocations"];
+    if budget.len() != FIELDS.len() || budget.keys().any(|field| !FIELDS.contains(&field.as_str()))
+    {
+        return Err(RuntimeGoalRunAdmissionError::new(
+            400,
+            "goal_run_declared_invocation_budget_invalid",
+            "The declared invocation budget must be a closed two-field object.",
+            json!({ "fields": budget.keys().collect::<Vec<_>>() }),
+        ));
+    }
+    let total = budget
+        .get("max_total_invocations")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            RuntimeGoalRunAdmissionError::new(
+                400,
+                "goal_run_declared_invocation_budget_invalid",
+                "max_total_invocations must be an explicit non-negative integer.",
+                json!({ "field": "max_total_invocations" }),
+            )
+        })?;
+    let parallel = budget
+        .get("max_parallel_invocations")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            RuntimeGoalRunAdmissionError::new(
+                400,
+                "goal_run_declared_invocation_budget_invalid",
+                "max_parallel_invocations must be an explicit non-negative integer.",
+                json!({ "field": "max_parallel_invocations" }),
+            )
+        })?;
+    if parallel > total {
+        return Err(RuntimeGoalRunAdmissionError::new(
+            422,
+            "goal_run_declared_parallelism_widens_total",
+            "Declared parallel invocations cannot exceed declared total invocations.",
+            json!({ "max_total_invocations": total, "max_parallel_invocations": parallel }),
+        ));
+    }
+    Ok((total, parallel))
+}
+
+fn closed_invocation_ceiling(request: &Value) -> AdmitResult<(String, String, u64, u64)> {
+    let ceiling = request
+        .get("goal_run_execution_ceiling")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            RuntimeGoalRunAdmissionError::new(
+                400,
+                "goal_run_execution_ceiling_required",
+                "GoalRun admission requires the exact resolved execution-ceiling record; no default is inferred.",
+                json!({ "field": "goal_run_execution_ceiling" }),
+            )
+        })?;
+    const FIELDS: &[&str] = &[
+        "schema_version",
+        "goal_run_execution_ceiling_id",
+        "revision_ref",
+        "content_hash",
+        "owner_ref",
+        "max_total_invocations",
+        "max_parallel_invocations",
+        "registry_status",
+    ];
+    if ceiling.len() != FIELDS.len()
+        || ceiling
+            .keys()
+            .any(|field| !FIELDS.contains(&field.as_str()))
+    {
+        return Err(RuntimeGoalRunAdmissionError::new(
+            400,
+            "goal_run_execution_ceiling_invalid",
+            "The resolved execution ceiling must be a closed registered-contract record.",
+            json!({ "fields": ceiling.keys().collect::<Vec<_>>() }),
+        ));
+    }
+    let ceiling_value = Value::Object(ceiling.clone());
+    if ceiling_value.get("schema_version").and_then(Value::as_str)
+        != Some("ioi.goal-run-execution-ceiling.v1")
+        || ceiling_value.get("registry_status").and_then(Value::as_str) != Some("released")
+    {
+        return Err(RuntimeGoalRunAdmissionError::new(
+            409,
+            "goal_run_execution_ceiling_not_released",
+            "GoalRun admission requires a released execution-ceiling contract revision.",
+            json!({}),
+        ));
+    }
+    let ceiling_id = prefixed_string(
+        &ceiling_value,
+        "goal_run_execution_ceiling_id",
+        "goal-run-execution-ceiling://",
+    )?;
+    let revision_ref = prefixed_string(
+        &ceiling_value,
+        "revision_ref",
+        "goal-run-execution-ceiling://",
+    )?;
+    if !revision_ref.starts_with(&format!("{ceiling_id}/revision/sha256:")) {
+        return Err(RuntimeGoalRunAdmissionError::new(
+            409,
+            "goal_run_execution_ceiling_identity_mismatch",
+            "The execution-ceiling revision must descend from its stable ceiling identity.",
+            json!({}),
+        ));
+    }
+    let content_hash = sha256_text(&ceiling_value, "content_hash")?;
+    if !revision_ref.ends_with(&content_hash) {
+        return Err(RuntimeGoalRunAdmissionError::new(
+            409,
+            "goal_run_execution_ceiling_binding_mismatch",
+            "The resolved execution-ceiling revision does not bind its content hash.",
+            json!({}),
+        ));
+    }
+    let owner_ref = required_text(&ceiling_value, "owner_ref", 1)?;
+    if !["system://", "org://", "project://", "user://"]
+        .iter()
+        .any(|prefix| owner_ref.starts_with(prefix))
+    {
+        return Err(RuntimeGoalRunAdmissionError::new(
+            400,
+            "goal_run_execution_ceiling_owner_invalid",
+            "The execution ceiling owner must use a canonical system, organization, project, or user ref.",
+            json!({ "owner_ref": owner_ref }),
+        ));
+    }
+    let total = ceiling_value
+        .get("max_total_invocations")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            RuntimeGoalRunAdmissionError::new(
+                400,
+                "goal_run_execution_ceiling_invalid",
+                "The execution ceiling must declare max_total_invocations.",
+                json!({}),
+            )
+        })?;
+    let parallel = ceiling_value
+        .get("max_parallel_invocations")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            RuntimeGoalRunAdmissionError::new(
+                400,
+                "goal_run_execution_ceiling_invalid",
+                "The execution ceiling must declare max_parallel_invocations.",
+                json!({}),
+            )
+        })?;
+    if parallel > total {
+        return Err(RuntimeGoalRunAdmissionError::new(
+            422,
+            "goal_run_execution_ceiling_parallelism_invalid",
+            "The execution ceiling cannot allow more parallel invocations than total invocations.",
+            json!({ "max_total_invocations": total, "max_parallel_invocations": parallel }),
+        ));
+    }
+    Ok((revision_ref, content_hash, total, parallel))
 }
 
 impl RuntimeGoalRunAdmissionCore {
@@ -862,6 +1150,67 @@ fn prefixed_string(request: &Value, field: &str, prefix: &str) -> AdmitResult<St
     Ok(value)
 }
 
+/// Accept a canonical URI scheme or a bounded read-side legacy alias, but always return the
+/// canonical spelling. Runtime writers therefore cannot perpetuate aliases retained only for
+/// predecessor-record compatibility.
+fn prefixed_string_with_legacy_aliases(
+    request: &Value,
+    field: &str,
+    canonical_prefix: &str,
+    legacy_prefixes: &[&str],
+) -> AdmitResult<String> {
+    let value = required_text(request, field, 1)?;
+    if value.starts_with(canonical_prefix) {
+        return Ok(value);
+    }
+    for legacy_prefix in legacy_prefixes {
+        if let Some(suffix) = value.strip_prefix(legacy_prefix) {
+            return Ok(format!("{canonical_prefix}{suffix}"));
+        }
+    }
+    Err(RuntimeGoalRunAdmissionError::new(
+        400,
+        "goal_run_ref_prefix_invalid",
+        &format!("{field} must use {canonical_prefix} refs."),
+        json!({
+            "field": field,
+            "ref": value,
+            "expected_prefix": canonical_prefix,
+            "read_side_legacy_prefixes": legacy_prefixes,
+        }),
+    ))
+}
+
+/// Reconciliation selects execution candidates, not canonical results. New producers use the
+/// deliberately non-canonical candidate namespace until a WorkResult backlink exists. Retained
+/// M3 records that predate that lifecycle correction remain readable through the canonical
+/// underscore ImplementationResult spelling and the retained hyphenated read-side alias.
+fn reconciliation_candidate_refs(refs: Vec<String>, field: &str) -> AdmitResult<Vec<String>> {
+    refs.into_iter()
+        .map(|value| {
+            if value.starts_with("implementation-result-candidate://")
+                || value.starts_with("implementation_result://")
+            {
+                return Ok(value);
+            }
+            if let Some(suffix) = value.strip_prefix("implementation-result://") {
+                return Ok(format!("implementation_result://{suffix}"));
+            }
+            Err(admission_error(
+                "goal_run_reconciliation_candidate_ref_invalid",
+                "Reconciliation candidates must use implementation-result-candidate:// refs (or a retained ImplementationResult compatibility ref).",
+                json!({
+                    "field": field,
+                    "ref": value,
+                    "expected_prefix": "implementation-result-candidate://",
+                    "canonical_result_prefix": "implementation_result://",
+                    "read_side_compatibility_prefixes": ["implementation-result://"],
+                }),
+            ))
+        })
+        .collect()
+}
+
 fn prefixed_refs(
     request: &Value,
     field: &str,
@@ -1070,6 +1419,65 @@ mod tests {
     }
 
     #[test]
+    fn legacy_admission_path_omits_execution_bounds_without_inference() {
+        let decision = RuntimeGoalRunAdmissionCore
+            .select_goal_run_admission_path(&admission_path_request(), "2026-07-30T12:00:00Z")
+            .unwrap();
+        for field in [
+            "goal_run_execution_ceiling_revision_ref",
+            "goal_run_execution_ceiling_content_hash",
+            "declared_invocation_budget",
+        ] {
+            assert!(
+                decision.get(field).is_none(),
+                "legacy omission must not be materialized as inferred execution truth at {field}"
+            );
+        }
+    }
+
+    #[test]
+    fn partial_execution_bound_tuple_is_refused() {
+        let fields = [
+            (
+                "goal_run_execution_ceiling_revision_ref",
+                json!("goal-run-execution-ceiling://test/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            ),
+            (
+                "goal_run_execution_ceiling_content_hash",
+                json!("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            ),
+            (
+                "goal_run_execution_ceiling",
+                json!({
+                    "schema_version":"ioi.goal-run-execution-ceiling.v1",
+                    "goal_run_execution_ceiling_id":"goal-run-execution-ceiling://test",
+                    "revision_ref":"goal-run-execution-ceiling://test/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "content_hash":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "owner_ref":"system://test",
+                    "max_total_invocations":1,
+                    "max_parallel_invocations":1,
+                    "registry_status":"released"
+                }),
+            ),
+            (
+                "declared_invocation_budget",
+                json!({"max_total_invocations":1,"max_parallel_invocations":1}),
+            ),
+        ];
+        for (field, value) in fields {
+            let mut request = admission_path_request();
+            request[field] = value;
+            let error = RuntimeGoalRunAdmissionCore
+                .select_goal_run_admission_path(&request, "2026-07-30T12:00:00Z")
+                .unwrap_err();
+            assert_eq!(
+                error.code, "goal_run_execution_ceiling_closure_incomplete",
+                "partial tuple at {field} must fail closed"
+            );
+        }
+    }
+
+    #[test]
     fn collective_or_system_work_never_silently_downgrades_to_direct() {
         let core = RuntimeGoalRunAdmissionCore;
         let mut collective = admission_path_request();
@@ -1214,6 +1622,16 @@ mod tests {
         assert_eq!(
             err.code,
             "goal_run_invocation_provider_trust_acceptance_required"
+        );
+        request["provider_trust_acceptance_ref"] = json!("approval://provider-trust/local-test");
+        let admitted = core
+            .admit_harness_invocation(&request, "2026-01-01T00:00:00Z")
+            .unwrap();
+        assert_eq!(admitted["task_brief_ref"], json!("task-brief://tb_1"));
+        assert_eq!(admitted["context_cell_ref"], json!("context-cell://cc_1"));
+        assert_eq!(
+            admitted["invocation_ref"],
+            json!("harness-invocation://hi_1")
         );
     }
 
@@ -1362,7 +1780,7 @@ mod tests {
             "goal_ref": "goal://gr_test",
             "merge_strategy": "none_blocked",
             "selected_candidate_refs": [],
-            "rejected_candidate_refs": ["implementation_result://ir_1"],
+            "rejected_candidate_refs": ["implementation-result://ir_1"],
             "verifier_evidence_refs": ["agentgres://goal-run-verification/gv_1"],
             "reason_code": "no_verified_candidate",
             "receipt_required": true,
@@ -1371,6 +1789,25 @@ mod tests {
             .admit_reconciliation(&blocked, "2026-01-01T00:00:00Z")
             .unwrap();
         assert_eq!(admitted["merge_strategy"], json!("none_blocked"));
+        assert_eq!(
+            admitted["rejected_candidate_refs"],
+            json!(["implementation_result://ir_1"])
+        );
+        let waiting_candidate = json!({
+            "goal_ref": "goal://gr_test",
+            "merge_strategy": "select_single_best",
+            "selected_candidate_refs": ["implementation-result-candidate://ir_waiting"],
+            "rejected_candidate_refs": [],
+            "verifier_evidence_refs": ["agentgres://goal-run-verification/gv_waiting"],
+            "receipt_required": true,
+        });
+        let waiting_admitted = core
+            .admit_reconciliation(&waiting_candidate, "2026-01-01T00:00:00Z")
+            .unwrap();
+        assert_eq!(
+            waiting_admitted["selected_candidate_refs"],
+            json!(["implementation-result-candidate://ir_waiting"])
+        );
         let single = json!({
             "goal_ref": "goal://gr_test",
             "merge_strategy": "select_single_best",

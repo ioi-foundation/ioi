@@ -1,0 +1,39 @@
+{
+  "schema_version": "ioi.applications.ioi-ai.participant-state-bundle.v3",
+  "participant_state_bundle_id": "participant-state://alpha/researcher/1",
+  "outcome_room_ref": "outcome-room://alpha",
+  "system_binding": {
+    "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
+    "system_id": "system://room-alpha",
+    "parent_scope_ref": "outcome-room://alpha",
+    "proposed_or_issued_by_ref": "participant-lease://alpha/researcher",
+    "payload_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "created_at": "2026-07-30T12:00:00Z",
+    "updated_at": null
+  },
+  "participant_lease_ref": "participant-lease://alpha/researcher",
+  "participant_and_home_domain_refs": [
+    "worker://researcher"
+  ],
+  "coordination_topology": "hosted_admission",
+  "bundle_reason": "checkpoint",
+  "source_admission_watermark_ref": "receipt://alpha/watermark",
+  "released_or_reassigned_claim_refs": [],
+  "preserved_contribution_attempt_finding_and_result_refs": [],
+  "preserved_receipt_acceptance_settlement_and_dispute_refs": [],
+  "portable_artifact_and_view_refs": [],
+  "lineage_and_supersession_refs": [],
+  "export_license_retention_and_recall_policy_refs": [],
+  "excluded_context_classes": [
+    "raw_secret"
+  ],
+  "released_future_access_refs": [],
+  "revocation_or_supersession_refs": [],
+  "revocation_effect": "none",
+  "bundle_artifact_ref": "artifact://alpha/export",
+  "bundle_root": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "room_database_access_required": true,
+  "issued_at": "2026-07-30T12:00:02Z",
+  "signature": "sig:portable-bundle",
+  "status": "prepared"
+}

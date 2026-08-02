@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+  "phase": "after-screen-controls-focused-direct-visual-tier-still-click-failed",
+  "pattern": "[n]pm run dev:desktop|[l]aunch-autopilot-ide-fork|scripts/[i]oi-local-runtime-daemon\\.mjs|ide/builds/VSCode-linux-x64/[a]utopilot|[i]oi-runtime-bridge|[s]tartRuntimeDaemonService|packages/runtime-daemon/src/[i]ndex.mjs",
+  "before": [],
+  "stubborn": [],
+  "after": [],
+  "cleaned": 0,
+  "ok": true,
+  "timestamp": "2026-05-27T02:31:10.072Z"
+}

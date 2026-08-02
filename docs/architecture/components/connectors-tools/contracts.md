@@ -661,7 +661,7 @@ preparation:
   persistence_order: prepared_persisted_before_remote_effect
   prepared_persistence_evidence_ref
 attempt:
-  attempt_ref / attempt_number
+  publication_attempt_ref / attempt_number
   cas:
     mechanism: expected_head_compare_and_swap
     remote_update_mode: expected_head_advance_or_refuse

@@ -1,0 +1,1559 @@
+{
+  "schema_version": "ioi.program.source-manifest.v1",
+  "document_class": "projection",
+  "generated_by": "node internal-docs/implementation/tools/freeze-source-manifest.mjs --write",
+  "checked_by": "node internal-docs/implementation/tools/freeze-source-manifest.mjs --check",
+  "inputs": {
+    "source_registry": "source-dispositions.v1.json",
+    "source_registry_sha256": "b7edfa1290c26f3a036ae74cc29f66529039ed548dcb28d2ada68d57e88d91b9",
+    "self_exclusion": "generated/source-manifest.v1.json is excluded to avoid a recursive digest"
+  },
+  "baseline": {
+    "branch": "feat/estate-camera-pipeline",
+    "commit": "a894b25054cdb45f27deb3163793773d6449dd2b",
+    "captured_on": "2026-07-22",
+    "source_count": 73
+  },
+  "counts": {
+    "current_materializations_excluding_self": 79,
+    "preserved_baseline_sources": 73,
+    "baseline_sources": 73,
+    "compatibility_holds": 2
+  },
+  "sources": [
+    {
+      "source_path": "architecture-to-implementation-coverage-audit.md",
+      "baseline_sha256": "0484b0903e7c239afd14d053f64c0d251a9304fb2034118d173a9c82fa7cbdea",
+      "exact_body_path": "architecture-to-implementation-coverage-audit.md",
+      "destination_path": "audits/2026-07-22-architecture-coverage.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "bounded-recursive-improvement-campaign-discovery-plan.md",
+      "baseline_sha256": "8b632560b22198636a40f2097523e5b5ec4297718dd2260a5dcffaea0451ecea",
+      "exact_body_path": "bounded-recursive-improvement-campaign-discovery-plan.md",
+      "destination_path": "_archive/plans/bounded-recursive-improvement-campaign-discovery-plan.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "canon-mechanism-hardening-action-plan.md",
+      "baseline_sha256": "67217c0f3d0a3c0ec0d02caa9cee6f347a191dc0431126c908b6d76a9d182e9c",
+      "exact_body_path": "canon-mechanism-hardening-action-plan.md",
+      "destination_path": "_archive/plans/canon-mechanism-hardening-action-plan.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "canon-sota-improvement-review.md",
+      "baseline_sha256": "cdd8f1077926e7aabb0f99414c2222accdf4d27bff766ec9fae285bded4113ef",
+      "exact_body_path": "canon-sota-improvement-review.md",
+      "destination_path": "audits/history/2026-07-16-canon-sota-improvement-review.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "check-program-state.mjs",
+      "baseline_sha256": "8eb1ac9ff6c4a6922bd83e31117dea656447acfc75d99856de68e979d0d8ed87",
+      "exact_body_path": "check-program-state.mjs",
+      "destination_path": "check-program-state.mjs",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "evidence/m0-exit.v1.txt",
+      "baseline_sha256": "be44ea045e43ce0fb5145fc6b8cf1d6e12b893a1170e7e324158e201d0d4b316",
+      "exact_body_path": "evidence/m0-exit.v1.txt",
+      "destination_path": "evidence/m0-exit.v1.txt",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "hypervisor-bounded-das-application-taxonomy-winning-state-plan.md",
+      "baseline_sha256": "733bf30acaf3ce79e6a60c8231f293d9d56a6691b66c0dd4ab536c650fc46c3f",
+      "exact_body_path": "hypervisor-bounded-das-application-taxonomy-winning-state-plan.md",
+      "destination_path": "_archive/plans/hypervisor-bounded-das-application-taxonomy-winning-state-plan.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "hypervisor-model-mount-rust-consolidation-and-deadcode-retirement.md",
+      "baseline_sha256": "22289699643ae2e688795dcc205b8b325e330d0c7917c5653b39550d0c907911",
+      "exact_body_path": "hypervisor-model-mount-rust-consolidation-and-deadcode-retirement.md",
+      "destination_path": "audits/history/2026-06-hypervisor-model-mount-rust-consolidation.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "hypervisor-unified-rust-daemon-lifecycle-migration.md",
+      "baseline_sha256": "079c3c70adfb2a3c8a42206301f421b0cf8f441068dd5b8633f4aa92ccbdba5f",
+      "exact_body_path": "hypervisor-unified-rust-daemon-lifecycle-migration.md",
+      "destination_path": "hypervisor-unified-rust-daemon-lifecycle-migration.md",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "implementation-directory-unification-action-plan.md",
+      "baseline_sha256": "9298abb545e85563c4cd971d2a2fc4b129b8b767bce2c82c9677aff4166f138d",
+      "exact_body_path": "implementation-directory-unification-action-plan.md",
+      "destination_path": "audits/2026-07-22-directory-unification-plan.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "implementation-plan-estate-reconciliation.md",
+      "baseline_sha256": "c29ec0a94b60917e977c5f13e0c24a23ea8741ee77c8b895a0969f7017d02d91",
+      "exact_body_path": "implementation-plan-estate-reconciliation.md",
+      "destination_path": "audits/reconciliation/2026-07-22-estate-reconciliation.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "implementation-plan-reconciliation-review.md",
+      "baseline_sha256": "fd92c13e8cc8d024936288ca20b51a5608ecd804e4a7e816f660b56ac9aadf56",
+      "exact_body_path": "implementation-plan-reconciliation-review.md",
+      "destination_path": "audits/reconciliation/2026-07-22-reconciliation-review.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "ioi-design-system-portable-package-plan.md",
+      "baseline_sha256": "f289c7a12739aca415a587eaff742dd3f9d9c7911cbf79b8de7607c5e19db5ba",
+      "exact_body_path": "ioi-design-system-portable-package-plan.md",
+      "destination_path": "_archive/plans/ioi-design-system-portable-package-plan.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "ioi-target-end-state-master-implementation-guide.md",
+      "baseline_sha256": "47ce84723611ff2063c289c8c09e691ab9b61856ef8f503dccc43d4205e6beff",
+      "exact_body_path": "ioi-target-end-state-master-implementation-guide.md",
+      "destination_path": "ioi-target-end-state-master-implementation-guide.md",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "ioi-undeniable-product-proof-implementation-guide.md",
+      "baseline_sha256": "16eca8426f6178992d51090783714fff1642b82f0dfa314620c12dbb7f83be1f",
+      "exact_body_path": "ioi-undeniable-product-proof-implementation-guide.md",
+      "destination_path": "_archive/guides/ioi-undeniable-product-proof-implementation-guide.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "low-level-implementation-milestones.md",
+      "baseline_sha256": "a6eeb66e347a0324a46d956057e93cb6e1bfcfd9abfaff4d961dcefaa1867483",
+      "exact_body_path": "low-level-implementation-milestones.md",
+      "destination_path": "low-level-implementation-milestones.md",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "m0-m14-plan-gap-audit.md",
+      "baseline_sha256": "3a0d4c9c15216b90e7b472be40948932b25d4c173132944845a20867b5243256",
+      "exact_body_path": "m0-m14-plan-gap-audit.md",
+      "destination_path": "audits/2026-07-22-m0-m14-plan-gap-audit.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "program-state.json",
+      "baseline_sha256": "13fb2e065e162934358e697b831250dff5e5cafcddb9a4347349fbe2dc07f5cc",
+      "exact_body_path": "program-state.json",
+      "destination_path": "program-state.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "README.md",
+      "baseline_sha256": "534ec4406c523a8122834acc7e5a7743061fe346769fffd01a406dc248cf65e5",
+      "exact_body_path": "README.md",
+      "destination_path": "README.md",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "reconciliation/stateless-master-guide.v1.json",
+      "baseline_sha256": "2f813480293d3bb3ae07d8369077d6255e6579df363f622f5baac460175ef0a2",
+      "exact_body_path": "reconciliation/stateless-master-guide.v1.json",
+      "destination_path": "audits/reconciliation/stateless-master-guide/manifest.v1.json",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "reconciliation/stateless-master-guide.v1.patch",
+      "baseline_sha256": "75dddac934450e4dd4ed2ebf4daf8fb1d63b7590f7c1b88fa01aa41dd9ef8636",
+      "exact_body_path": "reconciliation/stateless-master-guide.v1.patch",
+      "destination_path": "audits/reconciliation/stateless-master-guide/stateless-master-guide.v1.patch",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "refine-architecture.md",
+      "baseline_sha256": "9417c2c3103813a1adeb634c777c1c6bd75b97fb3cb3f0e4c91640a7c0f23102",
+      "exact_body_path": "refine-architecture.md",
+      "destination_path": "_archive/guides/refine-architecture.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "runtime-action-schema.json",
+      "baseline_sha256": "b18698445410826d4445d4b5f92774b7dbb959d111b5a7578fb90c6577e1c4f0",
+      "exact_body_path": "runtime-action-schema.json",
+      "destination_path": "generated/runtime-action-schema.json",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "runtime-kernel-namespace-residual.v1.json",
+      "baseline_sha256": "19500ed05d261a6fde6aa1879ae70de8111242d73b982fd39479ec62bc5273c5",
+      "exact_body_path": "runtime-kernel-namespace-residual.v1.json",
+      "destination_path": "generated/runtime-kernel-namespace-residual.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": {
+        "reason": "tracked scripts/internal/verify-runtime-kernel-trust-audit.mjs reads this root JSON and requires its legacy status literal",
+        "approval_needed": "retarget the tracked verifier and revise its schema check"
+      },
+      "preserved": true
+    },
+    {
+      "source_path": "runtime-kernel-service-trust-boundary-audit.md",
+      "baseline_sha256": "75a51210750dca6022742a2c39e6289f9081f6451d3ef24828e4b6fdff51184b",
+      "exact_body_path": "runtime-kernel-service-trust-boundary-audit.md",
+      "destination_path": "audits/history/2026-07-21-runtime-kernel-service-trust-boundary-audit.md",
+      "tombstone_required": false,
+      "compatibility_hold": {
+        "reason": "tracked scripts/internal/verify-runtime-kernel-trust-audit.mjs parses the root marker and 198 RKS rows",
+        "approval_needed": "retarget the tracked verifier before replacing the root body"
+      },
+      "preserved": true
+    },
+    {
+      "source_path": "runtime-module-map.md",
+      "baseline_sha256": "8c7c14bf3eb99cf5164d7681f30a47d73c9ea8244f26007b0e099bea425eeefc",
+      "exact_body_path": "runtime-module-map.md",
+      "destination_path": "_archive/maps/runtime-module-map.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "runtime-package-boundaries.md",
+      "baseline_sha256": "a8b6f0e7088ab4733ed9148ee56f9e811ca86d36ce464a4d8aa8a1a6750041fb",
+      "exact_body_path": "runtime-package-boundaries.md",
+      "destination_path": "_archive/maps/runtime-package-boundaries.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-item-m1-5-protected-transitions.md",
+      "baseline_sha256": "537f1e95ee41236b6918b0320fee0296630e6615e91e1e93cad1ff69b374543e",
+      "exact_body_path": "work-item-m1-5-protected-transitions.md",
+      "destination_path": "work-items/logs/m1-5-protected-transitions.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-item-m1-5c-amendment-execution.md",
+      "baseline_sha256": "065e611f0a352a5f647000bba5a88ea60928074d81ed2393a1419664323622f3",
+      "exact_body_path": "work-item-m1-5c-amendment-execution.md",
+      "destination_path": "work-items/logs/m1-5c-amendment-execution.md",
+      "tombstone_required": true,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m0-literal-exit-evidence-contract.v1.json",
+      "baseline_sha256": "aff24a2682fac850dc79b9efeb744f20a692d2efa17fc7a49e18a098b397e3f4",
+      "exact_body_path": "work-items/m0-literal-exit-evidence-contract.v1.json",
+      "destination_path": "work-items/m0-literal-exit-evidence-contract.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m0-unsigned-review-anchor.v1.json",
+      "baseline_sha256": "97876e36a1db497ff46ce8ece8d4ac2ee154c90c6bf38156d559c49eadc7be4d",
+      "exact_body_path": "work-items/m0-unsigned-review-anchor.v1.json",
+      "destination_path": "work-items/m0-unsigned-review-anchor.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m1-5-protected-transitions.v1.json",
+      "baseline_sha256": "00c9b46e4b1264a3f90471eb8c9f2e3423ac27e857a866d4ed74c9c15cf7199b",
+      "exact_body_path": "work-items/m1-5-protected-transitions.v1.json",
+      "destination_path": "work-items/m1-5-protected-transitions.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m1-5b-generic-protected-transitions.v1.json",
+      "baseline_sha256": "44bb630ebf125b26a14ef355c23ba42f1aaeda74245931315f9a83b9234f45c0",
+      "exact_body_path": "work-items/m1-5b-generic-protected-transitions.v1.json",
+      "destination_path": "work-items/m1-5b-generic-protected-transitions.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m1-5c-amendment-execution.v1.json",
+      "baseline_sha256": "b0b5c1a804bf61d847395e43de234105a722274d1be810ceed1ce1bdcb311ca6",
+      "exact_body_path": "work-items/m1-5c-amendment-execution.v1.json",
+      "destination_path": "work-items/m1-5c-amendment-execution.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m1-dual-genesis-and-read-projection.v1.json",
+      "baseline_sha256": "dcb961e2e1f09f985ec0f2ebc4e842ec8f1bfce379041ce419ff20ba5abc01c6",
+      "exact_body_path": "work-items/m1-dual-genesis-and-read-projection.v1.json",
+      "destination_path": "work-items/m1-dual-genesis-and-read-projection.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m1-genesis-admission.v1.json",
+      "baseline_sha256": "856b9c020e37665f7e6827981ffa9fff319f22a7c4392a40f189b9775e529d4d",
+      "exact_body_path": "work-items/m1-genesis-admission.v1.json",
+      "destination_path": "work-items/m1-genesis-admission.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m1-governed-initialize-activate.v1.json",
+      "baseline_sha256": "a6ce333c76865faecb6a45a92a522f5ec555cc25162389fbd5399ad58c77faf5",
+      "exact_body_path": "work-items/m1-governed-initialize-activate.v1.json",
+      "destination_path": "work-items/m1-governed-initialize-activate.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m1-sequence-zero-materialization.v1.json",
+      "baseline_sha256": "d39514e636213ad4f23e8dcaadfe309d9885576688b5225c948d26213e74c08f",
+      "exact_body_path": "work-items/m1-sequence-zero-materialization.v1.json",
+      "destination_path": "work-items/m1-sequence-zero-materialization.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m10-two-failure-domain-continuity.v1.json",
+      "baseline_sha256": "f48503a6a570d1fdcabba897aa5b59cc032c8b3ec277a98e92f1febb97ff323e",
+      "exact_body_path": "work-items/m10-two-failure-domain-continuity.v1.json",
+      "destination_path": "work-items/m10-two-failure-domain-continuity.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m11-embodied-nonlive-graph-proof.v1.json",
+      "baseline_sha256": "7eb985b5178f812c73265266c5cd1521467781f433c0d64527d8794daee34860",
+      "exact_body_path": "work-items/m11-embodied-nonlive-graph-proof.v1.json",
+      "destination_path": "work-items/m11-embodied-nonlive-graph-proof.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m11-selected-profile-exit-proof.v1.json",
+      "baseline_sha256": "c0d8942847fa2adaf84bb44377ea711e8af32abcd439905bf49a9d07b8de4324",
+      "exact_body_path": "work-items/m11-selected-profile-exit-proof.v1.json",
+      "destination_path": "work-items/m11-selected-profile-exit-proof.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m11-useful-same-system-distribution.v1.json",
+      "baseline_sha256": "f4d09e9dd31b1d452a372b33a8ee2556f6b5946539d8a03c6d8d3fff1a0a5928",
+      "exact_body_path": "work-items/m11-useful-same-system-distribution.v1.json",
+      "destination_path": "work-items/m11-useful-same-system-distribution.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m12-aiip-channel-envelope-profile.v1.json",
+      "baseline_sha256": "acad2cf68245e009458fe83b4d214a6baf24dc76cd5b1e1c8a973edf90f89a9f",
+      "exact_body_path": "work-items/m12-aiip-channel-envelope-profile.v1.json",
+      "destination_path": "work-items/m12-aiip-channel-envelope-profile.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m12-federated-admission-portable-exit-and-bindings.v1.json",
+      "baseline_sha256": "7a5bb40089fce7c534a5d360b7ed3206b4de9f456cab79f0766a1a05ac203af0",
+      "exact_body_path": "work-items/m12-federated-admission-portable-exit-and-bindings.v1.json",
+      "destination_path": "work-items/m12-federated-admission-portable-exit-and-bindings.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m12-selected-profile-exit-proof.v1.json",
+      "baseline_sha256": "071b280c37fd4556304db3a236cb6b22e72b5e88c3939c6778ba89154c9fb055",
+      "exact_body_path": "work-items/m12-selected-profile-exit-proof.v1.json",
+      "destination_path": "work-items/m12-selected-profile-exit-proof.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m12-terms-discovery-semantic-negotiation.v1.json",
+      "baseline_sha256": "8b2a9a47a0307f305dbf0105ce51cec529367dc0623b3ca10fcceabc1389059a",
+      "exact_body_path": "work-items/m12-terms-discovery-semantic-negotiation.v1.json",
+      "destination_path": "work-items/m12-terms-discovery-semantic-negotiation.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m13-sovereignty-trial-preregistration.v1.json",
+      "baseline_sha256": "cc57d569b18b01aecb424d54f80baa0ee7dbe51593d942cf5e864f440adb1283",
+      "exact_body_path": "work-items/m13-sovereignty-trial-preregistration.v1.json",
+      "destination_path": "work-items/m13-sovereignty-trial-preregistration.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m13-two-sovereign-surplus-and-decline-proof.v1.json",
+      "baseline_sha256": "cc822a6a56c9ad6b27ee5ff76c09815d5ce9b363b122196bbc1478ae0d6474d7",
+      "exact_body_path": "work-items/m13-two-sovereign-surplus-and-decline-proof.v1.json",
+      "destination_path": "work-items/m13-two-sovereign-surplus-and-decline-proof.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m14-demand-security-economics.v1.json",
+      "baseline_sha256": "d3524cbff402a1a8cac628fe8c6ded2de8ffc649beb0c26a82c4145b238923ee",
+      "exact_body_path": "work-items/m14-demand-security-economics.v1.json",
+      "destination_path": "work-items/m14-demand-security-economics.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m14-l1-authorization-decision.v1.json",
+      "baseline_sha256": "66423cbcb6bd4ff0b0c61f027e371e7c80b0a94d6752ffbb0100f1abd2486c4e",
+      "exact_body_path": "work-items/m14-l1-authorization-decision.v1.json",
+      "destination_path": "work-items/m14-l1-authorization-decision.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m14-network-service-devnet.v1.json",
+      "baseline_sha256": "38dcd175e5dbca89e54a5047efe6011d307f6e8bb806b56b1b29f8f1adbb9925",
+      "exact_body_path": "work-items/m14-network-service-devnet.v1.json",
+      "destination_path": "work-items/m14-network-service-devnet.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m2-membership-readiness-plane.v1.json",
+      "baseline_sha256": "12d1146f53cf738f3d9f5f7ffacc4c493151db747ad08443638ba03d6ca865ea",
+      "exact_body_path": "work-items/m2-membership-readiness-plane.v1.json",
+      "destination_path": "work-items/m2-membership-readiness-plane.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m2-route-restore-activation-cleanup.v1.json",
+      "baseline_sha256": "59c5a7d9f7ce19383436d1e4a559da20dec7f298648f1192ff0e35d8dc93d087",
+      "exact_body_path": "work-items/m2-route-restore-activation-cleanup.v1.json",
+      "destination_path": "work-items/m2-route-restore-activation-cleanup.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m2-selected-profile-exit-proof.v1.json",
+      "baseline_sha256": "dc40b879535d6dd551e701017eaa6fa444be9451a1b0ef12e6165881b533d58e",
+      "exact_body_path": "work-items/m2-selected-profile-exit-proof.v1.json",
+      "destination_path": "work-items/m2-selected-profile-exit-proof.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m2-writer-fence-and-lost-suffix.v1.json",
+      "baseline_sha256": "0ee822c88bc555de9b3d80c598e2eb6caade93ab62ce2d9035fa69968d0b57e8",
+      "exact_body_path": "work-items/m2-writer-fence-and-lost-suffix.v1.json",
+      "destination_path": "work-items/m2-writer-fence-and-lost-suffix.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m3-direct-path-and-exit-proof.v1.json",
+      "baseline_sha256": "de8f16e72e98701b09bebf2f86bcc3621e83bccd053fc231217d65a750a0ffc4",
+      "exact_body_path": "work-items/m3-direct-path-and-exit-proof.v1.json",
+      "destination_path": "work-items/m3-direct-path-and-exit-proof.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m3-pursuit-definition-resolution.v1.json",
+      "baseline_sha256": "425f82d30e04fdbbc3c7b2a689b747baac8939d70cbe0a9930fe96a05d9d3972",
+      "exact_body_path": "work-items/m3-pursuit-definition-resolution.v1.json",
+      "destination_path": "work-items/m3-pursuit-definition-resolution.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m3-result-lifecycle-negative-retention.v1.json",
+      "baseline_sha256": "1535764c71d9b7912eb32d1dc020d1c3eec12c71945b72cb9c41e41843d11457",
+      "exact_body_path": "work-items/m3-result-lifecycle-negative-retention.v1.json",
+      "destination_path": "work-items/m3-result-lifecycle-negative-retention.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m4-outcome-room-system-spine.v1.json",
+      "baseline_sha256": "e3a87fd3fb6c0dc7b013f57b34d7b29b7a5e8a0b12ff528b3e2bda36d6474610",
+      "exact_body_path": "work-items/m4-outcome-room-system-spine.v1.json",
+      "destination_path": "work-items/m4-outcome-room-system-spine.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m5-local-agent-pairing.v1.json",
+      "baseline_sha256": "5841fb439d55dbebd1d5e7f38b59ec20e3f5b46c77ad9a91c1bad6111a6c8220",
+      "exact_body_path": "work-items/m5-local-agent-pairing.v1.json",
+      "destination_path": "work-items/m5-local-agent-pairing.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m5-p0-readiness-verifier.v1.json",
+      "baseline_sha256": "2a31d687588b938dbe7fa02d10eb34016832fbe6630347c0adfc3f0d9fca2c8d",
+      "exact_body_path": "work-items/m5-p0-readiness-verifier.v1.json",
+      "destination_path": "work-items/m5-p0-readiness-verifier.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m5-participant-frontier-result-closeout.v1.json",
+      "baseline_sha256": "8caa3f15ee5d2a33b52af3fdcdec62a61e9bc85029214dfca37b2dadf2db54f8",
+      "exact_body_path": "work-items/m5-participant-frontier-result-closeout.v1.json",
+      "destination_path": "work-items/m5-participant-frontier-result-closeout.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m5-portable-exit-independent-clients.v1.json",
+      "baseline_sha256": "0ce01c9b83801f5dc6588acc7f91e440e286d0a80d9eaf854b1984be4c4e87f1",
+      "exact_body_path": "work-items/m5-portable-exit-independent-clients.v1.json",
+      "destination_path": "work-items/m5-portable-exit-independent-clients.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m5-selected-profile-exit-proof.v1.json",
+      "baseline_sha256": "4ac6c087d392a2081ca85425d81c9d7b9c3d16f417eabc3dc246d472e9362836",
+      "exact_body_path": "work-items/m5-selected-profile-exit-proof.v1.json",
+      "destination_path": "work-items/m5-selected-profile-exit-proof.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m6-product-surface-and-typed-workspaces.v1.json",
+      "baseline_sha256": "fbbc029ccec279e5c8fff1980006abf4add377518e1fa8395f71ebdc321689c1",
+      "exact_body_path": "work-items/m6-product-surface-and-typed-workspaces.v1.json",
+      "destination_path": "work-items/m6-product-surface-and-typed-workspaces.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m7-semantic-definition-action-plane.v1.json",
+      "baseline_sha256": "ffa6fc2af8c7fd4d4fbd47b5745d9cabc863f84244642d9a294fc6becf145f0c",
+      "exact_body_path": "work-items/m7-semantic-definition-action-plane.v1.json",
+      "destination_path": "work-items/m7-semantic-definition-action-plane.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m8-learning-boundary-provider-exit.v1.json",
+      "baseline_sha256": "3bcaeedc059e75596fc33d288c51970a7673fd8cfa418facf36d0b173cfe3f89",
+      "exact_body_path": "work-items/m8-learning-boundary-provider-exit.v1.json",
+      "destination_path": "work-items/m8-learning-boundary-provider-exit.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m8-order-zero-improvement-and-direct-path.v1.json",
+      "baseline_sha256": "0c2c46947dde0eabfc31154619f2457647a59c9d7ee606a9f40b90495a6d9f82",
+      "exact_body_path": "work-items/m8-order-zero-improvement-and-direct-path.v1.json",
+      "destination_path": "work-items/m8-order-zero-improvement-and-direct-path.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m9-authority-gateway-equivalence-and-coverage.v1.json",
+      "baseline_sha256": "4810f2194186bf11f2494b2a6dd3238f3ad6eed72b6c96210c31649cdbeded65",
+      "exact_body_path": "work-items/m9-authority-gateway-equivalence-and-coverage.v1.json",
+      "destination_path": "work-items/m9-authority-gateway-equivalence-and-coverage.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m9-lifecycle-evidence-operator-proof.v1.json",
+      "baseline_sha256": "b6e4b501b4997fa320ab744d9ad18bed8d81707fb2eca99aa89f492ed15916a9",
+      "exact_body_path": "work-items/m9-lifecycle-evidence-operator-proof.v1.json",
+      "destination_path": "work-items/m9-lifecycle-evidence-operator-proof.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m9-managed-optionality-overlay.v1.json",
+      "baseline_sha256": "e4d98833bb72be47ab7736816319664c3bdc432b293a2e52efb1f69ad57e8142",
+      "exact_body_path": "work-items/m9-managed-optionality-overlay.v1.json",
+      "destination_path": "work-items/m9-managed-optionality-overlay.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/m9-sovereign-local-terminal-journey.v1.json",
+      "baseline_sha256": "0a457bea9f045bade5666eae05681f11ca853b1ceff288c18aa113e7f4c2a68d",
+      "exact_body_path": "work-items/m9-sovereign-local-terminal-journey.v1.json",
+      "destination_path": "work-items/m9-sovereign-local-terminal-journey.v1.json",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    },
+    {
+      "source_path": "work-items/README.md",
+      "baseline_sha256": "cfc2179c82f8660fad476faccd052ea38186ef1b3976774a9f06f24376bb3264",
+      "exact_body_path": "work-items/README.md",
+      "destination_path": "work-items/README.md",
+      "tombstone_required": false,
+      "compatibility_hold": null,
+      "preserved": true
+    }
+  ],
+  "current_entries": [
+    {
+      "path": "architecture-to-implementation-coverage-audit.md",
+      "sha256": "0484b0903e7c239afd14d053f64c0d251a9304fb2034118d173a9c82fa7cbdea",
+      "bytes": 197536,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "architecture-to-implementation-coverage-audit.md",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "bounded-recursive-improvement-campaign-discovery-plan.md",
+      "sha256": "8b632560b22198636a40f2097523e5b5ec4297718dd2260a5dcffaea0451ecea",
+      "bytes": 134191,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "bounded-recursive-improvement-campaign-discovery-plan.md",
+      "inbound_markdown_mentions": 5
+    },
+    {
+      "path": "canon-mechanism-hardening-action-plan.md",
+      "sha256": "67217c0f3d0a3c0ec0d02caa9cee6f347a191dc0431126c908b6d76a9d182e9c",
+      "bytes": 69704,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "canon-mechanism-hardening-action-plan.md",
+      "inbound_markdown_mentions": 6
+    },
+    {
+      "path": "canon-sota-improvement-review.md",
+      "sha256": "cdd8f1077926e7aabb0f99414c2222accdf4d27bff766ec9fae285bded4113ef",
+      "bytes": 850959,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "canon-sota-improvement-review.md",
+      "inbound_markdown_mentions": 6
+    },
+    {
+      "path": "check-program-state.mjs",
+      "sha256": "8eb1ac9ff6c4a6922bd83e31117dea656447acfc75d99856de68e979d0d8ed87",
+      "bytes": 13076,
+      "materialization": "file",
+      "document_class": "tool",
+      "disposition": "KEEP_PROJECTION",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "check-program-state.mjs",
+      "inbound_markdown_mentions": 6
+    },
+    {
+      "path": "evidence/m0-exit.v1.txt",
+      "sha256": "be44ea045e43ce0fb5145fc6b8cf1d6e12b893a1170e7e324158e201d0d4b316",
+      "bytes": 331,
+      "materialization": "file",
+      "document_class": "evidence",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "owning work-item evidence index",
+      "source_path": "evidence/m0-exit.v1.txt",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "hypervisor-bounded-das-application-taxonomy-winning-state-plan.md",
+      "sha256": "733bf30acaf3ce79e6a60c8231f293d9d56a6691b66c0dd4ab536c650fc46c3f",
+      "bytes": 118956,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "hypervisor-bounded-das-application-taxonomy-winning-state-plan.md",
+      "inbound_markdown_mentions": 5
+    },
+    {
+      "path": "hypervisor-model-mount-rust-consolidation-and-deadcode-retirement.md",
+      "sha256": "22289699643ae2e688795dcc205b8b325e330d0c7917c5653b39550d0c907911",
+      "bytes": 30217,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "hypervisor-model-mount-rust-consolidation-and-deadcode-retirement.md",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "hypervisor-unified-rust-daemon-lifecycle-migration.md",
+      "sha256": "079c3c70adfb2a3c8a42206301f421b0cf8f441068dd5b8633f4aa92ccbdba5f",
+      "bytes": 1005,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "hypervisor-unified-rust-daemon-lifecycle-migration.md",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "implementation-directory-unification-action-plan.md",
+      "sha256": "9298abb545e85563c4cd971d2a2fc4b129b8b767bce2c82c9677aff4166f138d",
+      "bytes": 132094,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "implementation-directory-unification-action-plan.md",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "implementation-plan-estate-reconciliation.md",
+      "sha256": "c29ec0a94b60917e977c5f13e0c24a23ea8741ee77c8b895a0969f7017d02d91",
+      "bytes": 24551,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "implementation-plan-estate-reconciliation.md",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "implementation-plan-reconciliation-review.md",
+      "sha256": "fd92c13e8cc8d024936288ca20b51a5608ecd804e4a7e816f660b56ac9aadf56",
+      "bytes": 4376,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "implementation-plan-reconciliation-review.md",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "ioi-design-system-portable-package-plan.md",
+      "sha256": "f289c7a12739aca415a587eaff742dd3f9d9c7911cbf79b8de7607c5e19db5ba",
+      "bytes": 9171,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "ioi-design-system-portable-package-plan.md",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "ioi-target-end-state-master-implementation-guide.md",
+      "sha256": "47ce84723611ff2063c289c8c09e691ab9b61856ef8f503dccc43d4205e6beff",
+      "bytes": 106087,
+      "materialization": "file",
+      "document_class": "sequencer",
+      "disposition": "KEEP_AUTHORITY",
+      "owner": "sole master sequencer",
+      "source_path": "ioi-target-end-state-master-implementation-guide.md",
+      "inbound_markdown_mentions": 17
+    },
+    {
+      "path": "ioi-undeniable-product-proof-implementation-guide.md",
+      "sha256": "16eca8426f6178992d51090783714fff1642b82f0dfa314620c12dbb7f83be1f",
+      "bytes": 66625,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "ioi-undeniable-product-proof-implementation-guide.md",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "low-level-implementation-milestones.md",
+      "sha256": "a6eeb66e347a0324a46d956057e93cb6e1bfcfd9abfaff4d961dcefaa1867483",
+      "bytes": 663,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "low-level-implementation-milestones.md",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "m0-m14-plan-gap-audit.md",
+      "sha256": "3a0d4c9c15216b90e7b472be40948932b25d4c173132944845a20867b5243256",
+      "bytes": 59914,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "m0-m14-plan-gap-audit.md",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "program-state.json",
+      "sha256": "13fb2e065e162934358e697b831250dff5e5cafcddb9a4347349fbe2dc07f5cc",
+      "bytes": 23067,
+      "materialization": "file",
+      "document_class": "projection",
+      "disposition": "GENERATED",
+      "owner": "tools/generate-program-state.mjs",
+      "source_path": "program-state.json",
+      "inbound_markdown_mentions": 7
+    },
+    {
+      "path": "README.md",
+      "sha256": "534ec4406c523a8122834acc7e5a7743061fe346769fffd01a406dc248cf65e5",
+      "bytes": 3524,
+      "materialization": "file",
+      "document_class": "navigation",
+      "disposition": "KEEP_AUTHORITY",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "README.md",
+      "inbound_markdown_mentions": 8
+    },
+    {
+      "path": "reconciliation/stateless-master-guide.v1.json",
+      "sha256": "2f813480293d3bb3ae07d8369077d6255e6579df363f622f5baac460175ef0a2",
+      "bytes": 1512,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "reconciliation/stateless-master-guide.v1.json",
+      "inbound_markdown_mentions": 3
+    },
+    {
+      "path": "reconciliation/stateless-master-guide.v1.patch",
+      "sha256": "75dddac934450e4dd4ed2ebf4daf8fb1d63b7590f7c1b88fa01aa41dd9ef8636",
+      "bytes": 120335,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "reconciliation/stateless-master-guide.v1.patch",
+      "inbound_markdown_mentions": 3
+    },
+    {
+      "path": "refine-architecture.md",
+      "sha256": "9417c2c3103813a1adeb634c777c1c6bd75b97fb3cb3f0e4c91640a7c0f23102",
+      "bytes": 63110,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "refine-architecture.md",
+      "inbound_markdown_mentions": 5
+    },
+    {
+      "path": "runtime-action-schema.json",
+      "sha256": "b18698445410826d4445d4b5f92774b7dbb959d111b5a7578fb90c6577e1c4f0",
+      "bytes": 2202,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "runtime-action-schema.json",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "runtime-kernel-namespace-residual.v1.json",
+      "sha256": "19500ed05d261a6fde6aa1879ae70de8111242d73b982fd39479ec62bc5273c5",
+      "bytes": 3142,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "runtime-kernel-namespace-residual.v1.json",
+      "inbound_markdown_mentions": 5
+    },
+    {
+      "path": "runtime-kernel-service-trust-boundary-audit.md",
+      "sha256": "75a51210750dca6022742a2c39e6289f9081f6451d3ef24828e4b6fdff51184b",
+      "bytes": 154587,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "runtime-kernel-service-trust-boundary-audit.md",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "runtime-module-map.md",
+      "sha256": "8c7c14bf3eb99cf5164d7681f30a47d73c9ea8244f26007b0e099bea425eeefc",
+      "bytes": 6766,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "runtime-module-map.md",
+      "inbound_markdown_mentions": 5
+    },
+    {
+      "path": "runtime-package-boundaries.md",
+      "sha256": "a8b6f0e7088ab4733ed9148ee56f9e811ca86d36ce464a4d8aa8a1a6750041fb",
+      "bytes": 7478,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "runtime-package-boundaries.md",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "source-dispositions.v1.json",
+      "sha256": "b7edfa1290c26f3a036ae74cc29f66529039ed548dcb28d2ada68d57e88d91b9",
+      "bytes": 71007,
+      "materialization": "file",
+      "document_class": "source_registry",
+      "disposition": "KEEP_AUTHORITY",
+      "owner": "private implementation estate",
+      "source_path": null,
+      "inbound_markdown_mentions": 1
+    },
+    {
+      "path": "tools/bootstrap-source-registry.mjs",
+      "sha256": "fbaf20375ce192baaa2a891b88e78e23d6707c3e43d03b475146ffca3ef0b3a1",
+      "bytes": 10603,
+      "materialization": "file",
+      "document_class": "tool",
+      "disposition": "KEEP_PROJECTION",
+      "owner": "private implementation estate",
+      "source_path": null,
+      "inbound_markdown_mentions": 0
+    },
+    {
+      "path": "tools/check-internal-links.mjs",
+      "sha256": "dec7eddb5afa89b619b0d7004ac6c7af958e5e34e029b052854bf1da80af4ebe",
+      "bytes": 2523,
+      "materialization": "file",
+      "document_class": "tool",
+      "disposition": "KEEP_PROJECTION",
+      "owner": "private implementation estate",
+      "source_path": null,
+      "inbound_markdown_mentions": 1
+    },
+    {
+      "path": "tools/check-source-dispositions.mjs",
+      "sha256": "86d8c4e24eefd4d6425c259fa399f36c17e56642d76e4bca89405491ff5c8f7d",
+      "bytes": 4707,
+      "materialization": "file",
+      "document_class": "tool",
+      "disposition": "KEEP_PROJECTION",
+      "owner": "private implementation estate",
+      "source_path": null,
+      "inbound_markdown_mentions": 1
+    },
+    {
+      "path": "tools/freeze-source-manifest.mjs",
+      "sha256": "f3dcc61ea461dc05ebfd6e42f76b9bad04a7ba7a7ca9e253661ebcfa8548be02",
+      "bytes": 5137,
+      "materialization": "file",
+      "document_class": "tool",
+      "disposition": "KEEP_PROJECTION",
+      "owner": "private implementation estate",
+      "source_path": null,
+      "inbound_markdown_mentions": 1
+    },
+    {
+      "path": "tools/lib.mjs",
+      "sha256": "d7a88bae8169af0143125a5d905e2f9c5af6e9db99b8a7cc86025f87cf338c01",
+      "bytes": 3076,
+      "materialization": "file",
+      "document_class": "tool",
+      "disposition": "KEEP_PROJECTION",
+      "owner": "private implementation estate",
+      "source_path": null,
+      "inbound_markdown_mentions": 0
+    },
+    {
+      "path": "work-item-m1-5-protected-transitions.md",
+      "sha256": "537f1e95ee41236b6918b0320fee0296630e6615e91e1e93cad1ff69b374543e",
+      "bytes": 17669,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "work-item-m1-5-protected-transitions.md",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "work-item-m1-5c-amendment-execution.md",
+      "sha256": "065e611f0a352a5f647000bba5a88ea60928074d81ed2393a1419664323622f3",
+      "bytes": 14421,
+      "materialization": "file",
+      "document_class": "pointer",
+      "disposition": "COLLAPSE_TO_POINTER",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "work-item-m1-5c-amendment-execution.md",
+      "inbound_markdown_mentions": 3
+    },
+    {
+      "path": "work-items/m0-literal-exit-evidence-contract.v1.json",
+      "sha256": "aff24a2682fac850dc79b9efeb744f20a692d2efa17fc7a49e18a098b397e3f4",
+      "bytes": 2007,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m0-literal-exit-evidence-contract",
+      "source_path": "work-items/m0-literal-exit-evidence-contract.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m0-unsigned-review-anchor.v1.json",
+      "sha256": "97876e36a1db497ff46ce8ece8d4ac2ee154c90c6bf38156d559c49eadc7be4d",
+      "bytes": 2434,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m0-unsigned-review-anchor",
+      "source_path": "work-items/m0-unsigned-review-anchor.v1.json",
+      "inbound_markdown_mentions": 3
+    },
+    {
+      "path": "work-items/m1-5-protected-transitions.v1.json",
+      "sha256": "00c9b46e4b1264a3f90471eb8c9f2e3423ac27e857a866d4ed74c9c15cf7199b",
+      "bytes": 2402,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m1-5-protected-transitions",
+      "source_path": "work-items/m1-5-protected-transitions.v1.json",
+      "inbound_markdown_mentions": 4
+    },
+    {
+      "path": "work-items/m1-5b-generic-protected-transitions.v1.json",
+      "sha256": "44bb630ebf125b26a14ef355c23ba42f1aaeda74245931315f9a83b9234f45c0",
+      "bytes": 5184,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m1-5b-generic-protected-transitions",
+      "source_path": "work-items/m1-5b-generic-protected-transitions.v1.json",
+      "inbound_markdown_mentions": 3
+    },
+    {
+      "path": "work-items/m1-5c-amendment-execution.v1.json",
+      "sha256": "b0b5c1a804bf61d847395e43de234105a722274d1be810ceed1ce1bdcb311ca6",
+      "bytes": 2829,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m1-5c-amendment-execution",
+      "source_path": "work-items/m1-5c-amendment-execution.v1.json",
+      "inbound_markdown_mentions": 3
+    },
+    {
+      "path": "work-items/m1-dual-genesis-and-read-projection.v1.json",
+      "sha256": "dcb961e2e1f09f985ec0f2ebc4e842ec8f1bfce379041ce419ff20ba5abc01c6",
+      "bytes": 2228,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m1-dual-genesis-and-read-projection",
+      "source_path": "work-items/m1-dual-genesis-and-read-projection.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m1-genesis-admission.v1.json",
+      "sha256": "856b9c020e37665f7e6827981ffa9fff319f22a7c4392a40f189b9775e529d4d",
+      "bytes": 1935,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m1-genesis-admission",
+      "source_path": "work-items/m1-genesis-admission.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m1-governed-initialize-activate.v1.json",
+      "sha256": "a6ce333c76865faecb6a45a92a522f5ec555cc25162389fbd5399ad58c77faf5",
+      "bytes": 2791,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m1-governed-initialize-activate",
+      "source_path": "work-items/m1-governed-initialize-activate.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m1-sequence-zero-materialization.v1.json",
+      "sha256": "d39514e636213ad4f23e8dcaadfe309d9885576688b5225c948d26213e74c08f",
+      "bytes": 2570,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m1-sequence-zero-materialization",
+      "source_path": "work-items/m1-sequence-zero-materialization.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m10-two-failure-domain-continuity.v1.json",
+      "sha256": "f48503a6a570d1fdcabba897aa5b59cc032c8b3ec277a98e92f1febb97ff323e",
+      "bytes": 2396,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m10-two-failure-domain-continuity",
+      "source_path": "work-items/m10-two-failure-domain-continuity.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m11-embodied-nonlive-graph-proof.v1.json",
+      "sha256": "7eb985b5178f812c73265266c5cd1521467781f433c0d64527d8794daee34860",
+      "bytes": 2414,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m11-embodied-nonlive-graph-proof",
+      "source_path": "work-items/m11-embodied-nonlive-graph-proof.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m11-selected-profile-exit-proof.v1.json",
+      "sha256": "c0d8942847fa2adaf84bb44377ea711e8af32abcd439905bf49a9d07b8de4324",
+      "bytes": 2747,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m11-selected-profile-exit-proof",
+      "source_path": "work-items/m11-selected-profile-exit-proof.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m11-useful-same-system-distribution.v1.json",
+      "sha256": "f4d09e9dd31b1d452a372b33a8ee2556f6b5946539d8a03c6d8d3fff1a0a5928",
+      "bytes": 2133,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m11-useful-same-system-distribution",
+      "source_path": "work-items/m11-useful-same-system-distribution.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m12-aiip-channel-envelope-profile.v1.json",
+      "sha256": "acad2cf68245e009458fe83b4d214a6baf24dc76cd5b1e1c8a973edf90f89a9f",
+      "bytes": 2306,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m12-aiip-channel-envelope-profile",
+      "source_path": "work-items/m12-aiip-channel-envelope-profile.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m12-federated-admission-portable-exit-and-bindings.v1.json",
+      "sha256": "7a5bb40089fce7c534a5d360b7ed3206b4de9f456cab79f0766a1a05ac203af0",
+      "bytes": 2405,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m12-federated-admission-portable-exit-and-bindings",
+      "source_path": "work-items/m12-federated-admission-portable-exit-and-bindings.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m12-selected-profile-exit-proof.v1.json",
+      "sha256": "071b280c37fd4556304db3a236cb6b22e72b5e88c3939c6778ba89154c9fb055",
+      "bytes": 2907,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m12-selected-profile-exit-proof",
+      "source_path": "work-items/m12-selected-profile-exit-proof.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m12-terms-discovery-semantic-negotiation.v1.json",
+      "sha256": "8b2a9a47a0307f305dbf0105ce51cec529367dc0623b3ca10fcceabc1389059a",
+      "bytes": 2315,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m12-terms-discovery-semantic-negotiation",
+      "source_path": "work-items/m12-terms-discovery-semantic-negotiation.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m13-sovereignty-trial-preregistration.v1.json",
+      "sha256": "cc57d569b18b01aecb424d54f80baa0ee7dbe51593d942cf5e864f440adb1283",
+      "bytes": 3058,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m13-sovereignty-trial-preregistration",
+      "source_path": "work-items/m13-sovereignty-trial-preregistration.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m13-two-sovereign-surplus-and-decline-proof.v1.json",
+      "sha256": "cc822a6a56c9ad6b27ee5ff76c09815d5ce9b363b122196bbc1478ae0d6474d7",
+      "bytes": 3157,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m13-two-sovereign-surplus-and-decline-proof",
+      "source_path": "work-items/m13-two-sovereign-surplus-and-decline-proof.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m14-demand-security-economics.v1.json",
+      "sha256": "d3524cbff402a1a8cac628fe8c6ded2de8ffc649beb0c26a82c4145b238923ee",
+      "bytes": 2388,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m14-demand-security-economics",
+      "source_path": "work-items/m14-demand-security-economics.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m14-l1-authorization-decision.v1.json",
+      "sha256": "66423cbcb6bd4ff0b0c61f027e371e7c80b0a94d6752ffbb0100f1abd2486c4e",
+      "bytes": 2383,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m14-l1-authorization-decision",
+      "source_path": "work-items/m14-l1-authorization-decision.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m14-network-service-devnet.v1.json",
+      "sha256": "38dcd175e5dbca89e54a5047efe6011d307f6e8bb806b56b1b29f8f1adbb9925",
+      "bytes": 2498,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m14-network-service-devnet",
+      "source_path": "work-items/m14-network-service-devnet.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m2-membership-readiness-plane.v1.json",
+      "sha256": "12d1146f53cf738f3d9f5f7ffacc4c493151db747ad08443638ba03d6ca865ea",
+      "bytes": 2124,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m2-membership-readiness-plane",
+      "source_path": "work-items/m2-membership-readiness-plane.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m2-route-restore-activation-cleanup.v1.json",
+      "sha256": "59c5a7d9f7ce19383436d1e4a559da20dec7f298648f1192ff0e35d8dc93d087",
+      "bytes": 2036,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m2-route-restore-activation-cleanup",
+      "source_path": "work-items/m2-route-restore-activation-cleanup.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m2-selected-profile-exit-proof.v1.json",
+      "sha256": "dc40b879535d6dd551e701017eaa6fa444be9451a1b0ef12e6165881b533d58e",
+      "bytes": 2145,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m2-selected-profile-exit-proof",
+      "source_path": "work-items/m2-selected-profile-exit-proof.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m2-writer-fence-and-lost-suffix.v1.json",
+      "sha256": "0ee822c88bc555de9b3d80c598e2eb6caade93ab62ce2d9035fa69968d0b57e8",
+      "bytes": 2167,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m2-writer-fence-and-lost-suffix",
+      "source_path": "work-items/m2-writer-fence-and-lost-suffix.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m3-direct-path-and-exit-proof.v1.json",
+      "sha256": "de8f16e72e98701b09bebf2f86bcc3621e83bccd053fc231217d65a750a0ffc4",
+      "bytes": 2141,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m3-direct-path-and-exit-proof",
+      "source_path": "work-items/m3-direct-path-and-exit-proof.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m3-pursuit-definition-resolution.v1.json",
+      "sha256": "425f82d30e04fdbbc3c7b2a689b747baac8939d70cbe0a9930fe96a05d9d3972",
+      "bytes": 2269,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m3-pursuit-definition-resolution",
+      "source_path": "work-items/m3-pursuit-definition-resolution.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m3-result-lifecycle-negative-retention.v1.json",
+      "sha256": "1535764c71d9b7912eb32d1dc020d1c3eec12c71945b72cb9c41e41843d11457",
+      "bytes": 2147,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m3-result-lifecycle-negative-retention",
+      "source_path": "work-items/m3-result-lifecycle-negative-retention.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m4-outcome-room-system-spine.v1.json",
+      "sha256": "e3a87fd3fb6c0dc7b013f57b34d7b29b7a5e8a0b12ff528b3e2bda36d6474610",
+      "bytes": 2246,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m4-outcome-room-system-spine",
+      "source_path": "work-items/m4-outcome-room-system-spine.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m5-local-agent-pairing.v1.json",
+      "sha256": "5841fb439d55dbebd1d5e7f38b59ec20e3f5b46c77ad9a91c1bad6111a6c8220",
+      "bytes": 2055,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m5-local-agent-pairing",
+      "source_path": "work-items/m5-local-agent-pairing.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m5-p0-readiness-verifier.v1.json",
+      "sha256": "2a31d687588b938dbe7fa02d10eb34016832fbe6630347c0adfc3f0d9fca2c8d",
+      "bytes": 2112,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m5-p0-readiness-verifier",
+      "source_path": "work-items/m5-p0-readiness-verifier.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m5-participant-frontier-result-closeout.v1.json",
+      "sha256": "8caa3f15ee5d2a33b52af3fdcdec62a61e9bc85029214dfca37b2dadf2db54f8",
+      "bytes": 2384,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m5-participant-frontier-result-closeout",
+      "source_path": "work-items/m5-participant-frontier-result-closeout.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m5-portable-exit-independent-clients.v1.json",
+      "sha256": "0ce01c9b83801f5dc6588acc7f91e440e286d0a80d9eaf854b1984be4c4e87f1",
+      "bytes": 2133,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m5-portable-exit-independent-clients",
+      "source_path": "work-items/m5-portable-exit-independent-clients.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m5-selected-profile-exit-proof.v1.json",
+      "sha256": "4ac6c087d392a2081ca85425d81c9d7b9c3d16f417eabc3dc246d472e9362836",
+      "bytes": 2144,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m5-selected-profile-exit-proof",
+      "source_path": "work-items/m5-selected-profile-exit-proof.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m6-product-surface-and-typed-workspaces.v1.json",
+      "sha256": "fbbc029ccec279e5c8fff1980006abf4add377518e1fa8395f71ebdc321689c1",
+      "bytes": 2309,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m6-product-surface-and-typed-workspaces",
+      "source_path": "work-items/m6-product-surface-and-typed-workspaces.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m7-semantic-definition-action-plane.v1.json",
+      "sha256": "ffa6fc2af8c7fd4d4fbd47b5745d9cabc863f84244642d9a294fc6becf145f0c",
+      "bytes": 2341,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m7-semantic-definition-action-plane",
+      "source_path": "work-items/m7-semantic-definition-action-plane.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m8-learning-boundary-provider-exit.v1.json",
+      "sha256": "3bcaeedc059e75596fc33d288c51970a7673fd8cfa418facf36d0b173cfe3f89",
+      "bytes": 2414,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m8-learning-boundary-provider-exit",
+      "source_path": "work-items/m8-learning-boundary-provider-exit.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m8-order-zero-improvement-and-direct-path.v1.json",
+      "sha256": "0c2c46947dde0eabfc31154619f2457647a59c9d7ee606a9f40b90495a6d9f82",
+      "bytes": 2370,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m8-order-zero-improvement-and-direct-path",
+      "source_path": "work-items/m8-order-zero-improvement-and-direct-path.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m9-authority-gateway-equivalence-and-coverage.v1.json",
+      "sha256": "4810f2194186bf11f2494b2a6dd3238f3ad6eed72b6c96210c31649cdbeded65",
+      "bytes": 2490,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m9-authority-gateway-equivalence-and-coverage",
+      "source_path": "work-items/m9-authority-gateway-equivalence-and-coverage.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m9-lifecycle-evidence-operator-proof.v1.json",
+      "sha256": "b6e4b501b4997fa320ab744d9ad18bed8d81707fb2eca99aa89f492ed15916a9",
+      "bytes": 2512,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m9-lifecycle-evidence-operator-proof",
+      "source_path": "work-items/m9-lifecycle-evidence-operator-proof.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m9-managed-optionality-overlay.v1.json",
+      "sha256": "e4d98833bb72be47ab7736816319664c3bdc432b293a2e52efb1f69ad57e8142",
+      "bytes": 2338,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m9-managed-optionality-overlay",
+      "source_path": "work-items/m9-managed-optionality-overlay.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/m9-sovereign-local-terminal-journey.v1.json",
+      "sha256": "0a457bea9f045bade5666eae05681f11ca853b1ceff288c18aa113e7f4c2a68d",
+      "bytes": 2440,
+      "materialization": "file",
+      "document_class": "work_item",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "work item m9-sovereign-local-terminal-journey",
+      "source_path": "work-items/m9-sovereign-local-terminal-journey.v1.json",
+      "inbound_markdown_mentions": 2
+    },
+    {
+      "path": "work-items/README.md",
+      "sha256": "cfc2179c82f8660fad476faccd052ea38186ef1b3976774a9f06f24376bb3264",
+      "bytes": 2582,
+      "materialization": "file",
+      "document_class": "archive_source",
+      "disposition": "KEEP_WORK_RECORD",
+      "owner": "master §14 source-disposition policy",
+      "source_path": "work-items/README.md",
+      "inbound_markdown_mentions": 8
+    }
+  ]
+}

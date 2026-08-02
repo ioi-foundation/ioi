@@ -1,0 +1,240 @@
+{
+  "schema_version": "ioi.program.work-item-status-preservation.v1",
+  "captured_at": "2026-07-22",
+  "before_count": 43,
+  "before": [
+    {
+      "work_item_id": "m0-literal-exit-evidence-contract",
+      "status": "proposed",
+      "sha256": "aff24a2682fac850dc79b9efeb744f20a692d2efa17fc7a49e18a098b397e3f4"
+    },
+    {
+      "work_item_id": "m0-unsigned-review-anchor",
+      "status": "verified",
+      "sha256": "97876e36a1db497ff46ce8ece8d4ac2ee154c90c6bf38156d559c49eadc7be4d"
+    },
+    {
+      "work_item_id": "m1-5-protected-transitions",
+      "status": "scoped",
+      "sha256": "00c9b46e4b1264a3f90471eb8c9f2e3423ac27e857a866d4ed74c9c15cf7199b"
+    },
+    {
+      "work_item_id": "m1-5b-generic-protected-transitions",
+      "status": "evidence_ready",
+      "sha256": "44bb630ebf125b26a14ef355c23ba42f1aaeda74245931315f9a83b9234f45c0"
+    },
+    {
+      "work_item_id": "m1-5c-amendment-execution",
+      "status": "active",
+      "sha256": "b0b5c1a804bf61d847395e43de234105a722274d1be810ceed1ce1bdcb311ca6"
+    },
+    {
+      "work_item_id": "m1-dual-genesis-and-read-projection",
+      "status": "proposed",
+      "sha256": "dcb961e2e1f09f985ec0f2ebc4e842ec8f1bfce379041ce419ff20ba5abc01c6"
+    },
+    {
+      "work_item_id": "m1-genesis-admission",
+      "status": "verified",
+      "sha256": "856b9c020e37665f7e6827981ffa9fff319f22a7c4392a40f189b9775e529d4d"
+    },
+    {
+      "work_item_id": "m1-governed-initialize-activate",
+      "status": "verified",
+      "sha256": "a6ce333c76865faecb6a45a92a522f5ec555cc25162389fbd5399ad58c77faf5"
+    },
+    {
+      "work_item_id": "m1-sequence-zero-materialization",
+      "status": "verified",
+      "sha256": "d39514e636213ad4f23e8dcaadfe309d9885576688b5225c948d26213e74c08f"
+    },
+    {
+      "work_item_id": "m10-two-failure-domain-continuity",
+      "status": "proposed",
+      "sha256": "f48503a6a570d1fdcabba897aa5b59cc032c8b3ec277a98e92f1febb97ff323e"
+    },
+    {
+      "work_item_id": "m11-embodied-nonlive-graph-proof",
+      "status": "proposed",
+      "sha256": "7eb985b5178f812c73265266c5cd1521467781f433c0d64527d8794daee34860"
+    },
+    {
+      "work_item_id": "m11-selected-profile-exit-proof",
+      "status": "proposed",
+      "sha256": "c0d8942847fa2adaf84bb44377ea711e8af32abcd439905bf49a9d07b8de4324"
+    },
+    {
+      "work_item_id": "m11-useful-same-system-distribution",
+      "status": "proposed",
+      "sha256": "f4d09e9dd31b1d452a372b33a8ee2556f6b5946539d8a03c6d8d3fff1a0a5928"
+    },
+    {
+      "work_item_id": "m12-aiip-channel-envelope-profile",
+      "status": "proposed",
+      "sha256": "acad2cf68245e009458fe83b4d214a6baf24dc76cd5b1e1c8a973edf90f89a9f"
+    },
+    {
+      "work_item_id": "m12-federated-admission-portable-exit-and-bindings",
+      "status": "proposed",
+      "sha256": "7a5bb40089fce7c534a5d360b7ed3206b4de9f456cab79f0766a1a05ac203af0"
+    },
+    {
+      "work_item_id": "m12-selected-profile-exit-proof",
+      "status": "proposed",
+      "sha256": "071b280c37fd4556304db3a236cb6b22e72b5e88c3939c6778ba89154c9fb055"
+    },
+    {
+      "work_item_id": "m12-terms-discovery-semantic-negotiation",
+      "status": "proposed",
+      "sha256": "8b2a9a47a0307f305dbf0105ce51cec529367dc0623b3ca10fcceabc1389059a"
+    },
+    {
+      "work_item_id": "m13-sovereignty-trial-preregistration",
+      "status": "proposed",
+      "sha256": "cc57d569b18b01aecb424d54f80baa0ee7dbe51593d942cf5e864f440adb1283"
+    },
+    {
+      "work_item_id": "m13-two-sovereign-surplus-and-decline-proof",
+      "status": "proposed",
+      "sha256": "cc822a6a56c9ad6b27ee5ff76c09815d5ce9b363b122196bbc1478ae0d6474d7"
+    },
+    {
+      "work_item_id": "m14-demand-security-economics",
+      "status": "proposed",
+      "sha256": "d3524cbff402a1a8cac628fe8c6ded2de8ffc649beb0c26a82c4145b238923ee"
+    },
+    {
+      "work_item_id": "m14-l1-authorization-decision",
+      "status": "proposed",
+      "sha256": "66423cbcb6bd4ff0b0c61f027e371e7c80b0a94d6752ffbb0100f1abd2486c4e"
+    },
+    {
+      "work_item_id": "m14-network-service-devnet",
+      "status": "proposed",
+      "sha256": "38dcd175e5dbca89e54a5047efe6011d307f6e8bb806b56b1b29f8f1adbb9925"
+    },
+    {
+      "work_item_id": "m2-membership-readiness-plane",
+      "status": "proposed",
+      "sha256": "12d1146f53cf738f3d9f5f7ffacc4c493151db747ad08443638ba03d6ca865ea"
+    },
+    {
+      "work_item_id": "m2-route-restore-activation-cleanup",
+      "status": "proposed",
+      "sha256": "59c5a7d9f7ce19383436d1e4a559da20dec7f298648f1192ff0e35d8dc93d087"
+    },
+    {
+      "work_item_id": "m2-selected-profile-exit-proof",
+      "status": "proposed",
+      "sha256": "dc40b879535d6dd551e701017eaa6fa444be9451a1b0ef12e6165881b533d58e"
+    },
+    {
+      "work_item_id": "m2-writer-fence-and-lost-suffix",
+      "status": "proposed",
+      "sha256": "0ee822c88bc555de9b3d80c598e2eb6caade93ab62ce2d9035fa69968d0b57e8"
+    },
+    {
+      "work_item_id": "m3-direct-path-and-exit-proof",
+      "status": "proposed",
+      "sha256": "de8f16e72e98701b09bebf2f86bcc3621e83bccd053fc231217d65a750a0ffc4"
+    },
+    {
+      "work_item_id": "m3-pursuit-definition-resolution",
+      "status": "proposed",
+      "sha256": "425f82d30e04fdbbc3c7b2a689b747baac8939d70cbe0a9930fe96a05d9d3972"
+    },
+    {
+      "work_item_id": "m3-result-lifecycle-negative-retention",
+      "status": "proposed",
+      "sha256": "1535764c71d9b7912eb32d1dc020d1c3eec12c71945b72cb9c41e41843d11457"
+    },
+    {
+      "work_item_id": "m4-outcome-room-system-spine",
+      "status": "proposed",
+      "sha256": "e3a87fd3fb6c0dc7b013f57b34d7b29b7a5e8a0b12ff528b3e2bda36d6474610"
+    },
+    {
+      "work_item_id": "m5-local-agent-pairing",
+      "status": "proposed",
+      "sha256": "5841fb439d55dbebd1d5e7f38b59ec20e3f5b46c77ad9a91c1bad6111a6c8220"
+    },
+    {
+      "work_item_id": "m5-p0-readiness-verifier",
+      "status": "proposed",
+      "sha256": "2a31d687588b938dbe7fa02d10eb34016832fbe6630347c0adfc3f0d9fca2c8d"
+    },
+    {
+      "work_item_id": "m5-participant-frontier-result-closeout",
+      "status": "proposed",
+      "sha256": "8caa3f15ee5d2a33b52af3fdcdec62a61e9bc85029214dfca37b2dadf2db54f8"
+    },
+    {
+      "work_item_id": "m5-portable-exit-independent-clients",
+      "status": "proposed",
+      "sha256": "0ce01c9b83801f5dc6588acc7f91e440e286d0a80d9eaf854b1984be4c4e87f1"
+    },
+    {
+      "work_item_id": "m5-selected-profile-exit-proof",
+      "status": "proposed",
+      "sha256": "4ac6c087d392a2081ca85425d81c9d7b9c3d16f417eabc3dc246d472e9362836"
+    },
+    {
+      "work_item_id": "m6-product-surface-and-typed-workspaces",
+      "status": "proposed",
+      "sha256": "fbbc029ccec279e5c8fff1980006abf4add377518e1fa8395f71ebdc321689c1"
+    },
+    {
+      "work_item_id": "m7-semantic-definition-action-plane",
+      "status": "proposed",
+      "sha256": "ffa6fc2af8c7fd4d4fbd47b5745d9cabc863f84244642d9a294fc6becf145f0c"
+    },
+    {
+      "work_item_id": "m8-learning-boundary-provider-exit",
+      "status": "proposed",
+      "sha256": "3bcaeedc059e75596fc33d288c51970a7673fd8cfa418facf36d0b173cfe3f89"
+    },
+    {
+      "work_item_id": "m8-order-zero-improvement-and-direct-path",
+      "status": "proposed",
+      "sha256": "0c2c46947dde0eabfc31154619f2457647a59c9d7ee606a9f40b90495a6d9f82"
+    },
+    {
+      "work_item_id": "m9-authority-gateway-equivalence-and-coverage",
+      "status": "proposed",
+      "sha256": "4810f2194186bf11f2494b2a6dd3238f3ad6eed72b6c96210c31649cdbeded65"
+    },
+    {
+      "work_item_id": "m9-lifecycle-evidence-operator-proof",
+      "status": "proposed",
+      "sha256": "b6e4b501b4997fa320ab744d9ad18bed8d81707fb2eca99aa89f492ed15916a9"
+    },
+    {
+      "work_item_id": "m9-managed-optionality-overlay",
+      "status": "proposed",
+      "sha256": "e4d98833bb72be47ab7736816319664c3bdc432b293a2e52efb1f69ad57e8142"
+    },
+    {
+      "work_item_id": "m9-sovereign-local-terminal-journey",
+      "status": "proposed",
+      "sha256": "0a457bea9f045bade5666eae05681f11ca853b1ceff288c18aa113e7f4c2a68d"
+    }
+  ],
+  "rule": "The private planning migration may enrich content but must not change any pre-existing status.",
+  "after_count": 122,
+  "added_count": 79,
+  "after_statuses": {
+    "proposed": 115,
+    "verified": 4,
+    "scoped": 1,
+    "evidence_ready": 1,
+    "active": 1
+  },
+  "existing_statuses_unchanged": true,
+  "new_records_all_proposed": true,
+  "no_exit_logs_created": true,
+  "nonclaims": [
+    "Record enrichment and creation implement no runtime behavior.",
+    "A declared *_EXIT=0 is a future contract, not retained evidence.",
+    "No work item or stage changed status in this transaction."
+  ]
+}

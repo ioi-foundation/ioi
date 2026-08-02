@@ -1,0 +1,120 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m9-workstation-virtual-machine-operational-journey",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "status": "proposed",
+  "objective": "Complete one selected Linux/KVM manual-first machine journey from host readiness through create/import, configure, boot, access, snapshot/restore/clone, stop/delete, and cleanup; M9_WORKSTATION_VIRTUAL_MACHINE_OPERATIONAL_JOURNEY_EXIT=0.",
+  "falsifiable_claim": "An ordinary operator cannot complete the selected machine journey without autonomy vocabulary, fabricated state, or unsupported-success behavior.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "c2dd57050c543f22f14b006b502df57415713c27",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "03884a5ae3e1efc9b8da90a91324923be6c3c8d956d86baca2cae37611b92763",
+    "owners": [
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "7d567da3bcfd38f990db58a5b8d5b5e3c8b1c678cc8bc5245a512bfc207fbe91"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/providers-and-environments.md",
+        "sha256": "cf2f1f6fb8cca834864f50ed3e69b7a6e4376f358bd74dafceacfd2eabbbdad5"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "HypervisorVirtualMachineStatePayload",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": [
+        "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1"
+      ]
+    }
+  ],
+  "dependency_work_item_ids": [
+    "m6-hypervisor-claim-bundle-control-surface",
+    "m9-environments-operational-journey",
+    "m9-backend-capability-and-coverage-evidence",
+    "m9-lifecycle-evidence-operator-proof"
+  ],
+  "required_work": [
+    "Implement and prove the exact selected host/guest/backend compatibility matrix."
+  ],
+  "in_scope": [
+    "CPU/RAM",
+    "image/boot",
+    "disk/network",
+    "serial or SSH access",
+    "snapshot/restore/clone",
+    "cleanup"
+  ],
+  "out_of_scope": [
+    "universal guest/device support",
+    "unproved graphical console",
+    "macOS/Windows host runtime"
+  ],
+  "implementation_actions": [
+    "Add desired/observed reconciler and adapter operations for one selected profile."
+  ],
+  "consequential_effects_and_final_invokers": [
+    "machine lifecycle adapter final invokers"
+  ],
+  "applicable_pg_ids": [
+    "PG-2.2",
+    "PG-4C.4",
+    "PG-7.3"
+  ],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "A first-time operator completes the whole ordinary machine lifecycle."
+  ],
+  "adversarial_or_fault_proof": [
+    "Unsupported, permission, boot, network, storage, restore, orphan, drift, and cleanup branches report exact states."
+  ],
+  "product_journey_and_states": [
+    "empty",
+    "unavailable",
+    "running",
+    "stopped",
+    "degraded",
+    "orphaned",
+    "cleanup_pending"
+  ],
+  "ordered_product_operator_journey": [
+    "host readiness",
+    "inventory",
+    "create or import",
+    "configure",
+    "boot",
+    "access",
+    "stop or reboot",
+    "snapshot restore clone",
+    "delete and verify cleanup"
+  ],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [
+    "Publish exact compatibility and unsupported matrix."
+  ],
+  "evidence_index": {
+    "literal_exit": "M9_WORKSTATION_VIRTUAL_MACHINE_OPERATIONAL_JOURNEY_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m9-workstation-virtual-machine-operational-journey.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+    "crates/node/src/bin/hypervisor_daemon_routes/microvm.rs"
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This selected profile is not universal Type-2 parity."
+  ],
+  "rollback_or_stop_rule": "Withdraw the profile claim when any selected operation loses live support or cleanup proof.",
+  "source_provenance": "Owner-ratified governed-compute restructuring, 2026-07-29."
+}

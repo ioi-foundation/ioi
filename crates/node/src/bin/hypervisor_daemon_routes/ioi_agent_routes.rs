@@ -1658,7 +1658,23 @@ pub(crate) async fn handle_ioi_agent_launch(
     });
     let mut delivered_intent = goal.clone();
     if kind == "goal_run" {
-        if let Some(goal_run) = super::goalrun_routes::load_goal_run(&st, &goal_run_id) {
+        let goal_run = match super::goalrun_routes::load_goal_run(&st, &goal_run_id) {
+            Ok(value) => value,
+            Err(error) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "ok": false,
+                        "error": {
+                            "code": "goal_run_registry_unreadable",
+                            "message": "GoalRun truth cannot be resolved from the complete strict registry census.",
+                            "details": { "error": error }
+                        }
+                    })),
+                )
+            }
+        };
+        if let Some(goal_run) = goal_run {
             for cell in goal_run
                 .get("context_cells")
                 .and_then(Value::as_array)

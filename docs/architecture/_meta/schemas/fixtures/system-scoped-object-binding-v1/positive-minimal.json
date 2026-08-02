@@ -1,0 +1,9 @@
+{
+  "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
+  "system_id": "system://room-alpha",
+  "parent_scope_ref": "outcome-room://alpha",
+  "proposed_or_issued_by_ref": "participant-lease://alpha/worker",
+  "payload_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "created_at": "2026-07-31T12:00:00Z",
+  "updated_at": null
+}

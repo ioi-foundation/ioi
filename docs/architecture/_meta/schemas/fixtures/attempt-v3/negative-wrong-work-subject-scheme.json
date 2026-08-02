@@ -1,0 +1,64 @@
+{
+  "schema_version": "ioi.applications.ioi-ai.attempt.v3",
+  "attempt_id": "attempt://direct/wrong-subject",
+  "outcome_room_ref": null,
+  "system_binding": null,
+  "work_subject_ref": "artifact://wrong-subject-scheme",
+  "goal_run_ref": null,
+  "frontier_item_ref": null,
+  "work_claim_ref": null,
+  "participant_ref": "worker://direct/1",
+  "bound_coordinates": {
+    "outcome_room": {
+      "record_ref": "outcome-room://coordinate-only",
+      "host_domain_ref": "domain://direct",
+      "control_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    "frontier_item": {
+      "record_ref": "frontier://coordinate-only",
+      "outcome_room_ref": "outcome-room://coordinate-only",
+      "revision": 0,
+      "record_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    "work_claim": {
+      "record_ref": "work-claim://coordinate-only",
+      "outcome_room_ref": "outcome-room://coordinate-only",
+      "frontier_item_ref": "frontier://coordinate-only",
+      "claimant_ref": "participant-lease://coordinate-only",
+      "revision": 0,
+      "record_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+    },
+    "participant_lease": {
+      "record_ref": "participant-lease://coordinate-only",
+      "outcome_room_ref": "outcome-room://coordinate-only",
+      "principal_ref": "worker://direct/1",
+      "revision": 0,
+      "record_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+    },
+    "goal_run": {
+      "record_ref": "goal://coordinate-only",
+      "outcome_room_ref": "outcome-room://coordinate-only",
+      "updated_at": null,
+      "record_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+    }
+  },
+  "declared_method_and_hypothesis_refs": [],
+  "parent_and_derivation_refs": [],
+  "input_state_and_environment_refs": [],
+  "worker_model_resolver_tool_and_runtime_version_refs": [
+    "runtime://direct/v1"
+  ],
+  "authority_and_policy_refs": [
+    "policy://direct/work"
+  ],
+  "resource_and_cost_refs": [],
+  "outcome_class": "inconclusive",
+  "work_result_ref": null,
+  "outcome_delta_refs": [],
+  "artifact_evidence_and_receipt_refs": [],
+  "verifier_refs": [],
+  "reproduction_state": "unreviewed",
+  "artifact_license_ip_retention_and_export_refs": [],
+  "contribution_refs": [],
+  "status": "draft"
+}

@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-unsigned-review-anchor
+ARTIFACT=docs/evidence/m0-program-control/review-epoch-anchor.json
+ARTIFACT_SHA256=c531c90f6a293496c42828becee73daa65757c596de263509e9af5c4122b243c
+M0_UNSIGNED_REVIEW_ANCHOR_EXIT=0
+NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

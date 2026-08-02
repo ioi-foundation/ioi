@@ -15,8 +15,12 @@
 //!   envelope's declared schemes for that field (including the special non-URI forms
 //!   `scope:*`, `harness_profile:*`, `agent_harness_adapter:*`, and `encrypted_ref`); a raw
 //!   string is never a ref. `goal_ref` must be a `goal://` identity.
-//! - FUTURE-PLANE fields are named gaps, fail-closed: non-empty `outcome_room_ref`,
-//!   `work_claim_ref`, `attempt_ref`, `finding_refs`, `acceptance_ref`, and
+//! - ROOM ownership is fail-closed: the generic POST routes refuse non-null
+//!   `outcome_room_ref`, retired `room_admission`/`room_binding`, and `system_binding`; only the
+//!   GoalRun-owner/private v3 seam may derive SystemScopedObjectBinding and submit
+//!   room-associated truth through Agentgres expected-head admission.
+//! - FUTURE-PLANE fields are named gaps, fail-closed: non-empty `work_claim_ref`,
+//!   `attempt_ref`, `finding_refs`, `acceptance_ref`, and
 //!   `superseded_by_ref` refuse with per-field unavailable codes until their planes exist
 //!   (build steps 2-3) — callers cannot forge assurance or relationship state.
 //!   `outcome_delta_refs` and `challenge_refs` are PLANE-OWNED: their owner-plane admissions
@@ -36,20 +40,29 @@
 //!   backlink, no orphan receipt.
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::{collections::BTreeMap, io::ErrorKind};
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
+#[cfg(test)]
+use super::read_record_dir;
+use super::{iso_now, persist_record, remove_record, DaemonState};
 
-const RESULT_SCHEMA: &str = "ioi.hypervisor.work-result.v1";
+const RESULT_SCHEMA: &str = "ioi.foundations.work-result.v3";
+const RESULT_CONTRACT: &str = "schema://ioi/foundations/work-result/v3";
 const RESULT_RECEIPT_SCHEMA: &str = "ioi.hypervisor.work-result-receipt.v1";
-const DELTA_SCHEMA: &str = "ioi.hypervisor.outcome-delta.v1";
+const DELTA_SCHEMA: &str = "ioi.foundations.outcome-delta.v3";
+const DELTA_CONTRACT: &str = "schema://ioi/foundations/outcome-delta/v3";
 const DELTA_RECEIPT_SCHEMA: &str = "ioi.hypervisor.outcome-delta-admission-receipt.v1";
 const OVERVIEW_SCHEMA: &str = "ioi.hypervisor.work-results-overview.v1";
+const RESULT_REGISTRY_PROJECTION_SCHEMA: &str =
+    "ioi.hypervisor.versioned-work-result-registry-projection.v1";
+const DELTA_REGISTRY_PROJECTION_SCHEMA: &str =
+    "ioi.hypervisor.versioned-outcome-delta-registry-projection.v1";
 pub(crate) const RESULT_DIR: &str = "work-result-registry";
 const RESULT_RECEIPT_DIR: &str = "work-result-registry-receipts";
 pub(crate) const DELTA_DIR: &str = "outcome-delta-registry";
@@ -93,7 +106,7 @@ const NEXT_ACTIONS: &[&str] = &[
     "synthesize",
     "ask_user",
     "escalate",
-    "update_frontier",
+    "update_work_queue",
 ];
 const REPRODUCTION_STATES: &[&str] = &[
     "unreviewed",
@@ -144,43 +157,210 @@ const SENSITIVE_KEY_FRAGMENTS: &[&str] = &[
 /// .await ever executes under this lock.
 pub(crate) static DELTA_ADMISSION_LOCK: Mutex<()> = Mutex::new(());
 
+const RESULT_RECORD_SCHEMAS: &[&str] = &[RESULT_SCHEMA];
+const DELTA_RECORD_SCHEMAS: &[&str] = &[DELTA_SCHEMA];
+
+fn identity_hash_key(prefix: &str, identity: &str) -> String {
+    format!(
+        "{prefix}{}",
+        hex::encode(Sha256::digest(identity.as_bytes()))
+    )
+}
+
+/// Collision-free live slot for M3's direct GoalRun WorkResult/OutcomeDelta generation. The
+/// result and delta families are distinct, so the same generation prefix is unambiguous. Startup
+/// migration uses this exact key too: a legacy source and a newly-admitted M3 record cannot create
+/// two live aliases for one identity.
+pub(crate) fn goal_run_work_truth_record_key(identity: &str) -> String {
+    identity_hash_key("m3_goal_run_", identity)
+}
+
+fn bounded_work_truth_identity(identity: &str, scheme: &str) -> bool {
+    identity.strip_prefix(scheme).is_some_and(|tail| {
+        !tail.is_empty()
+            && tail.len() <= 500
+            && !tail.chars().any(char::is_whitespace)
+            && !tail.contains("..")
+    })
+}
+
+fn expected_current_slots(record: &Value, identity: &str) -> Result<Vec<String>, String> {
+    let schema = record
+        .get("schema_version")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if !matches!(schema, RESULT_SCHEMA | DELTA_SCHEMA) {
+        return Err(format!("unsupported record schema '{schema}'"));
+    }
+    let tail = identity
+        .split_once("://")
+        .map(|(_, tail)| tail)
+        .unwrap_or("");
+    let keys = if record.get("system_binding").is_some_and(Value::is_object) {
+        vec![identity_hash_key("room_owner_", identity)]
+    } else if tail.len() <= 120
+        && tail
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+    {
+        vec![tail.to_string()]
+    } else {
+        vec![goal_run_work_truth_record_key(identity)]
+    };
+    Ok(keys.into_iter().map(|key| format!("{key}.json")).collect())
+}
+
+fn read_versioned_registry_strict(
+    data_dir: &str,
+    family: &str,
+    identity_field: &str,
+    identity_scheme: &str,
+    accepted_schemas: &[&str],
+) -> Result<Vec<Value>, String> {
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, family) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(format!("{family} cannot be pinned ({error})")),
+    };
+    let names = super::durable_fs::enumerate_pinned(&directory)
+        .map_err(|error| format!("{family} cannot be enumerated ({error})"))?;
+    let mut records = BTreeMap::<String, Value>::new();
+    for name in names {
+        if !name.ends_with(".json") {
+            return Err(format!(
+                "{family} contains non-record entry '{name}'; partial registry truth is refused"
+            ));
+        }
+        let Some((_file, bytes)) = super::durable_fs::read_slot_strict(&directory, &name)
+            .map_err(|error| format!("{family}/{name} is unreadable ({error})"))?
+        else {
+            return Err(format!(
+                "{family}/{name} disappeared during its pinned registry read"
+            ));
+        };
+        let record: Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("{family}/{name} is malformed ({error})"))?;
+        let schema = record
+            .get("schema_version")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if !accepted_schemas.contains(&schema) {
+            return Err(format!(
+                "{family}/{name} declares unsupported record schema '{schema}'"
+            ));
+        }
+        let contract_id = if identity_field == "work_result_id" {
+            RESULT_CONTRACT
+        } else {
+            DELTA_CONTRACT
+        };
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            contract_id,
+            &record,
+        )
+        .map_err(|error| format!("{family}/{name} fails '{contract_id}' ({error})"))?;
+        let identity = record
+            .get(identity_field)
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_owned();
+        if !bounded_work_truth_identity(&identity, identity_scheme) {
+            return Err(format!(
+                "{family}/{name} fails its {identity_field} scheme/shape binding"
+            ));
+        }
+        let expected_slots = expected_current_slots(&record, &identity)?;
+        if !expected_slots.contains(&name) {
+            return Err(format!(
+                "{family}/{name} is relocated from the exact '{schema}' slot for '{identity}'"
+            ));
+        }
+        if records.insert(identity.clone(), record).is_some() {
+            return Err(format!(
+                "{family} resolves duplicate identity '{identity}'; ambiguous truth is refused"
+            ));
+        }
+    }
+    Ok(records.into_values().collect())
+}
+
+pub(crate) fn list_work_results_strict(data_dir: &str) -> Result<Vec<Value>, String> {
+    read_versioned_registry_strict(
+        data_dir,
+        RESULT_DIR,
+        "work_result_id",
+        "work-result://",
+        RESULT_RECORD_SCHEMAS,
+    )
+}
+
+pub(crate) fn list_outcome_deltas_strict(data_dir: &str) -> Result<Vec<Value>, String> {
+    read_versioned_registry_strict(
+        data_dir,
+        DELTA_DIR,
+        "outcome_delta_id",
+        "outcome-delta://",
+        DELTA_RECORD_SCHEMAS,
+    )
+}
+
 /// Strict WorkResult point loader for later provenance planes. Unlike the legacy list helper,
 /// this distinguishes absence from an occupied unreadable/malformed/identity-mismatched slot.
 pub(crate) fn load_work_result_strict(
     data_dir: &str,
     result_ref: &str,
 ) -> Result<Option<Value>, String> {
-    let tail = result_ref
-        .strip_prefix("work-result://")
-        .ok_or_else(|| "WorkResult ref must be work-result://...".to_string())?;
-    if tail.is_empty()
-        || tail.len() > 120
-        || !tail
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+    if !result_ref.starts_with("work-result://")
+        || result_ref.len() <= "work-result://".len()
+        || result_ref.len() > 500
+        || result_ref.chars().any(char::is_whitespace)
     {
-        return Err("WorkResult ref has a noncanonical storage key".into());
+        return Err("WorkResult ref must be one bounded work-result:// identity".into());
     }
-    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, RESULT_DIR) {
-        Ok(directory) => directory,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(format!("WorkResult registry cannot be pinned ({error})")),
+    Ok(list_work_results_strict(data_dir)?
+        .into_iter()
+        .find(|record| record.get("work_result_id").and_then(Value::as_str) == Some(result_ref)))
+}
+
+/// Resolve the exact already-occupied storage slot for a live WorkResult. This is used only by
+/// owner-plane successor writes: it preserves the admitted generation's path instead of creating
+/// a second alias when updating a historical M3 record.
+pub(crate) fn resolve_work_result_storage_key_strict(
+    data_dir: &str,
+    result_ref: &str,
+) -> Result<Option<String>, String> {
+    let Some(record) = load_work_result_strict(data_dir, result_ref)? else {
+        return Ok(None);
     };
-    let bytes = match super::durable_fs::read_slot_strict(&directory, &format!("{tail}.json")) {
-        Ok(None) => return Ok(None),
-        Ok(Some((_file, bytes))) => bytes,
-        Err(error) => return Err(format!("WorkResult slot '{tail}' is unreadable ({error})")),
-    };
-    let record: Value = serde_json::from_slice(&bytes)
-        .map_err(|error| format!("WorkResult slot '{tail}' is malformed ({error})"))?;
-    if record.get("schema_version").and_then(Value::as_str) != Some(RESULT_SCHEMA)
-        || record.get("work_result_id").and_then(Value::as_str) != Some(result_ref)
-    {
-        return Err(format!(
-            "WorkResult slot '{tail}' fails storage-key/schema identity binding"
-        ));
+    let expected = expected_current_slots(&record, result_ref)?;
+    let directory = super::durable_fs::open_family_dir_pinned(data_dir, RESULT_DIR)
+        .map_err(|error| format!("WorkResult registry cannot be pinned ({error})"))?;
+    let mut occupied = Vec::new();
+    for name in expected {
+        match super::durable_fs::read_slot_strict(&directory, &name) {
+            Ok(Some((_file, bytes))) => {
+                let candidate: Value = serde_json::from_slice(&bytes)
+                    .map_err(|error| format!("WorkResult slot '{name}' is malformed ({error})"))?;
+                if candidate != record {
+                    return Err(format!(
+                        "WorkResult slot '{name}' changed during exact path resolution"
+                    ));
+                }
+                occupied.push(name.trim_end_matches(".json").to_string());
+            }
+            Ok(None) => {}
+            Err(error) => return Err(format!("WorkResult slot '{name}' is unreadable ({error})")),
+        }
     }
-    Ok(Some(record))
+    match occupied.as_slice() {
+        [] => Err(format!(
+            "WorkResult '{result_ref}' has no occupied admitted storage slot"
+        )),
+        [key] => Ok(Some(key.clone())),
+        _ => Err(format!(
+            "WorkResult '{result_ref}' occupies multiple admitted storage slots"
+        )),
+    }
 }
 
 fn canonical_verifier_challenge_ref(reference: &str) -> bool {
@@ -201,7 +381,6 @@ pub(crate) fn verifier_challenge_backlink_successor(
     prior: &Value,
     result_ref: &str,
     challenge_ref: &str,
-    updated_at: &str,
 ) -> Result<Value, (String, String)> {
     if prior.get("schema_version").and_then(Value::as_str) != Some(RESULT_SCHEMA)
         || prior.get("work_result_id").and_then(Value::as_str) != Some(result_ref)
@@ -218,18 +397,18 @@ pub(crate) fn verifier_challenge_backlink_successor(
         ));
     }
     let refs = prior
-        .get("challenge_refs")
+        .get("review_refs")
         .and_then(Value::as_array)
         .ok_or_else(|| {
             verr(
                 "work_result_challenge_backlink_invalid",
-                "WorkResult challenge_refs is not a plane-owned list",
+                "WorkResult review_refs is not a plane-owned list",
             )
         })?;
     if refs.len() >= 128 {
         return Err(verr(
             "work_result_challenge_backlink_capacity",
-            "WorkResult challenge_refs reached its hard bound",
+            "WorkResult review_refs reached its hard bound",
         ));
     }
     if refs.iter().any(|item| item.as_str() == Some(challenge_ref)) {
@@ -248,8 +427,7 @@ pub(crate) fn verifier_challenge_backlink_successor(
     next_refs.push(challenge_ref.to_string());
     next_refs.sort();
     next_refs.dedup();
-    object.insert("challenge_refs".into(), json!(next_refs));
-    object.insert("updated_at".into(), json!(updated_at));
+    object.insert("review_refs".into(), json!(next_refs));
     Ok(next)
 }
 
@@ -264,17 +442,7 @@ pub(crate) fn bind_verifier_challenge_locked(
     successor: &Value,
     intent_tail: &str,
 ) -> Result<Value, (String, String)> {
-    let updated_at = successor
-        .get("updated_at")
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            verr(
-                "work_result_challenge_backlink_invalid",
-                "sealed WorkResult successor lacks updated_at",
-            )
-        })?;
-    let expected =
-        verifier_challenge_backlink_successor(prior, result_ref, challenge_ref, updated_at)?;
+    let expected = verifier_challenge_backlink_successor(prior, result_ref, challenge_ref)?;
     if expected != *successor {
         return Err(verr(
             "work_result_challenge_backlink_invalid",
@@ -304,13 +472,15 @@ pub(crate) fn bind_verifier_challenge_locked(
         "work_result_mutation_in_flight",
         intent_tail,
     )?;
-    let tail = result_ref.strip_prefix("work-result://").ok_or_else(|| {
-        verr(
-            "work_result_challenge_backlink_identity_mismatch",
-            "WorkResult ref has the wrong scheme",
-        )
-    })?;
-    persist_result_atomic(data_dir, tail, successor).map_err(|error| {
+    let storage_key = resolve_work_result_storage_key_strict(data_dir, result_ref)
+        .map_err(|message| verr("work_result_challenge_backlink_unreadable", message))?
+        .ok_or_else(|| {
+            verr(
+                "work_result_challenge_backlink_not_found",
+                format!("no WorkResult '{result_ref}'"),
+            )
+        })?;
+    persist_result_atomic(data_dir, &storage_key, successor).map_err(|error| {
         verr(
             "work_result_challenge_backlink_persist_failed",
             format!("WorkResult challenge backlink persist failed ({error})"),
@@ -326,41 +496,16 @@ pub(crate) fn load_outcome_delta_strict(
     data_dir: &str,
     delta_ref: &str,
 ) -> Result<Option<Value>, String> {
-    let tail = delta_ref
-        .strip_prefix("outcome-delta://")
-        .ok_or_else(|| "OutcomeDelta ref must be outcome-delta://...".to_string())?;
-    if tail.is_empty()
-        || tail.len() > 120
-        || !tail
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+    if !delta_ref.starts_with("outcome-delta://")
+        || delta_ref.len() <= "outcome-delta://".len()
+        || delta_ref.len() > 500
+        || delta_ref.chars().any(char::is_whitespace)
     {
-        return Err("OutcomeDelta ref has a noncanonical storage key".into());
+        return Err("OutcomeDelta ref must be one bounded outcome-delta:// identity".into());
     }
-    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, DELTA_DIR) {
-        Ok(directory) => directory,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(format!("OutcomeDelta registry cannot be pinned ({error})")),
-    };
-    let bytes = match super::durable_fs::read_slot_strict(&directory, &format!("{tail}.json")) {
-        Ok(None) => return Ok(None),
-        Ok(Some((_file, bytes))) => bytes,
-        Err(error) => {
-            return Err(format!(
-                "OutcomeDelta slot '{tail}' is unreadable ({error})"
-            ))
-        }
-    };
-    let record: Value = serde_json::from_slice(&bytes)
-        .map_err(|error| format!("OutcomeDelta slot '{tail}' is malformed ({error})"))?;
-    if record.get("schema_version").and_then(Value::as_str) != Some(DELTA_SCHEMA)
-        || record.get("outcome_delta_id").and_then(Value::as_str) != Some(delta_ref)
-    {
-        return Err(format!(
-            "OutcomeDelta slot '{tail}' fails storage-key/schema identity binding"
-        ));
-    }
-    Ok(Some(record))
+    Ok(list_outcome_deltas_strict(data_dir)?
+        .into_iter()
+        .find(|record| record.get("outcome_delta_id").and_then(Value::as_str) == Some(delta_ref)))
 }
 
 const REF_MAX: usize = 300;
@@ -621,9 +766,8 @@ fn record_output_hash(record: &Value, excludes: &[&str]) -> String {
     format!("sha256:{:x}", Sha256::digest(&bytes))
 }
 
-const RESULT_HASH_EXCLUDES: &[&str] =
-    &["admission_receipt_ref", "outcome_delta_refs", "updated_at"];
-const DELTA_HASH_EXCLUDES: &[&str] = &["admission_receipt_ref", "status", "updated_at"];
+const RESULT_HASH_EXCLUDES: &[&str] = &["admission_receipt_ref", "outcome_delta_refs"];
+const DELTA_HASH_EXCLUDES: &[&str] = &["admission_receipt_ref", "status"];
 
 /// PURE receipt profile: `WorkResultReceipt` on the canonical ReceiptEnvelope base — binds the
 /// generic result profile and outcome class (plus goal identity and status at admission), the
@@ -641,9 +785,9 @@ fn build_work_result_receipt(record: &Value, now: &str) -> (String, Value) {
         "actor_id": "daemon://hypervisor-runtime",
         "subject_ref": subject,
         "op": "admitted",
-        "attested_boundary_fact_refs": [subject, s(record, "goal_ref", "")],
+        "attested_boundary_fact_refs": [subject, s(record, "work_subject_ref", "")],
         "bound_facts": {
-            "goal_ref": record["goal_ref"],
+            "work_subject_ref": record["work_subject_ref"],
             "result_profile": record["result_profile"],
             "outcome_class": record["outcome_class"],
             "status_at_admission": record["status"],
@@ -691,9 +835,9 @@ fn build_outcome_delta_receipt(record: &Value, now: &str) -> (String, Value) {
         "actor_id": "daemon://hypervisor-runtime",
         "subject_ref": subject,
         "op": "proposed",
-        "attested_boundary_fact_refs": [subject, s(record, "goal_ref", ""), s(record, "proposed_by_ref", ""), s(record, "target_ref", "")],
+        "attested_boundary_fact_refs": [subject, s(record, "work_subject_ref", ""), s(record, "proposed_by_ref", ""), s(record, "target_ref", "")],
         "bound_facts": {
-            "goal_ref": record["goal_ref"],
+            "work_subject_ref": record["work_subject_ref"],
             "proposed_by_ref": record["proposed_by_ref"],
             "target_ref": record["target_ref"],
             "delta_kind": record["delta_kind"],
@@ -794,7 +938,7 @@ fn finalize_result_persist(
 /// items 8/12; rounds 2-3): delta record FIRST, backlink SECOND (ATOMIC file replacement —
 /// readers never observe a torn record), receipt THIRD; every failure lane rolls back all
 /// earlier writes with CHECKED operations and distinct typed codes. The receipt-failure rollback
-/// restores the EXACT prior record — outcome_delta_refs AND updated_at, byte for byte — so a
+/// restores the EXACT prior record — including every plane-owned backlink, byte for byte — so a
 /// "nothing changed" refusal leaves no unreceipted state mutation. That exact restore is safe
 /// ONLY because callers hold DELTA_ADMISSION_LOCK across resolution → finalization: `prior` is
 /// read inside the lock, so no other admission's success can be captured stale or clobbered.
@@ -827,7 +971,7 @@ fn finalize_delta_persist(
             let restored = persist_result_atomic(data_dir, result_id, prior_result).is_ok();
             let removed = remove_record(data_dir, DELTA_DIR, delta_id);
             if restored && removed {
-                Err(verr("outcome_delta_receipt_persist_failed", format!("delta receipt persist failed ({e}); the delta was rolled back and the work-result restored EXACTLY (refs + updated_at) — nothing changed")))
+                Err(verr("outcome_delta_receipt_persist_failed", format!("delta receipt persist failed ({e}); the delta was rolled back and the work-result restored EXACTLY — nothing changed")))
             } else {
                 Err(verr("outcome_delta_rollback_failed", format!("delta receipt persist failed ({e}) AND rollback was incomplete (prior restored: {restored}, delta removed: {removed}) — manual repair required for '{delta_id}'")))
             }
@@ -840,7 +984,7 @@ fn finalize_delta_persist(
 fn validate_work_result(
     body: &Value,
     resolve_result: &dyn Fn(&str) -> Option<Value>,
-    resolve_room: &dyn Fn(&str) -> Option<Value>,
+    _resolve_room: &dyn Fn(&str) -> Option<Value>,
 ) -> Result<Value, VErr> {
     reject_sensitive_keys(body, "")?;
     // goal_ref is a canonical goal:// identity (never a raw string).
@@ -859,40 +1003,18 @@ fn validate_work_result(
             ))
         }
     };
-    // Room binding (build step 2, LIVE): a declared room must RESOLVE to an OPEN hosted room.
-    let outcome_room = match scalar_ref(body, "outcome_room_ref", &["outcome-room"], &[], &[])? {
-        None => Value::Null,
-        Some(r) => {
-            match resolve_room(&r) {
-                None => {
-                    return Err(verr(
-                        "work_result_room_unbound",
-                        format!(
-                        "`outcome_room_ref` does not resolve to an admitted OutcomeRoom ('{r}')"
-                    ),
-                    ))
-                }
-                // ADMISSION BOUNDARY IS INTENT-AWARE (#72 round 10 review, finding 1): a room whose
-                // transition/attach intent is durably sealed may already be ORDERED closed — its
-                // visible prior status must not admit new results while convergence is pending.
-                Some(room) if super::outcome_room_routes::pending_intent(&room).is_some() => {
-                    return Err(verr("work_result_room_intent_pending", format!("room '{r}' has a durable mutation intent pending convergence — results refuse until the sealed transition applies (a restart converges it)")));
-                }
-                Some(room) if room.get("status").and_then(|v| v.as_str()) != Some("open") => {
-                    return Err(verr(
-                        "work_result_room_not_open",
-                        format!(
-                            "room '{r}' is '{}' — results admit only into an open room",
-                            room.get("status")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unknown")
-                        ),
-                    ));
-                }
-                Some(_) => Value::String(r),
-            }
-        }
-    };
+    if body
+        .get("outcome_room_ref")
+        .is_some_and(|value| !value.is_null())
+        || body
+            .get("system_binding")
+            .is_some_and(|value| !value.is_null())
+    {
+        return Err(verr(
+            "work_result_system_binding_owner_required",
+            "bounded-System scope is admitted only by its application owner; the generic substrate seam never resolves room vocabulary or mints SystemScopedObjectBinding",
+        ));
+    }
     // FUTURE-PLANE fields (build step 3): non-empty values are per-field named gaps.
     future_plane_scalar(
         body,
@@ -930,11 +1052,11 @@ fn validate_work_result(
         return Err(verr("work_result_outcome_delta_refs_plane_owned", "`outcome_delta_refs` is plane-owned — the OutcomeDelta admission registers the backlink atomically; callers never supply it"));
     }
     if body
-        .get("challenge_refs")
+        .get("review_refs")
         .map(|v| !v.is_null())
         .unwrap_or(false)
     {
-        return Err(verr("work_result_challenge_refs_plane_owned", "`challenge_refs` is plane-owned — VerifierChallenge admission registers the backlink through the WorkResult owner seam; callers never supply it"));
+        return Err(verr("work_result_review_refs_plane_owned", "`review_refs` is plane-owned — review admission registers the backlink through the WorkResult owner seam; callers never supply it"));
     }
     let result_profile = vocab_required(
         body,
@@ -1017,13 +1139,13 @@ fn validate_work_result(
             match resolve_result(tail) {
                 None => return Err(verr("work_result_supersedes_unbound", format!("`supersedes_work_result_ref` does not resolve to an admitted WorkResult ('{r}')"))),
                 Some(target) => {
-                    let target_goal = s(&target, "goal_ref", "");
+                    let target_goal = s(&target, "work_subject_ref", "");
                     if target_goal != goal_ref {
                         return Err(verr("work_result_supersedes_cross_goal", format!("`supersedes_work_result_ref` resolves under '{target_goal}', not this result's '{goal_ref}' — supersession never crosses goals")));
                     }
-                    let target_room = target.get("outcome_room_ref").cloned().unwrap_or(Value::Null);
-                    if target_room != outcome_room {
-                        return Err(verr("work_result_supersedes_cross_room", format!("the superseded result's room ({}) must exactly equal this result's room ({}) — supersession never crosses room scope", if target_room.is_null() { "null".into() } else { target_room.to_string() }, if outcome_room.is_null() { "null".into() } else { outcome_room.to_string() })));
+                    let target_room = target.get("system_binding").cloned().unwrap_or(Value::Null);
+                    if !target_room.is_null() {
+                        return Err(verr("work_result_supersedes_cross_system_scope", "a generic WorkResult cannot supersede an application-scoped WorkResult"));
                     }
                     Value::String(r)
                 }
@@ -1033,21 +1155,29 @@ fn validate_work_result(
     // Field-specific canonical-ref validation (the envelope's declared schemes per field).
     let record = json!({
         "schema_version": RESULT_SCHEMA,
-        "goal_ref": goal_ref,
-        "goal_run_ref": scalar_ref(body, "goal_run_ref", &["goal"], &[], &[])?,
-        "outcome_room_ref": outcome_room,
-        "work_claim_ref": Value::Null,
-        "attempt_ref": Value::Null,
+        "work_subject_ref": goal_ref,
+        "system_binding": Value::Null,
+        "produced_by_ref":"system://ioi/hypervisor/daemon",
+        "submitted_by_ref":"system://ioi/hypervisor/daemon",
+        "operator_and_affiliation_refs":[],
         "invocation_or_run_ref": scalar_ref(body, "invocation_or_run_ref", &["harness_invocation", "run", "service", "mission"], &[], &[])?,
         "result_profile": result_profile,
         "result_profile_ref": scalar_ref(body, "result_profile_ref", &["schema", "profile"], &[], &[])?,
         "result_payload_ref": scalar_ref(body, "result_payload_ref", &["artifact", "cid"], &[], &["encrypted_ref"])?,
-        "worker_harness_model_runtime_version_refs": list_ref(body, "worker_harness_model_runtime_version_refs", &["worker", "model", "model_route", "runtime", "registry_version"], &["harness_profile:", "agent_harness_adapter:"], &[])?,
+        "producer_component_resolution":{
+            "resolved_component_set_snapshot_ref":Value::Null,
+            "resolved_component_set_hash":Value::Null,
+            "component_resolution_receipt_ref":Value::Null,
+            "resolver_kind":"none",
+            "resolver_revision_ref":Value::Null,
+            "resolver_content_hash":Value::Null,
+        },
         "declared_method_and_lineage_refs": list_ref(body, "declared_method_and_lineage_refs", &["method", "attempt", "finding", "work-result", "artifact", "trace"], &[], &[])?,
+        "information_flow_label_refs":[],
         "outcome_class": outcome_class,
         "status": status,
         "outcome_delta_refs": [],
-        "finding_refs": [],
+        "observation_refs": [],
         "claim_refs": list_ref(body, "claim_refs", &["finding", "ontology-assertion", "evidence"], &[], &[])?,
         "uncertainty": uncertainty,
         "supporting_evidence_refs": list_ref(body, "supporting_evidence_refs", &["artifact", "evidence", "receipt", "ledger"], &[], &[])?,
@@ -1061,20 +1191,13 @@ fn validate_work_result(
         "reproduction_state": reproduction_state,
         "reproduction_refs": list_ref(body, "reproduction_refs", &["attempt", "work-result", "evidence", "receipt"], &[], &[])?,
         "acceptance_ref": Value::Null,
-        "challenge_refs": [],
+        "review_refs": [],
         "supersedes_work_result_ref": supersedes,
         "superseded_by_ref": Value::Null,
         "summary_ref": scalar_ref(body, "summary_ref", &["message", "artifact"], &[], &[])?,
         "next_action": next_action,
-        "runtimeTruthSource": "daemon-runtime"
     });
     Ok(record)
-}
-
-fn load_by(data_dir: &str, dir: &str, id_key: &str, id: &str) -> Option<Value> {
-    read_record_dir(data_dir, dir)
-        .into_iter()
-        .find(|r| r.get(id_key).and_then(|v| v.as_str()) == Some(id))
 }
 
 /// Validate an OutcomeDelta admission body. The resolver returns the referenced WorkResult
@@ -1083,7 +1206,7 @@ fn load_by(data_dir: &str, dir: &str, id_key: &str, id: &str) -> Option<Value> {
 fn validate_outcome_delta(
     body: &Value,
     resolve_result: &dyn Fn(&str) -> Option<Value>,
-    resolve_room: &dyn Fn(&str) -> Option<Value>,
+    _resolve_room: &dyn Fn(&str) -> Option<Value>,
 ) -> Result<(Value, Value), VErr> {
     reject_sensitive_keys(body, "")?;
     // Plane-owned fields refuse typed — a caller can never self-admit or self-receipt a delta.
@@ -1112,40 +1235,18 @@ fn validate_outcome_delta(
             ))
         }
     };
-    // Room binding (build step 2, LIVE): a declared room must resolve to an OPEN hosted room,
-    // and must EXACTLY equal the bound result's room (checked after the result resolves below).
-    let delta_room = match scalar_ref(body, "outcome_room_ref", &["outcome-room"], &[], &[])? {
-        None => Value::Null,
-        Some(r) => {
-            match resolve_room(&r) {
-                None => {
-                    return Err(verr(
-                        "outcome_delta_room_unbound",
-                        format!(
-                        "`outcome_room_ref` does not resolve to an admitted OutcomeRoom ('{r}')"
-                    ),
-                    ))
-                }
-                // Intent-aware admission boundary (#72 round 10 review, finding 1) — same rule as
-                // results: a durably ordered transition outranks the visible prior status.
-                Some(room) if super::outcome_room_routes::pending_intent(&room).is_some() => {
-                    return Err(verr("outcome_delta_room_intent_pending", format!("room '{r}' has a durable mutation intent pending convergence — deltas refuse until the sealed transition applies (a restart converges it)")));
-                }
-                Some(room) if room.get("status").and_then(|v| v.as_str()) != Some("open") => {
-                    return Err(verr(
-                        "outcome_delta_room_not_open",
-                        format!(
-                            "room '{r}' is '{}' — deltas admit only into an open room",
-                            room.get("status")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unknown")
-                        ),
-                    ));
-                }
-                Some(_) => Value::String(r),
-            }
-        }
-    };
+    if body
+        .get("outcome_room_ref")
+        .is_some_and(|value| !value.is_null())
+        || body
+            .get("system_binding")
+            .is_some_and(|value| !value.is_null())
+    {
+        return Err(verr(
+            "outcome_delta_system_binding_owner_required",
+            "bounded-System scope is admitted only by its application owner; the generic substrate seam never resolves room vocabulary or mints SystemScopedObjectBinding",
+        ));
+    }
     let delta_kind = vocab_required(
         body,
         "delta_kind",
@@ -1169,18 +1270,19 @@ fn validate_outcome_delta(
         Some(r) => r,
         None => return Err(verr("outcome_delta_unbound_result", format!("`proposed_by_ref` does not resolve to an admitted WorkResult ('{result_id}') — nothing was created."))),
     };
-    let bound_goal = s(&bound_result, "goal_ref", "");
+    let bound_goal = s(&bound_result, "work_subject_ref", "");
     if bound_goal != goal_ref {
         return Err(verr("outcome_delta_cross_goal", format!("the bound WorkResult belongs to '{bound_goal}', not this delta's '{goal_ref}' — a delta never binds a result from another goal (zero mutation)")));
     }
-    // EXACT room equality with the bound result (#71 round-1 directive, live since step 2):
-    // both null, or the same outcome-room:// ref — anything else is a cross-room binding.
     let result_room = bound_result
-        .get("outcome_room_ref")
+        .get("system_binding")
         .cloned()
         .unwrap_or(Value::Null);
-    if delta_room != result_room {
-        return Err(verr("outcome_delta_cross_room", format!("the delta's room ({}) must exactly equal the bound result's room ({}) — a delta never crosses room scope (zero mutation)", if delta_room.is_null() { "null".into() } else { delta_room.to_string() }, if result_room.is_null() { "null".into() } else { result_room.to_string() })));
+    if !result_room.is_null() {
+        return Err(verr(
+            "outcome_delta_cross_system_scope",
+            "a generic OutcomeDelta cannot bind an application-scoped WorkResult",
+        ));
     }
     let target_ref = match str_opt_bounded(body, "target_ref", REF_MAX)? {
         Some(t) => t,
@@ -1205,8 +1307,8 @@ fn validate_outcome_delta(
     }
     let record = json!({
         "schema_version": DELTA_SCHEMA,
-        "goal_ref": goal_ref,
-        "outcome_room_ref": delta_room,
+        "work_subject_ref": goal_ref,
+        "system_binding":Value::Null,
         "proposed_by_ref": proposed_by,
         "target_ref": target_ref,
         "delta_kind": delta_kind,
@@ -1214,75 +1316,457 @@ fn validate_outcome_delta(
         "precondition_and_invariant_refs": list_ref(body, "precondition_and_invariant_refs", &["policy", "gate", "state"], &[], &[])?,
         "expected_effect_ref": scalar_ref(body, "expected_effect_ref", &["effect"], &[], &[])?,
         "verifier_and_acceptance_refs": list_ref(body, "verifier_and_acceptance_refs", &["verifier_path", "rubric", "gate"], &[], &[])?,
+        "information_flow_label_refs":bound_result.get("information_flow_label_refs").cloned().unwrap_or_else(|| json!([])),
         "status": "proposed",
-        "runtimeTruthSource": "daemon-runtime"
     });
     Ok((record, bound_result))
 }
 
-fn sorted_newest(data_dir: &str, dir: &str) -> Vec<Value> {
-    let mut items = read_record_dir(data_dir, dir);
+fn sorted_newest(mut items: Vec<Value>) -> Vec<Value> {
     items.sort_by(|a, b| s(b, "created_at", "").cmp(&s(a, "created_at", "")));
     items
 }
 
+fn record_schema_counts(records: &[Value], accepted: &[&str]) -> Value {
+    let mut counts = serde_json::Map::new();
+    for schema in accepted {
+        counts.insert(
+            (*schema).to_string(),
+            json!(records
+                .iter()
+                .filter(
+                    |record| record.get("schema_version").and_then(Value::as_str) == Some(*schema)
+                )
+                .count()),
+        );
+    }
+    Value::Object(counts)
+}
+
+fn work_result_collection_projection(results: Vec<Value>) -> Value {
+    json!({
+        "schema_version": RESULT_REGISTRY_PROJECTION_SCHEMA,
+        "accepted_record_schema_versions": RESULT_RECORD_SCHEMAS,
+        "record_schema_counts": record_schema_counts(&results, RESULT_RECORD_SCHEMAS),
+        "work_results": results,
+        "runtimeTruthSource": "daemon-runtime"
+    })
+}
+
+fn outcome_delta_collection_projection(deltas: Vec<Value>) -> Value {
+    json!({
+        "schema_version": DELTA_REGISTRY_PROJECTION_SCHEMA,
+        "accepted_record_schema_versions": DELTA_RECORD_SCHEMAS,
+        "record_schema_counts": record_schema_counts(&deltas, DELTA_RECORD_SCHEMAS),
+        "outcome_deltas": deltas,
+        "runtimeTruthSource": "daemon-runtime"
+    })
+}
+
+fn registry_refusal(kind: &str, error: String) -> (StatusCode, Json<Value>) {
+    eprintln!("{kind} registry refusal: {error}");
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(json!({
+            "error": {
+                "code": format!("{kind}_registry_unreadable"),
+                "message": format!("The complete versioned {kind} registry cannot be resolved; partial or false-empty truth is refused.")
+            }
+        })),
+    )
+}
+
+fn global_truth_reader(
+    st: &DaemonState,
+    headers: &HeaderMap,
+) -> Result<Option<String>, (StatusCode, Json<Value>)> {
+    match super::lifecycle_routes::deployment_auth_posture(&st.data_dir, headers) {
+        "local_development" => Ok(None),
+        "exposed_untrusted" => Err((
+            StatusCode::FORBIDDEN,
+            Json(
+                json!({"error":{"code":"work_truth_exposed_untrusted_refused","message":"Global WorkResult and OutcomeDelta truth is unavailable on an exposed deployment without enforced identity."}}),
+            ),
+        )),
+        _ => {
+            let principal = super::lifecycle_routes::resolve_principal(&st.data_dir, headers)
+                .ok_or_else(|| (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({"error":{"code":"work_truth_authentication_required","message":"Authentication is required before reading global WorkResult or OutcomeDelta truth."}})),
+                ))?;
+            let principal_id = s(&principal, "principal_id", "");
+            if principal_id.is_empty() {
+                return Err((
+                    StatusCode::UNAUTHORIZED,
+                    Json(
+                        json!({"error":{"code":"work_truth_principal_unresolved","message":"The authenticated request did not resolve a principal identity."}}),
+                    ),
+                ));
+            }
+            Ok(Some(format!("user://{principal_id}")))
+        }
+    }
+}
+
+fn fence_pending_room_projection(data_dir: &str) -> Result<(), (StatusCode, Json<Value>)> {
+    super::outcome_room_system_routes::refuse_while_any_intent_pending(data_dir).map_err(
+        |(code, message)| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "error": { "code": code, "message": message } })),
+            )
+        },
+    )
+}
+
+fn authorize_goal_mutation(
+    data_dir: &str,
+    reader: Option<&str>,
+    goal_ref: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let Some(owner_ref) = reader else {
+        return Ok(());
+    };
+    let goal = super::goalrun_routes::load_goal_run_strict(data_dir, goal_ref)
+        .map_err(|_message| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error":{"code":"work_truth_goal_owner_unresolved","message":"GoalRun ownership truth cannot be resolved; the mutation is refused."}})),
+            )
+        })?
+        .ok_or_else(|| {
+            (
+                StatusCode::FORBIDDEN,
+                Json(
+                    json!({"error":{"code":"work_truth_goal_owner_mismatch","message":"The authenticated principal does not own this GoalRun and cannot mutate its work truth."}}),
+                ),
+            )
+        })?;
+    if goal.get("owner_ref").and_then(Value::as_str) != Some(owner_ref) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(
+                json!({"error":{"code":"work_truth_goal_owner_mismatch","message":"The authenticated principal does not own this GoalRun and cannot mutate its work truth."}}),
+            ),
+        ));
+    }
+    Ok(())
+}
+
+/// The generic v1 routes remain available for non-GoalRun goals and the broader M3 result seam,
+/// but they may not manufacture result truth for an explicitly resultless zero-execution GoalRun.
+/// Resolve this independently of deployment auth mode: local `reader=None` is not permission to
+/// bypass the GoalRun owner's retained execution ceiling.
+fn fence_zero_execution_goal_result_lane(
+    data_dir: &str,
+    goal_ref: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    if !goal_ref
+        .strip_prefix("goal://")
+        .is_some_and(|tail| !tail.is_empty() && tail.len() <= 160 && !tail.contains(".."))
+    {
+        // The closed body validator owns the existing typed syntax refusal.
+        return Ok(());
+    }
+    let goal_run = super::goalrun_routes::load_goal_run_strict(data_dir, goal_ref).map_err(
+        |_message| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "error": {
+                        "code":"work_truth_goal_owner_unresolved",
+                        "message":"GoalRun truth cannot be resolved before generic result admission."
+                    }
+                })),
+            )
+        },
+    )?;
+    if let Some(goal_run) = goal_run {
+        if let Some(response) =
+            super::goalrun_routes::refuse_result_write_for_zero_execution_goal(&goal_run)
+        {
+            return Err(response);
+        }
+    }
+    Ok(())
+}
+
+/// Once a GoalRun is reciprocally attached to an OutcomeRoom, all result truth for that run must
+/// cross the private v3 room-owner Agentgres admission seam. Omitting caller-supplied room fields is not
+/// permission to manufacture a parallel roomless v1 result/delta path.
+fn fence_room_member_goal_result_lane(
+    data_dir: &str,
+    goal_ref: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    if !goal_ref
+        .strip_prefix("goal://")
+        .is_some_and(|tail| !tail.is_empty() && tail.len() <= 160 && !tail.contains(".."))
+    {
+        return Ok(());
+    }
+    let goal_run = super::goalrun_routes::load_goal_run_strict(data_dir, goal_ref).map_err(
+        |_message| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "error": {
+                        "code":"work_truth_goal_owner_unresolved",
+                        "message":"GoalRun truth cannot be resolved before generic result admission."
+                    }
+                })),
+            )
+        },
+    )?;
+    if goal_run.is_some_and(|goal_run| {
+        goal_run
+            .get("outcome_room_ref")
+            .is_some_and(|value| !value.is_null())
+    }) {
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({
+                "error": {
+                    "code":"generic_work_truth_room_member_goal_refused",
+                    "message":"A room-member GoalRun may publish WorkResult and OutcomeDelta truth only through the private v3 OutcomeRoom Agentgres admission seam."
+                }
+            })),
+        ));
+    }
+    Ok(())
+}
+
+fn refuse_generic_system_binding(
+    body: &Value,
+    object_kind: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    for field in [
+        "outcome_room_ref",
+        "room_admission",
+        "room_binding",
+        "system_binding",
+    ] {
+        if body.get(field).is_some_and(|value| !value.is_null()) {
+            return Err((
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({
+                    "error": {
+                        "code": format!("generic_{object_kind}_room_binding_refused"),
+                        "message": format!("`{field}` is owned by the private v3 OutcomeRoom Agentgres admission seam; the generic mutation route cannot create room-associated truth.")
+                    }
+                })),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn result_owner_matches(data_dir: &str, result: &Value, owner_ref: &str) -> Result<bool, String> {
+    let goal_ref = result
+        .get("work_subject_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let Some(goal) = super::goalrun_routes::load_goal_run_strict(data_dir, goal_ref)? else {
+        // WorkResult is a substrate-generic seam: its work subject need not be a GoalRun that
+        // this application can resolve. A managed principal-scoped collection omits such a
+        // record rather than turning an unowned generic subject into a registry-wide 503 oracle.
+        return Ok(false);
+    };
+    let Some(resolved_owner) = goal.get("owner_ref").and_then(Value::as_str) else {
+        return Ok(false);
+    };
+    Ok(resolved_owner == owner_ref)
+}
+
+fn delta_owner_matches(data_dir: &str, delta: &Value, owner_ref: &str) -> Result<bool, String> {
+    let proposer = delta
+        .get("proposed_by_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let result = load_work_result_strict(data_dir, proposer)?
+        .ok_or_else(|| format!("OutcomeDelta proposer '{proposer}' does not resolve"))?;
+    result_owner_matches(data_dir, &result, owner_ref)
+}
+
+fn owner_filtered_results(data_dir: &str, owner_ref: Option<&str>) -> Result<Vec<Value>, String> {
+    let mut filtered = Vec::new();
+    for result in list_work_results_strict(data_dir)? {
+        match owner_ref {
+            None => filtered.push(result),
+            Some(owner) if result_owner_matches(data_dir, &result, owner)? => filtered.push(result),
+            Some(_) => {}
+        }
+    }
+    Ok(sorted_newest(filtered))
+}
+
+fn owner_filtered_deltas(data_dir: &str, owner_ref: Option<&str>) -> Result<Vec<Value>, String> {
+    let mut filtered = Vec::new();
+    for delta in list_outcome_deltas_strict(data_dir)? {
+        match owner_ref {
+            None => filtered.push(delta),
+            Some(owner) if delta_owner_matches(data_dir, &delta, owner)? => filtered.push(delta),
+            Some(_) => {}
+        }
+    }
+    Ok(sorted_newest(filtered))
+}
+
 // ================================ HANDLERS =======================================================
 
-pub(crate) async fn handle_work_results_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(
-        json!({ "schema_version": RESULT_SCHEMA, "work_results": sorted_newest(&st.data_dir, RESULT_DIR), "runtimeTruthSource": "daemon-runtime" }),
+pub(crate) async fn handle_work_results_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let reader = match global_truth_reader(&st, &headers) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
+        return response;
+    }
+    let results = match owner_filtered_results(&st.data_dir, reader.as_deref()) {
+        Ok(results) => results,
+        Err(error) => return registry_refusal("work_result", error),
+    };
+    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
+        return response;
+    }
+    (
+        StatusCode::OK,
+        Json(work_result_collection_projection(results)),
     )
 }
 
 pub(crate) async fn handle_work_result_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    match load_by(
-        &st.data_dir,
-        RESULT_DIR,
-        "work_result_id",
-        &format!("work-result://{id}"),
-    ) {
-        Some(r) => (StatusCode::OK, Json(json!({ "work_result": r }))),
+    let reader = match global_truth_reader(&st, &headers) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
+        return response;
+    }
+    let result_ref = format!("work-result://{}", id.trim_start_matches('/'));
+    let resolved = match load_work_result_strict(&st.data_dir, &result_ref) {
+        Ok(value) => value,
+        Err(error) => return registry_refusal("work_result", error),
+    };
+    let response = match resolved {
+        Some(result) => match reader.as_deref() {
+            Some(owner) => match result_owner_matches(&st.data_dir, &result, owner) {
+                Ok(true) => (
+                    StatusCode::OK,
+                    Json(json!({
+                        "schema_version": RESULT_REGISTRY_PROJECTION_SCHEMA,
+                        "record_schema_version": result.get("schema_version"),
+                        "work_result": result
+                    })),
+                ),
+                Ok(false) => (
+                    StatusCode::FORBIDDEN,
+                    Json(
+                        json!({"error":{"code":"work_result_owner_mismatch","message":"The authenticated principal does not own this WorkResult."}}),
+                    ),
+                ),
+                Err(_) => (
+                    StatusCode::FORBIDDEN,
+                    Json(
+                        json!({"error":{"code":"work_result_owner_mismatch","message":"The authenticated principal does not own this WorkResult."}}),
+                    ),
+                ),
+            },
+            None => (
+                StatusCode::OK,
+                Json(json!({
+                    "schema_version": RESULT_REGISTRY_PROJECTION_SCHEMA,
+                    "record_schema_version": result.get("schema_version"),
+                    "work_result": result
+                })),
+            ),
+        },
+        None if reader.is_some() => (
+            StatusCode::FORBIDDEN,
+            Json(
+                json!({"error":{"code":"work_result_owner_mismatch","message":"The authenticated principal does not own this WorkResult."}}),
+            ),
+        ),
         None => (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": { "code": "not_found", "work_result": id } })),
         ),
+    };
+    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
+        return response;
     }
+    response
 }
 
 /// GET /v1/hypervisor/work-results/overview — the DECLARATION VOCABULARY projection (a consuming
 /// surface derives its pickers from THIS, never a hardcoded copy) + honest governance gaps.
 pub(crate) async fn handle_work_results_overview(
     State(st): State<Arc<DaemonState>>,
-) -> Json<Value> {
-    let results = read_record_dir(&st.data_dir, RESULT_DIR);
-    let deltas = read_record_dir(&st.data_dir, DELTA_DIR);
-    Json(json!({
-        "schema_version": OVERVIEW_SCHEMA,
-        "work_results": results.len(),
-        "outcome_deltas": deltas.len(),
-        "result_profiles": RESULT_PROFILES,
-        "outcome_classes": OUTCOME_CLASSES,
-        "statuses": RESULT_STATUSES,
-        "next_actions": NEXT_ACTIONS,
-        "reproduction_states": REPRODUCTION_STATES,
-        "delta_kinds": DELTA_KINDS,
-        "delta_target_schemes": DELTA_TARGET_SCHEMES,
-        "governance_gaps": [
-            "results and deltas are ADMITTED DECLARATIONS with durable receipts — acceptance, verification, adjudication, and settlement are the assurance-ladder rungs above admission and are NOT implied (a receipt is not proof of correctness)",
-            "outcome-delta evaluation/admission/rollback TRANSITIONS are not wired: status is plane-owned at `proposed` until the room/acceptance authority of build steps 2-3 exists",
-            "attempt://, finding://, and participant-lease:// proposers are named gaps (build step 3) — today a delta binds an admitted, SAME-GOAL work-result://",
-            "outcome_room_ref is LIVE (build step 2): it must resolve to an OPEN hosted room, and a delta's room must exactly equal its bound result's room; the remaining future-plane fields (work_claim_ref, attempt_ref, finding_refs, acceptance_ref, superseded_by_ref) refuse non-empty values with per-field unavailable codes until their owners land; outcome_delta_refs and challenge_refs are plane-owned and registered atomically by their owner seams"
-        ],
-        "runtimeTruthSource": "daemon-runtime"
-    }))
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let reader = match global_truth_reader(&st, &headers) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
+        return response;
+    }
+    let results = match owner_filtered_results(&st.data_dir, reader.as_deref()) {
+        Ok(results) => results,
+        Err(error) => return registry_refusal("work_result", error),
+    };
+    let deltas = match owner_filtered_deltas(&st.data_dir, reader.as_deref()) {
+        Ok(deltas) => deltas,
+        Err(error) => return registry_refusal("outcome_delta", error),
+    };
+    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
+        return response;
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": OVERVIEW_SCHEMA,
+            "work_results": results.len(),
+            "outcome_deltas": deltas.len(),
+            "work_result_record_schema_counts": record_schema_counts(&results, RESULT_RECORD_SCHEMAS),
+            "outcome_delta_record_schema_counts": record_schema_counts(&deltas, DELTA_RECORD_SCHEMAS),
+            "result_profiles": RESULT_PROFILES,
+            "outcome_classes": OUTCOME_CLASSES,
+            "statuses": RESULT_STATUSES,
+            "next_actions": NEXT_ACTIONS,
+            "reproduction_states": REPRODUCTION_STATES,
+            "delta_kinds": DELTA_KINDS,
+            "delta_target_schemes": DELTA_TARGET_SCHEMES,
+            "governance_gaps": [
+                "results and deltas are ADMITTED DECLARATIONS with durable receipts — acceptance, verification, adjudication, and settlement are the assurance-ladder rungs above admission and are NOT implied (a receipt is not proof of correctness)",
+                "outcome-delta evaluation/admission/rollback TRANSITIONS are not wired: status is plane-owned at `proposed` until the room/acceptance authority of build steps 2-3 exists",
+                "attempt://, finding://, and participant-lease:// proposers are named gaps (build step 3) — today a delta binds an admitted, SAME-GOAL work-result://",
+                "generic POST /work-results and /outcome-deltas refuse outcome_room_ref, retired room_admission/room_binding, and system_binding: only the GoalRun-owner/private v3 OutcomeRoom Agentgres seam may create room-associated truth; work_claim_ref, attempt_ref, finding_refs, acceptance_ref, and superseded_by_ref remain unavailable here; outcome_delta_refs and challenge_refs are plane-owned and registered atomically by their owner seams"
+            ],
+            "runtimeTruthSource": "daemon-runtime"
+        })),
+    )
 }
 
 /// POST /v1/hypervisor/work-results — admit a generic WorkResult (fail-closed, atomic, receipted).
 pub(crate) async fn handle_work_result_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let err400 = |(code, msg): VErr| {
@@ -1291,6 +1775,32 @@ pub(crate) async fn handle_work_result_create(
             Json(json!({ "error": { "code": code, "message": msg } })),
         )
     };
+    let reader = match global_truth_reader(&st, &headers) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    if let Err(response) = refuse_generic_system_binding(&body, "work_result") {
+        return response;
+    }
+    if let Err(response) = authorize_goal_mutation(
+        &st.data_dir,
+        reader.as_deref(),
+        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
+    ) {
+        return response;
+    }
+    if let Err(response) = fence_zero_execution_goal_result_lane(
+        &st.data_dir,
+        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
+    ) {
+        return response;
+    }
+    if let Err(response) = fence_room_member_goal_result_lane(
+        &st.data_dir,
+        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
+    ) {
+        return response;
+    }
     let data_dir = st.data_dir.clone();
     // ROOM-SCOPE critical section (#72 review finding 3): room resolution through finalization
     // holds ROOM_MUTATION_LOCK, so a room cannot close between the check and the persist.
@@ -1298,17 +1808,31 @@ pub(crate) async fn handle_work_result_create(
     let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|p| p.into_inner());
-    let resolve_result = |tail: &str| {
-        load_by(
-            &data_dir,
-            RESULT_DIR,
-            "work_result_id",
-            &format!("work-result://{tail}"),
-        )
+    if let Err(response) = fence_room_member_goal_result_lane(
+        &st.data_dir,
+        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
+    ) {
+        return response;
+    }
+    let strict_results = match list_work_results_strict(&data_dir) {
+        Ok(results) => results,
+        Err(error) => return registry_refusal("work_result", error),
     };
-    // The validator owns the typed distinction between missing, pending, and non-open rooms.
-    let resolve_room =
-        |room_ref: &str| super::outcome_room_routes::resolve_room(&data_dir, room_ref);
+    let resolve_result = |tail: &str| {
+        let identity = format!("work-result://{tail}");
+        strict_results
+            .iter()
+            .find(|record| {
+                record.get("schema_version").and_then(Value::as_str) == Some(RESULT_SCHEMA)
+                    && record.get("work_result_id").and_then(Value::as_str)
+                        == Some(identity.as_str())
+            })
+            .cloned()
+    };
+    // Defense in depth: the generic route already issued the exact typed room-binding refusal;
+    // its validator receives no room resolver, so later refactors cannot silently mint an
+    // application-owned scope binding.
+    let resolve_room = |_room_ref: &str| None;
     let mut record = match validate_work_result(&body, &resolve_result, &resolve_room) {
         Ok(r) => r,
         Err(e) => return err400(e),
@@ -1319,15 +1843,22 @@ pub(crate) async fn handle_work_result_create(
     {
         let obj = record.as_object_mut().expect("record is an object");
         obj.insert("work_result_id".into(), json!(work_result_id));
-        obj.insert("created_at".into(), json!(now));
-        obj.insert("updated_at".into(), json!(now));
+    }
+    if let Err(error) =
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            RESULT_CONTRACT,
+            &record,
+        )
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({"error":{"code":"work_result_contract_projection_invalid","message":format!("The daemon-derived WorkResult does not satisfy the current contract ({error}).")}}),
+            ),
+        );
     }
     // Receipt binds the admission-time record (hash computed BEFORE the receipt ref lands on it).
     let (receipt_id, receipt) = build_work_result_receipt(&record, &now);
-    record.as_object_mut().expect("object").insert(
-        "admission_receipt_ref".into(),
-        receipt["receipt_ref"].clone(),
-    );
     if let Err((code, msg)) =
         finalize_result_persist(&st.data_dir, &id_tail, &record, &receipt_id, &receipt)
     {
@@ -1342,34 +1873,108 @@ pub(crate) async fn handle_work_result_create(
     )
 }
 
-pub(crate) async fn handle_outcome_deltas_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(
-        json!({ "schema_version": DELTA_SCHEMA, "outcome_deltas": sorted_newest(&st.data_dir, DELTA_DIR), "runtimeTruthSource": "daemon-runtime" }),
+pub(crate) async fn handle_outcome_deltas_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let reader = match global_truth_reader(&st, &headers) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
+        return response;
+    }
+    let deltas = match owner_filtered_deltas(&st.data_dir, reader.as_deref()) {
+        Ok(deltas) => deltas,
+        Err(error) => return registry_refusal("outcome_delta", error),
+    };
+    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
+        return response;
+    }
+    (
+        StatusCode::OK,
+        Json(outcome_delta_collection_projection(deltas)),
     )
 }
 
 pub(crate) async fn handle_outcome_delta_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    match load_by(
-        &st.data_dir,
-        DELTA_DIR,
-        "outcome_delta_id",
-        &format!("outcome-delta://{id}"),
-    ) {
-        Some(r) => (StatusCode::OK, Json(json!({ "outcome_delta": r }))),
+    let reader = match global_truth_reader(&st, &headers) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
+        return response;
+    }
+    let delta_ref = format!("outcome-delta://{}", id.trim_start_matches('/'));
+    let resolved = match load_outcome_delta_strict(&st.data_dir, &delta_ref) {
+        Ok(value) => value,
+        Err(error) => return registry_refusal("outcome_delta", error),
+    };
+    let response = match resolved {
+        Some(delta) => match reader.as_deref() {
+            Some(owner) => match delta_owner_matches(&st.data_dir, &delta, owner) {
+                Ok(true) => (
+                    StatusCode::OK,
+                    Json(json!({
+                        "schema_version": DELTA_REGISTRY_PROJECTION_SCHEMA,
+                        "record_schema_version": delta.get("schema_version"),
+                        "outcome_delta": delta
+                    })),
+                ),
+                Ok(false) => (
+                    StatusCode::FORBIDDEN,
+                    Json(
+                        json!({"error":{"code":"outcome_delta_owner_mismatch","message":"The authenticated principal does not own this OutcomeDelta."}}),
+                    ),
+                ),
+                Err(_) => (
+                    StatusCode::FORBIDDEN,
+                    Json(
+                        json!({"error":{"code":"outcome_delta_owner_mismatch","message":"The authenticated principal does not own this OutcomeDelta."}}),
+                    ),
+                ),
+            },
+            None => (
+                StatusCode::OK,
+                Json(json!({
+                    "schema_version": DELTA_REGISTRY_PROJECTION_SCHEMA,
+                    "record_schema_version": delta.get("schema_version"),
+                    "outcome_delta": delta
+                })),
+            ),
+        },
+        None if reader.is_some() => (
+            StatusCode::FORBIDDEN,
+            Json(
+                json!({"error":{"code":"outcome_delta_owner_mismatch","message":"The authenticated principal does not own this OutcomeDelta."}}),
+            ),
+        ),
         None => (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": { "code": "not_found", "outcome_delta": id } })),
         ),
+    };
+    if let Err(response) = fence_pending_room_projection(&st.data_dir) {
+        return response;
     }
+    response
 }
 
 /// POST /v1/hypervisor/outcome-deltas — admit a delta bound to an EXISTING SAME-GOAL WorkResult;
 /// the result's `outcome_delta_refs` backlink registers in the SAME atomic finalization.
 pub(crate) async fn handle_outcome_delta_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let err400 = |(code, msg): VErr| {
@@ -1378,6 +1983,32 @@ pub(crate) async fn handle_outcome_delta_create(
             Json(json!({ "error": { "code": code, "message": msg } })),
         )
     };
+    let reader = match global_truth_reader(&st, &headers) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    if let Err(response) = refuse_generic_system_binding(&body, "outcome_delta") {
+        return response;
+    }
+    if let Err(response) = authorize_goal_mutation(
+        &st.data_dir,
+        reader.as_deref(),
+        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
+    ) {
+        return response;
+    }
+    if let Err(response) = fence_zero_execution_goal_result_lane(
+        &st.data_dir,
+        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
+    ) {
+        return response;
+    }
+    if let Err(response) = fence_room_member_goal_result_lane(
+        &st.data_dir,
+        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
+    ) {
+        return response;
+    }
     let data_dir = st.data_dir.clone();
     // ROOM-SCOPE + ADMISSION critical section (#71 round 2; #72 finding 3): the documented lock
     // ordering is ROOM_MUTATION_LOCK first, DELTA_ADMISSION_LOCK second — room resolution through
@@ -1389,21 +2020,66 @@ pub(crate) async fn handle_outcome_delta_create(
     let _admission = DELTA_ADMISSION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let resolve = |rid: &str| {
-        load_by(
-            &data_dir,
-            RESULT_DIR,
-            "work_result_id",
-            &format!("work-result://{rid}"),
-        )
+    let strict_results = match list_work_results_strict(&data_dir) {
+        Ok(results) => results,
+        Err(error) => return registry_refusal("work_result", error),
     };
-    // The validator owns the typed distinction between missing, pending, and non-open rooms.
-    let resolve_room =
-        |room_ref: &str| super::outcome_room_routes::resolve_room(&data_dir, room_ref);
+    let resolve = |rid: &str| {
+        let identity = format!("work-result://{rid}");
+        strict_results
+            .iter()
+            .find(|record| {
+                record.get("schema_version").and_then(Value::as_str) == Some(RESULT_SCHEMA)
+                    && record.get("work_result_id").and_then(Value::as_str)
+                        == Some(identity.as_str())
+            })
+            .cloned()
+    };
+    // Defense in depth: only the application owner seam resolves bounded-System scope.
+    let resolve_room = |_room_ref: &str| None;
     let (mut record, prior_result) = match validate_outcome_delta(&body, &resolve, &resolve_room) {
         Ok(r) => r,
         Err(e) => return err400(e),
     };
+    if prior_result
+        .get("system_binding")
+        .is_some_and(|value| !value.is_null())
+    {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(
+                json!({"error":{"code":"generic_outcome_delta_room_binding_refused","message":"A generic OutcomeDelta cannot mutate a room-associated WorkResult; only the private v3 OutcomeRoom Agentgres admission seam owns that truth."}}),
+            ),
+        );
+    }
+    if let Err(response) = authorize_goal_mutation(
+        &st.data_dir,
+        reader.as_deref(),
+        prior_result
+            .get("work_subject_ref")
+            .and_then(Value::as_str)
+            .unwrap_or(""),
+    ) {
+        return response;
+    }
+    if let Err(response) = fence_zero_execution_goal_result_lane(
+        &st.data_dir,
+        prior_result
+            .get("work_subject_ref")
+            .and_then(Value::as_str)
+            .unwrap_or(""),
+    ) {
+        return response;
+    }
+    if let Err(response) = fence_room_member_goal_result_lane(
+        &st.data_dir,
+        prior_result
+            .get("work_subject_ref")
+            .and_then(Value::as_str)
+            .unwrap_or(""),
+    ) {
+        return response;
+    }
     let bound_result_ref = s(&prior_result, "work_result_id", "");
     if let Err((code, message)) =
         super::attempt_finding_routes::refuse_external_mutation_if_reserved(
@@ -1445,16 +2121,34 @@ pub(crate) async fn handle_outcome_delta_create(
     {
         let obj = record.as_object_mut().expect("record is an object");
         obj.insert("outcome_delta_id".into(), json!(outcome_delta_id));
-        obj.insert("created_at".into(), json!(now));
-        obj.insert("updated_at".into(), json!(now));
+    }
+    if let Err(error) =
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            DELTA_CONTRACT,
+            &record,
+        )
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({"error":{"code":"outcome_delta_contract_projection_invalid","message":format!("The daemon-derived OutcomeDelta does not satisfy the current contract ({error}).")}}),
+            ),
+        );
     }
     let (receipt_id, receipt) = build_outcome_delta_receipt(&record, &now);
-    record.as_object_mut().expect("object").insert(
-        "admission_receipt_ref".into(),
-        receipt["receipt_ref"].clone(),
-    );
     // The plane-owned backlink: prior result + the new delta id, updated in the same atomic seam.
-    let result_id_tail = s(&prior_result, "work_result_id", "").replace("work-result://", "");
+    let bound_result_ref = s(&prior_result, "work_result_id", "");
+    let result_storage_key =
+        match resolve_work_result_storage_key_strict(&st.data_dir, &bound_result_ref) {
+            Ok(Some(key)) => key,
+            Ok(None) => {
+                return registry_refusal(
+                    "work_result",
+                    format!("WorkResult '{bound_result_ref}' has no admitted storage slot"),
+                )
+            }
+            Err(error) => return registry_refusal("work_result", error),
+        };
     let mut updated_result = prior_result.clone();
     {
         let obj = updated_result.as_object_mut().expect("result is an object");
@@ -1465,13 +2159,12 @@ pub(crate) async fn handle_outcome_delta_create(
             .unwrap_or_default();
         refs.push(json!(outcome_delta_id));
         obj.insert("outcome_delta_refs".into(), Value::Array(refs));
-        obj.insert("updated_at".into(), json!(now));
     }
     if let Err((code, msg)) = finalize_delta_persist(
         &st.data_dir,
         &id_tail,
         &record,
-        &result_id_tail,
+        &result_storage_key,
         &prior_result,
         &updated_result,
         &receipt_id,
@@ -1522,6 +2215,22 @@ mod work_result_tests {
             "claim_refs": ["evidence://lab-observation-1"],
             "supporting_evidence_refs": ["artifact://a1", "receipt://r1"]
         })
+    }
+
+    fn exact_family_bytes(data_dir: &str, family: &str) -> BTreeMap<String, Vec<u8>> {
+        let path = std::path::Path::new(data_dir).join(family);
+        let mut bytes = BTreeMap::new();
+        if let Ok(entries) = std::fs::read_dir(path) {
+            for entry in entries.flatten() {
+                if entry.path().extension().and_then(|value| value.to_str()) == Some("json") {
+                    bytes.insert(
+                        entry.file_name().to_string_lossy().into_owned(),
+                        std::fs::read(entry.path()).unwrap(),
+                    );
+                }
+            }
+        }
+        bytes
     }
 
     #[test]
@@ -1682,9 +2391,9 @@ mod work_result_tests {
                 "work_result_finding_refs_unavailable",
             ),
             (
-                "challenge_refs",
+                "review_refs",
                 json!(["verifier-challenge://ghost"]),
-                "work_result_challenge_refs_plane_owned",
+                "work_result_review_refs_plane_owned",
             ),
             (
                 "outcome_delta_refs",
@@ -1708,32 +2417,23 @@ mod work_result_tests {
     #[test]
     fn verifier_challenge_backlink_is_plane_owned_and_exact() {
         let mut caller = valid_result_body();
-        caller["challenge_refs"] = json!([]);
+        caller["review_refs"] = json!([]);
         assert_eq!(
             validate_work_result(&caller, &no_resolve, &no_room)
                 .unwrap_err()
                 .0,
-            "work_result_challenge_refs_plane_owned"
+            "work_result_review_refs_plane_owned"
         );
 
         let dir = temp_dir("challenge-backlink");
         let data_dir = dir.to_str().unwrap();
         let result_ref = "work-result://wr_challenge";
         let challenge_ref = format!("verifier-challenge://vc_{}", "a".repeat(64));
-        let prior = json!({
-            "schema_version":RESULT_SCHEMA,
-            "work_result_id":result_ref,
-            "challenge_refs":[],
-            "updated_at":"2026-01-01T00:00:00Z"
-        });
+        let mut prior = validate_work_result(&valid_result_body(), &no_resolve, &no_room).unwrap();
+        prior["work_result_id"] = json!(result_ref);
         persist_record(data_dir, RESULT_DIR, "wr_challenge", &prior).unwrap();
-        let successor = verifier_challenge_backlink_successor(
-            &prior,
-            result_ref,
-            &challenge_ref,
-            "2026-01-02T00:00:00Z",
-        )
-        .unwrap();
+        let successor =
+            verifier_challenge_backlink_successor(&prior, result_ref, &challenge_ref).unwrap();
         let applied = bind_verifier_challenge_locked(
             data_dir,
             result_ref,
@@ -1747,7 +2447,7 @@ mod work_result_tests {
         assert_eq!(
             load_work_result_strict(data_dir, result_ref)
                 .unwrap()
-                .unwrap()["challenge_refs"],
+                .unwrap()["review_refs"],
             json!([challenge_ref])
         );
         assert_eq!(
@@ -1766,58 +2466,61 @@ mod work_result_tests {
     }
 
     #[test]
-    fn room_binding_resolves_open_rooms_and_deltas_never_cross_rooms() {
-        // Result side: unresolvable and non-open rooms refuse; an open room binds.
+    fn generic_seam_never_resolves_application_scope_or_mints_system_binding() {
         let mut b = valid_result_body();
         b["outcome_room_ref"] = json!("outcome-room://or_ghost");
         assert_eq!(
             validate_work_result(&b, &no_resolve, &open_room)
                 .unwrap_err()
                 .0,
-            "work_result_room_unbound"
+            "work_result_system_binding_owner_required"
         );
         let mut b = valid_result_body();
-        b["outcome_room_ref"] = json!("outcome-room://or_closed");
+        b["system_binding"] = json!({"system_id":"system://forged"});
         assert_eq!(
             validate_work_result(&b, &no_resolve, &open_room)
                 .unwrap_err()
                 .0,
-            "work_result_room_not_open"
+            "work_result_system_binding_owner_required"
         );
-        let mut b = valid_result_body();
-        b["outcome_room_ref"] = json!("outcome-room://or_open");
-        assert_eq!(
-            validate_work_result(&b, &no_resolve, &open_room).unwrap()["outcome_room_ref"],
-            json!("outcome-room://or_open")
-        );
-        // Delta side: room EQUALITY with the bound result — same room admits; both-null admits.
-        let roomed = json!({ "work_result_id": "work-result://wr_r", "goal_ref": "goal://alpha", "outcome_room_ref": "outcome-room://or_open", "outcome_delta_refs": [] });
+        let roomed = json!({ "work_result_id": "work-result://wr_r", "work_subject_ref": "goal://alpha", "system_binding": {"parent_scope_ref":"outcome-room://or_open"}, "outcome_delta_refs": [] });
         let resolver = |rid: &str| (rid == "wr_r").then(|| roomed.clone());
-        let base = json!({ "goal_ref": "goal://alpha", "delta_kind": "update", "target_ref": "frontier://f1", "proposed_by_ref": "work-result://wr_r", "outcome_room_ref": "outcome-room://or_open" });
-        let (rec, _) = validate_outcome_delta(&base, &resolver, &open_room).unwrap();
-        assert_eq!(rec["outcome_room_ref"], json!("outcome-room://or_open"));
-        // A room-less delta against a roomed result is cross-room too.
-        let mut b = base.clone();
-        b.as_object_mut().unwrap().remove("outcome_room_ref");
+        let base = json!({ "goal_ref": "goal://alpha", "delta_kind": "update", "target_ref": "frontier://f1", "proposed_by_ref": "work-result://wr_r" });
         assert_eq!(
-            validate_outcome_delta(&b, &resolver, &open_room)
+            validate_outcome_delta(&base, &resolver, &open_room)
                 .unwrap_err()
                 .0,
-            "outcome_delta_cross_room"
+            "outcome_delta_cross_system_scope"
         );
+    }
+
+    #[test]
+    fn principal_scoped_collection_omits_a_generic_subject_without_goalrun_ownership() {
+        let dir = temp_dir("generic-subject-owner-filter");
+        let result = json!({
+            "work_result_id":"work-result://generic/unowned",
+            "work_subject_ref":"goal://generic-substrate-subject",
+        });
+        assert!(!result_owner_matches(
+            dir.to_str().unwrap(),
+            &result,
+            "user://authenticated-reader",
+        )
+        .expect("an absent application owner is an unowned generic subject, not registry damage"));
+        std::fs::remove_dir_all(dir).ok();
     }
 
     #[test]
     fn supersedes_requires_resolvable_same_goal_same_room_result() {
         let resolver = |tail: &str| match tail {
             "wr_same" => Some(
-                json!({ "work_result_id": "work-result://wr_same", "goal_ref": "goal://g-research-1" }),
+                json!({ "work_result_id": "work-result://wr_same", "work_subject_ref": "goal://g-research-1", "system_binding": null }),
             ),
             "wr_other" => Some(
-                json!({ "work_result_id": "work-result://wr_other", "goal_ref": "goal://g-other" }),
+                json!({ "work_result_id": "work-result://wr_other", "work_subject_ref": "goal://g-other", "system_binding": null }),
             ),
             "wr_roomed" => Some(
-                json!({ "work_result_id": "work-result://wr_roomed", "goal_ref": "goal://g-research-1", "outcome_room_ref": "outcome-room://or_open" }),
+                json!({ "work_result_id": "work-result://wr_roomed", "work_subject_ref": "goal://g-research-1", "system_binding": {"parent_scope_ref":"outcome-room://or_open"} }),
             ),
             _ => None,
         };
@@ -1847,17 +2550,9 @@ mod work_result_tests {
             validate_work_result(&b, &resolver, &open_room)
                 .unwrap_err()
                 .0,
-            "work_result_supersedes_cross_room"
+            "work_result_supersedes_cross_system_scope"
         );
-        // Same-room supersession admits.
-        let mut b = valid_result_body();
-        b["supersedes_work_result_ref"] = json!("work-result://wr_roomed");
-        b["outcome_room_ref"] = json!("outcome-room://or_open");
-        assert_eq!(
-            validate_work_result(&b, &resolver, &open_room).unwrap()["supersedes_work_result_ref"],
-            json!("work-result://wr_roomed")
-        );
-        // Roomed result superseding a room-less result → cross-room too.
+        // Caller-supplied application scope is refused before supersession can be evaluated.
         let mut b = valid_result_body();
         b["supersedes_work_result_ref"] = json!("work-result://wr_same");
         b["outcome_room_ref"] = json!("outcome-room://or_open");
@@ -1865,13 +2560,13 @@ mod work_result_tests {
             validate_work_result(&b, &resolver, &open_room)
                 .unwrap_err()
                 .0,
-            "work_result_supersedes_cross_room"
+            "work_result_system_binding_owner_required"
         );
     }
 
     #[test]
     fn delta_binds_same_goal_result_and_receipts_bind_facts() {
-        let bound = json!({ "work_result_id": "work-result://wr_real", "goal_ref": "goal://alpha", "outcome_delta_refs": [] });
+        let bound = json!({ "work_result_id": "work-result://wr_real", "work_subject_ref": "goal://alpha", "system_binding": null, "outcome_delta_refs": [] });
         let resolver = |rid: &str| {
             if rid == "wr_real" {
                 Some(bound.clone())
@@ -1896,7 +2591,7 @@ mod work_result_tests {
             validate_outcome_delta(&b, &resolver, &open_room)
                 .unwrap_err()
                 .0,
-            "outcome_delta_room_unbound"
+            "outcome_delta_system_binding_owner_required"
         );
         let mut b = base.clone();
         b["outcome_room_ref"] = json!("outcome-room://or_closed");
@@ -1904,7 +2599,7 @@ mod work_result_tests {
             validate_outcome_delta(&b, &resolver, &open_room)
                 .unwrap_err()
                 .0,
-            "outcome_delta_room_not_open"
+            "outcome_delta_system_binding_owner_required"
         );
         // The bound result has NO room — a roomed delta is a cross-room binding.
         let mut b = base.clone();
@@ -1913,7 +2608,7 @@ mod work_result_tests {
             validate_outcome_delta(&b, &resolver, &open_room)
                 .unwrap_err()
                 .0,
-            "outcome_delta_cross_room"
+            "outcome_delta_system_binding_owner_required"
         );
         // Ghost / foreign / future proposers refuse.
         let mut b = base.clone();
@@ -1941,8 +2636,6 @@ mod work_result_tests {
         // Receipt profiles: canonical receipt:// identity + bound facts + hash + honest posture.
         let mut full = rec.clone();
         full["outcome_delta_id"] = json!("outcome-delta://od_t");
-        full["created_at"] = json!("2026-01-01T00:00:00Z");
-        full["updated_at"] = json!("2026-01-01T00:00:00Z");
         let (_, receipt) = build_outcome_delta_receipt(&full, "2026-01-01T00:00:00Z");
         assert!(s(&receipt, "receipt_id", "").starts_with("receipt://odr_"));
         assert_eq!(
@@ -1963,7 +2656,7 @@ mod work_result_tests {
             record_output_hash(&full, DELTA_HASH_EXCLUDES)
         );
         let (_, wr_receipt) = build_work_result_receipt(
-            &json!({ "work_result_id": "work-result://wr_real", "goal_ref": "goal://alpha", "result_profile": "research", "outcome_class": "negative", "status": "completed" }),
+            &json!({ "work_result_id": "work-result://wr_real", "work_subject_ref": "goal://alpha", "result_profile": "research", "outcome_class": "negative", "status": "completed" }),
             "2026-01-01T00:00:00Z",
         );
         assert!(s(&wr_receipt, "receipt_id", "").starts_with("receipt://wrr_"));

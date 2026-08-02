@@ -45,6 +45,11 @@ export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
     args: Object.freeze(["run", "check:architecture-contract-bar"]),
   }),
   Object.freeze({
+    id: "agentgres-ref-minting-boundary",
+    command: process.execPath,
+    args: Object.freeze(["scripts/check-agentgres-ref-minting.mjs"]),
+  }),
+  Object.freeze({
     id: "system-genesis-compiler",
     command: "npm",
     args: Object.freeze(["run", "check:system-genesis-compiler"]),

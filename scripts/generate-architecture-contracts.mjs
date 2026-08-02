@@ -2382,7 +2382,8 @@ function generatorValueAtPath(value, pointer) {
 function generatorNonEmpty(value) {
   return (
     (Array.isArray(value) && value.length > 0) ||
-    (typeof value === "string" && value.length > 0)
+    (typeof value === "string" && value.length > 0) ||
+    (typeof value === "number" && Number.isFinite(value))
   );
 }
 
@@ -2645,6 +2646,18 @@ function generatorInvariantErrors(contract, value) {
             expected !== undefined &&
             canonicalJson(optional[expression.field]) ===
               canonicalJson(expected));
+      } else if (
+        expression.operator === "optional_fields_equal" &&
+        typeof expression.optional_object_path === "string" &&
+        Array.isArray(expression.paths) &&
+        expression.paths.length === 2
+      ) {
+        const optional = generatorValueAtPath(value, expression.optional_object_path);
+        const left = generatorValueAtPath(value, expression.paths[0]);
+        const right = generatorValueAtPath(value, expression.paths[1]);
+        valid = optional === null ||
+          (isPlainObject(optional) && left !== undefined && right !== undefined &&
+            canonicalJson(left) === canonicalJson(right));
       } else if (
         expression.operator === "prefixed_field_equals" &&
         typeof expression.path === "string" &&
@@ -3804,11 +3817,11 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
         );
     } else if (operator === "non_empty") {
       const candidate = valueAtPath(value, expression.path);
-      valid = Array.isArray(candidate) ? candidate.length > 0 : typeof candidate === "string" && candidate.length > 0;
+      valid = Array.isArray(candidate) ? candidate.length > 0 : typeof candidate === "string" ? candidate.length > 0 : typeof candidate === "number" && Number.isFinite(candidate);
     } else if (operator === "any_non_empty" && Array.isArray(expression.paths)) {
       valid = expression.paths.some((path) => {
         const candidate = valueAtPath(value, path);
-        return Array.isArray(candidate) ? candidate.length > 0 : typeof candidate === "string" && candidate.length > 0;
+        return Array.isArray(candidate) ? candidate.length > 0 : typeof candidate === "string" ? candidate.length > 0 : typeof candidate === "number" && Number.isFinite(candidate);
       });
     } else if (
       operator === "non_empty_when_in" &&
@@ -3824,7 +3837,9 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
         !applies ||
         (Array.isArray(candidate)
           ? candidate.length > 0
-          : typeof candidate === "string" && candidate.length > 0);
+          : typeof candidate === "string"
+            ? candidate.length > 0
+            : typeof candidate === "number" && Number.isFinite(candidate));
     } else if (operator === "fields_equal" && Array.isArray(expression.paths) && expression.paths.length === 2) {
       const left = valueAtPath(value, expression.paths[0]);
       const right = valueAtPath(value, expression.paths[1]);
@@ -3867,9 +3882,21 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
       const field = expression.field;
       valid =
         optional === null ||
-        (isObject(optional) &&
-          expected !== undefined &&
-          jsonSchemaEqual(optional[field], expected));
+          (isObject(optional) &&
+            expected !== undefined &&
+            jsonSchemaEqual(optional[field], expected));
+    } else if (
+      operator === "optional_fields_equal" &&
+      typeof expression.optional_object_path === "string" &&
+      Array.isArray(expression.paths) &&
+      expression.paths.length === 2
+    ) {
+      const optional = valueAtPath(value, expression.optional_object_path);
+      const left = valueAtPath(value, expression.paths[0]);
+      const right = valueAtPath(value, expression.paths[1]);
+      valid = optional === null ||
+        (isObject(optional) && left !== undefined && right !== undefined &&
+          jsonSchemaEqual(left, right));
     } else if (
       operator === "prefixed_field_equals" &&
       typeof expression.path === "string" &&
@@ -5111,6 +5138,7 @@ fn non_empty(value: Option<&Value>) -> bool {
     value.is_some_and(|candidate| match candidate {
         Value::Array(items) => !items.is_empty(),
         Value::String(text) => !text.is_empty(),
+        Value::Number(_) => true,
         _ => false,
     })
 }
@@ -5486,7 +5514,10 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
                 .get("optional_object_path")
                 .and_then(Value::as_str)
                 .and_then(|path| value_at_path(value, path))
-                .zip(
+                .is_some_and(|optional| {
+                    if optional.is_null() {
+                        return true;
+                    }
                     expression
                         .get("field")
                         .and_then(Value::as_str)
@@ -5495,13 +5526,34 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
                                 .get("expected_path")
                                 .and_then(Value::as_str)
                                 .and_then(|path| value_at_path(value, path)),
-                        ),
-                )
-                .is_some_and(|(optional, (field, expected))| {
-                    optional.is_null()
-                        || optional
-                            .get(field)
-                            .is_some_and(|actual| json_schema_equal(actual, expected))
+                        )
+                        .is_some_and(|(field, expected)| {
+                            optional
+                                .get(field)
+                                .is_some_and(|actual| json_schema_equal(actual, expected))
+                        })
+                }),
+            Some("optional_fields_equal") => expression
+                .get("optional_object_path")
+                .and_then(Value::as_str)
+                .and_then(|path| value_at_path(value, path))
+                .is_some_and(|optional| {
+                    if optional.is_null() {
+                        return true;
+                    }
+                    expression
+                        .get("paths")
+                        .and_then(Value::as_array)
+                        .filter(|paths| paths.len() == 2)
+                        .and_then(|paths| {
+                            Some((
+                                value_at_path(value, paths.first()?.as_str()?)?,
+                                value_at_path(value, paths.get(1)?.as_str()?)?,
+                            ))
+                        })
+                        .is_some_and(|(left, right)| {
+                            optional.is_object() && json_schema_equal(left, right)
+                        })
                 }),
             Some("prefixed_field_equals") => expression
                 .get("path")

@@ -1,0 +1,17 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/verifier-challenge/room-binding/v3",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
+  "rules": [
+    {
+      "rule_id": "verifier_challenge.room.matches_admission",
+      "description": "A room-scoped challenge and its room-scoping bind the same room. Challenger-to-participant-lease resolution remains an owner-plane admission check because this portable shape carries no separate challenger lease coordinate.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.system_binding",
+        "field": "parent_scope_ref",
+        "expected_path": "$.outcome_room_ref"
+      }
+    }
+  ]
+}

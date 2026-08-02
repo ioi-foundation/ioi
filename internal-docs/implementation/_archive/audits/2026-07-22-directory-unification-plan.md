@@ -1,0 +1,1084 @@
+# Implementation Directory Unification Action Plan
+
+Document class: private proposed action plan; not approved, not executed, not program
+status, and not a sequencer.
+
+Plan date: 2026-07-22.
+
+Authority: the sole implementation sequencer remains
+[`ioi-target-end-state-master-implementation-guide.md`](../ioi-target-end-state-master-implementation-guide.md).
+Architecture remains owned by `docs/architecture/` and accepted ADRs. Work
+items, implementation detail, current cut status, private evidence, and this
+plan remain inside the ignored `internal-docs/implementation/` estate.
+
+## Outcome
+
+Refactor the private estate into one readable implementation guide system:
+
+- one sequencer;
+- a very small set of subordinate detail modules that cannot order work;
+- one machine record per cut;
+- one generated local status/coverage projection layer;
+- evidence and human logs beside their records;
+- dated audits and migrations outside the active reading path;
+- archived bodies plus stable tombstones instead of deletion;
+- a machine check that detects canon changes, missing plan owners, stale
+  contract names, unclosed dependencies, status prose, and second sequencers.
+
+The refactor must not move implementation status or work-item records into
+tracked architecture canon. Canon should continue to state product/runtime
+doctrine and conformance contracts. The ignored private directory should state
+how and when the team intends to build and prove them.
+
+No move, archive, record creation, master-guide amendment, runtime change, or
+stage transition is performed by this action-plan cut.
+
+## Diagnosis
+
+The existing reconciliation solved semantic precedence but not reader cost.
+The root still contains active-looking specialist phase plans, completed
+migration narratives, superseded “master” guides, a large historical research
+review, generated JSON, human work logs, reconciliation transaction patches,
+the actual master, and the status projection side by side.
+
+The result has four failure modes:
+
+1. **Visual authority remains ambiguous.** A reader must know that “master,”
+   phase numbers, checklists, and status prose in old files are inert before
+   safely reading them.
+2. **The master is broad but the records are shallow.** The master defines a
+   rich §4.1 contract, but none of the 43 records implements it completely.
+3. **Specialist detail is coupled to dated inventories.** Reusable PG, M6 UX,
+   M8 experiment, and runtime-boundary methods are buried inside documents
+   whose phase lists or current-state prose look like parallel programs.
+4. **Canon change is not mechanically absorbable.** Records have no current
+   canon digest, owner revision, exact contract-name validation, or generated
+   owner-to-stage coverage map. A new canonical idea therefore relies on a
+   human remembering every affected plan.
+
+## Non-negotiable design rules
+
+1. `ioi-target-end-state-master-implementation-guide.md` is the only file that
+   may order stages, activate work, define cross-stage dependencies, or state a
+   release/claim ladder.
+2. Architecture owner documents and accepted ADRs own meaning. Private modules
+   may quote a target only by pointer and must refresh when the owner changes.
+3. Work-item JSON and `program-state.json` are the only live status layer.
+   Modules, audits, matrices, guides, logs, and README files carry no live cut
+   status.
+4. Product authority remains wallet grants, sealed intents, final-invoker
+   equality, revocation, and receipts. Private review evidence remains an
+   unsigned hash chain and cannot authorize product effects.
+5. A task/process exit code is never a proof bar. Every bar resolves to the
+   exact retained `*_EXIT=` line and its evidence index.
+6. Multi-node, federation, two-sovereign, connected/secured-service, and L1
+   language remains gated by M9–M14 even when a future slice is fully planned.
+7. Nothing is deleted. Obsolete bodies move to `_archive/` or `audits/`, while
+   old stable paths become one-screen tombstones when backlinks require them.
+8. No empty stage-guide bureaucracy. Create a module only when reusable detail
+   cannot fit cleanly in the master or one work-item record.
+9. Generated artifacts state their exact regeneration/check command and are
+   never hand-edited.
+10. The entire private implementation system remains ignored/private by
+    default. A generic tracked validator may be used only if separately
+    approved; private records and plans do not need to become public canon to
+    be machine checked locally.
+
+## Target information architecture
+
+```text
+internal-docs/implementation/
+├── README.md
+├── ioi-target-end-state-master-implementation-guide.md
+├── program-state.json
+├── source-dispositions.v1.json            # status-free §14 attachment
+├── check-program-state.mjs                # stable compatibility wrapper
+├── stage-guides/
+│   ├── m0/
+│   │   └── runtime-trust-boundary.md
+│   ├── m6/
+│   │   └── product-surface-and-ux-proof.md
+│   └── m8/
+│       └── campaign-experiment-method.md
+├── proof-gates/
+│   └── mechanism-gate-registry.md
+├── work-items/
+│   ├── README.md
+│   ├── *.v1.json
+│   └── logs/
+├── evidence/
+│   ├── M0/
+│   ├── M1/
+│   └── ...
+├── generated/
+│   ├── source-manifest.v1.json
+│   ├── architecture-coverage.v1.json
+│   ├── hypervisor-surface-coverage.v1.json
+│   ├── runtime-action-schema.json
+│   └── runtime-kernel-namespace-residual.v1.json
+├── audits/
+│   ├── 2026-07-22-architecture-coverage.md
+│   ├── 2026-07-22-directory-unification-plan.md
+│   ├── reconciliation/
+│   └── history/
+├── tools/
+│   ├── check-implementation-estate.mjs
+│   ├── check-clean-checkout-nonclaims.mjs
+│   ├── check-generated.mjs
+│   ├── check-hypervisor-surface-coverage.mjs
+│   ├── check-internal-links.mjs
+│   ├── check-literal-exits.mjs
+│   ├── check-module-headers.mjs
+│   ├── check-private-estate-boundary.mjs
+│   ├── check-program-state.mjs
+│   ├── check-source-dispositions.mjs
+│   ├── check-single-sequencer.mjs
+│   ├── check-status-truth.mjs
+│   ├── check-work-items.mjs
+│   ├── freeze-source-manifest.mjs
+│   ├── generate-architecture-coverage.mjs
+│   ├── generate-hypervisor-surface-coverage.mjs
+│   ├── generate-program-state.mjs
+│   ├── generate-runtime-kernel-residual.mjs
+│   └── sync-runtime-action-schema.mjs
+└── _archive/
+    ├── plans/
+    ├── guides/
+    └── maps/
+```
+
+Only three active reader documents remain at the root: the README, sole master,
+and generated program projection. The status-free
+`source-dispositions.v1.json` is the master §14 machine attachment for per-path
+role/destination facts; it owns no sequence or status. The existing
+`check-program-state.mjs` path
+remains as a thin compatibility wrapper because the master invokes it
+literally; implementation may move under `tools/`, but the root command must
+continue to work. During the migration, the two audit deliverables
+may remain at their requested paths; after acceptance they move to `audits/`
+with stable pointers if callers depend on the original names.
+
+The tree shows the active reader/machine layout. Stable compatibility
+tombstones retained at legacy root paths are intentionally not expanded in the
+diagram; the source-disposition registry enumerates each exact exception.
+
+The three illustrated stage modules and one proof-gate registry are extractions
+from existing specialist authorities, not a mandate to create fifteen stage
+books. New detail should usually be a work-item record. A new module needs an
+explicit master activation pointer and a demonstrated reuse case across
+multiple cuts.
+
+## Document contracts
+
+| Class | Owns | Must contain | Must not contain |
+| --- | --- | --- | --- |
+| `SEQUENCER` | Stage order, activation, dependencies, release/claim ladder, source-disposition policy and approvals | M0–M14 and approved amendments | Live status; duplicated owner doctrine; detailed cut logs |
+| `SOURCE_REGISTRY` | Per-path private role and approved destination delegated by master §14 | Exact source path, document class, disposition, destination/pointer requirement, approving amendment | Stage order, work activation, status, source digests inferred by hand |
+| `MODULE` | Reusable implementation method/proof detail inside one master-owned stage or work package | Canon owner pointers, master activation pointer, exact scope/non-scope, contract/proof vocabulary, regeneration command if applicable | Cross-stage order; live status; independent phases that activate work |
+| `WORK_ITEM` | One cut's current status and complete executable plan | Full master §4.1 fields, exact owners/families/dependencies/actions/invokers/journey/proofs/metrics/migration/evidence/stop rule | Canonical doctrine; product authority; implicit aggregate status |
+| `PROJECTION` | Deterministic view of records/current source | Generator, inputs, digest, generated warning | Hand-authored status or sequencing |
+| `EVIDENCE` | Retained logs/reports/artifacts and literal exits | Provenance, hashes, exact claim/nonclaims | Unscoped “passed” or stage closure by task code |
+| `AUDIT` | Point-in-time observation/research/review | Date, checkout, method, limitations, owner pointers | Current status ownership or future activation |
+| `ARCHIVE` | Preserved superseded body | Tombstone/metadata linking current owner | Active instructions |
+| `POINTER` | Stable compatibility path | One-screen destination and reason | Preserved obsolete body or checklists |
+
+Every module begins with this machine-checkable header:
+
+```yaml
+document_class: implementation_module
+sequencer: ../../ioi-target-end-state-master-implementation-guide.md#...
+stage_ids: [M6]
+work_packages: [WP-UX]
+canon_owners:
+  - docs/architecture/components/hypervisor/core-clients-surfaces.md
+owns: product-surface implementation and UX proof method
+does_not_own: [sequence, status, architecture doctrine, product authority]
+regeneration: none
+```
+
+## Reader journey
+
+The README should route a reader through one path:
+
+```text
+1. program-state.json                         current private projection
+2. master guide                              sole order and gates
+3. one relevant work-item JSON               complete cut plan and status
+4. optional activated module                 reusable detail only
+5. canon owners + accepted ADRs               target meaning
+6. current code and retained evidence         bounded implementation truth
+7. evidence index and literal *_EXIT line     proof
+```
+
+Audits, archives, historical migrations, comparison research, and
+reconciliation transactions sit behind an “Evidence and history” link. They do
+not appear in the first-read implementation path.
+
+## File-by-file disposition
+
+Allowed disposition terms are exactly:
+
+- `KEEP_AUTHORITY`: retain an approved active authority/navigation contract at
+  its stable path; only the master may sequence;
+- `KEEP_PROJECTION`: retain a deterministic current view with its generator;
+- `KEEP_WORK_RECORD`: retain private cut/evidence/log identity; schema
+  enrichment changes no status by itself;
+- `EXTRACT_MODULE_DETAIL`: move reusable non-sequencing method into a master-
+  activated module, then preserve the source body after approval;
+- `COLLAPSE_TO_POINTER`: retain only a bounded compatibility tombstone at the
+  stable path after its full body is preserved;
+- `ARCHIVE_AFTER_APPROVAL`: preserve the full body and digest under `_archive/`
+  only after the required approvals;
+- `RENAME_OR_REHOME_AFTER_APPROVAL`: move a dated/currently misplaced artifact
+  without changing its meaning, with backlinks and rollback manifest;
+- `GENERATED`: deterministic projection with an exact regeneration command;
+- `DELETE_NOT_PERMITTED`: no source is deleted by this plan or migration.
+
+Where a file needs two operations, the table selects the final disposition and
+spells out the prerequisite extraction, preservation, or pointer step in the
+last column. It does not invent composite disposition values.
+
+### Target-only control artifacts
+
+| Target file | Class | Authority and validation contract |
+| --- | --- | --- |
+| `source-dispositions.v1.json` | `SOURCE_REGISTRY` | Status-free master §14 machine attachment. The master owns disposition policy and approval; this file owns the exact approved per-path role, class, destination/tombstone requirement and approving amendment. Validate it with `node internal-docs/implementation/tools/check-source-dispositions.mjs`; it is an input to, never a projection of, the source manifest. |
+| `generated/source-manifest.v1.json` | `PROJECTION` | Deterministically joins `source-dispositions.v1.json` with the current private path, SHA-256 and inbound-link census. Write it with `node internal-docs/implementation/tools/freeze-source-manifest.mjs --write` and verify it with the same command's `--check` mode. Before replacing a verified current projection, `--write` preserves it content-addressed under `audits/reconciliation/source-manifests/`; it never overwrites a baseline snapshot or approves/alters a disposition. |
+
+### Root, evidence, reconciliation, and support files
+
+| Current file | Class | Disposition | Target and required change |
+| --- | --- | --- | --- |
+| `README.md` | navigation authority | `KEEP_AUTHORITY` | Rewrite to the reader journey, class rules, private-status rule, and regeneration commands. Remove reconciliation artifacts from the primary path. |
+| `ioi-target-end-state-master-implementation-guide.md` | sole sequencer | `KEEP_AUTHORITY` | Apply only user-approved amendments below; replace stale static inventory with a generated coverage pointer. |
+| `program-state.json` | projection | `GENERATED` | Keep at root; write with `node internal-docs/implementation/tools/generate-program-state.mjs --write`, then verify with `node internal-docs/implementation/tools/generate-program-state.mjs --check` and the stable root checker; include generator version and canon/work-item digests. |
+| `check-program-state.mjs` | projection validator | `KEEP_PROJECTION` | Keep the root command as the master-required compatibility entry; it may delegate implementation to `tools/check-program-state.mjs`. |
+| `evidence/m0-exit.v1.txt` | evidence | `KEEP_WORK_RECORD` | Keep at its exact path until a separately reviewed backlink-preserving evidence migration is approved; no conditional move is part of the base refactor. |
+| `bounded-recursive-improvement-campaign-discovery-plan.md` | specialist plan + dated research | `EXTRACT_MODULE_DETAIL` | Move reusable experiment/statistics/evaluator/failure/proof method to `stage-guides/m8/campaign-experiment-method.md`; after extraction, preserve the dated phase/status/current-state body under archive/audit per the migration manifest. |
+| `canon-mechanism-hardening-action-plan.md` | specialist plan + PG ledger | `EXTRACT_MODULE_DETAIL` | Move stable PG definitions/evidence/negative tests to `proof-gates/mechanism-gate-registry.md`; remove live disposition/status; preserve the Cuts 0–7 narrative after approval. |
+| `canon-sota-improvement-review.md` | dated audit | `RENAME_OR_REHOME_AFTER_APPROVAL` | `audits/history/2026-07-16-canon-sota-improvement-review.md`. |
+| `hypervisor-bounded-das-application-taxonomy-winning-state-plan.md` | specialist plan + dated UI census | `EXTRACT_MODULE_DETAIL` | Move reusable M6 compiler/UX-00/pressure/usability method to `stage-guides/m6/product-surface-and-ux-proof.md`; preserve the census/phase body after approval. |
+| `hypervisor-model-mount-rust-consolidation-and-deadcode-retirement.md` | completed migration record | `RENAME_OR_REHOME_AFTER_APPROVAL` | `audits/history/2026-06-hypervisor-model-mount-rust-consolidation.md`; leave pointer if linked. |
+| `hypervisor-unified-rust-daemon-lifecycle-migration.md` | superseded pointer | `COLLAPSE_TO_POINTER` | Already correctly shaped; retain the stable tombstone. |
+| `implementation-plan-estate-reconciliation.md` | dated audit | `RENAME_OR_REHOME_AFTER_APPROVAL` | `audits/reconciliation/2026-07-22-estate-reconciliation.md`. |
+| `implementation-plan-reconciliation-review.md` | delegated review record | `RENAME_OR_REHOME_AFTER_APPROVAL` | `audits/reconciliation/2026-07-22-reconciliation-review.md`. |
+| `architecture-to-implementation-coverage-audit.md` | current audit deliverable | `RENAME_OR_REHOME_AFTER_APPROVAL` | After acceptance, move to `audits/2026-07-22-architecture-coverage.md`; retain original pointer if required. |
+| `implementation-directory-unification-action-plan.md` | current proposal | `RENAME_OR_REHOME_AFTER_APPROVAL` | After execution, move to `audits/2026-07-22-directory-unification-plan.md`; retain as proposal until every approved phase is accounted for. |
+| `ioi-design-system-portable-package-plan.md` | superseded plan | `ARCHIVE_AFTER_APPROVAL` | Preserve at `_archive/plans/ioi-design-system-portable-package-plan.md`; leave a pointer to current design-system owner and M6 module. |
+| `ioi-undeniable-product-proof-implementation-guide.md` | superseded sequencer | `ARCHIVE_AFTER_APPROVAL` | Preserve at `_archive/guides/ioi-undeniable-product-proof-implementation-guide.md`; leave a tombstone to sole master and canonical first-proof owner. |
+| `low-level-implementation-milestones.md` | superseded pointer | `COLLAPSE_TO_POINTER` | Already correct; retain stable path. |
+| `m0-m14-plan-gap-audit.md` | prior audit/work record | `RENAME_OR_REHOME_AFTER_APPROVAL` | `audits/2026-07-22-m0-m14-plan-gap-audit.md`; new audit supersedes its current-gap role. |
+| `reconciliation/stateless-master-guide.v1.json` | transaction manifest | `RENAME_OR_REHOME_AFTER_APPROVAL` | `audits/reconciliation/stateless-master-guide/manifest.v1.json`; update private checker path. |
+| `reconciliation/stateless-master-guide.v1.patch` | transaction evidence | `RENAME_OR_REHOME_AFTER_APPROVAL` | Same transaction directory; never part of active guide navigation. |
+| `refine-architecture.md` | superseded former master | `ARCHIVE_AFTER_APPROVAL` | Preserve at `_archive/guides/refine-architecture.md`; leave a tombstone to canon/master/M6 module. |
+| `runtime-action-schema.json` | canonical-schema mirror | `GENERATED` | `generated/runtime-action-schema.json`; write with `node internal-docs/implementation/tools/sync-runtime-action-schema.mjs --write` and verify with the same command's `--check` mode against `docs/architecture/_meta/schemas/runtime-action-schema.json`. |
+| `runtime-kernel-namespace-residual.v1.json` | generated residual census | `GENERATED` | `generated/runtime-kernel-namespace-residual.v1.json`; write with `node internal-docs/implementation/tools/generate-runtime-kernel-residual.mjs --write` and verify with `--check`; embed generator version and source commit. |
+| `runtime-kernel-service-trust-boundary-audit.md` | specialist method + dated inventory | `EXTRACT_MODULE_DETAIL` | Extract reusable PEP/extraction/proof rules to `stage-guides/m0/runtime-trust-boundary.md`; preserve the dated 198-method table under `audits/history/`. |
+| `runtime-module-map.md` | stale superseded map | `ARCHIVE_AFTER_APPROVAL` | Preserve at `_archive/maps/runtime-module-map.md`; leave a stable pointer to current runtime owners and generated residual census. |
+| `runtime-package-boundaries.md` | stale boundary checklist | `COLLAPSE_TO_POINTER` | First preserve the full body under `_archive/`; then retain a stable pointer to runtime canon and the M0 runtime module. |
+| `work-item-m1-5-protected-transitions.md` | human cut log | `RENAME_OR_REHOME_AFTER_APPROVAL` | `work-items/logs/m1-5-protected-transitions.md`; correct private record link and make all dates point-in-time. |
+| `work-item-m1-5c-amendment-execution.md` | human cut log | `RENAME_OR_REHOME_AFTER_APPROVAL` | `work-items/logs/m1-5c-amendment-execution.md`; remove live-status ownership from prose. |
+| `work-items/README.md` | record convention | `COLLAPSE_TO_POINTER` | Retain a short reader guide and examples that point to master §4.1 as the sole record-field contract and to the private checker for enforcement; remove the stale matrix pointer. It owns neither schema nor sequence. |
+
+### Every current work-item record
+
+All records stay private with disposition `KEEP_WORK_RECORD`. Terms such as
+“enrich,” “correct,” “split,” and “aggregate” in the migration column describe
+reviewed schema/content work without silently changing `status`, proof, or
+stage.
+
+| Record | Disposition | Specific migration |
+| --- | --- | --- |
+| `m0-literal-exit-evidence-contract.v1.json` | `KEEP_WORK_RECORD` | Classify `RetainedLiteralExitLog`/`EvidenceIndex` as private proof artifacts; replace source-of-truth map as their false owner; add full §4.1 fields. |
+| `m0-unsigned-review-anchor.v1.json` | `KEEP_WORK_RECORD` | Classify unsigned review as workflow evidence; add contracts/dependencies/exits and exact non-authority rule. |
+| `m1-genesis-admission.v1.json` | `KEEP_WORK_RECORD` | Add full package/profile/constitution/oracle/lifecycle owner and proof breadth; validate current anchors in authoritative checkout. |
+| `m1-sequence-zero-materialization.v1.json` | `KEEP_WORK_RECORD` | Add complete §4.1, predecessor relation, product states, and literal evidence index. |
+| `m1-governed-initialize-activate.v1.json` | `KEEP_WORK_RECORD` | Correct “M1.5 prefix” ambiguity and model initialize/activate separately from protected M1.5 transitions. |
+| `m1-5-protected-transitions.v1.json` | `KEEP_WORK_RECORD` | Add explicit `aggregation_only: true`, child IDs, no independent stage status, and remaining M1.5d child. |
+| `m1-5b-generic-protected-transitions.v1.json` | `KEEP_WORK_RECORD` | Add complete record fields, exact retained exit, and bounded child scope. |
+| `m1-5c-amendment-execution.v1.json` | `KEEP_WORK_RECORD` | Add complete record fields, exact evidence index, UI states, migration/rollback and final invokers. |
+| `m1-dual-genesis-and-read-projection.v1.json` | `KEEP_WORK_RECORD` | Add compact/advanced/restart/two-System journey states and aggregate dependencies. |
+| `m2-membership-readiness-plane.v1.json` | `KEEP_WORK_RECORD` | Add Agentgres, attestation, identity/secrets, temporal, receipt, and product owners. |
+| `m2-writer-fence-and-lost-suffix.v1.json` | `KEEP_WORK_RECORD` | Name exact writer/fence final invokers, heads/roots, temporal floors, reconciliation and rollback. |
+| `m2-route-restore-activation-cleanup.v1.json` | `KEEP_WORK_RECORD` | Rename families to canonical `Hypervisor*` forms; add StartupPlan/ChangePlan/artifact bytes/persistent cleanup owner crossings. |
+| `m2-selected-profile-exit-proof.v1.json` | `KEEP_WORK_RECORD` | Declare child set, exact evidence joins, product topology states, and zero-invoker adversarial proof. |
+| `m3-pursuit-definition-resolution.v1.json` | `KEEP_WORK_RECORD` | Add GoalRun/Kernel/context/invocation, daemon, Agentgres, receipts, IFC, authority, and exact canonical names. |
+| `m3-result-lifecycle-negative-retention.v1.json` | `KEEP_WORK_RECORD` | Add every owner lifecycle integration, reservations/cancellation/archive/replay actions and product states. |
+| `m3-direct-path-and-exit-proof.v1.json` | `KEEP_WORK_RECORD` | Classify direct-profile/verifier artifacts, close child graph, and bind P0 readiness dependency. |
+| `m4-outcome-room-system-spine.v1.json` | `KEEP_WORK_RECORD` | Retain umbrella as aggregate; create bounded child cuts for package/System, admitted graph truth, and product projections. |
+| `m5-local-agent-pairing.v1.json` | `KEEP_WORK_RECORD` | Add identity-access owner, exact post-admission gateway narrowing, expiry/replay/origin states. |
+| `m5-participant-frontier-result-closeout.v1.json` | `KEEP_WORK_RECORD` | Use split canonical offer/frontier names; add allocation/reassignment/acceptance/dispute boundaries and owner crossings. |
+| `m5-portable-exit-independent-clients.v1.json` | `KEEP_WORK_RECORD` | Add custody/filtering/import/revocation/dispute states and exact evidence bundle. |
+| `m5-selected-profile-exit-proof.v1.json` | `KEEP_WORK_RECORD` | Close child set, exact proof joins, and retained literal. |
+| `m5-p0-readiness-verifier.v1.json` | `KEEP_WORK_RECORD` | Classify readiness artifacts as private; machine-bind verified M3–M5 records and direct-path/boundary checks. |
+| `m6-product-surface-and-typed-workspaces.v1.json` | `KEEP_WORK_RECORD` | Retain as aggregate; replace generic family names; add compiler, shell/alias/a11y, source-convergence, honest owner-app registration/state coverage, and a projection to later-stage operational-journey owners. |
+| `m7-semantic-definition-action-plane.v1.json` | `KEEP_WORK_RECORD` | Retain as aggregate; create data/provenance and action/final-invoker product children. |
+| `m8-learning-boundary-provider-exit.v1.json` | `KEEP_WORK_RECORD` | Add model rights, cTEE/vault/storage, scope inheritance, egress, portability, model-swap metrics and UI states. |
+| `m8-order-zero-improvement-and-direct-path.v1.json` | `KEEP_WORK_RECORD` | Add Foundry/Evaluations, campaign runtime, frozen epoch/exposure, target-owner promotion and rollback journey. |
+| `m9-sovereign-local-terminal-journey.v1.json` | `KEEP_WORK_RECORD` | Add all 21 visible states, release supply chain, selected owners, metrics, stop rules and exact exit aggregation role. |
+| `m9-managed-optionality-overlay.v1.json` | `KEEP_WORK_RECORD` | Add account/factor/recovery/product-session states and attach/detach dependency-closure proof. |
+| `m9-authority-gateway-equivalence-and-coverage.v1.json` | `KEEP_WORK_RECORD` | Replace stale unresolved owner, separate private coverage artifact from canonical declaration, resolve M9.4 overlap. |
+| `m9-lifecycle-evidence-operator-proof.v1.json` | `KEEP_WORK_RECORD` | Add installer/updater/doctor, backup/restore, offline verifier, operator cohorts/thresholds and compatibility plan. |
+| `m10-two-failure-domain-continuity.v1.json` | `KEEP_WORK_RECORD` | Separate mechanism and aggregate fault proof; add attestation/floors/Agentgres and operator topology states. |
+| `m11-useful-same-system-distribution.v1.json` | `KEEP_WORK_RECORD` | Add exact assignments/leases/watermarks/reassignment/effect recovery and Work/Systems/Operations states. |
+| `m11-embodied-nonlive-graph-proof.v1.json` | `KEEP_WORK_RECORD` | Replace stale embodied names, add Foundry/Safety/Assurance owners, non-live proof stages and final-invoker nonclaims. |
+| `m11-selected-profile-exit-proof.v1.json` | `KEEP_WORK_RECORD` | Bind distributed and non-live embodied children while preserving the no-live claim. |
+| `m12-aiip-channel-envelope-profile.v1.json` | `KEEP_WORK_RECORD` | Add key/revocation, ordering/retry/reconciliation, IFC/disclosure and receipt owners. |
+| `m12-terms-discovery-semantic-negotiation.v1.json` | `KEEP_WORK_RECORD` | Add exact terms/profile/counteroffer/decline states, mapping disputes, RPC and settlement-adapter breadth. |
+| `m12-federated-admission-portable-exit-and-bindings.v1.json` | `KEEP_WORK_RECORD` | Add Agentgres/authority/IFC/dispute/settlement owners and full disconnect/exit/import states. |
+| `m12-selected-profile-exit-proof.v1.json` | `KEEP_WORK_RECORD` | Close exact child/evidence graph; retain M13 gating. |
+| `m13-sovereignty-trial-preregistration.v1.json` | `KEEP_WORK_RECORD` | Classify trial/valuation artifacts as private proof records; add acquisition/custody/independence evidence and frozen thresholds. |
+| `m13-two-sovereign-surplus-and-decline-proof.v1.json` | `KEEP_WORK_RECORD` | Add full product/dispute/portable-exit journey, independent verifier conflict and evidence export. |
+| `m14-network-service-devnet.v1.json` | `KEEP_WORK_RECORD` | Select exact service families/owners and enrollment/payment/failure/dispute/suspension/exit states. |
+| `m14-demand-security-economics.v1.json` | `KEEP_WORK_RECORD` | Freeze sustained demand/supply/security/regulatory thresholds; remove implied aggregate ownership. |
+| `m14-l1-authorization-decision.v1.json` | `KEEP_WORK_RECORD` | Bind explicit valid no-L1 and selected-L1 decisions, owners, legal/assurance gates, rollback/stop rule. |
+
+## Gap-closing work-item recommendations
+
+These are proposed private records only. Create them with `status: proposed`
+after schema/owner validation and, where required, sequencer approval. They do
+not amend canon or activate work merely by existing.
+
+### Program and selected-spine completion
+
+| Proposed ID | Owner stage | Required scope and proof |
+| --- | --- | --- |
+| `m0-work-item-contract-completeness-and-owner-lint` | M0 | Enforce every §4.1 field, artifact classification, resolvable IDs, exact owners/families, current canon digest; `M0_WORK_ITEM_CONTRACT_COMPLETENESS_EXIT=0`. |
+| `m0-canon-owner-coverage-and-orphan-verifier` | M0 | Generate owner → stage → record coverage; reject unclassified build targets; `M0_CANON_OWNER_COVERAGE_EXIT=0`. |
+| `m0-route-final-invoker-pg-census-maintenance` | M0 | Closed reachable-route, PEP, final-invoker, PG, bypass and retirement census; `M0_ROUTE_FINAL_INVOKER_PG_CENSUS_EXIT=0`. |
+| `m0-selected-profile-baseline-evidence-and-claim-lock` | M0 | Freeze selected profile/nonclaims, program evidence/release/blocker index, product/reliability/cost/comprehension baselines and rollback; `M0_SELECTED_PROFILE_BASELINE_CLAIM_LOCK_EXIT=0`. |
+| `m0-source-disposition-and-single-sequencer-verifier` | M0 | Map every private source to one approved role/destination and reject competing sequencer/status voices without deletion; `M0_SOURCE_DISPOSITION_SINGLE_SEQUENCER_EXIT=0`. |
+| `m0-program-control-selected-profile-exit-proof` | M0 | Aggregate M0.1–M0.9, all M0 records, selected PG applicability, trust-boundary census, source disposition, literal exits and nonclaims; `M0_EXIT=0`. |
+| `m1-protected-migration-dissolution-enrollment` | M1 | Missing M1.5d for migration/succession, residual disposition, dissolution, local-only enrollment; `M1_PROTECTED_MIGRATION_DISSOLUTION_ENROLLMENT_EXIT=0`. |
+| `m1-system-genesis-product-journey` | M1 | Compact/advanced proposal, simulation, approval, blockers, stable System, restart and two-System isolation; `M1_SYSTEM_GENESIS_PRODUCT_JOURNEY_EXIT=0`. |
+| `m1-selected-profile-exit-proof` | M1 | Aggregate all M1 children and complete protected transitions; `M1_EXIT=0`. |
+| `m2-node-attestation-identity-secret-readiness` | M2 | Node identity, attestation, secrets/custody, temporal floors and bounded readiness; `M2_NODE_ATTESTATION_IDENTITY_SECRET_READINESS_EXIT=0`. |
+| `m2-agentgres-replay-recovery-and-product-topology` | M2 | Heads/roots/replay/recovery plus shared topology projection contracts/minimum proof states; later app records own Systems/Operations/Environments/Provenance journeys; `M2_AGENTGRES_REPLAY_RECOVERY_PRODUCT_EXIT=0`. |
+| `m3-goal-kernel-context-and-runtime-truth-spine` | M3 | GoalRun/Kernel, context, Session/WorkRun/invocation, daemon, Agentgres, receipts; `M3_GOAL_KERNEL_CONTEXT_RUNTIME_TRUTH_EXIT=0`. |
+| `m3-work-session-automation-product-journey` | M3 | Shared lifecycle projection/state proof across Work/Goals, Sessions, Automations and Developer Workspace; later app records own complete surface journeys; `M3_WORK_SESSION_AUTOMATION_PRODUCT_EXIT=0`. |
+| `m4-room-graph-truth-and-product-projection` | M4 | Separate admitted graph truth/replay from Goal Space/Rooms/Governance/Provenance projections; `M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0`. |
+| `m5-pairing-identity-and-gateway-scope` | M5 | Identity pairing plus least-privilege post-admission connector/MCP surface; `M5_PAIRING_IDENTITY_GATEWAY_SCOPE_EXIT=0`. |
+| `m5-attribution-acceptance-and-challenge-boundary` | M5 | Distinguish attribution, verification, acceptance, challenge, dispute, retained negatives; `M5_ATTRIBUTION_ACCEPTANCE_CHALLENGE_EXIT=0`. |
+| `m5-selected-profile-exit-proof` (update) | M5 | Join every M5 participant/frontier/pairing/portable-exit/acceptance child before the selected M5 literal exit; UI or task success cannot aggregate it. |
+| `m6-surface-compiler-and-source-convergence` | M6 | Normalized registry/compiler plus transition from harvested/adapted serve path to the approved product source owner; `M6_SURFACE_COMPILER_SOURCE_CONVERGENCE_EXIT=0`. |
+| `m6-production-truth-fallback-retirement` | M6 | Isolate reference fixtures behind an explicit development profile, retire every production fallback, and prove daemon loss cannot fabricate product truth; `M6_PRODUCTION_TRUTH_FALLBACK_RETIREMENT_EXIT=0`. |
+| `m6-consequential-action-authority-receipt-unification` | M6 | Inventory every consequential UI/API route and migrate it through action descriptors, wallet authority, final-invoker equality, and durable receipt verification; `M6_ACTION_AUTHORITY_RECEIPT_UNIFICATION_EXIT=0`. |
+| `m6-systems-work-projection-and-mission-alias-migration` | M6 | Implement shared typed Systems/Work projection, context and alias contracts plus Mission route retirement; separate Systems and Work records own their complete journeys; `M6_SYSTEMS_WORK_PROJECTION_ALIAS_EXIT=0`. |
+| `m6-owner-application-registration-and-shell-state-coverage` | M6 | Prove every pulled workspace/owner/substrate registration, route, breadcrumb, and loading/empty/denied/unavailable/degraded state; map—not claim—its later operational owner; `M6_APPLICATION_REGISTRATION_SHELL_STATE_EXIT=0`. |
+| `m6-catalog-route-alias-migration-accessibility` | M6 | Shell, aliases/deep links, tenant/context safety, desktop/narrow, keyboard, focus, screen reader, reduced motion; `M6_CATALOG_ROUTE_ALIAS_ACCESSIBILITY_EXIT=0`. |
+| `m6-reference-shell-disposition-and-depth-ledger` | M6 | Give all 39 executable seeds, three dormant seeds, 45-app evidence, and named atlas controls an implement/defer/merge/reject disposition; regenerate depth from current source or freeze immutable snapshot semantics; `M6_REFERENCE_SHELL_DEPTH_LEDGER_EXIT=0`. |
+| `m7-data-transformation-provenance-replay` | M7 | Source/recipe/mapping/run, Agentgres, receipts, contradiction/dispute/restart; `M7_DATA_TRANSFORMATION_PROVENANCE_REPLAY_EXIT=0`. |
+| `m7-ontology-action-final-invoker-and-product-proof` | M7 | Exact shared action contract → authority/oracle/IFC → final invoker plus minimum proof projections; app records own Ontology/Data/Studio/Provenance journeys; `M7_ONTOLOGY_ACTION_FINAL_INVOKER_PRODUCT_EXIT=0`. |
+| `m8-learning-custody-memory-and-provider-rights` | M8 | cTEE, MemorySpace/vault, route/source rights, custody/storage, egress/export/import; `M8_LEARNING_CUSTODY_MEMORY_PROVIDER_RIGHTS_EXIT=0`. |
+| `m8-model-supply-route-substitution-and-selected-exit` | M8 | BYOK/BYOA, lawful automation/downstream use, fallback, provider exit, frozen floors and aggregate; `M8_EXIT=0`. |
+| `m9-compact-advanced-object-hash-parity` | M9 | Explicit missing M9.1 compact/advanced parity; `M9_COMPACT_ADVANCED_HASH_PARITY_EXIT=0`. |
+| `m9-terminal-product-state-and-release-supply-chain` | M9 | 21-step journey, signer/digest/SBOM/update/revocation/rollback, cohorts/thresholds; `M9_TERMINAL_PRODUCT_RELEASE_EXIT=0`. |
+| `m9-selected-profile-aggregate-exit-and-claim-publication` | M9 | Sovereign lane + optional managed overlay + Gateway + lifecycle/evidence + PGs + permitted claim; `M9_EXIT=0`. |
+| `m10-attestation-temporal-floor-and-revocation-continuity` | M10 | Candidate attestation, catch-up, outside-domain floors, keys/revocation/checkpoints; `M10_ATTESTATION_TEMPORAL_FLOOR_CONTINUITY_EXIT=0`. |
+| `m10-topology-chaos-and-operator-product-proof` | M10 | Promotion/fence/rejoin faults plus topology/degraded/RPO/RTO product proof; `M10_TOPOLOGY_CHAOS_OPERATOR_PRODUCT_EXIT=0`. |
+| `m11-canonical-embodied-contract-alignment` | M11 | Resolve every stale record name to current embodied canon before implementation; `M11_EMBODIED_CONTRACT_ALIGNMENT_EXIT=0`. |
+| `m11-foundry-promotion-safety-case-and-product-journey` | M11 | Simulation/SIL/HIL/shadow evidence, assurance case and operator states without live overclaim; `M11_FOUNDRY_PROMOTION_SAFETY_PRODUCT_EXIT=0`. |
+| `m12-ifc-disclosure-receipt-and-settlement-binding` | M12 | Restricted views, declassification receipts, RPC/settlement adapters, disconnect recovery; `M12_IFC_DISCLOSURE_SETTLEMENT_BINDING_EXIT=0`. |
+| `m12-federation-product-and-operator-journey` | M12 | Discovery/terms/counter/decline/admission/dispute/exit across pulled surfaces; `M12_FEDERATION_PRODUCT_JOURNEY_EXIT=0`. |
+| `m13-independent-operation-and-external-worker-product-proof` | M13 | Independent evidence/custody, complete external-worker journey, dispute/exit/export; `M13_INDEPENDENT_OPERATION_WORKER_PRODUCT_EXIT=0`. |
+| `m13-selected-profile-aggregate-exit` | M13 | Preregistration, repeated surplus, baselines, safe decline and independent operation; `M13_EXIT=0`. |
+| `m14-service-family-owner-contract-and-product-surfaces` | M14 | Exact service owners and enrollment/rights/security/bond/dispute/payment/product journeys; `M14_SERVICE_FAMILY_PRODUCT_EXIT=0`. |
+| `m14-selected-profile-aggregate-exit` | M14 | Service devnet + demand economics + valid no-L1/L1 decision + legal/commercial/assurance gates; `M14_EXIT=0`. |
+
+The M6 application-registration record proves compiler membership, routing,
+breadcrumbs and honest shell states only. It deliberately preserves the
+master's M6 nonclaim on operational depth. Operational application journeys
+must be owned at the first stage where their backend/contract family is
+available; they cannot all be forced into M6 without creating M6→M7/M8/M9/M10
+cycles. The explicit owner table below replaces the earlier placeholder child
+convention. Reference captures receive a disposition only and do not
+automatically receive an implementation record.
+
+| Proposed application owner ID / stage | Exact owner codes and contract families | Closed dependencies | Deliverable and literal exit | Required nonclaim / negative | Amendment |
+| --- | --- | --- | --- | --- | --- |
+| `m6-home-workspace-operational-journey` / M6 | `SURFACES`, `SYSTEM`, `DAEMON`; Home projection, selected-profile summary, launch descriptor | M1–M5 selected read models; M6 compiler/action/fallback/a11y | Home empty/active/denied/degraded/recovery journey; `M6_HOME_WORKSPACE_JOURNEY_EXIT=0` | Home is projection, never System truth or status; stale/wrong-tenant launch denied | SA-7 |
+| `m6-systems-workspace-operational-journey` / M6 | `SURFACES`, `SYSTEM`, `AGENTGRES`; System summary/topology/proposal/protected-transition projections | M1/M2 selected exits; M6 compiler/action/fallback/a11y | Systems list/detail/propose/recover journey; `M6_SYSTEMS_WORKSPACE_JOURNEY_EXIT=0` | No UI-authored System truth, cross-System bleed, premature readiness or transition | SA-7 |
+| `m6-projects-workspace-operational-journey` / M6 | `SURFACES`, `ENVIRONMENTS`, `DAEMON`; ProjectDiscovery, candidate, recipe/resolution, StartupPlan projections | M2 selected exit and project-startup owner if SA-9 approved; M6 base rows | Projects discover/select/create/fail/cleanup journey; `M6_PROJECTS_WORKSPACE_JOURNEY_EXIT=0` | No fabricated discovery/readiness, orphan resource or secret exposure | SA-7 |
+| `m6-applications-workspace-operational-journey` / M6 | `SURFACES`; Hypervisor application registration/release/install/serving/projection/alias/Open Application families | M6 compiler, source, fallback, action, a11y and disposition rows | Catalog/search/detail/open/unavailable/alias journey; `M6_APPLICATIONS_WORKSPACE_JOURNEY_EXIT=0` | Catalog/seed/pixel presence grants no membership or maturity; foreign context denied | SA-7 |
+| `m6-work-workspace-operational-journey` / M6 | `SURFACES`, `SYSTEM`, `ROOMS`, `DAEMON`; GoalRun, OutcomeRoom, WorkRun, result/proof projections | Verified M3–M5/P0; M6 compiler/action/fallback/a11y | Work list/detail/cancel/archive/recover/proof journey and Mission migration; `M6_WORK_WORKSPACE_JOURNEY_EXIT=0` | Work is projection, not accepted truth; Mission label cannot invent a generic object | SA-7 |
+| `m7-studio-operational-journey` / M7 | `SURFACES`, `SYSTEM`, `SEMANTIC`, `DAEMON`; package/release/profile, composition graph, ActionContract | M1 selected exit; M6 Studio registration/action/a11y; M7 semantic owners | Design→validate/simulate→proposal/handoff journey; `M7_STUDIO_OPERATIONAL_JOURNEY_EXIT=0` | No direct genesis/semantic write, denied final invoker, copied Workshop/Module as authority | SA-7 |
+| `m6-automations-operational-journey` / M6 | `SURFACES`, `DAEMON`, `CONNECTORS`; WorkflowTemplate, AutomationSpec/Binding/Run, trigger/effect receipt | M3 selected exit; M6 compiler/action/fallback/a11y | Create/edit/run/pause/cancel/recover/monitor journey; `M6_AUTOMATIONS_OPERATIONAL_JOURNEY_EXIT=0` | No webhook replay, duplicate effect, secret leak or scheduler-reference maturity claim | SA-7 |
+| `m7-ontology-operational-journey` / M7 | `SURFACES`, `SEMANTIC`, `AGENTGRES`, `SECURITY`; ontology version/overlay/crosswalk, mapping decision, ActionContract/oracle | M6 Ontology registration/action/a11y; both selected M7 mechanism rows | Define/version/map/act/dispute/migrate journey; `M7_ONTOLOGY_OPERATIONAL_JOURNEY_EXIT=0` | Mutable version, uncertain mapping concealment, oracle self-resolution or client authority rejected | SA-7 |
+| `m7-data-operational-journey` / M7 | `SURFACES`, `SEMANTIC`, `AGENTGRES`, `STORAGE`; source/credential, recipe, TransformationRun, assertion/provenance | M6 Data registration/action/fallback/a11y; selected M7 data row | Source→test/sync/transform/replay/recover/egress journey; `M7_DATA_OPERATIONAL_JOURNEY_EXIT=0` | No fixture truth, stale recipe, credential leak, unreceipted egress or replay divergence | SA-7 |
+| `m9-governance-operational-journey` / M9 | `SURFACES`, `SECURITY`, `WALLET`, `SYSTEM`; approval/release/gate/kill-switch, grant/sealed intent/effect receipt | M1/M5 exits; M6 action/shell; selected M9 authority/Gateway rows | Review/approve/reject/revoke/enforce/appeal/export journey; `M9_GOVERNANCE_OPERATIONAL_JOURNEY_EXIT=0` | Workflow review hash chain is not product authority; stale/replayed/self-approval denied | SA-7 |
+| `m9-provenance-operational-journey` / M9 | `SURFACES`, `AGENTGRES`, `DAEMON`, `WALLET`, `STORAGE`; operation/head/root, receipt/checkpoint/proof/export | M3/M7 exits; M6 Provenance shell; M9 offline-proof owner | Timeline→lineage→verify/export/replay/recover journey; `M9_PROVENANCE_OPERATIONAL_JOURNEY_EXIT=0` | Projection is not truth; producer-trusted verification, omission and split view rejected | SA-7 |
+| `m8-evaluations-operational-journey` / M8 | `SURFACES`, `EVALUATIONS`, `LEARNING`; EvalSuite/Run, frozen epoch, judgment/scorecard/exposure/challenge | M7 semantics; M6 Evaluations shell; Foundry/Evaluations loop if SA-9 approved | Define→execute→judge/challenge/export journey; `M8_EVALUATIONS_OPERATIONAL_JOURNEY_EXIT=0` | Suite declaration is not execution; mutable epoch/evaluator leakage/self-promotion rejected | SA-7 |
+| `m8-improvement-operational-journey` / M8 | `SURFACES`, `IMPROVEMENT`, `LEARNING`, `WALLET`; proposal/campaign/epoch/exposure/promotion/rollback/recall | M6 Improvement shell/action; selected M8 direct/campaign owners; Evaluations journey | Propose→simulate/evaluate→owner approve→canary/rollback/recall journey; `M8_IMPROVEMENT_OPERATIONAL_JOURNEY_EXIT=0` | No RSI claim, self-promotion, mutable exposure, missing stop rule or UI-derived authority | SA-7 |
+| `m8-foundry-operational-journey` / M8 | `SURFACES`, `FOUNDRY`, `MODELS`, `LEARNING`, `STORAGE`; ModelSpec/RunPlan, train/tune/eval/artifact/promotion bundle | M7 semantics; M6 Foundry shell; model rights and Foundry/Evaluations owners | Register→run→evaluate→promote/rollback/provider-exit journey; `M8_FOUNDRY_OPERATIONAL_JOURNEY_EXIT=0` | Run-plan card is not execution; rights/custody/evaluator/promotion gaps fail closed | SA-7 |
+| `m6-packages-operational-journey` / M6 | `SURFACES`, `SYSTEM`, `SECURITY`; SystemPackage/Release/Profile, surface descriptor, admission/install/publish | M1 selected exit; M6 compiler/action/fallback/a11y | Browse/inspect/admit/install/publish/rollback journey with Marketplace mode; `M6_PACKAGES_OPERATIONAL_JOURNEY_EXIT=0` | Marketplace cannot own package truth; unsigned/incompatible release denied | SA-7 |
+| `m6-developer-workspace-operational-journey` / M6 | `SURFACES`, `DAEMON`, `CONNECTORS`, `SYSTEM`; repository/editor, Session/WorkRun/invocation/result/context | M3 selected exit; M6 compiler/action/fallback/a11y | Open repo→session/work→edit/run/cancel/recover journey and Workbench alias migration; `M6_DEVELOPER_WORKSPACE_JOURNEY_EXIT=0` | Editor/client is not truth or authority; wrong context, stale result and hidden harness denied | SA-7 |
+| `m9-developer-console-operational-journey` / M9 | `SURFACES`, `CONNECTORS`, `IDENTITY`, `WALLET`, `MODELS`; connector/tool/MCP/provider registration, credential grant/probe/revoke | M3 tool resolution; M6 Console shell; selected M9 identity/authority; M8 route rights | Register→authorize/test/probe/revoke/recover journey; `M9_DEVELOPER_CONSOLE_OPERATIONAL_JOURNEY_EXIT=0` | No secret exposure, MCP bypass, client authority or implied M12 federation | SA-7 |
+| `m9-environments-operational-journey` / M9 | `SURFACES`, `ENVIRONMENTS`, `MEASURED`, `STORAGE`, `DAEMON`; discovery/StartupPlan/deployment/node/route/backup/restore/cleanup | M2 selected exit; M6 shell; measured/release owners; M9 terminal journey | Create→launch/readiness→operate/backup/restore/stop/delete/cleanup journey; `M9_ENVIRONMENTS_OPERATIONAL_JOURNEY_EXIT=0` | No fabricated readiness, stale route, leaked token, unverified restore or orphan resource | SA-7 |
+| `m10-operations-operational-journey` / M10 | `SURFACES`, `DAEMON`, `AGENTGRES`, `ENVIRONMENTS`, `MEASURED`; topology/membership/fence/incident/RPO/RTO/recovery | M9 exit; M10 continuity mechanism and chaos rows | Observe→promote/fence/rejoin→incident/recover/export journey; `M10_OPERATIONS_OPERATIONAL_JOURNEY_EXIT=0` | No false healthy state, split brain, duplicate effect, telemetry leak or inferred multi-node proof | SA-7 |
+| `m11-embodied-systems-nonlive-operational-journey` / M11 conditional | `SURFACES`, `PHYSICAL`, `FOUNDRY`, `EVALUATIONS`, `ASSURANCE`; NativeProfile/RuntimeGraph/PhysicalStream/Supervisor/ActivationTransaction/safety case | M10 exit; M11 alignment and non-live promotion rows; explicit compiler pull | Register→compile/simulate/SIL/HIL/shadow→rollback journey; `M11_EMBODIED_SYSTEMS_NONLIVE_JOURNEY_EXIT=0` | No actuator/E1+ or live-safety claim; missing supervisor/lease/safety case fails closed | SA-7; live promotion remains SA-9 conditional future |
+
+Each stage aggregate must join the application records assigned to that stage.
+The generated surface-coverage projection may report the cross-stage map, but
+it cannot aggregate status or manufacture any literal exit.
+
+### A–Z cross-cut recommendations needing sequencer assignment
+
+These gaps are real, but assigning them to a stage changes the sole sequencer.
+Do not create them as free-floating rails. Approve the mapping first.
+
+| Proposed family | Sequencer state | Required scope |
+| --- | --- | --- |
+| `production-information-flow-and-declassification` | `UNASSIGNED`; SA-9 proposes M3 | Shared evaluator, label propagation, enumerated PEPs, egress/refusal receipts and product states. |
+| `production-receipt-checkpoint-and-offline-proof` | `UNASSIGNED`; SA-9 proposes M3 | Exact JCS, accumulator, checkpoints, Agentgres writer/export, offline CLI, key discovery, split-view defenses. |
+| `project-discovery-startup-and-session-chain` | `UNASSIGNED`; SA-9 proposes M2 | Discovery/candidate acceptance, StartupPlan, Recipe→Binding→Launch→Spawn→Readiness→Terminal. |
+| `managed-billing-work-credits-and-supplier-reconciliation` | `UNASSIGNED`; SA-9 proposes M8 | Quote/hold/usage/debit/adjustment, Work Credits, supplier statements, product APIs. |
+| `dispute-adjudication-remedy-kernel` | `UNASSIGNED`; SA-9 proposes M12 | Evidence, appeal, escrow/bond, remedy, receipts across internal/marketplace/AIIP/public rails. |
+| `foundry-evaluations-production-loop` | `UNASSIGNED`; SA-9 proposes M8 | Real training/eval, frozen epochs, exposure, scorecards, artifacts and promotion bundles. |
+| `worker-training-and-local-marketplace-supply` | `UNASSIGNED`; SA-9 proposes M8 | MoW, training, private/local workers, managed instances, listing/hiring/fulfillment evidence and portable capability proof; neutrality owns routing/allocation/contribution accounting. |
+| `connected-worker-capability-supply-and-hiring` | `UNASSIGNED`; SA-9 proposes M14 | AIIP/public digital-worker discovery, capability hiring, worker lifecycle and portable exit, gated after M13; it does not own the sas service-order lifecycle. |
+| `platform-operability-observability-and-incidents` | `UNASSIGNED`; SA-9 proposes M9 | Temporal observers, operation decisions, recovery, SLOs, capacity, privacy-safe telemetry, mixed versions, support evidence. |
+| `hypervisoros-ctee-task-capsule-attestation` | `UNASSIGNED`; SA-9 proposes M9 | Boot/image/update, custody, capsule runtime, RATS roles, leases/re-attestation and operator UX. |
+| `agentgres-production-readiness-and-branch-effects` | `UNASSIGNED`; SA-9 proposes M3 | Postgres bridge, checkpoint writer, branches/staged effects, per-System writer integration. |
+| `ecosystem-assurance-and-public-claim-estate` | `UNASSIGNED`; SA-9 proposes M14 | Certification, jurisdiction, quarantine, liability/claims, commercial audit and publication gates. |
+| `live-embodied-promotion` | `UNASSIGNED`; SA-9 keeps it outside active M0–M14 | Native executor/supervisor/controllers, physical receipts, E1+ evidence and live promotion. It must not be folded into M11 without explicit approval. |
+| `sdk-cli-adk-odk-builder-journey` | `UNASSIGNED`; SA-9 proposes M6 | Supported App/Web/CLI/headless/SDK/ADK/ODK journeys and maturity-labeled runnable docs. |
+| `storage-profile-repair-and-availability` | `UNASSIGNED`; SA-9 proposes M2 | S3/object profiles, repair, retention/holds, availability incidents, restore and cleanup. |
+| `marketplace-neutral-routing-contribution-accounting` | `UNASSIGNED`; SA-9 proposes M8 | Neutral routing/allocation, transparent contribution accounting, challenge/dispute, settlement and portable evidence. |
+| `decentralized-profile-admission-and-exit` | `UNASSIGNED`; SA-9 proposes M14 | Explicitly selected cloud/exchange/trade profiles with enrollment, rights/risk, settlement, honest unavailable states and exit. |
+
+### Gap-to-work-item execution specification
+
+The summary rows above are not sufficient record definitions. The matrices
+below provide the remaining admission fields. Owner codes resolve to paths
+relative to `docs/architecture/`; `../decisions/*` therefore resolves to the
+accepted ADR estate under `docs/decisions/`. `PROGRAM` means the private
+master/record schema and is explicitly not architecture canon. The companion
+audit's [exact canonical source locators](../architecture-to-implementation-coverage-audit.md#exact-canonical-source-locators)
+bind these owner families to verified literal headings without duplicating
+their doctrine here.
+
+| Code | Exact owner path(s) |
+| --- | --- |
+| `META` | `_meta/start-here.md`; `_meta/source-of-truth-map.md`; `_meta/current-canon-defaults.md`; `_meta/public-web-estate.md`; `_meta/schemas/architecture-contract-registry.v1.json`; `../decisions/README.md` and the accepted records it indexes |
+| `SYSTEM` | `foundations/governed-autonomous-systems.md`; `foundations/common-objects-and-envelopes.md`; `foundations/invariants.md` |
+| `SECURITY` | `foundations/verifiable-bounded-agency.md`; `foundations/security-privacy-policy-invariants.md` |
+| `SEMANTIC` | `foundations/domain-ontologies-and-data-recipes.md` |
+| `LEARNING` | `foundations/institutional-learning-boundary.md`; `foundations/bounded-recursive-improvement.md`; `components/daemon-runtime/portable-memory-vault.md`; `components/daemon-runtime/improvement-governance-gates.md` |
+| `WORKERS` | `foundations/mixture-of-workers.md`; `foundations/worker-training-lifecycle.md`; `domains/aiagent/digital-worker-ontology.md`; `domains/aiagent/vertical-ontology-packs.md`; `domains/aiagent/integration-surface-taxonomy.md`; `domains/aiagent/managed-worker-instance-lifecycle.md`; `domains/aiagent/managed-agent-console-contract.md`; `domains/aiagent/worker-endpoints.md`; `domains/aiagent/worker-marketplace.md` |
+| `ECON` | `foundations/economic-flywheel-and-pricing-boundaries.md`; `domains/marketplace-neutrality.md` |
+| `ASSURANCE` | `foundations/ecosystem-assurance-certification-liability.md` |
+| `PHYSICAL` | `foundations/physical-action-safety.md`; `components/daemon-runtime/embodied-runtime.md` |
+| `AIIP` | `foundations/aiip.md` |
+| `L1` | `foundations/ioi-l1-mainnet.md`; `foundations/ioi-l1-contract-interfaces.md` |
+| `AGENTGRES` | `components/agentgres/doctrine.md`; `components/agentgres/api-object-model.md`; `components/agentgres/artifact-ref-plane.md`; `components/agentgres/postgres-bridge-and-readiness-contract.md`; `components/agentgres/projection-system-reference.md` |
+| `DAEMON` | `components/daemon-runtime/doctrine.md`; `components/daemon-runtime/api.md`; `components/daemon-runtime/default-harness-profile.md`; `components/daemon-runtime/events-receipts-delivery-bundles.md`; `components/daemon-runtime/platform-operability.md` |
+| `MEASURED` | `components/daemon-runtime/runtime-nodes-tee-depin.md`; `components/daemon-runtime/task-capsule-protocol.md`; `components/daemon-runtime/private-workspace-ctee.md`; `components/daemon-runtime/hypervisoros.md` |
+| `SURFACES` | `components/hypervisor/core-clients-surfaces.md` |
+| `ENVIRONMENTS` | `components/hypervisor/providers-and-environments.md`; `components/hypervisor/byo-provider-plane.md` |
+| `IDENTITY` | `components/hypervisor/identity-access-and-metering.md` |
+| `FOUNDRY` | `components/hypervisor/foundry.md` |
+| `EVALUATIONS` | `components/hypervisor/evaluations.md` |
+| `IMPROVEMENT` | `components/hypervisor/improvement.md` |
+| `CONNECTORS` | `components/connectors-tools/doctrine.md`; `components/connectors-tools/contracts.md` |
+| `MODELS` | `components/model-router/doctrine.md`; `components/model-router/api-byok-mounting.md` |
+| `WALLET` | `components/wallet-network/doctrine.md`; `components/wallet-network/api-authority-scopes.md`; `components/wallet-network/product-exchange-risk.md` |
+| `STORAGE` | `components/storage-backends/doctrine.md`; `components/storage-backends/filecoin-cas.md` |
+| `ROOMS` | `domains/ioi-ai/control-plane.md`; `domains/ioi-ai/collaborative-outcome-pattern.md` |
+| `SERVICES` | `domains/sas/service-endpoints.md`; `domains/sas/service-marketplace.md` |
+| `DECENTRALIZED` | `domains/decentralized/README.md`; `domains/decentralized/cloud.md`; `domains/decentralized/exchange.md`; `domains/decentralized/trade.md` |
+
+Contract names below are admission candidates, not new canon. The future
+owner/registry checker must resolve each exact identifier or block record
+creation. Each deliverable bundle means: complete private record, contract and
+owner manifest, implementation/action plan, product/operator state matrix,
+positive/adversarial/fault runner design, retained evidence index, and the
+literal exit shown. “No” in the amendment column means the current master
+already demands the bounded subject; “Yes” names the approval hunk required
+before record creation or stage assignment.
+
+Mechanism rows may require a minimum projection to falsify their backend
+claim, but they do not own an application's navigation, state model or
+end-to-end journey. The explicit application-owner table owns those journeys;
+this `does_not_own` boundary is part of every affected record and must be
+enforced by the exact-one-owner checker.
+
+#### Selected-spine records: M0–M6
+
+| Proposed ID / stage | Canon owner(s); required contract families | Dependencies | Deliverable and literal exit | Required negative/nonclaim | Amendment |
+| --- | --- | --- | --- | --- | --- |
+| `m0-work-item-contract-completeness-and-owner-lint` / M0 | `PROGRAM`, `META`; `ioi.program.work_item.v1`, owner/contract/private-artifact refs | Current master §4.1; all 43 record IDs | Schema + migration/waiver report; `M0_WORK_ITEM_CONTRACT_COMPLETENESS_EXIT=0` | Reject prose dependencies, unknown owners/contracts, status inference, workflow-as-product authority | Yes: SA-2 |
+| `m0-canon-owner-coverage-and-orphan-verifier` / M0 | `META`; `ArchitectureCoverageEntry`, owner digest, coverage disposition (private projection families) | Prior row; current canon/ADR/registry digest | Owner-to-stage/record generator; `M0_CANON_OWNER_COVERAGE_EXIT=0` | Reject zero/multiple owners, stale digest, archive-as-owner, public queue | Yes: SA-3/SA-6 |
+| `m0-route-final-invoker-pg-census-maintenance` / M0 | `DAEMON`, `SURFACES`, `CONNECTORS`, `SECURITY`, `WALLET`; route/PEP/final-invoker/PG census artifacts | Coverage verifier; current route registries | Closed census + bypass/retirement diff; `M0_ROUTE_FINAL_INVOKER_PG_CENSUS_EXIT=0` | Unknown route, effect without invoker, task exit without literal, UI authority inference | No |
+| `m0-selected-profile-baseline-evidence-and-claim-lock` / M0 | `PROGRAM`, `META`; selected profile/nonclaim, evidence/release/blocker index, product/reliability/cost/comprehension baseline and rollback families | Work-item contract and coverage rows; current master M0.4/M0.7/M0.8 | Frozen profile/baseline/claim bundle; `M0_SELECTED_PROFILE_BASELINE_CLAIM_LOCK_EXIT=0` | Reject mutable thresholds, missing nonclaim, UI/status-derived baseline or claim widening | No |
+| `m0-source-disposition-and-single-sequencer-verifier` / M0 | `PROGRAM`, `META`; private source role/path/digest/inbound-link/tombstone and sequencer-census families | SA-1/SA-4 decisions; frozen before manifest; current master M0.5 | Complete role/destination map + duplicate-voice verifier; `M0_SOURCE_DISPOSITION_SINGLE_SEQUENCER_EXIT=0` | No deletion, archive-as-owner, plan-status voice or second M0–M14 order | SA-1/SA-4 |
+| `m0-program-control-selected-profile-exit-proof` / M0 (new aggregate) | `PROGRAM`, `META`; private M0.1–M0.9 child/evidence/nonclaim join | Both existing M0 records; every proposed M0 row; PG applicability; runtime-trust census; source manifest/disposition input | Closed M0 evidence manifest; `M0_EXIT=0` | Reject missing/duplicate M0 obligation, stale owner/route/method census, competing sequencer, task-code success or capability claim | SA-7 |
+| `m1-protected-migration-dissolution-enrollment` / M1 | `SYSTEM`, `SECURITY`; amendment/migration/succession/suspension/dissolution/enrollment and residual-disposition families | Existing M1.5 parent, 5b, 5c | Missing M1.5d cut plan; `M1_PROTECTED_MIGRATION_DISSOLUTION_ENROLLMENT_EXIT=0` | Stale/replayed approvals, orphan residuals, enrollment widening, dissolution with live effects | No |
+| `m1-system-genesis-product-journey` / M1 | `SYSTEM`, `SURFACES`, `WALLET`; package/release/profile/genesis/sequence-zero/constitution/activation families | Existing M1.1–M1.6 records | Compact/advanced/restart/two-System state matrix; `M1_SYSTEM_GENESIS_PRODUCT_JOURNEY_EXIT=0` | No UI-derived truth, cross-System bleed, invalid proposal/approval, premature activation | No |
+| `m1-selected-profile-exit-proof` / M1 | `SYSTEM`, `PROGRAM`; private aggregate/evidence-index family over all M1 children | Every M1 child including new M1.5d | Aggregate manifest; `M1_EXIT=0` | Missing/duplicate child, stale literal, incompatible profile, aggregate must not manufacture status | Yes: SA-7 |
+| `m2-node-attestation-identity-secret-readiness` / M2 | `SYSTEM`, `MEASURED`, `IDENTITY`, `SECURITY`; node identity/attestation, secret custody, readiness, temporal-floor families | `m1-selected-profile-exit-proof` | Admission/readiness mechanism plan; `M2_NODE_ATTESTATION_IDENTITY_SECRET_READINESS_EXIT=0` | Forged/stale attestation, leaked secret, rollback floor, ready-before-proof | No |
+| `m2-agentgres-replay-recovery-and-product-topology` / M2 | `AGENTGRES`, `SYSTEM`, `ENVIRONMENTS`, `SURFACES`; operation/head/root/projection/replay/recovery and shared topology-projection families | Existing M2 membership/fence/route records; prior row | Truth/recovery + minimum topology-state proof; `M2_AGENTGRES_REPLAY_RECOVERY_PRODUCT_EXIT=0` | Lost/duplicated suffix, stale writer, wrong-System projection, restore mismatch; does not own Systems/Operations/Environments/Provenance journeys | No |
+| `m2-selected-profile-exit-proof` / M2 (existing aggregate update) | `PROGRAM`, `SYSTEM`, `AGENTGRES`, `ENVIRONMENTS`; private child/evidence join | Every existing M2 record; both rows above; and, if SA-9 is approved, `project-discovery-startup-and-session-chain` plus `storage-profile-repair-and-availability` | Closed child manifest; existing literal `M2_EXIT=0` contract | Reject missing/duplicate child, stale literal, product projection as topology truth, or task-code aggregation | SA-9 only for its two conditional children |
+| `m3-goal-kernel-context-and-runtime-truth-spine` / M3 | `SYSTEM`, `DAEMON`, `AGENTGRES`, `CONNECTORS`, `SECURITY`; GoalRun/Kernel, ContextCell/Lease/Handoff, Session/WorkRun, Invocation/Result/Receipt | M2 selected exit | Runtime truth/action/final-invoker plan; `M3_GOAL_KERNEL_CONTEXT_RUNTIME_TRUTH_EXIT=0` | Client/harness/MCP truth injection, stale context, duplicate effect, receipt mismatch | No |
+| `m3-work-session-automation-product-journey` / M3 | `SURFACES`, `DAEMON`, `SYSTEM`; shared Goal/Session/Automation/Work/Developer Workspace lifecycle-projection families | Prior row; existing M3 lifecycle/direct-path records | Direct/non-System and System lifecycle-state proof; `M3_WORK_SESSION_AUTOMATION_PRODUCT_EXIT=0` | Cancel/archive/restart races, unavailable harness, hidden authority, false completion; does not own Work/Automations/Developer Workspace app journeys | No |
+| `m3-direct-path-and-exit-proof` / M3 (existing aggregate update) | `PROGRAM`, `DAEMON`, `SECURITY`; private child/evidence/direct-path join | Every existing M3 record; both rows above; and, if SA-9 is approved, the information-flow, receipt-proof and Agentgres-production records | Closed child/direct-path manifest; existing literal M3 exit contract | Reject missing direct-path differential, uncontrolled invoker, missing child, stale literal or task-code success | SA-9 only for its three conditional children |
+| `m4-room-graph-truth-and-product-projection` / M4 | `ROOMS`, `SYSTEM`, `AGENTGRES`, `SURFACES`; OutcomeRoom, CollaborativeWorkGraph, admitted-child, membership, acceptance/verdict/export families | M3 selected exit | Split truth/replay from minimum Goal Space/Work/Governance/Provenance proof projections; `M4_ROOM_GRAPH_TRUTH_PRODUCT_EXIT=0` | Direct UI graph write, wrong-System child, stale verdict, export leakage; does not own those applications' complete journeys | No |
+| `m4-outcome-room-system-spine` / M4 (existing aggregate update) | `PROGRAM`, `ROOMS`, `SYSTEM`; private child/evidence join | Existing M4 obligations plus prior row | Closed child manifest; existing literal M4 exit contract | Reject umbrella-only success, missing room truth/product child or stale literal | No |
+| `m5-pairing-identity-and-gateway-scope` / M5 | `IDENTITY`, `CONNECTORS`, `SECURITY`; pairing intent/session/expiry, post-admission capability/gateway scope | M4; existing local-pairing record | Pairing and narrowing plan; `M5_PAIRING_IDENTITY_GATEWAY_SCOPE_EXIT=0` | Replay, wrong origin/principal, expired pairing, gateway remains broad | No |
+| `m5-attribution-acceptance-and-challenge-boundary` / M5 | `ROOMS`, `ECON`, `WALLET`, `DAEMON`; ResourceOffer/CapabilityOffer, WorkFrontierItem, claim/attempt/finding/challenge/result, acceptance/dispute | Existing M5 participant/portable-exit records | Acceptance-boundary plan; `M5_ATTRIBUTION_ACCEPTANCE_CHALLENGE_EXIT=0` | Attribution is not acceptance, challenged result cannot settle, stale lease/reassignment, retained negative loss | No |
+| `m5-selected-profile-exit-proof` / M5 (existing aggregate update) | `PROGRAM`, `ROOMS`, `IDENTITY`; private child/evidence/nonclaim join | Every existing M5 record except P0; both new M5 rows above | Closed M5 child manifest; existing selected-profile literal exit contract | Reject missing/duplicate child, challenged-as-accepted result, unsafe portable exit, stale literal or task-code success | No |
+| `m5-p0-readiness-verifier` / M5 (existing readiness verifier update) | `PROGRAM`, `DAEMON`, `ROOMS`, `SECURITY`; private M3–M5 child/direct-path/boundary evidence join | Verified applicable M3–M5 selected-profile aggregates, including the prior M5 row; controlled-boundary census | Closed P0 evidence manifest; existing literal P0 exit contract | Reject missing child, uncontrolled final invoker, direct-path regression, UI/status inference or task-code success | No |
+| `m6-surface-compiler-and-source-convergence` / M6 | `SURFACES`, `DAEMON`; canonical `Hypervisor*Surface*` registration/release/install/serving/projection/alias families | Verified M3–M5 + `m5-p0-readiness-verifier`; M0 coverage census | Compiler + captured-to-source serve migration; `M6_SURFACE_COMPILER_SOURCE_CONVERGENCE_EXIT=0` | Screenshot/seed/status-live membership, route loss, second shell owner, source ambiguity | Yes: SA-7 |
+| `m6-production-truth-fallback-retirement` / M6 | `SURFACES`, `DAEMON`, `ENVIRONMENTS`; projection availability/error and explicit reference-profile families | Prior M6 compiler record; 55-unique-endpoint/110-file fixture census | Per-endpoint retirement and daemon-loss runner; `M6_PRODUCTION_TRUTH_FALLBACK_RETIREMENT_EXIT=0` | No production mock fallback or plausible data on daemon failure; no claim of fixture deletion before proof | Yes: SA-7 |
+| `m6-consequential-action-authority-receipt-unification` / M6 | `SURFACES`, `DAEMON`, `WALLET`, `SECURITY`; RuntimeActionDescriptor, sealed intent/grant, final-invoker and EffectReceipt families | M0 route census; M3 truth spine; M5 identity scope | Route-complete migration/equivalence plan; `M6_ACTION_AUTHORITY_RECEIPT_UNIFICATION_EXIT=0` | Clickable control is not authority; deny/revoke/stale/duplicate/no-receipt paths fail closed | Yes: SA-7 |
+| `m6-systems-work-projection-and-mission-alias-migration` / M6 | `SURFACES`, `SYSTEM`, `ROOMS`; shared System/Work projection/context/alias families | Compiler/source convergence; M3–M5 read models | Typed projection/context contracts + Mission route/alias migration; `M6_SYSTEMS_WORK_PROJECTION_ALIAS_EXIT=0` | No new truth owner, wrong tenant/System or stale deep link; does not own Systems or Work operational journeys | Yes: SA-7 |
+| `m6-owner-application-registration-and-shell-state-coverage` / M6 | `SURFACES` plus each admitted canonical app owner; registration/route/breadcrumb/availability-state families | Compiler, fallback, Systems/Work and accessibility rows; generated join to the later-stage owner table | Honest shell-state and ownership map; `M6_APPLICATION_REGISTRATION_SHELL_STATE_EXIT=0` | No operational-depth claim from route/pixel/seed presence; disabled/backend/action gaps remain bound to later owners | Yes: SA-7 |
+| `m6-catalog-route-alias-migration-accessibility` / M6 | `SURFACES`, `IDENTITY`; registration/alias/context/accessibility evidence families | Compiler/source convergence and Systems/Work shell definitions; no operational-journey dependency | Desktop/narrow/embed/keyboard/focus/screen-reader migration; `M6_CATALOG_ROUTE_ALIAS_ACCESSIBILITY_EXIT=0` | Broken deep link, context leak, focus trap, hidden/inaccessible authority, motion/overflow failure | Yes: SA-7 |
+| `m6-reference-shell-disposition-and-depth-ledger` / M6 | `SURFACES`, `META`; private surface-depth/disposition projection | All M6 rows; 39 seeds, 3 dormant seeds, 45-app evidence, atlas/source digests | Generated current-source ledger; `M6_REFERENCE_SHELL_DEPTH_LEDGER_EXIT=0` | Reference capture never grants canon membership/status; stale atlas or unclassified control fails | Yes: SA-7 |
+| `m6-product-surface-and-typed-workspaces` / M6 (existing aggregate update) | `PROGRAM`, `SURFACES`; private child/evidence join only | Every M6 mechanism/shell row above; the eight application journeys explicitly assigned to M6; and, if SA-9 is approved, `sdk-cli-adk-odk-builder-journey`. Later-stage application journeys are mapped but are not M6 dependencies. | Closed M6 evidence manifest; existing literal M6 exit contract | Reject route/pixel/seed presence as operational depth, hidden unavailable state, missing M6 child or task-code aggregation; retain later-depth nonclaim | SA-7; SA-9 only for builder child |
+
+#### Selected-spine records: M7–M14
+
+| Proposed ID / stage | Canon owner(s); required contract families | Dependencies | Deliverable and literal exit | Required negative/nonclaim | Amendment |
+| --- | --- | --- | --- | --- | --- |
+| `m7-data-transformation-provenance-replay` / M7 | `SEMANTIC`, `AGENTGRES`, `DAEMON`, `SURFACES`; source/recipe/mapping/assertion/TransformationRun/provenance/receipt families | M6 selected exit; M3 truth spine | Data truth/replay/restart journey; `M7_DATA_TRANSFORMATION_PROVENANCE_REPLAY_EXIT=0` | Contradictory mapping, stale recipe, replay divergence, cross-System/IFC leakage | No |
+| `m7-ontology-action-final-invoker-and-product-proof` / M7 | `SEMANTIC`, `SECURITY`, `WALLET`, `SURFACES`; ontology version/overlay/crosswalk, ActionContract, oracle policy, final-invoker/effect receipt | Prior M7 row; M6 action runtime | Shared action/final-invoker mechanism + minimum proof projections; `M7_ONTOLOGY_ACTION_FINAL_INVOKER_PRODUCT_EXIT=0` | Unknown action/version, oracle disagreement, denied declassification, invoker mismatch; does not own Ontology/Data/Studio/Provenance journeys | No |
+| `m7-semantic-definition-action-plane` / M7 (existing aggregate update) | `PROGRAM`, `SEMANTIC`; private child/evidence join | Both M7 mechanism rows plus Studio, Ontology and Data operational-journey records | Closed M7 evidence manifest; existing literal M7 exit contract | Reject missing application child, mutable version, unguarded action, replay divergence or task-code aggregation | SA-7 for application children |
+| `m8-learning-custody-memory-and-provider-rights` / M8 | `LEARNING`, `MEASURED`, `MODELS`, `STORAGE`, `SECURITY`; learning boundary/snapshot/eligibility, MemorySpace/vault, route/source rights, custody/egress/export/import | M7 selected exit; M6 action runtime | Custody/rights/provider-exit plan; `M8_LEARNING_CUSTODY_MEMORY_PROVIDER_RIGHTS_EXIT=0` | Unauthorized source/route/downstream use, egress leak, custody gap, failed import/export | No |
+| `m8-model-supply-route-substitution-and-selected-exit` / M8 | `MODELS`, `LEARNING`, `ECON`, `FOUNDRY`, `EVALUATIONS`; BYOK/BYOA, provider terms, route substitution, evaluation/promotion families | Prior row; existing M8 direct/campaign record; Evaluations, Improvement and Foundry application journeys; if SA-9 is approved, the distinct Foundry/Evaluations mechanism, local-worker, managed-billing and neutrality literal exits | Model-swap runner + closed M8 aggregate; `M8_EXIT=0` | No silent provider substitution, learning-right inference, missing application/conditional child, mutable floors/stop rule, or campaign status from prose | SA-7 for application children; SA-9 for added mechanisms |
+| `m9-compact-advanced-object-hash-parity` / M9 | `SYSTEM`, `DAEMON`, `AGENTGRES`; selected-object/JCS/hash/receipt families | M8 exit; selected compact/advanced profiles | Identical-object/hash manifest; `M9_COMPACT_ADVANCED_HASH_PARITY_EXIT=0` | Byte/normalization drift, producer-trusted comparison, missing artifact | No |
+| `m9-terminal-product-state-and-release-supply-chain` / M9 | `SURFACES`, `DAEMON`, `WALLET`, `STORAGE`, `ASSURANCE`; installer/signer/digest/SBOM/update/revocation/rollback and terminal-journey families | All selected M1–M8 exits; M9 parity; existing M9 slices | 21-state product/release/operator plan; `M9_TERMINAL_PRODUCT_RELEASE_EXIT=0` | Unsigned/tampered/rollback build, offline loss, failed restore, hidden managed dependency, cohort nonclaim | No |
+| `m9-selected-profile-aggregate-exit-and-claim-publication` / M9 | `PROGRAM`, `META`; private aggregate/evidence/claim-boundary families | All M9 records, applicable PGs, release row | Aggregate and permitted-claim manifest; `M9_EXIT=0` | No status aggregation from missing child/task code; no multi-node/federation claim; residual nonclaims retained | Yes: SA-7 |
+| `m10-attestation-temporal-floor-and-revocation-continuity` / M10 | `MEASURED`, `SYSTEM`, `AGENTGRES`, `WALLET`; node attestation, epoch/floor, checkpoint/key/revocation families | M9 exit | Continuity-floor mechanism plan; `M10_ATTESTATION_TEMPORAL_FLOOR_CONTINUITY_EXIT=0` | Stale/forged candidate, rollback-domain capture, revoked key, incomplete catch-up | No |
+| `m10-topology-chaos-and-operator-product-proof` / M10 | `SYSTEM`, `DAEMON`, `ENVIRONMENTS`, `SURFACES`; membership/fence/promotion/rejoin/fault/RPO/RTO projection families | M9 exit and prior attestation/temporal-floor mechanism row; never the M10 aggregate | Chaos + operator state runner; `M10_TOPOLOGY_CHAOS_OPERATOR_PRODUCT_EXIT=0` | Split brain, duplicate effect, lost suffix, false healthy state, unreconciled rejoin | No |
+| `m10-two-failure-domain-continuity` / M10 (existing aggregate update) | `PROGRAM`, `SYSTEM`; private child/evidence join | Both M10 rows, Operations operational journey and all existing continuity obligations | Closed M10 evidence manifest; existing literal M10 exit contract | Reject missing Operations child, false healthy state, split brain, duplicate effect or task-code success | SA-7 for Operations child |
+| `m11-canonical-embodied-contract-alignment` / M11 | `PHYSICAL`, `META`; current EmbodiedUnit/ResourceGroup/NativeProfile/RuntimeGraphManifest/PhysicalStream/Supervisor/ActivationTransaction/lease/assurance families | M10 exit; current registry/canon digest | Old-to-current name/owner migration; `M11_EMBODIED_CONTRACT_ALIGNMENT_EXIT=0` | Unknown alias or stale record blocks implementation; no live-action claim | No |
+| `m11-foundry-promotion-safety-case-and-product-journey` / M11 | `PHYSICAL`, `FOUNDRY`, `EVALUATIONS`, `ASSURANCE`, `SURFACES`; simulation/SIL/HIL/shadow, safety case, promotion/rollback receipt families | Alignment row; existing `m11-embodied-nonlive-graph-proof` and useful-distribution mechanism; never the M11 aggregate | Non-live operator/safety journey; `M11_FOUNDRY_PROMOTION_SAFETY_PRODUCT_EXIT=0` | No actuator invocation/E1+ claim; unsafe candidate, missing supervisor, failed rollback retained | No |
+| `m11-selected-profile-exit-proof` / M11 (existing aggregate update) | `PROGRAM`, `PHYSICAL`; private child/evidence/nonlive join | Existing M11 distribution/non-live records, both rows above and the conditional Embodied Systems non-live journey when pulled | Closed M11 non-live evidence manifest; existing literal M11 exit contract | Reject missing pulled child, actuator/E1+ inference, missing supervisor/safety case or task-code success | SA-7 for conditional application child |
+| `m12-ifc-disclosure-receipt-and-settlement-binding` / M12 | `AIIP`, `SECURITY`, `DAEMON`, `WALLET`, `ECON`; channel/envelope, labels/declassification, disclosure/effect receipt, RPC/settlement adapter families | M11 exit; approved IFC/receipt substrate owner if SA-9 accepted | Cross-boundary binding runner; `M12_IFC_DISCLOSURE_SETTLEMENT_BINDING_EXIT=0` | Raw private context, stale/replayed packet, missing disclosure, settlement without acceptance; no M13 claim | No for M12 record; dependency may require SA-9 |
+| `m12-federation-product-and-operator-journey` / M12 | `AIIP`, `ROOMS`, `SEMANTIC`, `SURFACES`; discovery/terms/profile/counter/decline/admission/dispute/portable-exit families | Existing M12 children; prior binding row | Pulled-surface journey; `M12_FEDERATION_PRODUCT_JOURNEY_EXIT=0` | Semantic mismatch, safe decline, disconnect/retry, dispute/exit; federation remains unproven until literal aggregate | No |
+| `m12-selected-profile-exit-proof` / M12 (existing aggregate update) | `PROGRAM`, `AIIP`; private child/evidence/nonclaim join | Every existing and proposed M12 record; if SA-9 is approved, `dispute-adjudication-remedy-kernel` and its literal exit | Closed M12 evidence manifest; existing literal M12 exit contract | Reject missing/duplicate child, unresolved dispute, stale literal, task-code success or any M13/two-sovereign claim | SA-9 only for dispute child |
+| `m13-independent-operation-and-external-worker-product-proof` / M13 | `AIIP`, `WORKERS`, `ROOMS`, `WALLET`, `STORAGE`; independent-operation evidence, external-worker packets, custody/dispute/portable-exit families | M12 exit; existing M13 trial/surplus records | Two-admin product/evidence-export journey; `M13_INDEPENDENT_OPERATION_WORKER_PRODUCT_EXIT=0` | Same-admin/provider/verifier, subsidy concealment, verifier conflict, unsafe decline, data custody loss | No |
+| `m13-selected-profile-aggregate-exit` / M13 | `PROGRAM`, `AIIP`; private trial/baseline/surplus/aggregate evidence families | All M13 records; preregistered metrics/baselines | Aggregate manifest; `M13_EXIT=0` | No one-shot/cohort overclaim, no hidden sponsor, no missing independent evidence, no M14 service claim | Yes: SA-7 |
+| `m14-service-family-owner-contract-and-product-surfaces` / M14 | `SERVICES`, `ECON`, `WALLET`, `ASSURANCE`, `SURFACES`; sas service registry/order/delivery/acceptance, payment/bond, service-specific dispute binding/state, suspension/exit | M13 exit; selected service family; M8 billing/neutrality exits; M12 adjudication/remedy-kernel exit; legal/commercial gates | Devnet/product/operator journey; `M14_SERVICE_FAMILY_PRODUCT_EXIT=0` | No implicit enrollment, unpaid/unaccepted settlement, service UI adjudicating its own remedy, unresolved dispute, unsafe service, worker-lifecycle co-ownership or L1 inference | No |
+| `m14-selected-profile-aggregate-exit` / M14 | `PROGRAM`, `SERVICES`, `L1`, `ASSURANCE`; private demand/security/decision/aggregate evidence families | All M14 records; frozen sustained metrics; explicit no-L1 or selected-L1 decision | Aggregate and claim manifest; `M14_EXIT=0` | Valid no-L1 must pass; no demand/mainnet/native-asset claim from devnet or plan; legal stops retained | Yes: SA-7 |
+
+#### Unassigned A–Z records
+
+Every row below remains `UNASSIGNED`. SA-9 is a reviewable proposed mapping,
+not an approved stage. Rejecting SA-9 leaves the gap visible and creates no
+record.
+
+| Proposed ID | Canon owner(s); required contract families | Dependencies | Deliverable and literal exit | Required negative/nonclaim | Amendment |
+| --- | --- | --- | --- | --- | --- |
+| `production-information-flow-and-declassification` | `SECURITY`, `DAEMON`, `CONNECTORS`, `MODELS`, `ROOMS`; labels, decisions, declassification/disclosure/refusal receipts, PEP coverage | M0 route census; exact owner-stage decision | Evaluator/propagation/PEP/product-state plan; `INFORMATION_FLOW_DECLASSIFICATION_EXIT=0` | No unlabeled egress, client-side enforcement, implicit declassification, or claim before assigned aggregate | Yes: SA-9 |
+| `production-receipt-checkpoint-and-offline-proof` | `DAEMON`, `AGENTGRES`, `WALLET`, `STORAGE`; JCS/hash/accumulator/checkpoint/inclusion/consistency/key/proof-export families | Receipt emitters; Agentgres writer; stage decision | Production writer/export/offline verifier plan; `RECEIPT_CHECKPOINT_OFFLINE_PROOF_EXIT=0` | Tamper, omission, split view, stale/revoked key, producer-trusted verification | Yes: SA-9 |
+| `project-discovery-startup-and-session-chain` | `ENVIRONMENTS`, `DAEMON`, `SURFACES`; ProjectDiscovery/Candidate/StartupPlan/Recipe/Binding/Launch/Spawn/Readiness/Terminal | M1 System profile; M2 route/readiness; stage decision | Full predecessor/product/recovery chain; `PROJECT_STARTUP_SESSION_CHAIN_EXIT=0` | Missing predecessor, wrong project/System, orphan resources, fabricated readiness | Yes: SA-9 |
+| `managed-billing-work-credits-and-supplier-reconciliation` | `ECON`, `IDENTITY`, `WALLET`, `MODELS`; quote/hold/usage/debit/adjustment, Work Credit/allowance, provider/supplier statement/reconciliation | Selected local/managed commercial profile; stage decision | Persistence/API/product/reconciliation plan; `MANAGED_BILLING_RECONCILIATION_EXIT=0` | Double charge, unmetered effect, stale quote, unreconciled supplier, no connected-service/native-asset inference | Yes: SA-9 |
+| `dispute-adjudication-remedy-kernel` | `ECON`, `WALLET`, `AIIP`, `SERVICES`, `ASSURANCE`; cross-rail dispute/evidence/appeal/escrow/bond/remedy/receipt families | M5 attribution/acceptance/challenge exit; M8 billing and neutrality exits; stage decision | Cross-rail adjudication plan; `DISPUTE_ADJUDICATION_REMEDY_EXIT=0` | Self-adjudication, evidence loss, settlement-before-finality, missing appeal/remedy | Yes: SA-9 |
+| `foundry-evaluations-production-loop` | `FOUNDRY`, `EVALUATIONS`, `LEARNING`, `IMPROVEMENT`; training/tuning/EvalRun/judgment/scorecard/exposure/artifact/promotion bundle | M7 semantics; learning boundary; stage decision | Real job/evaluation/promotion loop; `FOUNDRY_EVALUATIONS_PRODUCTION_EXIT=0` | Training/evaluation leakage, mutable epoch, non-independent judgment, promotion without bundle | Yes: SA-9 |
+| `worker-training-and-local-marketplace-supply` | `WORKERS`, `ECON`; worker identity/capability/training/managed-instance plus local listing/hiring/fulfillment evidence; excludes routing/allocation/contribution accounting | Model/learning rights; M5 attribution/acceptance/challenge boundary; managed-billing owner; stage decision | Local worker capability/supply plan; `LOCAL_WORKER_MARKETPLACE_SUPPLY_EXIT=0` | Fake capability, unsafe delegation, false fulfillment, acceptance/payment mismatch; no neutrality, federation or service claim | Yes: SA-9 |
+| `connected-worker-capability-supply-and-hiring` | `WORKERS`, `AIIP`, `ECON`, `WALLET`; external-worker discovery/capability/hiring/lifecycle/portable-exit families; excludes generic sas service orders | M13 exit; local-worker, billing and neutrality exits; M12 dispute-kernel exit; stage decision | Connected worker capability/hiring plan; `CONNECTED_WORKER_CAPABILITY_SUPPLY_EXIT=0` | No pre-M13 federation, hidden provider/subsidy, authority before acceptance, disputed hiring or blocked exit; no sas service-lifecycle ownership | Yes: SA-9 |
+| `platform-operability-observability-and-incidents` | `DAEMON`, `AGENTGRES`, `SURFACES`, `SECURITY`; operation decision, temporal input, SLI/SLO, telemetry, capacity/backpressure, incident/recovery/support bundle | Runtime truth; selected deployment profile; stage decision | Observer/controller/operator plan; `PLATFORM_OPERABILITY_INCIDENT_EXIT=0` | Telemetry leakage, false healthy state, alert-only recovery, mixed-version blind spot | Yes: SA-9 |
+| `hypervisoros-ctee-task-capsule-attestation` | `MEASURED`, `SECURITY`, `ENVIRONMENTS`; image/boot/update/measurement/attestation/custody/capsule/lease/re-attestation | Node admission; release supply chain; stage decision | Measured-substrate/operator plan; `HYPERVISOROS_CTEE_CAPSULE_EXIT=0` | Forged measurement, rollback image, custody escape, expired lease, no hardware claim from simulation | Yes: SA-9 |
+| `agentgres-production-readiness-and-branch-effects` | `AGENTGRES`, `SYSTEM`, `DAEMON`; Postgres bridge/readiness, operation/head/root, branch/staged effect, checkpoint writer/projection | M2 recovery; M3 truth spine; stage decision | Production writer/branch/recovery plan; `AGENTGRES_PRODUCTION_BRANCH_EFFECTS_EXIT=0` | Split head, branch effect before merge, replay divergence, projection-as-truth | Yes: SA-9 |
+| `ecosystem-assurance-and-public-claim-estate` | `ASSURANCE`, `META`, `ECON`, `L1`; certification/jurisdiction/quarantine/liability/claim/commercial-audit/publication families | Mechanism evidence and selected claims; stage decision | Assurance/publication gate plan; `ECOSYSTEM_ASSURANCE_PUBLIC_CLAIMS_EXIT=0` | Self-certification, stale public claim, jurisdiction bypass, uncovered liability, no mainnet inference | Yes: SA-9 |
+| `live-embodied-promotion` | `PHYSICAL`, `ASSURANCE`, `FOUNDRY`; native executor/supervisor/controller, physical receipt, deployment assurance, E1+ promotion | M11 non-live exit; explicit live activation; stage decision | Physical execution/promotion plan; `LIVE_EMBODIED_PROMOTION_EXIT=0` | No actuator path before approval; emergency stop/fence/recovery failures; simulation is not live proof | Yes: SA-9 |
+| `sdk-cli-adk-odk-builder-journey` | `SURFACES`, `DAEMON`, `CONNECTORS`, `SEMANTIC`, `META`; supported App/Web/CLI/headless/SDK/ADK/ODK interface/version/maturity families | Stable runtime/product APIs; stage decision | Runnable builder/docs parity plan; `BUILDER_INTERFACE_JOURNEY_EXIT=0` | Stale snippets, unsupported maturity claim, client authority, web-only proof | Yes: SA-9 |
+| `storage-profile-repair-and-availability` | `STORAGE`, `AGENTGRES`, `ENVIRONMENTS`; storage profile/object/CAS, repair, retention/hold, availability incident, restore/cleanup | Artifact/replay owners; selected deployment; stage decision | Storage/operator/recovery plan; `STORAGE_REPAIR_AVAILABILITY_EXIT=0` | Silent corruption/loss, hold violation, unverified restore, cleanup of live refs | Yes: SA-9 |
+| `marketplace-neutral-routing-contribution-accounting` | `ECON`, `WORKERS`, `SERVICES`, `WALLET`; reusable local routing/allocation, contribution, challenge, settlement and portable-evidence families | M5 attribution/acceptance/challenge boundary; local-worker and managed-billing exits; stage decision; no M12 dependency | Neutrality/accounting plan; `MARKETPLACE_NEUTRALITY_ACCOUNTING_EXIT=0` | Preferential/opaque allocation, attribution theft, settlement before local challenge finality, non-portable evidence; no connected-service claim | Yes: SA-9 |
+| `decentralized-profile-admission-and-exit` | `DECENTRALIZED`, `ENVIRONMENTS`, `MODELS`, `WALLET`, `ECON`; selected cloud/exchange/trade profile, enrollment, route/rights/risk, settlement/exit families | Explicit profile selection and demand gate; stage decision | Conditional profile plan; `DECENTRALIZED_PROFILE_ADMISSION_EXIT=0` | No implicit enrollment/profile availability, rights/risk bypass, unsettled exit, demand or network overclaim | Yes: SA-9 |
+
+## Canon-change adaptability workflow
+
+When canon changes, use one deterministic transaction:
+
+1. Compute the canonical input set from the owner map, accepted ADR index,
+   execution horizons, implementation matrix, canon-to-code delta, registered
+   contract registry, and conformance index.
+2. Generate `generated/architecture-coverage.v1.json` containing for every
+   implementation-relevant owner subject:
+   `owner_path`, `owner_digest`, `contract_ids`, `conformance_refs`,
+   `stage_id`, `work_item_ids`, `projection_surfaces`, `coverage_disposition`,
+   and `last_reviewed_at`.
+3. Refuse duplicate owners, missing paths, stale digests, unknown contract
+   names, unassigned build subjects, and references to superseded ADRs.
+4. Classify a new canonical idea as:
+   - absorbed by an existing work item's in-scope contract;
+   - a new private work item in an already approved stage;
+   - a conditional future item behind an existing activation gate; or
+   - a sequencer amendment requiring explicit user approval.
+5. Update the complete work-item fields, not a prose checklist.
+6. If implementation changes, update code/evidence and require the exact
+   literal exit. If only planning changes, retain `status: proposed` and make
+   no implementation claim.
+7. Regenerate every affected projection in one transaction using the exact
+   writer/check pairs below; at minimum, canon changes always regenerate
+   architecture coverage and program state.
+8. Run link, class, record, coverage, projection, and single-sequencer checks.
+
+```text
+node internal-docs/implementation/tools/generate-architecture-coverage.mjs --write
+node internal-docs/implementation/tools/generate-architecture-coverage.mjs --check
+node internal-docs/implementation/tools/generate-program-state.mjs --write
+node internal-docs/implementation/tools/generate-program-state.mjs --check
+node internal-docs/implementation/check-program-state.mjs
+```
+
+This makes a good canonical idea easy to insert: change the owner, regenerate
+the private impact report, add or amend one bounded record, and amend the
+master only if its order/exit/activation truly changes.
+
+## Machine-check plan
+
+All checks may live under the ignored private `tools/` directory. Suggested
+commands are names, not implemented scripts in this cut.
+
+| Check | Required behavior |
+| --- | --- |
+| `check-work-items.mjs` | Validate full §4.1 schema; exact status vocabulary; IDs; parent/child aggregates; closed dependencies; exact owners/contracts; code/evidence anchors; one literal exit; private-vs-canonical artifact class; no stage promotion without complete evidence. Reject a record with zero or multiple `stage_id` mappings. Reject a work item whose declared canon/private workflow basis resolves to no current owner (an orphan), unless an explicit approved `canon_unresolved` admission names its decision owner. |
+| `check-source-dispositions.mjs` | Validate every current and proposed private path against the master-approved `source-dispositions.v1.json`; reject missing approval, duplicate path, unknown class, destination collision, destructive disposition, missing tombstone rule or any status/sequence field. |
+| `generate-architecture-coverage.mjs --write` / `--check` | Write, then byte-verify, owner/ADR/contract/conformance digests and owner → stage → record coverage. Fail on any build-relevant canon obligation with zero or multiple stage mappings, any record with zero or multiple canonical owner mappings, any build-relevant orphan, or any stale mapping. |
+| `check-single-sequencer.mjs` | Permit M0–M14 ordering/release-ladder language only in the master; reject active “Phase/Cut/next” instruction blocks in modules; require archive/tombstone headers. |
+| `check-status-truth.mjs` | Reject live `Status: active/verified/...`, current next-action, merged-completion, or cut-disposition prose outside work-item JSON/program-state; allow explicitly dated audit quotations. |
+| `check-private-estate-boundary.mjs` | Fail if implementation plans, work-item/status records, work queues, audit action lists, private evidence, or program projections become tracked or appear under `docs/architecture/`/public-property roots; permit canon doctrine and conformance contracts only. |
+| `check-module-headers.mjs` | Require owner/master pointers, no-sequencer/non-status boundaries, scope/non-scope, proof outputs and regeneration command. |
+| `check-internal-links.mjs` | Validate every local Markdown link and anchor after moves; ensure old stable paths point to current owners. |
+| `check-generated.mjs` | Verify program state, coverage, schema mirrors, surface coverage and runtime residual projections are byte-current and declare generators. It checks outputs after their dedicated writer/check pairs; it is not itself a generator. |
+| `freeze-source-manifest.mjs --write` / `--check` | Write, then byte-verify, every private source path, SHA-256, class, owner, inbound links and approved destination by joining the filesystem with `source-dispositions.v1.json`; reject disappearance, collision, registry drift or an unmanifested move. Before a verified projection changes, the writer preserves the old projection content-addressed under `audits/reconciliation/source-manifests/`, so before/after rollback evidence cannot be overwritten. |
+| `generate-program-state.mjs --write` / `--check` | Write, then byte-verify, `program-state.json` from work-item records and retained literal-exit evidence; the stable root checker performs the compatibility validation. Neither command infers status from prose or task exit codes. |
+| `generate-hypervisor-surface-coverage.mjs --write` / `--check` | Write, then byte-verify, `generated/hypervisor-surface-coverage.v1.json` by joining canonical taxonomy, route registry, app catalog, parity/dormant seeds, operational-depth evidence, fixture APIs, live source modules and M6 records. |
+| `check-hypervisor-surface-coverage.mjs` | Semantically validate the generated Hypervisor projection; fail unclassified routes/surfaces/controls, stale source digests, production fixture fallback, or consequential paths without action/authority/final-invoker/receipt disposition. |
+| `sync-runtime-action-schema.mjs --write` / `--check` | Copy the canonical runtime-action schema byte-for-byte into `generated/runtime-action-schema.json`, then prove that the mirror remains identical and names its canonical owner. |
+| `generate-runtime-kernel-residual.mjs --write` / `--check` | Write, then byte-verify, the remaining runtime-kernel namespace/method census from current Rust owners; reject stale paths, duplicate ownership and a residual presented as architecture authority. |
+| `check-literal-exits.mjs` | Read retained logs and require one exact approved `*_EXIT=0`; ignore task exit codes. |
+| `check-clean-checkout-nonclaims.mjs` | On a clean authoritative checkout, require all configured tools and zero stale projections; on a recognized older/partial checkout, emit an explicit machine-readable `SKIP` with missing-path and provenance nonclaims, never success or status regression. Dirty unrelated user changes are reported and left untouched. |
+| `check-implementation-estate.mjs` | Aggregate all private checks with a deterministic report; never mutate records or infer status. |
+
+Recommended local entry point after implementation:
+
+```text
+node internal-docs/implementation/tools/check-implementation-estate.mjs
+```
+
+An optional root npm alias may invoke this tool, but the alias is convenience,
+not a reason to publish private records or implementation documents.
+
+## Phased migration
+
+### Phase 0 — approve boundaries and freeze a manifest
+
+- Approve or reject each sequencer amendment below independently.
+- Materialize the approved per-path facts in `source-dispositions.v1.json` and
+  implement the minimal source-registry, manifest and local-link checks before
+  any content move. Creating this migration control substrate moves no source.
+- Freeze path, SHA-256, class, owner, inbound-link count, and target disposition
+  for every current file.
+- Freeze the current work-item/status projection without changing status.
+- Exit: manifest is complete; no destination collision; no destructive move.
+
+### Phase 1 — establish private schemas and checks
+
+- Define the complete record schema and module/audit/pointer headers.
+- Implement link, single-sequencer, status-truth, owner/contract, dependency,
+  literal-exit, projection, and coverage checks.
+- Restore generator/checker availability in the authoritative estate checkout.
+- Exit: current estate can be audited with bounded waivers naming every legacy
+  violation; no new violation can enter.
+
+### Phase 2 — separate active reading from evidence/history
+
+- Create `audits/`, `_archive/`, `generated/`, `tools/`, and `work-items/logs/`.
+- Rehome dated audits, reviews, patches, migrations, generated files, and logs.
+- Replace old linked paths with tombstones where needed.
+- Re-run the source-manifest writer/checker after the exact path map is applied;
+  require a content-addressed pre-move snapshot and a verified post-move
+  projection before accepting the phase.
+- Exit: all local links resolve; hashes preserve moved bodies; root has only
+  the approved active files.
+
+### Phase 3 — extract reusable specialist detail
+
+- Extract stable PG definitions, M0 trust-boundary rules, M6 UX proof method,
+  and M8 experiment method.
+- Remove phase ordering, live status, and current inventories from modules.
+- Archive original bodies and point to current canon/master/modules.
+- Exit: module checker proves no second sequence or status voice.
+
+### Phase 4 — make work records executable
+
+- Migrate every record to full §4.1.
+- Close dependency IDs and parent/child aggregates.
+- Validate exact current owners/contract names.
+- Add recommended gap records only after owner/stage approval.
+- Exit: every record is either complete for its bounded plan or explicitly
+  rejected/superseded; no missing field is hidden by prose.
+
+### Phase 5 — generate A–Z coverage and repair the reader path
+
+- Generate architecture coverage, Hypervisor surface coverage, and program
+  state from current canon/source and the current records.
+- Require an explicit disposition for every current route, all 39 executable
+  seeds, three dormant seeds, archived capability evidence, fixture endpoint,
+  registered control, and consequential mutation path.
+- Rewrite README around the single reader journey.
+- Walk one M1, one M6, one M9, one M12, and one conditional future subject from
+  canon through record, code/UI, evidence, and exit.
+- Exit: a new reader reaches the owning cut in two hops and cannot encounter a
+  second live sequencer.
+
+### Phase 6 — final proof and archive the migration plan
+
+- Run all private checks from a clean authoritative checkout.
+- Perform the real desktop/narrow Hypervisor surface crawl unavailable to this
+  audit and attach it as dated M6 evidence.
+- Compare before/after manifests; require zero deletion and exact tombstones.
+- Regenerate projections in the same transaction.
+- Move this plan and its audit to `audits/` after the user accepts the result.
+
+### Phase controls, validation commands, and rollback points
+
+Commands naming future private tools are acceptance requirements for the
+refactor that implements them; they are not claims that those tools exist on
+this estate branch.
+
+| Phase | Prerequisite | Required validation commands | Rollback point |
+| --- | --- | --- | --- |
+| 0 | User decisions on SA-1–SA-9; clean authoritative checkout; approved `source-dispositions.v1.json`; frozen before manifest | `node internal-docs/implementation/tools/check-source-dispositions.mjs`; `node internal-docs/implementation/tools/freeze-source-manifest.mjs --write`; `node internal-docs/implementation/tools/freeze-source-manifest.mjs --check`; `node internal-docs/implementation/tools/check-internal-links.mjs`; `git check-ignore -v internal-docs/implementation/` | No content moved: reject the proposal and discard only the generated candidate manifest. |
+| 1 | Approved schemas/classes; before manifest retained | `node internal-docs/implementation/tools/check-work-items.mjs`; `node internal-docs/implementation/tools/check-single-sequencer.mjs`; `node internal-docs/implementation/tools/check-status-truth.mjs`; `node internal-docs/implementation/tools/check-private-estate-boundary.mjs`; `node internal-docs/implementation/tools/check-clean-checkout-nonclaims.mjs` | Restore schema/tool versions from the before manifest; retain all records/status/evidence byte-for-byte; remove no evidence. |
+| 2 | Phase-1 checks pass with enumerated legacy waivers | `node internal-docs/implementation/tools/check-source-dispositions.mjs`; `node internal-docs/implementation/tools/freeze-source-manifest.mjs --write`; `node internal-docs/implementation/tools/freeze-source-manifest.mjs --check`; `node internal-docs/implementation/tools/check-internal-links.mjs`; `node internal-docs/implementation/tools/check-module-headers.mjs`; before/after SHA-256 and path-map comparison; `git check-ignore -v` for every destination | Reverse the exact manifest path map, restore stable-path bodies, and verify original digests. No broad recursive delete is permitted. |
+| 3 | Archived bodies and destinations already hashed | `node internal-docs/implementation/tools/check-single-sequencer.mjs`; `node internal-docs/implementation/tools/check-status-truth.mjs`; `node internal-docs/implementation/tools/check-module-headers.mjs`; `node internal-docs/implementation/tools/check-internal-links.mjs` | Restore the source body from its preserved digest and remove only the specifically enumerated new pointer/module after review; status projection stays unchanged. |
+| 4 | Full record schema and owner/contract registry check operational | `node internal-docs/implementation/tools/check-work-items.mjs`; `node internal-docs/implementation/tools/check-literal-exits.mjs`; `node internal-docs/implementation/tools/generate-program-state.mjs --write`; `node internal-docs/implementation/tools/generate-program-state.mjs --check`; `node internal-docs/implementation/check-program-state.mjs` | Restore each pre-migration JSON from its per-file manifest, regenerate the prior projection, and retain new proposal text only in audit history. Never roll status forward/back by prose. |
+| 5 | Work-item dependency graph closed; SA-3/SA-6/SA-7 decisions applied | `node internal-docs/implementation/tools/generate-architecture-coverage.mjs --write`; `node internal-docs/implementation/tools/generate-architecture-coverage.mjs --check`; `node internal-docs/implementation/tools/generate-hypervisor-surface-coverage.mjs --write`; `node internal-docs/implementation/tools/generate-hypervisor-surface-coverage.mjs --check`; `node internal-docs/implementation/tools/check-hypervisor-surface-coverage.mjs`; `node internal-docs/implementation/tools/sync-runtime-action-schema.mjs --write`; `node internal-docs/implementation/tools/sync-runtime-action-schema.mjs --check`; `node internal-docs/implementation/tools/generate-runtime-kernel-residual.mjs --write`; `node internal-docs/implementation/tools/generate-runtime-kernel-residual.mjs --check`; `node internal-docs/implementation/tools/generate-program-state.mjs --write`; `node internal-docs/implementation/tools/generate-program-state.mjs --check`; `node internal-docs/implementation/tools/check-generated.mjs`; `node internal-docs/implementation/tools/check-internal-links.mjs`; `node internal-docs/implementation/tools/check-private-estate-boundary.mjs` | Restore the prior README and generated projections from manifest; leave canon, code, records and evidence untouched. |
+| 6 | Clean authoritative checkout; real visual evidence attached; user acceptance pending | `node internal-docs/implementation/tools/check-source-dispositions.mjs`; `node internal-docs/implementation/tools/freeze-source-manifest.mjs --write`; `node internal-docs/implementation/tools/freeze-source-manifest.mjs --check`; `node internal-docs/implementation/tools/check-implementation-estate.mjs`; `npm run check:work-items`; `npm run check:stateless-master-guide`; `node internal-docs/implementation/check-program-state.mjs`; final before/after digest and tracked-path check | Do not archive the plan/audit or declare completion. Reverse only approved rehomes via the exact path map; preserved archives remain recoverable and no stage/status changes. |
+
+## SEQUENCER AMENDMENTS — EXPLICIT USER APPROVAL REQUIRED
+
+The following diffs are proposals only. None is applied by this cut. Each hunk
+changes the sole sequencer and therefore requires explicit user approval.
+
+### SA-1 — remove stale active kernel authorities and define subordinate modules
+
+Reason: current canon says the kernel migration guide/matrix are archived
+terminal records, while master §2 still calls them active. The replacement
+must strengthen the master rather than crown a new guide.
+
+```diff
+--- a/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
++++ b/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
+@@ §2.1 Authority stack
+-6. The active Hypervisor kernel migration matrix for the current route-family migration lane.
+-7. This guide for program activation, dependencies, proof aggregation, and source disposition.
+-8. A specialist ledger or work package explicitly activated by this guide.
+-9. Preserved plans, prompt packs, captures, comparative research, and historical evidence.
++6. This guide for program activation, dependencies, proof aggregation, and source disposition.
++7. A subordinate implementation module explicitly activated by one stage or work package in this guide. A module owns reusable detail only; it cannot order work or carry live status.
++8. Archived terminal records, preserved plans, prompt packs, captures, comparative research, and historical evidence.
+@@ §2.3
+-Three specialist documents remain active without becoming peer roadmaps:
+-
+-| Document | Sole active responsibility |
+-| --- | --- |
+-| [`hypervisor-kernel-substrate-unification-master-guide.md`](../../../docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md) | Canonical target and terminal contract for convergence on one Rust daemon/Core execution fabric. |
+-| [`hypervisor-kernel-substrate-migration-matrix.md`](../../../docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md) | Current macro route-family ownership, remaining terminal blockers, and do-not-recreate ledger. |
+-| [`canon-mechanism-hardening-action-plan.md`](../canon-mechanism-hardening-action-plan.md) | Definitions, evidence, and closure status for the 58 `PG-*` production-integration gates. |
+-
+-The first two are canonical implementation authorities. The hardening plan is
+-an internal specialist ledger. This guide activates and aggregates their work
+-but does not reproduce their detailed rows.
++Subordinate implementation modules may remain active only for the exact detail this guide delegates. They are not sequencers, status owners, or architecture canon.
++
++| Module | Sole subordinate responsibility |
++| --- | --- |
++| `stage-guides/m0/runtime-trust-boundary.md` | Reusable M0 runtime trust-boundary/PEP method; dated inventories remain audit evidence. |
++| `stage-guides/m6/product-surface-and-ux-proof.md` | M6 compiler and UX-proof method; no phase order or live status. |
++| `stage-guides/m8/campaign-experiment-method.md` | M8 experiment/evaluator/fault method only when the master pulls it. |
++| `proof-gates/mechanism-gate-registry.md` | Status-free PG definitions, applicability semantics and proof shapes. |
++
++Archived kernel migration records are terminal evidence and own no current direction. Gate applicability and status live only in work-item records and generated program state.
+@@ §6.1 Runtime-convergence rail
+-The canonical kernel guide and migration matrix own this rail. A macro cut is
++Current daemon, Agentgres, wallet, contract and domain owners own their respective runtime facts. This master owns rail ordering; no archived guide or matrix owns current direction. A macro cut is
+ valid only when it:
+@@ §6.1 item 5
+-5. updates the migration matrix once at the macro boundary.
++5. regenerates the private route/final-invoker and Hypervisor-surface coverage projections once at the macro boundary.
+@@ WP-RUNTIME owner and terminal evidence
+-Owner: canonical kernel master guide and migration matrix.
++Owners: current daemon, Agentgres, wallet, contract, connector/tool, Hypervisor surface and applicable domain-owner canon; this master alone orders their runtime-convergence work.
+-Terminal evidence: the migration matrix's terminal conditions and full
+-conformance, the exact method-inventory audit verifier, extraction-specific
++Terminal evidence: the current repository's full applicable conformance aggregate,
++the exact method-inventory audit verifier, extraction-specific
+ negative tests proving the single-gateway property, and stage-specific live
+ probes for every selected effect family.
+@@ §13.2 Validation command families
+-Use the kernel migration matrix's full `hypervisor-conformance` bar for macro runtime cuts.
++Use the current repository `hypervisor-conformance` aggregate for macro runtime cuts and record the exact selected command set in the owning work item; the archived kernel matrix is historical evidence only.
+@@ §13.3 Status update transaction
+-5. update the kernel migration matrix if a macro route-family boundary changed;
++5. regenerate the private route/final-invoker and Hypervisor-surface coverage projections if a macro route-family boundary changed;
+@@ §14.5 Canonical and archived implementation references
+-| [`hypervisor-kernel-substrate-unification-master-guide.md`](../../../docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md) | Owns the canonical runtime convergence target and terminal contract. |
+-| [`hypervisor-kernel-substrate-migration-matrix.md`](../../../docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md) | Owns current macro migration status. |
++| [`hypervisor-kernel-substrate-unification-master-guide.md`](../../../docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md) | Archived terminal convergence record; useful evidence, not a current owner or sequencer. |
++| [`hypervisor-kernel-substrate-migration-matrix.md`](../../../docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md) | Archived terminal migration record; useful evidence, not current status. |
+@@ §15 Known stale conflicts
+-| `runtime-module-map.md` names deleted JS-daemon/bridge roots. | It is `rejected_conflict` until refreshed; current Rust daemon and migration matrix win. |
++| `runtime-module-map.md` names deleted JS-daemon/bridge roots. | It is `rejected_conflict` until refreshed; current Rust daemon owners, repository layout and conformance aggregate win. The archived migration matrix is evidence only. |
+```
+
+SA-1 and SA-4 must be reviewed as one authority-cleanup transaction: SA-4
+removes the remaining §14.1 row that says work belongs to the canonical
+migration matrix. Applying only one would leave a stale second voice.
+
+### SA-2 — complete the work-item record contract
+
+Reason: current records use fields absent from §4.1 and omit fields §4.1
+requires. The schema needs artifact classification, exact contracts, closed
+dependencies, and source/evidence anchors.
+
+```diff
+--- a/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
++++ b/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
+@@ §4.1 Work-item record
+ work_item_id
+ stage_id
++record_role: implementation_cut | aggregate_exit | private_verifier | conditional_future
+ status: proposed | scoped | active | evidence_ready | verified | blocked |
+         superseded | rejected
+ objective
+ falsifiable_claim
+ selected_profile
+ canon_owners
++canon_snapshot
++contract_families
++private_artifacts
+ current_implementation_evidence
+-dependencies
++dependency_work_item_ids
++aggregate_child_ids
+ in_scope
+ out_of_scope
+ implementation_actions
+ consequential_effects_and_final_invokers
+ applicable_pg_ids
+ positive_proof
+ adversarial_or_fault_proof
+ product_journey_and_states
+ metrics_and_frozen_thresholds
+ compatibility_and_migration
+ evidence_index
++code_anchors
++evidence_refs
+ remaining_nonclaims
+ rollback_or_stop_rule
+ source_provenance
+```
+
+### SA-3 — make architecture coverage an admission and maintenance gate
+
+Reason: a changing canon cannot remain A–Z covered without a deterministic
+impact check. The generated map is a projection, not a new sequence.
+
+```diff
+--- a/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
++++ b/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
+@@ §4.2 Admission rule
+ - its owner documents and current work-item records have been read;
++- the current architecture-coverage projection maps every in-scope canonical owner/contract to this stage and a bounded record, and no changed owner digest remains unreviewed;
++- every dependency is another work-item ID or an explicitly approved external gate; prose placeholders do not form the dependency graph;
+@@ §13.3 Status update transaction
++10. regenerate and validate `generated/architecture-coverage.v1.json`; a canon change with no implementation disposition blocks admission but changes no existing status by itself;
+```
+
+### SA-4 — permit archival preservation with stable tombstones
+
+Reason: current “preserve the source” wording has been interpreted as keeping
+every obsolete body in the active root. Preservation should mean no deletion,
+hash retention, and stable routing—not permanent visual competition.
+
+```diff
+--- a/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
++++ b/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
+@@ §2.2 Conflict procedure
+-8. preserve the superseded source and its evidence.
++8. preserve the superseded source and its evidence without deletion: move the full body to the approved audit/archive class, retain its digest and provenance, and leave a one-screen tombstone at any stable path still referenced. Preservation does not require an obsolete body to remain in the active reader path.
+@@ §14 Source Coverage And Disposition Ledger
++This section owns source-disposition policy and approvals. Its status-free machine attachment, `source-dispositions.v1.json`, owns each exact approved path/role/destination fact under that delegation. The generated private source manifest deterministically joins that registry with every current path/digest/inbound link; it owns no disposition. Archives, projections and tombstones schedule nothing.
+@@ §14.1 and §14.1A implementation-estate rows
+-### 14.1 `internal-docs/implementation/` — complete pre-consolidation inventory
+-The inventory below covers all twelve files that existed in this directory before this master and README were created.
+-
+-| Preserved source | Disposition | Master mapping | Retained value / conflict resolution |
+-| --- | --- | --- | --- |
++### 14.1 `internal-docs/implementation/` — approved active roles and generated source manifest
++`generated/source-manifest.v1.json` projects the complete path/digest/class/disposition inventory from `source-dispositions.v1.json` and the current filesystem/link census. The compact table below defines active-role policy and exceptions; the attachment is the exact per-path registry, and the generated manifest is never an approval source.
+-| [`bounded-recursive-improvement-campaign-discovery-plan.md`](../bounded-recursive-improvement-campaign-discovery-plan.md) | `conditional_satellite` | M8, WP-IMPROVE | Statistical, evaluator-integrity, exposure, order, fault, and experiment detail retained for M8. Canon owns Campaign meaning; this source's phase list does not execute independently. |
+-| [`canon-mechanism-hardening-action-plan.md`](../canon-mechanism-hardening-action-plan.md) | `active_satellite` | all stages, `R-OPS` | Sole detailed 58-gate definition/closure ledger and mechanism evidence. This guide never duplicates or closes its gates. |
+-| [`canon-sota-improvement-review.md`](../canon-sota-improvement-review.md) | `historical_evidence` | M0, all rails | Dated 2026-07-16 advisory/research provenance. Adopted lessons are in canon, rails, and work packages; recommendations do not schedule work, and the comparative goal prompt owns the reusable method. |
+-| [`hypervisor-bounded-das-application-taxonomy-winning-state-plan.md`](../hypervisor-bounded-das-application-taxonomy-winning-state-plan.md) | `active_satellite` | M6, M9, WP-UX | Detailed taxonomy migration, `UX-00`, seed coverage, pressure tests, and usability measures. Canon controls current names/owners. |
+-| [`hypervisor-model-mount-rust-consolidation-and-deadcode-retirement.md`](../hypervisor-model-mount-rust-consolidation-and-deadcode-retirement.md) | `absorbed_complete` | WP-RUNTIME | Completed JS-daemon/model-mount retirement checkpoint. Remaining work belongs to the canonical migration matrix; do not replay its phases. |
+-| [`ioi-design-system-portable-package-plan.md`](../ioi-design-system-portable-package-plan.md) | `absorbed_open` | M6, M9, WP-UX | Track 1 is retained as package-adoption history, not current implementation truth. Package presence and consumer adoption require an owning work-item record and committed anchors. Broader-consumer and ESM-native obligations are conditional. |
+-| [`ioi-undeniable-product-proof-implementation-guide.md`](../ioi-undeniable-product-proof-implementation-guide.md) | `absorbed_open` | M0–M14, especially M9 | First-proof profile, goal-pass discipline, repair obligations, scorecard, release ladder, and stop rules are consolidated here; its discovery/canon-feedback method now lives in the comparative goal prompt. Its old dependency graph is superseded. |
+-| [`low-level-implementation-milestones.md`](../low-level-implementation-milestones.md) | `compatibility_pointer` | this guide | Stable historical link target; now routes sequencing here rather than to the stale refine guide. |
+-| [`refine-architecture.md`](../refine-architecture.md) | `historical_evidence` | M0, M3, M6, M9 | June-era architecture pressure audit. Later canon resolved most owner gaps; stale Missions, old app taxonomy, old paths, and its phase order are not executable. Path stays for ADR/test backlinks. |
+-| [`runtime-action-schema.json`](../runtime-action-schema.json) | `reference_guardrail` | `R-CONTRACT` | Byte-identical mirror of the canonical schema at inventory time. Canonical schema is the only owner; this copy is not a plan. |
+-| [`runtime-module-map.md`](../runtime-module-map.md) | `rejected_conflict` | WP-RUNTIME | Names deleted `packages/runtime-daemon` and `ioi-runtime-bridge.rs`; do not use as current layout until refreshed against Rust daemon reality. |
+-| [`runtime-package-boundaries.md`](../runtime-package-boundaries.md) | `reference_guardrail` | WP-RUNTIME | Ownership checklist remains useful; paths/taxonomy require refresh before implementation use. |
+-### 14.1A Post-consolidation activated specialist guides
+-
+-| Preserved source | Disposition | Master mapping | Retained value / conflict resolution |
+-| --- | --- | --- | --- |
+-| [`runtime-kernel-service-trust-boundary-audit.md`](../runtime-kernel-service-trust-boundary-audit.md) | `active_satellite` | M0.9, WP-RUNTIME, M9 | Complete method-by-method classification of the current Rust aggregation facade. Its inventory verifier is binding for coverage, but its proposed extractions activate only as master-pulled owner cuts and may not weaken the single authority/admission/final-invoker/receipt gateway. |
++| Approved active source | Disposition | Master mapping | Retained value / conflict resolution |
++| --- | --- | --- | --- |
++| `source-dispositions.v1.json` | `source_registry` | §14 | Status-free exact per-path role/destination registry approved under this section; owns no order or status. |
++| `stage-guides/m0/runtime-trust-boundary.md` | `active_satellite` | M0.9, WP-RUNTIME, M9 | Reusable trust-boundary/PEP method only; dated census is audit evidence. |
++| `stage-guides/m6/product-surface-and-ux-proof.md` | `active_satellite` | M6, WP-UX | Compiler and UX-proof method only; no phase order/status. |
++| `stage-guides/m8/campaign-experiment-method.md` | `conditional_satellite` | M8, WP-IMPROVE | Experiment/evaluator/fault method only; no independent activation. |
++| `proof-gates/mechanism-gate-registry.md` | `active_satellite` | all stages, `R-OPS` | Status-free PG definitions and proof shapes only. |
++| [`check-program-state.mjs`](../check-program-state.mjs) | `compatibility_pointer` | M0, §13.3 | Stable wrapper for the master-required validation command. |
++| [`low-level-implementation-milestones.md`](../low-level-implementation-milestones.md) | `compatibility_pointer` | this guide | Stable sequencing pointer. |
++All prior bodies, audits, generated mirrors, logs, reconciliation transactions and work-item paths retain their exact approved role/destination in `source-dispositions.v1.json`. `generated/source-manifest.v1.json` records and verifies their SHA-256 values, inbound links and projected dispositions; their archive/audit/pointer classes schedule nothing.
+```
+
+### SA-5 — remove the PG status exception
+
+Reason: the hardening plan currently carries gate closure status outside the
+Status Truth Rule. Stable gate definitions can remain in a module; current
+disposition belongs in work records/projections. SA-1 replaces the §2.3
+authority block and SA-4 replaces the §14.1 source block; this hunk therefore
+changes only the remaining status transaction and does not overlap them.
+
+```diff
+--- a/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
++++ b/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
+@@ §6.2 Production-gate rail
+-The hardening plan remains the sole definition and closure ledger for the 58
+-`PG-*` gates. This guide records only applicability:
++The status-free `proof-gates/mechanism-gate-registry.md` owns reusable definitions and proof shapes for the 58 `PG-*` gates. Owning work-item records carry applicability and closure status; generated program state projects it:
+@@ §13.3 Status update transaction
+-6. update the hardening ledger if a `PG-*` gate actually closed;
++6. update the owning work-item evidence and regenerate program state if a `PG-*` gate actually closed; the status-free mechanism-gate registry changes only when a gate definition or proof shape changes;
+```
+
+### SA-6 — require an explicit disposition for every build-relevant canonical target
+
+Reason: the current guide sequences the selected proof but leaves several
+canonical families only in broad work packages. A–Z coverage needs an approved
+home without pulling gated work forward.
+
+```diff
+--- a/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
++++ b/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
+@@ after §8.11 WP-DOCS
++### 8.12 Architecture coverage disposition
++
++Every build-relevant canonical owner/contract must resolve to exactly one of:
++
++1. a named M0–M14 requirement and owning work-item record;
++2. a named work package with one owning stage and activation condition; or
++3. a conditional-future record whose activation requires a later explicit sequencer amendment.
++
++Information-flow enforcement, production receipt proofs, environment construction, model/provider rights, managed economics/disputes, Foundry/Evaluations, worker/service supply, platform operability, private/measured substrate, Agentgres production breadth, ecosystem assurance/public claims, storage breadth, and live embodied promotion may not remain as unassigned prose. Planning them does not activate them or widen M9–M14 claims.
+```
+
+### SA-7 — add the missing aggregate and product-state obligations
+
+Reason: M0, M1, M9, M13, and M14 lack explicit aggregate records; M6 lacks
+per-surface registration/state ownership and a closed map to later operational
+owners; M9.1 lacks an owner.
+
+```diff
+--- a/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
++++ b/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
+@@ M0 exit
++The M0 exit is owned by one aggregate work-item record joining M0.1–M0.9, all existing and approved M0 records, selected PG applicability, the exact runtime-trust/route/final-invoker censuses, frozen profile/baselines/nonclaims, source dispositions, and the single-sequencer check. `M0_EXIT=0` closes no architecture or production capability.
+@@ M1 exit
++The M1 exit is owned by one aggregate work-item record joining M1.1–M1.7 and all protected-transition children, including migration/succession, residual disposition, dissolution, and local-only enrollment.
+@@ M6 exit
++The M6 exit requires separate bounded records for the normalized compiler; source/serve convergence; production fixture-fallback retirement; shell/alias migration and accessibility; Systems and Work; consequential-action authority/receipt convergence; current-source surface disposition; and honest registration/routing/loading/empty/denied/unavailable/degraded states for every pulled core/owner/substrate surface. It also requires a closed projection from each admitted surface to the exact later-stage operational-journey owner listed in the approved work-item map.
++Route presence, registration, reference capture, pixel parity, or an M6 shell-state exit cannot establish operational depth. Preserve the existing nonclaim: operational depth for every registered surface is proved only by its applicable later-stage owner record and aggregate.
++M6 owns the operational-journey records for Home, Systems, Projects, Applications, Work, Automations, Packages, and Developer Workspace because their selected backend prerequisites are M1–M5. Its aggregate joins those eight records.
+@@ M7 required work and exit
++M7 owns the Studio, Ontology, and Data operational-journey records. The M7 aggregate joins their literal exits after semantic/data mechanism exits.
+@@ M8 required work and exit
++M8 owns the Evaluations, Improvement, and Foundry operational-journey records. The M8 aggregate joins their literal exits; shell presence, suite declaration, proposal cards, or run plans are not execution proof.
+@@ M9 required work and exit
++M9 owns the Governance, Provenance, Developer Console, and Environments operational-journey records for the selected sovereign/managed profile. Its aggregate joins their literal exits without inferring federation or multi-node continuity.
+@@ M10 required work and exit
++M10 owns the Operations operational-journey record and joins its literal exit to the continuity aggregate.
+@@ M11 required work and exit
++M11 conditionally owns the Embodied Systems non-live operational-journey record only when its registration is pulled. The M11 aggregate may join only its non-live literal exit; live actuator/E1+ promotion remains a separately approved conditional future.
+@@ M9 required work
++M9.1 is owned by an explicit compact-versus-advanced identical-object/hash parity record. The stage exit is owned by one aggregate record joining the complete 21-step journey, sovereign lane, optional managed overlay, Authority Gateway coverage, lifecycle/offline evidence, release supply chain, applicable PG gates, metrics, stop rules, and permitted claim.
+@@ M13 and M14 exits
++M13 and M14 each require an explicit aggregate exit record distinct from the trial, demand, service, or L1-decision records it joins.
+```
+
+### SA-8 — correct the Authority Gateway coverage owner
+
+Reason: the current M9 work item retains an “owner unresolved” premise that
+current canon has resolved.
+
+```diff
+--- a/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
++++ b/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
+@@ M9.3
+-resolve `EnforcementCoverageDeclaration` ownership before the mechanism-bound coverage proof;
++use daemon doctrine for the IOI Authority Gateway and the current HypervisorOS/daemon contract ownership for `EnforcementCoverageDeclaration`; keep any route census, comparison manifest, or retained exit log explicitly private and non-canonical;
+```
+
+### SA-9 — assign the unowned A–Z contract families
+
+Reason: these canonical build families are currently mentioned only in broad
+work packages or later proof criteria. The proposed mapping gives each one a
+single stage owner without activating it, changing its canon meaning, or
+pulling M9–M14 claims forward. Approve, reject, or edit each added line
+independently.
+
+```diff
+--- a/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
++++ b/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
+@@ M2 required work
++Own `project-discovery-startup-and-session-chain` and `storage-profile-repair-and-availability` as M2 mechanism records; later stages may aggregate their evidence but may not redefine their truth.
++The existing M2 selected-profile aggregate must join both new M2 records; neither may remain outside its child graph.
+@@ M3 required work
++Own `production-information-flow-and-declassification`, `production-receipt-checkpoint-and-offline-proof`, and `agentgres-production-readiness-and-branch-effects` as M3 mechanism records. M9 must aggregate their selected-profile evidence before the first sovereign-product claim.
++The existing M3 direct-path/exit aggregate must join all three new M3 records while retaining the direct-path differential.
+@@ M6 required work
++Own `sdk-cli-adk-odk-builder-journey` for supported interface and maturity-labeled builder parity; WP-DOCS supplies runnable documentation but does not become a second sequence.
++The existing M6 aggregate must join the builder record; runnable interface evidence does not grant client-side authority.
+@@ M8 required work
++Own `foundry-evaluations-production-loop`, `worker-training-and-local-marketplace-supply`, `managed-billing-work-credits-and-supplier-reconciliation`, and `marketplace-neutral-routing-contribution-accounting` as reusable local/managed mechanisms. These record IDs contain no federation or connected-service work.
++The M8 aggregate must join all four distinct literal exits. Local worker supply depends on the M5 acceptance/challenge boundary and billing; neutrality depends on the local-worker and billing exits. Neither depends on the M12 dispute kernel, preventing an M8↔M12 cycle.
+@@ M9 required work
++Own `platform-operability-observability-and-incidents` and `hypervisoros-ctee-task-capsule-attestation` for the selected sovereign profile, and aggregate the selected M3 information-flow/receipt/Agentgres mechanisms. This does not establish multi-node continuity.
+@@ M12 required work
++Own `dispute-adjudication-remedy-kernel` for AIIP and cross-rail admission/appeal/remedy binding after the M5 acceptance/challenge and M8 billing/neutrality exits. M13–M14 may aggregate its evidence but cannot settle before its literal exit.
++The existing M12 selected-profile aggregate must join the dispute-kernel record and cannot emit its literal exit while that child remains open.
+@@ M14 required work
++Own `connected-worker-capability-supply-and-hiring`, `decentralized-profile-admission-and-exit`, and `ecosystem-assurance-and-public-claim-estate` as M14 records. The connected-worker record owns external digital-worker discovery, capability hiring, lifecycle and portable exit only. `m14-service-family-owner-contract-and-product-surfaces` remains the sole sas service registry/order/delivery/acceptance/payment/service-dispute-binding/suspension/exit journey owner, while the M12 dispute kernel remains the sole adjudication/appeal/remedy mechanism owner. These records depend on the distinct M8 billing, local-worker and neutrality exits and the M12 dispute exit; M14 does not co-own or append scope to those earlier record IDs. Preserve the valid no-L1 branch and all demand/mainnet nonclaims.
+@@ WP-EMBODIED activation
++`live-embodied-promotion` remains a conditional-future record outside the active M0–M14 closure path. It may be assigned and activated only by a later explicit sequencer amendment after the M11 non-live exit; M11 evidence cannot prove live physical action.
+```
+
+## Final acceptance criteria for the future refactor
+
+The reorganization is complete only when all of the following are true:
+
+- the root contains only the approved active entry files;
+- every pre-refactor file is present at its target or represented by an exact
+  archive digest plus stable tombstone;
+- the master is the only sequencer by machine check;
+- modules contain no live status or independent phase order;
+- all work items satisfy the complete record schema and closed dependency graph;
+- every build-relevant canonical target has exactly one private implementation
+  disposition;
+- Hypervisor target taxonomy, current routes/surfaces, disabled authority gaps,
+  and owner-app journeys join to M6 records;
+- program state and architecture coverage regenerate from current records;
+- every local Markdown link resolves;
+- all retained proof bars use literal `*_EXIT=` values;
+- M9–M14 language remains gated; and
+- the user has approved and merged the sequencer amendments actually selected.

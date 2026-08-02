@@ -36,6 +36,9 @@ await setMode("auto");
 ok(await code(`${DAEMON}/v1/hypervisor/secrets`) === 200, "auto + loopback (not exposed) → NOT enforced");
 ok(await code(`${DAEMON}/v1/hypervisor/secrets`, { headers: { "X-Forwarded-Host": "hv.example.com" } }) === 401, "auto + EXPOSED (forwarded-host) → enforced (401)");
 ok(await code(`${DAEMON}/v1/hypervisor/secrets`, { headers: { "X-Forwarded-Host": "hv.example.com", Authorization: `Bearer ${tok}` } }) === 200, "exposed + valid session → 200");
+ok(await code(`${DAEMON}/v1/goal-orchestration/goal-runs`, { headers: { "X-Forwarded-Host": "hv.example.com" } }) === 401, "exposed + unauth → goal-orchestration namespace is GATED");
+ok(await code(`${DAEMON}/v1/threads`, { headers: { "X-Forwarded-Host": "hv.example.com" } }) === 401, "exposed + unauth → thread namespace is GATED");
+ok(await code(`${DAEMON}/v1/runs/unknown/events`, { headers: { "X-Forwarded-Host": "hv.example.com" } }) === 401, "exposed + unauth → run-event namespace is GATED before resource lookup");
 // the gate exempts only login-flow paths: /auth/policy must require auth when enforced
 ok(await code(`${DAEMON}/v1/hypervisor/auth/policy`, { method: "PUT", headers: { "content-type": "application/json", "X-Forwarded-Host": "hv.example.com" }, body: JSON.stringify({ mode: "never" }) }) === 401, "exposed + unauth → /auth/policy is GATED (can't disable enforcement)");
 ok(await code(`${DAEMON}/v1/hypervisor/auth/login`, { method: "POST", headers: { "content-type": "application/json", "X-Forwarded-Host": "hv.example.com" }, body: "{}" }) !== 404, "login endpoint stays reachable under enforcement");

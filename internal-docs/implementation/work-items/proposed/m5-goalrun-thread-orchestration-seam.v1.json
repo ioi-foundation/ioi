@@ -1,0 +1,347 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m5-goalrun-thread-orchestration-seam",
+  "stage_id": "M5",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "M5.0"
+  ],
+  "status": "proposed",
+  "objective": "Bind every executing GoalRun and harness-to-harness delegation to the daemon-owned thread event, thread fork, managed session, session launch recipe, and harness session binding primitives.",
+  "falsifiable_claim": "An executing GoalRun can coordinate bounded workers and harnesses while every event, fork, managed-session transition, launch recipe, and harness binding resolves to the exact daemon/kernel owner and no application-local orchestration truth survives.",
+  "selected_profile": "One admitted GoalRun with one primary harness and one bounded delegated harness, executed through the exact five ADR 0031 daemon/kernel owners after M4 closes.",
+  "canon_owners": [
+    "docs/architecture/_meta/implementation-matrix.md",
+    "docs/architecture/components/daemon-runtime/doctrine.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/domains/ioi-ai/control-plane.md",
+    "docs/architecture/foundations/objects/goal-run-execution.md",
+    "docs/decisions/0031-goalrun-execution-composes-thread-orchestration.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "413543689ed04c7dcaaa806022e2c2cf8e7f2350",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "e47c103029d70fa7c54645f85654f485497cc328174e739e659542745bd68c9b",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/implementation-matrix.md",
+        "sha256": "d92a680bcc63e31fcf754ac05d25df1578dd8d563f58a442f84eeb86dc021fb9"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/doctrine.md",
+        "sha256": "4788208f06bf55b39e954abbc560da9b089c438a6410c015126ebec171723a5f"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "92930e5cf1d8b1b063f1d9bf66df2bc4304586878dc1519371aa485c0f7a544c"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/control-plane.md",
+        "sha256": "55a2e9986c1ac83e87327604f10627df132e3f85087845c0383ebe878989c2ef"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/goal-run-execution.md",
+        "sha256": "adc7f070e32b95e6bad21274fe508aa79d1efea4b42986779e0e918ddc3c6d5e"
+      },
+      {
+        "path": "docs/decisions/0031-goalrun-execution-composes-thread-orchestration.md",
+        "sha256": "f2c3f00b6e3732e7abe29a2a30425cd7a2e27c92d2ad7a70406b11180d7fe62f"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "RuntimeThreadEventAdmission",
+      "owner_path": "docs/architecture/components/daemon-runtime/doctrine.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/objects/goal-run-execution.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "RuntimeThreadForkControl",
+      "owner_path": "docs/architecture/components/daemon-runtime/doctrine.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/objects/goal-run-execution.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "RuntimeManagedSessionControl",
+      "owner_path": "docs/architecture/components/daemon-runtime/doctrine.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/objects/goal-run-execution.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "HypervisorSessionLaunchRecipeAdmission",
+      "owner_path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/daemon-runtime/doctrine.md",
+        "docs/architecture/foundations/objects/goal-run-execution.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#hypervisorsessionlaunchrecipeadmission",
+      "contract_ids": [
+        "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1"
+      ],
+      "schema_versions": [
+        "ioi.runtime.hypervisor_session_launch_recipe_admission.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "HarnessSessionBindingAdmission",
+      "owner_path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/daemon-runtime/doctrine.md",
+        "docs/architecture/foundations/objects/goal-run-execution.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#harnesssessionbindingadmission",
+      "contract_ids": [
+        "schema://ioi/components/hypervisor/harness-session-binding-admission/v1"
+      ],
+      "schema_versions": [
+        "ioi.runtime.harness_session_binding_admission.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m5-goalrun-thread-orchestration-seam",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m5-goalrun-thread-orchestration-seam.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M5_GOALRUN_THREAD_ORCHESTRATION_SEAM_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Measured 2026-08-01: runtime_goal_pursuit.rs plus goalrun_routes.rs reference runtime_thread_event, runtime_thread_fork_control, runtime_managed_session_control, runtime_harness_session_binding_admission, and runtime_hypervisor_session_launch_recipe_admission zero times each. The five owners exist elsewhere in the daemon/kernel; this record claims no current composition and generates no literal. ADR 0030 TEST (2026-08-01): the three reviewed_owner_locator families of this record (RuntimeThreadEventAdmission, RuntimeThreadForkControl, RuntimeManagedSessionControl) FAILED the ADR 0030 test — the runtime thread-event plane they ride mints its own per-stream sequence, state-root chain, heads, admission hashes, and receipt-ref identities outside canonical Agentgres, under fabricated agentgres://runtime-events/... naming (measured finding recorded in m5-agentgres-durable-event-subscription-successor.current_implementation_evidence). They therefore cannot be naively promoted to architecture_contract_registry resolution: doing so would register a second admission spine at the thread layer. Before this record's exit contract can bind those families, the owner must choose between (a) sequencing composition after the durable-event-subscription successor re-homes accepted events onto atomic Agentgres head/root transitions, or (b) contracting the three as sibling-style request/decision reference shapes (per harness-session-binding-admission.v1) that own no sequence/root/chain field. The two already-registered families of this record are unaffected. OWNER RULING (2026-08-01): option (a) is taken — m5-agentgres-durable-event-subscription-successor is now a sequenced dependency of this record (see dependency_work_item_ids), so M5 starts with the re-homing cut and this seam composes over re-homed primitives; the three reviewed_owner_locator families stay unpromoted until that dependency closes. This is a logical dependency (composition over a self-minted spine proves nothing), not a scheduling preference.",
+  "dependency_work_item_ids": [
+    "m4-outcome-room-system-spine",
+    "m5-agentgres-durable-event-subscription-successor"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "M5.0 and ADR 0031's exact five-owner GoalRun execution composition",
+    "One primary harness requesting one bounded delegated harness only through daemon-owned fork/session/launch contracts",
+    "Exact GoalRun refs to kernel event, fork, managed-session, launch-recipe, harness-binding, receipt, and replay truth",
+    "Positive, denial, stale-state, substitution, restart, replay, fault, and retained-evidence proof for the seam"
+  ],
+  "out_of_scope": [
+    "M4 room admission, CAS, lineage, replay, projection, or literals",
+    "M5 pairing, participant admission, frontier, claim, Attempt, Finding, VerifierChallenge, acceptance, export, or settlement lifecycles",
+    "General durable pub/sub, dynamic subscription creation, durable subscriber checkpoints, and accepted-event losslessness; those belong to m5-agentgres-durable-event-subscription-successor.",
+    "General untrusted-workload isolation or a strong-sandbox claim; those remain in M9.",
+    "Deleting GoalRun, requiring a Session for a non-executing GoalRun, or granting authority through a thread, fork, Session, or harness binding",
+    "Creating this proposed record does not implement behavior, close its literal, or change M4 status."
+  ],
+  "implementation_actions": [
+    "Expose a GoalRun execution binding that resolves exact RuntimeThreadEvent, RuntimeThreadForkControl, RuntimeManagedSessionControl, HypervisorSessionLaunchRecipeAdmission, and HarnessSessionBindingAdmission records.",
+    "Replace GoalRun-local execution, delegation, Session, and harness lifecycle ownership with exact refs and derived application projections over those kernel records.",
+    "Prove one harness-to-harness delegation crosses daemon authority, fork, managed-session, launch-recipe, binding, readiness, receipt, and replay gates without peer authority or private event truth.",
+    "Retain an evidence index and require exactly one M5_GOALRUN_THREAD_ORCHESTRATION_SEAM_EXIT=0 only after the finished fresh-process proof and independent review."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "thread event admission and replay",
+      "final_invoker": "RuntimeThreadEvent kernel admission/projection",
+      "authority_source": "daemon-resolved GoalRun/session/thread authority",
+      "receipt_or_evidence": "Agentgres-backed runtime thread event and replay refs",
+      "negative_behavior": "deny application-minted events, wrong stream, stale cursor, missing receipts, or direct peer writes"
+    },
+    {
+      "effect": "bounded harness-to-harness delegation and managed execution",
+      "final_invoker": "RuntimeThreadForkControl plus RuntimeManagedSessionControl and admitted launch/binding chain",
+      "authority_source": "daemon gate, explicit fork/session request, admitted launch recipe, and harness binding",
+      "receipt_or_evidence": "fork, managed-session, launch-recipe, binding, readiness, terminal-attach, and replay evidence",
+      "negative_behavior": "deny direct harness spawning, wrong GoalRun/Session, stale binding, widened authority, or application-local lifecycle truth"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "One admitted GoalRun executes through exact thread-event and managed-session truth, delegates one bounded worker through RuntimeThreadForkControl, and consumes the admitted launch-recipe and harness-binding chain.",
+    "Restart/replay reconstructs the same GoalRun-to-thread/fork/session/harness refs without application-local repair or duplicate effects.",
+    "The retained evidence file contains exactly one line equal to M5_GOALRUN_THREAD_ORCHESTRATION_SEAM_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Remove or substitute each of the five kernel refs; attempt direct harness spawning, application-minted event/fork/session truth, wrong GoalRun/Session binding, stale fork head, widened authority, missing launch receipt, crash between fork and binding, duplicate replay, peer self-admission, and composition through a private kernel entrypoint unavailable to other bounded clients. Every case fails closed or recovers through the owning daemon record.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m5-goalrun-thread-orchestration-seam; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Replay challenges; substitute origin, target, key, attempt, expiry, adapter, profile, and claimant; race claim, cancel, expire, and revoke; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M5_GOALRUN_THREAD_ORCHESTRATION_SEAM_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "m5.goalrun_named_kernel_owner_bindings",
+      "metric": "distinct ADR 0031 kernel owners exactly consumed by executing GoalRun proof",
+      "threshold": 5,
+      "unit": "owners",
+      "threshold_source": "ADR 0031 exact composition set",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m5.application_local_orchestration_truth_paths",
+      "metric": "GoalRun-local event, fork, managed-session, launch, binding, or replay truth paths",
+      "threshold": 0,
+      "unit": "paths",
+      "threshold_source": "ADR 0031 one orchestration spine",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m5.goalrun_private_kernel_entrypoints",
+      "metric": "kernel bindings consumed by the executing-GoalRun proof that cross an entrypoint unavailable to other bounded clients",
+      "threshold": 0,
+      "unit": "entrypoints",
+      "threshold_source": "ADR 0031 same-public-contracts consequence",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m5.harness_peer_authority_grants",
+      "metric": "authority grants minted by one harness for another harness",
+      "threshold": 0,
+      "unit": "grants",
+      "threshold_source": "daemon-owned authority and execution boundary",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M5_GOALRUN_THREAD_ORCHESTRATION_SEAM_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M5/m5-goalrun-thread-orchestration-seam.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_goal_pursuit.rs",
+      "present_when": "migration_input",
+      "evidence_scope": "current GoalRun pursuit path with zero references to all five named kernel owners"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+      "present_when": "migration_input",
+      "evidence_scope": "current GoalRun route path with zero references to all five named kernel owners"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs",
+      "present_when": "current_kernel_owner",
+      "evidence_scope": "canonical daemon/kernel primitive to be consumed by this successor cut"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_thread_fork_control.rs",
+      "present_when": "current_kernel_owner",
+      "evidence_scope": "canonical daemon/kernel primitive to be consumed by this successor cut"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_managed_session_control.rs",
+      "present_when": "current_kernel_owner",
+      "evidence_scope": "canonical daemon/kernel primitive to be consumed by this successor cut"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_harness_session_binding_admission.rs",
+      "present_when": "current_kernel_owner",
+      "evidence_scope": "canonical daemon/kernel primitive to be consumed by this successor cut"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_hypervisor_session_launch_recipe_admission.rs",
+      "present_when": "current_kernel_owner",
+      "evidence_scope": "canonical daemon/kernel primitive to be consumed by this successor cut"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "M4's room truth/projection proof remains separate and unchanged.",
+    "A kernel execution binding grants no GoalRun, room, participant, wallet, connector, or effect authority by itself.",
+    "This proposed record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop on any missing named kernel owner, application-local orchestration truth, direct harness peer authority, stale GoalRun/Session/fork binding, missing launch/binding receipt, replay ambiguity, or failed independent review. Roll back through the owning daemon contracts; never restore a GoalRun-local execution spine.",
+  "exit_criteria": [
+    "All five ADR 0031 kernel owners are exactly consumed by the finished executing-GoalRun proof and no application-local orchestration truth path remains.",
+    "Every kernel binding consumed by the executing GoalRun crosses the same admitted daemon contracts available to any bounded client; no private in-process entrypoint, side-channel admission, or GoalRun-only contract variant exists (ADR 0031 same-public-contracts consequence, made a bar).",
+    "Bounded harness-to-harness delegation passes positive, denial, substitution, crash/recovery, restart, replay, and authority-non-grant proof.",
+    "Retained evidence contains exactly one literal M5_GOALRUN_THREAD_ORCHESTRATION_SEAM_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Authorized by accepted ADR 0031 on 2026-08-01 after measuring zero references from the current GoalRun execution paths to each of five existing daemon/kernel orchestration owners. Proposed as the first M5 cut; no runtime or literal generated.",
+  "last_status_transaction": "2026-08-01"
+}

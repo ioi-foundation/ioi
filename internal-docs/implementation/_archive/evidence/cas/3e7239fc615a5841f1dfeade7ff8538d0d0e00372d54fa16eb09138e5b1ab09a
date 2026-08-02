@@ -1,0 +1,125 @@
+{
+  "evidence_format": "ioi.program.m3_selected_profile_e2e.v1",
+  "stage_id": "M3",
+  "selected_lane": "m3-direct-non-system",
+  "proof_profile": "research",
+  "reviewed_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+  "implementation_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_goal_pursuit.rs",
+      "sha256": "9f23a0ece79dad0bcf3a74a90d78c05ca62f688f64e88b1d4e17f5f0909a1bb7"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/runtime_goal_run_admission.rs",
+      "sha256": "e1f0a089d76bbd0cb337d32215a7e3a74c6fca9cd70a06d613693c10d5b8a0be"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+      "sha256": "d0a37b9321fa98846866ebcbe6c87e67699f873895ab51c2a9e798f14802fef5"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-m3-goalrun-plane.mjs",
+      "sha256": "4c2e0c699d47e6dabebe27d7180bb55c88289aa7ec3f64e1547281c03e498148"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "sha256": "785b7d8ce9e45bd83d1911fb7d96b45f0209075c8e6c9c39e5a45b2b2a81e763"
+    }
+  ],
+  "contract_registry": {
+    "contracts": 127,
+    "fixtures": 474,
+    "m3_families_admitted": 23,
+    "canonical_write_side_reference_schemes": true,
+    "generated_rust_and_typescript_projection_parity": true
+  },
+  "checks": [
+    {
+      "command": "npm run check:architecture-contract-bar",
+      "exit_code": 0,
+      "result": "127 contracts, 474 fixtures, 592 differential cases, 14 Rust contract tests"
+    },
+    {
+      "command": "npm run check:architecture-docs",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run check:conformance-docs",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run hypervisor-conformance:receipts",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run hypervisor-conformance:bridge",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run hypervisor-conformance:negative",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run test:rust-daemon-runtime-api",
+      "exit_code": 0,
+      "result": "41 tests passed"
+    },
+    {
+      "command": "npm run test:mcp-skills-hooks",
+      "exit_code": 0,
+      "result": "2 tests passed"
+    },
+    {
+      "command": "npm run check:runtime-layout",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run build --workspace=@ioi/hypervisor-app",
+      "exit_code": 0,
+      "warnings": [
+        "Vite emitted its ordinary large-chunk advisory; it is not a build failure."
+      ]
+    },
+    {
+      "command": "node apps/hypervisor/scripts/test-product-surface-contract.mjs",
+      "exit_code": 0
+    },
+    {
+      "command": "node apps/hypervisor/scripts/verify-m3-goalrun-plane.mjs",
+      "exit_code": 0,
+      "result": "6 of 6 isolated daemon and restart assertions passed"
+    },
+    {
+      "command": "cargo test -p ioi-services runtime_goal_pursuit --lib",
+      "exit_code": 0,
+      "result": "16 of 16 focused kernel tests passed"
+    },
+    {
+      "command": "npm run check:m0-program-control",
+      "exit_code": 0,
+      "result": "60 of 60 adversarial control tests and supplied-snapshot check passed"
+    }
+  ],
+  "positive_proof": [
+    "The daemon selects the direct non-System path from the complete canonical predicate set and mints the GoalRun identity itself.",
+    "Exact immutable workflow, skill, harness, tool, constraint, policy, and profile revisions and hashes produce a component snapshot, active-skill snapshot, and profile-resolution receipt.",
+    "Draft and active WorkLifecycleRecord entries persist with exact heads before the active GoalRun is admitted.",
+    "A generic research WorkResult with negative outcome is retained without success coercion.",
+    "Restart reconstructs the same GoalRun identity, lifecycle head, admitted state root, and WorkResult lineage.",
+    "Work and Sessions consume typed GoalRun projections from the source-owned Hypervisor application."
+  ],
+  "adversarial_and_fault_proof": [
+    "Mutable or unhashed definitions refuse before any GoalRun persistence.",
+    "Invalid result profile, missing provenance, illegal lifecycle transition, changed-body replay, stale head, and unreconciled cancellation refuse.",
+    "Information-flow destinations outside policy and implicit, foreign, stale, or effect-mismatched declassification and authority receipts refuse.",
+    "Receipt omission, mutation, signature tamper, and revocation fail offline verification.",
+    "Agentgres split-head merge, unlabeled staged effect, empty checkpoint, and post-merge mutation refuse; staged effects do not apply before exact-head merge.",
+    "Projection definitions remain derived views and cannot become operation truth."
+  ],
+  "nonclaims": [
+    "This closes the M3 selected direct path and its shared mechanism proof only; it does not close P0, M4, collective pursuit, OutcomeRoom, Campaign, or System-bound release claims.",
+    "No result receives acceptance authority from a profile, skill, workflow, harness, tool, client, or UI.",
+    "No independent-party, multi-node, conditional hardware-profile, App-primary, or production-release claim is made.",
+    "The Internet of Intelligence/Web4 category, Hypervisor topology, primitive ownership, Work ownership, and GoalRun placement are unchanged."
+  ]
+}

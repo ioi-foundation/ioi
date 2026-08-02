@@ -1,0 +1,139 @@
+{
+  "evidence_format": "ioi.estate.record_reattestation_ledger.v1",
+  "rule": "Append-only. Each entry binds a work-item record's bytes at a moment and names the digest it supersedes, so a superseded attestation stays verifiable as a chain link instead of being rewritten. The ledger lives outside every record it hashes.",
+  "claim_boundary": "A re-attestation asserts record integrity ONLY. It is not a status transition, not evidence registration, and not implementation proof.",
+  "entries": [
+    {
+      "sequence": 1,
+      "work_item_id": "m1-5b-generic-protected-transitions",
+      "private_record": "internal-docs/implementation/work-items/active/m1-5b-generic-protected-transitions.v1.json",
+      "status_at_reattestation": "verified",
+      "supersedes_sha256": "8b21e99d301bf4769a019c0e169c196c1776ad22767d356a9b17cc95f5dfb585",
+      "private_record_sha256": "9b88a571f3ec99cb3332cc874e67a418b055ba6168ae2a34bda649bca11dccee",
+      "reason": "Canon snapshot refreshed after docs/architecture/foundations/common-objects-and-envelopes.md was split into an index plus seventeen modules under foundations/objects/. The owner file's digest changed, tools/refresh-canon-snapshots.mjs rewrote canon_snapshot.owners inside this record, and the record's own digest moved with it. No claim in the record changed.",
+      "at_commit": "9670a1d4ac43fc9dfca867d52c1f09a7e5c68ced",
+      "claim": "record_integrity_only",
+      "not_claimed": "This re-attestation binds the record's current bytes. It asserts no new implementation proof, no status advance, and no additional verification. The status shown is the status the record already held."
+    },
+    {
+      "sequence": 2,
+      "work_item_id": "m1-5c-amendment-execution",
+      "private_record": "internal-docs/implementation/work-items/active/m1-5c-amendment-execution.v1.json",
+      "status_at_reattestation": "verified",
+      "supersedes_sha256": "d4d3b9f4207c8682b03cf562f6dfa1fd2e35504de63d31a1cff2b10e6193631f",
+      "private_record_sha256": "b2a6a9840c97566f1c3bc899aa3ea91cfd8f61e4cc615ec1a2febb394d7f7426",
+      "reason": "Canon snapshot refreshed after docs/architecture/foundations/common-objects-and-envelopes.md was split into an index plus seventeen modules under foundations/objects/. The owner file's digest changed, tools/refresh-canon-snapshots.mjs rewrote canon_snapshot.owners inside this record, and the record's own digest moved with it. No claim in the record changed.",
+      "at_commit": "9670a1d4ac43fc9dfca867d52c1f09a7e5c68ced",
+      "claim": "record_integrity_only",
+      "not_claimed": "This re-attestation binds the record's current bytes. It asserts no new implementation proof, no status advance, and no additional verification. The status shown is the status the record already held."
+    },
+    {
+      "sequence": 3,
+      "work_item_id": "m1-5b-generic-protected-transitions",
+      "private_record": "internal-docs/implementation/work-items/active/m1-5b-generic-protected-transitions.v1.json",
+      "status_at_reattestation": "verified",
+      "supersedes_sha256": "9b88a571f3ec99cb3332cc874e67a418b055ba6168ae2a34bda649bca11dccee",
+      "private_record_sha256": "ee80c5619d01405925b7e310a3961b77e11f6b33c363691a291b82f142d4bce9",
+      "reason": "canon_snapshot re-anchor to current master owner digests during M0 closure; no status, evidence, or scope change",
+      "at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+      "claim": "record_integrity_only",
+      "not_claimed": "This re-attestation binds the record's current bytes. It asserts no new implementation proof, no status advance, and no additional verification. The status shown is the status the record already held."
+    },
+    {
+      "sequence": 4,
+      "work_item_id": "m1-5c-amendment-execution",
+      "private_record": "internal-docs/implementation/work-items/active/m1-5c-amendment-execution.v1.json",
+      "status_at_reattestation": "verified",
+      "supersedes_sha256": "b2a6a9840c97566f1c3bc899aa3ea91cfd8f61e4cc615ec1a2febb394d7f7426",
+      "private_record_sha256": "64c9489b8c15cb8b90414f1670d0185115bf119bedee8c2d93dbb95d78fc2db0",
+      "reason": "canon_snapshot re-anchor to current master owner digests during M0 closure; no status, evidence, or scope change",
+      "at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+      "claim": "record_integrity_only",
+      "not_claimed": "This re-attestation binds the record's current bytes. It asserts no new implementation proof, no status advance, and no additional verification. The status shown is the status the record already held."
+    },
+    {
+      "sequence": 5,
+      "work_item_id": "m1-5b-generic-protected-transitions",
+      "private_record": "internal-docs/implementation/work-items/active/m1-5b-generic-protected-transitions.v1.json",
+      "status_at_reattestation": "verified",
+      "supersedes_sha256": "ee80c5619d01405925b7e310a3961b77e11f6b33c363691a291b82f142d4bce9",
+      "private_record_sha256": "ab266590541fd9c7d5afbaca1e87b7e771b0d6cd244c5dcc3bfbb3a4bfedfef9",
+      "reason": "private-artifact path migration to work-items/active/ during the M0 closure contract lint; no status, evidence, or scope change",
+      "at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+      "claim": "record_integrity_only",
+      "not_claimed": "This re-attestation binds the record's current bytes. It asserts no new implementation proof, no status advance, and no additional verification. The status shown is the status the record already held."
+    },
+    {
+      "sequence": 6,
+      "work_item_id": "m1-5c-amendment-execution",
+      "private_record": "internal-docs/implementation/work-items/active/m1-5c-amendment-execution.v1.json",
+      "status_at_reattestation": "verified",
+      "supersedes_sha256": "64c9489b8c15cb8b90414f1670d0185115bf119bedee8c2d93dbb95d78fc2db0",
+      "private_record_sha256": "b9b886426d3f41289b6e23be22b34bce4a1b4782787331e05bde0186d1e1ee3f",
+      "reason": "private-artifact path migration to work-items/active/ during the M0 closure contract lint; no status, evidence, or scope change",
+      "at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+      "claim": "record_integrity_only",
+      "not_claimed": "This re-attestation binds the record's current bytes. It asserts no new implementation proof, no status advance, and no additional verification. The status shown is the status the record already held."
+    },
+    {
+      "sequence": 7,
+      "work_item_id": "m1-5-protected-transitions",
+      "private_record": "internal-docs/implementation/work-items/active/m1-5-protected-transitions.v1.json",
+      "status_at_reattestation": "verified",
+      "supersedes_sha256": "9b976bdf5913e4d2d091c363661cd9229c217caed27e9b3c5c090b700949a0b1",
+      "private_record_sha256": "4b0bd08515178a797ef6ab2e10afef48f48bda8a78255e5480610e7988a11c3c",
+      "reason": "canon-snapshot refresh during subsequent M2-wave transitions (refresh-canon-snapshots runs inside every transition; the wave amended four canon owners) after the ledgered tracked-status adoption; no status, evidence, or scope change",
+      "at_commit": "ad12805fe8b2ea03f1566884b846793b884f35ae",
+      "claim": "record_integrity_only",
+      "not_claimed": "This re-attestation binds the record's current bytes. It asserts no new implementation proof, no status advance, and no additional verification. The status shown is the status the record already held."
+    },
+    {
+      "sequence": 8,
+      "work_item_id": "m1-5b-generic-protected-transitions",
+      "private_record": "internal-docs/implementation/work-items/active/m1-5b-generic-protected-transitions.v1.json",
+      "status_at_reattestation": "verified",
+      "supersedes_sha256": "ab266590541fd9c7d5afbaca1e87b7e771b0d6cd244c5dcc3bfbb3a4bfedfef9",
+      "private_record_sha256": "3947ef52de6bbb3dea14a99fd92b1d95929dcc806b3fc5bc0921c2da31833a1e",
+      "reason": "Reviewed re-anchor after additive Hypervisor surface and canonical package-binding identity changes; M1 protected-transition semantics and evidence are unaffected.",
+      "at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+      "claim": "record_integrity_only",
+      "not_claimed": "This re-attestation binds the record's current bytes. It asserts no new implementation proof, no status advance, and no additional verification. The status shown is the status the record already held."
+    },
+    {
+      "sequence": 9,
+      "work_item_id": "m1-5c-amendment-execution",
+      "private_record": "internal-docs/implementation/work-items/active/m1-5c-amendment-execution.v1.json",
+      "status_at_reattestation": "verified",
+      "supersedes_sha256": "b9b886426d3f41289b6e23be22b34bce4a1b4782787331e05bde0186d1e1ee3f",
+      "private_record_sha256": "94f09c85f20c378781e4cf653403212b55db4109c169d0bd5dbe7dd145b243b7",
+      "reason": "Reviewed re-anchor after additive Hypervisor surface and canonical package-binding identity changes; M1 protected-transition semantics and evidence are unaffected.",
+      "at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+      "claim": "record_integrity_only",
+      "not_claimed": "This re-attestation binds the record's current bytes. It asserts no new implementation proof, no status advance, and no additional verification. The status shown is the status the record already held."
+    },
+    {
+      "sequence": 10,
+      "work_item_id": "m1-5b-generic-protected-transitions",
+      "private_record": "internal-docs/implementation/work-items/active/m1-5b-generic-protected-transitions.v1.json",
+      "status_at_reattestation": "verified",
+      "supersedes_sha256": "3947ef52de6bbb3dea14a99fd92b1d95929dcc806b3fc5bc0921c2da31833a1e",
+      "private_record_sha256": "0e4a09edee175c75a74c89677af2817f5df6ffc230ba7cc13b42ecc3cca6d744",
+      "reason": "The record was mechanically restamped to the final PR 132 checkout while its verified status and implementation claim remained unchanged.",
+      "at_commit": "88ab49f5a80a756ffe48193b260b30122a25b4fc",
+      "claim": "record_integrity_only",
+      "not_claimed": "This re-attestation binds the record's current bytes. It asserts no new implementation proof, no status advance, and no additional verification. The status shown is the status the record already held."
+    },
+    {
+      "sequence": 11,
+      "work_item_id": "m1-5c-amendment-execution",
+      "private_record": "internal-docs/implementation/work-items/active/m1-5c-amendment-execution.v1.json",
+      "status_at_reattestation": "verified",
+      "supersedes_sha256": "94f09c85f20c378781e4cf653403212b55db4109c169d0bd5dbe7dd145b243b7",
+      "private_record_sha256": "5b1c54337723903f422fa6a116e386ae58273dc89d9a5aa913206ae0a70ea859",
+      "reason": "The record was mechanically restamped to the final PR 132 checkout while its verified status and implementation claim remained unchanged.",
+      "at_commit": "88ab49f5a80a756ffe48193b260b30122a25b4fc",
+      "claim": "record_integrity_only",
+      "not_claimed": "This re-attestation binds the record's current bytes. It asserts no new implementation proof, no status advance, and no additional verification. The status shown is the status the record already held."
+    }
+  ]
+}

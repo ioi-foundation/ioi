@@ -1,0 +1,53 @@
+{
+  "schema_version": "ioi.program.pre-link-repair-snapshot-manifest.v1",
+  "document_class": "archive",
+  "snapshot_date": "2026-07-23",
+  "reason": "Byte-preserving snapshots taken before repairing physically relative Markdown links after the implementation-directory move.",
+  "broken_physical_link_count_before": 62,
+  "entries": [
+    {
+      "source_path": "audits/2026-07-22-architecture-coverage.md",
+      "snapshot_path": "_archive/pre-link-repair/2026-07-23/audits/2026-07-22-architecture-coverage.md.pre-link-repair",
+      "sha256": "0484b0903e7c239afd14d053f64c0d251a9304fb2034118d173a9c82fa7cbdea",
+      "bytes": 197536
+    },
+    {
+      "source_path": "audits/2026-07-22-directory-unification-plan.md",
+      "snapshot_path": "_archive/pre-link-repair/2026-07-23/audits/2026-07-22-directory-unification-plan.md.pre-link-repair",
+      "sha256": "9298abb545e85563c4cd971d2a2fc4b129b8b767bce2c82c9677aff4166f138d",
+      "bytes": 132094
+    },
+    {
+      "source_path": "audits/2026-07-22-m0-m14-plan-gap-audit.md",
+      "snapshot_path": "_archive/pre-link-repair/2026-07-23/audits/2026-07-22-m0-m14-plan-gap-audit.md.pre-link-repair",
+      "sha256": "3a0d4c9c15216b90e7b472be40948932b25d4c173132944845a20867b5243256",
+      "bytes": 59914
+    },
+    {
+      "source_path": "audits/history/2026-06-hypervisor-model-mount-rust-consolidation.md",
+      "snapshot_path": "_archive/pre-link-repair/2026-07-23/audits/history/2026-06-hypervisor-model-mount-rust-consolidation.md.pre-link-repair",
+      "sha256": "22289699643ae2e688795dcc205b8b325e330d0c7917c5653b39550d0c907911",
+      "bytes": 30217
+    },
+    {
+      "source_path": "audits/history/2026-07-21-runtime-kernel-service-trust-boundary-audit.md",
+      "snapshot_path": "_archive/pre-link-repair/2026-07-23/audits/history/2026-07-21-runtime-kernel-service-trust-boundary-audit.md.pre-link-repair",
+      "sha256": "75a51210750dca6022742a2c39e6289f9081f6451d3ef24828e4b6fdff51184b",
+      "bytes": 154587
+    },
+    {
+      "source_path": "audits/reconciliation/2026-07-22-estate-reconciliation.md",
+      "snapshot_path": "_archive/pre-link-repair/2026-07-23/audits/reconciliation/2026-07-22-estate-reconciliation.md.pre-link-repair",
+      "sha256": "c29ec0a94b60917e977c5f13e0c24a23ea8741ee77c8b895a0969f7017d02d91",
+      "bytes": 24551
+    }
+  ],
+  "does_not_own": [
+    "architecture doctrine",
+    "implementation sequence",
+    "work activation",
+    "implementation status",
+    "product authority"
+  ],
+  "nonclaim": "These byte snapshots prove recoverability of the six pre-repair bodies only. They do not validate their old relative links or prove implementation, work-item completion, or stage closure."
+}

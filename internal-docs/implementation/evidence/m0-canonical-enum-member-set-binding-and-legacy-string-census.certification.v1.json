@@ -1,0 +1,10 @@
+{
+  "literal_exit": {
+    "expected": "M0_CANONICAL_ENUM_BINDING_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M0/m0-canonical-enum-member-set-binding-and-legacy-string-census.exit.v1.txt",
+    "artifact_sha256": "9c748d6d9dfe0fd0e0bcc3910eacfbc95e22d6940cb1b54c40e360f72c9b5f4a"
+  },
+  "adversarial_or_fault_proof": [
+    "tools/enum-member-census.mjs self-test on every run: an empty owner fails closed instead of deriving zero sets; a hand edit fails the byte-for-byte check; the live census honestly reports 28 of 32 member sets UNCOVERED and 915 located legacy literals (891 free-form) instead of a hand-written expected count; the NativeEmbodiedRuntimeProfile ownership conflict is recorded unresolved"
+  ]
+}

@@ -31,6 +31,7 @@ import {
   SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
   assertRenderedArtifactsCurrent,
   attestProgramSourceReview,
+  bindReviewedJsSystemEffectActions,
   buildM0Artifacts,
   buildM0Fingerprint,
   createInitialProgramSource,
@@ -41,6 +42,7 @@ import {
   reviewAnchorEntrySha256,
   reviewSnapshotCommitments,
   stableStringify,
+  trackedImplementationProgramSnapshot,
   validateSuppliedReviewSnapshot,
   validateProgramSource,
   validateReviewAnchor,
@@ -70,20 +72,183 @@ function temporaryRepository(files) {
   return root;
 }
 
-function hashEvidenceTree() {
+test("reviewed JavaScript system-effect labels cannot inherit a reused line identity", (t) => {
+  const fixtureRoot = temporaryRepository({
+    "effect.mjs": 'process.on("SIGINT", () => child.kill("SIGINT"));\n',
+  });
+  const reusedLineRoot = temporaryRepository({
+    "effect.mjs": 'process.on("SIGTERM", () => child.kill("SIGTERM"));\n',
+  });
+  t.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(reusedLineRoot, { recursive: true, force: true }));
+
+  const identity = "js-system-effect:effect.mjs#module_scope_line_1";
+  const discovered = {
+    identity,
+    kind: "js_system_effect",
+    operation: "process effect at module_scope_line_1",
+    source_file: "effect.mjs",
+    source_symbol: "module_scope_line_1",
+    handler: "child.kill",
+    source_anchor: { line: 1, sha256: "fixture-anchor" },
+    handler_source_file: "effect.mjs",
+    handler_source_symbol: "module_scope_line_1",
+    handler_anchor: { line: 1, sha256: "fixture-anchor" },
+    handler_resolution: "typescript_ast_system_effect_calls",
+    handler_calls: ["child.kill"],
+    handler_call_sequence: ["child.kill"],
+    system_effect_categories: ["process"],
+  };
+  const reviewed = {
+    discovery_binding: {
+      handler_call_sequence: ["child.kill"],
+      system_effect_categories: ["process"],
+      source_line_includes: ['"SIGINT"'],
+    },
+    surface: "fixture-process",
+    operation: "SIGINT terminate fixture child",
+    method: "SIGINT",
+    path: "fixture child",
+    active_state: "fixture_signal_handler",
+  };
+
+  const [bound] = bindReviewedJsSystemEffectActions({
+    repoRoot: fixtureRoot,
+    discoveredEntries: [discovered],
+    reviewedActions: { [identity]: reviewed },
+  });
+  assert.equal(bound.operation, reviewed.operation);
+  assert.equal(bound.discovered_operation, discovered.operation);
+  assert.equal(bound.handler, discovered.handler);
+  assert.equal(bound.discovery_binding, undefined);
+
+  assert.throws(
+    () => bindReviewedJsSystemEffectActions({
+      repoRoot: fixtureRoot,
+      discoveredEntries: [{
+        ...discovered,
+        handler: "process.exit",
+        handler_calls: ["process.exit"],
+        handler_call_sequence: ["process.exit"],
+      }],
+      reviewedActions: { [identity]: reviewed },
+    }),
+    /discovery semantic binding changed for handler_call_sequence/u,
+  );
+
+  assert.throws(
+    () => bindReviewedJsSystemEffectActions({
+      repoRoot: reusedLineRoot,
+      discoveredEntries: [discovered],
+      reviewedActions: { [identity]: reviewed },
+    }),
+    /discovery semantic binding changed at source line 1/u,
+  );
+
+  assert.throws(
+    () => bindReviewedJsSystemEffectActions({
+      repoRoot: fixtureRoot,
+      discoveredEntries: [discovered],
+      reviewedActions: {
+        [identity]: { ...reviewed, handler: "reviewed-handler-must-not-win" },
+      },
+    }),
+    /attempt to override discovery-owned field handler/u,
+  );
+});
+
+test("M4 selected routes have one adjudicated journey placement", () => {
+  const candidate = createInitialReview(repoRoot, discoveredEntries);
+  const reviewByIdentity = new Map(candidate.entries.map((entry) => (
+    [entry.identity, entry]
+  )));
+  const requiredByStep = new Map([
+    [
+      3,
+      [
+        "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations",
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/goal-run-activations/:id",
+        "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations/:id/submit",
+      ],
+    ],
+    [
+      7,
+      [
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/collaborative-work-graph",
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/discussion-projection",
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/product-projection",
+        "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/outcome-deltas",
+        "http:hypervisor-daemon:GET /v1/hypervisor/work-results/*id",
+        "http:hypervisor-daemon:GET /v1/hypervisor/outcome-deltas/*id",
+      ],
+    ],
+    [
+      12,
+      [
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/replay",
+      ],
+    ],
+  ]);
+  const adjacent = [
+    "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/detach-goal-run",
+    "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/lifecycle/transitions",
+    "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/transition",
+  ];
+  const facadeNonclaims = [
+    "js-outbound:hypervisor-product-ui-outbound:GET `${DAEMON}${p}`#1",
+    "js-outbound:hypervisor-product-ui-outbound:POST /v1/goal-orchestration/goal-run-activations#1",
+    "js-outbound:hypervisor-product-ui-outbound:POST /v1/goal-orchestration/goal-run-activations/ + encodeURIComponent ( id ) + /submit#1",
+    "js-outbound:hypervisor-product-ui-outbound:POST /v1/hypervisor/sessions#1",
+  ];
+
+  const journey = createInitialProgramSource(repoRoot)
+    .selected_profile.visible_terminal_journey;
+  const placements = new Map();
+  for (const step of journey) {
+    for (const identity of step.route_identities ?? []) {
+      const existing = placements.get(identity) ?? [];
+      existing.push(step.step);
+      placements.set(identity, existing);
+    }
+  }
+  for (const [step, identities] of requiredByStep) {
+    for (const identity of identities) {
+      assert.equal(
+        reviewByIdentity.get(identity)?.selected_profile_applicability,
+        "required_journey",
+        identity,
+      );
+      assert.deepEqual(placements.get(identity), [step], identity);
+    }
+  }
+  for (const identity of adjacent) {
+    assert.equal(
+      reviewByIdentity.get(identity)?.selected_profile_applicability,
+      "adjacent_not_sufficient",
+      identity,
+    );
+    assert.equal(placements.has(identity), false, identity);
+  }
+  for (const identity of facadeNonclaims) {
+    assert.equal(
+      reviewByIdentity.get(identity)?.selected_profile_applicability,
+      "not_selected",
+      identity,
+    );
+    assert.equal(placements.has(identity), false, identity);
+  }
+});
+
+function evidenceContentDigests() {
   const root = path.join(repoRoot, EVIDENCE_DIR);
   return Object.fromEntries(
     fs.readdirSync(root)
       .sort()
       .map((name) => {
         const source = fs.readFileSync(path.join(root, name));
-        const stat = fs.statSync(path.join(root, name), { bigint: true });
         return [
           name,
-          {
-            sha256: crypto.createHash("sha256").update(source).digest("hex"),
-            mtime_ns: stat.mtimeNs.toString(),
-          },
+          crypto.createHash("sha256").update(source).digest("hex"),
         ];
       }),
   );
@@ -1949,34 +2114,64 @@ test("program source review is a bounded supplied-snapshot material attestation"
   );
 });
 
-test("ignored internal sequencers remain unbound external pointers", () => {
-  const tracked = spawnSync(
-    "git",
-    ["ls-files", "--", "internal-docs/implementation"],
-    { cwd: repoRoot, encoding: "utf8" },
-  );
-  assert.equal(tracked.status, 0, tracked.stderr);
-  assert.equal(tracked.stdout, "");
-  for (const input of (
-    programSource.sequencing_authority.external_untracked_operator_inputs
-  )) {
-    const ignored = spawnSync(
+test("tracked implementation sequencing is bound by the M0 fingerprint", () => {
+  const snapshot = trackedImplementationProgramSnapshot(repoRoot);
+  assert.ok(snapshot.file_count > 0);
+  assert.match(snapshot.files_sha256, /^[a-f0-9]{64}$/u);
+  const trackedPaths = new Set(snapshot.files.map((entry) => entry.path));
+  for (const relativePath of [
+    "internal-docs/implementation/README.md",
+    "internal-docs/implementation/program/sequence.v1.json",
+    "internal-docs/implementation/stages/m4.md",
+    "internal-docs/implementation/program/pg-gate-map-successor.v1.json",
+  ]) {
+    assert.ok(trackedPaths.has(relativePath), `${relativePath} is not fingerprint-bound`);
+    const tracked = spawnSync(
       "git",
-      ["check-ignore", "--quiet", "--", input.path],
+      ["ls-files", "--error-unmatch", "--", relativePath],
       { cwd: repoRoot, encoding: "utf8" },
     );
-    assert.equal(ignored.status, 0, `${input.path} is not ignored`);
+    assert.equal(tracked.status, 0, tracked.stderr);
+    const ignored = spawnSync(
+      "git",
+      ["check-ignore", "--quiet", "--", relativePath],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    assert.equal(ignored.status, 1, `${relativePath} remains ignored`);
   }
+  assert.deepEqual(snapshot.exclusion_rules, [
+    "internal-docs/implementation/_archive/attestations/canon-acceptances.v1.json",
+    "internal-docs/implementation/_archive/attestations/review-manifests/**",
+    "internal-docs/implementation/generated/canon-baseline.v1.json",
+  ]);
+  for (const relativePath of [
+    "internal-docs/implementation/_archive/attestations/canon-acceptances.v1.json",
+    "internal-docs/implementation/generated/canon-baseline.v1.json",
+  ]) {
+    assert.equal(trackedPaths.has(relativePath), false);
+    const tracked = spawnSync(
+      "git",
+      ["ls-files", "--error-unmatch", "--", relativePath],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    assert.equal(tracked.status, 0, `${relativePath} must remain Git-tracked`);
+  }
+  assert.equal(
+    snapshot.files.some((entry) => entry.path.startsWith(
+      "internal-docs/implementation/_archive/attestations/review-manifests/",
+    )),
+    false,
+  );
   assert.equal(
     programSource.canon_basis.some((entry) => (
       entry.source_file.startsWith("internal-docs/implementation/")
     )),
     false,
   );
-  assert.deepEqual(
-    programSource.sequencing_authority.external_untracked_operator_inputs
-      .map((entry) => entry.evidence_binding),
-    ["not_read_not_hashed_not_bound", "not_read_not_hashed_not_bound"],
+  assert.equal(
+    programSource.sequencing_authority.tracked_implementation_program
+      .evidence_binding,
+    "m0_build_fingerprint.tracked_implementation_program_snapshot",
   );
   assert.equal(
     programSource.sequencing_authority
@@ -1985,43 +2180,46 @@ test("ignored internal sequencers remain unbound external pointers", () => {
   );
   expectProgramFailure(
     (fixture) => {
-      fixture.sequencing_authority.external_untracked_operator_inputs[0]
-        .evidence_binding = "read_and_bound";
+      fixture.sequencing_authority.tracked_implementation_program
+        .evidence_binding = "not_read_not_hashed_not_bound";
     },
-    /ignored internal guides as unbound external operator inputs/u,
+    /bind the tracked implementation program/u,
   );
   expectProgramFailure(
     (fixture) => {
-      fixture.pg_gate_map.external_definition_input.evidence_binding =
-        "read_and_bound";
+      fixture.pg_gate_map.tracked_definition_input.evidence_binding =
+        "not_read_not_hashed_not_bound";
     },
-    /ignored ledger as an unbound external pointer/u,
+    /bind the tracked implementation ledger/u,
   );
   expectProgramFailure(
     (fixture) => {
       fixture.pg_gate_map.definition_owner =
         "internal-docs/implementation/canon-mechanism-hardening-action-plan.md";
     },
-    /cannot claim the ignored external ledger as a committed definition owner/u,
+    /must not collapse implementation sequencing/u,
   );
 
   const readme = fs.readFileSync(path.join(repoRoot, README_FILE), "utf8");
-  assert.doesNotMatch(readme, /were read only/iu);
   assert.match(
     readme,
-    /does not read, hash, require, or bind them as evidence/iu,
+    /tracked implementation program is content-bound/iu,
+  );
+  assert.match(
+    readme,
+    /canon-review feedback artifacts remain tracked but are checked outside the M0\s+fingerprint/iu,
   );
 });
 
 test("bare invocation exits 2 with usage and writes nothing", () => {
-  const before = hashEvidenceTree();
+  const before = evidenceContentDigests();
   const result = spawnSync(process.execPath, [cli], {
     cwd: repoRoot,
     encoding: "utf8",
   });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /^Usage:/u);
-  assert.deepEqual(hashEvidenceTree(), before);
+  assert.deepEqual(evidenceContentDigests(), before);
 });
 
 test("--attest-review accepts only the tracked supplied snapshot and never signs", () => {
@@ -2029,7 +2227,7 @@ test("--attest-review accepts only the tracked supplied snapshot and never signs
     ["--attest-review"],
     ["--attest-review", "self-issued-review.json"],
   ]) {
-    const before = hashEvidenceTree();
+    const before = evidenceContentDigests();
     const result = spawnSync(process.execPath, [cli, ...args], {
       cwd: repoRoot,
       encoding: "utf8",
@@ -2043,7 +2241,7 @@ test("--attest-review accepts only the tracked supplied snapshot and never signs
       REVIEW_ANCHOR_FILE.replaceAll(".", "\\."),
       "u",
     ));
-    assert.deepEqual(hashEvidenceTree(), before);
+    assert.deepEqual(evidenceContentDigests(), before);
   }
   const closure = javascriptImportClosure(cli);
   assert.ok(closure.size >= 3, "CLI import closure was not traversed");
@@ -2061,7 +2259,7 @@ test("--attest-review accepts only the tracked supplied snapshot and never signs
   assert.match(closure.get(cli), /REVIEW_ANCHOR_FILE/u);
 });
 
-test("snapshot checking does not auto-discover HOME checkpoints or ignored sequencer freshness", () => {
+test("snapshot checking ignores HOME checkpoints and binds only tracked sequencer content", () => {
   const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-m0-home-"));
   try {
     fs.mkdirSync(path.join(fakeHome, "internal-docs/implementation"), {
@@ -2276,6 +2474,39 @@ test("README tampering changes the fingerprint and fails the read-only check", (
   }
 });
 
+test("tracked implementation-program tampering changes the fingerprint and fails check", () => {
+  const relativePath = "internal-docs/implementation/README.md";
+  const absolutePath = path.join(repoRoot, relativePath);
+  const original = fs.readFileSync(absolutePath);
+  const originalFingerprint = buildM0Fingerprint(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    programSource,
+  );
+  try {
+    fs.writeFileSync(
+      absolutePath,
+      Buffer.concat([original, Buffer.from("\nfixture program tamper\n")]),
+    );
+    const tamperedFingerprint = buildM0Fingerprint(
+      repoRoot,
+      discoveredEntries,
+      reviewLock,
+      programSource,
+    );
+    assert.notEqual(tamperedFingerprint, originalFingerprint);
+    const result = spawnSync(process.execPath, [cli, "--check"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /stale generated artifact/u);
+  } finally {
+    fs.writeFileSync(absolutePath, original);
+  }
+});
+
 test("atomic writes clean temporary siblings after a failed replacement", () => {
   const root = temporaryRepository({ "target": "original\n" });
   try {
@@ -2308,14 +2539,14 @@ test("atomic writes clean temporary siblings after a failed replacement", () => 
   }
 });
 
-test("a second --write preserves every evidence byte and mtime", () => {
-  const beforeCheck = hashEvidenceTree();
+test("a second --write preserves every evidence content digest", () => {
+  const beforeCheck = evidenceContentDigests();
   const check = spawnSync(process.execPath, [cli, "--check"], {
     cwd: repoRoot,
     encoding: "utf8",
   });
   assert.equal(check.status, 0, `${check.stdout}\n${check.stderr}`);
-  assert.deepEqual(hashEvidenceTree(), beforeCheck);
+  assert.deepEqual(evidenceContentDigests(), beforeCheck);
 
   const first = spawnSync(process.execPath, [cli, "--write"], {
     cwd: repoRoot,
@@ -2323,27 +2554,27 @@ test("a second --write preserves every evidence byte and mtime", () => {
   });
   assert.equal(first.status, 0, `${first.stdout}\n${first.stderr}`);
   assert.match(first.stdout, /0 file\(s\) written/u);
-  assert.deepEqual(hashEvidenceTree(), beforeCheck);
+  assert.deepEqual(evidenceContentDigests(), beforeCheck);
 
-  const beforeSecond = hashEvidenceTree();
+  const beforeSecond = evidenceContentDigests();
   const second = spawnSync(process.execPath, [cli, "--write"], {
     cwd: repoRoot,
     encoding: "utf8",
   });
   assert.equal(second.status, 0, `${second.stdout}\n${second.stderr}`);
   assert.match(second.stdout, /0 file\(s\) written/u);
-  assert.deepEqual(hashEvidenceTree(), beforeSecond);
+  assert.deepEqual(evidenceContentDigests(), beforeSecond);
 });
 
 test("--check accepts current artifacts and remains read-only", () => {
-  const before = hashEvidenceTree();
+  const before = evidenceContentDigests();
   const result = spawnSync(process.execPath, [cli, "--check"], {
     cwd: repoRoot,
     encoding: "utf8",
   });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   assert.match(result.stdout, /M0 supplied-snapshot check passed/u);
-  assert.deepEqual(hashEvidenceTree(), before);
+  assert.deepEqual(evidenceContentDigests(), before);
 });
 
 

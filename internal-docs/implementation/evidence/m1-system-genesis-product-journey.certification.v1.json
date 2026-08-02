@@ -1,0 +1,11 @@
+{
+  "literal_exit": {
+    "expected": "M1_SYSTEM_GENESIS_PRODUCT_JOURNEY_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M1/m1-system-genesis-product-journey.exit.v1.txt",
+    "artifact_sha256": "12e32e515c37061c6915187219619a1892dc90492c91e79056fea311c874f31d"
+  },
+  "adversarial_or_fault_proof": [
+    "Retained run of apps/hypervisor/scripts/verify-hypervisor-system-genesis-product-journey.mjs (30/30, PJ_EXIT=0) against an isolated daemon plane: the compact/advanced/restart/two-System operator state matrix over the M1.7 genesis product surfaces — no UI-derived truth (every rendered value traced to a daemon read route), cross-System bleed refused (exact-System selection never substitutes the other admitted System), invalid proposal/approval refused at the surface with the daemon refusal surfaced verbatim, premature activation refused until the governed ladder admits it, and restart re-renders byte-identical state from durable truth only.",
+    "The same four adversarial branches are re-proven daemon-side inside the retained held-bar certification run (internal-docs/implementation/evidence/M1/system-verifier-certification-run.v1.log, 140/140, CERT_EXIT=0)."
+  ]
+}

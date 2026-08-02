@@ -1,0 +1,76 @@
+{
+  "format": "ioi.program.skip_taxonomy.v1",
+  "role": "Declares, per emitting bar and sub-check, whether a SKIP withholds certification-relevant coverage or is benign bookkeeping. Consumed by tools/check-program.mjs, which counts the two classes separately and refuses to report a certifiable program while the certification-relevant count is non-zero.",
+  "why": "check-program reported PASS with 221 SKIPs. Every one of those SKIPs was a withheld verification, and the summary line made them indistinguishable from noise. A skip is not a success; an unclassified skip is not evidence that a skip was harmless.",
+  "default_class": "certification_relevant",
+  "default_rule": "A SKIP that this file does not classify is certification-relevant. Fail-closed is the only safe default: the alternative is that adding a new SKIP anywhere silently enlarges what a green summary is allowed to hide.",
+  "classes": {
+    "certification_relevant": "The skip withholds a verification that certification depends on. It must be resolved, or explicitly dispositioned by the owner, before the program can be called certifiable.",
+    "benign": "The skip reports a fact about the run and withholds no verification anything depends on. Every benign entry must argue that in its rationale."
+  },
+  "entries": [
+    {
+      "bar": "canon-impact",
+      "check": "canon-orphan",
+      "class": "certification_relevant",
+      "rationale": "The subject exists in this checkout but not on origin/master, so it carries no classification and no stage, module, or work item owns it. The skip text says so itself: it grants no coverage. CORRECTED 2026-07-29: the previous rationale ended 'coverage for these subjects arrives only when the branch lands and they are classified', which is FALSE for the 220 subjects that actually emit this skip today. A full object walk finds none of them in any commit on any ref, so no branch will ever land them; they are host-local ignored bytes, now enumerated and classified by program/canon-overlay-manifest.v1.json. Coverage arrives only when a baseline binds them EXPLICITLY as overlay members and a map entry classifies them — which is a held baseline advance, not a merge. The class is unchanged and deliberately so: correcting a rationale is not a reclassification, and the skip still withholds coverage.",
+      "corrected_on": "2026-07-29"
+    },
+    {
+      "bar": "canon-impact",
+      "check": "canon-removed",
+      "class": "certification_relevant",
+      "rationale": "A classified subject is absent from this checkout while present on origin/master. Its obligations are unverifiable here, so every stage and work item bound to it is unverified in this tree."
+    },
+    {
+      "bar": "no-competing-guides",
+      "check": "tombstoned-deletion",
+      "class": "certification_relevant",
+      "rationale": "A classified path is deleted with a retained tombstone. The tombstone records the disposition; it does not verify that whatever the deleted guidance governed is now governed elsewhere."
+    },
+    {
+      "bar": "no-competing-guides",
+      "check": "ignored-estate-absent",
+      "class": "certification_relevant",
+      "rationale": "The classification is retained but nothing in this checkout verifies it. The skip text says exactly that."
+    },
+    {
+      "bar": "estate-structure",
+      "check": "command-missing",
+      "class": "certification_relevant",
+      "rationale": "A module tells an implementer to run a command that does not exist in this checkout. That the command exists on origin/master explains the absence; it does not make the instruction runnable here."
+    },
+    {
+      "bar": "estate-structure",
+      "check": "link",
+      "class": "certification_relevant",
+      "rationale": "A link target is absent from this checkout. Checkout divergence is an honest explanation and an unverified link all the same."
+    },
+    {
+      "bar": "literal-exits",
+      "check": "retained-log",
+      "class": "certification_relevant",
+      "rationale": "The count of validated stage logs rides with a waiver: legacy top-level evidence files predate the contract and are validated by nothing here. The waiver is the certification-relevant part."
+    },
+    {
+      "bar": "route-census",
+      "check": "maintenance",
+      "class": "benign",
+      "rationale": "Emitted only under --write, to report that the bypass/retirement diff was written. It records an action taken by the run and withholds no verification: the same run's currency, bypass, invoker, and gate-map checks all still execute and still report independently."
+    },
+    {
+      "bar": "canonical-estate",
+      "check": "overlay-owner-unattributed",
+      "class": "certification_relevant",
+      "rationale": "The bound overlay member is enumerated, digest-verified, content-addressed and retained, and NO owner is derivable for it: nothing in the bound git tree and nothing in the private estate names its evidence programme. Attribution is WITHHELD, not absent — the tool refuses to assign one of the subject enumerations (the overlay manifest, the successor baseline candidate, the derived projections) as an owner, because a census that answers its own question attributes nothing. The skip closes when an owner names, per programme, the record or contract these bytes are evidence FOR. That is an owner ruling and is not derivable.",
+      "added_on": "2026-07-29"
+    },
+    {
+      "bar": "overlay-dispositions",
+      "check": "disposition-withheld",
+      "class": "certification_relevant",
+      "rationale": "No disposition is derivable for this bound overlay member. No tracked blob anywhere in this repository's history names it — not by path, not by basename, and not by the schemaVersion its own bytes declare — so the only remaining routes to an owner would be the directory it sits in or the enumeration that lists it, and this bar refuses both by name. The skip is emitted ONE PER MEMBER so a withheld attribution can never be folded into a count, and it is deliberately NOT the same skip as canonical-estate/overlay-owner-unattributed: that one withholds a PRODUCER in the bound tree, this one withholds ACCOUNTABILITY for the bytes. Both are open, they are open for different reasons, and neither closes the other.",
+      "added_on": "2026-07-29"
+    }
+  ]
+}

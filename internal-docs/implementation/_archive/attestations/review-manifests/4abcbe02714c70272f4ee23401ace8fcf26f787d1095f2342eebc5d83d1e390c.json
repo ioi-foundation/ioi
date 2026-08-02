@@ -1,0 +1,2224 @@
+{
+  "evidence_format": "ioi.program.canon_review_manifest.v1",
+  "manifest_role": "Content-bound enumeration of every canon subject pending baseline review, with the disposition and written reasoning of one accountable reviewer. Presenting this manifest to --accept advances the baseline. It closes no work item, certifies no stage, and changes no status.",
+  "claim": "canon_drift_reviewed_only",
+  "reviewer_ref": "reviewer://codex/adr-0022-0030-m4-preliteral-cut",
+  "emitted_at_commit": "38bde2d37dd4b3e1acdbd08365c9f2bbaaca9c29",
+  "instructions": [
+    "Fill reviewer_ref, and per subject a disposition (unaffected | successor_required | blocked) and a review_note that argues it from what actually changed.",
+    "`unaffected` must be ARGUED. Say why this subject's change does not reach the stages, modules, and work items named in review_required below. An unargued `unaffected` is a mechanical accept with extra steps.",
+    "Never rewrite a verified closure to absorb a semantic change: disposition it `successor_required` and open a successor record that states what must now be proven.",
+    "Do not edit the ids or digests. They bind this manifest to one exact revision, and --accept refuses if they drift."
+  ],
+  "review_required": {
+    "stages": [
+      "FUTURE",
+      "M0",
+      "M10",
+      "M11",
+      "M12",
+      "M13",
+      "M14",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M7",
+      "M8",
+      "M9"
+    ],
+    "modules": [
+      "adversarial-proof-matrix",
+      "campaign-experiment-method",
+      "cooperation",
+      "docs-and-comms",
+      "embodied",
+      "improvement",
+      "learning-boundary",
+      "mechanism-gates",
+      "network-and-l1",
+      "product-surface-ux-proof",
+      "product-ux",
+      "proof-and-evidence",
+      "runtime-fabric",
+      "runtime-trust-boundary",
+      "supply-and-commerce",
+      "wallet-authority"
+    ],
+    "work_items": [
+      "agentgres-production-readiness-and-branch-effects",
+      "connected-worker-capability-supply-and-hiring",
+      "decentralized-profile-admission-and-exit",
+      "dispute-adjudication-remedy-kernel",
+      "ecosystem-assurance-and-public-claim-estate",
+      "foundry-evaluations-production-loop",
+      "live-embodied-promotion",
+      "m0-canon-owner-coverage-and-orphan-verifier",
+      "m0-literal-exit-evidence-contract",
+      "m0-program-control-selected-profile-exit-proof",
+      "m0-route-final-invoker-pg-census-maintenance",
+      "m0-selected-profile-baseline-evidence-and-claim-lock",
+      "m0-source-disposition-and-single-sequencer-verifier",
+      "m0-work-item-contract-completeness-and-owner-lint",
+      "m10-attestation-temporal-floor-and-revocation-continuity",
+      "m10-operations-operational-journey",
+      "m10-topology-chaos-and-operator-product-proof",
+      "m11-canonical-contract-registry-and-legacy-ref-migration",
+      "m11-canonical-embodied-contract-alignment",
+      "m11-embodied-nonlive-graph-proof",
+      "m11-useful-same-system-distribution",
+      "m12-aiip-channel-envelope-profile",
+      "m12-federated-admission-portable-exit-and-bindings",
+      "m12-federation-product-and-operator-journey",
+      "m12-ifc-disclosure-receipt-and-settlement-binding",
+      "m12-terms-discovery-semantic-negotiation",
+      "m13-independent-operation-and-external-worker-product-proof",
+      "m13-sovereignty-trial-preregistration",
+      "m13-two-sovereign-surplus-and-decline-proof",
+      "m14-cross-plane-correlated-failure-injection",
+      "m14-demand-security-economics",
+      "m14-l1-authorization-decision",
+      "m14-network-service-devnet",
+      "m14-service-family-owner-contract-and-product-surfaces",
+      "m2-agentgres-replay-recovery-and-product-topology",
+      "m2-membership-readiness-plane",
+      "m2-route-restore-activation-cleanup",
+      "m2-selected-profile-exit-proof",
+      "m2-writer-fence-and-lost-suffix",
+      "m3-direct-path-and-exit-proof",
+      "m3-goal-kernel-context-and-runtime-truth-spine",
+      "m3-pursuit-definition-resolution",
+      "m3-result-lifecycle-negative-retention",
+      "m3-work-session-automation-product-journey",
+      "m4-outcome-room-system-spine",
+      "m4-room-graph-truth-and-product-projection",
+      "m5-attribution-acceptance-and-challenge-boundary",
+      "m5-local-agent-pairing",
+      "m5-p0-readiness-verifier",
+      "m5-pairing-identity-and-gateway-scope",
+      "m5-participant-frontier-result-closeout",
+      "m5-portable-exit-independent-clients",
+      "m5-selected-profile-exit-proof",
+      "m6-automations-operational-journey",
+      "m6-consequential-action-authority-receipt-unification",
+      "m6-developer-workspace-operational-journey",
+      "m6-home-workspace-operational-journey",
+      "m6-production-truth-fallback-retirement",
+      "m6-projects-workspace-operational-journey",
+      "m6-reference-shell-disposition-and-depth-ledger",
+      "m6-settings-workspace-operational-journey",
+      "m6-surface-compiler-and-source-convergence",
+      "m6-systems-work-projection-and-mission-alias-migration",
+      "m6-systems-workspace-operational-journey",
+      "m6-work-workspace-operational-journey",
+      "m7-data-operational-journey",
+      "m7-data-transformation-provenance-replay",
+      "m7-ontology-action-final-invoker-and-product-proof",
+      "m7-ontology-operational-journey",
+      "m7-studio-operational-journey",
+      "m8-evaluations-operational-journey",
+      "m8-learning-boundary-provider-exit",
+      "m8-learning-custody-memory-and-provider-rights",
+      "m8-order-zero-improvement-and-direct-path",
+      "m9-authority-gateway-equivalence-and-coverage",
+      "m9-compact-advanced-object-hash-parity",
+      "m9-developer-console-operational-journey",
+      "m9-environments-operational-journey",
+      "m9-lifecycle-evidence-operator-proof",
+      "m9-managed-optionality-overlay",
+      "m9-provenance-operational-journey",
+      "m9-selected-profile-aggregate-exit-and-claim-publication",
+      "m9-sovereign-local-terminal-journey",
+      "m9-terminal-product-state-and-release-supply-chain",
+      "managed-billing-work-credits-and-supplier-reconciliation",
+      "marketplace-neutral-routing-contribution-accounting",
+      "platform-operability-observability-and-incidents",
+      "production-information-flow-and-declassification",
+      "production-receipt-checkpoint-and-offline-proof",
+      "project-discovery-startup-and-session-chain",
+      "scm-publication-effect-and-route-rebuild",
+      "sdk-cli-adk-odk-builder-journey",
+      "storage-profile-repair-and-availability",
+      "worker-training-and-local-marketplace-supply"
+    ],
+    "conformance_targets": [
+      "docs/conformance/hypervisor-core/goal-run-admission-and-activation.md",
+      "docs/conformance/hypervisor-core/outcome-room-admission.md",
+      "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
+      "docs/conformance/hypervisor-core/sovereign-local-completeness.md"
+    ],
+    "contract_families": [
+      "AgentExecutionBranch",
+      "AgentHarnessAdapter",
+      "Attempt",
+      "AuthorityEffectAdmissionReceipt",
+      "AuthorityReviewReceipt",
+      "BranchCheckpoint",
+      "BranchMergePlan",
+      "CollaborativeWorkGraph",
+      "ContributionReceipt",
+      "DeclassificationReceipt",
+      "Finding",
+      "GoalGroundingLoop",
+      "GoalRun",
+      "GoalRunActivationEnvelope",
+      "GoalRunActivationReceipt",
+      "GoalRunAdmissionPathDecision",
+      "GoalRunAdmittedState",
+      "GoalRunExecutionCeiling",
+      "GoalRunProfile",
+      "GoalRunProfileResolutionReceipt",
+      "HarnessProfile",
+      "HypervisorSessionLaunchRecipe",
+      "InformationFlowDecisionReceipt",
+      "LearningEgressReceipt",
+      "OperationLogEntry",
+      "OutcomeDelta",
+      "OutcomeRoom",
+      "OutcomeRoomDiscussionProjection",
+      "ParticipantStateBundle",
+      "PhysicalActionExecutionReceipt",
+      "ProjectionDefinition",
+      "ReceiptCheckpoint",
+      "ReceiptProofBundle",
+      "RoomAdmittedObjectBase",
+      "RuntimeToolContract",
+      "ScmPublicationEffect",
+      "ServiceCompositionReceiptBundle",
+      "StagedEffect",
+      "VerifierChallenge",
+      "WorkClaimLease",
+      "WorkFrontierItem",
+      "WorkResult"
+    ]
+  },
+  "subject_count": 253,
+  "subject_set_sha256": "63c6d384ea02670b009de2787686714515aec4b21df2cd611e969d79e28d58c7",
+  "subjects": [
+    {
+      "id": "docs/architecture/_meta/canon-to-code-delta.md",
+      "change": "changed",
+      "baseline_sha256": "1a38b5b6deb38c02012a31973d092a2dd00804c7d2658a8f0af993c119190073",
+      "tree_sha256": "551f3b29ca2229af85d0d03e9b0b47f8ece83246e55247571bf50583f0d38e25",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/canon-to-code-delta.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/current-canon-defaults.md",
+      "change": "changed",
+      "baseline_sha256": "e2f98681aed05d3b03ce69ef57362f285b23cf2b79dad3ce9d4cef0486940ba1",
+      "tree_sha256": "d5d41f47a58e2f75fbec91e43c3f536a0ddb9561bf67c0f504c733ad1488c846",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/current-canon-defaults.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/execution-horizons.md",
+      "change": "changed",
+      "baseline_sha256": "f3a87fb9251a343111a8369f196029248a3f792d1ae3cbfd1c89f3679b21d1c9",
+      "tree_sha256": "77d40fb1f041fa6961b32f7f493707f334d0abbe099738f3d5aa70a23f0690cd",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/execution-horizons.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/implementation-matrix.md",
+      "change": "changed",
+      "baseline_sha256": "3d894c5296c429a9eafb1da9bf685facb575e9fe790175b719073c586b7d0dfe",
+      "tree_sha256": "1b021ad92feefb1d43a295095d96c5a4ad3840a39cb00283703e59cf640d2666",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/implementation-matrix.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "change": "changed",
+      "baseline_sha256": "6c34a729fd2ca5caa44fecb56acd0d223ee9e4806efc9e8fc85fec0c0b27b500",
+      "tree_sha256": "fb27c1a556d1c9382484e877fe7b067642ec984ceaf7c17145f2b29d4ededfe4",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/architecture-contract-registry.v1.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/attempt.v1.schema.json",
+      "change": "removed",
+      "baseline_sha256": "f06400f098878188a12d0572d84a00beb633626072aa8517ec3198fc4df68fd8",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/attempt.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/attempt.v2.schema.json",
+      "change": "removed",
+      "baseline_sha256": "f43eed3ea83e8f80c17b2aabae9e7f4fce196f2fde344c01743d084e52efbe5c",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/attempt.v2.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/attempt.v3.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "cf851d363fa8842702192c41ba386b2166290a7424b5b02bd7d8b5e89ebbe964",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/attempt.v3.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/collaborative-work-graph.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "fe1d176e78a84129792965160b3b39cebf9dd4ce38850953f02463ffa5ae677d",
+      "tree_sha256": "05f5a182eda7ef1f65f249524d47bbea8a749fe1141b29ed00845b5dbbeb1482",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/collaborative-work-graph.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/finding.v1.schema.json",
+      "change": "removed",
+      "baseline_sha256": "e6f4dba1908e037229186f821b0d1dbc4609a19dbae6b03e8ea87f0271b73de2",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/finding.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/finding.v2.schema.json",
+      "change": "removed",
+      "baseline_sha256": "d6bcb83e6b081a516f2c8e7a0a960ffcb8a19d402ba820b0cc21de7ac644d21f",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/finding.v2.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/finding.v3.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "02f5a7bfe6a0cd454c149cfa5a185ced303449ba6ef425eb2307062ddac4c1f5",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/finding.v3.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v1/negative-unknown-field.json",
+      "change": "removed",
+      "baseline_sha256": "e65c4e4db11feaa5cf1efbfbc6a09df202e198b189100be06dfb32aa96cb90b2",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v1/positive-minimal.json",
+      "change": "removed",
+      "baseline_sha256": "21ed0d61f4ed11a8a2d1a1a5b17981b88752a763730e28583e947d43b04c6e76",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-admission-lease-substitution.json",
+      "change": "removed",
+      "baseline_sha256": "4d89df8270c6598addb4a49a5d3cecde8cb738b9581b03a4d42522f0de79c56e",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-admission-lease-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-non-room-bound-coordinates.json",
+      "change": "removed",
+      "baseline_sha256": "b26efcb760c1c7ba92ac705a911c8969df80d5a918f35b2f99dc32ab1d0b1308",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-non-room-bound-coordinates.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-proposed-carries-admitted-roots.json",
+      "change": "removed",
+      "baseline_sha256": "5e428992d8f2a0d25e198d07811c78719ce8d90cd6f56dcf2e52cbdb9da12436",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-proposed-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-stale-bound-goal.json",
+      "change": "removed",
+      "baseline_sha256": "1cd40ca98ed9422cea0bca5360090c09670c21a5190fcf695995518a696fe394",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-stale-bound-goal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-wrong-work-subject-scheme.json",
+      "change": "removed",
+      "baseline_sha256": "479f229fc91c3aa4baa25492fcf6c38cb9d8f41dedc09e3230f71397c704b7a1",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v2/negative-wrong-work-subject-scheme.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-hosted-admitted.json",
+      "change": "removed",
+      "baseline_sha256": "10bbc65f9c17ed1292afdc1bff042d19da43efd56cea6d60211cd2477d688217",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-hosted-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-non-room.json",
+      "change": "removed",
+      "baseline_sha256": "18ef3e2e18e6785f1971e7564edd8439eb5603e957fece8b583ab15bdb5f1afd",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v2/positive-non-room.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-admission-lease-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "0d18b201937322d2a7ff395804da3ad866261824dbb850d349522913223a4be3",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-admission-lease-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "1cf927f4e638336fee09344919d5fa3a11fd1dd9b1e7f74b35110c321bb78d9a",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "f2691017447c2ce06f1b15256a623f4d2b9a45e006635740e407e848df581799",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-stale-bound-goal.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "255229a697453c28a117878e1a08b3d34a58d3b12f0c7c458177c45d384598f7",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-stale-bound-goal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "df1f57871aecb49530844841e085506018f651e812bad5ed4424d3c250744dc3",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-hosted-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "03f4da045714c508b8d9153694f5b2acface1ded1f8dcc9cc2cdcc50f09cbc49",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-hosted-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-non-room.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "6b63644e5f23851a4df4fe3b42d24db7a760346a40c06dbe2db41f4309b42810",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-non-room.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json",
+      "change": "changed",
+      "baseline_sha256": "8fca1da3b01cb0db2ff5e9b640e47f35687c496f1cb4e04a5b6c51dc46a70661",
+      "tree_sha256": "6e9b7fdac4ffa1025abf7b2da89ff50faea7d29c4d68942b225eff38f079bb33",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json",
+      "change": "changed",
+      "baseline_sha256": "a7fb47bc2366d315be727c23c59d29aa319d3ff067b8497e49ff8ea531c68278",
+      "tree_sha256": "36323547dd14a781d9d66d8d550494f81b2fe0e6c6f74e59f38ad613f598ca11",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "dc0f95bff82bc53a8d5412ccf33dc1d97931c4e6f2d88893623c4510a3c7430b",
+      "tree_sha256": "d3287397f1a8ca0ee1fa1ef4e06ee20b08fc6030cac0baaf36640cbc00b84d7e",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "0ef6d298dbaaa2c3380874ab416d1b81dc0be41b9b8fce9392f5a326a9f4aa8e",
+      "tree_sha256": "87070fa2abd5560431a50e3ce79329a0e89f571c9e57cc6a94861ae9e6a28a8a",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v1/negative-unknown-field.json",
+      "change": "removed",
+      "baseline_sha256": "5ce36f5f31dde719b7d80a7b3c3b5747a27307a3c0428c5fc7d3602bde3c3cd7",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v1/positive-minimal.json",
+      "change": "removed",
+      "baseline_sha256": "a965a6a8935f08e4dc4805abd1e9db98123b1b817a5cb5a24c623554a938cbec",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-admission-lease-substitution.json",
+      "change": "removed",
+      "baseline_sha256": "ddf3f73f01259cf658295d7a2dbd605278e18d59919de8e37aeb96c845c86f8d",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v2/negative-admission-lease-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-evaluating-carries-admitted-roots.json",
+      "change": "removed",
+      "baseline_sha256": "6749c16247eafa88e54fe758057ab31922634f83aef836d2cab5f520e688e7ea",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v2/negative-evaluating-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-non-room-bound-coordinates.json",
+      "change": "removed",
+      "baseline_sha256": "8d336861aa0ed3a5089c1bcc7d2c6827df355ec5beac5f42f28b2bb6a0cc930b",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v2/negative-non-room-bound-coordinates.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-proposer-principal-substitution.json",
+      "change": "removed",
+      "baseline_sha256": "7db17da89ddd56730d786eb04ed0d9087e64505285b3dbc80d86a29eee257adc",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v2/negative-proposer-principal-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-stale-attempt-coordinate.json",
+      "change": "removed",
+      "baseline_sha256": "562ca026f19a4becdf40acc6d22ddafb417186bf172c3919e10d12dfa21c7d61",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v2/negative-stale-attempt-coordinate.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/negative-wrong-source-scheme.json",
+      "change": "removed",
+      "baseline_sha256": "7a26d45bfca9a8f931943bc86d81791bb04e215087173fb2bb5ceda51a6c3f15",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v2/negative-wrong-source-scheme.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/positive-hosted-admitted.json",
+      "change": "removed",
+      "baseline_sha256": "9ecab55df8a9e20e87602c9c8874783ba3700466f78fd6db37e21a0663cdda3a",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v2/positive-hosted-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v2/positive-non-room.json",
+      "change": "removed",
+      "baseline_sha256": "d27dfae8768e7101010366a9dc2ebfc57844ec3c983c5e793d59b2155db4cb06",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v2/positive-non-room.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-admission-lease-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "460dd57c3c5982cbd447b6645071168e65660974bd863f239ec62c4ac26c107a",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v3/negative-admission-lease-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "fd77966445cb88780f1a42418314c2b8c0ec0986189457077f62faed34ac3a1c",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-non-room-bound-coordinates.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "d2b610449708bf0594f1a9581c051e5b372714fb9158e34ba3e568f211a40dda",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v3/negative-non-room-bound-coordinates.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-proposer-principal-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "9a316ebde43e059e00e99ef8169ca09128d0c5bb7afec07c3dc7619319414a30",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v3/negative-proposer-principal-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "3ea9f2755c47403ac770dadb31729cc142b34515b7d84c231c3ba8159d225fda",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-wrong-source-scheme.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "24b5e46408af04350ab3cc893654153af0937efbaae2955bd4d0ad2c7d5f79a5",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v3/negative-wrong-source-scheme.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "5467109ef4d2d53fae0cd4b4983252d154a794234944c95ab9855005ea8f6d98",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "8fc897f984b67fc65e902ef3d65a3f87bf058145b741440aacb802a69984aa53",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-admitted-goal-substitution.json",
+      "change": "changed",
+      "baseline_sha256": "0c6fa63e5b4a295eff94c88d5a7e5ce377fea2f3431a4b2cac2b6a1da2ad15fc",
+      "tree_sha256": "3a8162de81517a2d73a588a596b2b4bc79639e0342eeb9f7eae4f01a9349ac1c",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-admitted-goal-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-receipt-identity-mismatch.json",
+      "change": "changed",
+      "baseline_sha256": "6b132e6f76e3e21519622dbb64311074eafeadca2643de77b1ac9d70e445c9e8",
+      "tree_sha256": "f72e00cb5d1276ecc2fce3f8bbbfcb27ee0ceb635dd33c4fb8ac7f2febfa9e23",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-receipt-identity-mismatch.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-source-kind-ref-mismatch.json",
+      "change": "changed",
+      "baseline_sha256": "acca71321c905809d5f93469898538634f3c2da597556da591978433bac3ca00",
+      "tree_sha256": "65403ff6858b2f5e7a0250d5f549a65e4ff68bd94ec4e95dd8e36ced4ba7b368",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-source-kind-ref-mismatch.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json",
+      "change": "changed",
+      "baseline_sha256": "1d9e8f25032818c18df425cfd6db63a24a460bba125cba00fd0e0fa303572eb0",
+      "tree_sha256": "e22e7eda8ea649bc9ac3a095e232213c13c30bf3b2b6f93fde54945c168f415c",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/negative-direct-with-shared-frontier.json",
+      "change": "changed",
+      "baseline_sha256": "686d8f4c8e594f750470217f305369f25dbf717af58ca0850380d3f846a80616",
+      "tree_sha256": "9981e4d7d6a64d7efa0bbf4be72394ef1a90836d2fe0d5607de13ddd898ff285",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/negative-direct-with-shared-frontier.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/positive-direct-research.json",
+      "change": "changed",
+      "baseline_sha256": "3be3f91cb57d605f08aa50cb70169f949b530d2e65254bc288cfa4a2c7bfff97",
+      "tree_sha256": "86ab2b0af503e1a915b3044e068e3eeaf10dc24214e4efa02f26217a638feeb2",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/positive-direct-research.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-prefix-only-state-root.json",
+      "change": "changed",
+      "baseline_sha256": "69e0e585e312459738ddfffe2c3e482cc13b2e97c7a65db3122998d9e22f65af",
+      "tree_sha256": "1fb2c5014c1fd55804b707e420aadf9e9faca6ab68643459a2bec0ce565c33a9",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-prefix-only-state-root.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-tampered-source-context.json",
+      "change": "changed",
+      "baseline_sha256": "f975052b7f7719029c043bca868134a7299575a3846e51529d50e6131667b5ba",
+      "tree_sha256": "54e617e40c7559dcbeaa12cf25e888e1f25551030dc9a9647da9fed8edbf8e30",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-tampered-source-context.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/positive-admitted-create.json",
+      "change": "changed",
+      "baseline_sha256": "ca173396ef9322c53ff5778f5343369e6acdb0c69c1c5df1ca5760a954f291d2",
+      "tree_sha256": "3f93e3935ff66070d2a8e8143c100afeb7ad01c026e01e9e47f5481f2c2bccee",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/positive-admitted-create.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "031c798133da91379f9c653a962661422648bf626dc19ba25a4dbb151c1b6585",
+      "tree_sha256": "8a3e6f3f339ec7ae38a188ec83611754c33f90854940fdba0eadcdbcb332ac3d",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "e71a5c9df41408aa30932fbdd5df5ca69c71d761d6ec13aed57995769c18ff8e",
+      "tree_sha256": "a2a7e4ada6e9f317b42c71644e8a9322e44e6104a1f4c4d7ea3619f9a232fd2c",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "fd7a6422829949b6e0843aa2397a5454fa32da48effa431d70e8de713591726c",
+      "tree_sha256": "d2a02baf3c7db39b03286b21d349d8d26f31a92075a0da80b29478354feee58d",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "6c938da1bb22dabe0d5568f81bfc92e58aa8c06fe5e3b781ad9583bcdb8fbd46",
+      "tree_sha256": "cb571c633bc9fb3b9acab61125c47e2674fef607de09a1a5430d69d827f51eaa",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v1/negative-unknown-field.json",
+      "change": "removed",
+      "baseline_sha256": "8c16489ef11aab649a74386c8d9e7c36e23ef266ddeee3cf4b7f0be74460b82f",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-delta-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v1/positive-minimal.json",
+      "change": "removed",
+      "baseline_sha256": "f582eb4da5f89d9102fc5e4bf1091c18cca04c4d3c3a09fa1231d763689feb31",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-delta-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-over-cardinality.json",
+      "change": "removed",
+      "baseline_sha256": "9a6065d1d0008a39a445fbd25787828a703fa37a38b07bf403d1a2db73195824",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-over-cardinality.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-rejected-carries-admitted-roots.json",
+      "change": "removed",
+      "baseline_sha256": "99ad43d1fbc9c0a5825ca2e96ddecce6622d0369cee74c880783bbfbd9d77709",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-rejected-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-unsupported-proposer-kind.json",
+      "change": "removed",
+      "baseline_sha256": "d22e781b63cd745ff759756e64d1c9ac11ac84bf380819fe282db14d7f6833ec",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/negative-unsupported-proposer-kind.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-direct-non-room.json",
+      "change": "removed",
+      "baseline_sha256": "748183c61720ccd259507010b35728337dde516cfda661cc9ec84f937b268765",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-direct-non-room.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-hosted-admitted.json",
+      "change": "removed",
+      "baseline_sha256": "59d5dd7bafb119216531f6dccb7108d88ea6b1043fc52e8ac04b2ae3bee4f9bf",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-delta-v2/positive-hosted-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-over-cardinality.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "b67acd94012e13f29400320833973b34c0a8b0ffbd454cbbfb23682c8139f24b",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-over-cardinality.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-rejected-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "09002dff013c6d0e08a6d26e3bde966f1de68ca5e96d0913f6bf48efa6dbc331",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-rejected-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-direct-non-room.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "b4a892b1a6c9f7b92ad6ce9deaac4594bce30215da8a2b6f21a7d72b444f140f",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-direct-non-room.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "600ee84ef698fde0556c6ff99c302946109ccfa9a4abd7b4ac261b49ff14d845",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-permitted-subjects.json",
+      "change": "changed",
+      "baseline_sha256": "8fc2ef79750d504a837ddb5b8cd569ab57563c972f9adc6df5342e4a85fd67d2",
+      "tree_sha256": "5ecc1a786d2f954db58eceebec7229b431d0441720d99e9f5c4d3c958f78336d",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-permitted-subjects.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-source-receipts.json",
+      "change": "changed",
+      "baseline_sha256": "e76f28d140e0920050a93896361b39d79a2e628f587afb678967191295043577",
+      "tree_sha256": "d34b1a7dbbb1b49c97c74eb506472806b7f11e38c013a29ec37fb91e86a1422c",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-source-receipts.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json",
+      "change": "changed",
+      "baseline_sha256": "5d05cf681847b74443a16bbec48efc23a2b13f249cb19cd1eac11a169440baeb",
+      "tree_sha256": "bcebed8a1794a33b18ab3c29632231010f5f3244776f2e600b9639e2c06b676b",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json",
+      "change": "changed",
+      "baseline_sha256": "0444a145ea754884044305fefc93e9ea6f6ecf3e4188bc0e81cb6a572ecf48c0",
+      "tree_sha256": "ce7b5bf5bfac13a1bbd0f739aef1c383adac21ec70db91db1ee0a91a0ffa2e71",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v1/negative-unknown-field.json",
+      "change": "removed",
+      "baseline_sha256": "fe82bea2c7d99983aa80f3b8feb570151314eb89239ba9e4841ea72ebd185715",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v1/positive-minimal.json",
+      "change": "removed",
+      "baseline_sha256": "d8e9570752ddbf12c2cb2bd8d08a5b40b52a29402bac07812378bec4fb339bce",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-hosted-without-host-domain.json",
+      "change": "changed",
+      "baseline_sha256": "43cc19bfb914da0db8068b211b2b434dfbe2efa73d9c3b5735a5b4c1833de41a",
+      "tree_sha256": "39334fd868186d8400154bd56680e0ae6f6b0571d0ff404a200b1b24f3dfe721",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-hosted-without-host-domain.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-max-sequence.json",
+      "change": "changed",
+      "baseline_sha256": "3d075f6011101408ece318c552a7706ac26b89bd0b16215f6f4b1d4ca26eb338",
+      "tree_sha256": "11fd8daf73ba280502de6d04f5af94f9ca405f51b756ad9960d536c9fc1aea88",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-max-sequence.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-cardinality.json",
+      "change": "changed",
+      "baseline_sha256": "e1f836407b0acaaf0bd6ab03a2d683b0d64107def44c20cd2ad63bd0638b201d",
+      "tree_sha256": "d6927f42286650bae0b2ed0ac7d95360a2d1b5c879a5aa15ba5846d78cc059ad",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-cardinality.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-objective.json",
+      "change": "changed",
+      "baseline_sha256": "3dc015154e0807eb6acd998cb080e2aa653b871f33e7ca3dd9f5e8bacd445f92",
+      "tree_sha256": "9f44dd50f5366728905e14cc884d99cd461938b67b76528bdce7db78c3eaeb91",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-objective.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-replay-cardinality.json",
+      "change": "changed",
+      "baseline_sha256": "06c2153f589598ed69e0acc41f9c26d893d3e47e3ff4ad360972b8651e9b5d53",
+      "tree_sha256": "8fe22c02894614a1af208159d050a59bf0e088751aaa23c9935c789ba43112ab",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-replay-cardinality.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-owner-scheme.json",
+      "change": "changed",
+      "baseline_sha256": "649e55ea247f73ebaf75b07a0d8d09c06ebe02796c45f0c45c728fd759b399ef",
+      "tree_sha256": "b389061c7ad1ca5acd712a039f36281b0d8019e2f7840e97e9f30a2261e5dd8a",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-owner-scheme.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json",
+      "change": "changed",
+      "baseline_sha256": "86e8d27c8152f0b3beb460337ac756832a14f6860cfef9765964564b2b8f3011",
+      "tree_sha256": "caf564adbe031558b8677285988ca3e033197ebe6ce1693d1bf17b55823cb171",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/negative-unknown-field.json",
+      "change": "removed",
+      "baseline_sha256": "0313ef42a156c88dce3242acfe3d9f581ad06a822e8b7fd7381fd13b624c3d35",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/positive-minimal.json",
+      "change": "removed",
+      "baseline_sha256": "123b6bdf17061743a259b3ceb7aacd2ca2f5695cf212d7ca124e02792e65a01b",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-database-access-leakage.json",
+      "change": "removed",
+      "baseline_sha256": "3fd61201265df9e71bc2dc432255f1f68353af715467ec2179c0e00e7ca71e57",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-database-access-leakage.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-encrypted-ref-smuggling.json",
+      "change": "removed",
+      "baseline_sha256": "4ae0a52e8b2ee2f7f1c008c02cfa2e7802592ba6d333e096d100ecd2af84bf6b",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-encrypted-ref-smuggling.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-foreign-system-issuer.json",
+      "change": "removed",
+      "baseline_sha256": "a7f114436abab75811e6c0c4777276ffb63d62b9d85de7b0838a9b6b4ea2c9cf",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-foreign-system-issuer.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-proposed-carries-admitted-roots.json",
+      "change": "removed",
+      "baseline_sha256": "cd85a5b3856789f9bc567c6384e30eb6d332bff42e1379592a56ea84cf023773",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/negative-proposed-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-hosted-export.json",
+      "change": "removed",
+      "baseline_sha256": "c03f04101d1a98506b222b475db106478cb51cae8a7a0bf2b0ad9730b2c4c5b7",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-hosted-export.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-system-issued-expiry.json",
+      "change": "removed",
+      "baseline_sha256": "4ddec10913cefb317d5ccb2055b0f9f1bbc2719c9da9279e6a588759a99cef46",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v2/positive-system-issued-expiry.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-database-access-leakage.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "961d5d487a2aee18f7956777fc3ee0e6e0aa7e0d674ea3ca9af41d657b2075ef",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-database-access-leakage.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "6a14cefe9d61465a69ba438f7460a0bccfab52432890eaebc714cd3b06090073",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "33248beb14358637b05e1e5b36d2f8e898ebaefd885e5a690e354d86a0ec7076",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "5414e51636bc71c6ccfb84b7cf23767b72b1c8ecca08446cc5289662f68f1d20",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-hosted-export.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "d8c07ed5f12227345f9cf6f4ca0b9eeb3dfab11fde9c4d3d5d1e634a4d8d50c0",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-hosted-export.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-system-issued-expiry.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "3305288a9139ef250bb0f886f9b90edd934574619f28de90405c8b6f9af78077",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-system-issued-expiry.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/negative-unknown-field.json",
+      "change": "removed",
+      "baseline_sha256": "f131126b67d6ac0fabfc4f231db476970d811604d6b612af363e00db65177e6b",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/positive-minimal.json",
+      "change": "removed",
+      "baseline_sha256": "5e60fc4ba338003a3df5466d6e8051f97be018633da0d7621fe79dd48a3237e2",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-admitted-missing-cas-position.json",
+      "change": "removed",
+      "baseline_sha256": "33a31d40be4a6cf3f203c70ade2af5128173788259882b0574438c1ab0b8b4af",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-admitted-missing-cas-position.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-admitted-missing-receipt.json",
+      "change": "removed",
+      "baseline_sha256": "85133db18de6038d3ba0fa1bac646b23e5b9c9bd98fc568ad539e03fdcbe3686",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-admitted-missing-receipt.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-agentgres-decision-ref.json",
+      "change": "removed",
+      "baseline_sha256": "7659aff485558c61902748f70330c0792545cada8516e0d0ba9891bb04868c0e",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-agentgres-decision-ref.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-proposed-carries-admitted-roots.json",
+      "change": "removed",
+      "baseline_sha256": "967ca77295ba83c3a48a20ba17407ecefebd096817bfca796ffbc967dee7b832",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/negative-proposed-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/positive-admitted.json",
+      "change": "removed",
+      "baseline_sha256": "a153566f08bc53bffb1f51254ffd857c5b7ea65af864bd804438324be6bce463",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/positive-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/positive-proposed-zero-revision.json",
+      "change": "removed",
+      "baseline_sha256": "73fee822f4baecb199fc6acb75f8bbcc7ba49c18afbb58528e734ffcf9b82c22",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/room-admitted-object-base-v2/positive-proposed-zero-revision.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-converged-recovery-reinvoked-remote-effect.json",
+      "change": "changed",
+      "baseline_sha256": "48071b73b7a5dc4aa6cf57de799a4a243be28b55499dba5f971b663131a6ad77",
+      "tree_sha256": "56d480b953e143e58ddcf4694f4ec53c87d746a5caf88b1921941649912d080e",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-converged-recovery-reinvoked-remote-effect.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-moved-head-fresh-child-commit.json",
+      "change": "changed",
+      "baseline_sha256": "235c436c12c6da7e94f45fa2cb864271e3a73baebae8e7dfeaa6f0718e9eadea",
+      "tree_sha256": "9ddb2081893488f89560aa710f5387cacbe521cb3bcf990d3df759841ebb3ce4",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-moved-head-fresh-child-commit.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json",
+      "change": "changed",
+      "baseline_sha256": "ecd731d871cef08f4ae87e8351b9070cd47621dc685c32a2d6cc0d300f817811",
+      "tree_sha256": "b9eb1146fc4784b0775293ebcad01aa110e1ac2ff0fcd218979c7af07fe5eaf7",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-observed-head-in-operation-identity.json",
+      "change": "changed",
+      "baseline_sha256": "1f3dd858eae2b0ce7b03472fbe79842fadc238281a0f45cf6220abf2d12cf118",
+      "tree_sha256": "2adade4d5e65b819b4d6832c5ab9d7b81102811643d5392de8ab8cca740aab9b",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-observed-head-in-operation-identity.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-operation-key-bound-to-observed-head.json",
+      "change": "changed",
+      "baseline_sha256": "fd87b66afb0c1038e3e63f80c79fd40ffc80b3c3fc29750edc73b42a48853b4d",
+      "tree_sha256": "8f08caa140453c9152a80f77f2f6396cb7e16d493c8e069cd42ee32213e0ee5b",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-operation-key-bound-to-observed-head.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-overwrite-remote-head-requested.json",
+      "change": "changed",
+      "baseline_sha256": "95b6a6a100f1ee1a109e4765ed5a32e0b50d26bb4ca27bbe843d8fae98b1b12f",
+      "tree_sha256": "1f519032569c399453a0f2b7d07d29417b13b198f32b6148b20262370edeb2cc",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-overwrite-remote-head-requested.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json",
+      "change": "changed",
+      "baseline_sha256": "7bda9b11d55443f6f1aaaa13c1476cf23dad6c706a42fe959efa6c3a33144c87",
+      "tree_sha256": "f0fad911fbd3ef908fab5edb66d9c5303628d2311249de85fcc6dd317d185993",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-remote-effect-before-prepared-persistence.json",
+      "change": "changed",
+      "baseline_sha256": "835784324b94808bd7a2a2f8871cdb6ec324b7de19ebba1af4862fe58fb0af6e",
+      "tree_sha256": "131240036aa03ef03ed16cd58da9c31f1bc2739e741ac60875eda59b3f5edd26",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-remote-effect-before-prepared-persistence.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-replay-without-prior-terminal-effect.json",
+      "change": "changed",
+      "baseline_sha256": "4575790a1f317a41569135bb5444f500148c1e5d74dca779d14a16a0ffd14a16",
+      "tree_sha256": "667f45cde586b868cf7606cc7ec27521c7e626ed1d581aff069bc6921cb61a31",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-replay-without-prior-terminal-effect.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-retry-recomputed-cas-onto-moved-head.json",
+      "change": "changed",
+      "baseline_sha256": "36dcc879e067d196132a71a404db3bacb6f73c45d5859d691c8669e0308c91fa",
+      "tree_sha256": "ed3a78aaf5bf90876a27852e8ac5ff259226e9ad72c8d7fa58239e03bed93279",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-retry-recomputed-cas-onto-moved-head.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-ambiguity-absorbed-into-publication.json",
+      "change": "changed",
+      "baseline_sha256": "2ca44c1e70a59ae388f63990ad48ebe59da7f068fe3680f0d71df4be6404eb19",
+      "tree_sha256": "f0757e1283449bdc4abb2ee0ce603819d9b65ba8c5b27d731f0a56e28e074f17",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-ambiguity-absorbed-into-publication.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json",
+      "change": "changed",
+      "baseline_sha256": "b066f50327b1db40ecc8be3a120939c5ee6ef7b5ba48ab32a78d04624e3ec381",
+      "tree_sha256": "b28558de9503b6a949a5c0518562a98bc81b110ca443bdb1dca1ddf4ea6ec2a0",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-shared-effect-receipt.json",
+      "change": "changed",
+      "baseline_sha256": "f2f46d38977b86663a030688e129b5a915b75546ba76eb0e05dc4d384be08134",
+      "tree_sha256": "29ba43776f4d88e706d1b8bb92bfa53dbaa79a52812fccedd05308878da3714a",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-shared-effect-receipt.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-unbound-destination.json",
+      "change": "changed",
+      "baseline_sha256": "3c6c09969f2ca22a88cb4b564009633e45a84d18e46d6674d8f03ba9e8bba10f",
+      "tree_sha256": "37e4826c6f8ff80ae62ba3cc3e9a786319b731effc4ac9cb25e9ec0a39d34cfc",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-unbound-destination.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-whole-workspace-change-set.json",
+      "change": "changed",
+      "baseline_sha256": "775f3935e017705c7294f5ca9b25f61994f65b5ffba84115c8648c9a62fe2cec",
+      "tree_sha256": "b9f4ae9b4556c13e7a6e876f68e1566b1c5a2b4d7c4633d1fd76b181eedcef8b",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-whole-workspace-change-set.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-first-dispatch-published-with-review-request.json",
+      "change": "changed",
+      "baseline_sha256": "1c3686dbe723ae029dc2841c53caaf5ced66a27ace6f6e7841cf85db688c7501",
+      "tree_sha256": "9325e9e0f60578cd7b1fd171cb21b852262452c04c06f313a58051d89b0d45ee",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-first-dispatch-published-with-review-request.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-dispatch-before-persistence-recovered.json",
+      "change": "changed",
+      "baseline_sha256": "c5f3003b6f082a937f9c83271433a7f3281c9929e4b9d62b1f532f290c0c2cef",
+      "tree_sha256": "aeee7152220b234bc5a326286613b45362895ea1f60d23b8407bebf9523f08c5",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-dispatch-before-persistence-recovered.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-persistence-replayed-terminal.json",
+      "change": "changed",
+      "baseline_sha256": "94c612ef073f3daf0d3f22cc76a085c587d458b137a993dcf4b3848218f120a3",
+      "tree_sha256": "8bec55eca26709be6834e4a33ea2e2f85e7fbfcdd25d72979f56635a36154665",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-persistence-replayed-terminal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-before-dispatch-retry-same-frozen-cas.json",
+      "change": "changed",
+      "baseline_sha256": "4994f72156e5fbda7c4bee7c4c6ee6fe46c28ccabab026a0a5b1e9997930ac3b",
+      "tree_sha256": "4bbc6ec98142955fcb6df9399f3afe263bccc6956143d2a2b9e80d0c1356358f",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-before-dispatch-retry-same-frozen-cas.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-moved-head-ambiguity-reconciliation-required.json",
+      "change": "changed",
+      "baseline_sha256": "69cff1294a98050b946230348182fe751b2683296e6f669b0b44b4b6839e99a0",
+      "tree_sha256": "377ea16ef9ce322bfada3b2c6e06e497795cb0602c334746fa57ff45e4b7e189",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-moved-head-ambiguity-reconciliation-required.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-new-target-ref-must-not-exist.json",
+      "change": "changed",
+      "baseline_sha256": "5c03a9746d8609f101f1163f10b92c17ebd26c1dd623254c90fac7f747938a27",
+      "tree_sha256": "e732eb05e25982c323ea206fc810f284b0910706d9f695fd9dba3fb7aafee7a1",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-new-target-ref-must-not-exist.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-review-request-ambiguity-independent-reconciliation.json",
+      "change": "changed",
+      "baseline_sha256": "687ebc802eb298d95f509757ab90edcfa2539480032ff659e98f3aa6ccd688bf",
+      "tree_sha256": "2ef5ab44cac306b4dfded7b0ed5d1f654ab272b581c86ad1b03267ba9ccdd34c",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-review-request-ambiguity-independent-reconciliation.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/negative-parallel-admission-field.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "c1212c681dc3bd13dc232ce8dad1ac087346650facbee9e8b945f61f3b2b0ecb",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/negative-parallel-admission-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/positive-minimal.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "730f4b5c210159fdb3e155b9e857b8fff92751e69086820b5ca19794fed2c227",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/negative-unknown-field.json",
+      "change": "removed",
+      "baseline_sha256": "4dded0e576b13afab21a209e3d1c660220d1c5ac659b26c9df84e40208a8a171",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/positive-minimal.json",
+      "change": "removed",
+      "baseline_sha256": "f05675ce82e6b98e9dc13df1f64b33d882d15aa98945c6e04d9f025167cfe33b",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/verifier-challenge-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-rejected-carries-admitted-roots.json",
+      "change": "removed",
+      "baseline_sha256": "c74b045d306e5ec48702b685efcdb02299d5b54f66d938b1318e2ac7d8bbe8fe",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-rejected-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-room-substitution.json",
+      "change": "removed",
+      "baseline_sha256": "0962f04511143e89294a63a13935d091fec41d2e9a1869a629af17795e5f5f35",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-room-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-unsupported-challenger-kind.json",
+      "change": "removed",
+      "baseline_sha256": "26a2ec43af0dcda7280d850b2ef476ca7480b6aade4e0c0a4572a73e66f988d3",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/negative-unsupported-challenger-kind.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-hosted-admitted.json",
+      "change": "removed",
+      "baseline_sha256": "45b22fa19cd2a46c8d8a11611d8a330155ddc10841e1132d627a7baee09af8bf",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-hosted-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-non-room.json",
+      "change": "removed",
+      "baseline_sha256": "96d4de00cd6f3a676cce2988955a3ce219f3426c6b15698ed35e060294b2ccc8",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/verifier-challenge-v2/positive-non-room.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-rejected-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "c1acbb551cbfdb70993e404709ed7071f20e13896130fe997ebfa0dfa160fcb6",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-rejected-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "51c77f606fb8a6693cf7ce31ae6649e1aa8fb6a6ac0ce4bcd694248b9217cd7a",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-unsupported-challenger-kind.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "bcef8721550982024a729ece18c83bb905fcd16d16b5d95c68f1d4f15070fca4",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-unsupported-challenger-kind.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "399d7a17f984353c573774430cb92da9eb8fe0df674024aa12441824952b0e7f",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "a377dc9e5bd3e72aed8cfce075c1b35e73fd5ccafca5a75f17699aeb32e20c68",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/negative-unknown-field.json",
+      "change": "removed",
+      "baseline_sha256": "35c6c6e2b6e948617c58625aa517f2a08366fa32fddae0a5031ab6e6f389d182",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/positive-minimal.json",
+      "change": "removed",
+      "baseline_sha256": "de1833a3d9b13e5e334939621bc1dbaad7666b28cc8efa6289078186bc737f74",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-participant-lease-substitution.json",
+      "change": "removed",
+      "baseline_sha256": "e23d912fcc53ecda0f5295cad175bfb376f2fb3b35e09a739ccbc6b75e806c6e",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-participant-lease-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-rejected-carries-admitted-roots.json",
+      "change": "removed",
+      "baseline_sha256": "e8d43072e9c19f3bb2050c071404d152b05dc07d59767f9cfa25ddcd1c45fc7f",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-rejected-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-room-substitution.json",
+      "change": "removed",
+      "baseline_sha256": "cce6df48bd32530216f9522d40bb94ecbff2c23b3490b3e26dffe0cd61b41bca",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-room-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-wrong-task-offer-scheme.json",
+      "change": "removed",
+      "baseline_sha256": "222b60acc2398537498cec5318c9cf51f30d95ea37f0cf58da59c32d582ac20b",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/negative-wrong-task-offer-scheme.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-active-room-claim.json",
+      "change": "removed",
+      "baseline_sha256": "472658b7b24a21d440f6073cba463bb9b1906f502d9fd8b7108b2c8c305e9d27",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-active-room-claim.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-direct-bilateral.json",
+      "change": "removed",
+      "baseline_sha256": "9a14f59c61a88cadc7ebc7f214229f7d59acb46b2b6b7fe6829fb63b3506c1c4",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v2/positive-direct-bilateral.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-participant-lease-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "f79c8fdba737bab63f2cfeb3f66e947d4d05ee58f583a31d66c60426882ff1d5",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-participant-lease-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "3964a3008efdfbaad62605375e8f3b4aa26188e933100e2d24f822fae5df7794",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-room-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "996a813c4ba9f395b11c50684493ba6e52cfbe8853bbad96c7053b3f48ebbb79",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-room-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-wrong-task-offer-scheme.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "6ef377e138766fc56164faebc936d3e994fca6acd440572b6055cfded4d94e1e",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-wrong-task-offer-scheme.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-active-room-claim.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "777abe20dee2657298d9aadc11abdec6adb0cb0fe91de0bfc2346b4f600eee43",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-active-room-claim.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-direct-bilateral.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "36cce5cd0396d5e2a3126bd7051e7bd6fce0b4d87741bcddb71d037eb0724717",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-direct-bilateral.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/negative-unknown-field.json",
+      "change": "removed",
+      "baseline_sha256": "b049bee6b4df3bc1024da11a5fc89fe614d16e46730a06c438ba10b4bad45931",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/positive-minimal.json",
+      "change": "removed",
+      "baseline_sha256": "9c51a0535c11c8a53b9c5662669bbab38c424ea50ebe5482c7c478ccb2c4775b",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-frontier-item-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-evaluating-carries-admitted-roots.json",
+      "change": "removed",
+      "baseline_sha256": "f2c103567344414bb815f9e74838f36ad338d76ce0002439583c7a88190e9752",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-evaluating-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-room-substitution.json",
+      "change": "removed",
+      "baseline_sha256": "ab8aaf5d91aad98a154ed8b30b3e9ac783340cff24f48d0b610b47753a6cdd12",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/negative-room-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/positive-admitted.json",
+      "change": "removed",
+      "baseline_sha256": "9c200ed07a378a0286b47e28262bbf0fd2585fcd6739019b4adb0d7dcaa1c9f1",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-frontier-item-v2/positive-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-evaluating-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "f406760e9ce92fb31cb1ccc6e4298e6dc6f56be37e78ebfe4c6c1967a92a7072",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-evaluating-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-room-substitution.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "18abcf26ac65edff960708e03895971074688e9b67cee9fbf73d01d97ec35c02",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-room-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/positive-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "f16f6374fcc25e33b7f60ced06ac6300bff7062cc1b97b17ca06dd553233cf18",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/positive-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v1/negative-unknown-field.json",
+      "change": "removed",
+      "baseline_sha256": "ca05ad7277c544a463d99512962ccc4f13636459a006e968eaa7098418dbb184",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v1/negative-unknown-field.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v1/positive-minimal.json",
+      "change": "removed",
+      "baseline_sha256": "693be3f824a2216bc874c948d825d46b9441500b460fd3ce0c20f25a95e18649",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v1/positive-minimal.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-actor-without-admission-lease-lineage.json",
+      "change": "removed",
+      "baseline_sha256": "bb386e87c8a17c0111b17bf60328b65692b139f49d53140058d31c733b4ecc2f",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-actor-without-admission-lease-lineage.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-array-uncertainty.json",
+      "change": "removed",
+      "baseline_sha256": "f5419b8bb8b969f4bcd6a3022ea5a21da69bd48bea3bb8f216acef360e486439",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-array-uncertainty.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-evaluating-carries-admitted-roots.json",
+      "change": "removed",
+      "baseline_sha256": "0284a6405668165af6d2d8aadeb7b19332299811418ea44fdef5dacfe01f9835",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-evaluating-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-over-cardinality.json",
+      "change": "removed",
+      "baseline_sha256": "9f7dde278a1abf44d2f00ede3bd26bbe3645b236371479b1a15c071548164673",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-over-cardinality.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-room-substitution.json",
+      "change": "removed",
+      "baseline_sha256": "e3c4c2f1ab16ec2e3042146225136d914975cf780ce7b9c5e16d1cc9b94abff3",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v2/negative-room-substitution.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-direct-non-room.json",
+      "change": "removed",
+      "baseline_sha256": "227621b38a27248f5eb72af4c46c1ae8ce1c00c38abccb0c91b766b9f5fe2b41",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-direct-non-room.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-hosted-admitted.json",
+      "change": "removed",
+      "baseline_sha256": "38a0544f378c24ee6d68576957c2cf1a622d155ba14aa7f2a8893727acfcfaac",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v2/positive-hosted-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-array-uncertainty.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "2827c8c4f97340f1496c82a16acc20eb01d41d0cf95c6b1e55fc7ecb485a64b2",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-array-uncertainty.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-evaluating-carries-admitted-roots.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "ad82ef3dea7e64137e06e8dc884dd796b340d867edaab5fe5dd0719e1a933b1a",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-evaluating-carries-admitted-roots.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-over-cardinality.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "9d6943b44dfcedcd329174f7c89ea660a15a75edc087a9514a97089891cb4fd0",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-over-cardinality.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-direct-non-room.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "5c9b674813dc879551df67a69712e7f51404a376ef4237849ed87adfe5e17446",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-direct-non-room.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-hosted-admitted.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "163660569842caba5cdc545b2bc179f5b5032da43032925ccd2b5b92ae99ba95",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-hosted-admitted.json: this fixture moves with the ADR 0022/0030 namespace, binding, and retirement cut; active M4 owns its executable boundary, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-grounding-loop.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "ca45c9309a46d11db5e8dbeeee63b4ec5be82fb31be83f6efd0946dc5cf1b72b",
+      "tree_sha256": "cf93b0c741878e9883afa8907edb86de93c79d371829a6fb8cecffefbf3e07d6",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/goal-grounding-loop.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run-activation-receipt.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "71a21b8a8c6c1cfe1cd1278e14040d0f5b5ae46619afcbee883b8954573c7a32",
+      "tree_sha256": "b23526e4ac6ca0141e61e9a95192d6427b64bf3b79936bb97ced6f9ffef2e7b3",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/goal-run-activation-receipt.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run-activation.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "2a6591a20a48d7f37b52da57bedb358311fd5d9a8066a382d718f17c79b57d21",
+      "tree_sha256": "4ae0205796f78f5d74bfa2496fd3e1bc3fe0cda7d36299cbc61b535ecf7fbf63",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/goal-run-activation.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run-admission-path-decision.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "d2dc41ad095ef74f88a55e5c188b340e8879424ab289a8863d4fd174cb488610",
+      "tree_sha256": "28263f7a01ef95c6bafd3afd46c7fe31603fa622db787a5f5198f41ccca1c91e",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/goal-run-admission-path-decision.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run-admitted-state.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "787807e53532df53d763745b4db671e8666fdf852232204fc538e4ec43ae61fb",
+      "tree_sha256": "7315be93ee14f4cd35f227d352077f7b1e307d3605e0fe7a34a6139621e2ab07",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/goal-run-admitted-state.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run-execution-ceiling.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "2bd4f828ce9fc89df55e717a165a429cb452c4f93fcb3688598ec65668c7614d",
+      "tree_sha256": "877a6e1b4900057d6be2ee2136aa18a528254988ef571134908429d7e04981f1",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/goal-run-execution-ceiling.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run-profile-resolution-receipt.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "e6dbb614ec55b31d2258737f15db9febff4ddf991603d3e9cf10b28d298a64c4",
+      "tree_sha256": "5143e081789e3641daab51afa9547affe3622ad869d649f49813dad75177be76",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/goal-run-profile-resolution-receipt.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run-profile.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "95bae23816c956cae56f75281dd39feff5a16063e6a2da9d1e45ae5d50a2c6fc",
+      "tree_sha256": "cf0e0857d2d406449853ecfb6a335d3a33dffb57fd835aa9d5cedc084a92b47f",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/goal-run-profile.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/goal-run.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "9e9665299ed24e88b1cb0b20b0ec2d29e2e2c7e382338c5d4857764eff7f669d",
+      "tree_sha256": "28ff2841bdaf2f1b75f832541157dbabaeae235e79fb3d1736c21db92d8a8cb0",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/goal-run.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/attempt.v2.invariants.json",
+      "change": "removed",
+      "baseline_sha256": "5819e76ab3a6b8d2a97c664b2c6dacf4cd8fb159bb33fa6230c6f8dce744d415",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/attempt.v2.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/attempt.v3.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "57ab1144abed6c07a559f1ff0174c6c9ed64f56737452b51a330f231f2a19a55",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/attempt.v3.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/finding.v2.invariants.json",
+      "change": "removed",
+      "baseline_sha256": "a520bf2a7193bdd14f7c0b0783e0785e33e365dc9157b9b18dff2feb6cb08108",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/finding.v2.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/finding.v3.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "6486aa29ce8ce93241b31e51337cf979c983e6e92213736b1662fd238c2f886d",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/finding.v3.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/goal-run-activation-receipt.v1.invariants.json",
+      "change": "changed",
+      "baseline_sha256": "f06b1e90820203819f4607f10a65cfab3d9805aaa4f941a43be865bb97fe2ed8",
+      "tree_sha256": "dfeeee2ffd3ab929b02aba522ecc3fc26aae1ef03e3756638377a24194e2ea66",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/goal-run-activation-receipt.v1.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/goal-run-activation.v1.invariants.json",
+      "change": "changed",
+      "baseline_sha256": "eff5eb0a7c2ff3f3e5ec38de19b43d456c0b23a45a8df1758d1bbbb966062d51",
+      "tree_sha256": "481ec6d151ca55af976b5fbeb62060a58b377934428591d656cacfc038cb691b",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/goal-run-activation.v1.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/goal-run-admitted-state.v1.invariants.json",
+      "change": "changed",
+      "baseline_sha256": "8a796e32808e9e310ca7c0f20dbe27e95f1411a254063dc81a909e6aaa2e6a39",
+      "tree_sha256": "6b23939cc2d8f7c2157127fb8664b0a253381a0669e0b07a10dc78c1b4d1b029",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/goal-run-admitted-state.v1.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/goal-run-execution-ceiling.v1.invariants.json",
+      "change": "changed",
+      "baseline_sha256": "89474ae355211f65edcb5739548fe2f7b8de64b3c607b0ae1fa3a4cc415ead76",
+      "tree_sha256": "1366278388a0444f6ff836ae7a16fc68df708b96a3e249bd51585ceb99dadee0",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/goal-run-execution-ceiling.v1.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/outcome-delta.v2.invariants.json",
+      "change": "removed",
+      "baseline_sha256": "28245c4c25fa39b0f524e177592ae6d7b1cc254e7faa0dd513bd4bd04a05f332",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/outcome-delta.v2.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/outcome-room.v2.invariants.json",
+      "change": "changed",
+      "baseline_sha256": "2ce9686b76dcd93be8a7a2201dd128da599e640c08663d08a66f841915d1788d",
+      "tree_sha256": "47d1dce4af1af61e1d1a21c11e72e0d5a2fcef760506320c5c64f2a601ed6941",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/outcome-room.v2.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/participant-state-bundle.v2.invariants.json",
+      "change": "removed",
+      "baseline_sha256": "6c37183287fa2af4511b93f68944c5de58c51f4680e0f9399f38a75cc5691dae",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/participant-state-bundle.v2.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/participant-state-bundle.v3.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "991e0ff7a788cc4d9b3d7031c1417f82ae6ef42cc852ae7b54fd2fe36945ba6f",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/participant-state-bundle.v3.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/room-admitted-object-base.v2.invariants.json",
+      "change": "removed",
+      "baseline_sha256": "2dcce79cba5cad20938d17debbe5d6022166e1a8d9d20c6d2cc3f5cca0857a91",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/room-admitted-object-base.v2.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/verifier-challenge.v2.invariants.json",
+      "change": "removed",
+      "baseline_sha256": "4cc385c36c1b547083e25d1cd78f04415a381b3929168a22c398fe7f74606a69",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/verifier-challenge.v2.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/verifier-challenge.v3.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "c504da8c7454c54a1c1a5d4f80acba83a63e27bb131255d448be2f2987a42716",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/verifier-challenge.v3.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/work-claim-lease.v2.invariants.json",
+      "change": "removed",
+      "baseline_sha256": "b94aad1f99ee16c821a9c7fac1e0c7245cab107a6edbe06f6fec1f3423b8bd88",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/work-claim-lease.v2.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/work-claim-lease.v3.invariants.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "08c8f6f5ec4166e77ccb5af8d5c0b353fe6263bc11e876132f43211d65d8848a",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/work-claim-lease.v3.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/work-frontier-item.v2.invariants.json",
+      "change": "removed",
+      "baseline_sha256": "397866aaffa90707d29a64a8674d410072c7303cb84726bc7c9ec7a9963c74ec",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/work-frontier-item.v2.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/invariants/work-result.v2.invariants.json",
+      "change": "removed",
+      "baseline_sha256": "dbda80fcf8ec6101f3a546c5ecc84acbd870adf6d1009652093256850a8b6650",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/invariants/work-result.v2.invariants.json: this invariant moves with the ADR 0022/0030 contract generalization and retirement cut; active M4 owns its executable proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/outcome-delta.v1.schema.json",
+      "change": "removed",
+      "baseline_sha256": "2040f3016f864f04e3d6d043726f2a28244142102a26f744119db8103ae74c83",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/outcome-delta.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/outcome-delta.v2.schema.json",
+      "change": "removed",
+      "baseline_sha256": "94b0c710cf4ce40e5e148e92af4bceaf01acc73aa2e2de8d2ed9dfca93fd4fc1",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/outcome-delta.v2.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/outcome-delta.v3.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "98f45afda92f38483c42d7f24b3f6f9d4a07079b94286303c6ec0b8f9f90ef66",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/outcome-delta.v3.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/outcome-room-discussion-projection.v1.schema.json",
+      "change": "changed",
+      "baseline_sha256": "94d4b5b665c4c37265d72a8c4a365306862635872f78ffb096aeaddb6ae32e2b",
+      "tree_sha256": "ef4763d5d4d9b57ffd1b92be2b5e16b820abe55d3099330968f489d45597ad90",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/outcome-room-discussion-projection.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/outcome-room.v1.schema.json",
+      "change": "removed",
+      "baseline_sha256": "b3cbb1a92d639cbfca935eaa04f43ea36afaaab054096f537270f1e2a69a8ef1",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/outcome-room.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/outcome-room.v2.schema.json",
+      "change": "changed",
+      "baseline_sha256": "77077cf22d76613524ed55bd00708046a6b7410f4268ad8c12b8daf5542d0044",
+      "tree_sha256": "90f7822324c3a59bc42d2ff3d0a64fc26e5721c85e8c036c6b9d19aa53557b21",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/outcome-room.v2.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/participant-state-bundle.v1.schema.json",
+      "change": "removed",
+      "baseline_sha256": "6c03f332e0f160613cd06385aeaa53cee9e0947afeff6f164143c550fc71b79e",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/participant-state-bundle.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/participant-state-bundle.v2.schema.json",
+      "change": "removed",
+      "baseline_sha256": "9b71ed184b268faf729c569ab9543ce4b6ee7c39a5556670588c6a86caa95639",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/participant-state-bundle.v2.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/participant-state-bundle.v3.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "a5a07eb3157a7dba66586c822608497a3cf3fa8e07c2d034005025bc0c0e723a",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/participant-state-bundle.v3.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/room-admitted-object-base.v1.schema.json",
+      "change": "removed",
+      "baseline_sha256": "edf8a50b901db8aff88ae13ba44f499f1edd4366ad39f1a0888ad5d6c156c541",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/room-admitted-object-base.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/room-admitted-object-base.v2.schema.json",
+      "change": "removed",
+      "baseline_sha256": "3e5701016245e202bd7b12fac2512536193cf7b580dfd56a2660a82cbac3340d",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/room-admitted-object-base.v2.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/scm-publication-effect.v2.schema.json",
+      "change": "changed",
+      "baseline_sha256": "80203973f08882db9a672b7a6373a90a7a4994c880dee0a43687d33cc91956ff",
+      "tree_sha256": "469d5713f7ffbdffaec29ca25a9242d088e1f366ce2404d5ac597bd3c542e2e5",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/scm-publication-effect.v2.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/system-scoped-object-binding.v1.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "8b78cbb9190fab96f24710aa80f94c70453b79b04dd245a87318708553e39ebb",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/system-scoped-object-binding.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/verifier-challenge.v1.schema.json",
+      "change": "removed",
+      "baseline_sha256": "289f6cfba5b422eb724e44493fab9d8b9b2091f0588d33631796d778eece81c8",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/verifier-challenge.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/verifier-challenge.v2.schema.json",
+      "change": "removed",
+      "baseline_sha256": "7a0d0c19b25d727d0e5cbb9bde15a430c0e2ebda9b753726577cb5e9d341f25c",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/verifier-challenge.v2.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/verifier-challenge.v3.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "7d420f81e2cee11bc3d33a891039a598e8b0f52595c5880195eb0061450be862",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/verifier-challenge.v3.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-claim-lease.v1.schema.json",
+      "change": "removed",
+      "baseline_sha256": "28889f02e3601c57227ddcb778fb45b8bdb585df7f0fbf4dba03902ef5af45c8",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/work-claim-lease.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-claim-lease.v2.schema.json",
+      "change": "removed",
+      "baseline_sha256": "44cb71cfb49a5c0b28a00f12c43b7e3a6c1f9a1aff9c042255208be6dacf8da3",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/work-claim-lease.v2.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-claim-lease.v3.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "b8af97ee7279e268111101dcde2ca380cc25a84248b8f1b0f2b38f1eac06ea96",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/work-claim-lease.v3.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-frontier-item.v1.schema.json",
+      "change": "removed",
+      "baseline_sha256": "9c373e4c60c284ceab28cc67cc98bbfe6b801f2006b099e0c2cd4da9010460f3",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/work-frontier-item.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-frontier-item.v2.schema.json",
+      "change": "removed",
+      "baseline_sha256": "2488879ff67ecde34887b999efb01ac5a72da0d3b36a0dfc4b34abea8e45dd99",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/work-frontier-item.v2.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-frontier-item.v3.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "42d696e360a954d7cbc83fc5e211175f4b55bc7a5d61a1bfc1bfb60486b40360",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/work-frontier-item.v3.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-result.v1.schema.json",
+      "change": "removed",
+      "baseline_sha256": "51a60cda2ef2d723be62707cf4cbc63fe496ec16418a2ebf4ca32d1f9d9b3182",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/work-result.v1.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-result.v2.schema.json",
+      "change": "removed",
+      "baseline_sha256": "903e017cd294878f15b2aad5da9ec090329e152a756cc3ae256e718dfc87d75b",
+      "tree_sha256": null,
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/work-result.v2.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/_meta/schemas/work-result.v3.schema.json",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "a75f4ca7fefea79e1519a923c3a430fdfb39e3b17b56640c36fe49b1b7df3f4b",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/_meta/schemas/work-result.v3.schema.json: this contract artifact is part of the ADR 0022/0030 namespace, generic-binding, and superseded-version cut; active M4 owns the implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/components/agentgres/api-object-model.md",
+      "change": "changed",
+      "baseline_sha256": "c87c997f55170df50d555b40132c0f386aad945db642b2ff2434146e8245c9ef",
+      "tree_sha256": "4f10d5e5e9f79c0395f558645aa7af028ea3076d741f1edd8ed2c41170fda2b8",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/components/agentgres/api-object-model.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/components/agentgres/doctrine.md",
+      "change": "changed",
+      "baseline_sha256": "5985e4485b93bbaebf8ec46d59b179860971087744d802588f24dd0f0323c48c",
+      "tree_sha256": "b083eb85bded59f19e988f826101f66f512c2e68557425133c7e948bf5a4007e",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/components/agentgres/doctrine.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/components/connectors-tools/contracts.md",
+      "change": "changed",
+      "baseline_sha256": "2296bc26155d6519cc357b0fcfb718cb58ce1b43052c90e5481d7509c7274b0f",
+      "tree_sha256": "59a96455d3921af3c05745f985165387d4c9c54be8212e45cd4980863855b0b7",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/components/connectors-tools/contracts.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/components/daemon-runtime/api.md",
+      "change": "changed",
+      "baseline_sha256": "ce50d918d10db47c8fa5ea701e30e7d0f9fa84e553186958d252f52cb5f7acaa",
+      "tree_sha256": "5e9a0641ded7319a89f9da162458165e82601fd0d7131606a4dd0774dbedfae3",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/components/daemon-runtime/api.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+      "change": "changed",
+      "baseline_sha256": "8922d339c9e492a0e1e8ce657264af2b904a48c771d56f8296902ca8c826299f",
+      "tree_sha256": "c778e9b45b1df5590aa247573906ff64f93445e7921607eb63db84ad7c0a127f",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/components/daemon-runtime/default-harness-profile.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+      "change": "changed",
+      "baseline_sha256": "f4979a1794ea940d890bcdccfef66a67f05d16ba8bb38991331ee19977d3d09e",
+      "tree_sha256": "fcf9dc81832242c6b287d9f295fd0118392bacc88be3f1bbf44b46d721c18c63",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+      "change": "changed",
+      "baseline_sha256": "9ba2351820b042daa4a0c8dc970c010d9512617e047787bb2b22d9c743a9fee8",
+      "tree_sha256": "9f7212615733863d842ce28103c98f907d308031025bb3f80905b0128d98938c",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "change": "changed",
+      "baseline_sha256": "b99954611bf629b11584ca212b89c5c60f39b5a0424a4d9982a017690fa14716",
+      "tree_sha256": "5c219449e2d7dfaba013313bdaf5ac29f72cabdd6b86df454bbb72a5a975c201",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/foundations/objects/collaborative-pursuit.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/foundations/objects/economics-and-settlement.md",
+      "change": "changed",
+      "baseline_sha256": "2567801960bd39635c8bbeaffedf73ef4e22352928b0dce91a1e94551958e1d2",
+      "tree_sha256": "cf4a9254377baf277023d4a82d1899432c13677502317d21741667259ff36f5d",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/foundations/objects/economics-and-settlement.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/foundations/objects/goal-pursuit.md",
+      "change": "changed",
+      "baseline_sha256": "9f7b8ce7791e409e303e4c0a180e8a9d4ad655288037f5056e0382026db26350",
+      "tree_sha256": "4678fcf81213ae0b2501ee814e774b29cee41dfcf6c3366318c3a739164bb6dd",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/foundations/objects/goal-pursuit.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/foundations/objects/work-execution.md",
+      "change": "changed",
+      "baseline_sha256": "a95e976006d66a2a2dd3fb7eb37fa876408d2c5455fdb5503d4bdc9872712864",
+      "tree_sha256": "af0ac355569c39eb72c378a0ef1c57dc4cc2c79898984c082bc8a3072a04c7fb",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/foundations/objects/work-execution.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "change": "changed",
+      "baseline_sha256": "d6fdaed81f5611227f21c085cce6794f33cc710a02a66bdba82902433ba01d3a",
+      "tree_sha256": "194f3246708d99be7e1b508279db666da6740087efd2cc6662eea4c77314f852",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/foundations/objects/work-results-and-lifecycle.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/foundations/term-boundaries.md",
+      "change": "changed",
+      "baseline_sha256": "d31917694bc4a64f4d761166230caea0de75f0220ca7ad71f37c58e9c22ca537",
+      "tree_sha256": "52bcdd1fceb6e2fe7da9f09c20806e02e3148d4983b29bba3b35c64c4b76dc8f",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/foundations/term-boundaries.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/foundations/web4-and-ioi-stack.md",
+      "change": "changed",
+      "baseline_sha256": "6349f8514833d8f4c3841dce316f1dfb70da39eb2fe72eb52eb996f0f85cb5f7",
+      "tree_sha256": "5cbc7422fb97f0aec99cad507f9f0cc1483001cd84b488fb5d42427fc7ddeb97",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/foundations/web4-and-ioi-stack.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/architecture/whitepaper.tex",
+      "change": "changed",
+      "baseline_sha256": "52497e04b5abf02f2ab933f79ae00500d51092a8049696a9be3037f504a556ab",
+      "tree_sha256": "3388f4b76f9e66a90e257101aec1811e273a0c48a93fcb9584cba81d77590e57",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/architecture/whitepaper.tex: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/conformance/hypervisor-core/outcome-room-admission.md",
+      "change": "changed",
+      "baseline_sha256": "2e55beb3b27f280965e0e3ab0d1205f7341eae541210e4b80c12c0bf99c9b3e0",
+      "tree_sha256": "9b0811c81d029a350ee0af08f0edf87f0d004e4ab0642dbd7e16eb5fce849fb6",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/conformance/hypervisor-core/outcome-room-admission.md: this conformance wording now targets Agentgres-owned admission and generic System scope under ADR 0030; active M4 owns the runtime proof, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/decisions/0022-goal-orchestration-application-layer-and-clean-slate.md",
+      "change": "changed",
+      "baseline_sha256": "b0a1f0ef173f43afab279f49b837a30bce60ea1289b45431d34ecc25caa6ce4e",
+      "tree_sha256": "12a9f3798fca9a1256b8fde1c8303d27b82171442b8ff2831b994388a4ea0031",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/decisions/0022-goal-orchestration-application-layer-and-clean-slate.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/decisions/0030-rooms-are-a-composition-not-a-primitive-family.md",
+      "change": "added",
+      "baseline_sha256": null,
+      "tree_sha256": "9ae700276de751e12a323323356b472460848615c1135009df994adb980692a5",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/decisions/0030-rooms-are-a-composition-not-a-primitive-family.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    },
+    {
+      "id": "docs/decisions/README.md",
+      "change": "changed",
+      "baseline_sha256": "e7cefeedd7b10226f399446ea3241a1c92b419599dca791a402f02d44a411f9a",
+      "tree_sha256": "902bf82cdc7a86d7190381667c302ea9910969470e14036fc3f8f9b89af37f8d",
+      "disposition": "unaffected",
+      "review_note": "Reviewed as docs/decisions/README.md: this canon text carries the accepted ADR 0022/0030 allocation and ownership ruling into the pre-literal M4 cut; active M4 owns the resulting implementation and proof delta, no predecessor literal or status changes, and no separate successor is required."
+    }
+  ]
+}

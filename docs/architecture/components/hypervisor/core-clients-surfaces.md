@@ -1481,6 +1481,21 @@ An Advanced-launch affordance on the composer opens the owned governed
 launcher modal (registry-fed harness/model with disabled-reasons, venue
 picker, placement preview) — one daemon-backed launch lane, no forked truth.
 
+The composer is one visual seed with two explicit semantic acts; sharing its
+layout does not merge their contracts. Ordinary prompt submission and Enter
+remain **New Session** and may create only the bounded Session described above.
+A separately labelled **Activate Goal** affordance may draft, review, and
+submit a `GoalRunActivationEnvelope` with `source_kind: ioi_goal_draft`.
+Typing text, submitting a Session prompt, correlation, navigation, or Session
+attachment is never that activation act. Before submission, the activation
+affordance must show the normalized intent, selected profile revision/hash,
+requesting principal, requested authority/effect posture, review requirement,
+and source binding; daemon admission alone may mint or join the GoalRun and
+return the activation/admission receipts. A Session may be attached after that
+admission, but neither the composer nor its transcript becomes GoalRun or Goal
+Space truth. Reusing the ported composer this way is an in-place contract
+rebind under ADR 0028, not a replacement Home, route migration, or new client.
+
 ## Hypervisor Home
 
 **Hypervisor Home** is the default command and resume surface.
@@ -3243,6 +3258,15 @@ restore, and course correction. A direct terminal/editor/environment/provider
 Session may exist without a GoalRun. An AutomationRun may finish without a
 GoalRun and, when no managed execution occurs, without a Session. An
 OutcomeRoom can outlive every participating Session.
+
+Execution composition does not collapse these identities. When a GoalRun
+actually executes, delegates, controls a managed Session, or launches a harness,
+its product view must resolve the exact daemon-owned thread-event, thread-fork,
+managed-session, session-launch-recipe, and harness-session-binding records.
+GoalRun and OutcomeRoom views may project those refs and derived status; they do
+not own a parallel execution graph. Harness-to-harness coordination is therefore
+a bounded Core/daemon request over these primitives, not direct peer authority
+or application-local runtime truth (ADR 0031).
 
 For a persistent collective outcome, Work / Room detail is graph-first:
 

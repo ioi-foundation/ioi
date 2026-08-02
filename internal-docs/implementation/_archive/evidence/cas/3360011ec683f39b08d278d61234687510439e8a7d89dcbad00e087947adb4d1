@@ -1,0 +1,163 @@
+---
+module_id: stage-m3
+module_class: stage
+title: Generic Pursuit And Result Seam
+sequencer: program/sequence.v1.json
+status_owner: work-item records
+stage_ids: [M3]
+canon_owners:
+  - docs/architecture/foundations/common-objects-and-envelopes.md
+  - docs/architecture/foundations/invariants.md
+  - docs/architecture/foundations/governed-autonomous-systems.md
+  - docs/architecture/foundations/verifiable-bounded-agency.md
+  - docs/architecture/foundations/security-privacy-policy-invariants.md
+  - docs/architecture/foundations/domain-kernels.md
+  - docs/architecture/components/daemon-runtime/doctrine.md
+  - docs/architecture/components/daemon-runtime/api.md
+  - docs/architecture/components/daemon-runtime/default-harness-profile.md
+  - docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md
+  - docs/architecture/components/daemon-runtime/platform-operability.md
+  - docs/architecture/components/agentgres/doctrine.md
+  - docs/architecture/components/agentgres/api-object-model.md
+  - docs/architecture/components/agentgres/artifact-ref-plane.md
+  - docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md
+  - docs/architecture/components/agentgres/projection-system-reference.md
+  - docs/architecture/components/connectors-tools/doctrine.md
+  - docs/architecture/components/connectors-tools/contracts.md
+  - docs/architecture/components/hypervisor/core-clients-surfaces.md
+  - docs/architecture/components/model-router/doctrine.md
+  - docs/architecture/components/model-router/api-byok-mounting.md
+  - docs/architecture/components/wallet-network/doctrine.md
+  - docs/architecture/components/wallet-network/api-authority-scopes.md
+  - docs/architecture/components/wallet-network/product-exchange-risk.md
+  - docs/architecture/components/storage-backends/doctrine.md
+  - docs/architecture/components/storage-backends/filecoin-cas.md
+  - docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md
+  - docs/architecture/domains/ioi-ai/control-plane.md
+  - docs/conformance/hypervisor-core/work-lifecycle.md
+  - docs/decisions/0017-goal-pursuit-workflow-skill-and-harness-taxonomy.md
+  - docs/decisions/0003-agentgres-operation-backed-domain-truth.md
+  - docs/decisions/0010-verifiable-bounded-agency-and-execution-boundary-alignment.md
+  - docs/decisions/0006-capability-authority-and-work-graph-vocabulary.md
+  - docs/decisions/0013-hypervisor-core-clients-surfaces-and-adapters.md
+---
+
+# M3 — Generic Pursuit And Result Seam
+
+Make pursuit reusable, durable, generic beyond software patches, and independent of any one Session, model, worker, or harness.
+
+## Why this is next
+
+M3 depends on `M1` and `M2` in [`sequence.v1.json`](../program/sequence.v1.json): M1 supplies a bounded System with a protected constitutional and lifecycle identity, and M2 supplies deployment, membership, fencing, and transition truth that a long-lived pursuit can be fenced against. M3 adds the reusable definition layer above that identity — immutable profiles, workflows, skills, harness bindings — and the generic result seam that carries outcomes which are not software patches. It also carries the production mechanism spine (information flow and declassification, receipt checkpoint and offline proof, Agentgres writer/branch effects) that later product and sovereignty claims draw on. The stage's `notes` field records the differential under which direct non-System work may proceed without a verified System binding.
+
+## Canon owners
+
+Modules pulled by this stage, per `pulled_modules` in the sequencer: `runtime-fabric`, `proof-and-evidence`.
+
+| Canon owner | Obligation this stage must satisfy |
+| --- | --- |
+| `docs/architecture/foundations/common-objects-and-envelopes.md` | Owner meaning and envelope shape for `GoalRun`, `GoalRunProfile`, `WorkflowTemplate`, `SkillManifest`, `SkillEntry`, `ActiveSkillSetSnapshot`, `GoalGroundingLoop`, `WorkResult`, `OutcomeDelta`, `LifecycleTransition`, `WorkLifecycleRecordEnvelope`, `CancellationFanoutPlanEnvelope`, `ReceiptEnvelope`, `InformationFlowLabel`, `DeclassificationApproval`, `AuthorityKeySet`, `AuthorityRevocationSnapshot`, `AutonomousSystemManifest`. |
+| `docs/architecture/foundations/invariants.md`; `docs/architecture/foundations/governed-autonomous-systems.md`; `docs/architecture/foundations/domain-kernels.md` | Definitions, skills, workflows, packages, and harnesses hold no executable or authority-granting power; System-owned state stays owner-bound. |
+| `docs/architecture/foundations/verifiable-bounded-agency.md`; `docs/architecture/foundations/security-privacy-policy-invariants.md` | Every consequential effect names and revalidates its final invoker under exact scoped authority with a receipt; labels and policy are enforced server-side. |
+| `docs/architecture/components/daemon-runtime/doctrine.md`; `api.md`; `default-harness-profile.md`; `events-receipts-delivery-bundles.md`; `platform-operability.md` | GoalKernel loop, profile/component resolution, `HarnessProfile`/`AgentHarnessAdapter` resolution, `WorkResult`/`OutcomeDelta` seam with `ImplementationResultPayload` as one profile, receipt/event delivery, fault posture and operability. |
+| `docs/architecture/components/agentgres/doctrine.md`; `api-object-model.md`; `artifact-ref-plane.md`; `postgres-bridge-and-readiness-contract.md`; `projection-system-reference.md` | `OperationLogEntry` append with exact head/root, `ArtifactRef` linkage, `AgentExecutionBranch`/`BranchCheckpoint`/`BranchMergePlan`/`StagedEffect`, `ProjectionDefinition` as derived view, replay/recovery and readiness. |
+| `docs/architecture/components/connectors-tools/doctrine.md`; `contracts.md` | `RuntimeToolContract` leasing and declared-tool-only invocation; MCP and other transports remain protocol clients. |
+| `docs/architecture/components/hypervisor/core-clients-surfaces.md` | `HypervisorProductSurfaceProjection` and `HarnessSessionBinding` for lifecycle-honest Work/Sessions/Studio/Automations/Developer Workspace/Provenance views. |
+| `docs/architecture/components/model-router/doctrine.md`; `api-byok-mounting.md`; `docs/architecture/components/wallet-network/doctrine.md`; `api-authority-scopes.md`; `product-exchange-risk.md` | Model substitution preserves labels, receipts, and GoalRun identity; scope, expiry, revocation, and key-epoch discovery sit behind checkpoint and offline-proof verification. |
+| `docs/architecture/components/storage-backends/doctrine.md`; `filecoin-cas.md`; `docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md`; `control-plane.md` | Durable custody for archives, snapshots, and exported proof material; result/delta and declassification behavior at the domain seam without granting acceptance authority. |
+| `docs/conformance/hypervisor-core/work-lifecycle.md` | Typed lifecycle, cancellation, archive, snapshot, and archive-only replay conformance the stage must extend rather than fork. |
+| `docs/decisions/0017-goal-pursuit-workflow-skill-and-harness-taxonomy.md`; `0003-agentgres-operation-backed-domain-truth.md`; `0006-capability-authority-and-work-graph-vocabulary.md`; `0010-verifiable-bounded-agency-and-execution-boundary-alignment.md`; `0013-hypervisor-core-clients-surfaces-and-adapters.md` | Accepted ADRs governing the stage: separation of pursuit, directed work, skills, harnesses, and tools; operation-backed domain truth; capability/authority/work-graph vocabulary; execution-boundary alignment; clients, surfaces, and adapters outside the execution authority. |
+
+## In scope
+
+- `M3.1` admit immutable `GoalRunProfile` and `WorkflowTemplate` releases as distinct owners.
+- `M3.2` resolve exact component requirements and freeze profile revision/hash, admitted overrides, transitive component set, and resolution receipt into every new GoalRun.
+- `M3.3` bind `SkillManifest`, `SkillEntry`, and `ActiveSkillSetSnapshot` without giving instructions executable authority.
+- `M3.4` operate the GoalKernel orient-plan-act-observe-verify-correct loop over explicit `GoalGroundingLoop` state.
+- `M3.5` bind HarnessProfile/AgentHarnessAdapter resolution and leased `RuntimeToolContract`s without making MCP or a harness runtime truth.
+- `M3.6` admit generic `WorkResult` and `OutcomeDelta`, retaining `ImplementationResultPayload` as one profile.
+- `M3.7` bind typed lifecycle, cancellation fanout, archive, snapshot, and archive-only replay at each owner's legal mutation boundary.
+- `M3.8` preserve negative, invalid, inconclusive, superseded, and challenged outputs.
+- Own `production-information-flow-and-declassification`, `production-receipt-checkpoint-and-offline-proof`, and `agentgres-production-readiness-and-branch-effects` as M3 mechanism records; M9 must aggregate their selected-profile evidence before the first sovereign-product claim, and the existing M3 direct-path/exit aggregate must join all three while retaining the direct-path differential.
+- Runtime truth/action/final-invoker spine: GoalRun/Kernel, ContextCell/Lease/Handoff, Session/WorkRun, and Invocation/Result/Receipt crossings, so no client, harness, or MCP transport can inject accepted truth.
+- Direct/non-System and System lifecycle-state proof across the pulled product surfaces: Work / Goals, Sessions, Studio, Automations, Developer Workspace, Provenance.
+- Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and retained-evidence obligations for the selected profile of each record.
+
+## Out of scope
+
+- Collective pursuit, OutcomeRoom admission, plurality fan-out, and Campaign structure (M4 and later); acceptance authority over results.
+- Ownership of the Work, Automations, and Developer Workspace application journeys themselves — M3 owns only the shared lifecycle projection families those journeys read (M6 owns the workspaces and catalog).
+- Enterprise learning, improvement campaigns, and model-supply substitution economics (M8); multi-node continuity and cross-failure-domain reconstruction (M10 and later).
+- P0 readiness, independent-party operation, or production claims of any kind.
+
+## Work items
+
+| Work item id | Role | What it owns |
+| --- | --- | --- |
+| `m3-direct-path-and-exit-proof` | **aggregate_exit** | Explicit direct pursuit path plus the aggregate M3 proof join, so simple eligible work is not forced through rooms, plurality, Campaigns, or System genesis; retains the direct-path differential. |
+| `m3-affected-route-authority-census-and-fence` | implementation_cut | Source-neutral 39-registration/body-branch/final-invoker overlay, background aliases, existing controls, and per-row release fence; it does not widen the pre-existing route census. |
+| `m3-authorized-issuer-and-atomic-authority-consumption` | implementation_cut | Existing-owner resolution and wallet transaction repair: independently resolved current issuer, exact effect, Prepared intent, atomic grant/lease accounting, immutable receipt, recovery, and final-invoker revalidation. |
+| `m3-pursuit-definition-resolution` | implementation_cut | `M3.1`–`M3.5`: immutable pursuit definitions, exact component resolution, Skill separation, GoalKernel grounding, harness resolution, tool contracts. |
+| `m3-result-lifecycle-negative-retention` | implementation_cut | `M3.6`–`M3.8`: generic result/delta admission, owner-correct lifecycle and cancellation, restart reconstruction, archive-only replay, negative-output retention. |
+| `m3-workrun-resource-isolation-contract` | implementation_cut | Propagate compiled requirements and the immutable WorkRun/runtime isolation binding through admission, replay, cancellation, replacement, and terminal state without claiming containment from object presence. |
+| `m3-goal-kernel-context-and-runtime-truth-spine` | implementation_cut | Runtime truth/action/final-invoker plan across GoalRun/Kernel, context leases and handoff, Session/WorkRun, invocation/result/receipt. |
+| `m3-work-session-automation-product-journey` | implementation_cut | Direct/non-System and System lifecycle-state proof over the shared Goal/Session/Automation/Work/Developer Workspace projection families. |
+| `production-information-flow-and-declassification` | implementation_cut | Evaluator, label propagation, PEP coverage, and product-state plan for labels, decisions, and declassification/disclosure/refusal receipts. |
+| `production-receipt-checkpoint-and-offline-proof` | implementation_cut | Production writer, export, and offline verifier plan across JCS/hash/accumulator/checkpoint/inclusion/consistency/key/proof-export families. |
+| `agentgres-production-readiness-and-branch-effects` | implementation_cut | Production writer/branch/recovery plan: Postgres bridge and readiness, operation/head/root, branch and staged effects, checkpoint writer and projection. |
+
+## Code surfaces likely affected
+
+- `crates/services/src/agentic/runtime/kernel/mod.rs` — the shared kernel anchor cited by every M3 record as adjacent precedent only.
+- `crates/services/src/agentic/runtime/kernel/runtime_goal_run_admission.rs`, `plan.rs`, `intent.rs`, `runtime_lifecycle.rs`, `deadline.rs` — profile/component resolution, grounding-loop admission, typed lifecycle, cancellation fanout, timeout and archive boundaries.
+- `crates/services/src/agentic/runtime/kernel/runtime_harness_profile_mutation_admission.rs`, `runtime_harness_session_binding_admission.rs`, `../harness.rs`, `runtime_tool_catalog.rs`, `capability.rs`, `../tools/`, `skill_hook_registry.rs` — harness/adapter resolution, session binding, leased `RuntimeToolContract` invocation, skill install/activate separation.
+- `crates/services/src/agentic/runtime/kernel/agentgres_admission.rs`, `agentgres_protocol.rs`, `crates/agentgres/src/lib.rs` — operation append, exact head, branch and staged effects.
+- `crates/services/src/agentic/runtime/kernel/governed_receipt.rs`, `receipt_binder.rs`, `evidence.rs` — receipt emission, checkpointing, exportable proof material.
+- `crates/services/src/agentic/runtime/kernel/policy/`, `authority.rs`, `scope.rs` — information-flow evaluation, declassification, final-invoker revalidation.
+- `crates/services/src/agentic/runtime/work_graph_goal.rs`, `crates/node/src/bin/hypervisor_daemon_routes/`, `apps/hypervisor/` — work-graph, route, and product-projection surfaces carrying the direct and System-bound paths.
+- `docs/architecture/_meta/schemas/architecture-contract-registry.v1.json`, `docs/architecture/_meta/schemas/`, `docs/architecture/_meta/schemas/invariants/`, `crates/types/src/app/generated/architecture_contracts.rs`, `packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts` — registered contract entries, schemas, cross-field invariants, and the generated Rust/TypeScript projections for the M3 families.
+
+## Focused checks during development
+
+- `npm run check:work-items` — work-item record contract and owner lint.
+- `npm run generate:architecture-contracts` then `npm run check:architecture-contracts` and `npm run test:architecture-contract-projections` — after adding or amending a registered contract entry; projection parity for Rust and TypeScript.
+- `npm run check:architecture-contract-bar` — registry regeneration check, contract lint, projection tests, docs integrity, and `cargo test -p ioi-types architecture_contracts`.
+- `npm run check:architecture-docs` and `npm run check:conformance-docs` — canon and conformance document integrity.
+- `npm run hypervisor-conformance:receipts`, `npm run hypervisor-conformance:bridge`, `npm run hypervisor-conformance:negative` — receipt, Agentgres bridge, and denial suites.
+- `npm run test:rust-daemon-runtime-api` — daemon lifecycle, workflow-edit, approval, MCP, and tool contract suites.
+- `npm run test:mcp-skills-hooks` — skills/hooks and runtime-event behavior at the harness seam.
+- `npm run check:runtime-layout` and `npm run check:pre-next-leg` — runtime module boundary enforcement and the pre-next-leg literal gate across code and docs.
+
+## Exit proof
+
+The stage exit is owned by the `m3-direct-path-and-exit-proof` aggregate named in [`sequence.v1.json`](../program/sequence.v1.json). It closes only when all of the following hold for the selected profile:
+
+- two runs reuse one profile without shared live state;
+- a profile, skill, workflow, package, or harness cannot execute, grant authority, or own domain/campaign state;
+- Session, worker, eligible provider, and harness replacement preserve GoalRun identity and exact history;
+- cancellation drains, fences, times out, compensates, or reconciles according to typed policy;
+- generic results work for at least one non-software payload;
+- compiled workload-isolation requirements and one daemon-minted immutable binding survive WorkRun replay, cancellation, replacement, and terminal admission, while missing, stronger-floor, cross-run, downgrade, and tamper cases refuse;
+- every unconditional child of the aggregate closes with its own content-bound literal — `M3_AFFECTED_ROUTE_AUTHORITY_CENSUS_AND_FENCE_EXIT=0`, `M3_AUTHORIZED_ISSUER_AND_ATOMIC_AUTHORITY_CONSUMPTION_EXIT=0`, `M3_PURSUIT_DEFINITION_RESOLUTION_EXIT=0`, `M3_RESULT_LIFECYCLE_NEGATIVE_RETENTION_EXIT=0`, `M3_WORKRUN_RESOURCE_ISOLATION_CONTRACT_EXIT=0`, `M3_GOAL_KERNEL_CONTEXT_RUNTIME_TRUTH_EXIT=0`, `M3_WORK_SESSION_AUTOMATION_PRODUCT_EXIT=0`, `INFORMATION_FLOW_DECLASSIFICATION_EXIT=0`, `RECEIPT_CHECKPOINT_OFFLINE_PROOF_EXIT=0`, `AGENTGRES_PRODUCTION_BRANCH_EFFECTS_EXIT=0`;
+- retained evidence contains exactly one literal `M3_DIRECT_PATH_AND_EXIT_PROOF_EXIT=0`, and the direct-path differential is present rather than collapsed into the System-bound path.
+
+## Blocks advancement
+
+- Unmet `depends_on` edges: the System-bound path requires current unqualified M1 and M2 aggregate exits. The direct path proceeds only under the structured `m3-direct-non-system` differential in `sequence.v1.json`; that permission changes no stage state. Any unclosed child of `m3-direct-path-and-exit-proof`, or a child whose retained literal is missing, duplicated, or not bound to exact artifact bytes, blocks the M3 exit but does not erase the narrower entry permission.
+- Unclosed applicable mechanism gates: `PG-2.3`, `PG-2.4` (checkpoint append and offline/temporal verification), `PG-3.1`, `PG-3.3`, `PG-3.4` (label closure, browser/computer-use IFC, connector admission), `PG-4B.1`, `PG-4B.2`, `PG-4B.4`, `PG-4B.5`, `PG-4B.6` (lifecycle binding, authority revalidation, cancellation/receipt, archive-only resume, mixed-version rollout), `PG-4B.3` (Agentgres append and exact-head concurrency). Each mechanism or object family must gain its owner-approved registered contract before the implementation cut that accepts or emits it; those are M3 work and exit obligations, not a reason to conceal the now-admitted first direct cut.
+- Any surviving path where a client, harness, MCP transport, adapter, cache, or UI can originate accepted truth, or where an effect cannot name and guard its final invoker.
+
+## Nonclaims
+
+- No collective pursuit or room admission.
+- Direct non-System pursuit remains available; nothing here forces eligible work through rooms, plurality, Campaigns, or System genesis.
+- No acceptance authority over results, and no P0 readiness, M4 room, independent-party, or production claim.
+- Archived evidence cannot execute, authorize, or close a stage; definitions, skills, workflows, packages, and harnesses grant no authority, and harness or MCP transports grant none either.
+- This stage does not own the Work, Automations, or Developer Workspace application journeys.
+- A record, plan, or docs-and-orchestration artifact closes no work item, stage, runtime capability, application, or public claim.
+
+## Canon and contract admission status
+
+- ADR 0029 and `docs/architecture/components/daemon-runtime/default-harness-profile.md#goalrun-admission-path-decision` now name the Hypervisor Daemon as admitting owner, define the decidable direct-path predicates and fail-closed System-bound/refusal outcomes, and select `research` as the canonical non-software M3 proof profile. `GoalRunAdmissionPathDecision` is registered with schema, fixtures, generated projections, and an executable kernel selector. These former canon gaps are closed for M3 entry.
+- The core M3 pursuit and result families now have owner-approved registry entries, closed schemas, positive and denial fixtures, and generated Rust/TypeScript projections: `GoalRun`, `GoalRunProfile`, `WorkflowTemplate`, `SkillManifest`, `SkillEntry`, `ActiveSkillSetSnapshot`, `GoalGroundingLoop`, `HarnessProfile`, `AgentHarnessAdapter`, `WorkResult`, `OutcomeDelta`, `CancellationFanoutPlan`, and `WorkLifecycleRecord`. Admission closes the contract gap only; executable and evidence claims remain owned by the corresponding cuts and their literal exits.
+- The M3 mechanism families are likewise registered: `OperationLogEntry`, `ArtifactRef`, `ProjectionDefinition`, `AgentExecutionBranch`, `BranchCheckpoint`, `BranchMergePlan`, `StagedEffect`, `InformationFlowDecisionReceipt`, `DeclassificationReceipt`, and `AuthorityEffectAdmissionReceipt`, alongside the previously registered label, approval, temporal, product-surface, and harness-session families. Canonical write-side reference schemes are used throughout; read-only underscore aliases remain migration input only. This census is implementation-program truth, not a second sequencer or a production-readiness claim.

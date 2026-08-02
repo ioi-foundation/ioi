@@ -1,0 +1,132 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m9-compute-substrate-canon-successor",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "status": "proposed",
+  "objective": "Own the sequence-6 successor transaction for the accepted governed-compute canon surface, joining source-neutral backend capability, WorkRun isolation, Workstation, Infrastructure, HypervisorOS, and bounded public-claim proofs without changing IOI category or treating the App-primary or future-v3 tracks as selected.",
+  "falsifiable_claim": "Any sequence-6 compute/substrate hold remains unnamed, or this successor is treated as verified before every held predecessor is exactly mapped to a content-bound subordinate proof for the accepted canon revision.",
+  "canon_owners": [
+    "docs/architecture/_meta/current-canon-defaults.md",
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+    "docs/architecture/components/daemon-runtime/hypervisoros.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
+    "docs/architecture/foundations/security-privacy-policy-invariants.md",
+    "docs/conformance/hypervisor-core/workrun-isolation.md",
+    "docs/conformance/hypervisor-core/workstation-profile.md",
+    "docs/conformance/hypervisor-core/infrastructure-profile.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "3ae3f68102cc03acf9f4975f683a04965943fa98",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "bc09ac1a3df8a79fc60e230fc43725c2da6f347afad5307b36db3075afdf600f",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/current-canon-defaults.md",
+        "sha256": "e2f98681aed05d3b03ce69ef57362f285b23cf2b79dad3ce9d4cef0486940ba1"
+      },
+      {
+        "path": "docs/architecture/_meta/execution-horizons.md",
+        "sha256": "f3a87fb9251a343111a8369f196029248a3f792d1ae3cbfd1c89f3679b21d1c9"
+      },
+      {
+        "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+        "sha256": "ac1d5824245e5b8e7190aadfb2ce3fab795ea18d47602925293140829be69a7a"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+        "sha256": "625e3c2b05b890513fa84c4cac55631b378f29203f935c4fde5b7cd3e8f00243"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "ad6a0ebb6e033c05d609f091b5fa688db10bc4b9a6259e1aba7176add08c08bd"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/providers-and-environments.md",
+        "sha256": "cf2f1f6fb8cca834864f50ed3e69b7a6e4376f358bd74dafceacfd2eabbbdad5"
+      },
+      {
+        "path": "docs/architecture/foundations/security-privacy-policy-invariants.md",
+        "sha256": "a6a88ac7cda56eb98482f148e7d95813e3e4c25b415631eb8424aaaf6b329060"
+      },
+      {
+        "path": "docs/conformance/hypervisor-core/workrun-isolation.md",
+        "sha256": "88b6b3b395bb1ecd24fa9c4696a97941c9226094af3a6e9efd8c14810e6c2f4e"
+      },
+      {
+        "path": "docs/conformance/hypervisor-core/workstation-profile.md",
+        "sha256": "fa3bf18d75c4ae3fe32ca8410fa12360181b0551ee988de036ef012f52d7e25f"
+      },
+      {
+        "path": "docs/conformance/hypervisor-core/infrastructure-profile.md",
+        "sha256": "131818311c4ad0c9b0a36475ce2f54551086127806a7cf732e2b8325bee0617c"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [
+    "m3-workrun-resource-isolation-contract",
+    "m6-hypervisor-claim-bundle-control-surface",
+    "m9-backend-capability-and-coverage-evidence",
+    "m9-workrun-microvm-isolation-and-output-admission",
+    "m9-secure-workrun-isolation-claim-gate",
+    "m9-workstation-virtual-machine-operational-journey",
+    "m9-workstation-profile-claim-gate",
+    "m9-infrastructure-estate-operational-journey",
+    "m9-infrastructure-profile-claim-gate",
+    "hypervisoros-single-node-virtualization-journey",
+    "hypervisoros-appliance-install-update-recovery",
+    "hypervisoros-appliance-profile-claim-gate"
+  ],
+  "in_scope": [
+    "The complete sequence-6 acceptance surface that introduced or changed source-neutral governed-compute facets, backend and virtual-machine schemas, workload-isolation contracts, Workstation and Infrastructure profiles, HypervisorOS future claims, their conformance artifacts, and their canonical navigation and public-claim projections.",
+    "An exact hold-to-subordinate-proof map before evidence-ready transition; one named owner now does not imply that one proof can close heterogeneous predecessor obligations.",
+    "Preservation of IOI category, topology, primitives, Work and GoalRun placement, and authority v1/v2 historical contracts."
+  ],
+  "out_of_scope": [
+    "Hypervisor App primary attach, which remains owned by m9-hypervisor-app-primary-attach-binding-and-retirement and held until one release passes the six-point bar.",
+    "Future v3 standing authority, cleanup of legacy implementations, or deletion of contract-versioned historical verification.",
+    "Admitting, verifying, or closing any child or hold merely because this record names the transaction."
+  ],
+  "implementation_actions": [
+    "Classify every sequence-6 hold by compute profile and exact subordinate proof; retain an explicit outstanding set until every qualified predecessor has one owner.",
+    "Derive the affected canon and conformance subject set from the acceptance ledger and refuse additions, omissions, or a subject assigned to two discharge paths.",
+    "Join backend capability, WorkRun isolation, Workstation, Infrastructure, HypervisorOS, and public-claim results only when their evidence is content-bound to the same release and accepted canon revision.",
+    "Keep the App-primary and future-v3 transactions separate and unselected."
+  ],
+  "consequential_effects_and_final_invokers": [
+    "No effect and no final invoker are owned here; this is a successor and evidence-join owner over existing runtime and claim records."
+  ],
+  "ordered_product_operator_journey": [
+    "Derive sequence-6 subject closure",
+    "Assign each subject and predecessor to one subordinate proof",
+    "Verify profile-specific runtime and conformance evidence",
+    "Join claim gates against the same release",
+    "Admit or refuse the successor transaction"
+  ],
+  "metrics_and_frozen_thresholds": [
+    "Every sequence-6 subject has exactly one named successor transaction and every qualified predecessor has exactly one subordinate or outstanding disposition.",
+    "Zero App-primary, v3, unsupported backend, Type-1 replacement, or categorical compatibility-retirement inference."
+  ],
+  "compatibility_and_migration": [
+    "Unused internal aliases may be retired under ADR 0022 when reachability proves no downstream user.",
+    "Contract-versioned historical verification and ApprovalGrant v1/v2 bytes and semantics remain retained."
+  ],
+  "positive_proof": [
+    "The acceptance-ledger-derived sequence-6 set equals the successor-owned set, every child proof is current for the same content-bound release, and public claims remain within the verified Workstation, Infrastructure, WorkRun-isolation, or HypervisorOS rung."
+  ],
+  "adversarial_or_fault_proof": [
+    "Missing subject, duplicate owner, unmapped predecessor, stale child, mixed release, capability overclaim, isolation fallback, App-primary leakage, v3 activation, or historical-verifier deletion prevents admission."
+  ],
+  "evidence_index": [],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This proposed successor names the compute restructuring transaction but does not close any sequence-6 hold or product claim."
+  ],
+  "rollback_or_stop_rule": "Leave every sequence-6 hold open and retain the prior claim posture if the exact subject set, predecessor mapping, child evidence, or release binding is incomplete.",
+  "source_provenance": "Owner-directed first act of governed-compute restructuring, 2026-07-30."
+}

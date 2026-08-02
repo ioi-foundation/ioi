@@ -1,0 +1,70 @@
+{
+  "evidence_format": "ioi.program.claim_corrections.v1",
+  "role": "Dated supersessions of specific asserted claims that are now known to be wrong, recorded WITHOUT editing the bytes that assert them. A correction names the exact location and the exact superseded text, states the ratified truth, and cites the derived artifact the truth comes from.",
+  "opened_on": "2026-07-29",
+  "why": "Some wrong claims live in artifacts that must stay byte-intact: a withdrawn record's retained log is the evidence of what was withdrawn, and editing it would destroy the only proof that the claim was ever made. 'Supersede in place' therefore cannot mean 'edit in place' for those. It means: the superseded text stays exactly where it is, and a dated correction is recorded here, adjacent to it, and enforced by a bar.",
+  "enforcement": "tools/check-attestations.mjs re-reads every named location on every run and fails closed if the superseded text is no longer there — because a correction pointing at bytes that changed is a correction about nothing — and if the cited derived artifact is missing or its counts do not reconcile.",
+  "claim_boundary": "A correction records that a specific asserted claim is superseded and by what. It changes no status, closes nothing, and does not itself prove the ratified truth; the cited artifact does that.",
+  "corrections": [
+    {
+      "correction_id": "cc-0001",
+      "dated": "2026-07-29",
+      "ratified_by": "owner",
+      "superseded_claim": {
+        "location": "internal-docs/implementation/evidence/M9/route-final-invoker-census-successor-after-publication-rebuild.exit.v1.txt",
+        "line_at_correction": 50,
+        "exact_text": "judgment re-reviews 6 entries, EVERY ONE a claim reduction or relocation:",
+        "what_it_asserted": "That six census identities carried a re-reviewed observed claim in the publication-rebuild window, every one of them a claim reduction or relocation."
+      },
+      "why_the_location_is_not_edited": "This artifact belongs to route-final-invoker-census-successor-after-publication-rebuild, whose verification the owner WITHDREW under osh-0016. The hold's own requirement is that the withdrawn record and its malformed artifact stay byte-intact. Editing the line would erase the evidence that the claim was made, which is the thing the withdrawal exists to preserve.",
+      "ratified_truth": {
+        "admitted_identity": 4,
+        "retired_identity": 0,
+        "locator_rebind": 828,
+        "judgment_change": 3,
+        "unchanged": 245,
+        "review_provenance_restamped_only": 496,
+        "total_after": 1576
+      },
+      "ratified_truth_note": "Six is not the count of judgment changes. THREE identities carried a changed assertion. Of the six the narrative listed, three moved only locator fields and a review date in the declared window; widening the comparison past the containment cut does not produce the claimed durability or gate drops for them either.",
+      "the_496_are_a_separate_axis": "review_provenance_restamped_only counts entries that differ ONLY by reviewed_as_of. Restamping a review date neither locates an identity nor asserts anything about it. The 496 are EXCLUDED from any semantic route-change claim and INCLUDED in the exhaustive population reconciliation: 4 + 0 + 828 + 3 + 245 + 496 = 1576, and 1572 + 4 admitted - 0 retired = 1576. Both reconciliations hold.",
+      "derived_from": "internal-docs/implementation/evidence/M9/route-final-invoker-census-corrective-successor/typed-delta.v1.json",
+      "status": "superseded_in_place_by_adjacent_correction",
+      "adjacent_pointer": "internal-docs/implementation/evidence/M9/route-final-invoker-census-successor-after-publication-rebuild.superseded-claims.v1.json"
+    },
+    {
+      "correction_id": "cc-0002",
+      "dated": "2026-07-29",
+      "ratified_by": "owner",
+      "superseded_claim": {
+        "location": "internal-docs/implementation/program/canon-overlay-manifest.v1.json",
+        "field_at_correction": "absence_rule",
+        "exact_text": "Retirement requires an explicit tombstone appended to retired_members plus a named successor disposition.",
+        "what_it_asserted": "That retiring an overlay member requires appending a tombstone to THIS manifest`s retired_members list."
+      },
+      "why_the_location_is_not_edited": "This manifest is frozen subject frz-0001-series entry frz-0002 in _archive/manifests/estate-freeze.v1.json, at file digest 36980f8477026c30b5e35a78139637aa5160d72f98b5dbf947df7814e136c081. Editing it to remove the instruction would discharge a freeze by editing the thing it froze, which is the very move the instruction itself demanded and the reason the instruction was contradictory. The bytes stay; the rule they state is superseded beside them.",
+      "the_contradiction": "The rule directed an append into a body this estate freezes. A freeze discharged by editing what it froze is not a freeze, so the append rule and the freeze rule could not both be obeyed. Meanwhile two identities WERE retired, tombstoned in program/canon-overlay-dispositions.v1.json, so the manifest and the ledger disagreed by construction while the rule told a reader to resolve it in the one place they may not write.",
+      "the_empty_list_is_true": "`retired_members: []` in the frozen manifest is NOT the defect and is not corrected here. It truthfully records the state frozen at that digest: nothing was retired when it froze, so nothing belonged in the list. Later retirement decisions do not rewrite history.",
+      "ratified_truth": {
+        "identities": 220,
+        "active": 218,
+        "retired": 2
+      },
+      "ratified_truth_note": "The two retirements live in program/canon-overlay-dispositions.v1.json with tombstones, inbound-reference proofs and successor rationales, and are carried into program/canon-overlay-manifest.successor.candidate.v2.json, which binds the frozen v1 manifest by both its self-digest and its file digest and carries all 220 identities at v1`s own digests. The successor is a CANDIDATE: it is consumed by no tool, admits no baseline, and supersedes nothing while the baseline-advance hold is open.",
+      "replaced_wherever_it_appeared": [
+        "internal-docs/implementation/program/canonical-estate.v1.json (canon_baseline_binding.retirement_rule, and overlay_disposition_layer.retirement_is_of_an_identity)",
+        "internal-docs/implementation/tools/check-canonical-estate.mjs (file header and the overlay-member-absent finding)",
+        "internal-docs/implementation/tools/derive-overlay-dispositions.mjs (the retirement tombstone note and the manifest binding note)",
+        "internal-docs/implementation/program/canon-overlay-dispositions.v1.json (regenerated from the above)",
+        "internal-docs/implementation/work-items/proposed/m0-overlay-member-custody-and-disposition-successor.v1.json (out_of_scope and remaining_nonclaims)"
+      ],
+      "enforced_by": "internal-docs/implementation/tools/check-successor-manifest.mjs rejects the superseded phrasing reappearing in the successor manifest (check: retirement-model-superseded) and rejects a successor that mutates v1, drops or re-digests an identity, loses the retired bytes, disagrees with the tombstone ledger, or resurrects a retired identity with no explicit act.",
+      "derived_from": "internal-docs/implementation/program/canon-overlay-manifest.successor.candidate.v2.json",
+      "status": "superseded_in_place_by_adjacent_correction",
+      "adjacent_pointer": "internal-docs/implementation/program/canon-overlay-manifest.successor.candidate.v2.json",
+      "ratified_model": "Retirement is recorded in the disposition/tombstone ledger and carried into the next immutable manifest version. A frozen manifest is never edited.",
+      "ratified_truth_reconciles_against": "program/canon-overlay-manifest.successor.candidate.v2.json counts: identities, active, retired. tools/check-attestations.mjs re-reads them on every run and fails closed on any disagreement."
+    }
+  ],
+  "correction_count": 2
+}

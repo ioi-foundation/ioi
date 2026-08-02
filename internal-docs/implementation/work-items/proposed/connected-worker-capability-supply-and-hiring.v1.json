@@ -1,0 +1,641 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "connected-worker-capability-supply-and-hiring",
+  "stage_id": "M14",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Approved plan-level gap closure: connected-worker-capability-supply-and-hiring"
+  ],
+  "status": "proposed",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Connected worker capability/hiring plan; CONNECTED_WORKER_CAPABILITY_SUPPLY_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if No pre-M13 federation, hidden provider/subsidy, authority before acceptance, disputed hiring or blocked exit; no sas service-lifecycle ownership.",
+  "selected_profile": "Demand-gated connected/secured service planning with an explicit valid no-L1 branch and no mainnet/native-asset claim.",
+  "canon_owners": [
+    "docs/architecture/components/wallet-network/api-authority-scopes.md",
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/components/wallet-network/product-exchange-risk.md",
+    "docs/architecture/domains/aiagent/digital-worker-ontology.md",
+    "docs/architecture/domains/aiagent/integration-surface-taxonomy.md",
+    "docs/architecture/domains/aiagent/managed-agent-console-contract.md",
+    "docs/architecture/domains/aiagent/managed-worker-instance-lifecycle.md",
+    "docs/architecture/domains/aiagent/vertical-ontology-packs.md",
+    "docs/architecture/domains/aiagent/worker-endpoints.md",
+    "docs/architecture/domains/aiagent/worker-marketplace.md",
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    "docs/architecture/domains/marketplace-neutrality.md",
+    "docs/architecture/foundations/aiip.md",
+    "docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md",
+    "docs/architecture/foundations/mixture-of-workers.md",
+    "docs/architecture/foundations/worker-training-lifecycle.md",
+    "docs/architecture/foundations/objects/collaborative-pursuit.md",
+    "docs/architecture/foundations/objects/economics-and-settlement.md",
+    "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+    "docs/architecture/foundations/objects/work-results-and-lifecycle.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "c2dd57050c543f22f14b006b502df57415713c27",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "786a9fed2bff6db2157e4b749ce699b0c0af3a32ff1f19e12c57317813886d42",
+    "owners": [
+      {
+        "path": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "sha256": "5a77e3506857e4f670a03da32b83af10634a79ed1b64f74ab5006bf6970503ca"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/doctrine.md",
+        "sha256": "8b5c6c5ea1eaee29d4fb5488d5b3ae4f136c35a8a2a3647504aa1d39391dd580"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/product-exchange-risk.md",
+        "sha256": "e5e658ec32802e6f6857835f5f8b57e8ceab25919ef9ea24a00c3ea8aec9bb15"
+      },
+      {
+        "path": "docs/architecture/domains/aiagent/digital-worker-ontology.md",
+        "sha256": "81b7fa67cc639a028c97f69e7232a178b88e5c5a89887e623155c72a3c822a5c"
+      },
+      {
+        "path": "docs/architecture/domains/aiagent/integration-surface-taxonomy.md",
+        "sha256": "63b63c33569c4a6fc1d7237945dbb5032887a90beae37f9e293fcd6de9d7f595"
+      },
+      {
+        "path": "docs/architecture/domains/aiagent/managed-agent-console-contract.md",
+        "sha256": "88a98d6c61bb9c846dcf45ebae9a6e5c7521508d56c01ad17600573b977d77ee"
+      },
+      {
+        "path": "docs/architecture/domains/aiagent/managed-worker-instance-lifecycle.md",
+        "sha256": "cefb3db59576c839497482e1387273b6661125bfb24b357d6df69a8427eb90b2"
+      },
+      {
+        "path": "docs/architecture/domains/aiagent/vertical-ontology-packs.md",
+        "sha256": "e17b390bd484bec9f5a08070e05288873a638645a3444a8489a3de53de1b2ced"
+      },
+      {
+        "path": "docs/architecture/domains/aiagent/worker-endpoints.md",
+        "sha256": "e928feeeb541bbf07ed0a97546cc212d250006065d481eef19b6b707127aa486"
+      },
+      {
+        "path": "docs/architecture/domains/aiagent/worker-marketplace.md",
+        "sha256": "54e882314281715ee59280fa4c11ead72e6e3945b53537818665397f9978aeb1"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "sha256": "b74d82cbea0a03b96ce5f52c1d1da998451121ea480d7ee797846cc40109204d"
+      },
+      {
+        "path": "docs/architecture/domains/marketplace-neutrality.md",
+        "sha256": "966c0ea3c482e9c8e4e5236fb49cc1e545a453a7fddfca602211523094ce20cd"
+      },
+      {
+        "path": "docs/architecture/foundations/aiip.md",
+        "sha256": "1dcf1af6fc0ed06bb61089355f15fc6e81e1bf856f71642882db9d5f52401221"
+      },
+      {
+        "path": "docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md",
+        "sha256": "1453e309eb2acbd0c98eaf56a9eda6d6bf41c30d58507b8ed6cbe678b3cdd1fd"
+      },
+      {
+        "path": "docs/architecture/foundations/mixture-of-workers.md",
+        "sha256": "c62e081b30698c5a072d05b75ccc70a6f7f75e1049a04b6a6e9a1c6052b41a53"
+      },
+      {
+        "path": "docs/architecture/foundations/worker-training-lifecycle.md",
+        "sha256": "77d616c72ee2d1646f61242fe19ccab4368f21f7bd964460fe9b895607d923ee"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+        "sha256": "7ca2e2b3b73f50c6e89db9bb98bcfc794a4fabda782dd1bb42a5723beb844893"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/economics-and-settlement.md",
+        "sha256": "2567801960bd39635c8bbeaffedf73ef4e22352928b0dce91a1e94551958e1d2"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+        "sha256": "78f0414fc63525ee914e102f8b4058971d2b2426227cade64c80311cd6b70c17"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+        "sha256": "52409562e711e9d763a53f76c4734c0cd6523a85e2fcbb730e4c20b6e8a01a07"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "DigitalWorkerOntology",
+      "owner_path": "docs/architecture/domains/aiagent/digital-worker-ontology.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkerPackage",
+      "owner_path": "docs/architecture/domains/aiagent/worker-marketplace.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkerComposition",
+      "owner_path": "docs/architecture/domains/aiagent/digital-worker-ontology.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ManagedWorkerInstance",
+      "owner_path": "docs/architecture/domains/aiagent/worker-marketplace.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AIIPChannelEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/aiip.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AIIPEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/aiip.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CollaborationTerms",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/aiip.md",
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CollaborationTermsProposalPacketPayload",
+      "owner_path": "docs/architecture/foundations/aiip.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CollaborationTermsResponsePacketPayload",
+      "owner_path": "docs/architecture/foundations/aiip.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CapabilityDescriptorEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "TaskOfferEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "TaskAcceptanceEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AcceptanceDecisionEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkClaimLeaseEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkResult",
+      "owner_path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "SettlementEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/economics-and-settlement.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:connected-worker-capability-supply-and-hiring",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/connected-worker-capability-supply-and-hiring.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:CONNECTED_WORKER_CAPABILITY_SUPPLY_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "pending-contract-definition:CapabilityLease",
+      "artifact_class": "private_pending_contract_definition_gap",
+      "candidate_name": "CapabilityLease",
+      "decision_owner": "docs/architecture/_meta/source-of-truth-map.md",
+      "required_exit": "CAPABILITY_LEASE_CANON_OWNER_EXIT=0",
+      "reason": "The source-of-truth map and wallet doctrine disagree on the exact field/wire owner and no canonical shape is registered.",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "dispute-adjudication-remedy-kernel",
+    "m13-selected-profile-aggregate-exit",
+    "managed-billing-work-credits-and-supplier-reconciliation",
+    "marketplace-neutral-routing-contribution-accounting",
+    "worker-training-and-local-marketplace-supply"
+  ],
+  "external_gates": [
+    {
+      "gate_id": "applicable-pg-profile-gates",
+      "owner": "internal-docs/implementation/modules/mechanism-gates.md",
+      "activation_condition": "Every applicable gate is selected and evidenced in the owning work-item records; planning creates no closure."
+    },
+    {
+      "gate_id": "commercial-legal-assurance-demand-approval",
+      "owner": "docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+      "activation_condition": "Repeated M13 evidence and explicit legal, commercial, assurance, demand, security, and economics decisions exist."
+    }
+  ],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`WORKERS`, `AIIP`, `ECON`, `WALLET`; external-worker discovery/capability/hiring/lifecycle/portable-exit families; excludes generic sas service orders",
+    "Connected worker capability/hiring plan; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "No pre-M13 federation, hidden provider/subsidy, authority before acceptance, disputed hiring or blocked exit; no sas service-lifecycle ownership",
+    "The valid no-L1 branch remains available; planning proves no demand, mainnet, native asset, or recurring external cohort.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `WORKERS`, `AIIP`, `ECON`, `WALLET`; external-worker discovery/capability/hiring/lifecycle/portable-exit families; excludes generic sas service orders.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Connected worker capability/hiring plan; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: No pre-M13 federation, hidden provider/subsidy, authority before acceptance, disputed hiring or blocked exit; no sas service-lifecycle ownership.",
+    "Retain an evidence index and require the exact content-bound CONNECTED_WORKER_CAPABILITY_SUPPLY_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "selected connected service, settlement, enrollment, suspension, or exit effect",
+      "final_invoker": "selected service/settlement owner final invoker after all gates",
+      "authority_source": "explicit enrollment plus local/domain and applicable portable/high-risk authority",
+      "receipt_or_evidence": "service/payment/dispute/exit receipt",
+      "negative_behavior": "deny implicit enrollment, unmet demand/security/legal gate, unresolved dispute, or unselected L1"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded connected-worker-capability-supply-and-hiring journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to CONNECTED_WORKER_CAPABILITY_SUPPLY_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for No pre-M13 federation, hidden provider/subsidy, authority before acceptance, disputed hiring or blocked exit; no sas service-lifecycle ownership; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for connected-worker-capability-supply-and-hiring; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for No pre-M13 federation, hidden provider/subsidy, authority before acceptance, disputed hiring or blocked exit; no sas service-lifecycle ownership; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact CONNECTED_WORKER_CAPABILITY_SUPPLY_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [
+    {
+      "order": 1,
+      "transition_id": "discover_capability",
+      "required_behavior": "The connected-worker-capability-supply-and-hiring product/operator path exposes discover capability through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 2,
+      "transition_id": "negotiate_terms",
+      "required_behavior": "The connected-worker-capability-supply-and-hiring product/operator path exposes negotiate terms through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 3,
+      "transition_id": "hire_or_decline",
+      "required_behavior": "The connected-worker-capability-supply-and-hiring product/operator path exposes hire or decline through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 4,
+      "transition_id": "admit_lease",
+      "required_behavior": "The connected-worker-capability-supply-and-hiring product/operator path exposes admit lease through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 5,
+      "transition_id": "deliver",
+      "required_behavior": "The connected-worker-capability-supply-and-hiring product/operator path exposes deliver through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 6,
+      "transition_id": "accept_or_dispute",
+      "required_behavior": "The connected-worker-capability-supply-and-hiring product/operator path exposes accept or dispute through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 7,
+      "transition_id": "revoke_or_retire",
+      "required_behavior": "The connected-worker-capability-supply-and-hiring product/operator path exposes revoke or retire through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 8,
+      "transition_id": "portable_exit",
+      "required_behavior": "The connected-worker-capability-supply-and-hiring product/operator path exposes portable exit through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    }
+  ],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.unrelated_external_organizations",
+      "metric": "unrelated external organizations with recurring paid or risk-bearing demand",
+      "threshold": ">=3",
+      "unit": "organizations",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.public_service_families",
+      "metric": "public service families carrying recurring paid or risk-bearing demand",
+      "threshold": ">=2",
+      "unit": "service families",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.sustained_declared_period",
+      "metric": "recurring demand observation over a preregistered sustained declared period",
+      "threshold": "one_nonzero_preregistered_sustained_period",
+      "unit": "declared period",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.willingness_to_pay_or_bear_risk",
+      "metric": "counted external demand backed by payment or explicit risk bearing",
+      "threshold": "100_percent_of_counted_demand",
+      "unit": "demand observations",
+      "threshold_source": "M14.3 and exit proof",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.independent_service_supply",
+      "metric": "selected service families with independent operator supply commitment",
+      "threshold": "100_percent_of_selected_service_families",
+      "unit": "selected service families",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.attack_cost_and_security_budget_coverage",
+      "metric": "modeled fees and bonded value covering selected attack, security, and availability budget",
+      "threshold": ">=100_percent_of_budget",
+      "unit": "modeled value",
+      "threshold_source": "M14.3 and exit proof",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.frozen_safety_margin",
+      "metric": "frozen margin above selected security and availability budget",
+      "threshold": ">0",
+      "unit": "preregistered margin",
+      "threshold_source": "literal M14 exit floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.zero_appreciation_viability",
+      "metric": "connected/secured-service value with token-price appreciation set to zero",
+      "threshold": "value_persists_at_appreciation=0",
+      "unit": "scenario",
+      "threshold_source": "M14.4",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m14.no_l1_compatible_alternative",
+      "metric": "valid no-L1 branch unless sovereign L1 beats the mature compatible alternative",
+      "threshold": "no_l1_remains_valid_until_l1_strictly_beats_compatible_alternative",
+      "unit": "selected settlement posture",
+      "threshold_source": "M14.5 and no-L1 rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "journey.connected-worker-capability-supply-and-hiring.ordered_transition_coverage",
+      "metric": "ordered product/operator transition coverage for connected-worker-capability-supply-and-hiring",
+      "threshold": "100_percent_in_declared_order",
+      "unit": "8 declared transitions",
+      "threshold_source": "reviewed action-plan/stage journey mapping",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "CONNECTED_WORKER_CAPABILITY_SUPPLY_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M14/connected-worker-capability-supply-and-hiring.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/types/src/app/generated/architecture_contracts.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "The valid no-L1 branch remains available; planning proves no demand, mainnet, native asset, or recurring external cohort.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: No pre-M13 federation, hidden provider/subsidy, authority before acceptance, disputed hiring or blocked exit; no sas service-lifecycle ownership. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Connected worker capability/hiring plan; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal CONNECTED_WORKER_CAPABILITY_SUPPLY_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": "2026-07-22"
+}

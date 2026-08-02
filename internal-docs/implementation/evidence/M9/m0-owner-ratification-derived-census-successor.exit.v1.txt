@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-owner-ratification-derived-census-successor
+ARTIFACT=internal-docs/implementation/evidence/M9/m0-owner-ratification-derived-census-successor.v1.json
+ARTIFACT_SHA256=8900b683242753a44a4d503312bc2b44850830cbf67055d731ffdea517171c59
+M0_OWNER_RATIFICATION_DERIVED_CENSUS_SUCCESSOR_EXIT=0
+NONCLAIM=This closes only the two generated-census stale bindings; it does not attest the M0 route/final-invoker review lock or close any Hypervisor App primary-attach hold.

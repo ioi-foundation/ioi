@@ -1,7 +1,7 @@
 {
   "schema_version": "ioi.scm-publication-effect.v2",
   "publication_effect_id": "scm-publication-effect://ioi/hypervisor/eff-neg-child-commit",
-  "publication_effect_hash": "sha256:122bd4c56747183b19e141558faae3d3b7458aaa1cfd0e64fbbc7a8f58f2111a",
+  "publication_effect_hash": "sha256:f1cc856ee0fdfe87aec586b8a5c547252dbde3d9e24597421da12e53ab141a1e",
   "execution_semantics": "at_most_once_execution_plus_reconciliation",
   "operation": {
     "operation_ref": "scm-publication-operation://ioi/hypervisor/op-0007",
@@ -64,7 +64,7 @@
     "prepared_persistence_evidence_ref": "receipt://ioi/hypervisor/prepared-persist-0007"
   },
   "attempt": {
-    "attempt_ref": "scm-publication-attempt://ioi/hypervisor/att-0007-2",
+    "publication_attempt_ref": "scm-publication-attempt://ioi/hypervisor/att-0007-2",
     "attempt_number": 2,
     "cas": {
       "mechanism": "expected_head_compare_and_swap",

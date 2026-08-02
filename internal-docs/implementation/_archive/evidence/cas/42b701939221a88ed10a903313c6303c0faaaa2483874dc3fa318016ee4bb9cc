@@ -1,0 +1,576 @@
+#!/usr/bin/env node
+// The MANIFEST SUCCESSION bar.
+//
+//   node tools/check-successor-manifest.mjs [--json]
+//
+// WHY THIS EXISTS
+//
+// The frozen v1 overlay manifest carries `retired_members: []`, and the rule
+// that governed it said retirement required "an explicit tombstone appended to
+// the manifest's retired_members". That instruction contradicted the freeze over
+// the same bytes: it directed an edit into a frozen body, and a freeze that is
+// discharged by editing what it froze is not a freeze. Meanwhile two identities
+// WERE retired, in the disposition ledger, where the tombstones actually live —
+// so the manifest and the ledger disagreed by construction and the rule told you
+// to fix it in the one place you may not write.
+//
+// The model that replaces it, stated once and carried everywhere:
+//
+//   Retirement is recorded in the disposition/tombstone ledger and carried into
+//   the next immutable manifest version. A frozen manifest is never edited.
+//
+// This bar is what makes that model checkable. It does not verify that the
+// retirements were correct — the disposition bar owns that — it verifies that a
+// succession IS a succession: that the predecessor is bound and unmutated, that
+// every identity survives at its original digest, that the retired bytes are
+// still retained, that the tombstones and the manifest agree, and that neither a
+// resurrection nor a removal can happen quietly.
+//
+// PREDECLARED REJECTIONS, each exercised against synthetic bad input on every
+// run — a bar whose refusals never fire is indistinguishable from an empty
+// function:
+//
+//   successor-manifest-missing      absent or misformatted
+//   successor-manifest-drift        it does not reproduce its own self-digest
+//   predecessor-unbound             no predecessor digest, or an empty one
+//   v1-mutated                      the predecessor's bytes moved after it was bound
+//   identity-removed                an identity v1 enumerated is absent here
+//   identity-added                  an identity here that v1 never enumerated
+//   identity-digest-changed         an identity carried at a digest that is not v1's
+//   retired-bytes-absent            a retired identity's bytes are no longer retained
+//   tombstone-manifest-disagreement the retired sets or the tombstones disagree
+//   silent-resurrection             a retired identity active again with no explicit act
+//   successor-counts                declared active/retired counts are not what is enumerated
+//   successor-admitted              the candidate stopped declaring itself unadmitted while the hold is open
+//   retirement-model-superseded     the superseded "append to the frozen manifest" rule is back
+//
+// WHAT THIS BAR DOES NOT DO
+//
+// It does not admit the successor, wire it into any baseline, edit v1, or treat
+// a well-formed candidate as evidence that the succession should happen. A
+// candidate that passes every check here is still a candidate.
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+import {
+  ESTATE_ROOT,
+  finding,
+  progress,
+  readJson,
+  report,
+  sha256Text,
+} from "./lib/estate.mjs";
+
+const OVERLAY_REL = "program/canon-overlay-manifest.v1.json";
+const LEDGER_REL = "program/canon-overlay-dispositions.v1.json";
+const SUCCESSOR_REL = "program/canon-overlay-manifest.successor.candidate.v2.json";
+const CAS_REL = "_archive/evidence/cas";
+
+const SUCCESSOR_FORMAT = "ioi.program.canon_overlay_manifest.v2";
+
+// The superseded instruction, verbatim. It is searched for rather than
+// remembered: a rule that was replaced everywhere once can be reintroduced by
+// anyone who copies an old paragraph, and prose is where that reintroduction
+// hides.
+export const SUPERSEDED_RETIREMENT_RULE =
+  "appended to the manifest's retired_members";
+
+export function selfDigest(doc, key) {
+  const body = { ...doc };
+  delete body[key];
+  return sha256Text(JSON.stringify(body, null, 2));
+}
+
+// --- the pure rejection core ----------------------------------------------
+
+export function evaluateSuccessor({
+  successor,
+  predecessor,
+  predecessorFileSha256,
+  ledger,
+  casHas,
+}) {
+  const out = [];
+  if (successor === null) return out;
+  if (successor.evidence_format !== SUCCESSOR_FORMAT) {
+    out.push(
+      finding(
+        "error",
+        "successor-manifest-missing",
+        `${SUCCESSOR_REL} declares format "${successor.evidence_format}"; expected "${SUCCESSOR_FORMAT}".`,
+      ),
+    );
+    return out;
+  }
+  if (successor.manifest_sha256 !== selfDigest(successor, "manifest_sha256")) {
+    out.push(
+      finding(
+        "error",
+        "successor-manifest-drift",
+        `${SUCCESSOR_REL} does not reproduce its own self-digest; a hand edit fails closed.`,
+      ),
+    );
+  }
+
+  // A candidate that stops saying it is a candidate has admitted itself.
+  if (successor.state !== "candidate_not_admitted" || successor.consumed_by_no_tool !== true) {
+    out.push(
+      finding(
+        "error",
+        "successor-admitted",
+        `${SUCCESSOR_REL} no longer declares itself an unadmitted, unconsumed candidate (state "${successor.state}", consumed_by_no_tool ${successor.consumed_by_no_tool}). Binding a successor manifest into a baseline is a held action.`,
+      ),
+    );
+  }
+
+  // --- the predecessor binding --------------------------------------------
+  const bound = successor.succession?.predecessor ?? {};
+  if (!bound.manifest_sha256 || !bound.file_sha256) {
+    out.push(
+      finding(
+        "error",
+        "predecessor-unbound",
+        `${SUCCESSOR_REL} binds no predecessor digest. A successor that does not say exactly which version it succeeds is a second manifest, not a next one — and nothing could later tell which of them was first.`,
+      ),
+    );
+  } else if (predecessor !== null) {
+    if (bound.manifest_sha256 !== predecessor.manifest_sha256) {
+      out.push(
+        finding(
+          "error",
+          "v1-mutated",
+          `${SUCCESSOR_REL} binds predecessor self-digest ${bound.manifest_sha256} and the frozen manifest now carries ${predecessor.manifest_sha256}. Either v1 was edited — which the whole succession model exists to prevent — or this successor succeeds a version that no longer exists.`,
+        ),
+      );
+    }
+    if (predecessorFileSha256 !== null && bound.file_sha256 !== predecessorFileSha256) {
+      out.push(
+        finding(
+          "error",
+          "v1-mutated",
+          `${SUCCESSOR_REL} binds predecessor bytes ${bound.file_sha256} and ${OVERLAY_REL} now digests ${predecessorFileSha256}. A frozen manifest is never edited; a successor is how it changes.`,
+        ),
+      );
+    }
+  }
+
+  // --- identity preservation ----------------------------------------------
+  const predecessorById = new Map((predecessor?.members ?? []).map((m) => [m.id, m]));
+  const successorById = new Map((successor.identities ?? []).map((i) => [i.id, i]));
+
+  for (const [id, member] of predecessorById) {
+    const carried = successorById.get(id);
+    if (!carried) {
+      out.push(
+        finding(
+          "error",
+          "identity-removed",
+          `${id} is enumerated by the predecessor and absent from the successor. An identity that disappears between versions has been removed by nobody: a retirement is a lifecycle recorded IN the enumeration, never a subject dropped OUT of it.`,
+        ),
+      );
+      continue;
+    }
+    if (carried.sha256 !== member.sha256) {
+      out.push(
+        finding(
+          "error",
+          "identity-digest-changed",
+          `${id} is carried at ${carried.sha256} and the predecessor bound ${member.sha256}. A version succession that re-digests a subject has rebound different bytes to an old name.`,
+        ),
+      );
+    }
+  }
+  for (const id of successorById.keys()) {
+    if (predecessorById.size > 0 && !predecessorById.has(id)) {
+      out.push(
+        finding(
+          "error",
+          "identity-added",
+          `${id} appears in the successor and the predecessor never enumerated it. An identity may enter an overlay only by an explicit admission, never by turning up in the next version.`,
+        ),
+      );
+    }
+  }
+
+  // --- the tombstone ledger and the manifest must agree --------------------
+  const ledgerRetired = new Set(
+    (ledger?.entries ?? []).filter((e) => e.disposition === "retired").map((e) => e.id),
+  );
+  const manifestRetired = new Set(
+    (successor.identities ?? []).filter((i) => i.lifecycle === "retired").map((i) => i.id),
+  );
+  const listedRetired = new Set((successor.retired_members ?? []).map((r) => r.id));
+  const resurrected = new Map(
+    (successor.resurrections ?? []).map((r) => [r.id, r]),
+  );
+
+  for (const id of ledgerRetired) {
+    if (manifestRetired.has(id)) continue;
+    // A RETIRED IDENTITY THAT IS ACTIVE AGAIN. If an explicit act says so, that
+    // is a decision and it is recorded. If nothing says so, the tombstone was
+    // undone by nobody, which is the quietest possible way to lose a decision.
+    const act = resurrected.get(id);
+    if (!act) {
+      out.push(
+        finding(
+          "error",
+          "silent-resurrection",
+          `${id} is tombstoned as retired in ${LEDGER_REL} and the successor carries it as active with no entry in \`resurrections\`. A retirement may be reversed; it may not be reversed by nobody.`,
+        ),
+      );
+    } else if (!act.ruling_ref || !act.reason) {
+      out.push(
+        finding(
+          "error",
+          "silent-resurrection",
+          `${id}: the resurrection record names ${act.ruling_ref ? "no reason" : "no ruling reference"}. An explicit act that cannot say who decided it or why is not explicit.`,
+        ),
+      );
+    }
+  }
+  for (const id of manifestRetired) {
+    if (!ledgerRetired.has(id)) {
+      out.push(
+        finding(
+          "error",
+          "tombstone-manifest-disagreement",
+          `${id} is carried as retired by the successor and ${LEDGER_REL} holds no retirement tombstone for it. A manifest may carry a retirement; it may not originate one.`,
+        ),
+      );
+    }
+    if (!listedRetired.has(id)) {
+      out.push(
+        finding(
+          "error",
+          "tombstone-manifest-disagreement",
+          `${id} is marked retired in the identity enumeration and does not appear in retired_members. The two halves of the same manifest disagree.`,
+        ),
+      );
+    }
+  }
+  for (const retired of successor.retired_members ?? []) {
+    if (!manifestRetired.has(retired.id)) {
+      out.push(
+        finding(
+          "error",
+          "tombstone-manifest-disagreement",
+          `${retired.id} appears in retired_members and its identity is not marked retired.`,
+        ),
+      );
+    }
+    if (!retired.tombstone || !retired.recorded_in) {
+      out.push(
+        finding(
+          "error",
+          "tombstone-manifest-disagreement",
+          `${retired.id}: retired with no tombstone or no record of where the retirement was decided. Silent disappearance retires nothing.`,
+        ),
+      );
+    }
+    // RETIREMENT DISPOSES OF AN IDENTITY, NEVER OF EVIDENCE.
+    if (!casHas(retired.sha256)) {
+      out.push(
+        finding(
+          "error",
+          "retired-bytes-absent",
+          `${retired.id}: the retired body ${retired.sha256} is not retained in ${CAS_REL}. A retirement whose bytes disappeared is a deletion wearing a tombstone.`,
+        ),
+      );
+    }
+  }
+
+  // --- the declared counts must be what is enumerated ----------------------
+  const active = (successor.identities ?? []).filter((i) => i.lifecycle === "active").length;
+  const retiredCount = manifestRetired.size;
+  const counts = successor.counts ?? {};
+  if (
+    counts.identities !== (successor.identities ?? []).length ||
+    counts.active !== active ||
+    counts.retired !== retiredCount ||
+    active + retiredCount !== (successor.identities ?? []).length
+  ) {
+    out.push(
+      finding(
+        "error",
+        "successor-counts",
+        `${SUCCESSOR_REL} declares ${counts.identities} identities / ${counts.active} active / ${counts.retired} retired and enumerates ${(successor.identities ?? []).length} / ${active} / ${retiredCount}. A count that is not the enumeration is a summary of something else.`,
+      ),
+    );
+  }
+
+  // --- the superseded rule may not come back -------------------------------
+  if (JSON.stringify(successor).includes(SUPERSEDED_RETIREMENT_RULE)) {
+    out.push(
+      finding(
+        "error",
+        "retirement-model-superseded",
+        `${SUCCESSOR_REL} restates the superseded rule ("${SUPERSEDED_RETIREMENT_RULE}"). That instruction directs an edit into a frozen body; it is replaced by: ${
+          successor.retirement_model ?? "(the successor does not state the model at all)"
+        }`,
+      ),
+    );
+  }
+  if (!successor.retirement_model) {
+    out.push(
+      finding(
+        "error",
+        "retirement-model-superseded",
+        `${SUCCESSOR_REL} states no retirement model. The model is the whole reason this artifact is a successor rather than an append.`,
+      ),
+    );
+  }
+  return out;
+}
+
+// --- fail-closed self-test -------------------------------------------------
+
+let SELF_TEST_CASE_COUNT = 0;
+
+function selfTest() {
+  const out = [];
+  const A = "docs/evidence/p/a.json";
+  const B = "docs/evidence/p/b.json";
+  const shaA = "a".repeat(64);
+  const shaB = "b".repeat(64);
+
+  const predecessor = {
+    manifest_sha256: "pred-self",
+    members: [
+      { id: A, sha256: shaA, byte_count: 1, classification: "host_local_durable_evidence" },
+      { id: B, sha256: shaB, byte_count: 2, classification: "host_local_durable_evidence" },
+    ],
+  };
+  const ledger = {
+    entries: [
+      { id: A, disposition: "retained_nonclaim_evidence" },
+      { id: B, disposition: "retired" },
+    ],
+  };
+  const casHas = (d) => d === shaA || d === shaB;
+
+  const body = {
+    evidence_format: SUCCESSOR_FORMAT,
+    state: "candidate_not_admitted",
+    consumed_by_no_tool: true,
+    retirement_model: "Retirement is recorded in the disposition/tombstone ledger and carried into the next immutable manifest version. A frozen manifest is never edited.",
+    succession: {
+      predecessor: { manifest_sha256: "pred-self", file_sha256: "pred-file" },
+    },
+    resurrections: [],
+    counts: { identities: 2, active: 1, retired: 1 },
+    retired_members: [
+      { id: B, sha256: shaB, tombstone: { recorded_in: "x" }, recorded_in: "x" },
+    ],
+    identities: [
+      { id: A, sha256: shaA, lifecycle: "active" },
+      { id: B, sha256: shaB, lifecycle: "retired" },
+    ],
+  };
+  const seal = (b) => ({ ...b, manifest_sha256: selfDigest(b, "manifest_sha256") });
+  const good = seal(body);
+  const base = {
+    predecessor,
+    predecessorFileSha256: "pred-file",
+    ledger,
+    casHas,
+  };
+  const mutate = (fn) => seal(fn(structuredClone(body)));
+
+  const cases = [
+    ["successor-manifest-missing", () =>
+      evaluateSuccessor({ ...base, successor: { ...good, evidence_format: "other" } })],
+    ["successor-manifest-drift", () =>
+      evaluateSuccessor({ ...base, successor: { ...good, manifest_sha256: "deadbeef" } })],
+    ["successor-admitted", () =>
+      evaluateSuccessor({ ...base, successor: mutate((b) => { b.state = "admitted"; return b; }) })],
+    ["successor-admitted", () =>
+      evaluateSuccessor({ ...base, successor: mutate((b) => { b.consumed_by_no_tool = false; return b; }) })],
+    // AN UNBOUND PREDECESSOR DIGEST.
+    ["predecessor-unbound", () =>
+      evaluateSuccessor({ ...base, successor: mutate((b) => { b.succession.predecessor = {}; return b; }) })],
+    ["predecessor-unbound", () =>
+      evaluateSuccessor({
+        ...base,
+        successor: mutate((b) => { b.succession.predecessor = { manifest_sha256: "pred-self" }; return b; }),
+      })],
+    // MUTATION OF V1, by self-digest and by file bytes.
+    ["v1-mutated", () =>
+      evaluateSuccessor({
+        ...base,
+        successor: good,
+        predecessor: { ...predecessor, manifest_sha256: "edited" },
+      })],
+    ["v1-mutated", () =>
+      evaluateSuccessor({ ...base, successor: good, predecessorFileSha256: "edited" })],
+    // SILENT IDENTITY REMOVAL.
+    ["identity-removed", () =>
+      evaluateSuccessor({
+        ...base,
+        successor: mutate((b) => {
+          b.identities = b.identities.filter((i) => i.id !== A);
+          b.counts = { identities: 1, active: 0, retired: 1 };
+          return b;
+        }),
+      })],
+    ["identity-added", () =>
+      evaluateSuccessor({
+        ...base,
+        successor: mutate((b) => {
+          b.identities.push({ id: "docs/evidence/p/c.json", sha256: "c".repeat(64), lifecycle: "active" });
+          b.counts = { identities: 3, active: 2, retired: 1 };
+          return b;
+        }),
+      })],
+    ["identity-digest-changed", () =>
+      evaluateSuccessor({
+        ...base,
+        successor: mutate((b) => { b.identities[0].sha256 = "c".repeat(64); return b; }),
+      })],
+    // DISAPPEARANCE OF RETIRED BYTES.
+    ["retired-bytes-absent", () =>
+      evaluateSuccessor({ ...base, successor: good, casHas: () => false })],
+    // TOMBSTONE / MANIFEST DISAGREEMENT, in each direction.
+    ["tombstone-manifest-disagreement", () =>
+      evaluateSuccessor({
+        ...base,
+        successor: mutate((b) => { b.identities[0].lifecycle = "retired"; b.counts = { identities: 2, active: 0, retired: 2 }; return b; }),
+      })],
+    ["tombstone-manifest-disagreement", () =>
+      evaluateSuccessor({ ...base, successor: mutate((b) => { b.retired_members = []; return b; }) })],
+    ["tombstone-manifest-disagreement", () =>
+      evaluateSuccessor({
+        ...base,
+        successor: mutate((b) => { delete b.retired_members[0].tombstone; return b; }),
+      })],
+    // SILENT RESURRECTION: retired in the ledger, active here, nobody said so.
+    ["silent-resurrection", () =>
+      evaluateSuccessor({
+        ...base,
+        successor: mutate((b) => {
+          b.identities[1].lifecycle = "active";
+          b.retired_members = [];
+          b.counts = { identities: 2, active: 2, retired: 0 };
+          return b;
+        }),
+      })],
+    // ... and a resurrection "act" that names neither a ruling nor a reason.
+    ["silent-resurrection", () =>
+      evaluateSuccessor({
+        ...base,
+        successor: mutate((b) => {
+          b.identities[1].lifecycle = "active";
+          b.retired_members = [];
+          b.resurrections = [{ id: B }];
+          b.counts = { identities: 2, active: 2, retired: 0 };
+          return b;
+        }),
+      })],
+    ["successor-counts", () =>
+      evaluateSuccessor({ ...base, successor: mutate((b) => { b.counts.active = 7; return b; }) })],
+    ["retirement-model-superseded", () =>
+      evaluateSuccessor({
+        ...base,
+        successor: mutate((b) => {
+          b.absence_rule = `Retirement requires an explicit tombstone ${SUPERSEDED_RETIREMENT_RULE}.`;
+          return b;
+        }),
+      })],
+    ["retirement-model-superseded", () =>
+      evaluateSuccessor({ ...base, successor: mutate((b) => { delete b.retirement_model; return b; }) })],
+  ];
+
+  SELF_TEST_CASE_COUNT = cases.length;
+
+  for (const [expected, run] of cases) {
+    const checks = run().map((f) => f.check);
+    if (!checks.includes(expected)) {
+      out.push(
+        finding(
+          "error",
+          "self-test",
+          `the ${expected} rejection did not fire against its synthetic bad input; this bar has lost its teeth (got: ${[...new Set(checks)].join(", ") || "nothing"})`,
+        ),
+      );
+    }
+  }
+
+  const clean = evaluateSuccessor({ ...base, successor: good });
+  if (clean.length > 0) {
+    out.push(
+      finding(
+        "error",
+        "self-test",
+        `well-formed input was rejected: ${clean.map((f) => f.check).join(", ")}. A bar that refuses the good case refuses nothing meaningfully.`,
+      ),
+    );
+  }
+  // A resurrection with a named act and a reason is a DECISION and must pass.
+  const resurrectedOk = evaluateSuccessor({
+    ...base,
+    successor: seal({
+      ...structuredClone(body),
+      identities: [
+        { id: A, sha256: shaA, lifecycle: "active" },
+        { id: B, sha256: shaB, lifecycle: "active" },
+      ],
+      retired_members: [],
+      counts: { identities: 2, active: 2, retired: 0 },
+      resurrections: [{ id: B, ruling_ref: "owner-ruling://test", reason: "the successor was withdrawn" }],
+    }),
+  });
+  if (resurrectedOk.length > 0) {
+    out.push(
+      finding(
+        "error",
+        "self-test",
+        `an explicitly recorded resurrection was rejected: ${resurrectedOk.map((f) => f.check).join(", ")}. The bar refuses SILENT resurrection, not recorded reversal.`,
+      ),
+    );
+  }
+  return out;
+}
+
+// --- entry point -----------------------------------------------------------
+
+function main() {
+  const findings = selfTest();
+
+  const successorAbs = path.join(ESTATE_ROOT, SUCCESSOR_REL);
+  const successor = fs.existsSync(successorAbs) ? readJson(successorAbs) : null;
+  const overlayAbs = path.join(ESTATE_ROOT, OVERLAY_REL);
+  const predecessor = fs.existsSync(overlayAbs) ? readJson(overlayAbs) : null;
+  const ledgerAbs = path.join(ESTATE_ROOT, LEDGER_REL);
+  const ledger = fs.existsSync(ledgerAbs) ? readJson(ledgerAbs) : null;
+  const casRoot = path.join(ESTATE_ROOT, CAS_REL);
+
+  if (successor === null) {
+    findings.push(
+      finding(
+        "error",
+        "successor-manifest-missing",
+        `${SUCCESSOR_REL} is absent. Two identities carry retirement tombstones in ${LEDGER_REL} and there is no next immutable version carrying them, so the only place the retirement could be recorded is the frozen manifest — which is the edit this model exists to refuse.`,
+      ),
+    );
+  }
+
+  findings.push(
+    ...evaluateSuccessor({
+      successor,
+      predecessor,
+      predecessorFileSha256: fs.existsSync(overlayAbs)
+        ? sha256Text(fs.readFileSync(overlayAbs, "utf8"))
+        : null,
+      ledger,
+      casHas: (digest) => fs.existsSync(path.join(casRoot, digest)),
+    }),
+  );
+
+  progress(
+    `successor manifest ${successor ? "present" : "ABSENT"}; ${successor?.counts?.identities ?? 0} identities carried (${successor?.counts?.active ?? 0} active, ${successor?.counts?.retired ?? 0} retired); predecessor ${successor?.succession?.predecessor?.manifest_sha256 ?? "(unbound)"}; state ${successor?.state ?? "n/a"}; ${SELF_TEST_CASE_COUNT} predeclared rejections self-tested`,
+  );
+  process.exit(
+    report("check-successor-manifest", findings, { json: process.argv.includes("--json") }),
+  );
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) main();

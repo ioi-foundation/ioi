@@ -1,0 +1,52 @@
+{
+  "evidence_format": "ioi.program.release_review_bindings.v1",
+  "role": "Independent review bindings for exact frozen successor-release generations. A binding authorizes only the named atomic transaction and is not a broader attestation.",
+  "bindings": [
+    {
+      "binding_id": "rrb-2026-07-29-codex-5a1a3631",
+      "reviewed_at": "2026-07-29T19:50:33Z",
+      "reviewer_ref": "agent://openai-codex/root/2026-07-29/exact-generation-review",
+      "independent_of_implementation": true,
+      "independence_basis": "The OpenAI Codex reviewer performed a review-only pass separate from the external implementer, authored none of the frozen generation or proof inputs, reproduced the exact preflight, and made no reviewed-input changes before this decision.",
+      "estate_generation_path": "internal-docs/implementation/program/estate-generation.v1.json",
+      "estate_generation_sha256": "5a1a3631ea82f68514103a9f58568a16ac9d267262bbe76019e8651a0cae50d8",
+      "git_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+      "docs_tree_sha": "47f5d24614a685f24ee005b77acf4fe58ea5c3f7",
+      "decision": "approve_atomic_successor_batch",
+      "reviewed_scope": {
+        "successor_count": 15,
+        "immutable_input_count": 110,
+        "mutable_prestate_count": 33,
+        "required_cas_object_count": 353,
+        "promotion_prefix_through_sequence": 133,
+        "transaction_tool": "internal-docs/implementation/tools/transition-successor-batch.mjs"
+      },
+      "review_findings": [],
+      "transaction_outcome": "The attempted transaction exposed a rollback-boundary defect and did not close. Its partial promotion/CAS state was removed and its reviewed prestate reproduced before the corrected generation was frozen.",
+      "nonclaim": "This binding approved only the exact atomic successor batch bound by the superseded generation. It made no broader product, architecture, runtime, compliance, security, release, or EmberLink finding."
+    },
+    {
+      "binding_id": "rrb-2026-07-29-codex-32ef3da0",
+      "reviewed_at": "2026-07-29T19:53:35Z",
+      "reviewer_ref": "agent://openai-codex/root/2026-07-29/corrected-exact-generation-review",
+      "independent_of_implementation": true,
+      "independence_basis": "The OpenAI Codex reviewer is separate from the external implementer, authored none of the frozen successor proofs, independently reproduced the corrected generation preflight and transition fixtures, and reviewed the narrow rollback-boundary repair before approving this exact generation.",
+      "estate_generation_path": "internal-docs/implementation/program/estate-generation.v1.json",
+      "estate_generation_sha256": "32ef3da01339846a6c4888400a233d762b297c93d18e9520912aa3f26f1addee",
+      "git_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+      "docs_tree_sha": "47f5d24614a685f24ee005b77acf4fe58ea5c3f7",
+      "decision": "approve_atomic_successor_batch",
+      "reviewed_scope": {
+        "successor_count": 15,
+        "immutable_input_count": 110,
+        "mutable_prestate_count": 33,
+        "required_cas_object_count": 354,
+        "promotion_prefix_through_sequence": 134,
+        "transaction_tool": "internal-docs/implementation/tools/transition-successor-batch.mjs"
+      },
+      "review_findings": [],
+      "reviewed_correction": "Marked non-authoritative estate copies are excluded from transaction snapshots; rollback restores promotion/CAS prefixes before restoring only transaction-changed canonical targets.",
+      "nonclaim": "This binding approves only the exact corrected atomic successor batch bound by the generation. It makes no broader product, architecture, runtime, compliance, security, release, or EmberLink finding."
+    }
+  ]
+}

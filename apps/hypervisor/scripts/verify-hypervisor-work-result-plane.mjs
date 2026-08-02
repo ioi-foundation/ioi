@@ -108,8 +108,8 @@ async function run() {
 
     // 5. NO FORGED STATE — future-plane fields return their per-field named codes.
     const FUTURE = [
-      // outcome_room_ref is LIVE since build step 2 — a ghost room refuses as unbound.
-      ["outcome_room_ref", "outcome-room://or_ghost", "work_result_room_unbound"],
+      // Room-associated current-v2 truth is private to the OutcomeRoom CAS/admission seam.
+      ["outcome_room_ref", "outcome-room://or_ghost", "generic_work_result_room_binding_refused"],
       ["work_claim_ref", "work-claim://c1", "work_result_work_claim_unavailable"],
       ["attempt_ref", "attempt://a1", "work_result_attempt_unavailable"],
       ["acceptance_ref", "acceptance://ghost", "work_result_acceptance_unavailable"],
@@ -120,7 +120,8 @@ async function run() {
     ];
     for (const [field, val, code] of FUTURE) {
       const r = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://g", result_profile: "research", outcome_class: "positive", status: "completed", [field]: val });
-      ok(`forged/future \`${field}\` → ${code}`, r.status === 400 && r.j.error?.code === code, r.j.error?.code);
+      const expectedStatus = field === "outcome_room_ref" ? 422 : 400;
+      ok(`forged/future \`${field}\` → ${code}`, r.status === expectedStatus && r.j.error?.code === code, `${r.status}/${r.j.error?.code}`);
     }
     const ghostSuper = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://g", result_profile: "research", outcome_class: "positive", status: "completed", supersedes_work_result_ref: "work-result://wr_ghost" });
     ok("ghost supersession refused (must resolve)", ghostSuper.status === 400 && ghostSuper.j.error?.code === "work_result_supersedes_unbound");
@@ -172,7 +173,12 @@ async function run() {
     const cross = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://beta", delta_kind: "update", target_ref: "frontier://f1", proposed_by_ref: rr.work_result_id });
     ok("CROSS-GOAL delta binding refused typed", cross.status === 400 && cross.j.error?.code === "outcome_delta_cross_goal");
     const roomed = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://alpha", delta_kind: "update", target_ref: "frontier://f1", proposed_by_ref: rr.work_result_id, outcome_room_ref: "outcome-room://or_ghost" });
-    ok("delta ghost room → outcome_delta_room_unbound (rooms LIVE since step 2; full room-scope proofs live in the room-plane verifier)", roomed.status === 400 && roomed.j.error?.code === "outcome_delta_room_unbound");
+    ok(
+      "generic delta room binding → private OutcomeRoom owner refusal",
+      roomed.status === 422 &&
+        roomed.j.error?.code === "generic_outcome_delta_room_binding_refused",
+      `${roomed.status}/${roomed.j.error?.code}`,
+    );
     const ghost = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://alpha", delta_kind: "update", target_ref: "frontier://f1", proposed_by_ref: "work-result://wr_ghost" });
     ok("ghost result binding refused", ghost.status === 400 && ghost.j.error?.code === "outcome_delta_unbound_result");
     const futureProp = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://alpha", delta_kind: "update", target_ref: "frontier://f1", proposed_by_ref: "attempt://a1" });

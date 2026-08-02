@@ -1,0 +1,6 @@
+IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
+BAR=m0-selected-profile-baseline-evidence-and-claim-lock
+ARTIFACT=internal-docs/implementation/program/claim-lock.v1.json
+ARTIFACT_SHA256=294d5c52cd83086a730d127ea9722237d4e34e1403ee730ce3a7da0c4e030421
+M0_SELECTED_PROFILE_BASELINE_CLAIM_LOCK_EXIT=0
+NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

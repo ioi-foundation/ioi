@@ -1,0 +1,508 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m9-sovereign-local-terminal-journey",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "M9 minimum sovereign-local lane"
+  ],
+  "status": "proposed",
+  "objective": "Plan the sovereign-local terminal selected journey from package and exact-effect authority through result, delta, export, faults, and offline reconstruction.",
+  "falsifiable_claim": "An independent operator can complete the selected local journey while substitution, revocation, stale fencing, rollback, and retry yield zero unauthorized or duplicate final invocations.",
+  "selected_profile": "The selected single-node sovereign-local terminal product journey; managed authority is an optional separate overlay.",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/components/agentgres/artifact-ref-plane.md",
+    "docs/architecture/components/daemon-runtime/api.md",
+    "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+    "docs/architecture/components/daemon-runtime/doctrine.md",
+    "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/storage-backends/doctrine.md",
+    "docs/architecture/components/storage-backends/filecoin-cas.md",
+    "docs/architecture/components/wallet-network/api-authority-scopes.md",
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/components/wallet-network/product-exchange-risk.md",
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    "docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+    "docs/architecture/foundations/objects/authority-and-access.md",
+    "docs/architecture/foundations/objects/evidence-and-delivery.md",
+    "docs/architecture/foundations/security-privacy-policy-invariants.md",
+    "docs/architecture/foundations/verifiable-bounded-agency.md",
+    "docs/architecture/foundations/web4-and-ioi-stack.md",
+    "docs/decisions/0021-first-proof-selection-and-attach-lane-sequencing.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "004dea9cc759783b959c76298f290466aa6d8b2d370fa18d3ce8c681074088f0",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/execution-horizons.md",
+        "sha256": "f3a87fb9251a343111a8369f196029248a3f792d1ae3cbfd1c89f3679b21d1c9"
+      },
+      {
+        "path": "docs/architecture/components/agentgres/artifact-ref-plane.md",
+        "sha256": "8bdf076fba386f3b62a4fceccf55d9aaed8150a8aff127230d49edb6d5c00b92"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/api.md",
+        "sha256": "a761ead62c929a90ff3ce4ff0958869301afe081bec91c0aa9d9ec67661b7d52"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+        "sha256": "8922d339c9e492a0e1e8ce657264af2b904a48c771d56f8296902ca8c826299f"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/doctrine.md",
+        "sha256": "27a34c7bcf9035fc13607150cfce10b10a3320eaeba0de6fbbf17b8cb46101b1"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+        "sha256": "1e318e51a9ce2b9ae5b3323e7d891c6519a204b9b69cec36e0f4d83bf122be98"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+        "sha256": "e1aa85a0496add9ac2a821c1c4ac630e077468e9af2d8d691c7955c8a6f4c0c5"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "9ac1878598a4b9636bcc601106b08f8d7a524d6a685b9ea12007df4eef870f77"
+      },
+      {
+        "path": "docs/architecture/components/storage-backends/doctrine.md",
+        "sha256": "b349ea503d8c7f992301c1d2a638ed133078f5ef215e36833bcdef1815a32d84"
+      },
+      {
+        "path": "docs/architecture/components/storage-backends/filecoin-cas.md",
+        "sha256": "ff634ea8d17a255d744c007ec22ab811fc554780ebe977bc1f013c7df02abc43"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "sha256": "5a77e3506857e4f670a03da32b83af10634a79ed1b64f74ab5006bf6970503ca"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/doctrine.md",
+        "sha256": "8b5c6c5ea1eaee29d4fb5488d5b3ae4f136c35a8a2a3647504aa1d39391dd580"
+      },
+      {
+        "path": "docs/architecture/components/wallet-network/product-exchange-risk.md",
+        "sha256": "e5e658ec32802e6f6857835f5f8b57e8ceab25919ef9ea24a00c3ea8aec9bb15"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "sha256": "4b36e978235c09cfe035fa263e7a78305041935b426274850ddc2e43884312f0"
+      },
+      {
+        "path": "docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+        "sha256": "472b8fddd179ae75bd69db7481cc2d02a9e45964fb13aa3cd6ef25d4b0ebd23e"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/authority-and-access.md",
+        "sha256": "204fa490cb9f39fb2d37965fdacc82db189981763565a0280129d60f42b7b4b1"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+        "sha256": "fc222a6a52751c148ea82498e19a7d2a98e6c96cbd57bfce308efc1703454bd3"
+      },
+      {
+        "path": "docs/architecture/foundations/security-privacy-policy-invariants.md",
+        "sha256": "a6a88ac7cda56eb98482f148e7d95813e3e4c25b415631eb8424aaaf6b329060"
+      },
+      {
+        "path": "docs/architecture/foundations/verifiable-bounded-agency.md",
+        "sha256": "51a657cb3c0547598dc1dafc97341c10bbad45478bcc0da511a3184939ee8ce7"
+      },
+      {
+        "path": "docs/architecture/foundations/web4-and-ioi-stack.md",
+        "sha256": "6349f8514833d8f4c3841dce316f1dfb70da39eb2fe72eb52eb996f0f85cb5f7"
+      },
+      {
+        "path": "docs/decisions/0021-first-proof-selection-and-attach-lane-sequencing.md",
+        "sha256": "bb50ef5bd922d8a8b71088d5e55bc0d316e5fa9acce117cd6b359d52c363a5d7"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "TemporalVerificationProfile",
+      "owner_path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "TemporalValidityEvaluation",
+      "owner_path": "docs/architecture/components/daemon-runtime/platform-operability.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AuthorityEffectAdmissionReceipt",
+      "owner_path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "docs/architecture/components/wallet-network/doctrine.md",
+        "docs/architecture/foundations/security-privacy-policy-invariants.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ReceiptEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#receiptenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-envelope/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-envelope.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ReceiptCheckpoint",
+      "owner_path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#receipt-checkpoints-and-offline-proofs",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-checkpoint/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-checkpoint.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ReceiptProofBundle",
+      "owner_path": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#receipt-checkpoints-and-offline-proofs",
+      "contract_ids": [
+        "schema://ioi/foundations/receipt-proof-bundle/v1"
+      ],
+      "schema_versions": [
+        "ioi.foundations.receipt-proof-bundle.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AuthorityGrantEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/authority-and-access.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/wallet-network/api-authority-scopes.md",
+        "docs/architecture/components/wallet-network/doctrine.md"
+      ],
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authoritygrantenvelope",
+      "contract_ids": [
+        "schema://ioi/foundations/authority-grant-envelope/v1",
+        "schema://ioi/foundations/authority-grant-envelope/v2"
+      ],
+      "schema_versions": [
+        "ioi.foundations.authority-grant-envelope.v1",
+        "ioi.foundations.authority-grant-envelope.v2"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ArtifactRef",
+      "owner_path": "docs/architecture/components/agentgres/artifact-ref-plane.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "WorkResult",
+      "owner_path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "OutcomeDelta",
+      "owner_path": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m9-sovereign-local-terminal-journey",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m9-sovereign-local-terminal-journey.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M9_SOVEREIGN_LOCAL_TERMINAL_JOURNEY_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Pre-migration record status is preserved as proposed. Existing anchors and refs prove only their original named scope. Missing checkout refs: none. Newly populated schema, proof-shape, journey, metric, gate, and exit-contract fields are planning metadata and are not covered by the historical status. This migration adds no runtime or stage claim.",
+  "dependency_work_item_ids": [
+    "m8-model-supply-route-substitution-and-selected-exit"
+  ],
+  "external_gates": [
+    {
+      "gate_id": "applicable-pg-profile-gates",
+      "owner": "internal-docs/implementation/modules/mechanism-gates.md",
+      "activation_condition": "Every applicable gate is selected and evidenced in the owning work-item records; planning creates no closure."
+    }
+  ],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "The canonical owner and contract crossings declared by m9-sovereign-local-terminal-journey",
+    "Plan the sovereign-local terminal selected journey from package and exact-effect authority through result, delta, export, faults, and offline reconstruction",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Substitute principal, session, System, package, intent, grant, resource, effect, fence, result, delta, export, and temporal evidence; inject restart, rollback, revocation, timeout, and retry",
+    "No portable delegation, managed lane, multi-node, federation, physical action, or public settlement.",
+    "No M9 claim or stage closure without committed terminal evidence.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: Plan the sovereign-local terminal selected journey from package and exact-effect authority through result, delta, export, faults, and offline reconstruction.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Plan the sovereign-local terminal selected journey from package and exact-effect authority through result, delta, export, faults, and offline reconstruction.",
+    "Build positive plus adversarial/fault runners that reject: Substitute principal, session, System, package, intent, grant, resource, effect, fence, result, delta, export, and temporal evidence; inject restart, rollback, revocation, timeout, and retry.",
+    "Retain an evidence index and require the exact content-bound M9_SOVEREIGN_LOCAL_TERMINAL_JOURNEY_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "selected exact repository or lifecycle effect",
+      "final_invoker": "daemon-recomputed final repository/environment/lifecycle invoker",
+      "authority_source": "sovereign-local exact authority or separately proven managed wallet grant",
+      "receipt_or_evidence": "effect-bound ReceiptEnvelope and offline proof index",
+      "negative_behavior": "zero invoker calls for substitution, expiry, revocation, deposed writer, stale head, or unknown completion"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded m9-sovereign-local-terminal-journey journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M9_SOVEREIGN_LOCAL_TERMINAL_JOURNEY_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Substitute principal, session, System, package, intent, grant, resource, effect, fence, result, delta, export, and temporal evidence; inject restart, rollback, revocation, timeout, and retry.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m9-sovereign-local-terminal-journey; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Substitute principal, session, System, package, intent, grant, resource, effect, fence, result, delta, export, and temporal evidence; inject restart, rollback, revocation, timeout, and retry; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M9_SOVEREIGN_LOCAL_TERMINAL_JOURNEY_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [
+    {
+      "order": 1,
+      "transition_id": "bootstrap_local",
+      "required_behavior": "The m9-sovereign-local-terminal-journey product/operator path exposes bootstrap local through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 2,
+      "transition_id": "create_or_import_system",
+      "required_behavior": "The m9-sovereign-local-terminal-journey product/operator path exposes create or import system through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 3,
+      "transition_id": "run_local_work",
+      "required_behavior": "The m9-sovereign-local-terminal-journey product/operator path exposes run local work through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 4,
+      "transition_id": "inspect_receipts",
+      "required_behavior": "The m9-sovereign-local-terminal-journey product/operator path exposes inspect receipts through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 5,
+      "transition_id": "restart_and_replay",
+      "required_behavior": "The m9-sovereign-local-terminal-journey product/operator path exposes restart and replay through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 6,
+      "transition_id": "backup_export_restore",
+      "required_behavior": "The m9-sovereign-local-terminal-journey product/operator path exposes backup export restore through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 7,
+      "transition_id": "disconnect_and_continue",
+      "required_behavior": "The m9-sovereign-local-terminal-journey product/operator path exposes disconnect and continue through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    }
+  ],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m9.fixture_or_projection_substituted_terminal_successes",
+      "metric": "fixture, shell, or projection states substituted for terminal owner success",
+      "threshold": 0,
+      "unit": "success claims",
+      "threshold_source": "M9 terminal-product floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "journey.m9-sovereign-local-terminal-journey.ordered_transition_coverage",
+      "metric": "ordered product/operator transition coverage for m9-sovereign-local-terminal-journey",
+      "threshold": "100_percent_in_declared_order",
+      "unit": "7 declared transitions",
+      "threshold_source": "reviewed action-plan/stage journey mapping",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M9_SOVEREIGN_LOCAL_TERMINAL_JOURNEY_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m9-sovereign-local-terminal-journey.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/src/main.tsx",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "No portable delegation, managed lane, multi-node, federation, physical action, or public settlement.",
+    "No M9 claim or stage closure without committed terminal evidence.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Substitute principal, session, System, package, intent, grant, resource, effect, fence, result, delta, export, and temporal evidence; inject restart, rollback, revocation, timeout, and retry. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Plan the sovereign-local terminal selected journey from package and exact-effect authority through result, delta, export, faults, and offline reconstruction",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M9_SOVEREIGN_LOCAL_TERMINAL_JOURNEY_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Plan-level proposal derived from internal-docs/implementation/m0-m14-plan-gap-audit.md at origin/master 69592149186cb29383a397ad0aa3ad6f5ab4ab7b; status transaction 2026-07-22. Enriched under approved SA-2/SA-7/SA-9 private migration on 2026-07-22; status preserved.",
+  "last_status_transaction": "2026-07-22"
+}

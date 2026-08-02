@@ -1,0 +1,506 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m12-federation-product-and-operator-journey",
+  "stage_id": "M12",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Approved plan-level gap closure: m12-federation-product-and-operator-journey"
+  ],
+  "status": "proposed",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Pulled-surface journey; M12_FEDERATION_PRODUCT_JOURNEY_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if Semantic mismatch, safe decline, disconnect/retry, dispute/exit; federation remains unproven until literal aggregate.",
+  "selected_profile": "Two separately sovereign Systems negotiating exact-root AIIP terms; no surplus or M13 claim.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    "docs/architecture/domains/ioi-ai/control-plane.md",
+    "docs/architecture/foundations/aiip.md",
+    "docs/architecture/foundations/domain-ontologies-and-data-recipes.md",
+    "docs/architecture/foundations/objects/collaborative-pursuit.md",
+    "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+    "docs/architecture/foundations/objects/semantic-plane.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "c2dd57050c543f22f14b006b502df57415713c27",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "30329903c34591a7fc38ad07d51b90df274a5f70a9a65c50d78abf7fba0ac9f1",
+    "owners": [
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "7d567da3bcfd38f990db58a5b8d5b5e3c8b1c678cc8bc5245a512bfc207fbe91"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+        "sha256": "b74d82cbea0a03b96ce5f52c1d1da998451121ea480d7ee797846cc40109204d"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/control-plane.md",
+        "sha256": "4f6d9782e3b928152bbf4649b9adcb665bc2e0786e694e85f8ce456e21d236ed"
+      },
+      {
+        "path": "docs/architecture/foundations/aiip.md",
+        "sha256": "1dcf1af6fc0ed06bb61089355f15fc6e81e1bf856f71642882db9d5f52401221"
+      },
+      {
+        "path": "docs/architecture/foundations/domain-ontologies-and-data-recipes.md",
+        "sha256": "f071f53c0654fe1d77966af3df60e0c36d780a58f9941dc2ef13ce4295c25746"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+        "sha256": "7ca2e2b3b73f50c6e89db9bb98bcfc794a4fabda782dd1bb42a5723beb844893"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+        "sha256": "78f0414fc63525ee914e102f8b4058971d2b2426227cade64c80311cd6b70c17"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/semantic-plane.md",
+        "sha256": "63923e39992aef52a564a41b2ea820a9cda572c580f64f460fb5cc8a763d3de1"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "AIIPChannelEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/aiip.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AIIPEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/aiip.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AIIPExternalProtocolBindingEnvelope",
+      "owner_path": "docs/architecture/foundations/aiip.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CollaborationTerms",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/aiip.md",
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CollaborationTermsProposalPacketPayload",
+      "owner_path": "docs/architecture/foundations/aiip.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CollaborationTermsResponsePacketPayload",
+      "owner_path": "docs/architecture/foundations/aiip.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "OutcomeRoomDiscoveryEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "RoomParticipationRequestEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "CapabilityDescriptorEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "TaskOfferEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "TaskAcceptanceEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "AcceptanceDecisionEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "SettlementIntentEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "MultiPartyCollaborationEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "OntologyMappingEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/semantic-plane.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/domain-ontologies-and-data-recipes.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "OntologyActionContractEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/semantic-plane.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/domain-ontologies-and-data-recipes.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m12-federation-product-and-operator-journey",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m12-federation-product-and-operator-journey.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M12_FEDERATION_PRODUCT_JOURNEY_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:FederationOperatorStates",
+      "artifact_class": "private_federation_operator_state_matrix",
+      "candidate_name": "FederationOperatorStates",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "m12-aiip-channel-envelope-profile",
+    "m12-federated-admission-portable-exit-and-bindings",
+    "m12-ifc-disclosure-receipt-and-settlement-binding",
+    "m12-terms-discovery-semantic-negotiation"
+  ],
+  "external_gates": [
+    {
+      "gate_id": "applicable-pg-profile-gates",
+      "owner": "internal-docs/implementation/modules/mechanism-gates.md",
+      "activation_condition": "Every applicable gate is selected and evidenced in the owning work-item records; planning creates no closure."
+    }
+  ],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`AIIP`, `ROOMS`, `SEMANTIC`, `SURFACES`; discovery/terms/profile/counter/decline/admission/dispute/portable-exit families",
+    "Pulled-surface journey; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Semantic mismatch, safe decline, disconnect/retry, dispute/exit; federation remains unproven until literal aggregate",
+    "No M13 two-sovereign proof, surplus, correctness, acceptance, or settlement claim.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `AIIP`, `ROOMS`, `SEMANTIC`, `SURFACES`; discovery/terms/profile/counter/decline/admission/dispute/portable-exit families.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Pulled-surface journey; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Semantic mismatch, safe decline, disconnect/retry, dispute/exit; federation remains unproven until literal aggregate.",
+    "Retain an evidence index and require the exact content-bound M12_FEDERATION_PRODUCT_JOURNEY_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "AIIP packet admission, restricted disclosure, terms, dispute, or exit transition",
+      "final_invoker": "each sovereign System's local AIIP/domain admission path",
+      "authority_source": "each local policy/authority plane independently; peer traffic grants nothing",
+      "receipt_or_evidence": "signed packet/local admission/disclosure receipt",
+      "negative_behavior": "deny replay, wrong root, missing terms, undisclosed context, premature settlement, or foreign direct control"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded m12-federation-product-and-operator-journey journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M12_FEDERATION_PRODUCT_JOURNEY_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for Semantic mismatch, safe decline, disconnect/retry, dispute/exit; federation remains unproven until literal aggregate; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m12-federation-product-and-operator-journey; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Semantic mismatch, safe decline, disconnect/retry, dispute/exit; federation remains unproven until literal aggregate; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M12_FEDERATION_PRODUCT_JOURNEY_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [
+    {
+      "order": 1,
+      "transition_id": "discovery",
+      "required_behavior": "The m12-federation-product-and-operator-journey product/operator path exposes discovery through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 2,
+      "transition_id": "terms",
+      "required_behavior": "The m12-federation-product-and-operator-journey product/operator path exposes terms through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 3,
+      "transition_id": "counter_or_decline",
+      "required_behavior": "The m12-federation-product-and-operator-journey product/operator path exposes counter or decline through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 4,
+      "transition_id": "admission",
+      "required_behavior": "The m12-federation-product-and-operator-journey product/operator path exposes admission through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 5,
+      "transition_id": "dispute",
+      "required_behavior": "The m12-federation-product-and-operator-journey product/operator path exposes dispute through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    },
+    {
+      "order": 6,
+      "transition_id": "portable_exit",
+      "required_behavior": "The m12-federation-product-and-operator-journey product/operator path exposes portable exit through the declared canonical owner; presentation, workflow evidence, and sequence position grant no product authority.",
+      "advancement_evidence": "Advance only from canonical owner state plus the applicable admission/effect receipt or explicit read-only projection evidence; retain predecessor and selected-profile context.",
+      "negative_behavior": "On denial, revocation, stale/conflicting state, dependency loss, or ambiguous effect, remain in or enter the explicit honest-state overlay and do not infer advancement."
+    }
+  ],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m12.foreign_direct_truth_or_authority_mutations",
+      "metric": "foreign direct truth or authority mutations",
+      "threshold": 0,
+      "unit": "mutations",
+      "threshold_source": "M12 AIIP sovereignty floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m12.required_federation_journey_transition_coverage",
+      "metric": "discovery through portable-exit transition coverage",
+      "threshold": "100_percent",
+      "unit": "declared transitions",
+      "threshold_source": "M12 federation journey floor",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "journey.m12-federation-product-and-operator-journey.ordered_transition_coverage",
+      "metric": "ordered product/operator transition coverage for m12-federation-product-and-operator-journey",
+      "threshold": "100_percent_in_declared_order",
+      "unit": "6 declared transitions",
+      "threshold_source": "reviewed action-plan/stage journey mapping",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M12_FEDERATION_PRODUCT_JOURNEY_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M12/m12-federation-product-and-operator-journey.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/types/src/app/generated/architecture_contracts.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "No M13 two-sovereign proof, surplus, correctness, acceptance, or settlement claim.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Semantic mismatch, safe decline, disconnect/retry, dispute/exit; federation remains unproven until literal aggregate. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Pulled-surface journey; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M12_FEDERATION_PRODUCT_JOURNEY_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": "2026-07-22"
+}

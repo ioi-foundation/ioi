@@ -1,0 +1,63 @@
+{
+  "evidence_format": "ioi.program.canon_review_manifest.v1",
+  "manifest_role": "Content-bound enumeration of every canon subject pending baseline review, with the disposition and written reasoning of one accountable reviewer. Presenting this manifest to --accept advances the baseline. It closes no work item, certifies no stage, and changes no status.",
+  "claim": "canon_drift_reviewed_only",
+  "reviewer_ref": "agent://claude-fable-5/session-0d2b65bc/m4-end-state-evidence-doctrine",
+  "emitted_at_commit": "125dc08861be099356c0a5fe87fe60c16ecc2083",
+  "instructions": [
+    "Fill reviewer_ref, and per subject a disposition (unaffected | successor_required | blocked) and a review_note that argues it from what actually changed.",
+    "`unaffected` must be ARGUED. Say why this subject's change does not reach the stages, modules, and work items named in review_required below. An unargued `unaffected` is a mechanical accept with extra steps.",
+    "Never rewrite a verified closure to absorb a semantic change: disposition it `successor_required` and open a successor record that states what must now be proven.",
+    "Do not edit the ids or digests. They bind this manifest to one exact revision, and --accept refuses if they drift."
+  ],
+  "review_required": {
+    "stages": [
+      "M0",
+      "M11",
+      "M14",
+      "M6",
+      "M9"
+    ],
+    "modules": [
+      "cooperation",
+      "docs-and-comms",
+      "embodied",
+      "mechanism-gates",
+      "network-and-l1",
+      "product-surface-ux-proof",
+      "product-ux",
+      "proof-and-evidence",
+      "runtime-fabric",
+      "runtime-trust-boundary",
+      "supply-and-commerce",
+      "wallet-authority"
+    ],
+    "work_items": [
+      "ecosystem-assurance-and-public-claim-estate",
+      "m0-canon-owner-coverage-and-orphan-verifier",
+      "m0-literal-exit-evidence-contract",
+      "m0-program-control-selected-profile-exit-proof",
+      "m0-selected-profile-baseline-evidence-and-claim-lock",
+      "m0-source-disposition-and-single-sequencer-verifier",
+      "m0-work-item-contract-completeness-and-owner-lint",
+      "m11-canonical-embodied-contract-alignment",
+      "m6-reference-shell-disposition-and-depth-ledger",
+      "m9-selected-profile-aggregate-exit-and-claim-publication",
+      "sdk-cli-adk-odk-builder-journey"
+    ],
+    "conformance_targets": [],
+    "contract_families": []
+  },
+  "subject_count": 1,
+  "subject_set_sha256": "617ab1a04645fb90c4f0d56f6b37df60a287216e62862ca4801ac870b8caf591",
+  "subjects": [
+    {
+      "id": "docs/architecture/_meta/source-of-truth-map.md",
+      "change": "changed",
+      "baseline_sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022",
+      "tree_sha256": "9d839d9e78ad1139156c1d05e5e02b8572466932e5033b6c76ff5db88f72fd58",
+      "disposition": "unaffected",
+      "review_note": "Additive: a new \"Retained Evidence And Literal Exits\" section codifying three invariants (aggregate bindings content-bound to current record bytes; tracked-ness is not validity; every literal declares its proof commit) plus the scheme-is-not-provenance rule. It retires no owner, moves no subject, and changes no contract family; every listed stage/module is bound to this subject as the meta ownership map, not to the added semantics. The invariants do not create new enforcement by prose: each is already machine-enforced (check-literal-exit-contract content bindings and dispositions, the aggregate verification binding validator, the agentgres-ref-minting ratchet), so no verified closure is reached or invalidated and no successor is owed. Written after the measured 2026-08-01 failure: 33 of 34 aggregate bindings stale under green checks, six binding sets stale at import f3926f467."
+    }
+  ]
+}

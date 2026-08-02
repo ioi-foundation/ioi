@@ -1,0 +1,13 @@
+{
+  "literal_exit": {
+    "expected": "ROUTE_FINAL_INVOKER_CENSUS_CORRECTIVE_SUCCESSOR_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M9/route-final-invoker-census-corrective-successor.exit.v1.txt",
+    "artifact_sha256": "1c93ddac9a29a20773c36c97d1efdf776349818e6feaba29157daa81dd792368"
+  },
+  "adversarial_or_fault_proof": [
+    "The typed route derivation rejects unknown delta fields, identity disappearance without retirement, locator movement presented as retirement, and non-reconciling semantic and population partitions."
+  ],
+  "positive_proof": [
+    "The retained typed delta reconciles 4 admitted, 0 retired, 828 locator rebinds, 3 judgment changes, 245 unchanged, and 496 provenance-only restamps to 1576 identities; the superseded six-change prose remains byte-intact beside cc-0001."
+  ]
+}

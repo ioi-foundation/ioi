@@ -1,0 +1,857 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m8-model-supply-route-substitution-and-selected-exit",
+  "stage_id": "M8",
+  "record_role": "aggregate_exit",
+  "required_work": [
+    "Approved plan-level gap closure: m8-model-supply-route-substitution-and-selected-exit"
+  ],
+  "status": "proposed",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Model-swap runner + closed M8 aggregate; M8_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if No silent provider substitution, learning-right inference, missing application/conditional child, mutable floors/stop rule, or campaign status from prose.",
+  "selected_profile": "One enterprise-owned learning boundary, provider-exit trial, and finite order-zero improvement Campaign.",
+  "canon_owners": [
+    "docs/architecture/components/daemon-runtime/improvement-governance-gates.md",
+    "docs/architecture/components/daemon-runtime/portable-memory-vault.md",
+    "docs/architecture/components/hypervisor/evaluations.md",
+    "docs/architecture/components/hypervisor/foundry.md",
+    "docs/architecture/components/hypervisor/improvement.md",
+    "docs/architecture/components/model-router/api-byok-mounting.md",
+    "docs/architecture/components/model-router/doctrine.md",
+    "docs/architecture/domains/marketplace-neutrality.md",
+    "docs/architecture/foundations/bounded-recursive-improvement.md",
+    "docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md",
+    "docs/architecture/foundations/institutional-learning-boundary.md",
+    "docs/architecture/foundations/objects/bounded-improvement.md",
+    "docs/architecture/foundations/objects/institutional-learning.md",
+    "docs/architecture/foundations/objects/interop-and-collaboration-terms.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "106e2ac797d0949fa463a27680a6255745ea730b",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "1402d18faa62d172e8f2191311bcc6e84c75a8a8269905eeeb8fb16ed11493a5",
+    "owners": [
+      {
+        "path": "docs/architecture/components/daemon-runtime/improvement-governance-gates.md",
+        "sha256": "a071c4b314ffabb6041c1d494710732c9e2d42da1d09b8e1fd3b2b89319c526c"
+      },
+      {
+        "path": "docs/architecture/components/daemon-runtime/portable-memory-vault.md",
+        "sha256": "5f6ada9a0cf0286370ec2e3b2d2e5220681f582548dd7708823be13adcc8b9f5"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/evaluations.md",
+        "sha256": "f6d309aefe1302c9acb79a2862754a4f3cdc31a1f371a879af4068c148c0299e"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/foundry.md",
+        "sha256": "fc2d43821b7ec0cdfad79f4bafa9415679be1f81b67cd766686791b3c1c7a549"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/improvement.md",
+        "sha256": "042d0cdfab7bbc05c785728f5cd6ba9d5b81d6ab86877a4163c1b74d05e903d3"
+      },
+      {
+        "path": "docs/architecture/components/model-router/api-byok-mounting.md",
+        "sha256": "71f4a924aaa5755f676f5357a251a91bbf343d55fa6bea957b2d1134d37fe73a"
+      },
+      {
+        "path": "docs/architecture/components/model-router/doctrine.md",
+        "sha256": "5da1a0eae984f6f88b38fdce432b0b4d91692d4c4ce1cf6b3c130081303d95a8"
+      },
+      {
+        "path": "docs/architecture/domains/marketplace-neutrality.md",
+        "sha256": "966c0ea3c482e9c8e4e5236fb49cc1e545a453a7fddfca602211523094ce20cd"
+      },
+      {
+        "path": "docs/architecture/foundations/bounded-recursive-improvement.md",
+        "sha256": "b8ce77f010f6aebbf7e4282522257dd3a93c8a8bf92fa0fe4f927916b9b04966"
+      },
+      {
+        "path": "docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md",
+        "sha256": "1453e309eb2acbd0c98eaf56a9eda6d6bf41c30d58507b8ed6cbe678b3cdd1fd"
+      },
+      {
+        "path": "docs/architecture/foundations/institutional-learning-boundary.md",
+        "sha256": "b2b2980b017c3259e616470044179c60878947aad9bc4d3427f8e4b7f5fa3d3c"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/bounded-improvement.md",
+        "sha256": "0dff454af6e42083e4e267995200ce6fcc523af6086891869a6e2e7dbf7c059c"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/institutional-learning.md",
+        "sha256": "d4d2b4f4441c208ca89fe8c2b6f00dc976bb5e593f0b38eda3af18f24b4176bf"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+        "sha256": "78f0414fc63525ee914e102f8b4058971d2b2426227cade64c80311cd6b70c17"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "ModelRoute",
+      "owner_path": "docs/architecture/components/model-router/api-byok-mounting.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ModelRouteRightsContract",
+      "owner_path": "docs/architecture/components/model-router/doctrine.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "InstitutionalLearningBoundaryProfileEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/institutional-learning.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/institutional-learning-boundary.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "EvaluationEpochEnvelope",
+      "owner_path": "docs/architecture/foundations/objects/bounded-improvement.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/hypervisor/evaluations.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "ImprovementCampaign",
+      "owner_path": "docs/architecture/foundations/objects/bounded-improvement.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/foundations/bounded-recursive-improvement.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "UpgradeProposal",
+      "owner_path": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "owner_role": "reviewed_shape_owner",
+      "semantic_owner_paths": [
+        "docs/architecture/components/hypervisor/improvement.md"
+      ],
+      "canonical_owner_ref": null,
+      "contract_ids": [],
+      "schema_versions": [],
+      "registry_resolution": "reviewed_owner_locator",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m8-model-supply-route-substitution-and-selected-exit",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m8-model-supply-route-substitution-and-selected-exit.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M8_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:ModelSubstitution",
+      "artifact_class": "private_model_substitution_runner",
+      "candidate_name": "ModelSubstitution",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:M8SelectedProfileEvidence",
+      "artifact_class": "private_m8_aggregate_evidence_join",
+      "candidate_name": "M8SelectedProfileEvidence",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "pending-contract-definition:FoundrySpec",
+      "artifact_class": "private_pending_contract_definition_gap",
+      "candidate_name": "FoundrySpec",
+      "decision_owner": "docs/architecture/_meta/source-of-truth-map.md",
+      "required_exit": "FOUNDRY_SPEC_CONTRACT_RECONCILIATION_EXIT=0",
+      "reason": "Common-object and Foundry field shapes require an owner reconciliation before implementation admission.",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "pending-contract-definition:FoundryRunPlan",
+      "artifact_class": "private_pending_contract_definition_gap",
+      "candidate_name": "FoundryRunPlan",
+      "decision_owner": "docs/architecture/_meta/source-of-truth-map.md",
+      "required_exit": "FOUNDRY_RUN_PLAN_CONTRACT_RECONCILIATION_EXIT=0",
+      "reason": "Common-object and Foundry field shapes require an owner reconciliation before implementation admission.",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [
+    "foundry-evaluations-production-loop",
+    "m8-evaluations-operational-journey",
+    "m8-foundry-operational-journey",
+    "m8-improvement-operational-journey",
+    "m8-learning-boundary-provider-exit",
+    "m8-learning-custody-memory-and-provider-rights",
+    "m8-order-zero-improvement-and-direct-path",
+    "managed-billing-work-credits-and-supplier-reconciliation",
+    "marketplace-neutral-routing-contribution-accounting",
+    "worker-training-and-local-marketplace-supply"
+  ],
+  "external_gates": [],
+  "aggregate_child_ids": [
+    "foundry-evaluations-production-loop",
+    "m8-evaluations-operational-journey",
+    "m8-foundry-operational-journey",
+    "m8-improvement-operational-journey",
+    "m8-learning-boundary-provider-exit",
+    "m8-learning-custody-memory-and-provider-rights",
+    "m8-order-zero-improvement-and-direct-path",
+    "managed-billing-work-credits-and-supplier-reconciliation",
+    "marketplace-neutral-routing-contribution-accounting",
+    "worker-training-and-local-marketplace-supply"
+  ],
+  "aggregate_child_dispositions": [
+    {
+      "child_work_item_id": "foundry-evaluations-production-loop",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m8-evaluations-operational-journey",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m8-foundry-operational-journey",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m8-improvement-operational-journey",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m8-learning-boundary-provider-exit",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m8-learning-custody-memory-and-provider-rights",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "m8-order-zero-improvement-and-direct-path",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "managed-billing-work-credits-and-supplier-reconciliation",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "marketplace-neutral-routing-contribution-accounting",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    },
+    {
+      "child_work_item_id": "worker-training-and-local-marketplace-supply",
+      "selection_state": "unconditional_active",
+      "activation_gate_id": null,
+      "selection_authority": "sole-sequencer stage membership",
+      "selection_evidence_refs": [],
+      "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+    }
+  ],
+  "aggregate_verification_binding": {
+    "schema_version": "ioi.program.aggregate-verification-binding.v1",
+    "child_dispositions": [
+      {
+        "child_work_item_id": "foundry-evaluations-production-loop",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m8-evaluations-operational-journey",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m8-foundry-operational-journey",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m8-improvement-operational-journey",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m8-learning-boundary-provider-exit",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m8-learning-custody-memory-and-provider-rights",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "m8-order-zero-improvement-and-direct-path",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "managed-billing-work-credits-and-supplier-reconciliation",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "marketplace-neutral-routing-contribution-accounting",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      },
+      {
+        "child_work_item_id": "worker-training-and-local-marketplace-supply",
+        "selection_state": "unconditional_active",
+        "activation_gate_id": null,
+        "selection_authority": "sole-sequencer stage membership",
+        "selection_evidence_refs": [],
+        "disposition_basis": "This child is an unconditional member of the selected stage aggregate and must close before aggregate verification."
+      }
+    ],
+    "child_bindings": [
+      {
+        "work_item_id": "foundry-evaluations-production-loop",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "b8a560b29b02fa0445b0cacc4ac69da321914bbc55ced2694bb38dbded0cf8f0",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "FOUNDRY_EVALUATIONS_PRODUCTION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "1cd51c1d6ebb58ebda8c1c168855195ca29215488588a26024de43180cc27f8c"
+        }
+      },
+      {
+        "work_item_id": "m8-evaluations-operational-journey",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "1042cd868aa6945143a6c82304be0e71f056a3e3a87efa8f302eb1cf9c6beb9e",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M8_EVALUATIONS_OPERATIONAL_JOURNEY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "72850161cefaf5e08b8bc76989069d7f72510c388c0c06b1e04677a42845c032"
+        }
+      },
+      {
+        "work_item_id": "m8-foundry-operational-journey",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "54e2d16df4bb8b4f24aa847d48b7731a7e1dddda7e5d4b0641bafe201d51b6fd",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M8_FOUNDRY_OPERATIONAL_JOURNEY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "9544d0a7075fd12bfc4e57f2939d5769ec4872299fcee1b4079b64fe945b2b63"
+        }
+      },
+      {
+        "work_item_id": "m8-improvement-operational-journey",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "0e8241e504b80d5f64e2939ab32d6a4a798a2e8d9e199e546820757e11baae81",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M8_IMPROVEMENT_OPERATIONAL_JOURNEY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "e2dd4f85cc0e2e5e0d6492e7c18985905d5ab59dc6063c7cbc3c29946f986e8e"
+        }
+      },
+      {
+        "work_item_id": "m8-learning-boundary-provider-exit",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "82b25a824021cfe3e27c3abf1548e9bc0d8be27c7685252c11265b3de5107a22",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M8_LEARNING_BOUNDARY_PROVIDER_EXIT_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "60fafa6d18c89a2cfb76e5e746b44f1bbdadd7f9c43112bcce5b98731e7023c1"
+        }
+      },
+      {
+        "work_item_id": "m8-learning-custody-memory-and-provider-rights",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "34044d00d5cc1c56d31df1ddb389691cef0aa5c9b9ec24ad15098fb3e6b9e5cb",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M8_LEARNING_CUSTODY_MEMORY_PROVIDER_RIGHTS_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "e7fc7206dd6b94e1a06f8a15aed045deaa9a57195ae1a325e78cbae86f75d8c5"
+        }
+      },
+      {
+        "work_item_id": "m8-order-zero-improvement-and-direct-path",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "c7fad2bb7d28699fd39adaf924e92aa181101b3cf6c398c6dbc3c9d0e32262a7",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M8_ORDER_ZERO_IMPROVEMENT_AND_DIRECT_PATH_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "0a76c0e48ea6b5914d22008f824810a2bbd40073aee887facf209cccc090a7f8"
+        }
+      },
+      {
+        "work_item_id": "managed-billing-work-credits-and-supplier-reconciliation",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "cacd63d0bfa4dd4f126ea9c10ad2f48be5f897c1874bf641568f0f951d55020b",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "MANAGED_BILLING_RECONCILIATION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "96866caa01fccf0f5dea2e34adce3f3473062e3c29c1d7ecc7b7ecd30c82bda7"
+        }
+      },
+      {
+        "work_item_id": "marketplace-neutral-routing-contribution-accounting",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "f162a1e41de6817da0940251cf43e5896fd4a5309d5d905d5a9f7b324d93f0a9",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "MARKETPLACE_NEUTRALITY_ACCOUNTING_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "8cffcf5347281d61fc28f27821c4b237a713bb18a4720526b5641ca6c6915aa8"
+        }
+      },
+      {
+        "work_item_id": "worker-training-and-local-marketplace-supply",
+        "relation": "aggregate_child",
+        "selection_state": "unconditional_active",
+        "record_sha256": "2b335c07b364038c683f7b56f507f5b793993d8c20d50dd12359719cb90714bf",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "LOCAL_WORKER_MARKETPLACE_SUPPLY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "ade8ce5bcc1cc852409cc876dd5ea9aee8c756da8ec2ff44785154a601f6826e"
+        }
+      }
+    ],
+    "dependency_bindings": [
+      {
+        "work_item_id": "foundry-evaluations-production-loop",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "b8a560b29b02fa0445b0cacc4ac69da321914bbc55ced2694bb38dbded0cf8f0",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "FOUNDRY_EVALUATIONS_PRODUCTION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "1cd51c1d6ebb58ebda8c1c168855195ca29215488588a26024de43180cc27f8c"
+        }
+      },
+      {
+        "work_item_id": "m8-evaluations-operational-journey",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "1042cd868aa6945143a6c82304be0e71f056a3e3a87efa8f302eb1cf9c6beb9e",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M8_EVALUATIONS_OPERATIONAL_JOURNEY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "72850161cefaf5e08b8bc76989069d7f72510c388c0c06b1e04677a42845c032"
+        }
+      },
+      {
+        "work_item_id": "m8-foundry-operational-journey",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "54e2d16df4bb8b4f24aa847d48b7731a7e1dddda7e5d4b0641bafe201d51b6fd",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M8_FOUNDRY_OPERATIONAL_JOURNEY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "9544d0a7075fd12bfc4e57f2939d5769ec4872299fcee1b4079b64fe945b2b63"
+        }
+      },
+      {
+        "work_item_id": "m8-improvement-operational-journey",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "0e8241e504b80d5f64e2939ab32d6a4a798a2e8d9e199e546820757e11baae81",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M8_IMPROVEMENT_OPERATIONAL_JOURNEY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "e2dd4f85cc0e2e5e0d6492e7c18985905d5ab59dc6063c7cbc3c29946f986e8e"
+        }
+      },
+      {
+        "work_item_id": "m8-learning-boundary-provider-exit",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "82b25a824021cfe3e27c3abf1548e9bc0d8be27c7685252c11265b3de5107a22",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M8_LEARNING_BOUNDARY_PROVIDER_EXIT_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "60fafa6d18c89a2cfb76e5e746b44f1bbdadd7f9c43112bcce5b98731e7023c1"
+        }
+      },
+      {
+        "work_item_id": "m8-learning-custody-memory-and-provider-rights",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "34044d00d5cc1c56d31df1ddb389691cef0aa5c9b9ec24ad15098fb3e6b9e5cb",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M8_LEARNING_CUSTODY_MEMORY_PROVIDER_RIGHTS_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "e7fc7206dd6b94e1a06f8a15aed045deaa9a57195ae1a325e78cbae86f75d8c5"
+        }
+      },
+      {
+        "work_item_id": "m8-order-zero-improvement-and-direct-path",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "c7fad2bb7d28699fd39adaf924e92aa181101b3cf6c398c6dbc3c9d0e32262a7",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "M8_ORDER_ZERO_IMPROVEMENT_AND_DIRECT_PATH_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "0a76c0e48ea6b5914d22008f824810a2bbd40073aee887facf209cccc090a7f8"
+        }
+      },
+      {
+        "work_item_id": "managed-billing-work-credits-and-supplier-reconciliation",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "cacd63d0bfa4dd4f126ea9c10ad2f48be5f897c1874bf641568f0f951d55020b",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "MANAGED_BILLING_RECONCILIATION_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "96866caa01fccf0f5dea2e34adce3f3473062e3c29c1d7ecc7b7ecd30c82bda7"
+        }
+      },
+      {
+        "work_item_id": "marketplace-neutral-routing-contribution-accounting",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "f162a1e41de6817da0940251cf43e5896fd4a5309d5d905d5a9f7b324d93f0a9",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "MARKETPLACE_NEUTRALITY_ACCOUNTING_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "8cffcf5347281d61fc28f27821c4b237a713bb18a4720526b5641ca6c6915aa8"
+        }
+      },
+      {
+        "work_item_id": "worker-training-and-local-marketplace-supply",
+        "relation": "unconditional_dependency",
+        "selection_state": null,
+        "record_sha256": "2b335c07b364038c683f7b56f507f5b793993d8c20d50dd12359719cb90714bf",
+        "status_at_binding": "proposed",
+        "evidence_binding": {
+          "expected_literal": "LOCAL_WORKER_MARKETPLACE_SUPPLY_EXIT=0",
+          "evidence_files": [],
+          "exact_literal_line_count": 0,
+          "literal_valid": false,
+          "evidence_bundle_sha256": "ade8ce5bcc1cc852409cc876dd5ea9aee8c756da8ec2ff44785154a601f6826e"
+        }
+      }
+    ],
+    "aggregate_evidence_binding": {
+      "expected_literal": "M8_EXIT=0",
+      "evidence_files": [],
+      "exact_literal_line_count": 0,
+      "literal_valid": false,
+      "evidence_bundle_sha256": "fcd27cae326efa79c01832d7ac032726f3653e31d3372046be981d60bf5b9d64"
+    },
+    "binding_payload_sha256": "794a52074153debff2101b2bc4bd3d1dcdfe449bd7e66923f9fa5f66d209ddb5",
+    "nonclaim": "This exact-digest binding is a private closure precondition. It does not promote a child, dependency, proof gate, aggregate, work item, or stage and cannot substitute for literal-valid retained evidence."
+  },
+  "in_scope": [
+    "`MODELS`, `LEARNING`, `ECON`, `FOUNDRY`, `EVALUATIONS`; BYOK/BYOA, provider terms, route substitution, evaluation/promotion families",
+    "Model-swap runner + closed M8 aggregate; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "No silent provider substitution, learning-right inference, missing application/conditional child, mutable floors/stop rule, or campaign status from prose",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `MODELS`, `LEARNING`, `ECON`, `FOUNDRY`, `EVALUATIONS`; BYOK/BYOA, provider terms, route substitution, evaluation/promotion families.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Model-swap runner + closed M8 aggregate; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: No silent provider substitution, learning-right inference, missing application/conditional child, mutable floors/stop rule, or campaign status from prose.",
+    "Retain an evidence index and require the exact content-bound M8_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "learning egress, Foundry run, or target-owner promotion proposal",
+      "final_invoker": "egress PEP, Foundry executor, or ordinary target-owner governance invoker",
+      "authority_source": "source/route rights plus local/domain policy and applicable authority",
+      "receipt_or_evidence": "egress/run/proposal receipt; no self-promotion receipt",
+      "negative_behavior": "deny forbidden route, mutable epoch, evaluator conflict, exhausted budget, or unowned promotion"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded m8-model-supply-route-substitution-and-selected-exit journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M8_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for No silent provider substitution, learning-right inference, missing application/conditional child, mutable floors/stop rule, or campaign status from prose; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m8-model-supply-route-substitution-and-selected-exit; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for No silent provider substitution, learning-right inference, missing application/conditional child, mutable floors/stop rule, or campaign status from prose; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M8_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m8.self_promotion_or_mutable_evaluation_effects",
+      "metric": "self-promotion or mutable-evaluation effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "M8 learning and improvement floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M8_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M8/m8-model-supply-route-substitution-and-selected-exit.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "adjacent implementation precedent only; not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: No silent provider substitution, learning-right inference, missing application/conditional child, mutable floors/stop rule, or campaign status from prose. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Model-swap runner + closed M8 aggregate; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M8_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": "2026-07-22"
+}

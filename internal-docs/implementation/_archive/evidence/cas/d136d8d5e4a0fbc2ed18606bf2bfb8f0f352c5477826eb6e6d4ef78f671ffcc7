@@ -1,0 +1,127 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-canonical-enum-member-set-binding-and-legacy-string-census",
+  "stage_id": "M0",
+  "record_role": "private_verifier",
+  "status": "verified",
+  "objective": "Produce the bounded plan and evidence bundle for a census that binds every member set owned by docs/architecture/foundations/canonical-enums.md to the work-item records that consume it, and that enumerates the legacy free-form risk_class/effect_class literals the same file names as tracked implementation debt; M0_CANONICAL_ENUM_BINDING_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if any member set owned by canonical-enums.md resolves to zero citing records without being recorded as an honest gap, if any legacy free-form risk_class/effect_class literal in daemon surfaces goes uncounted, if a divergent spelling of a canonical member is accepted, or if the census is satisfied by a hand-written expected-count constant.",
+  "canon_owners": [
+    "docs/architecture/foundations/canonical-enums.md",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/current-canon-defaults.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "1c356a0a57fd5c99e2562f35c2f0475b74c9327a48cc95a822e6f3926cebf0d4",
+    "owners": [
+      {
+        "path": "docs/architecture/foundations/canonical-enums.md",
+        "sha256": "9c94385fbdbb0d36b33cf0ad91aaf22e197454b20c291ff7ebe7bfb9c0f5bad7"
+      },
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022"
+      },
+      {
+        "path": "docs/architecture/_meta/current-canon-defaults.md",
+        "sha256": "e2f98681aed05d3b03ce69ef57362f285b23cf2b79dad3ce9d4cef0486940ba1"
+      }
+    ]
+  },
+  "contract_families": [],
+  "dependency_work_item_ids": [
+    "m0-canon-owner-coverage-and-orphan-verifier"
+  ],
+  "in_scope": [
+    "`META`; the private canonical-enum binding projection: one row per member set in canonical-enums.md carrying the enum key, its member list digest, the stages and work-item records that cite it, and an explicit uncovered marker where none do.",
+    "The legacy-string census over daemon/runtime surfaces for free-form risk_class and effect_class values (for example \"low\", \"connector_call\", \"runtime_state_projection\") that canonical-enums.md declares are not doc-canonical.",
+    "Recording the ownership conflict where a work-item record names a different owner for a member set than canonical-enums.md claims, starting with NativeEmbodiedRuntimeProfile.",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Adding, renaming, deprecating, or migrating any enum member; canonical-enums.md owns the member sets and this record only measures who cites them.",
+    "Performing the legacy-string migration itself, or claiming that counting the debt reduces it.",
+    "Assigning a stage or owner to an uncovered member set by estate authority.",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Parse the member sets directly from canonical-enums.md rather than from any hand-written literal, and freeze each member list with a digest.",
+    "Join each member set to citing work-item records by literal member-name and enum-key search across internal-docs/implementation/work-items/, and mark every zero-citation set as an honest uncovered row.",
+    "Enumerate legacy free-form risk_class/effect_class literals in the daemon runtime surfaces and record each with its file locator.",
+    "Record every case where a record's declared owner_path for a member set differs from canonical-enums.md, and route it to the canon owner rather than resolving it.",
+    "Retain an evidence index and require the exact content-bound M0_CANONICAL_ENUM_BINDING_EXIT=0; never infer success from a task or process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [],
+  "ordered_product_operator_journey": [],
+  "positive_proof": [
+    "Every member set in canonical-enums.md appears in the projection with either its citing records or an explicit uncovered marker, and the projection regenerates identically from the file.",
+    "The risk_class ladder members recorded in the projection match the file byte-for-byte, including the peer top-tier physical_action class and the deprecated-alias mapping table.",
+    "The retained evidence file contains exactly one line equal to M0_CANONICAL_ENUM_BINDING_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": [
+    "Introducing a divergent spelling of a canonical member (for example read_only for read, or funds_transfer for funds) in any record or new contract surface must fail closed as a deprecated alias.",
+    "Adding a member to canonical-enums.md without regenerating the projection must fail on a stale owner digest.",
+    "A member set whose only citation is an archived record must count as uncovered, not covered.",
+    "Replacing the parsed member list with a hand-written constant, or guarding the census with an expected-count literal, must fail the check by construction.",
+    "Counting a legacy free-form literal as canonical, or silently dropping it, must fail."
+  ],
+  "compatibility_and_migration": [
+    "The deprecated-alias table in canonical-enums.md (read_only, external_draft, commerce_cart, commerce_order, funds_transfer, credential_touching) must be mapped on sight and never reintroduced.",
+    "m11-canonical-embodied-contract-alignment declares owner_path common-objects-and-envelopes.md for NativeEmbodiedRuntimeProfile while canonical-enums.md claims that member set; the conflict is recorded for the canon owner, not resolved here."
+  ],
+  "metrics_and_frozen_thresholds": [
+    "member sets in canonical-enums.md with no citing work-item record and no recorded uncovered marker: threshold 0, frozen before observation",
+    "divergent or deprecated enum spellings accepted in records or new contract surfaces: threshold 0, frozen before observation",
+    "legacy free-form risk_class/effect_class literals recorded without a file locator: threshold 0, frozen before observation"
+  ],
+  "evidence_index": {
+    "literal_exit": "M0_CANONICAL_ENUM_BINDING_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/evidence/m0-canonical-enum-member-set-binding-and-legacy-string-census.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M0/m0-canonical-enum-member-set-binding-and-legacy-string-census.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "internal-docs/implementation/tools/enum-member-census.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the verifier/tool this record owns"
+    }
+  ],
+  "evidence_refs": [
+    "internal-docs/implementation/generated/enum-member-census.v1.json"
+  ],
+  "remaining_nonclaims": [
+    "Counting the legacy risk_class/effect_class debt does not migrate it and does not make any runtime surface canonical-ladder conformant.",
+    "A member set gaining a citing record does not mean that record has implemented, verified, or claimed the enum's semantics.",
+    "This record grants no authority over enum membership; canonical-enums.md remains the sole owner of member sets and spelling.",
+    "Creating this record implements no behaviour, activates no work, closes no gate, and changes no stage."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on a stale canonical-enums.md digest, an unresolved ownership conflict between a record and the enum owner, or an uncovered member set being quietly bound to a stage by estate authority. Leave uncovered member sets recorded as gaps in program/canon-map.v1.json. Roll back only through the canon owner's explicit successor path; never change status by prose.",
+  "source_provenance": "Proposed 2026-07-25 while closing gap family 3, from the full read of docs/architecture/foundations/canonical-enums.md and a literal search of every enum key it owns against internal-docs/implementation/work-items/. No existing record can own the subject: stages/m6.md and modules/product-ux.md name the file as a canon owner but only for the surface_* vocabularies, the four M11/FUTURE records cite only NativeEmbodiedRuntimeProfile, and no work item names the file itself as a canon owner. Authored 2026-07-25 by the implementation-system refactor to close an honest architecture-coverage gap at ba7513bac458cc6bfa398d3a814d65b963c6a287. Status is proposed: no implementation evidence exists.",
+  "private_artifacts": [
+    {
+      "name": "EnumMemberCensus",
+      "path": "internal-docs/implementation/generated/enum-member-census.v1.json"
+    }
+  ],
+  "last_status_transaction": {
+    "from": "active",
+    "to": "verified",
+    "at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+    "certification_result_sha256": "d28fc7b42039faac9a5ff8adba0434a085fa7cd27d1b0f5dd7fd3366dd059a69",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

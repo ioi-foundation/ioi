@@ -23,6 +23,7 @@ use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
 
@@ -39,6 +40,18 @@ const SEED_ROUTE_ID: &str = "mrt_local_default";
 const PROBE_TIMEOUT_MS: u64 = 1500;
 /// A persisted probe older than this is surfaced with `stale: true` in list projections.
 const PROBE_FRESH_SECS: u64 = 120;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct BoundSessionModelRoute {
+    pub(crate) model_id: String,
+    /// Normalized provider root retained by the registry (never sourced from process env here).
+    pub(crate) base_url: String,
+    /// Exact OpenAI-compatible endpoint consumed by the adapter driver.
+    pub(crate) execution_endpoint: String,
+    pub(crate) route_ref: String,
+    pub(crate) binding_id: String,
+    pub(crate) receipt_ref: String,
+}
 
 fn nanos() -> u128 {
     SystemTime::now()
@@ -72,6 +85,631 @@ pub(crate) fn load_route_record(data_dir: &str, id: &str) -> Option<Value> {
     read_record_dir(data_dir, RECORD_DIR)
         .into_iter()
         .find(|r| r.get("route_id").and_then(|v| v.as_str()) == Some(id))
+}
+
+fn canonical_value_hash(value: &Value) -> Result<String, String> {
+    let bytes = serde_jcs::to_vec(value)
+        .map_err(|error| format!("record is not canonical JSON ({error})"))?;
+    Ok(format!("sha256:{:x}", Sha256::digest(bytes)))
+}
+
+fn deterministic_binding_digest(session_ref: &str) -> String {
+    format!("{:x}", Sha256::digest(session_ref.as_bytes()))
+}
+
+/// Complete no-follow route census for authority-bearing M4 reads. Compatibility endpoints keep
+/// their historical permissive projection; activation, Session binding, and invocation do not.
+fn strict_route_census(data_dir: &str) -> Result<Vec<Value>, String> {
+    const MAX_ROUTES: usize = 4_096;
+    const MAX_ROUTE_BYTES: usize = 1_048_576;
+    const MAX_TOTAL_BYTES: usize = 32 * 1_048_576;
+
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, RECORD_DIR) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(format!("model-route registry cannot be pinned ({error})")),
+    };
+    let mut names = super::durable_fs::enumerate_pinned(&directory)
+        .map_err(|error| format!("model-route registry cannot be enumerated ({error})"))?;
+    names.sort();
+    if names.len() > MAX_ROUTES {
+        return Err(format!(
+            "model-route registry exceeds its bounded census ({}/{MAX_ROUTES})",
+            names.len()
+        ));
+    }
+
+    let mut total_bytes = 0usize;
+    let mut route_ids = std::collections::HashSet::new();
+    let mut route_refs = std::collections::HashSet::new();
+    let mut defaults = 0usize;
+    let mut routes = Vec::with_capacity(names.len());
+    for name in names {
+        let Some(route_id) = name.strip_suffix(".json") else {
+            return Err(format!(
+                "model-route registry contains unexpected occupant '{name}'"
+            ));
+        };
+        if route_id.is_empty()
+            || !route_id.chars().all(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '-' | '_')
+            })
+        {
+            return Err(format!(
+                "model-route registry slot '{name}' has a non-canonical key"
+            ));
+        }
+        let Some((_file, bytes)) = super::durable_fs::read_slot_strict(&directory, &name)
+            .map_err(|error| format!("model-route slot '{name}' is unreadable ({error})"))?
+        else {
+            return Err(format!(
+                "model-route slot '{name}' disappeared during its strict census"
+            ));
+        };
+        if bytes.len() > MAX_ROUTE_BYTES {
+            return Err(format!(
+                "model-route slot '{name}' exceeds the {MAX_ROUTE_BYTES}-byte bound"
+            ));
+        }
+        total_bytes = total_bytes
+            .checked_add(bytes.len())
+            .ok_or_else(|| "model-route registry byte census overflowed".to_string())?;
+        if total_bytes > MAX_TOTAL_BYTES {
+            return Err(format!(
+                "model-route registry exceeds the {MAX_TOTAL_BYTES}-byte aggregate bound"
+            ));
+        }
+        let route: Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("model-route slot '{name}' is malformed ({error})"))?;
+        let expected_ref = format!("model-route:{route_id}");
+        if route.get("schema_version").and_then(Value::as_str) != Some(ROUTE_SCHEMA)
+            || route.get("route_id").and_then(Value::as_str) != Some(route_id)
+            || route.get("route_ref").and_then(Value::as_str) != Some(expected_ref.as_str())
+            || !route
+                .pointer("/model/model_id")
+                .and_then(Value::as_str)
+                .is_some_and(|model| !model.trim().is_empty())
+            || !route
+                .pointer("/provider_binding/base_url")
+                .and_then(Value::as_str)
+                .is_some_and(|base| !base.trim().is_empty())
+            || !route
+                .pointer("/provider_binding/transport")
+                .and_then(Value::as_str)
+                .is_some_and(|transport| !transport.trim().is_empty())
+        {
+            return Err(format!(
+                "model-route slot '{name}' fails schema/key/ref/execution-fact binding"
+            ));
+        }
+        let route_ref = route
+            .get("route_ref")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        if !route_ids.insert(route_id.to_string()) || !route_refs.insert(route_ref) {
+            return Err(format!(
+                "model-route identity '{route_id}' resolves more than once"
+            ));
+        }
+        if route.get("default_route").and_then(Value::as_bool) == Some(true) {
+            defaults += 1;
+            if defaults > 1 {
+                return Err("model-route registry contains more than one default route".to_string());
+            }
+        }
+        routes.push(route);
+    }
+    Ok(routes)
+}
+
+/// Prove existing bytes before seed reconciliation, then prove the post-seed census. A registry
+/// with an alternate default but no canonical seed is ambiguous and is left untouched.
+pub(crate) fn strict_routes_seeded(data_dir: &str) -> Result<Vec<Value>, String> {
+    let before = strict_route_census(data_dir)?;
+    if !before.is_empty()
+        && !before
+            .iter()
+            .any(|route| route.get("route_id").and_then(Value::as_str) == Some(SEED_ROUTE_ID))
+        && before
+            .iter()
+            .any(|route| route.get("default_route").and_then(Value::as_bool) == Some(true))
+    {
+        return Err(
+            "model-route seed is absent while another default occupies the registry; automatic seed reconciliation is refused"
+                .to_string(),
+        );
+    }
+    ensure_seed(data_dir);
+    let routes = strict_route_census(data_dir)?;
+    if routes
+        .iter()
+        .filter(|route| route.get("default_route").and_then(Value::as_bool) == Some(true))
+        .count()
+        != 1
+    {
+        return Err("model-route registry must resolve exactly one default route".to_string());
+    }
+    Ok(routes)
+}
+
+fn unique_route<'a>(routes: &'a [Value], explicit_ref: Option<&str>) -> Result<&'a Value, String> {
+    let mut matches = routes.iter().filter(|route| match explicit_ref {
+        Some(reference) => route.get("route_ref").and_then(Value::as_str) == Some(reference),
+        None => route.get("default_route").and_then(Value::as_bool) == Some(true),
+    });
+    let route = matches.next().ok_or_else(|| match explicit_ref {
+        Some(reference) => format!("model route '{reference}' does not resolve"),
+        None => "default model route does not resolve".to_string(),
+    })?;
+    if matches.next().is_some() {
+        return Err(match explicit_ref {
+            Some(reference) => format!("model route '{reference}' resolves more than once"),
+            None => "default model route resolves more than once".to_string(),
+        });
+    }
+    Ok(route)
+}
+
+fn route_fact_tuple(route: &Value) -> (String, String, String, String) {
+    (
+        s(route, "route_ref", ""),
+        route
+            .pointer("/availability/state")
+            .and_then(Value::as_str)
+            .unwrap_or("declared")
+            .to_string(),
+        route
+            .pointer("/model/model_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        normalize_base_url(
+            route
+                .pointer("/provider_binding/base_url")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+        ),
+    )
+}
+
+/// Resolve one retained route without seed reconciliation. This is the pre-effect half of an
+/// admission preflight; callers may invoke the mutating seeded resolver only after every
+/// refusal that can be adjudicated from retained bytes has passed.
+pub(crate) fn existing_route_fact_strict(
+    data_dir: &str,
+    explicit_ref: Option<&str>,
+) -> Result<(String, String, String, String), String> {
+    let routes = strict_route_census(data_dir)?;
+    if routes
+        .iter()
+        .filter(|route| route.get("default_route").and_then(Value::as_bool) == Some(true))
+        .count()
+        != 1
+    {
+        return Err("model-route registry must resolve exactly one retained default route".into());
+    }
+    unique_route(&routes, explicit_ref).map(route_fact_tuple)
+}
+
+/// Strict route fact used by the M4 GoalRun planner. No empty/unresolved tuple is fabricated.
+pub(crate) fn route_fact_strict(
+    data_dir: &str,
+    explicit_ref: Option<&str>,
+) -> Result<(String, String, String, String), String> {
+    let routes = strict_routes_seeded(data_dir)?;
+    unique_route(&routes, explicit_ref).map(route_fact_tuple)
+}
+
+fn strict_binding_census(data_dir: &str) -> Result<Vec<Value>, String> {
+    const MAX_BINDINGS: usize = 16_384;
+    const MAX_BINDING_BYTES: usize = 1_048_576;
+    const MAX_TOTAL_BYTES: usize = 64 * 1_048_576;
+
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, BINDING_DIR) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => {
+            return Err(format!(
+                "model-route Session-binding registry cannot be pinned ({error})"
+            ))
+        }
+    };
+    let mut names = super::durable_fs::enumerate_pinned(&directory).map_err(|error| {
+        format!("model-route Session-binding registry cannot be enumerated ({error})")
+    })?;
+    names.sort();
+    if names.len() > MAX_BINDINGS {
+        return Err(format!(
+            "model-route Session-binding registry exceeds its bounded census ({}/{MAX_BINDINGS})",
+            names.len()
+        ));
+    }
+    let mut total_bytes = 0usize;
+    let mut identities = std::collections::HashSet::new();
+    let mut bindings = Vec::with_capacity(names.len());
+    for name in names {
+        let Some(binding_id) = name.strip_suffix(".json") else {
+            return Err(format!(
+                "model-route Session-binding registry contains unexpected occupant '{name}'"
+            ));
+        };
+        if binding_id.is_empty()
+            || !binding_id.chars().all(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '-' | '_')
+            })
+        {
+            return Err(format!(
+                "model-route Session-binding slot '{name}' has a non-canonical key"
+            ));
+        }
+        let Some((_file, bytes)) =
+            super::durable_fs::read_slot_strict(&directory, &name).map_err(|error| {
+                format!("model-route Session-binding slot '{name}' is unreadable ({error})")
+            })?
+        else {
+            return Err(format!(
+                "model-route Session-binding slot '{name}' disappeared during its strict census"
+            ));
+        };
+        if bytes.len() > MAX_BINDING_BYTES {
+            return Err(format!(
+                "model-route Session-binding slot '{name}' exceeds the {MAX_BINDING_BYTES}-byte bound"
+            ));
+        }
+        total_bytes = total_bytes
+            .checked_add(bytes.len())
+            .ok_or_else(|| "model-route Session-binding byte census overflowed".to_string())?;
+        if total_bytes > MAX_TOTAL_BYTES {
+            return Err(format!(
+                "model-route Session-binding registry exceeds the {MAX_TOTAL_BYTES}-byte aggregate bound"
+            ));
+        }
+        let binding: Value = serde_json::from_slice(&bytes).map_err(|error| {
+            format!("model-route Session-binding slot '{name}' is malformed ({error})")
+        })?;
+        if binding.get("schema_version").and_then(Value::as_str) != Some(BINDING_SCHEMA)
+            || binding.get("binding_id").and_then(Value::as_str) != Some(binding_id)
+            || !binding
+                .get("session_ref")
+                .and_then(Value::as_str)
+                .is_some_and(|reference| {
+                    reference.starts_with("session:") && reference.len() <= 512
+                })
+            || !binding
+                .get("route_ref")
+                .and_then(Value::as_str)
+                .is_some_and(|reference| reference.starts_with("model-route:"))
+            || !binding
+                .get("route_id")
+                .and_then(Value::as_str)
+                .is_some_and(|identity| !identity.is_empty())
+            || !binding
+                .get("model_id")
+                .and_then(Value::as_str)
+                .is_some_and(|model| !model.is_empty())
+            || !binding
+                .get("base_url")
+                .and_then(Value::as_str)
+                .is_some_and(|base| !base.is_empty())
+            || !binding
+                .get("transport")
+                .and_then(Value::as_str)
+                .is_some_and(|transport| !transport.is_empty())
+        {
+            return Err(format!(
+                "model-route Session-binding slot '{name}' fails schema/key/execution-fact binding"
+            ));
+        }
+        if let Some(root) = binding.get("binding_root").and_then(Value::as_str) {
+            let mut material = binding.clone();
+            material
+                .as_object_mut()
+                .map(|object| object.remove("binding_root"));
+            if canonical_value_hash(&material).as_deref() != Ok(root) {
+                return Err(format!(
+                    "model-route Session-binding slot '{name}' fails its canonical root"
+                ));
+            }
+        }
+        if !identities.insert(binding_id.to_string()) {
+            return Err(format!(
+                "model-route Session-binding identity '{binding_id}' resolves more than once"
+            ));
+        }
+        bindings.push(binding);
+    }
+    Ok(bindings)
+}
+
+fn binding_receipt_id(binding_id: &str) -> String {
+    format!(
+        "mrrb_{}",
+        binding_id.strip_prefix("mrb_").unwrap_or(binding_id)
+    )
+}
+
+fn validate_exact_binding_receipt(data_dir: &str, binding: &Value) -> Result<(), String> {
+    let binding_id = binding
+        .get("binding_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let receipt_id = binding_receipt_id(binding_id);
+    let receipt = super::durable_fs::read_record_durable(data_dir, RECEIPT_DIR, &receipt_id)?
+        .ok_or_else(|| {
+            format!("model-route Session binding '{binding_id}' has no durable receipt")
+        })?;
+    if receipt.get("schema_version").and_then(Value::as_str) != Some(RECEIPT_SCHEMA)
+        || receipt.get("receipt_id").and_then(Value::as_str) != Some(receipt_id.as_str())
+        || receipt.get("receipt_ref") != binding.get("receipt_ref")
+        || receipt.get("binding_id") != binding.get("binding_id")
+        || receipt.get("session_ref") != binding.get("session_ref")
+        || receipt.get("route_ref") != binding.get("route_ref")
+        || receipt.get("model_id") != binding.get("model_id")
+        || receipt.get("base_url") != binding.get("base_url")
+        || receipt.get("execution_endpoint") != binding.get("execution_endpoint")
+    {
+        return Err(format!(
+            "model-route Session binding '{binding_id}' receipt fails exact fact binding"
+        ));
+    }
+    Ok(())
+}
+
+/// Resolve one exact M4 execution binding. Every registry occupant is read strictly; missing,
+/// malformed, or duplicate target bindings refuse before adapter resolution or host spawn.
+pub(crate) fn resolve_session_route_binding_strict(
+    data_dir: &str,
+    session_ref: &str,
+    expected_route_ref: Option<&str>,
+    expected_binding_id: Option<&str>,
+) -> Result<BoundSessionModelRoute, String> {
+    let normalized_session = if session_ref.starts_with("session:") {
+        session_ref.to_string()
+    } else {
+        format!("session:{session_ref}")
+    };
+    let mut matches = strict_binding_census(data_dir)?
+        .into_iter()
+        .filter(|binding| {
+            binding.get("session_ref").and_then(Value::as_str) == Some(normalized_session.as_str())
+        })
+        .collect::<Vec<_>>();
+    if matches.len() != 1 {
+        return Err(format!(
+            "Session '{normalized_session}' resolves {} model-route bindings; exactly one is required",
+            matches.len()
+        ));
+    }
+    let binding = matches.remove(0);
+    if expected_route_ref.is_some_and(|reference| {
+        binding.get("route_ref").and_then(Value::as_str) != Some(reference)
+    }) || expected_binding_id
+        .is_some_and(|identity| binding.get("binding_id").and_then(Value::as_str) != Some(identity))
+    {
+        return Err(format!(
+            "Session '{normalized_session}' model-route binding does not match its retained coordinates"
+        ));
+    }
+    if binding
+        .pointer("/availability_at_bind/state")
+        .and_then(Value::as_str)
+        != Some("available")
+    {
+        return Err(format!(
+            "Session '{normalized_session}' model-route binding lacks available at-bind proof"
+        ));
+    }
+
+    let routes = strict_route_census(data_dir)?;
+    let route_ref = binding
+        .get("route_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let route = unique_route(&routes, Some(route_ref))?;
+    let route_id = route
+        .get("route_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let model_id = route
+        .pointer("/model/model_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let base_url = normalize_base_url(
+        route
+            .pointer("/provider_binding/base_url")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+    );
+    let transport = route
+        .pointer("/provider_binding/transport")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let execution_endpoint = format!("{base_url}/v1");
+    if route.pointer("/lifecycle/status").and_then(Value::as_str) != Some("active")
+        || route.pointer("/availability/state").and_then(Value::as_str) != Some("available")
+        || transport != "ollama"
+        || binding.get("route_id").and_then(Value::as_str) != Some(route_id)
+        || binding.get("model_id").and_then(Value::as_str) != Some(model_id.as_str())
+        || binding.get("base_url").and_then(Value::as_str) != Some(base_url.as_str())
+        || binding.get("execution_endpoint").and_then(Value::as_str)
+            != Some(execution_endpoint.as_str())
+        || binding.get("transport").and_then(Value::as_str) != Some(transport)
+    {
+        return Err(format!(
+            "Session '{normalized_session}' model-route binding no longer matches one active, available executable route"
+        ));
+    }
+    validate_exact_binding_receipt(data_dir, &binding)?;
+    Ok(BoundSessionModelRoute {
+        model_id,
+        base_url,
+        execution_endpoint,
+        route_ref: route_ref.to_string(),
+        binding_id: binding
+            .get("binding_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        receipt_ref: binding
+            .get("receipt_ref")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+    })
+}
+
+/// Preflight or durably materialize a deterministic, recoverable model-route binding for a
+/// Session. The binding and its receipt are written from a reserved Session-create transaction;
+/// retry resolves the same full-digest slot and never mints a second binding.
+pub(crate) fn bind_route_for_session_recoverable(
+    data_dir: &str,
+    session_ref: &str,
+    route_ref: &str,
+    harness_binding_ref: Option<&str>,
+    created_at: &str,
+    commit: bool,
+) -> Result<Value, String> {
+    if !session_ref.starts_with("session:") || session_ref.len() > 512 || route_ref.is_empty() {
+        return Err("model-route Session binding requires canonical session and route refs".into());
+    }
+    let routes = strict_routes_seeded(data_dir)?;
+    let route = unique_route(&routes, Some(route_ref))?;
+    let route_id = route
+        .get("route_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let model_id = route
+        .pointer("/model/model_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let base_url = normalize_base_url(
+        route
+            .pointer("/provider_binding/base_url")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+    );
+    let transport = route
+        .pointer("/provider_binding/transport")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if route.pointer("/lifecycle/status").and_then(Value::as_str) != Some("active")
+        || route.pointer("/availability/state").and_then(Value::as_str) != Some("available")
+        || transport != "ollama"
+    {
+        return Err(
+            "model-route Session binding requires one active, probe-available ollama route".into(),
+        );
+    }
+    let admission =
+        compose_mutation_admission(route, "bind_session_route", Some(session_ref), None).map_err(
+            |(_, body)| {
+                format!(
+                    "model-route Session binding admission refused ({})",
+                    body.pointer("/error/code")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown")
+                )
+            },
+        )?;
+
+    let existing = strict_binding_census(data_dir)?
+        .into_iter()
+        .filter(|binding| binding.get("session_ref").and_then(Value::as_str) == Some(session_ref))
+        .collect::<Vec<_>>();
+    if existing.len() > 1 {
+        return Err(format!(
+            "Session '{session_ref}' resolves multiple model-route bindings"
+        ));
+    }
+    if let Some(binding) = existing.into_iter().next() {
+        let resolved = resolve_session_route_binding_strict(
+            data_dir,
+            session_ref,
+            Some(route_ref),
+            binding.get("binding_id").and_then(Value::as_str),
+        )?;
+        if binding.get("harness_binding_ref").and_then(Value::as_str) != harness_binding_ref
+            || resolved.route_ref != route_ref
+        {
+            return Err(format!(
+                "Session '{session_ref}' existing model-route binding conflicts with the reserved create inputs"
+            ));
+        }
+        return Ok(binding);
+    }
+    if !commit {
+        return Ok(Value::Null);
+    }
+
+    let digest = deterministic_binding_digest(session_ref);
+    let binding_id = format!("mrb_{digest}");
+    let receipt_id = binding_receipt_id(&binding_id);
+    let receipt_ref = format!("agentgres://model-route-receipt/{receipt_id}");
+    let execution_endpoint = format!("{base_url}/v1");
+    let mut binding = json!({
+        "schema_version": BINDING_SCHEMA,
+        "binding_id": binding_id,
+        "route_ref": route_ref,
+        "route_id": route_id,
+        "session_ref": session_ref,
+        "harness_binding_ref": harness_binding_ref,
+        "admission_id": admission.get("admission_id"),
+        "mutation_receipt_ref": admission.get("mutation_receipt_ref"),
+        "receipt_ref": receipt_ref,
+        "availability_at_bind": route.get("availability").cloned().unwrap_or(Value::Null),
+        "model_id": model_id,
+        "base_url": base_url,
+        "execution_endpoint": execution_endpoint,
+        "transport": transport,
+        "route_record_hash_at_bind": canonical_value_hash(route)?,
+        "created_at": created_at,
+        "runtimeTruthSource": "daemon-runtime"
+    });
+    let binding_root = canonical_value_hash(&binding)?;
+    binding["binding_root"] = json!(binding_root);
+    let receipt = json!({
+        "schema_version": RECEIPT_SCHEMA,
+        "receipt_id": receipt_id,
+        "receipt_ref": receipt_ref,
+        "op": "bind_session_route",
+        "outcome": "ok",
+        "binding_id": binding.get("binding_id"),
+        "session_ref": session_ref,
+        "route_ref": route_ref,
+        "model_id": model_id,
+        "base_url": base_url,
+        "execution_endpoint": execution_endpoint,
+        "harness_binding_ref": harness_binding_ref,
+        "admission_id": admission.get("admission_id"),
+        "at": created_at,
+        "runtimeTruthSource": "daemon-runtime"
+    });
+    super::durable_fs::persist_record_durable(data_dir, RECEIPT_DIR, &receipt_id, &receipt)
+        .map_err(|failure| {
+            format!(
+                "model-route Session-binding receipt did not durably commit ({})",
+                failure.detail()
+            )
+        })?;
+    super::durable_fs::persist_record_durable(data_dir, BINDING_DIR, &binding_id, &binding)
+        .map_err(|failure| {
+            format!(
+                "model-route Session binding did not durably commit ({})",
+                failure.detail()
+            )
+        })?;
+    let resolved = resolve_session_route_binding_strict(
+        data_dir,
+        session_ref,
+        Some(route_ref),
+        Some(&binding_id),
+    )?;
+    if resolved.model_id != model_id || resolved.execution_endpoint != execution_endpoint {
+        return Err("model-route Session binding post-write facts changed".into());
+    }
+    Ok(binding)
 }
 
 fn route_receipt(
@@ -1541,6 +2179,52 @@ pub(crate) fn resolve_session_route_binding(
 mod model_route_tests {
     use super::*;
 
+    fn temp_dir(tag: &str) -> std::path::PathBuf {
+        let directory =
+            std::env::temp_dir().join(format!("ioi-model-route-{tag}-{:x}", super::nanos()));
+        std::fs::create_dir_all(&directory).unwrap();
+        directory
+    }
+
+    fn explicit_available_route(data_dir: &str) -> Value {
+        let mut route = seed_route_record();
+        let custody = compose_custody_admission(&route).expect("custody admission");
+        route["custody"]["custody_admission_ref"] = custody["admission_id"].clone();
+        route["lifecycle"]["status"] = json!("active");
+        route["availability"] = json!({
+            "state":"available",
+            "probe":{"kind":"test-explicit-route","at":"2026-07-30T00:00:00Z"}
+        });
+        route["model"]["model_id"] = json!("route-bound-model:not-env-default");
+        route["provider_binding"]["base_url"] = json!("http://127.0.0.1:41199");
+        super::super::durable_fs::persist_record_durable(
+            data_dir,
+            RECORD_DIR,
+            SEED_ROUTE_ID,
+            &route,
+        )
+        .unwrap();
+        route
+    }
+
+    fn family_bytes(
+        data_dir: &std::path::Path,
+        family: &str,
+    ) -> std::collections::BTreeMap<String, Vec<u8>> {
+        let mut files = std::collections::BTreeMap::new();
+        if let Ok(entries) = std::fs::read_dir(data_dir.join(family)) {
+            for entry in entries.flatten() {
+                if entry.path().is_file() {
+                    files.insert(
+                        entry.file_name().to_string_lossy().into_owned(),
+                        std::fs::read(entry.path()).unwrap(),
+                    );
+                }
+            }
+        }
+        files
+    }
+
     #[test]
     fn base_url_normalization_strips_openai_suffix() {
         assert_eq!(
@@ -1635,5 +2319,120 @@ mod model_route_tests {
     fn iso_formatter_matches_known_epoch() {
         assert_eq!(chrono_free_iso(0), "1970-01-01T00:00:00");
         assert_eq!(chrono_free_iso(1_782_998_400), "2026-07-02T13:20:00");
+    }
+
+    #[test]
+    fn m4_binding_consumes_explicit_route_facts_not_environment_defaults() {
+        let directory = temp_dir("explicit-binding");
+        let data_dir = directory.to_str().unwrap();
+        let route = explicit_available_route(data_dir);
+        let session_ref = "session:goalrun-explicit-route-implementer-a";
+        let binding = bind_route_for_session_recoverable(
+            data_dir,
+            session_ref,
+            route["route_ref"].as_str().unwrap(),
+            Some("hpb_test"),
+            "2026-07-30T00:00:00Z",
+            true,
+        )
+        .expect("binding commits");
+        let resolved = resolve_session_route_binding_strict(
+            data_dir,
+            session_ref,
+            route["route_ref"].as_str(),
+            binding["binding_id"].as_str(),
+        )
+        .expect("strict binding resolves");
+        assert_eq!(resolved.model_id, "route-bound-model:not-env-default");
+        assert_eq!(resolved.base_url, "http://127.0.0.1:41199");
+        assert_eq!(resolved.execution_endpoint, "http://127.0.0.1:41199/v1");
+        assert_eq!(binding["model_id"], resolved.model_id);
+        assert_eq!(binding["execution_endpoint"], resolved.execution_endpoint);
+        assert!(!resolved.receipt_ref.is_empty());
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn m4_binding_missing_malformed_and_duplicate_refuse_without_read_side_effects() {
+        let directory = temp_dir("binding-refusals");
+        let data_dir = directory.to_str().unwrap();
+        let route = explicit_available_route(data_dir);
+        let route_ref = route["route_ref"].as_str().unwrap();
+        let session_ref = "session:goalrun-binding-refusals-implementer-a";
+
+        let before_missing = family_bytes(&directory, BINDING_DIR);
+        assert!(
+            resolve_session_route_binding_strict(data_dir, session_ref, Some(route_ref), None,)
+                .unwrap_err()
+                .contains("exactly one")
+        );
+        assert_eq!(family_bytes(&directory, BINDING_DIR), before_missing);
+
+        std::fs::create_dir_all(directory.join(BINDING_DIR)).unwrap();
+        std::fs::write(
+            directory.join(BINDING_DIR).join("malformed.json"),
+            b"{bad-json",
+        )
+        .unwrap();
+        let malformed_before = family_bytes(&directory, BINDING_DIR);
+        assert!(
+            resolve_session_route_binding_strict(data_dir, session_ref, Some(route_ref), None,)
+                .unwrap_err()
+                .contains("malformed")
+        );
+        assert_eq!(family_bytes(&directory, BINDING_DIR), malformed_before);
+        std::fs::remove_file(directory.join(BINDING_DIR).join("malformed.json")).unwrap();
+
+        let binding = bind_route_for_session_recoverable(
+            data_dir,
+            session_ref,
+            route_ref,
+            Some("hpb_test"),
+            "2026-07-30T00:00:00Z",
+            true,
+        )
+        .expect("first binding commits");
+        let mut duplicate = binding.clone();
+        duplicate["binding_id"] = json!(format!(
+            "{}_duplicate",
+            binding["binding_id"].as_str().unwrap()
+        ));
+        duplicate.as_object_mut().unwrap().remove("binding_root");
+        duplicate["binding_root"] = json!(canonical_value_hash(&duplicate).unwrap());
+        let duplicate_id = duplicate["binding_id"].as_str().unwrap().to_string();
+        super::super::durable_fs::persist_record_durable(
+            data_dir,
+            BINDING_DIR,
+            &duplicate_id,
+            &duplicate,
+        )
+        .unwrap();
+        let duplicate_before = family_bytes(&directory, BINDING_DIR);
+        assert!(resolve_session_route_binding_strict(
+            data_dir,
+            session_ref,
+            Some(route_ref),
+            binding["binding_id"].as_str(),
+        )
+        .unwrap_err()
+        .contains("exactly one"));
+        assert_eq!(family_bytes(&directory, BINDING_DIR), duplicate_before);
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn strict_route_census_refuses_malformed_seed_without_repairing_it() {
+        let directory = temp_dir("malformed-route-seed");
+        std::fs::create_dir_all(directory.join(RECORD_DIR)).unwrap();
+        let slot = directory
+            .join(RECORD_DIR)
+            .join(format!("{SEED_ROUTE_ID}.json"));
+        std::fs::write(&slot, b"{malformed-route").unwrap();
+        let before = std::fs::read(&slot).unwrap();
+        assert!(strict_routes_seeded(directory.to_str().unwrap())
+            .unwrap_err()
+            .contains("malformed"));
+        assert_eq!(std::fs::read(&slot).unwrap(), before);
+        let _ = std::fs::remove_dir_all(directory);
     }
 }

@@ -909,7 +909,7 @@ const criticalImplementationSourceAssertions = [
         source: hypervisorLifecycleRoutes,
         name: "handle_session_execute",
         required: [
-          "load_session_record(",
+          "load_owned_session_record(",
           "execute_authority_gate(",
           "run_host_spawn_lane(",
         ],
@@ -2474,32 +2474,36 @@ if (!workProjectionRow) {
 const workClaimRow = canonToCodeDelta
   .split(/\r?\n/)
   .find((line) => line.startsWith("| `WorkClaimLease` |"));
-if (
-  !workClaimRow?.includes(
-    "| implement reassignment; keep acceptance/verdict and federation in their later owner planes |",
-  )
-) {
-  fail(
-    "_meta/canon-to-code-delta.md must name only reassignment, acceptance/verdict, and federation as remaining WorkClaim owner-plane work.",
-  );
+for (const required of [
+  "registered provisional v2 schema",
+  "current executable lifecycle not started",
+  "predecessor claim route is historical executable/source-disposition code and is generation-fenced from v2 rooms",
+  "admit the current v2 lease, time, eligibility, release, and reassignment semantics in M5",
+]) {
+  if (!workClaimRow?.includes(required)) {
+    fail(
+      `_meta/canon-to-code-delta.md must separate the current v2 WorkClaim contract from predecessor implementation: ${required}.`,
+    );
+  }
 }
-if (workClaimRow && /\bland (?:Attempt|Finding)|then VerifierChallenge/i.test(workClaimRow)) {
+if (workClaimRow && /\b(?:Attempt|Finding|VerifierChallenge) (?:is|are) (?:merged|live)/i.test(workClaimRow)) {
   fail(
-    "_meta/canon-to-code-delta.md must not restore merged Attempt/Finding/VerifierChallenge planes as WorkClaim next steps.",
+    "_meta/canon-to-code-delta.md must not present predecessor Attempt/Finding/VerifierChallenge execution as current-v2 WorkClaim proof.",
   );
 }
 
 for (const required of [
-  "Generic WorkResult admission is merged",
-  "OutcomeRoom graph through participants, frontier/claims, offers, Attempts, Findings, OutcomeDelta, and VerifierChallenge is merged but partial",
+  "current hosted v2 OutcomeRoom slice admits one bounded-System-backed room, reciprocal GoalRun membership, and a minimum runtime-derived WorkResult/OutcomeDelta graph",
+  "current v2 participant, frontier/claim, offer, Attempt, Finding, and VerifierChallenge lifecycles are not started",
+  "mounted v1 predecessor planes are historical executable/source-disposition code and are fenced from v2 rooms",
   "federation, acceptance/verdict, and settlement remain planned",
 ]) {
   if (!normalizeWhitespace(architectureWhitepaper).includes(required)) {
-    fail(`whitepaper.tex must keep merged versus planned Work status honest: ${required}.`);
+    fail(`whitepaper.tex must keep current-v2 versus predecessor Work status honest: ${required}.`);
   }
 }
-if (/generic result\s+profiles[^.]{0,160}\bplanned\b/i.test(architectureWhitepaper)) {
-  fail("whitepaper.tex must not restore generic WorkResult profiles to planned status.");
+if (/current v2[^.]{0,240}\b(?:participants?|frontier|claims?|offers?|Attempts?|Findings?|VerifierChallenges?)\b[^.]{0,240}\b(?:merged|live)\b/i.test(architectureWhitepaper)) {
+  fail("whitepaper.tex must not promote predecessor room-child execution as current-v2 proof.");
 }
 
 if (

@@ -1,0 +1,46 @@
+{
+  "format": "ioi.program.literal_exit_fixtures.v1",
+  "role": "Predeclared fail-closed fixture classes for the retained-log contract. Frozen before observation; the checker requires every class to be rejected for its predeclared reason.",
+  "fixtures": [
+    {
+      "class": "missing-literal",
+      "file": "missing-literal.txt",
+      "expected_defect_prefix": "missing literal"
+    },
+    {
+      "class": "duplicate-literal",
+      "file": "duplicate-literal.txt",
+      "expected_defect_prefix": "duplicate literal"
+    },
+    {
+      "class": "conflicting-literals",
+      "file": "conflicting-literals.txt",
+      "expected_defect_prefix": "conflicting literals"
+    },
+    {
+      "class": "malformed-log",
+      "file": "malformed-log.txt",
+      "expected_defect_prefix": "malformed"
+    },
+    {
+      "class": "stale-artifact-binding",
+      "file": "stale-artifact-binding.txt",
+      "expected_defect_prefix": "stale: artifact digest mismatch"
+    },
+    {
+      "class": "truncated-log",
+      "file": "truncated-log.txt",
+      "expected_defect_prefix": "truncated"
+    },
+    {
+      "class": "non-success-literal",
+      "file": "non-success-literal.txt",
+      "expected_defect_prefix": "non-success literal"
+    },
+    {
+      "class": "green-process-no-literal",
+      "file": "green-process-no-literal.txt",
+      "expected_defect_prefix": "missing literal"
+    }
+  ]
+}

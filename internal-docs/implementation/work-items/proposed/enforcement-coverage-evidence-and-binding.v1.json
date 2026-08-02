@@ -1,0 +1,177 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "enforcement-coverage-evidence-and-binding",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Bind enforcement-coverage evidence to the claim it backs, and refuse an enforcement profile that binds zero declarations."
+  ],
+  "status": "proposed",
+  "objective": "Close two confirmed gaps in the EnforcementCoverageDeclaration substrate. (a) Evidence: the registered invariants enforce evidence only for the receipted and uncovered states, so a positive mediated claim is satisfied by the declaration's global evidence bag — evidence establishing only discovery passes a mediation requirement, and nothing ties a reference to the claim it is supposed to back. Move evidence into the per-claim shape canon already specifies, or as the cheaper interim register a mediation-evidence invariant alongside the existing two. (b) Binding: node attestation admits a node that declares an enforcement profile while binding an empty declaration-refs list, satisfying the canon binding rule vacuously — and the list is always empty, because the durable evidence family is read-only in practice and the runtime registry has zero callers. Refuse a declared profile that resolves to zero declarations. ENFORCEMENT_COVERAGE_EVIDENCE_AND_BINDING_EXIT=0.",
+  "falsifiable_claim": "A positive mediated coverage claim is backed by evidence for mediation, and a node that declares an enforcement profile actually binds coverage declarations. Neither holds: a declaration whose only verification evidence proves discovery resolves as fully operable against a mediated requirement, and an admitted node record carries a node_enforcement_profile_ref with an empty enforcement_coverage_declaration_refs list — vacuously satisfying the canon rule that a profile may bind only verified-current declarations.",
+  "selected_profile": "The selected single-node sovereign-local profile whose node attestation declares an enforcement profile and whose action classes assert coverage states.",
+  "canon_owners": [
+    "docs/architecture/components/daemon-runtime/hypervisoros.md",
+    "docs/architecture/_meta/canon-to-code-delta.md",
+    "docs/architecture/foundations/verifiable-bounded-agency.md",
+    "docs/architecture/foundations/invariants.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "c2dd57050c543f22f14b006b502df57415713c27",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "1a31949b6cd12a85a95b72fcb7cc762a372f27b56d8f610ba82d160d22246210",
+    "owners": [
+      {
+        "path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+        "sha256": "625e3c2b05b890513fa84c4cac55631b378f29203f935c4fde5b7cd3e8f00243"
+      },
+      {
+        "path": "docs/architecture/_meta/canon-to-code-delta.md",
+        "sha256": "6f9eb561042a70b914560b8e6f50e993203dbc356831dc2ee6d5629f8052c83d"
+      },
+      {
+        "path": "docs/architecture/foundations/verifiable-bounded-agency.md",
+        "sha256": "51a657cb3c0547598dc1dafc97341c10bbad45478bcc0da511a3184939ee8ce7"
+      },
+      {
+        "path": "docs/architecture/foundations/invariants.md",
+        "sha256": "754c322a2dbc2287d02220ca2309c4b6d213cad92814ef7c92cb9b833e94148a"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "EnforcementCoverageDeclaration",
+      "owner_path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/hypervisoros.md#enforcementcoveragedeclaration",
+      "contract_ids": [
+        "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"
+      ],
+      "schema_versions": [
+        "ioi.components.daemon-runtime.enforcement-coverage-declaration.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    },
+    {
+      "name": "HypervisorOSNode",
+      "owner_path": "docs/architecture/components/daemon-runtime/hypervisoros.md",
+      "owner_role": "registry_canonical_owner",
+      "semantic_owner_paths": [],
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/hypervisoros.md#hypervisorosnode",
+      "contract_ids": [
+        "schema://ioi/components/daemon-runtime/hypervisoros-node/v1"
+      ],
+      "schema_versions": [
+        "ioi.components.daemon-runtime.hypervisoros-node.v1"
+      ],
+      "registry_resolution": "architecture_contract_registry",
+      "classification": "canonical_contract"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:enforcement-coverage-evidence-and-binding",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/enforcement-coverage-evidence-and-binding.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "product-truth-verification:2026-07-28-leg0-v1",
+      "artifact_class": "private_noncanonical_defect_baseline_verification",
+      "path": "internal-docs/prompts/architecture-relative-comparison/runs/2026-07-28-leg0-v1-product-truth-verification.md",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:ENFORCEMENT_COVERAGE_EVIDENCE_AND_BINDING_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": null,
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "Gap (a), per-claim evidence. Canon requires that every positive claim bind a matching mechanism role and verification evidence, and states the shape per fact. The registered invariants file docs/architecture/_meta/schemas/invariants/enforcement-coverage-declaration.v1.invariants.json carries exactly two rules — enforcement_coverage.receipt.evidence.required_when_receipted and enforcement_coverage.gap.required_when_uncovered — and neither covers mediated. Runtime resolution does not close it: crates/services/src/agentic/runtime/enforcement_coverage.rs:521-539 checks that each required claim is true and then checks only that the global /verification/evidence_refs array is non-empty, with receipt evidence required only when the caller asks for it at :540-556. Bind evidence to the claim it backs, by moving evidence into the per-claim shape canon specifies or by registering a mediation-evidence invariant alongside the existing two.",
+    "Gap (b), vacuous binding. crates/types/src/app/hypervisoros_node_attestation.rs:788-800 refuses only the reverse direction — declarations without a profile. With a profile ref present and an empty declarations list the loop at :802 never executes and the function returns Ok(vec![]) at :841, yielding an admitted node record at :988-989 whose enforcement_coverage_declaration_refs is empty. The per-declaration checks that do exist are strict and correct — contract validation at :803, foreign-profile refusal at :805-815, verified-current gating at :819-829 — but they never run on an empty list. Refuse a declared node_enforcement_profile_ref that resolves to zero declarations.",
+    "Gap (b), why the list is always empty. crates/node/src/bin/hypervisor_daemon_routes/hypervisoros_node_routes.rs:379-398 scans the durable family for node evidence, but that family is only ever read (hypervisoros_node_routes.rs:357 and :386; system_writer_routes.rs:399) — no route in the tree writes a declaration into it. Separately, EnforcementCoverageRegistry has zero callers outside its own module and its store is in-memory by design. A binding rule cannot be satisfied non-vacuously until a producer exists, so the producer is part of this cut's subject even though its shape is owned elsewhere.",
+    "Preserve what already works. The overclaiming defenses are real and must survive unchanged: schema rules requiring a mediation-role mechanism, a bounded decision source and final invoker, exclusion of mediated for audit-only and passive operating modes, exclusion under uncovered, and the preventable-implies-mediated rule, all proven to fail closed across the registered negative fixtures.",
+    "Keep the canon correction in force. The 2026-07-28 canon pass (commit a5c0f0a59) corrected two false absence claims and recorded both of these gaps honestly in hypervisoros.md and canon-to-code-delta.md: registry residency may be claimed, runtime enforcement may not. This cut closes the gaps; it does not re-open the status question."
+  ],
+  "out_of_scope": [
+    "Any widening of what a coverage claim asserts. Discovery still does not imply observation, observation does not imply attribution, attribution does not imply mediation, mediation does not imply prevention, and a receipt still never proves an unobserved external effect.",
+    "Declaring runtime enforcement operable. Closing the evidence and binding gaps makes the contract enforceable; it does not make any node's coverage true, and no profile may advertise coverage on the strength of this cut alone.",
+    "Rewriting the strict per-declaration checks that already pass, or relaxing any registered negative fixture to accommodate the new rules.",
+    "The wider node attestation and re-attestation lifecycle, which has its own owner record."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "A positive mediated claim resolves as operable only when evidence bound to mediation is present, and a node declaring an enforcement profile is admitted only when it binds at least one verified-current declaration produced by a real producer path."
+  ],
+  "adversarial_or_fault_proof": [
+    "Predeclared branches, each of which must refuse by name: a declaration whose only verification evidence establishes discovery, resolved against a mediated requirement; a declaration with a non-empty global evidence bag but no evidence bound to the claimed state; a mediated claim with a mediation-role mechanism but no mediation evidence; a node record declaring an enforcement profile with an empty declaration-refs list; a node record declaring a profile whose refs resolve to declarations that are not verified-current; a node record binding a declaration belonging to a foreign profile; declarations supplied with no profile ref, which must keep refusing as it does today; a coverage claim advertised while no producer has written a declaration into the durable family; a receipted claim relying on the new mediation rule to skip its own receipt-evidence requirement.",
+    "The live defect this cut repairs is retained as its baseline, verified in code at commit 106e2ac797d0949fa463a27680a6255745ea730b and recorded at internal-docs/prompts/architecture-relative-comparison/runs/2026-07-28-leg0-v1-product-truth-verification.md: mediated evidence is unenforced and node binding is satisfiable by binding nothing."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "ENFORCEMENT_COVERAGE_EVIDENCE_AND_BINDING_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/enforcement-coverage-evidence-and-binding.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "crates/services/src/agentic/runtime/enforcement_coverage.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the resolver whose required-claim loop at :521-539 checks only the global evidence bag, and whose caller-driven receipt-evidence branch sits at :540-556; current behavior is the defect baseline, not proof of this work item"
+    },
+    {
+      "path": "crates/types/src/app/hypervisoros_node_attestation.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the declaration validator at :788-841 that returns Ok on an empty list and the admitted node record at :988-989 that carries the empty refs; current behavior is the defect baseline, not proof of this work item"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/hypervisoros_node_routes.rs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the read-only loader at :379-398 over a durable evidence family no route writes; precedent and defect baseline, not proof of this work item"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "Closing these gaps makes the contract enforceable. It does not make any deployment's enforcement coverage true, and no profile may advertise or rely on coverage until a producer exists and its declarations resolve as verified-current.",
+    "Canon already records both gaps honestly as of the 2026-07-28 correction: registry residency may be claimed, runtime enforcement may not. This record inherits that ceiling and raises it for nothing.",
+    "A per-claim evidence binding proves that a reference was declared for the claim, not that the referenced evidence is sufficient. Sufficiency remains an assurance judgment with its own owner.",
+    "Refusing an empty declaration list removes a vacuous pass. It creates no obligation that any particular action class be covered, and uncovered remains a legitimate terminal state."
+  ],
+  "rollback_or_stop_rule": "Stop if closing the evidence gap would require weakening any existing structural defense — the mechanism-role requirement, the bounded decision-source and final-invoker enums, the operating-mode exclusions, or the claim-implication rules — because a per-claim evidence rule bought with a weaker overclaiming defense is a net loss of truth. Stop if refusing an empty declaration list would block node admission with no producer available: in that case land the producer first, and record the interim state as an honest known gap rather than admitting nodes vacuously.",
+  "exit_criteria": [
+    "Evidence is bound to the claim it backs for every positive claim state, so a declaration whose evidence establishes only discovery cannot resolve as operable against a mediated requirement.",
+    "A declared node enforcement profile that resolves to zero declarations is refused, a producer writes declarations into the durable evidence family, every predeclared adversarial branch refuses by name, every existing negative fixture still fails closed, and the retained literal ENFORCEMENT_COVERAGE_EVIDENCE_AND_BINDING_EXIT=0 appears exactly once."
+  ],
+  "pr": null,
+  "source_provenance": "Authored 2026-07-29 from a read-only product-truth verification pass that confirmed both halves in code; every file:line cited here was re-verified at commit 106e2ac797d0949fa463a27680a6255745ea730b. Canon was corrected in the same pass (commit a5c0f0a59, dated 2026-07-28) to record both gaps honestly in hypervisoros.md and canon-to-code-delta.md. The verification artifact is retained at internal-docs/prompts/architecture-relative-comparison/runs/2026-07-28-leg0-v1-product-truth-verification.md and is non-canonical: it supplies the defect baseline and is never cited as authority.",
+  "last_status_transaction": "2026-07-29"
+}

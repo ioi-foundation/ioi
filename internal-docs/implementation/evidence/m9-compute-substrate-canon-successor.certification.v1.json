@@ -1,0 +1,10 @@
+{
+  "literal_exit": {
+    "expected": "M9_COMPUTE_SUBSTRATE_CANON_SUCCESSOR_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M9/m9-compute-substrate-canon-successor.exit.v1.txt",
+    "artifact_sha256": "39281e322e454eed386a61ce8b00f515e629267c4a605089f84894cebc200cbd"
+  },
+  "adversarial_or_fault_proof": [
+    "The retained verifier refuses any missing or duplicate subject, missing dependency record, or unadmitted owner and preserves conditional-profile, App-primary, and standing-authority-v3 nonclaims."
+  ]
+}

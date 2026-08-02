@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-30",
+  "as_of_date": "2026-08-01",
   "blockers": [
     {
       "blocker_id": "BLK-M0-SELECTED-PACKAGE-GENESIS",
@@ -15,17 +15,27 @@
     },
     {
       "blocker_id": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "reference_count": 23,
+      "reference_count": 33,
       "references": [
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/goal-run-activations/:id",
         "http:hypervisor-daemon:GET /v1/goal-orchestration/goal-runs/:id",
         "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id",
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/collaborative-work-graph",
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/discussion-projection",
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/product-projection",
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/replay",
         "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami",
         "http:hypervisor-daemon:GET /v1/hypervisor/authority/receipts",
+        "http:hypervisor-daemon:GET /v1/hypervisor/outcome-deltas/*id",
+        "http:hypervisor-daemon:GET /v1/hypervisor/work-results/*id",
         "http:hypervisor-daemon:GET /v1/runs/:id/inspect",
         "http:hypervisor-daemon:GET /v1/runs/:id/replay",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/attempts",
+        "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations",
+        "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations/:id/submit",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/lifecycle-recovery",
+        "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/outcome-deltas",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/start",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/attach-goal-run",
@@ -306,7 +316,7 @@
     },
     {
       "blocker_id": "BLK-M0-FINAL-INVOKER-PROOF",
-      "reference_count": 702,
+      "reference_count": 703,
       "references": [
         "http:hypervisor-daemon:DELETE /scim/v2/Groups/:id",
         "http:hypervisor-daemon:DELETE /scim/v2/Users/:id",
@@ -378,6 +388,8 @@
         "http:hypervisor-daemon:GET /v1/goal-orchestration/ioi-agent/launch-policies/:id",
         "http:hypervisor-daemon:GET /v1/goal-orchestration/ioi-agent/launches",
         "http:hypervisor-daemon:GET /v1/goal-orchestration/ioi-agent/launches/:id",
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms",
+        "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/overview",
         "http:hypervisor-daemon:GET /v1/hypervisor/agent-run-transcripts",
         "http:hypervisor-daemon:GET /v1/hypervisor/agent-run-transcripts/:id",
         "http:hypervisor-daemon:GET /v1/hypervisor/agent-runner-profiles",
@@ -530,7 +542,6 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/ops-lease/:token",
         "http:hypervisor-daemon:GET /v1/hypervisor/org-invite",
         "http:hypervisor-daemon:GET /v1/hypervisor/outcome-deltas",
-        "http:hypervisor-daemon:GET /v1/hypervisor/outcome-deltas/:id",
         "http:hypervisor-daemon:GET /v1/hypervisor/placement/decisions",
         "http:hypervisor-daemon:GET /v1/hypervisor/placement/decisions/:id",
         "http:hypervisor-daemon:GET /v1/hypervisor/placement/metrics",
@@ -582,7 +593,6 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/warm-pools",
         "http:hypervisor-daemon:GET /v1/hypervisor/work-ledger",
         "http:hypervisor-daemon:GET /v1/hypervisor/work-results",
-        "http:hypervisor-daemon:GET /v1/hypervisor/work-results/:id",
         "http:hypervisor-daemon:GET /v1/hypervisor/work-results/overview",
         "http:hypervisor-daemon:GET /v1/hypervisor/workruns",
         "http:hypervisor-daemon:GET /v1/jobs",
@@ -681,7 +691,8 @@
         "http:hypervisor-daemon:POST /v1/goal-orchestration/ioi-agent/launch-policies/:id/rollout/promote",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/ioi-agent/launch-policies/:id/rollout/rollback",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/ioi-agent/launch-preview",
-        "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/transition",
+        "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/detach-goal-run",
+        "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/lifecycle/transitions",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/resource-offers",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/resource-offers/:id/transition",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/room-participant-leases/:id/transition",
@@ -1277,7 +1288,7 @@
     },
     {
       "blocker_id": "NONCLAIM-M0-JAVASCRIPT-FACADE",
-      "reference_count": 152,
+      "reference_count": 155,
       "references": [
         "js-outbound:hypervisor-product-ui-outbound:DELETE `${DAEMON}${api}/${encodeURIComponent(id)}`#1",
         "js-outbound:hypervisor-product-ui-outbound:DELETE `${DAEMON}${api}/${encodeURIComponent(id)}`#2",
@@ -1331,6 +1342,8 @@
         "js-outbound:hypervisor-product-ui-outbound:POST /__ioi/api/new-session/launch#1",
         "js-outbound:hypervisor-product-ui-outbound:POST /__ioi/automations/__IOI_TEMPLATE_EXPRESSION_0__/patch#1",
         "js-outbound:hypervisor-product-ui-outbound:POST /api/ioi.v1.AgentService/SendToAgentExecution#1",
+        "js-outbound:hypervisor-product-ui-outbound:POST /v1/goal-orchestration/goal-run-activations#1",
+        "js-outbound:hypervisor-product-ui-outbound:POST /v1/goal-orchestration/goal-run-activations/ + encodeURIComponent ( id ) + /submit#1",
         "js-outbound:hypervisor-product-ui-outbound:POST /v1/hypervisor/api-tokens#1",
         "js-outbound:hypervisor-product-ui-outbound:POST /v1/hypervisor/budget/reconcile#1",
         "js-outbound:hypervisor-product-ui-outbound:POST /v1/hypervisor/connectors#1",
@@ -1341,6 +1354,7 @@
         "js-outbound:hypervisor-product-ui-outbound:POST /v1/hypervisor/projects#1",
         "js-outbound:hypervisor-product-ui-outbound:POST /v1/hypervisor/scim-configurations#1",
         "js-outbound:hypervisor-product-ui-outbound:POST /v1/hypervisor/secrets#1",
+        "js-outbound:hypervisor-product-ui-outbound:POST /v1/hypervisor/sessions#1",
         "js-outbound:hypervisor-product-ui-outbound:POST /v1/hypervisor/sso-configurations#1",
         "js-outbound:hypervisor-product-ui-outbound:POST /v1/hypervisor/workruns#1",
         "js-outbound:hypervisor-product-ui-outbound:POST /v1/threads#1",
@@ -1425,11 +1439,11 @@
         "js-storage-action:apps/sas-xyz/v2/app.jsx#resetState:localStorage.removeItem:149",
         "js-storage-action:apps/sas-xyz/v2/app.jsx#saveState:localStorage.setItem:146",
         "js-system-effect:apps/hypervisor/scripts/ioi-api-adapter.mjs#saveStore",
-        "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6434",
-        "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6438",
-        "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6442",
-        "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6443",
-        "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6444",
+        "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6733",
+        "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6737",
+        "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6741",
+        "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6742",
+        "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6743",
         "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#waitForMirror"
       ],
       "state": "retained",
@@ -1591,7 +1605,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "7d47e2837bebf0d625f53d3dfe9c0e2084ea8e9803320170ad34efed26a57f0c",
+  "build_fingerprint": "2f516e460b48b90980161387536c7da0302c904e47f6962146366ec2090e9f28",
   "counts": {
     "by_state": {
       "open": 23,

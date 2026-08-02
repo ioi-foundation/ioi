@@ -1,0 +1,260 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-work-item-contract-completeness-and-owner-lint",
+  "stage_id": "M0",
+  "record_role": "private_verifier",
+  "required_work": [
+    "Approved plan-level gap closure: m0-work-item-contract-completeness-and-owner-lint"
+  ],
+  "status": "verified",
+  "objective": "Produce the bounded plan, owner integration, product/operator states, and proof bundle for Schema + migration/waiver report; M0_WORK_ITEM_CONTRACT_COMPLETENESS_EXIT=0.",
+  "falsifiable_claim": "This plan is incomplete or its future claim fails if Reject prose dependencies, unknown owners/contracts, status inference, workflow-as-product authority.",
+  "selected_profile": "Private program-control and selected-profile planning; no product effect or capability claim.",
+  "canon_owners": [
+    "docs/architecture/_meta/current-canon-defaults.md",
+    "docs/architecture/_meta/public-web-estate.md",
+    "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/start-here.md",
+    "docs/decisions/README.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "3ddda174faf2bb1a90d2dfd96d9fb034038afe85",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "d479f960fd493825353ac08e6fa39a7de2fb37b544f6ec537ac24d34fbbd5f87",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/current-canon-defaults.md",
+        "sha256": "e2f98681aed05d3b03ce69ef57362f285b23cf2b79dad3ce9d4cef0486940ba1"
+      },
+      {
+        "path": "docs/architecture/_meta/public-web-estate.md",
+        "sha256": "14d9d70df2089f98f9f081bbb66ee7f0695ac0a06ae0dae5ba55ab75e654b353"
+      },
+      {
+        "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+        "sha256": "e801c0320f3f5211882661ce59c20add142aaced1751780ef4b9a22c8a217489"
+      },
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "206f5f46afce282f31292338b3f6d7b683530b37b616d53fee0aab953a0bb022"
+      },
+      {
+        "path": "docs/architecture/_meta/start-here.md",
+        "sha256": "6a5cdf8ac430ccaae61b5a36ea8d105a08b5a2f6b5c2f7fa7da3553ddf9a5a32"
+      },
+      {
+        "path": "docs/decisions/README.md",
+        "sha256": "e7cefeedd7b10226f399446ea3241a1c92b419599dca791a402f02d44a411f9a"
+      }
+    ]
+  },
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m0-work-item-contract-completeness-and-owner-lint",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/active/m0-work-item-contract-completeness-and-owner-lint.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "future-exit-contract:M0_WORK_ITEM_CONTRACT_COMPLETENESS_EXIT=0",
+      "artifact_class": "private_future_literal_exit_contract",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "artifact_id": "private-artifact:ioi.program.work_item.v1",
+      "artifact_class": "private_work_item_record_schema",
+      "candidate_name": "ioi.program.work_item.v1",
+      "path": null,
+      "product_authority": false,
+      "architecture_canon": false
+    },
+    {
+      "name": "WorkItemContractSchema",
+      "path": "internal-docs/implementation/program/schemas/work-item.v1.schema.json"
+    },
+    {
+      "name": "ContractReport",
+      "path": "internal-docs/implementation/generated/work-item-contract-report.v1.json"
+    }
+  ],
+  "current_implementation_evidence": "Planning only. Canon and current repository/Hypervisor precedents were inventoried, but no retained literal exit or implementation proof exists for this new proposed record.",
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "aggregate_child_ids": [],
+  "aggregate_child_dispositions": [],
+  "aggregate_verification_binding": null,
+  "in_scope": [
+    "`PROGRAM`, `META`; `ioi.program.work_item.v1`, owner/contract/private-artifact refs",
+    "Schema + migration/waiver report; the declared literal exit contract",
+    "Positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, and retained-evidence planning for the bounded claim."
+  ],
+  "out_of_scope": [
+    "Reject prose dependencies, unknown owners/contracts, status inference, workflow-as-product authority",
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim.",
+    "Creating this record does not implement behavior, activate work, close its literal exit, or change a stage."
+  ],
+  "implementation_actions": [
+    "Resolve and freeze the exact canonical owners and contract revisions for: `PROGRAM`, `META`; `ioi.program.work_item.v1`, owner/contract/private-artifact refs.",
+    "Implement the bounded owner/runtime/product crossings needed to deliver: Schema + migration/waiver report; the declared literal exit contract.",
+    "Build positive plus adversarial/fault runners that reject: Reject prose dependencies, unknown owners/contracts, status inference, workflow-as-product authority.",
+    "Retain an evidence index and require the exact content-bound M0_WORK_ITEM_CONTRACT_COMPLETENESS_EXIT=0; never infer success from a task/process exit code."
+  ],
+  "consequential_effects_and_final_invokers": [
+    {
+      "effect": "private plan/check projection write",
+      "final_invoker": "private deterministic writer only",
+      "authority_source": "none; workflow evidence never authorizes product effects",
+      "receipt_or_evidence": "unsigned checker report and source manifest",
+      "negative_behavior": "refuse mutation on unknown source, owner, status, or exit evidence"
+    }
+  ],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "The selected profile completes the bounded m0-work-item-contract-completeness-and-owner-lint journey through the declared owner path and produces the exact expected truth/effect/evidence outputs.",
+    "Restart/replay or independent reconstruction preserves the same owner refs, heads/roots, receipts, and explicit nonclaims where applicable.",
+    "The retained evidence file contains exactly one line equal to M0_WORK_ITEM_CONTRACT_COMPLETENESS_EXIT=0 only after the full claim is independently reviewed."
+  ],
+  "adversarial_or_fault_proof": "Reject and retain evidence for Reject prose dependencies, unknown owners/contracts, status inference, workflow-as-product authority; include substitution, stale-state, denial, dependency-loss, retry/ambiguity, restart, and recovery branches where applicable.",
+  "product_journey_and_states": [
+    {
+      "state": "loading_or_pending",
+      "required_behavior": "Show bounded progress and frozen context without implying admission, readiness, or success."
+    },
+    {
+      "state": "honest_empty",
+      "required_behavior": "Render no-data/not-yet-admitted truth without fixtures or fabricated defaults."
+    },
+    {
+      "state": "ready_or_proposed",
+      "required_behavior": "Expose the exact proposal and owner context for m0-work-item-contract-completeness-and-owner-lint; presentation grants no authority."
+    },
+    {
+      "state": "denied_or_revoked",
+      "required_behavior": "Fail closed for Reject prose dependencies, unknown owners/contracts, status inference, workflow-as-product authority; make the denial inspectable and invoke nothing consequential."
+    },
+    {
+      "state": "unavailable_or_degraded",
+      "required_behavior": "Name the missing owner/dependency and preserve narrower nonclaims; never substitute plausible mock truth."
+    },
+    {
+      "state": "stale_conflict_or_ambiguous",
+      "required_behavior": "Preserve predecessor, idempotency, reconciliation, and retry obligations without inferring success."
+    },
+    {
+      "state": "recovery_or_rollback",
+      "required_behavior": "Resume, compensate, fence, reconcile, or stop under the declared rollback rule with retained evidence."
+    },
+    {
+      "state": "completed",
+      "required_behavior": "Show owner truth, receipt/evidence links, remaining nonclaims, and only the exact M0_WORK_ITEM_CONTRACT_COMPLETENESS_EXIT=0 when actually retained."
+    }
+  ],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [
+    {
+      "metric_id": "generic.unauthorized_final_invoker_calls",
+      "metric": "unauthorized or wrong-final-invoker calls",
+      "threshold": 0,
+      "unit": "calls",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.duplicate_or_status_inferred_effects",
+      "metric": "duplicate or status-inferred effects",
+      "threshold": 0,
+      "unit": "effects",
+      "threshold_source": "cross-stage proof discipline",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.unresolved_required_owner_dependency_mappings",
+      "metric": "unresolved required owner/dependency mappings",
+      "threshold": 0,
+      "unit": "mappings",
+      "threshold_source": "single-owner planning rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "generic.exact_retained_successful_literal_exit_lines",
+      "metric": "exact retained successful literal exit lines",
+      "threshold": 1,
+      "unit": "standalone lines",
+      "threshold_source": "literal exit rule",
+      "frozen_before_observation": true
+    },
+    {
+      "metric_id": "m0.unowned_or_second_sequencer_facts",
+      "metric": "unowned facts or second-sequencer facts",
+      "threshold": 0,
+      "unit": "facts",
+      "threshold_source": "M0 program-control floor",
+      "frozen_before_observation": true
+    }
+  ],
+  "compatibility_and_migration": [
+    "Preserve existing valid object, route, receipt, and evidence identities until an explicit owner-approved successor/migration exists.",
+    "Read-old/write-new behavior, alias duration, mixed-version refusal, hash impact, rollback, and residual cleanup are explicit per affected family.",
+    "No route, UI, fixture, archive, or compatibility layer becomes a second truth, authority, status, or sequencing owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M0_WORK_ITEM_CONTRACT_COMPLETENESS_EXIT=0",
+    "retained_refs": [
+      "internal-docs/implementation/evidence/m0-work-item-contract-completeness-and-owner-lint.certification.v1.json"
+    ],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M0/m0-work-item-contract-completeness-and-owner-lint.exit.v1.txt"
+    ],
+    "historical_unavailable_refs": [],
+    "negative_and_inconclusive_retention": true,
+    "producer_independence_required": true,
+    "checkout_validation": "not_applicable_until_evidence_ready",
+    "historical_status_preserved": false,
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "internal-docs/implementation/tools/check-work-item-contract.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the verifier/tool this record owns"
+    },
+    {
+      "path": "internal-docs/implementation/program/schemas/work-item.v1.schema.json",
+      "present_when": "current_precedent",
+      "evidence_scope": "the verifier/tool this record owns"
+    },
+    {
+      "path": "internal-docs/implementation/fixtures/work-item-contract",
+      "present_when": "current_precedent",
+      "evidence_scope": "the verifier/tool this record owns"
+    }
+  ],
+  "evidence_refs": [
+    "internal-docs/implementation/generated/work-item-contract-report.v1.json"
+  ],
+  "remaining_nonclaims": [
+    "This docs-and-orchestration record closes no work item, stage, runtime capability, application, or public claim."
+  ],
+  "rollback_or_stop_rule": "Stop before implementation or claim widening on unknown owner/contract, missing dependency, uncontrolled final invoker, absent authority/receipt path, stale canon digest, mutable threshold, or failed branch: Reject prose dependencies, unknown owners/contracts, status inference, workflow-as-product authority. Roll back only through the affected owner's explicit successor/compensation path; never change status by prose.",
+  "exit_criteria": [
+    "Schema + migration/waiver report; the declared literal exit contract",
+    "All positive, adversarial, stale-state, substitution, fault, recovery, product/operator-state, compatibility, migration, and evidence obligations above pass for the selected profile.",
+    "Retained evidence contains exactly one literal M0_WORK_ITEM_CONTRACT_COMPLETENESS_EXIT=0; a task/process exit code, UI state, plan, or aggregate cannot substitute."
+  ],
+  "pr": null,
+  "source_provenance": "Approved private plan-level gap record from internal-docs/implementation/audits/2026-07-22-directory-unification-plan.md under SA-2/SA-7/SA-9; created proposed on 2026-07-22 and makes no implementation claim.",
+  "last_status_transaction": {
+    "from": "active",
+    "to": "verified",
+    "at_commit": "7139292b192ca34e152682bc89e5c4fcd6d00590",
+    "certification_result_sha256": "a319deba3eb1069f36d949647481b72626ea69427cbdbd2009b4f999f4a87746",
+    "rule": "Derived by tools/transition.mjs from one retained certification result. No downstream artifact was hand-edited."
+  }
+}

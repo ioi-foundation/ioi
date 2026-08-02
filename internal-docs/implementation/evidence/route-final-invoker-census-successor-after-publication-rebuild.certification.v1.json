@@ -1,0 +1,13 @@
+{
+  "literal_exit": {
+    "expected": "ROUTE_FINAL_INVOKER_CENSUS_SUCCESSOR_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M9/route-final-invoker-census-successor-after-publication-rebuild.exit.v1.txt",
+    "artifact_sha256": "63c28b9b73c305535504433d8ac54d776985b265b81f7a029b5c89a9aa020ba4"
+  },
+  "adversarial_or_fault_proof": [
+    "Census coherence restored over merged master WITHOUT deleting any entry: the stop rule did not fire. The route POST /v1/hypervisor/environments/:id/scm/publish survives; only its handler and final-invoker locators re-bind onto scm_publication_routes.rs. Delta: 4 routes admitted, 0 retired, 1,327 locator rebinds, 245 entries byte-identical to the immutable 2026-07-18 baseline. Anchor sequence 23 binds sequence 22 entry hash.",
+    "Retirement and rebind are mechanically distinguishable in two separate checkers, so a formatting pass can never read as a retirement: a retirement removes the identity from discovery and surfaces as an unretired-ghost ERROR in check-route-census-maintenance.mjs, while a rebind keeps the identity and surfaces as a stale-handler-anchor ERROR in m0-program-control --check. Bypass diff before: CENSUS_MAINT_BEFORE_EXIT=1. After: CENSUS_MAINT_AFTER_EXIT=0, 1576/1576, bypass_candidates [], unretired_ghosts [].",
+    "Six entries re-review OBSERVED claims and every one REDUCES or relocates: exec, terminals, workruns/:id/execute and environments/:id/:action lose durable-evidence and policy/revocation gate symbols because the emergency containment withdrew the host-execution fallback those symbols were observed on. terminal_claim_count remains 0.",
+    "Literal exits: m0-program-control --check exit 0 (1,576 entries); check:m0-program-control exit 0; check:pre-next-leg PNL_EXIT=0 at 60/60; check-program PASS. The certified predecessor m0-route-final-invoker-pg-census-maintenance was NOT edited, reopened, or restated."
+  ]
+}

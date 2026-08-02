@@ -1,0 +1,10 @@
+{
+  "schema_version": "ioi.goal-run-execution-ceiling.v1",
+  "goal_run_execution_ceiling_id": "goal-run-execution-ceiling://ioi-goal-draft-zero",
+  "revision_ref": "goal-run-execution-ceiling://ioi-goal-draft-zero/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "content_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "owner_ref": "system://ioi",
+  "max_total_invocations": 0,
+  "max_parallel_invocations": 0,
+  "registry_status": "released"
+}

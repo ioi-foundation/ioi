@@ -1,7 +1,7 @@
 {
   "schema_version": "ioi.scm-publication-effect.v2",
   "publication_effect_id": "scm-publication-effect://ioi/hypervisor/eff-neg-recomputed-cas",
-  "publication_effect_hash": "sha256:1246792377be291989d028900c984696878fd353d02ad0fdbc5b3f034bcfb501",
+  "publication_effect_hash": "sha256:df3148aa7ae81747185878168fca977e67db8dc3d45d31c33bbec7e026264683",
   "execution_semantics": "at_most_once_execution_plus_reconciliation",
   "operation": {
     "operation_ref": "scm-publication-operation://ioi/hypervisor/op-0007",
@@ -64,7 +64,7 @@
     "prepared_persistence_evidence_ref": "receipt://ioi/hypervisor/prepared-persist-0007"
   },
   "attempt": {
-    "attempt_ref": "scm-publication-attempt://ioi/hypervisor/att-0007-2",
+    "publication_attempt_ref": "scm-publication-attempt://ioi/hypervisor/att-0007-2",
     "attempt_number": 2,
     "cas": {
       "mechanism": "expected_head_compare_and_swap",

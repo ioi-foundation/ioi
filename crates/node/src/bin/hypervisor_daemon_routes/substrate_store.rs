@@ -37,6 +37,13 @@ use std::os::unix::fs::MetadataExt;
 /// Families whose truth is the substrate engine. Extend only after the
 /// candidate family has passed a dual-write soak with clean parity.
 pub(crate) const PROMOTED_DOMAINS: &[&str] = &["provider-receipts"];
+/// Mutable application-operation lane for one bounded OutcomeRoom System.
+///
+/// Unlike `REQUIRED_ADMISSION_DOMAINS`, this domain is not a collection of
+/// immutable evidence records. Every room has one stable Agentgres object and
+/// advances it with `expected_head`; the returned Agentgres projection is the
+/// only admitted sequence/head/root authority for room mutations.
+pub(crate) const OUTCOME_ROOM_SYSTEM_OPERATION_DOMAIN: &str = "outcome-room-system-operations";
 /// Families that remain daemon-file projections but MUST also cross the Agentgres operation log
 /// before their owner-plane intent may clear. This is a synchronous pre-promotion boundary, not a
 /// CUT: reads remain on the owner plane until the normal shadow/compare/promotion bar is met.
@@ -61,6 +68,11 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-home-bindings",
     "autonomous-system-operation-log-revisions",
     "autonomous-system-chain-revisions",
+    "outcome-room-information-flow-labels",
+    "outcome-room-result-payload-write-admissions",
+    "outcome-room-component-resolution-snapshots",
+    "outcome-room-conductor-verification-evidence",
+    "goal-run-activation-admitted-states",
     "autonomous-system-chain-successor-claims",
     "autonomous-system-chain-writer-reservations",
     "autonomous-system-lifecycle-states",
@@ -421,6 +433,15 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             "chain_root",
             format!("sha256:{}", record_id.strip_prefix("asc_").unwrap_or("")),
         ),
+        "outcome-room-information-flow-labels"
+        | "outcome-room-result-payload-write-admissions"
+        | "outcome-room-component-resolution-snapshots"
+        | "outcome-room-conductor-verification-evidence" => {
+            unreachable!("identity is validated by the room runtime-dependency content-root branch")
+        }
+        "goal-run-activation-admitted-states" => {
+            unreachable!("identity is validated by the GoalRun admitted-state content-root branch")
+        }
         "autonomous-system-chain-successor-claims" => (
             "predecessor_chain_root",
             format!("sha256:{}", record_id.strip_prefix("ascsc_").unwrap_or("")),
@@ -800,6 +821,11 @@ fn validate_required_identity(
         "autonomous-system-home-bindings" => "ashdb_",
         "autonomous-system-operation-log-revisions" => "asol_",
         "autonomous-system-chain-revisions" => "asc_",
+        "outcome-room-information-flow-labels" => "orifl_",
+        "outcome-room-result-payload-write-admissions" => "orpwa_",
+        "outcome-room-component-resolution-snapshots" => "orcps_",
+        "outcome-room-conductor-verification-evidence" => "orcve_",
+        "goal-run-activation-admitted-states" => "gras_",
         "autonomous-system-chain-successor-claims" => "ascsc_",
         "autonomous-system-chain-writer-reservations" => "ascwr_",
         "autonomous-system-desired-topologies" => "asdt_",
@@ -846,6 +872,64 @@ fn validate_required_identity(
                 "required Agentgres key must be '{required_prefix}' plus 64 lowercase hex characters"
             ),
         ));
+    }
+    if record_dir == "goal-run-activation-admitted-states" {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let root = format!("sha256:{encoded}");
+        if record.get("state_root").and_then(Value::as_str) != Some(root.as_str()) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres GoalRun state key does not match state_root",
+            ));
+        }
+        let root_ref = record
+            .get("state_root_ref")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if !root_ref.starts_with("agentgres://state-root/goal-run/")
+            || !root_ref.ends_with(&format!("/{root}"))
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres GoalRun state_root_ref does not bind the state root",
+            ));
+        }
+        let mut state = record.clone();
+        state["state_root"] = Value::Null;
+        state["state_root_ref"] = Value::Null;
+        let expected = jcs_root(&state)?;
+        if expected != root {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres GoalRun admitted-state root does not recompute",
+            ));
+        }
+        return Ok(());
+    }
+    if matches!(
+        record_dir,
+        "outcome-room-information-flow-labels"
+            | "outcome-room-result-payload-write-admissions"
+            | "outcome-room-component-resolution-snapshots"
+            | "outcome-room-conductor-verification-evidence"
+    ) {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let expected = jcs_root(&json!({
+            "domain": "ioi.outcome-room-runtime-dependency-record-jcs-sha256.v1",
+            "record_family": record_dir,
+            "record": record,
+        }))?;
+        if expected != format!("sha256:{encoded}") {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres room runtime-dependency key does not match its exact record bytes",
+            ));
+        }
+        return Ok(());
     }
     if matches!(
         record_dir,
@@ -2116,6 +2200,189 @@ pub(crate) fn admit_required(
     })
 }
 
+fn canonical_room_system_operation_tail(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 160
+        && !value.contains("..")
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+}
+
+fn room_system_operation_ref(room_tail: &str) -> String {
+    format!("agentgres://{OUTCOME_ROOM_SYSTEM_OPERATION_DOMAIN}/{room_tail}")
+}
+
+fn room_system_operation_domain(room_tail: &str) -> String {
+    format!("{OUTCOME_ROOM_SYSTEM_OPERATION_DOMAIN}.{room_tail}")
+}
+
+fn room_system_operations_match(existing: &Operation, proposed: &Operation) -> bool {
+    existing == proposed
+}
+
+/// Admit one mutation against the stable Agentgres head of a bounded
+/// OutcomeRoom System and return the exact canonical projection.
+///
+/// `expected_head == None` is creation and therefore uses expected-absent.
+/// Every later mutation must name the exact current head. Exact retries
+/// converge on the already-admitted operation; changed bytes or stale heads
+/// fail closed without appending. The caller may project the returned
+/// sequence/head/roots, but may not mint substitutes for them.
+pub(crate) fn admit_outcome_room_system_operation(
+    data_dir: &str,
+    room_tail: &str,
+    op_kind: &str,
+    expected_head: Option<&str>,
+    payload: &Value,
+    recorded_at_ms: u64,
+    idem_key: &str,
+) -> std::io::Result<ExactProjection> {
+    if !canonical_room_system_operation_tail(room_tail) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "OutcomeRoom System operation tail is not canonical",
+        ));
+    }
+    if op_kind.is_empty()
+        || op_kind.len() > 96
+        || !op_kind.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'.')
+        })
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "OutcomeRoom System operation kind is not canonical",
+        ));
+    }
+    if expected_head.is_some_and(|head| {
+        !head.strip_prefix("sha256:").is_some_and(|tail| {
+            tail.len() == 64
+                && tail
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+        })
+    }) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "OutcomeRoom System expected head is not canonical",
+        ));
+    }
+    if idem_key.is_empty() || idem_key.len() > 256 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "OutcomeRoom System idempotency key is not canonical",
+        ));
+    }
+
+    let object_ref = room_system_operation_ref(room_tail);
+    let domain = room_system_operation_domain(room_tail);
+    let operation = Operation {
+        domain: domain.clone(),
+        object_ref: object_ref.clone(),
+        op_kind: op_kind.to_owned(),
+        expected_head: expected_head.map(str::to_owned),
+        expected_absent: expected_head.is_none(),
+        payload: payload.clone(),
+        recorded_at_ms,
+        idem_key: idem_key.to_owned(),
+    };
+
+    with_current_handle(data_dir, |handle| {
+        if let Some(existing) = handle.project_exact(&domain, &object_ref)? {
+            if room_system_operations_match(&existing.operation, &operation) {
+                confirm_required_admission_durability(data_dir)?;
+                return Ok(existing);
+            }
+        }
+
+        let ack = match handle.admit(operation.clone()) {
+            Ok(ack) => ack,
+            Err(MuxAdmitError::Refused(
+                Refusal::ExpectedHeadConflict { .. } | Refusal::ExpectedAbsentConflict { .. },
+            )) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::AlreadyExists,
+                    "OutcomeRoom System Agentgres head conflict",
+                ))
+            }
+            Err(error) => {
+                ERRORS.fetch_add(1, Ordering::Relaxed);
+                return Err(std::io::Error::other(format!(
+                    "OutcomeRoom System Agentgres admission failed: {error}"
+                )));
+            }
+        };
+        confirm_required_admission_durability(data_dir)?;
+        let exact = handle.project_exact(&domain, &object_ref)?.ok_or_else(|| {
+            std::io::Error::other("OutcomeRoom System Agentgres admission has no exact projection")
+        })?;
+        if !room_system_operations_match(&exact.operation, &operation)
+            || exact.seq != ack.seq
+            || exact.head != ack.new_head
+            || exact.admission_batch_seq != ack.batch_seq
+            || exact.admission_root != ack.root
+        {
+            return Err(std::io::Error::other(
+                "OutcomeRoom System Agentgres projection disagrees with its admission ack",
+            ));
+        }
+        ADMITTED.fetch_add(1, Ordering::Relaxed);
+        Ok(exact)
+    })
+}
+
+/// Read the current canonical head for one bounded OutcomeRoom System.
+pub(crate) fn read_outcome_room_system_operation(
+    data_dir: &str,
+    room_tail: &str,
+) -> std::io::Result<Option<ExactProjection>> {
+    if !canonical_room_system_operation_tail(room_tail) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "OutcomeRoom System operation tail is not canonical",
+        ));
+    }
+    with_current_handle(data_dir, |handle| {
+        let domain = room_system_operation_domain(room_tail);
+        handle.project_exact(&domain, &room_system_operation_ref(room_tail))
+    })
+}
+
+/// Read the fully rooted operation history for one bounded OutcomeRoom
+/// System. The history is ordered by Agentgres domain sequence and contains
+/// only successors of the room's one stable object key.
+pub(crate) fn read_outcome_room_system_operation_history(
+    data_dir: &str,
+    room_tail: &str,
+) -> std::io::Result<Vec<ExactProjection>> {
+    if !canonical_room_system_operation_tail(room_tail) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "OutcomeRoom System operation tail is not canonical",
+        ));
+    }
+    // A replay/history read is meaningful only after this bounded System has admitted at least
+    // genesis. Never let a missing authoritative mux log be interpreted as an empty history: the
+    // normal engine opener creates a new log, which would turn a destructive source-loss probe
+    // into a silent replacement of truth.
+    let muxlog = engine_dir(data_dir).join("muxlog.bin");
+    match std::fs::metadata(&muxlog) {
+        Ok(metadata) if metadata.is_file() => {}
+        Ok(_) => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "OutcomeRoom System Agentgres mux log is not an ordinary file",
+            ));
+        }
+        Err(error) => return Err(error),
+    }
+    with_current_handle(data_dir, |handle| {
+        let domain = room_system_operation_domain(room_tail);
+        handle.project_exact_history(&domain, &room_system_operation_ref(room_tail))
+    })
+}
+
 /// The narrow multi-process CAS boundary for the chain-writer reservation.
 ///
 /// Agentgres is intentionally a single-writer engine. Two daemon processes may nevertheless race
@@ -2351,6 +2618,183 @@ mod tests {
             admission_root: "sha256:admission-root".to_string(),
             terminal_root: "sha256:terminal-root".to_string(),
         }
+    }
+
+    #[test]
+    fn outcome_room_system_operation_uses_one_stable_expected_head() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let data_dir = std::env::temp_dir().join(format!(
+            "ioi-outcome-room-system-cas-{}-{nonce}",
+            std::process::id()
+        ));
+        let data_dir = data_dir.to_str().unwrap();
+        reset_handle_for_test();
+
+        let genesis_payload = json!({
+            "schema_version": "ioi.outcome-room-system-operation.v1",
+            "operation_kind": "room_genesis",
+            "outcome_room_ref": "outcome-room://room-alpha",
+            "room_system_id": "system://room-alpha",
+        });
+        let genesis = admit_outcome_room_system_operation(
+            data_dir,
+            "room-alpha",
+            "outcome_room.room_genesis",
+            None,
+            &genesis_payload,
+            1,
+            "room-alpha/genesis",
+        )
+        .unwrap();
+        assert_eq!(genesis.seq, 0);
+        assert_eq!(genesis.operation.expected_head, None);
+        assert!(genesis.operation.expected_absent);
+
+        let replay = admit_outcome_room_system_operation(
+            data_dir,
+            "room-alpha",
+            "outcome_room.room_genesis",
+            None,
+            &genesis_payload,
+            1,
+            "room-alpha/genesis",
+        )
+        .unwrap();
+        assert_eq!(replay, genesis, "an exact retry must not append");
+
+        let changed = admit_outcome_room_system_operation(
+            data_dir,
+            "room-alpha",
+            "outcome_room.room_genesis",
+            None,
+            &json!({"changed": true}),
+            1,
+            "room-alpha/genesis",
+        )
+        .unwrap_err();
+        assert_eq!(changed.kind(), std::io::ErrorKind::AlreadyExists);
+
+        let successor_payload = json!({
+            "schema_version": "ioi.outcome-room-system-operation.v1",
+            "operation_kind": "room_child_admitted",
+            "outcome_room_ref": "outcome-room://room-alpha",
+            "room_system_id": "system://room-alpha",
+            "expected_system_predecessor_commitment_ref": "sha256:system-head",
+        });
+        let successor = admit_outcome_room_system_operation(
+            data_dir,
+            "room-alpha",
+            "outcome_room.room_child_admitted",
+            Some(&genesis.head),
+            &successor_payload,
+            2,
+            "room-alpha/child/one",
+        )
+        .unwrap();
+        assert_eq!(successor.seq, 1);
+        assert_eq!(
+            successor.operation.expected_head,
+            Some(genesis.head.clone())
+        );
+        assert!(!successor.operation.expected_absent);
+
+        let stale = admit_outcome_room_system_operation(
+            data_dir,
+            "room-alpha",
+            "outcome_room.room_child_admitted",
+            Some(&genesis.head),
+            &json!({"different": "successor"}),
+            3,
+            "room-alpha/child/two",
+        )
+        .unwrap_err();
+        assert_eq!(stale.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(
+            read_outcome_room_system_operation(data_dir, "room-alpha")
+                .unwrap()
+                .unwrap(),
+            successor
+        );
+        let history = read_outcome_room_system_operation_history(data_dir, "room-alpha").unwrap();
+        assert_eq!(history.len(), 2);
+        assert_eq!(history[0].operation, genesis.operation);
+        assert_eq!(history[0].seq, genesis.seq);
+        assert_eq!(history[0].head, genesis.head);
+        assert_eq!(history[0].admission_batch_seq, genesis.admission_batch_seq);
+        assert_eq!(history[0].admission_root, genesis.admission_root);
+        assert_eq!(history[1].operation, successor.operation);
+        assert_eq!(history[1].seq, successor.seq);
+        assert_eq!(history[1].head, successor.head);
+        assert_eq!(
+            history[1].admission_batch_seq,
+            successor.admission_batch_seq
+        );
+        assert_eq!(history[1].admission_root, successor.admission_root);
+        assert_eq!(history[0].terminal_root, successor.terminal_root);
+        assert_eq!(history[1].terminal_root, successor.terminal_root);
+
+        let other_room = admit_outcome_room_system_operation(
+            data_dir,
+            "room-beta",
+            "outcome_room.room_genesis",
+            None,
+            &json!({
+                "schema_version":"ioi.outcome-room-system-operation.v1",
+                "operation_kind":"room_genesis",
+                "outcome_room_ref":"outcome-room://room-beta",
+                "room_system_id":"system://room-beta",
+            }),
+            4,
+            "room-beta/genesis",
+        )
+        .unwrap();
+        assert_eq!(
+            other_room.seq, 0,
+            "each bounded room System owns an independent Agentgres operation sequence"
+        );
+
+        // Restart-shaped history reads must fail closed when their one authoritative Agentgres
+        // source is missing or corrupt. Neither refusal may create, repair, or truncate the
+        // selected source; restoration below is explicit test cleanup, not product behavior.
+        reset_handle_for_test();
+        let muxlog = std::path::Path::new(data_dir)
+            .join("substrate")
+            .join("muxlog.bin");
+        let original_muxlog = std::fs::read(&muxlog).unwrap();
+        std::fs::remove_file(&muxlog).unwrap();
+        assert!(read_outcome_room_system_operation_history(data_dir, "room-alpha").is_err());
+        assert!(
+            !muxlog.exists(),
+            "a missing authoritative log must stay missing"
+        );
+
+        std::fs::write(&muxlog, &original_muxlog).unwrap();
+        let mut corrupt_muxlog = original_muxlog.clone();
+        let corrupt_index = corrupt_muxlog.len() / 2;
+        corrupt_muxlog[corrupt_index] ^= 0xff;
+        std::fs::write(&muxlog, &corrupt_muxlog).unwrap();
+        reset_handle_for_test();
+        assert!(read_outcome_room_system_operation_history(data_dir, "room-alpha").is_err());
+        assert_eq!(
+            std::fs::read(&muxlog).unwrap(),
+            corrupt_muxlog,
+            "a corrupt authoritative log must not be repaired or truncated by a read"
+        );
+
+        std::fs::write(&muxlog, &original_muxlog).unwrap();
+        reset_handle_for_test();
+        let restored_history =
+            read_outcome_room_system_operation_history(data_dir, "room-alpha").unwrap();
+        assert_eq!(restored_history, history);
+        let restored_other =
+            read_outcome_room_system_operation_history(data_dir, "room-beta").unwrap();
+        assert_eq!(restored_other, vec![other_room]);
+
+        reset_handle_for_test();
+        std::fs::remove_dir_all(data_dir).unwrap();
     }
 
     #[test]

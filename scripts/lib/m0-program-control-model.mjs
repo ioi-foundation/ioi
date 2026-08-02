@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -61,6 +62,23 @@ export const SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE = Object.freeze({
 const REPOSITORY_ANCHOR_CONTEXT = Object.freeze({
   repository_baseline: REPOSITORY_BASELINE_ANCHOR,
 });
+
+const TRACKED_IMPLEMENTATION_PROGRAM_ROOT = "internal-docs/implementation/";
+const TRACKED_IMPLEMENTATION_FINGERPRINT_EXCLUSIONS = Object.freeze([
+  "internal-docs/implementation/_archive/attestations/canon-acceptances.v1.json",
+  "internal-docs/implementation/_archive/attestations/review-manifests/**",
+  "internal-docs/implementation/generated/canon-baseline.v1.json",
+]);
+
+function isCanonReviewFeedbackArtifact(relativePath) {
+  return relativePath
+      === "internal-docs/implementation/_archive/attestations/canon-acceptances.v1.json"
+    || relativePath.startsWith(
+      "internal-docs/implementation/_archive/attestations/review-manifests/",
+    )
+    || relativePath
+      === "internal-docs/implementation/generated/canon-baseline.v1.json";
+}
 
 // The signing ceremony was retired after sequence 6. Entries at or below this
 // sequence are retained legacy claims, never re-verified as signatures; every
@@ -295,30 +313,16 @@ const CANON_BASIS_FILES = [
   "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
 ];
 
-const EXTERNAL_UNTRACKED_OPERATOR_INPUTS = [
-  {
-    input_id: "target_end_state_master_implementation_guide",
-    path:
-      "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
-    role: "external operator sequencing input",
-    tracking_posture: "ignored_untracked",
-    evidence_binding: "not_read_not_hashed_not_bound",
-  },
-  {
-    input_id: "canon_mechanism_hardening_action_plan",
-    path:
-      "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
-    role: "external operator production-gate input",
-    tracking_posture: "ignored_untracked",
-    evidence_binding: "not_read_not_hashed_not_bound",
-  },
-];
-
 function createSequencingAuthority() {
   return {
-    external_untracked_operator_inputs:
-      EXTERNAL_UNTRACKED_OPERATOR_INPUTS.map((entry) => ({ ...entry })),
     legacy_default: "non_authoritative",
+    tracked_implementation_program: {
+      root: TRACKED_IMPLEMENTATION_PROGRAM_ROOT,
+      tracking_posture: "tracked",
+      evidence_binding:
+        "m0_build_fingerprint.tracked_implementation_program_snapshot",
+      role: "committed implementation sequencing and status authority",
+    },
     tracked_architecture_evidence_authority: {
       root: "docs/architecture/",
       binding: "program_control_source.canon_basis_sha256",
@@ -330,17 +334,18 @@ function createSequencingAuthority() {
       role: "committed selected-profile conformance evidence",
     },
     rule:
-      "External untracked operator inputs may sequence work, but only tracked canon and conformance sources bound in canon_basis provide committed M0 evidence.",
+      "The tracked implementation program supplies sequencing and status authority and is content-bound by the M0 build fingerprint; tracked canon and conformance sources retain their separate committed evidence roles.",
   };
 }
 
 function createPgGateMetadata() {
   return {
-    external_definition_input: {
+    tracked_definition_input: {
       path:
-        "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
-      tracking_posture: "ignored_untracked",
-      evidence_binding: "not_read_not_hashed_not_bound",
+        "internal-docs/implementation/program/pg-gate-map-successor.v1.json",
+      tracking_posture: "tracked",
+      evidence_binding:
+        "m0_build_fingerprint.tracked_implementation_program_snapshot",
     },
     tracked_selected_profile_authority:
       "docs/architecture/_meta/execution-horizons.md",
@@ -538,38 +543,62 @@ const ACTIVE_JAVASCRIPT_SERVER_SOURCE_COVERAGE = Object.freeze({
 
 const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
   "js-system-effect:apps/hypervisor/scripts/ioi-api-adapter.mjs#saveStore": Object.freeze({
+    discovery_binding: Object.freeze({
+      handler_call_sequence: Object.freeze(["mkdirSync", "writeFileSync"]),
+      system_effect_categories: Object.freeze(["filesystem"]),
+    }),
     surface: "hypervisor-product-ui-local-state",
     operation: "ANY /api/ioi.v1.UserService/SetPreference",
     method: "ANY",
     path: "/api/ioi.v1.UserService/SetPreference",
     active_state: "standing_serve_product_ui_compatibility_surface",
   }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6434":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6733":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["process.exit"]),
+        system_effect_categories: Object.freeze(["process"]),
+        source_line_includes: Object.freeze(["process.exit(1)"]),
+      }),
       surface: "hypervisor-product-ui-process",
       operation: "PROCESS_EXIT product-ui reference bundle unavailable",
       method: "PROCESS_EXIT",
       path: "serve-product-ui process",
       active_state: "standing_serve_product_ui_startup_failure",
     }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6438":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6737":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["spawn"]),
+        system_effect_categories: Object.freeze(["process"]),
+        source_line_includes: Object.freeze(["spawn(", "REF_SERVER"]),
+      }),
       surface: "hypervisor-product-ui-process",
       operation: "PROCESS_START product-ui reference server",
       method: "PROCESS_START",
       path: "REF_SERVER",
       active_state: "standing_serve_product_ui_startup",
     }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6444":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6741":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["process.exit"]),
+        system_effect_categories: Object.freeze(["process"]),
+        source_line_includes: Object.freeze(["productUi.on", '"exit"', "process.exit"]),
+      }),
       surface: "hypervisor-product-ui-process",
       operation: "PROCESS_EXIT propagate product-ui reference server exit",
       method: "PROCESS_EXIT",
       path: "serve-product-ui process",
       active_state: "standing_serve_product_ui_child_exit_handler",
     }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6442":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6742":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["productUi.kill"]),
+        system_effect_categories: Object.freeze(["process"]),
+        source_line_includes: Object.freeze(['"SIGINT"']),
+      }),
       surface: "hypervisor-product-ui-process",
       operation: "SIGINT terminate product-ui reference server",
       method: "SIGINT",
@@ -578,6 +607,10 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
     }),
   "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#waitForMirror":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["process.exit"]),
+        system_effect_categories: Object.freeze(["process"]),
+      }),
       surface: "hypervisor-product-ui-process",
       operation: "PROCESS_EXIT product-ui reference server startup timeout",
       method: "PROCESS_EXIT",
@@ -586,6 +619,10 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
     }),
   "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#module_scope_line_3701":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["process.exit"]),
+        system_effect_categories: Object.freeze(["process"]),
+      }),
       surface: "hypervisor-dev-replay",
       operation: "PROCESS_EXIT development replay startup failure",
       method: "PROCESS_EXIT",
@@ -594,14 +631,23 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
     }),
   "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#shutdown":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["process.exit"]),
+        system_effect_categories: Object.freeze(["process"]),
+      }),
       surface: "hypervisor-dev-replay",
       operation: "PROCESS_EXIT development replay signal shutdown",
       method: "PROCESS_EXIT",
       path: "hypervisor dev replay process",
       active_state: "development_replay_signal_handler",
     }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6443":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6743":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["productUi.kill"]),
+        system_effect_categories: Object.freeze(["process"]),
+        source_line_includes: Object.freeze(['"SIGTERM"']),
+      }),
       surface: "hypervisor-product-ui-process",
       operation: "SIGTERM terminate product-ui reference server",
       method: "SIGTERM",
@@ -610,6 +656,10 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
     }),
   "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#writeEvidenceFile":
     Object.freeze({
+      discovery_binding: Object.freeze({
+        handler_call_sequence: Object.freeze(["mkdirSync", "writeFileSync"]),
+        system_effect_categories: Object.freeze(["filesystem"]),
+      }),
       surface: "hypervisor-dev-replay",
       operation: "explicitly configured development evidence file write",
       method: "EXPLICIT_WRITE",
@@ -617,6 +667,10 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
       active_state: "development_replay_with_explicit_evidence_path",
     }),
   "js-system-effect:scripts/lib/mint-approval-grant.mjs#mintApprovalGrant": Object.freeze({
+    discovery_binding: Object.freeze({
+      handler_call_sequence: Object.freeze(["spawnSync", "spawnSync"]),
+      system_effect_categories: Object.freeze(["process"]),
+    }),
     surface: "hypervisor-product-ui-test-signer",
     operation: "PROCESS_EXEC build and invoke deterministic test approval signer",
     method: "PROCESS_EXEC",
@@ -801,6 +855,113 @@ function assertExactCoverageSet(label, observed, expected) {
       + `unexpected=[${unexpected.join(", ")}] missing=[${missing.join(", ")}]`,
     );
   }
+}
+
+const JS_SYSTEM_EFFECT_DISCOVERY_OWNED_FIELDS = Object.freeze([
+  "identity",
+  "kind",
+  "source_file",
+  "source_symbol",
+  "handler",
+  "source_anchor",
+  "handler_source_file",
+  "handler_source_symbol",
+  "handler_anchor",
+  "handler_resolution",
+  "handler_calls",
+  "handler_call_sequence",
+  "system_effect_categories",
+]);
+
+// A reviewed system-effect label is allowed to explain an AST-discovered
+// effect, but it must not replace what the AST actually saw. Module-scope
+// identities contain a line number, so an unrelated effect can later occupy
+// the same key after surrounding source moves. Set equality alone cannot see
+// that collision. Bind the reviewed entry to the discovered callee sequence,
+// effect categories, and (where the call's argument is semantically material)
+// source-line markers before applying its human-reviewed labels.
+export function bindReviewedJsSystemEffectActions({
+  repoRoot,
+  discoveredEntries,
+  reviewedActions = JS_SYSTEM_EFFECT_ACTIONS,
+}) {
+  assertExactCoverageSet(
+    "active_javascript_system_effect_action",
+    discoveredEntries.map((entry) => entry.identity),
+    Object.keys(reviewedActions).sort(),
+  );
+
+  const sourceLines = new Map();
+  const linesFor = (relativePath) => {
+    if (!sourceLines.has(relativePath)) {
+      sourceLines.set(
+        relativePath,
+        fs.readFileSync(path.join(repoRoot, relativePath), "utf8").split(/\r?\n/u),
+      );
+    }
+    return sourceLines.get(relativePath);
+  };
+
+  return discoveredEntries.map((entry) => {
+    const reviewed = reviewedActions[entry.identity];
+    const binding = reviewed?.discovery_binding;
+    if (!binding) {
+      throw new Error(
+        `${entry.identity} has no discovery_binding; reviewed system-effect labels must bind AST semantics`,
+      );
+    }
+    for (const field of JS_SYSTEM_EFFECT_DISCOVERY_OWNED_FIELDS) {
+      if (Object.hasOwn(reviewed, field)) {
+        throw new Error(
+          `${entry.identity} reviewed system-effect labels attempt to override discovery-owned field ${field}`,
+        );
+      }
+    }
+
+    const comparisons = [
+      ["handler_call_sequence", entry.handler_call_sequence, binding.handler_call_sequence],
+      ["system_effect_categories", entry.system_effect_categories, binding.system_effect_categories],
+    ];
+    for (const [field, observed, expected] of comparisons) {
+      if (JSON.stringify(observed) !== JSON.stringify(expected)) {
+        throw new Error(
+          `${entry.identity} discovery semantic binding changed for ${field}: `
+          + `observed=${JSON.stringify(observed)} expected=${JSON.stringify(expected)}; `
+          + "review the actual effect before moving its line-keyed classification",
+        );
+      }
+    }
+
+    const requiredFragments = binding.source_line_includes ?? [];
+    if (requiredFragments.length > 0) {
+      const lineNumber = entry.source_anchor?.line;
+      const sourceLine = Number.isInteger(lineNumber)
+        ? (linesFor(entry.source_file)[lineNumber - 1] ?? "")
+        : "";
+      const missingFragments = requiredFragments.filter((fragment) => (
+        !sourceLine.includes(fragment)
+      ));
+      if (missingFragments.length > 0) {
+        throw new Error(
+          `${entry.identity} discovery semantic binding changed at source line ${lineNumber ?? "unknown"}: `
+          + `missing=[${missingFragments.join(", ")}]; review the actual effect before moving `
+          + "its line-keyed classification",
+        );
+      }
+    }
+
+    const {
+      discovery_binding: _binding,
+      operation: reviewedOperation,
+      ...reviewedLabels
+    } = reviewed;
+    return {
+      ...entry,
+      discovered_operation: entry.operation,
+      ...reviewedLabels,
+      operation: reviewedOperation,
+    };
+  });
 }
 
 function activeJavaScriptEffectSources(repoRoot) {
@@ -1390,15 +1551,10 @@ export function discoverRepositorySurface(repoRoot) {
     repoRoot,
     relativePaths: activeJavaScriptEffectSources(repoRoot),
   });
-  assertExactCoverageSet(
-    "active_javascript_system_effect_action",
-    discoveredJsSystemEffects.map((entry) => entry.identity),
-    Object.keys(JS_SYSTEM_EFFECT_ACTIONS).sort(),
-  );
-  const jsSystemEffects = discoveredJsSystemEffects.map((entry) => ({
-    ...entry,
-    ...JS_SYSTEM_EFFECT_ACTIONS[entry.identity],
-  }));
+  const jsSystemEffects = bindReviewedJsSystemEffectActions({
+    repoRoot,
+    discoveredEntries: discoveredJsSystemEffects,
+  });
 
   const productUiOutbound = discoverJsOutboundCalls({
     repoRoot,
@@ -2578,9 +2734,26 @@ const SELECTED_ROUTE_APPLICABILITY = new Map([
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/start", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/lifecycle-recovery", "required_journey"],
   ["http:hypervisor-daemon:GET /v1/goal-orchestration/goal-runs/:id", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/goal-orchestration/goal-run-activations/:id", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations/:id/submit", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/attach-goal-run", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/detach-goal-run", "adjacent_not_sufficient"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/lifecycle/transitions", "adjacent_not_sufficient"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/transition", "adjacent_not_sufficient"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/backups", "adjacent_not_sufficient"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/snapshots/:id/restore", "adjacent_not_sufficient"],
+  ["http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-preview", "adjacent_not_sufficient"],
+  ["http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-apply", "adjacent_not_sufficient"],
   ["http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/collaborative-work-graph", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/discussion-projection", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/product-projection", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/replay", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/outcome-deltas", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/hypervisor/work-results/*id", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/hypervisor/outcome-deltas/*id", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/work-frontier-items", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/work-claim-leases", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/goal-orchestration/attempts", "required_journey"],
@@ -3175,9 +3348,12 @@ const SELECTED_JOURNEY = [
   },
   {
     step: 3,
-    visible_action: "Describe the goal, repository, constraints, authority, and acceptance.",
+    visible_action: "Describe the goal, repository, constraints, authority, and acceptance; draft, review, and explicitly submit the GoalRun activation.",
     route_identities: [
       "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations",
+      "http:hypervisor-daemon:GET /v1/goal-orchestration/goal-run-activations/:id",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations/:id/submit",
     ],
     state: "unavailable",
     blocker_ref: "BLK-M0-SELECTED-JOURNEY-BINDING",
@@ -3209,9 +3385,15 @@ const SELECTED_JOURNEY = [
   },
   {
     step: 7,
-    visible_action: "Observe planning, claimed work, attempts, verification, and blockers.",
+    visible_action: "Observe planning, claimed work, attempts, verification, blockers, admitted results and deltas, and the graph, discussion, and product projections reconstructed from room truth.",
     route_identities: [
       "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id",
+      "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/collaborative-work-graph",
+      "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/discussion-projection",
+      "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/product-projection",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/outcome-deltas",
+      "http:hypervisor-daemon:GET /v1/hypervisor/work-results/*id",
+      "http:hypervisor-daemon:GET /v1/hypervisor/outcome-deltas/*id",
       "http:hypervisor-daemon:POST /v1/goal-orchestration/work-frontier-items",
       "http:hypervisor-daemon:POST /v1/goal-orchestration/work-claim-leases",
       "http:hypervisor-daemon:POST /v1/goal-orchestration/attempts",
@@ -3265,6 +3447,7 @@ const SELECTED_JOURNEY = [
     visible_action: "Restart and replay the decision and effect; back up, restore, export, and independently verify the evidence offline.",
     route_identities: [
       "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+      "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id/replay",
       "http:hypervisor-daemon:POST /v1/hypervisor/backups",
       "http:hypervisor-daemon:POST /v1/hypervisor/snapshots/:id/restore",
       "http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-preview",
@@ -3931,7 +4114,7 @@ export function createInitialProgramSource(repoRoot) {
         "every discovered entry is explicitly reviewed and source-anchored",
         "every selected object has an owner",
         "every selected effect has a verified final invoker or explicit unavailable blocker",
-        "all legacy sequencing is non-authoritative",
+        "tracked implementation sequencing is content-bound by the build fingerprint",
         "all 58 PG ids are mapped exactly once without closure claims",
         "every baseline and evidence item is closed or honestly named",
       ],
@@ -5323,7 +5506,7 @@ export function validateProgramSource(
     errors,
     stableStringify(programSource?.sequencing_authority)
       === stableStringify(createSequencingAuthority()),
-    "sequencing authority must keep ignored internal guides as unbound external operator inputs and tracked canon as committed evidence authority",
+    "sequencing authority must bind the tracked implementation program while preserving tracked canon and conformance evidence authority",
   );
   addError(
     errors,
@@ -5337,7 +5520,7 @@ export function validateProgramSource(
     canonBasis.every((entry) => (
       !entry.source_file.startsWith("internal-docs/implementation/")
     )),
-    "ignored internal implementation guidance cannot be bound as M0 evidence",
+    "implementation-program files must use their dedicated fingerprint binding rather than masquerading as canon basis",
   );
   let expectedDiscoveryCoverage;
   try {
@@ -5727,20 +5910,20 @@ export function validateProgramSource(
 
   const pgEntries = programSource?.pg_gate_map?.entries ?? [];
   const pgMetadata = {
-    external_definition_input:
-      programSource?.pg_gate_map?.external_definition_input,
+    tracked_definition_input:
+      programSource?.pg_gate_map?.tracked_definition_input,
     tracked_selected_profile_authority:
       programSource?.pg_gate_map?.tracked_selected_profile_authority,
   };
   addError(
     errors,
     stableStringify(pgMetadata) === stableStringify(createPgGateMetadata()),
-    "PG metadata must keep the ignored ledger as an unbound external pointer and tracked canon as selected-profile authority",
+    "PG metadata must bind the tracked implementation ledger and preserve tracked canon as selected-profile authority",
   );
   addError(
     errors,
     !Object.hasOwn(programSource?.pg_gate_map ?? {}, "definition_owner"),
-    "PG metadata cannot claim the ignored external ledger as a committed definition owner",
+    "PG metadata must not collapse implementation sequencing into the canonical selected-profile definition owner",
   );
   addError(
     errors,
@@ -5953,6 +6136,48 @@ function artifactEnvelope(asOfDate, fingerprint, artifact, body) {
   };
 }
 
+export function trackedImplementationProgramSnapshot(repoRoot) {
+  const listed = spawnSync(
+    "git",
+    ["ls-files", "-z", "--", TRACKED_IMPLEMENTATION_PROGRAM_ROOT],
+    { cwd: repoRoot, encoding: "buffer" },
+  );
+  if (listed.status !== 0) {
+    throw new Error(
+      `cannot enumerate tracked implementation program: ${listed.stderr.toString("utf8").trim()}`,
+    );
+  }
+  const relativePaths = listed.stdout
+    .toString("utf8")
+    .split("\0")
+    .filter((entry) => entry.length > 0)
+    .filter((entry) => !isCanonReviewFeedbackArtifact(entry))
+    .sort();
+  if (relativePaths.length === 0) {
+    throw new Error("tracked implementation program is empty or unbound");
+  }
+  const files = relativePaths.map((relativePath) => {
+    const absolutePath = path.join(repoRoot, relativePath);
+    const stat = fs.lstatSync(absolutePath);
+    const source = stat.isSymbolicLink()
+      ? Buffer.from(fs.readlinkSync(absolutePath))
+      : fs.readFileSync(absolutePath);
+    return {
+      path: relativePath,
+      kind: stat.isSymbolicLink() ? "symlink" : "file",
+      executable: (stat.mode & 0o111) !== 0,
+      sha256: sha256(source),
+    };
+  });
+  return {
+    root: TRACKED_IMPLEMENTATION_PROGRAM_ROOT,
+    exclusion_rules: TRACKED_IMPLEMENTATION_FINGERPRINT_EXCLUSIONS,
+    file_count: files.length,
+    files_sha256: sha256(stableStringify(files)),
+    files,
+  };
+}
+
 export function buildM0Fingerprint(
   repoRoot,
   discoveredEntries,
@@ -5961,6 +6186,8 @@ export function buildM0Fingerprint(
   reviewAnchor = readJsonFile(repoRoot, REVIEW_ANCHOR_FILE),
 ) {
   const readmeSource = fs.readFileSync(path.join(repoRoot, README_FILE), "utf8");
+  const trackedProgram = programSource?.sequencing_authority
+    ?.tracked_implementation_program;
   return sha256(stableStringify({
     discovered_entries: discoveredEntries,
     program_source: programSource,
@@ -5970,6 +6197,9 @@ export function buildM0Fingerprint(
       sha256: sha256(readmeSource),
     },
     reviewed_entry_lock: reviewLock,
+    tracked_implementation_program_snapshot: trackedProgram === undefined
+      ? null
+      : trackedImplementationProgramSnapshot(repoRoot),
   }));
 }
 
@@ -6092,8 +6322,8 @@ export function buildM0Artifacts(
     })),
   }));
   documents.set("pg-gate-map.json", envelope("pg_gate_map", {
-    external_definition_input:
-      programSource.pg_gate_map.external_definition_input,
+    tracked_definition_input:
+      programSource.pg_gate_map.tracked_definition_input,
     tracked_selected_profile_authority:
       programSource.pg_gate_map.tracked_selected_profile_authority,
     closure_claimed: false,
@@ -6263,7 +6493,7 @@ export function buildM0Artifacts(
     nonclaims: [
       "M0 does not close any architecture production-status claim.",
       "M0 does not provide runtime capability, authority, product UX, or a canonical wire contract.",
-      "Ignored internal sequencing and PG inputs are external operator pointers, not read, hashed, or bound evidence.",
+      "The tracked implementation program is content-bound as sequencing and status authority; that binding does not promote it into architecture canon.",
       "The review anchor is development-workflow integrity evidence only: an unsigned hash chain with a self-declared reviewer label. It carries no cryptographic authorship and is not part of the bounded agency framework's authority model (wallet-network grants, sealed intents, receipts).",
       "The repository does not establish that the accepted snapshot head is current without an outside rollback-domain checkpoint.",
       "The repository does not establish resistance to rollback between internally coherent supplied snapshots.",

@@ -1,0 +1,10 @@
+{
+  "literal_exit": {
+    "expected": "RECEIPT_CHECKPOINT_OFFLINE_PROOF_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M3/production-receipt-checkpoint-and-offline-proof.exit.v1.txt",
+    "artifact_sha256": "33bf1c93bcf8e3b6df264bfb31df5ee290557b43c9bd882e772cbfdd0e7acc72"
+  },
+  "adversarial_or_fault_proof": [
+    "The retained M3 selected-profile artifact includes positive, denial, stale-head, tamper, omission, replay, restart, and non-overclaim evidence for this cut."
+  ]
+}

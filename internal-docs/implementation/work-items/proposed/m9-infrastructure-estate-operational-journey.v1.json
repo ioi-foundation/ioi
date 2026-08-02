@@ -1,0 +1,117 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m9-infrastructure-estate-operational-journey",
+  "stage_id": "M9",
+  "record_role": "implementation_cut",
+  "status": "proposed",
+  "objective": "Complete one selected live attached-estate journey from verified attachment and capability discovery through read-only inventory, one authorized mutation, reconciliation, exact restore semantics, and detach; M9_INFRASTRUCTURE_ESTATE_OPERATIONAL_JOURNEY_EXIT=0.",
+  "falsifiable_claim": "Adapter presence or simulated inventory is presented as live estate management, or detach mutates external resources or loses retained IOI truth.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/byo-provider-plane.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md"
+  ],
+  "canon_snapshot": {
+    "captured_at": "2026-07-29",
+    "captured_at_commit": "7ee7acc2e43ddfc3488f560a81c7a2d33f9d34eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "e888099c23975ce5706ad79786b2294b4171f2e6370f35fc388c3c9b133986d0",
+    "owners": [
+      {
+        "path": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+        "sha256": "c25f5dc4835d643829e79eb1915c89f4f157dafcee1cb400bfd0a644f2910aa6"
+      },
+      {
+        "path": "docs/architecture/components/hypervisor/providers-and-environments.md",
+        "sha256": "cf2f1f6fb8cca834864f50ed3e69b7a6e4376f358bd74dafceacfd2eabbbdad5"
+      }
+    ]
+  },
+  "contract_families": [
+    {
+      "name": "HypervisorBackendCapabilityDeclaration",
+      "registry_resolution": "architecture_contract_registry",
+      "contract_ids": [
+        "schema://ioi/components/hypervisor/backend-capability-declaration/v1"
+      ]
+    }
+  ],
+  "dependency_work_item_ids": [
+    "m6-hypervisor-claim-bundle-control-surface",
+    "m9-environments-operational-journey",
+    "m9-backend-capability-and-coverage-evidence",
+    "m3-authorized-issuer-and-atomic-authority-consumption"
+  ],
+  "required_work": [
+    "Select one design-partner adapter and prove the complete live journey."
+  ],
+  "in_scope": [
+    "verified attach",
+    "fresh discovery",
+    "read-only inventory",
+    "authorized mutation",
+    "drift reconciliation",
+    "access",
+    "restore",
+    "detach"
+  ],
+  "out_of_scope": [
+    "IOI as underlying Type-1 VMM",
+    "unselected HA/live migration",
+    "universal providers"
+  ],
+  "implementation_actions": [
+    "Implement source-specific adapter behind source-neutral lifecycle interfaces."
+  ],
+  "consequential_effects_and_final_invokers": [
+    "selected provider lifecycle final invoker"
+  ],
+  "applicable_pg_ids": [
+    "PG-2.2",
+    "PG-4C.5",
+    "PG-7.3"
+  ],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "One live estate completes attach-to-detach with current capabilities and receipts."
+  ],
+  "adversarial_or_fault_proof": [
+    "Wrong host identity, stale capability, external drift, provider loss, ambiguous effect, unsupported operation, and detach safety fail closed."
+  ],
+  "product_journey_and_states": [
+    "read_only",
+    "mutation_enabled",
+    "degraded",
+    "ambiguous",
+    "detached"
+  ],
+  "ordered_product_operator_journey": [
+    "attach",
+    "discover",
+    "inventory",
+    "authorize mutation",
+    "reconcile",
+    "restore",
+    "detach"
+  ],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [
+    "Provider-native ids remain evidence; canonical ids and receipts survive detach."
+  ],
+  "evidence_index": {
+    "literal_exit": "M9_INFRASTRUCTURE_ESTATE_OPERATIONAL_JOURNEY_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m9-infrastructure-estate-operational-journey.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs"
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "Managing an estate does not make IOI its underlying VMM."
+  ],
+  "rollback_or_stop_rule": "Return to read-only or detach when live identity/currentness/authority cannot be proven.",
+  "source_provenance": "Owner-ratified governed-compute restructuring, 2026-07-29."
+}

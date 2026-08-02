@@ -1,0 +1,10 @@
+{
+  "literal_exit": {
+    "expected": "M3_WORKRUN_RESOURCE_ISOLATION_CONTRACT_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M3/m3-workrun-resource-isolation-contract.exit.v1.txt",
+    "artifact_sha256": "ac2cbccb6adfc8ba2d0710728dfe4f510df3e42bc40a875b870f0af174a2ecbf"
+  },
+  "adversarial_or_fault_proof": [
+    "The retained evidence binds missing-contract, stronger-floor, environment-mismatch, downgrade, cross-run replay, and tamper refusals before unintended effects."
+  ]
+}

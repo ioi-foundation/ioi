@@ -1,0 +1,71 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/goal-run-admitted-state/content-root/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
+  "rules": [
+    {
+      "rule_id": "goal_run_admitted_state.root.matches_record",
+      "description": "The state root is SHA-256 over JCS of the complete admitted-state record with both root fields null.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "schema_version": { "path": "$.schema_version" },
+          "state_root_ref": { "value": null },
+          "state_root": { "value": null },
+          "goal_run_ref": { "path": "$.goal_run_ref" },
+          "activation_ref": { "path": "$.activation_ref" },
+          "source_context_hash": { "path": "$.source_context_hash" },
+          "requesting_principal_ref": { "path": "$.requesting_principal_ref" },
+          "authority_decision_ref": { "path": "$.authority_decision_ref" },
+          "goal_run_profile_revision_ref": { "path": "$.goal_run_profile_revision_ref" },
+          "goal_run_profile_content_hash": { "path": "$.goal_run_profile_content_hash" },
+          "goal_run_execution_ceiling_revision_ref": { "path": "$.goal_run_execution_ceiling_revision_ref" },
+          "goal_run_execution_ceiling_content_hash": { "path": "$.goal_run_execution_ceiling_content_hash" },
+          "declared_invocation_budget": { "path": "$.declared_invocation_budget" },
+          "admitted_override_set_ref": { "path": "$.admitted_override_set_ref" },
+          "admitted_override_set_hash": { "path": "$.admitted_override_set_hash" },
+          "resolved_component_set_snapshot_ref": { "path": "$.resolved_component_set_snapshot_ref" },
+          "resolved_component_set_hash": { "path": "$.resolved_component_set_hash" },
+          "profile_resolution_receipt_ref": { "path": "$.profile_resolution_receipt_ref" },
+          "admission_decision_ref": { "path": "$.admission_decision_ref" },
+          "admission_receipt_ref": { "path": "$.admission_receipt_ref" },
+          "receipt_obligations": { "path": "$.receipt_obligations" },
+          "admitted_at": { "path": "$.admitted_at" },
+          "non_grants": { "path": "$.non_grants" }
+        },
+        "expected_path": "$.state_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "goal_run_admitted_state.ref.ends_with_root",
+      "description": "The content-addressed Agentgres coordinate ends in the exact recomputed state root.",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.state_root_ref",
+        "expected_path": "$.state_root"
+      }
+    },
+    {
+      "rule_id": "goal_run_admitted_state.declared_parallel_lte_total",
+      "description": "The admitted invocation budget cannot declare more parallel invocations than total invocations.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.declared_invocation_budget.max_parallel_invocations",
+          "$.declared_invocation_budget.max_total_invocations"
+        ]
+      }
+    },
+    {
+      "rule_id": "goal_run_admitted_state.ceiling_ref.ends_with_hash",
+      "description": "The admitted execution-ceiling revision coordinate binds its exact content hash.",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.goal_run_execution_ceiling_revision_ref",
+        "expected_path": "$.goal_run_execution_ceiling_content_hash"
+      }
+    }
+  ]
+}

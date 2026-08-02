@@ -360,7 +360,7 @@ ContributionEnvelope:
   task_offer_and_acceptance_refs:
     - packet://...
   work_claim_ref: work-claim://... | null
-  room_admission: RoomAdmittedObjectBase | null
+  system_binding: SystemScopedObjectBinding | null
   attempt_finding_and_result_refs:
     - attempt://... | finding://... | work-result://... | outcome-delta://...
   contribution_kind:
@@ -400,7 +400,7 @@ contribution obligations; model and route identity remains in
 `attributed_model_and_route_refs`.
 
 When `outcome_room_ref` is non-null, `participant_lease_ref` and
-`room_admission` are required and must bind that same room; `contributor_ref`
+`system_binding` are required and must bind that same room; `contributor_ref`
 must resolve through the lease. A raw system, worker, service, organization, or
 domain ref cannot claim a room contribution outside admitted participation or
 the room's compare-and-swap commitment spine.

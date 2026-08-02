@@ -1449,7 +1449,7 @@ fn live_effect_hash(effect: &Value) -> Result<String, String> {
 /// admission intent, and atomically consume one wallet-owned usage. Callers pass the complete
 /// effect material and invoke nothing unless this function returns its admitted decision.
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn authorize_deployment_grant(
+async fn authorize_deployment_grant_with_recovery(
     data_dir: &str,
     grant_value: &Value,
     required_scope: &str,
@@ -1459,6 +1459,7 @@ pub(crate) async fn authorize_deployment_grant(
     op: &str,
     revision: u64,
     effect: &Value,
+    recovery_reuses_consumed_receipt: bool,
 ) -> Result<AdmittedDeploymentGrant, (StatusCode, Json<Value>)> {
     let required_authority = std::env::var("IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF")
         .ok()
@@ -1559,13 +1560,72 @@ pub(crate) async fn authorize_deployment_grant(
         op,
         revision,
         &authorized,
-        false,
+        recovery_reuses_consumed_receipt,
     )
     .await?;
     Ok(AdmittedDeploymentGrant {
         authorized,
         admission_intent_ref,
     })
+}
+
+/// Resolve and consume deployment authority for a non-replayable operation. A previously
+/// consumed deterministic admission is a typed conflict rather than reusable authority.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn authorize_deployment_grant(
+    data_dir: &str,
+    grant_value: &Value,
+    required_scope: &str,
+    policy_hash: &str,
+    request_hash: &str,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+    effect: &Value,
+) -> Result<AdmittedDeploymentGrant, (StatusCode, Json<Value>)> {
+    authorize_deployment_grant_with_recovery(
+        data_dir,
+        grant_value,
+        required_scope,
+        policy_hash,
+        request_hash,
+        subject_ref,
+        op,
+        revision,
+        effect,
+        false,
+    )
+    .await
+}
+
+/// Resolve deployment authority for an operation whose owner route is byte-idempotent and whose
+/// durable partial state proves that retrying can only converge the same effect. A consumed exact
+/// admission receipt is revalidated against wallet truth; it is never re-consumed or widened.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn authorize_deployment_grant_for_idempotent_recovery(
+    data_dir: &str,
+    grant_value: &Value,
+    required_scope: &str,
+    policy_hash: &str,
+    request_hash: &str,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+    effect: &Value,
+) -> Result<AdmittedDeploymentGrant, (StatusCode, Json<Value>)> {
+    authorize_deployment_grant_with_recovery(
+        data_dir,
+        grant_value,
+        required_scope,
+        policy_hash,
+        request_hash,
+        subject_ref,
+        op,
+        revision,
+        effect,
+        true,
+    )
+    .await
 }
 
 #[allow(clippy::too_many_arguments)]
