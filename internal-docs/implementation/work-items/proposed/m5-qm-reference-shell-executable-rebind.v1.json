@@ -23,7 +23,7 @@
   "required_work": [
     "Rebind the dormant QM tree into an executable ioi.ai surface over daemon truth: QM's Postgres state becomes daemon/Agentgres projections, its keychain UX becomes wallet-network/CapabilityLease flows, and its harness plugins become harness-registry profiles."
   ],
-  "objective": "Make the adopted QM shell executable against canonical owners only — after the orchestration seam and the participant/frontier closeout exist to be bound to. M5_QM_EXECUTABLE_REBIND_EXIT=0.",
+  "objective": "Make the adopted QM shell executable against canonical owners only \u2014 after the orchestration seam and the participant/frontier closeout exist to be bound to. M5_QM_EXECUTABLE_REBIND_EXIT=0.",
   "falsifiable_claim": "The rebound surface reads only daemon/Agentgres projections (no Postgres truth store), crosses authority only through wallet-network/CapabilityLease, resolves harnesses only through the harness registry, and fails closed with typed unavailable states everywhere a canonical owner is absent.",
   "selected_profile": "One served ioi.ai surface over the adopted tree, bound to the verified seam and closeout owners.",
   "in_scope": [
@@ -91,5 +91,11 @@
         "sha256": "55a2e9986c1ac83e87327604f10627df132e3f85087845c0383ebe878989c2ef"
       }
     ]
+  },
+  "aggregate_disposition": {
+    "state": "deliberately_non_gating",
+    "not_a_child_of": "m5-selected-profile-exit-proof",
+    "why": "Owner ruling 2026-08-02: apps/ioi-ai/ SCAFFOLDING gates M5, and the dormant adoption is the scaffolding. Binding the rebind would extend the M5 exit from 'the seed is adopted' to 'the seed runs against canonical owners' \u2014 a scope increase the ruling did not make. This is a decision, not a hedge: the scaffold is gating, its execution is not. The earlier transitive concern (that binding the rebind would pull in the seam) is moot now that the seam and the event successor are bound children in their own right.",
+    "ruled_on": "2026-08-02"
   }
 }

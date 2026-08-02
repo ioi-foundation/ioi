@@ -95,5 +95,11 @@
         "sha256": "5016e0f51e855b4dd21c286e09d7371c4bcaceee45e5f3b76093ec258853964e"
       }
     ]
+  },
+  "aggregate_disposition": {
+    "state": "post_exit_successor",
+    "not_a_child_of": "m2-selected-profile-exit-proof",
+    "why": "M2 reached verified on 2026-07-28, before this record existed. A post-exit corrective successor cannot gate an exit that already occurred, and binding it would require reopening a verified stage. It is owned by the M2 rails (R-AUTH/R-CONTRACT) per the 2026-08-02 sequencing ruling and gates nothing; its own literal is its closure.",
+    "recorded_on": "2026-08-02"
   }
 }

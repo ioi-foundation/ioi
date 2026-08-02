@@ -171,10 +171,99 @@ export function validateRecord(record) {
   return out;
 }
 
+// A record that belongs to a stage but is named by NEITHER that stage's exit
+// aggregate NOR an explicit disposition is a silent dangler: the stage can reach
+// `verified` without it, and nothing says that was intended. The retired 68 KB
+// checker enforced this ("exactly one aggregate membership or an explicit
+// disposition") and the lean rewrite carried forward only the forward direction
+// — that an aggregate names SOME children — which is the weaker half.
+//
+// Restored 2026-08-02 after the owner ruling on apps/ioi-ai/ exposed that five
+// of ten M5 records, including the cut then being built, sat outside their gate.
+// Pre-existing danglers, pinned 2026-08-02. Each needs an OWNER disposition or a
+// binding; neither is the implementer's to decide, and failing the program on a
+// population that predates the bar is how a gate gets waived on day two instead
+// of enforced on day one. Full enforcement — and the entirely absent dependency
+// gate — is owned by m0-declared-relationship-enforcement-successor. This set
+// only ever shrinks: a NEW dangler fails immediately.
+const DANGLER_BASELINE = new Set([
+  "enforcement-coverage-evidence-and-binding",
+  "governance-decision-truth-repairs",
+  "m0-authority-admission-census-epoch-successor",
+  "m0-hold-predecessor-claim-coverage-successor",
+  "m0-nonenforcing-check-closure-successor",
+  "m0-overlay-member-custody-and-disposition-successor",
+  "m0-owner-ratification-derived-census-successor",
+  "m0-retired-campaign-claim-successor",
+  "m6-hypervisor-claim-bundle-control-surface",
+  "m8-context-cell-version-and-lease-enforcement-successor",
+  "m8-product-memory-runtime-successor-and-scs-retirement",
+  "m9-compute-substrate-canon-successor",
+  "m9-hypervisor-app-primary-attach-binding-and-retirement",
+  "m9-infrastructure-estate-operational-journey",
+  "m9-infrastructure-profile-claim-gate",
+  "m9-managed-optionality-overlay",
+  "m9-shared-schema-def-consistency-successor",
+  "m9-workstation-profile-claim-gate",
+  "m9-workstation-virtual-machine-operational-journey",
+  "mcp-receipt-effect-truth-pre-wiring",
+  "p2-authority-effect-enablement-gate",
+  "route-final-invoker-census-successor-after-publication-rebuild",
+  "upgrade-proposal-owner-qualified-target-binding"
+]);
+
+export function aggregateMembershipFindings(records) {
+  const out = [];
+  const byStage = new Map();
+  for (const r of records) {
+    if (!r.stage_id) continue;
+    if (!byStage.has(r.stage_id)) byStage.set(r.stage_id, []);
+    byStage.get(r.stage_id).push(r);
+  }
+  for (const [stage, mine] of byStage) {
+    const aggregates = mine.filter((r) => r.record_role === "aggregate_exit");
+    if (aggregates.length === 0) continue;
+    const claimed = new Set(aggregates.flatMap((a) => a.aggregate_child_ids ?? []));
+    for (const r of mine) {
+      if (r.record_role === "aggregate_exit") continue;
+      if (r.record_role === "conditional_future") continue;
+      if (claimed.has(r.work_item_id)) continue;
+      // An EMPTY disposition field is not a disposition. Many records carry
+      // `aggregate_child_dispositions: []` as a default, and an empty array is
+      // truthy — measured 2026-08-02, that silently exempted 133 of 166
+      // non-aggregate records, i.e. the bar reported 15 findings where it owed
+      // ~148. A disposition must actually say something.
+      const stated = (value) => {
+        if (value === null || value === undefined) return false;
+        if (Array.isArray(value)) return value.length > 0;
+        if (typeof value === "object") return Object.keys(value).length > 0;
+        return Boolean(value);
+      };
+      const declared = [
+        r.aggregate_disposition,
+        r.aggregate_child_dispositions,
+        r.record_disposition,
+      ].find(stated);
+      if (declared) continue;
+      if (DANGLER_BASELINE.has(r.work_item_id)) continue;
+      out.push(
+        finding(
+          "error",
+          "aggregate-membership",
+          `${r.work_item_id} (${stage}) is named by no exit aggregate and declares no aggregate_disposition; ${stage} could reach verified without it`,
+          { work_item_id: r.work_item_id, stage_id: stage },
+        ),
+      );
+    }
+  }
+  return out;
+}
+
 function main() {
   const wanted = process.argv.slice(2).filter((a) => !a.startsWith("-"));
   const findings = [];
   const seen = new Set();
+  const all = [];
   for (const rel of ["work-items/active", "work-items/proposed", "work-items"]) {
     const dir = path.join(ESTATE_ROOT, rel);
     if (!fs.existsSync(dir)) continue;
@@ -182,11 +271,15 @@ function main() {
       if (!f.endsWith(".v1.json") || seen.has(f)) continue;
       seen.add(f);
       const record = readJson(path.join(dir, f));
+      all.push(record);
       if (wanted.length > 0 && !wanted.includes(record.work_item_id)) continue;
       findings.push(
         ...applyWaivers(validateRecord({ ...record, file: `${rel}/${f}` })),
       );
     }
+  }
+  if (wanted.length === 0) {
+    findings.push(...applyWaivers(aggregateMembershipFindings(all)));
   }
   progress(`validated ${seen.size} record(s)`);
   process.exit(report("check-work-item-shape", findings));
