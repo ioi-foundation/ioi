@@ -280,6 +280,27 @@ function main() {
   }
   if (wanted.length === 0) {
     findings.push(...applyWaivers(aggregateMembershipFindings(all)));
+    // Report the EXEMPTION COUNT against the real corpus, not just the failure
+    // count. A bar can be correct on synthetic fixtures and inert on production
+    // data — that is how the empty-disposition hole exempted 132+ of 167
+    // records while every self-test stayed green. If the exempted number is
+    // ever surprising, that is the signal, and it should not require someone to
+    // go looking for it.
+    const stageOwned = all.filter(
+      (r) => r.record_role !== "aggregate_exit" && r.record_role !== "conditional_future" && r.stage_id,
+    );
+    const pinned = stageOwned.filter((r) => DANGLER_BASELINE.has(r.work_item_id)).length;
+    const dispositioned = stageOwned.filter(
+      (r) => !DANGLER_BASELINE.has(r.work_item_id) &&
+        [r.aggregate_disposition, r.aggregate_child_dispositions, r.record_disposition].some(
+          (v) => v && (Array.isArray(v) ? v.length > 0 : typeof v === "object" ? Object.keys(v).length > 0 : true),
+        ),
+    ).length;
+    progress(
+      `aggregate-membership: ${stageOwned.length} stage-owned record(s); ` +
+        `${pinned} pinned as pre-existing danglers (owner disposition owed); ` +
+        `${dispositioned} explicitly dispositioned`,
+    );
   }
   progress(`validated ${seen.size} record(s)`);
   process.exit(report("check-work-item-shape", findings));

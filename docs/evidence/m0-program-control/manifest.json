@@ -2,39 +2,39 @@
   "artifact_files": [
     {
       "path": "docs/evidence/m0-program-control/effect-census.json",
-      "sha256": "beacb4c6f65a674c00e0851cf8201c2b3f4bc743bed87ae4284a92a6d655938f"
+      "sha256": "fda0cf038e9efdcb89c3add3b993b951feb78112f5894b238f32bc3b6d663884"
     },
     {
       "path": "docs/evidence/m0-program-control/selected-profile.json",
-      "sha256": "4b8dbbd73a92217fba0a94e3dfdc39e87fdf681eaa59e47e91f158cace86cbc4"
+      "sha256": "7f9752e8fc7bc346f37fb0d53b2709d74b57c88afb2aa7b615d72a92260d35c5"
     },
     {
       "path": "docs/evidence/m0-program-control/pg-gate-map.json",
-      "sha256": "56f3963e1072ac3f5ff3b38e0a204c74581d4b4849c99839e8d8c747e3a5d137"
+      "sha256": "dcc1107e6173a1c3aa9bb7c8279eda9326aa5c0fce7d6ac8479609156c8156b9"
     },
     {
       "path": "docs/evidence/m0-program-control/current-baselines.json",
-      "sha256": "678ef7b3f99de5e3741bc889342ecc85d482497b8ac99efecf0442e0dcfec28e"
+      "sha256": "5939cbca432830527bdd4af9b91b0194a3b60276d89fa8e30411f2fd4d349016"
     },
     {
       "path": "docs/evidence/m0-program-control/blocker-ledger.json",
-      "sha256": "2002be9c1dbbd3e943d21d64b06f708189a605a62a65fab6f609e577c0eb4871"
+      "sha256": "63dd7d9c297495d4750174cb3d040ed6b336226c151ef192f4aaaf84a1a97217"
     },
     {
       "path": "docs/evidence/m0-program-control/release-ladder.json",
-      "sha256": "624deb1d28c4a7f13e023d7931a8a6f1b5145a4d62b935c2d96a3d4cdba4a8d2"
+      "sha256": "029700e03fd654ce81fd55d466ca7cb074137a2436785eef5918aa530767bfff"
     },
     {
       "path": "docs/evidence/m0-program-control/program-evidence-index.json",
-      "sha256": "0f5877e64bf2d419a6928a330ef880b91cd5480851d00c9fdd942e599c419946"
+      "sha256": "4e5518ba38366ec18f58f71616f41bbefeab51b04cbf7d0605f33020b2f70bc9"
     },
     {
       "path": "docs/evidence/m0-program-control/m0-exit-report.json",
-      "sha256": "bd1536c535cee35134c83fbeda022d761ac1348e6a2ed11f47aa003c1c8ffbc6"
+      "sha256": "7744d81dee05b403b97c406c6a4cbbdb46d4a5ee9352c619ce3e7b93d4776aa1"
     }
   ],
   "as_of_date": "2026-08-01",
-  "build_fingerprint": "08bde24b1a522701e34dcfdd4815d043b7d5641d63fef7783a1fc04a284411d2",
+  "build_fingerprint": "9f82806fce1c44e45f251abfdd1e194e261addcfb7ddb588f0d91b847cd7d9ba",
   "consumption_rule": "Consumers must run scripts/m0-program-control.mjs --check; matching filenames without matching hashes are stale.",
   "evidence_format": "ioi.m0.manifest.v1",
   "source_files": [
