@@ -11,19 +11,48 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # The M4 stage proof as a DISTINCT NAMED job (owner directive 2026-08-01).
-  # Why it exists: verify-m4-goalrun-activation-plane.mjs was unrunnable at
-  # HEAD since 77117ecd6 — crashing on a fixture that commit deliberately
-  # deleted — and nothing detected it, because no stage verifier ran in CI.
-  # Green CI that never runs the stage proof is the false-green shape this
-  # program keeps paying for. Requirements enforced here: isolated
-  # fresh-process state (the verifier builds and pins its own daemon and
-  # spawns its own planes), exact 98/98 assertion-count enforcement from the
-  # log bytes, raw log retention, a real timeout, pinned-binary line
-  # assertion, and NEVER acceptance on the process exit code alone.
-  # Mark this job REQUIRED in branch protection (admin action).
+  # Enforces the RETAINED content-bound M4 stage proof on every push: the
+  # certified 98/98 log must exist, carry the exact count and pinned-binary
+  # lines, and hash to exactly the digest bound inside the selected-profile
+  # evidence join — so the retained proof cannot be altered, replaced, or
+  # deleted without failing CI. Owner decision 2026-08-02: the LIVE re-run
+  # (below) needs two third-party agentic CLIs driving live model sessions,
+  # which is not a sane per-push cost; the retained-artifact pattern already
+  # adopted for m4.md's focused checks is the enforcing gate instead.
+  # Mark THIS job required in branch protection.
+  m4_retained_proof:
+    name: M4 retained stage proof (content-bound)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v3
+      - name: Verify the retained proof log and its content binding
+        run: |
+          LOG=internal-docs/implementation/evidence/M4/runs/aggregate-outcome-room-system-spine.certify-932e7bf49.log
+          JOIN=internal-docs/implementation/evidence/M4/m4-selected-profile-evidence.v1.json
+          LIT=internal-docs/implementation/evidence/M4/m4-outcome-room-system-spine.exit.v1.txt
+          grep -qx '98/98 passed' "$LOG"
+          grep -Eq '^M4_DAEMON_BINARY_SHA256=sha256:[0-9a-f]{64}$' "$LOG"
+          grep -q 'M4 outcome-room system spine: PASS' "$LOG"
+          BOUND=$(python3 -c "import json;print(json.load(open('$JOIN'))['fresh_aggregate_run']['log']['sha256'])")
+          ACTUAL=$(sha256sum "$LOG" | cut -d' ' -f1)
+          test "$BOUND" = "$ACTUAL"
+          DECLARED=$(grep '^ARTIFACT_SHA256=' "$LIT" | cut -d= -f2)
+          JOIN_ACTUAL=$(sha256sum "$JOIN" | cut -d' ' -f1)
+          test "$DECLARED" = "$JOIN_ACTUAL"
+          grep -qx 'M4_OUTCOME_ROOM_SYSTEM_SPINE_EXIT=0' "$LIT"
+          echo "retained M4 proof verified: log=$ACTUAL bound-in-join, join=$JOIN_ACTUAL bound-in-literal"
+
+  # The LIVE stage proof, manual-only (workflow_dispatch). Five provisioning
+  # rounds cleared the wallet fixture, feature-isolated node builds, the
+  # qwen2.5:7b route, and bwrap; the last wall is that the collective path
+  # hard-wires its implementer harnesses to the opencode and deepseek CLIs
+  # (goalrun_routes.rs) — live third-party agent fleets, not a per-push cost.
+  # Run on demand to re-prove against a provisioned runner; enforcement
+  # semantics unchanged (exact count from log bytes, never exit-code-only).
   m4_stage_proof:
-    name: M4 stage proof (98-assertion aggregate)
+    name: M4 stage proof (live re-run, manual)
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
