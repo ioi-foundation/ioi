@@ -150,7 +150,7 @@
       "required": [
         "operation_ref"
       ],
-      "description": "A reference to canonical Agentgres truth, produced by the substrate's backed constructors. Fabricated agentgres:// strings are not grandfathered.",
+      "description": "A reference to canonical Agentgres truth, produced by this substrate's backed ref constructors. Every chain-bearing value \u2014 sequence, root, head, receipt \u2014 exists here only as a reference; no family owns a scalar of its own (ADR 0030). Fabricated agentgres:// strings are refused by shape and are not grandfathered. This $def is SHARED: the generator supports only local $refs, so each family carries a copy, and scripts/check-shared-schema-defs.mjs asserts every copy is byte-identical.",
       "properties": {
         "operation_ref": {
           "type": "string",

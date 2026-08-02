@@ -18525,10 +18525,10 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/agentgres/artifact-ref/v1": "sha256:6f9e2efe1c8e8c00dd1e669fe28d59ab7b31f430e9c7df1cda2620cfa9528bc2",
   "schema://ioi/components/agentgres/branch-checkpoint/v1": "sha256:c6ca8a0337e42ee53399fe05ac7c35688d3b793cafe9bbb668c2558939c90eff",
   "schema://ioi/components/agentgres/branch-merge-plan/v1": "sha256:42e14189b7a6b3e48bec11293311f1c661b0f5d08ff2ca553d1ffe15fd99c517",
-  "schema://ioi/components/agentgres/event-stream/v1": "sha256:6b2e271797996e7083fef14528b1cbd1dd353128146bb5b50ae689c495d3539c",
+  "schema://ioi/components/agentgres/event-stream/v1": "sha256:fc14e5db8ebf6fe42cd3f15b5480cf151dc170c2ce2495a809bdd72dd17d3fea",
   "schema://ioi/components/agentgres/operation-log-entry/v1": "sha256:3fa2af121551e64fd45781f8ab300d41d2f241ad6aa204ad407445948f73f48e",
   "schema://ioi/components/agentgres/projection-definition/v1": "sha256:6b65dcbb81684bae243ae51d889f3470f6265446ea36adecf82957cc5cfeeada",
-  "schema://ioi/components/agentgres/projection-subscription-lease/v1": "sha256:7d123512c82b335b8e2c0d7539334cc3fa43e9b65237f59d333d48ad0a28a408",
+  "schema://ioi/components/agentgres/projection-subscription-lease/v1": "sha256:28be4908d797941b10e9d88d3acbb0a5b5f1925d9e4d45706b51e32e308196c7",
   "schema://ioi/components/agentgres/staged-effect/v1": "sha256:fe662fdb440e2751201a7013c02457ea18e27958f3a3348d6a156cabfa74b5b0",
   "schema://ioi/components/agentgres/storage-backend-write-admission/v1": "sha256:afde420387eea9baccfbdce3df97ad175fa2e17677a80beea5041ac93c3a7723",
   "schema://ioi/components/connectors-tools/runtime-tool-contract/v1": "sha256:ac6c0e6bb9b6ec06a1162e4d84b676b2c96bbc9527e50836c04162d788b5f924",
@@ -25611,12 +25611,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "required": [
           "operation_ref"
         ],
-        "description": "A reference to canonical Agentgres truth. Every chain-bearing value here is a ref string produced by the substrate's backed constructors; the family owns no sequence, root, head, or receipt scalar. Fabricated agentgres:// strings are not grandfathered.",
+        "description": "A reference to canonical Agentgres truth, produced by this substrate's backed ref constructors. Every chain-bearing value — sequence, root, head, receipt — exists here only as a reference; no family owns a scalar of its own (ADR 0030). Fabricated agentgres:// strings are refused by shape and are not grandfathered. This $def is SHARED: the generator supports only local $refs, so each family carries a copy, and scripts/check-shared-schema-defs.mjs asserts every copy is byte-identical.",
         "properties": {
           "operation_ref": {
             "type": "string",
-            "pattern": "^agentgres://[^\\s]{1,400}$",
-            "description": "The canonical Agentgres operation reference."
+            "pattern": "^agentgres://[^\\s]{1,400}$"
           },
           "resulting_head_ref": {
             "type": "string",
@@ -25973,7 +25972,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "required": [
           "operation_ref"
         ],
-        "description": "A reference to canonical Agentgres truth, produced by the substrate's backed constructors. Fabricated agentgres:// strings are not grandfathered.",
+        "description": "A reference to canonical Agentgres truth, produced by this substrate's backed ref constructors. Every chain-bearing value — sequence, root, head, receipt — exists here only as a reference; no family owns a scalar of its own (ADR 0030). Fabricated agentgres:// strings are refused by shape and are not grandfathered. This $def is SHARED: the generator supports only local $refs, so each family carries a copy, and scripts/check-shared-schema-defs.mjs asserts every copy is byte-identical.",
         "properties": {
           "operation_ref": {
             "type": "string",
