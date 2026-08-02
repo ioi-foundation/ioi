@@ -68,6 +68,8 @@ mod editor_routes;
 mod endgame_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
 mod environment_routes;
+#[path = "hypervisor_daemon_routes/event_stream_routes.rs"]
+mod event_stream_routes;
 #[path = "hypervisor_daemon_routes/eval_suite_routes.rs"]
 mod eval_suite_routes;
 #[path = "hypervisor_daemon_routes/feedback_routes.rs"]
@@ -2314,6 +2316,18 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/outcome-deltas/*id",
             get(work_result_routes::handle_outcome_delta_get),
+        )
+        .route(
+            "/v1/event-streams/:owner_namespace/:stream_tail",
+            get(event_stream_routes::handle_event_stream_get),
+        )
+        .route(
+            "/v1/event-streams/:owner_namespace/:stream_tail/events",
+            post(event_stream_routes::handle_event_stream_append),
+        )
+        .route(
+            "/v1/subscriptions",
+            post(event_stream_routes::handle_subscription_create),
         )
         .route(
             "/v1/goal-orchestration/outcome-rooms",

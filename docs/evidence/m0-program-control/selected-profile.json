@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-08-01",
-  "build_fingerprint": "175a9f7cf1060f51ad0e26997c9357794225d3c83cd4e14f19430d9bebb6caee",
+  "build_fingerprint": "b69b4127b71041f35d1d61faed2307a18dbf77220ccfbe542c7456afd49286ff",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -372,6 +372,20 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "ac79d063c8e7a4b67792389439fc5b46fc20d0ddcf6bef802529ff06bde8349a",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/event_stream_routes.rs",
+        "symbol": "MuxEngine::open"
+      },
+      "identity": "http:hypervisor-daemon:GET /v1/event-streams/:owner_namespace/:stream_tail",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "965ea7765bfa3c656e6253311a16c76792f07f8ab2cc60821aa4c3aa7d52205a",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
         "symbol": "spawn_mux_writer_cfg"
@@ -538,6 +552,20 @@
         "symbol": "spawn_mux_writer_cfg"
       },
       "identity": "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "ac79d063c8e7a4b67792389439fc5b46fc20d0ddcf6bef802529ff06bde8349a",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/event_stream_routes.rs",
+        "symbol": "MuxEngine::open"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/event-streams/:owner_namespace/:stream_tail/events",
       "implementation_state": "unavailable",
       "selected_profile_applicability": "required_journey"
     },
@@ -743,7 +771,7 @@
         "claim_state": "verified_effect_leaf",
         "note": "Every admit and refusal branch calls emit_receipt, whose final leaf persists an authority-receipt record.",
         "resolution": "verified_effect_leaf",
-        "source_anchor_sha256": "d257f60b39c3a901ffdecb0a62ba5faa782426e0e5af62cb832888a706d0e339",
+        "source_anchor_sha256": "1347d6c31c0ecbdf223aebc1968be82200bcc8818bdb38c02ab7db33bf6d467d",
         "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
         "symbol": "persist_record[authority-receipts]"
       },
@@ -790,6 +818,20 @@
         "symbol": "std::fs::remove_file"
       },
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/work-results",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "ac79d063c8e7a4b67792389439fc5b46fc20d0ddcf6bef802529ff06bde8349a",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/event_stream_routes.rs",
+        "symbol": "MuxEngine::open"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/subscriptions",
       "implementation_state": "unavailable",
       "selected_profile_applicability": "required_journey"
     },
@@ -931,13 +973,13 @@
     "by_applicability": {
       "adjacent_not_sufficient": 11,
       "required_effect": 1,
-      "required_journey": 29
+      "required_journey": 32
     },
     "by_state": {
       "not_applicable": 1,
       "partial": 10,
-      "unavailable": 30
+      "unavailable": 33
     },
-    "total": 41
+    "total": 44
   }
 }

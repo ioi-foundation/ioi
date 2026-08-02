@@ -15,8 +15,9 @@
     },
     {
       "blocker_id": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "reference_count": 33,
+      "reference_count": 36,
       "references": [
+        "http:hypervisor-daemon:GET /v1/event-streams/:owner_namespace/:stream_tail",
         "http:hypervisor-daemon:GET /v1/goal-orchestration/goal-run-activations/:id",
         "http:hypervisor-daemon:GET /v1/goal-orchestration/goal-runs/:id",
         "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id",
@@ -30,6 +31,7 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/work-results/*id",
         "http:hypervisor-daemon:GET /v1/runs/:id/inspect",
         "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+        "http:hypervisor-daemon:POST /v1/event-streams/:owner_namespace/:stream_tail/events",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/attempts",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations",
         "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-run-activations/:id/submit",
@@ -44,6 +46,7 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/auth/login",
         "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight",
         "http:hypervisor-daemon:POST /v1/hypervisor/work-results",
+        "http:hypervisor-daemon:POST /v1/subscriptions",
         "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/control",
         "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/detect",
         "selected-journey-step:3",
@@ -1605,7 +1608,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "175a9f7cf1060f51ad0e26997c9357794225d3c83cd4e14f19430d9bebb6caee",
+  "build_fingerprint": "b69b4127b71041f35d1d61faed2307a18dbf77220ccfbe542c7456afd49286ff",
   "counts": {
     "by_state": {
       "open": 23,
