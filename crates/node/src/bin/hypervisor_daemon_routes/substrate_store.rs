@@ -2332,6 +2332,144 @@ pub(crate) fn admit_outcome_room_system_operation(
     })
 }
 
+// --- generic owner-namespaced event-stream admission ------------------------
+//
+// The SAME CAS discipline the room family uses, with the owner namespace
+// carried as DATA. Nothing here branches on a namespace value and no consumer
+// vocabulary appears: that is what makes the >= 2-owner-namespace genericity
+// proof meaningful rather than decorative. An admitted event crosses an atomic
+// Agentgres transition with an exact expected head; a head conflict is a
+// refusal, never a silent retry.
+
+fn canonical_event_stream_component(value: &str, max_len: usize) -> bool {
+    !value.is_empty()
+        && value.len() <= max_len
+        && !value.contains("..")
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+}
+
+/// Admit one event append against the exact Agentgres head of one
+/// owner-namespaced stream. `expected_head` None means "this stream must not
+/// yet exist"; Some(head) is compare-and-swap against that exact head.
+pub(crate) fn admit_event_stream_operation(
+    data_dir: &str,
+    owner_namespace: &str,
+    stream_tail: &str,
+    op_kind: &str,
+    expected_head: Option<&str>,
+    payload: &Value,
+    recorded_at_ms: u64,
+    idem_key: &str,
+) -> std::io::Result<ExactProjection> {
+    let invalid = |message: &str| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, message.to_owned())
+    };
+    if !canonical_event_stream_component(owner_namespace, 96)
+        || !owner_namespace
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_' | b'.'))
+    {
+        return Err(invalid("event stream owner namespace is not canonical"));
+    }
+    if !canonical_event_stream_component(stream_tail, 160) {
+        return Err(invalid("event stream tail is not canonical"));
+    }
+    if op_kind.is_empty()
+        || op_kind.len() > 96
+        || !op_kind.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'.')
+        })
+    {
+        return Err(invalid("event stream operation kind is not canonical"));
+    }
+    if expected_head.is_some_and(|head| {
+        !head.strip_prefix("sha256:").is_some_and(|tail| {
+            tail.len() == 64
+                && tail
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+        })
+    }) {
+        return Err(invalid("event stream expected head is not canonical"));
+    }
+    if idem_key.is_empty() || idem_key.len() > 256 {
+        return Err(invalid("event stream idempotency key is not canonical"));
+    }
+
+    let object_ref = agentgres::refs::event_stream_object_ref(owner_namespace, stream_tail);
+    let domain = agentgres::refs::event_stream_domain(owner_namespace, stream_tail);
+    let operation = Operation {
+        domain: domain.clone(),
+        object_ref: object_ref.clone(),
+        op_kind: op_kind.to_owned(),
+        expected_head: expected_head.map(str::to_owned),
+        expected_absent: expected_head.is_none(),
+        payload: payload.clone(),
+        recorded_at_ms,
+        idem_key: idem_key.to_owned(),
+    };
+
+    with_current_handle(data_dir, |handle| {
+        if let Some(existing) = handle.project_exact(&domain, &object_ref)? {
+            if existing.operation == operation {
+                confirm_required_admission_durability(data_dir)?;
+                return Ok(existing);
+            }
+        }
+        let ack = match handle.admit(operation.clone()) {
+            Ok(ack) => ack,
+            Err(MuxAdmitError::Refused(
+                Refusal::ExpectedHeadConflict { .. } | Refusal::ExpectedAbsentConflict { .. },
+            )) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::AlreadyExists,
+                    "event stream Agentgres head conflict",
+                ))
+            }
+            Err(error) => {
+                ERRORS.fetch_add(1, Ordering::Relaxed);
+                return Err(std::io::Error::other(format!(
+                    "event stream Agentgres admission failed: {error}"
+                )));
+            }
+        };
+        confirm_required_admission_durability(data_dir)?;
+        let exact = handle.project_exact(&domain, &object_ref)?.ok_or_else(|| {
+            std::io::Error::other("event stream Agentgres admission has no exact projection")
+        })?;
+        if exact.operation != operation
+            || exact.seq != ack.seq
+            || exact.head != ack.new_head
+            || exact.admission_batch_seq != ack.batch_seq
+            || exact.admission_root != ack.root
+        {
+            return Err(std::io::Error::other(
+                "event stream Agentgres projection disagrees with its admission ack",
+            ));
+        }
+        ADMITTED.fetch_add(1, Ordering::Relaxed);
+        Ok(exact)
+    })
+}
+
+/// Read the exact current admitted head for one owner-namespaced stream.
+pub(crate) fn read_event_stream_operation(
+    data_dir: &str,
+    owner_namespace: &str,
+    stream_tail: &str,
+) -> std::io::Result<Option<ExactProjection>> {
+    if !canonical_event_stream_component(owner_namespace, 96)
+        || !canonical_event_stream_component(stream_tail, 160)
+    {
+        return Ok(None);
+    }
+    let object_ref = agentgres::refs::event_stream_object_ref(owner_namespace, stream_tail);
+    let domain = agentgres::refs::event_stream_domain(owner_namespace, stream_tail);
+    with_current_handle(data_dir, |handle| handle.project_exact(&domain, &object_ref))
+}
+
 /// Read the current canonical head for one bounded OutcomeRoom System.
 pub(crate) fn read_outcome_room_system_operation(
     data_dir: &str,

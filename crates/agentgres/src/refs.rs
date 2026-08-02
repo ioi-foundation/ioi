@@ -53,6 +53,64 @@ pub fn outcome_room_system_object_ref(room_tail: &str) -> String {
     format!("agentgres://outcome-room-system-operations/{room_tail}")
 }
 
+// --- generic owner-namespaced event streams ---------------------------------
+//
+// These constructors are deliberately namespace-GENERIC: they take the owner's
+// namespace as data and brand identically for every owner. Nothing here
+// branches on a namespace value, and no consumer vocabulary appears — that
+// genericity is what the >= 2-owner-namespace proof asserts.
+
+/// Agentgres domain for one owner-namespaced event stream.
+pub fn event_stream_domain(owner_namespace: &str, stream_tail: &str) -> String {
+    format!("event-stream-operations.{owner_namespace}.{stream_tail}")
+}
+
+/// Storage object ref for one owner-namespaced event stream's operations.
+pub fn event_stream_object_ref(owner_namespace: &str, stream_tail: &str) -> String {
+    format!("agentgres://event-stream-operations/{owner_namespace}/{stream_tail}")
+}
+
+/// Operation ref for one admitted event append. `sequence` and `head` come
+/// from the admitted fact (`ExactProjection::seq` / `head`).
+pub fn event_stream_operation_ref(
+    owner_namespace: &str,
+    stream_tail: &str,
+    sequence: u64,
+    head: &str,
+) -> String {
+    format!(
+        "agentgres://operation/event-stream/{owner_namespace}/{stream_tail}/sequence/{sequence}/head/{head}"
+    )
+}
+
+/// Receipt ref for one admitted event-stream batch. `batch_seq` and `root`
+/// come from the admitting ack / `ExactProjection`.
+pub fn event_stream_receipt_ref(
+    owner_namespace: &str,
+    stream_tail: &str,
+    batch_seq: u64,
+    root: &str,
+) -> String {
+    format!(
+        "receipt://agentgres/event-stream/{owner_namespace}/{stream_tail}/batch/{batch_seq}/{}",
+        strip_sha(root)
+    )
+}
+
+/// Subscription-lease operation ref for one admitted lease transition or
+/// checkpoint advance.
+pub fn subscription_lease_operation_ref(lease_tail: &str, sequence: u64, head: &str) -> String {
+    format!("agentgres://operation/subscription-lease/{lease_tail}/sequence/{sequence}/head/{head}")
+}
+
+/// Receipt ref for one admitted subscription-lease batch.
+pub fn subscription_lease_receipt_ref(lease_tail: &str, batch_seq: u64, root: &str) -> String {
+    format!(
+        "receipt://agentgres/subscription-lease/{lease_tail}/batch/{batch_seq}/{}",
+        strip_sha(root)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -83,6 +141,40 @@ mod tests {
         assert_eq!(
             outcome_room_system_object_ref("or_abc"),
             "agentgres://outcome-room-system-operations/or_abc"
+        );
+    }
+
+    // Genericity is a property of the CONSTRUCTORS, not only of the runtime:
+    // two unrelated owner namespaces must brand through identical structure
+    // with the namespace carried as data. A constructor that special-cased a
+    // namespace would show up here as an asymmetry.
+    #[test]
+    fn event_stream_refs_are_namespace_generic() {
+        for ns in ["thread-orchestration", "automation-scheduler"] {
+            assert_eq!(
+                event_stream_domain(ns, "s1"),
+                format!("event-stream-operations.{ns}.s1")
+            );
+            assert_eq!(
+                event_stream_object_ref(ns, "s1"),
+                format!("agentgres://event-stream-operations/{ns}/s1")
+            );
+            assert_eq!(
+                event_stream_operation_ref(ns, "s1", 4, "sha256:beef"),
+                format!("agentgres://operation/event-stream/{ns}/s1/sequence/4/head/sha256:beef")
+            );
+            assert_eq!(
+                event_stream_receipt_ref(ns, "s1", 2, "sha256:feed"),
+                format!("receipt://agentgres/event-stream/{ns}/s1/batch/2/feed")
+            );
+        }
+        assert_eq!(
+            subscription_lease_operation_ref("sub_1", 3, "sha256:cafe"),
+            "agentgres://operation/subscription-lease/sub_1/sequence/3/head/sha256:cafe"
+        );
+        assert_eq!(
+            subscription_lease_receipt_ref("sub_1", 1, "sha256:dead"),
+            "receipt://agentgres/subscription-lease/sub_1/batch/1/dead"
         );
     }
 }
