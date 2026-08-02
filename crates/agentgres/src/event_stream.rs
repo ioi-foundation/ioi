@@ -130,6 +130,19 @@ impl std::fmt::Display for AdmissionRefusal {
 
 impl std::error::Error for AdmissionRefusal {}
 
+/// The outcome of an admission: the exact fact, and whether this call
+/// produced it or replayed one already admitted under the same key.
+#[derive(Debug, Clone)]
+pub struct Admitted {
+    pub projection: ExactProjection,
+    /// True when this key was already admitted with identical logical bytes
+    /// and the ORIGINAL fact is being returned. The caller stamps sequence
+    /// and identity from `projection` either way, so a replay is
+    /// indistinguishable downstream from the first admission — which is what
+    /// idempotency means.
+    pub replayed: bool,
+}
+
 /// One admitted append, as the caller states it.
 #[derive(Debug, Clone)]
 pub struct EventAdmission<'a> {
@@ -153,8 +166,7 @@ pub struct EventAdmission<'a> {
 /// trait converges on direct substrate access with extra ceremony.
 pub trait EventStreamAdmission: Send + Sync {
     /// Admit one event append against the stream's exact head.
-    fn admit_event(&self, request: EventAdmission<'_>)
-        -> Result<ExactProjection, AdmissionRefusal>;
+    fn admit_event(&self, request: EventAdmission<'_>) -> Result<Admitted, AdmissionRefusal>;
 
     /// Read the exact admitted head of one stream, without admitting.
     fn read_head(
@@ -169,14 +181,12 @@ pub trait EventStreamAdmission: Send + Sync {
     fn admit_lease_transition(
         &self,
         request: EventAdmission<'_>,
-    ) -> Result<ExactProjection, AdmissionRefusal>;
+    ) -> Result<Admitted, AdmissionRefusal>;
 
     /// Advance one lease's delivery checkpoint. A checkpoint is an admitted
     /// fact, not a scalar the delivery adapter may substitute.
-    fn advance_checkpoint(
-        &self,
-        request: EventAdmission<'_>,
-    ) -> Result<ExactProjection, AdmissionRefusal>;
+    fn advance_checkpoint(&self, request: EventAdmission<'_>)
+        -> Result<Admitted, AdmissionRefusal>;
 }
 
 /// The operation class one capability method is permitted to admit.
@@ -304,6 +314,28 @@ fn validate_admission(request: &EventAdmission<'_>) -> Result<(), AdmissionRefus
     Ok(())
 }
 
+/// Do two submissions name the SAME logical event?
+///
+/// Identity is the object key, the operation kind, the payload, and the
+/// idempotency key. It deliberately EXCLUDES `expected_head` /
+/// `expected_absent` and `recorded_at_ms`.
+///
+/// This is not a relaxation, it is the correction that makes whole-stream
+/// dedup work at all. A duplicate arriving N events later necessarily reads a
+/// different current head and submits a different expected head; comparing
+/// that precondition would turn every real duplicate into a
+/// same-key-different-bytes refusal. `recorded_at_ms` is likewise wall-clock
+/// about the submission, not about the event. Full-`Operation` equality — the
+/// pre-lift comparison — therefore only ever matched a VERBATIM request
+/// replay, never the same logical event resubmitted later, which is the case
+/// the caller-side scans existed to catch.
+fn same_logical_event(a: &Operation, b: &Operation) -> bool {
+    a.object_ref == b.object_ref
+        && a.op_kind == b.op_kind
+        && a.payload == b.payload
+        && a.idem_key == b.idem_key
+}
+
 /// Admit one operation against the exact Agentgres head of one
 /// owner-namespaced stream.
 ///
@@ -314,7 +346,7 @@ pub fn admit_event_stream_operation(
     handle: &MuxHandle,
     engine_dir: &Path,
     request: EventAdmission<'_>,
-) -> Result<ExactProjection, AdmissionRefusal> {
+) -> Result<Admitted, AdmissionRefusal> {
     validate_admission(&request)?;
 
     let object_ref =
@@ -331,25 +363,46 @@ pub fn admit_event_stream_operation(
         idem_key: request.idem_key.to_owned(),
     };
 
-    let projected = handle
-        .project_exact(&domain, &object_ref)
+    // WHOLE-STREAM KEY ENFORCEMENT, inside the admission cycle.
+    //
+    // "This key admits exactly once" is admission discipline, not a capability
+    // to be exported: granting callers a history read would install the same
+    // scan at every call site, which is the drift class one layer up. So the
+    // scan lives here, once, and every writer inherits it through the admit it
+    // already calls.
+    //
+    // The source of truth is the log this handle serves. It is never a
+    // caller-side file, and no failure here routes anywhere else.
+    //
+    // Race safety comes from the CAS, not from a lock around this window. Two
+    // concurrent admits of the same key: at most one wins the expected-head
+    // compare-and-swap. The loser takes ExpectedHeadConflict, re-reads, and
+    // re-derives — and the re-derive re-runs THIS scan, which now sees the
+    // winner's key and replays it. The dedup therefore needs no serialization
+    // window of its own; the head chain already provides one.
+    let history = handle
+        .project_exact_history(&domain, &object_ref)
         .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))?;
-    if let Some(existing) = projected {
-        if existing.operation == operation {
-            // Identical bytes under an already-admitted key: idempotent, and
-            // the durability of the ORIGINAL append is still confirmed before
-            // the prior fact is handed back as current.
+    if let Some(prior) = history
+        .iter()
+        .find(|entry| entry.operation.idem_key == operation.idem_key)
+    {
+        if same_logical_event(&prior.operation, &operation) {
+            // Byte-identical duplicate ANYWHERE in the stream: the original
+            // fact is returned, and the durability of that original append is
+            // still confirmed before it is handed back as current.
             confirm_log_durability(engine_dir)?;
-            return Ok(existing);
-        }
-        if existing.operation.idem_key == operation.idem_key {
-            // Same key, different bytes. Named here rather than left to
-            // surface as an incidental head conflict, because the two have
-            // different causes and different caller remedies.
-            return Err(AdmissionRefusal::SameKeyDifferentBytes {
-                idem_key: operation.idem_key,
+            return Ok(Admitted {
+                projection: prior.clone(),
+                replayed: true,
             });
         }
+        // Same key, different bytes. Named by its own cause rather than left
+        // to surface as an incidental head conflict, because the two have
+        // different causes and different caller remedies.
+        return Err(AdmissionRefusal::SameKeyDifferentBytes {
+            idem_key: operation.idem_key,
+        });
     }
 
     let ack = match handle.admit(operation.clone()) {
@@ -376,7 +429,10 @@ pub fn admit_event_stream_operation(
     {
         return Err(AdmissionRefusal::ProjectionDisagreesWithAck);
     }
-    Ok(exact)
+    Ok(Admitted {
+        projection: exact,
+        replayed: false,
+    })
 }
 
 /// Read the exact current admitted head for one owner-namespaced stream.
@@ -398,33 +454,120 @@ pub fn read_event_stream_head(
         .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))
 }
 
-/// Read the fully rooted admitted history for one owner-namespaced stream,
-/// ordered by admission.
-///
-/// History is deliberately NOT on the `EventStreamAdmission` trait. That
-/// trait is the capability injected ACROSS a process boundary, bounded at
-/// four operations by owner ruling; history is read by the process that
-/// already holds the handle, so serving it needs no new permission. Adding a
-/// fifth method to satisfy an in-process reader would widen a cross-boundary
-/// capability for a caller that never crosses it.
-pub fn read_event_stream_history(
-    handle: &MuxHandle,
-    owner_namespace: &str,
-    stream_tail: &str,
-) -> Result<Vec<ExactProjection>, AdmissionRefusal> {
-    if validate_stream_coordinates(owner_namespace, stream_tail).is_err() {
-        return Ok(Vec::new());
-    }
-    let object_ref = crate::refs::event_stream_object_ref(owner_namespace, stream_tail);
-    let domain = crate::refs::event_stream_domain(owner_namespace, stream_tail);
-    handle
-        .project_exact_history(&domain, &object_ref)
-        .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mux::{spawn_mux_writer, MuxEngine, MuxHandle, MuxWriter};
+    use std::path::PathBuf;
+
+    fn engine_dir_for(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "agentgres-event-stream-{name}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        dir
+    }
+
+    // `spawn_mux_writer` already starts the writer thread; `MuxWriter` is only
+    // its join handle. It is returned so the caller keeps it alive for the
+    // duration of the test rather than detaching it mid-stream.
+    fn handle_at(dir: &PathBuf) -> (MuxHandle, MuxWriter) {
+        let engine = MuxEngine::open(dir, false).unwrap();
+        spawn_mux_writer(engine, 4096)
+    }
+
+    fn append(
+        handle: &MuxHandle,
+        dir: &PathBuf,
+        head: Option<&str>,
+        idem: &str,
+        payload: &Value,
+    ) -> Result<Admitted, AdmissionRefusal> {
+        admit_event_stream_operation(
+            handle,
+            dir,
+            EventAdmission {
+                owner_namespace: "thread-orchestration",
+                stream_tail: "s1",
+                op_kind: "event_stream.append",
+                expected_head: head,
+                payload,
+                recorded_at_ms: 0,
+                idem_key: idem,
+            },
+        )
+    }
+
+    // THE COLLISION'S DEFINING CASE. A duplicate key admitted N events back
+    // must replay the ORIGINAL fact, not append a new event. Head-only
+    // comparison cannot see it -- which is exactly why the caller-side scans
+    // existed, and why this now lives inside admit instead of at N call sites.
+    #[test]
+    fn a_duplicate_key_n_events_back_replays_the_original() {
+        let dir = engine_dir_for("dedup-depth");
+        let (handle, _writer) = handle_at(&dir);
+        let first_payload = json_payload("first");
+        let first = append(&handle, &dir, None, "key-1", &first_payload).unwrap();
+        assert!(!first.replayed);
+        let original_seq = first.projection.seq;
+        let original_head = first.projection.head.clone();
+
+        // Walk the stream forward well past the key under test.
+        let mut head = original_head.clone();
+        for n in 0..6 {
+            let payload = json_payload(&format!("filler-{n}"));
+            let admitted = append(
+                &handle,
+                &dir,
+                Some(&head),
+                &format!("filler-key-{n}"),
+                &payload,
+            )
+            .unwrap();
+            assert!(!admitted.replayed);
+            head = admitted.projection.head.clone();
+        }
+
+        // The duplicate necessarily carries the CURRENT head, not the head it
+        // originally CASed against. Identity must ignore that precondition or
+        // every real duplicate would refuse as different bytes.
+        let replay = append(&handle, &dir, Some(&head), "key-1", &first_payload).unwrap();
+        assert!(replay.replayed, "a duplicate 7 events back must replay");
+        assert_eq!(replay.projection.seq, original_seq);
+        assert_eq!(replay.projection.head, original_head);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn same_key_same_bytes_replays_and_same_key_different_bytes_refuses() {
+        let dir = engine_dir_for("dedup-bytes");
+        let (handle, _writer) = handle_at(&dir);
+        let payload = json_payload("body");
+        let first = append(&handle, &dir, None, "key-a", &payload).unwrap();
+        assert!(!first.replayed);
+
+        let again = append(
+            &handle,
+            &dir,
+            Some(&first.projection.head),
+            "key-a",
+            &payload,
+        )
+        .unwrap();
+        assert!(again.replayed);
+        assert_eq!(again.projection.seq, first.projection.seq);
+
+        let other = json_payload("different body");
+        let refusal = append(&handle, &dir, Some(&first.projection.head), "key-a", &other)
+            .expect_err("same key with different bytes must refuse");
+        assert_eq!(refusal.code(), "event_stream_same_key_different_bytes");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn json_payload(marker: &str) -> Value {
+        serde_json::json!({ "marker": marker })
+    }
 
     // Refusal codes appear in route responses, verifier assertions, and
     // retained evidence. Renaming one is a wire change, not a refactor.

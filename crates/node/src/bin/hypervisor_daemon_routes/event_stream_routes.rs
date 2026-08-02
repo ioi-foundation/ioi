@@ -144,7 +144,7 @@ pub(crate) async fn handle_event_stream_append(
         .and_then(Value::as_u64)
         .unwrap_or_default();
 
-    let exact = substrate_store::admit_event_stream_operation(
+    let admitted = substrate_store::admit_event_stream_operation(
         &st.data_dir,
         &owner_namespace,
         &stream_tail,
@@ -155,9 +155,11 @@ pub(crate) async fn handle_event_stream_append(
         idem_key,
     )
     .map_err(refused)?;
+    let exact = &admitted.projection;
 
     Ok(Json(json!({
         "delivery": "admitted",
+        "replayed": admitted.replayed,
         "class_id": class_id,
         "payload_schema_ref": payload_schema_ref,
         "stream_id": format!("event-stream://{owner_namespace}/{stream_tail}"),
@@ -267,7 +269,7 @@ pub(crate) async fn handle_subscription_create(
         ));
     }
 
-    let exact = substrate_store::admit_event_stream_operation(
+    let admitted = substrate_store::admit_event_stream_operation(
         &st.data_dir,
         &owner_namespace,
         &format!("lease.{lease_tail}"),
@@ -280,8 +282,10 @@ pub(crate) async fn handle_subscription_create(
         &format!("lease-{lease_tail}"),
     )
     .map_err(refused)?;
+    let exact = &admitted.projection;
 
     Ok(Json(json!({
+        "replayed": admitted.replayed,
         "lease_id": format!("subscription-lease://{lease_tail}"),
         "stream_id": format!("event-stream://{owner_namespace}/{stream_tail}"),
         "lease_state": "active",

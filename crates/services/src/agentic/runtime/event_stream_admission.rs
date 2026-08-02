@@ -18,7 +18,7 @@
 //! a local redefinition would be the shared-definition drift class
 //! reappearing one layer down.
 
-use agentgres::event_stream::{AdmissionRefusal, EventAdmission, EventStreamAdmission};
+use agentgres::event_stream::{AdmissionRefusal, Admitted, EventAdmission, EventStreamAdmission};
 use agentgres::mux::ExactProjection;
 use std::sync::{Arc, OnceLock};
 
@@ -53,7 +53,7 @@ pub fn capability() -> Result<&'static Arc<dyn EventStreamAdmission>, AdmissionR
 /// path re-supplies the wiring the same way a fixture re-supplies the input
 /// set — and would keep passing while production routed around the boundary
 /// entirely.
-pub fn admit_event(request: EventAdmission<'_>) -> Result<ExactProjection, AdmissionRefusal> {
+pub fn admit_event(request: EventAdmission<'_>) -> Result<Admitted, AdmissionRefusal> {
     capability()?.admit_event(request)
 }
 

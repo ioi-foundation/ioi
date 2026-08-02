@@ -2360,7 +2360,7 @@ impl SubstrateEventStreamAdmission {
         &self,
         request: agentgres::event_stream::EventAdmission<'_>,
         class: agentgres::event_stream::OperationClass,
-    ) -> Result<ExactProjection, AdmissionRefusal> {
+    ) -> Result<agentgres::event_stream::Admitted, AdmissionRefusal> {
         // Each capability method admits only its own operation class, so the
         // four methods are four permissions rather than four spellings of one
         // call. The rule is the library's; this only applies it.
@@ -2382,7 +2382,7 @@ impl agentgres::event_stream::EventStreamAdmission for SubstrateEventStreamAdmis
     fn admit_event(
         &self,
         request: agentgres::event_stream::EventAdmission<'_>,
-    ) -> Result<ExactProjection, AdmissionRefusal> {
+    ) -> Result<agentgres::event_stream::Admitted, AdmissionRefusal> {
         self.admit_in_class(request, agentgres::event_stream::OperationClass::Event)
     }
 
@@ -2397,7 +2397,7 @@ impl agentgres::event_stream::EventStreamAdmission for SubstrateEventStreamAdmis
     fn admit_lease_transition(
         &self,
         request: agentgres::event_stream::EventAdmission<'_>,
-    ) -> Result<ExactProjection, AdmissionRefusal> {
+    ) -> Result<agentgres::event_stream::Admitted, AdmissionRefusal> {
         self.admit_in_class(
             request,
             agentgres::event_stream::OperationClass::LeaseTransition,
@@ -2407,7 +2407,7 @@ impl agentgres::event_stream::EventStreamAdmission for SubstrateEventStreamAdmis
     fn advance_checkpoint(
         &self,
         request: agentgres::event_stream::EventAdmission<'_>,
-    ) -> Result<ExactProjection, AdmissionRefusal> {
+    ) -> Result<agentgres::event_stream::Admitted, AdmissionRefusal> {
         self.admit_in_class(
             request,
             agentgres::event_stream::OperationClass::CheckpointAdvance,
@@ -2439,7 +2439,7 @@ pub(crate) fn admit_event_stream_operation(
     payload: &Value,
     recorded_at_ms: u64,
     idem_key: &str,
-) -> Result<ExactProjection, AdmissionRefusal> {
+) -> Result<agentgres::event_stream::Admitted, AdmissionRefusal> {
     let engine = engine_dir(data_dir);
     let outcome = with_current_handle(data_dir, |handle| {
         Ok(agentgres::event_stream::admit_event_stream_operation(
@@ -2458,9 +2458,13 @@ pub(crate) fn admit_event_stream_operation(
     })
     .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))?;
     match outcome {
-        Ok(exact) => {
-            ADMITTED.fetch_add(1, Ordering::Relaxed);
-            Ok(exact)
+        Ok(admitted) => {
+            // A replay is not a new admission: counting it would inflate the
+            // admitted metric every time a duplicate is retried.
+            if !admitted.replayed {
+                ADMITTED.fetch_add(1, Ordering::Relaxed);
+            }
+            Ok(admitted)
         }
         Err(refusal) => {
             if matches!(refusal, AdmissionRefusal::SubstrateUnavailable(_)) {
