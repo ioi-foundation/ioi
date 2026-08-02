@@ -103,6 +103,42 @@ export function validateRecord(record) {
     }
   }
 
+  // Degenerate proof elements.
+  //
+  // Presence and non-emptiness are not enough. On 2026-08-02 two assertions
+  // were written into this record with `list += str` in Python, which extends
+  // element-BY-CHARACTER: the field held 801 elements, 799 of them single
+  // characters, and every existing bar passed it. A proof array that is
+  // populated but meaningless is worse than an empty one, because emptiness is
+  // the case the bars above already catch.
+  //
+  // The predicate is the DEFECT SIGNATURE, not a length judgement. A first
+  // attempt used a 24-character floor and fired on legitimate short entries
+  // like "Re-certifying stage M0." across many existing records -- a bar that
+  // rejects real content to catch corruption is worse than the corruption.
+  // A splatted string produces SINGLE-CHARACTER elements, and no real
+  // assertion, scope line, or nonclaim is one character. That signature has no
+  // legitimate instance, so it can be refused outright.
+  const MIN_PROOF_ELEMENT_CHARS = 2;
+  for (const key of ["positive_proof", "adversarial_or_fault_proof", "in_scope", "out_of_scope", "remaining_nonclaims"]) {
+    const value = record[key];
+    if (!Array.isArray(value)) continue;
+    const degenerate = value.filter(
+      (element) => typeof element !== "string" || element.trim().length < MIN_PROOF_ELEMENT_CHARS,
+    );
+    if (degenerate.length > 0) {
+      const sample = degenerate.slice(0, 6).map((e) => JSON.stringify(e)).join(", ");
+      out.push(
+        finding(
+          "error",
+          "work-item-shape",
+          `${id}: "${key}" holds ${degenerate.length} single-character element(s) (e.g. ${sample}); this is the signature of a string splatted element-by-character, and it passes every presence bar`,
+          where,
+        ),
+      );
+    }
+  }
+
   if (!STATUSES.has(record.status)) {
     out.push(
       finding("error", "work-item-shape", `${id}: unknown status "${record.status}"`, where),
