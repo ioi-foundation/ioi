@@ -1,0 +1,93 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "stage_id": "M5",
+  "record_role": "implementation_cut",
+  "status": "proposed",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/domains/ioi-ai/control-plane.md"
+  ],
+  "contract_families": [],
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "consequential_effects_and_final_invokers": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "evidence_refs": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "work_item_id": "m5-qm-reference-shell-dormant-adoption",
+  "required_work": [
+    "Adopt github.com/yc-software/qm (MIT) as the dormant ioi.ai reference-UX seed under apps/ioi-ai/: fork, strip YC branding, retain the MIT license and attribution, rebrand — stack VERBATIM (Lit/Vite; no React port). The tree lands inert: not served, not rebound, no parity or executable claim."
+  ],
+  "objective": "Land the ratified ioi.ai reference-UX seed (QM) as preserved dormant evidence, exactly as the Palantir-derived Hypervisor seeds landed in PRs #93-#95: adopt-in-place so later surface convergence rebinds a real, bootable artifact instead of reauthoring a shell. M5_QM_DORMANT_ADOPTION_EXIT=0.",
+  "falsifiable_claim": "The adopted tree under apps/ioi-ai/ carries the upstream stack verbatim (Lit/Vite, no React port), retains the MIT license and attribution with YC branding stripped, is reachable from no served route, binds no daemon truth, and asserts no parity, executable, or product-membership claim.",
+  "selected_profile": "One dormant adopted tree under apps/ioi-ai/ with license provenance retained; zero serving, zero rebinding.",
+  "in_scope": [
+    "Fork import, branding strip, MIT license + attribution retention, rebrand naming pass.",
+    "A provenance note binding the upstream commit adopted.",
+    "Dormancy proof: no route serves the tree; no daemon or Agentgres binding references it."
+  ],
+  "out_of_scope": [
+    "Serving, rebinding, executable or parity claims — owned by m5-qm-reference-shell-executable-rebind.",
+    "Any React port or stack substitution (the stack lands verbatim; surface-convergence stack choice is deferred).",
+    "Any change to the protected Hypervisor ported seed or to m4.md."
+  ],
+  "implementation_actions": [
+    "Import the upstream tree at a pinned commit into apps/ioi-ai/ with license and attribution files retained.",
+    "Strip YC branding and rebrand; record the upstream pin in the provenance note.",
+    "Prove dormancy: route census unchanged, no serve path, no binding."
+  ],
+  "positive_proof": [
+    "The adopted tree exists under apps/ioi-ai/ at a pinned upstream commit with MIT license and attribution retained and YC branding absent, and no served route or binding references it."
+  ],
+  "adversarial_or_fault_proof": "Reject a served route to the dormant tree, a daemon/Agentgres binding from it, a missing license or attribution file, surviving YC branding, and any stack substitution.",
+  "compatibility_and_migration": [
+    "The dormant tree is additive; removing it restores the prior estate byte-exact."
+  ],
+  "evidence_index": {
+    "literal_exit": "M5_QM_DORMANT_ADOPTION_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M5/m5-qm-reference-shell-dormant-adoption.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/ux-seeds",
+      "present_when": "current_precedent",
+      "evidence_scope": "the PRs #93-#95 dormant-seed preservation pattern this adoption follows"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m5-qm-reference-shell-dormant-adoption",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m5-qm-reference-shell-dormant-adoption.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "remaining_nonclaims": [
+    "Dormant adoption grants no product membership, parity, executable, or serving claim; QM remains an implementation starting point, never an architecture owner or truth store."
+  ],
+  "rollback_or_stop_rule": "Stop if adoption would serve the tree, bind daemon truth, drop license or attribution provenance, or touch the protected Hypervisor seed; roll back by removing the adopted tree.",
+  "source_provenance": "Owner QM seed ruling 2026-08-02 (queued post-#133): dormant adoption as act one of two; filed by the implementer session as the first M5-branch batch.",
+  "canon_snapshot": {
+    "captured_at": "2026-08-02",
+    "captured_at_commit": "5e1899e29b27b43da8d2992fb165bd1847d8e3eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "839bc31447decd49c16ffc0e27e80c29d1b3298d9d9b394418a1ea569a30e3ee",
+    "owners": [
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "92930e5cf1d8b1b063f1d9bf66df2bc4304586878dc1519371aa485c0f7a544c"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/control-plane.md",
+        "sha256": "55a2e9986c1ac83e87327604f10627df132e3f85087845c0383ebe878989c2ef"
+      }
+    ]
+  }
+}
