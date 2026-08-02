@@ -316,24 +316,38 @@ fn validate_admission(request: &EventAdmission<'_>) -> Result<(), AdmissionRefus
 
 /// Do two submissions name the SAME logical event?
 ///
-/// Identity is the object key, the operation kind, the payload, and the
-/// idempotency key. It deliberately EXCLUDES `expected_head` /
-/// `expected_absent` and `recorded_at_ms`.
+/// IDENTITY INCLUDES EVERY FIELD BY DEFAULT. Both operations are normalized by
+/// zeroing exactly the fields listed below, then compared whole. This
+/// direction is deliberate: an include-list would silently drop any field
+/// added to `Operation` later out of identity, so a resubmission differing
+/// only in that new field would be swallowed as a replay instead of refused —
+/// a substitution hole that opens by omission with no bar firing. Comparing
+/// normalized whole structs makes a new field default INTO identity, and
+/// excluding one requires an edit here with a written reason beside the two
+/// that already exist.
 ///
-/// This is not a relaxation, it is the correction that makes whole-stream
-/// dedup work at all. A duplicate arriving N events later necessarily reads a
-/// different current head and submits a different expected head; comparing
-/// that precondition would turn every real duplicate into a
-/// same-key-different-bytes refusal. `recorded_at_ms` is likewise wall-clock
-/// about the submission, not about the event. Full-`Operation` equality — the
-/// pre-lift comparison — therefore only ever matched a VERBATIM request
-/// replay, never the same logical event resubmitted later, which is the case
-/// the caller-side scans existed to catch.
+/// EXCLUSION 1 — `expected_head` / `expected_absent`. These are
+/// concurrency-control preconditions, not identity. A duplicate arriving N
+/// events later necessarily reads a different current head and submits a
+/// different expected head; comparing that precondition would turn every real
+/// duplicate into a same-key-different-bytes refusal.
+///
+/// EXCLUSION 2 — `recorded_at_ms`. Wall-clock about the submission, not about
+/// the event.
+///
+/// Full-`Operation` equality — the pre-lift comparison — therefore only ever
+/// matched a VERBATIM request replay, never the same logical event
+/// resubmitted later, which is the case the caller-side scans existed to
+/// catch.
 fn same_logical_event(a: &Operation, b: &Operation) -> bool {
-    a.object_ref == b.object_ref
-        && a.op_kind == b.op_kind
-        && a.payload == b.payload
-        && a.idem_key == b.idem_key
+    let normalized = |operation: &Operation| {
+        let mut operation = operation.clone();
+        operation.expected_head = None;
+        operation.expected_absent = false;
+        operation.recorded_at_ms = 0;
+        operation
+    };
+    normalized(a) == normalized(b)
 }
 
 /// Admit one operation against the exact Agentgres head of one
