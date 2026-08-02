@@ -17,18 +17,33 @@
 //!    about the code rather than a claim about it.
 
 use super::substrate_store;
-use super::{AppError, DaemonState};
+use super::DaemonState;
 use agentgres::event_stream::AdmissionRefusal;
 use axum::extract::{Path as AxumPath, State};
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::Json;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
-fn bad(status: StatusCode, code: &str, message: &str) -> AppError {
-    AppError(
+/// A refusal that reaches the wire WITH its machine code.
+///
+/// The daemon's shared `AppError` renders only `{error:{message}}`, so a code
+/// packed into its string body is swallowed on the way out — the field every
+/// verifier and every caller keys off would exist in the source and not in
+/// the response. These routes therefore own their refusal rendering.
+pub(crate) struct Refused(StatusCode, Value);
+
+impl IntoResponse for Refused {
+    fn into_response(self) -> axum::response::Response {
+        (self.0, Json(self.1)).into_response()
+    }
+}
+
+fn bad(status: StatusCode, code: &str, message: &str) -> Refused {
+    Refused(
         status,
-        json!({ "error": { "code": code, "message": message } }).to_string(),
+        json!({ "error": { "code": code, "message": message } }),
     )
 }
 
@@ -39,7 +54,7 @@ fn bad(status: StatusCode, code: &str, message: &str) -> AppError {
 /// identically wherever admission is attempted. A route that reworded the
 /// substrate's refusals would make two callers of one mechanism look like two
 /// mechanisms.
-fn refused(refusal: AdmissionRefusal) -> AppError {
+fn refused(refusal: AdmissionRefusal) -> Refused {
     let status = match refusal {
         AdmissionRefusal::HeadConflict => StatusCode::CONFLICT,
         AdmissionRefusal::CoordinatesNotCanonical(_)
@@ -92,7 +107,7 @@ pub(crate) async fn handle_event_stream_append(
     State(st): State<Arc<DaemonState>>,
     AxumPath((owner_namespace, stream_tail)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
+) -> Result<Json<Value>, Refused> {
     let class_id = text(&body, "class_id");
     if class_id.is_empty() {
         return Err(bad(
@@ -181,7 +196,7 @@ pub(crate) async fn handle_event_stream_append(
 pub(crate) async fn handle_event_stream_get(
     State(st): State<Arc<DaemonState>>,
     AxumPath((owner_namespace, stream_tail)): AxumPath<(String, String)>,
-) -> Result<Json<Value>, AppError> {
+) -> Result<Json<Value>, Refused> {
     let exact =
         substrate_store::read_event_stream_operation(&st.data_dir, &owner_namespace, &stream_tail)
             .map_err(refused)?;
@@ -213,7 +228,7 @@ pub(crate) async fn handle_event_stream_get(
 pub(crate) async fn handle_subscription_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
+) -> Result<Json<Value>, Refused> {
     for required in [
         "owner_namespace",
         "stream_tail",

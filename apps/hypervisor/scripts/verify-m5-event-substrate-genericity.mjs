@@ -1,0 +1,463 @@
+#!/usr/bin/env node
+//! M5 event-substrate genericity verifier.
+//!
+//! Four properties, each chosen because the obvious way to check it would be
+//! blind:
+//!
+//! 1. NO HANDLE-ACQUISITION PATH in the lifted core — checked on COMMENT-
+//!    STRIPPED source. A raw grep counts the module's own doc comment saying
+//!    it never calls those openers, which is prose matching prose. That is the
+//!    same blindness class as a disjunctive assertion and it fired for real
+//!    during the lift.
+//!
+//! 2. TWO OWNER NAMESPACES traverse identical code. The owner namespace is
+//!    data; two unrelated owners must produce structurally identical admitted
+//!    facts differing only where the namespace itself appears.
+//!
+//! 3. ZERO THREAD-PLANE TRAVERSAL from the automation-scheduler path, by
+//!    POSITIVE DETECTION. "Zero" is worthless unless the instrument is proven
+//!    able to read non-zero, so the plane is first driven and observed to
+//!    MOVE; only then is the second namespace driven and the plane observed
+//!    unchanged. If the instrument cannot see the plane at all, this FAILS
+//!    CLOSED rather than reporting a comfortable zero.
+//!
+//! 4. BOOT INJECTION IS LIVE. The un-injected unit proof shows a boundary
+//!    REFUSES when nothing is wired. It cannot show the daemon actually wires
+//!    it — an un-injected build would leave production permanently refusing
+//!    with every unit bar green. This drives a real admission through a booted
+//!    daemon and requires it to succeed.
+
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO = join(HERE, "..", "..", "..");
+const EXPECTED_CHECKS = 27;
+
+let passed = 0;
+const failures = [];
+function check(label, condition, detail = "") {
+  if (condition) {
+    passed += 1;
+    console.log(`PASS ${label}${detail ? ` — ${detail}` : ""}`);
+  } else {
+    failures.push(label);
+    console.log(`FAIL ${label}${detail ? ` — ${detail}` : ""}`);
+  }
+}
+
+async function request(base, method, path, body, headers = {}) {
+  const response = await fetch(`${base}${path}`, {
+    method,
+    headers: { "content-type": "application/json", ...headers },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  let parsed = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = null;
+  }
+  return { status: response.status, body: parsed, raw: text };
+}
+
+/// Strip line and block comments so a structural claim is checked against
+/// CODE. Without this the module's own prose satisfies the grep.
+function codeOnly(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("//"))
+    .join("\n");
+}
+
+/// Split code into the part that SHIPS and the `#[cfg(test)]` module.
+///
+/// Tests legitimately construct a handle — that is how the admission core is
+/// exercised at all. The property under proof is that no SHIPPED path can
+/// acquire one, so the split is named here and the test-only exception is
+/// pinned below rather than waved through.
+function shippedAndTest(source) {
+  const marker = source.indexOf("#[cfg(test)]");
+  return marker === -1
+    ? { shipped: source, test: "" }
+    : { shipped: source.slice(0, marker), test: source.slice(marker) };
+}
+
+function declaration(body) {
+  return {
+    event_class_declaration: {
+      admitted_truth_classes: [
+        {
+          class_id: "demo.admitted",
+          payload_schema_ref: "schema://demo/admitted/v1",
+        },
+      ],
+      ephemeral_delivery_classes: [
+        {
+          class_id: "demo.ephemeral",
+          payload_schema_ref: "schema://demo/ephemeral/v1",
+        },
+      ],
+    },
+    ...body,
+  };
+}
+
+async function main() {
+  // ---- 1. structural: the lifted core cannot acquire a handle -------------
+  const corePath = join(REPO, "crates", "agentgres", "src", "event_stream.rs");
+  const coreSource = readFileSync(corePath, "utf8");
+  const coreCode = codeOnly(coreSource);
+  const openerPattern =
+    /spawn_mux_writer|MuxEngine::open|MuxHandle::open|WriterConfig/;
+
+  check(
+    "the comment-stripped opener check is not vacuous",
+    openerPattern.test(coreSource) && coreSource.length > coreCode.length,
+    "the raw source DOES match (its own doc comment names the openers), so a raw grep would be prose matching prose",
+  );
+  const { shipped, test: testModule } = shippedAndTest(coreCode);
+  check(
+    "lifted core has no handle-acquisition path in SHIPPED code",
+    !openerPattern.test(shipped),
+    "0 opener call sites in the part that ships, comments stripped",
+  );
+  check(
+    "the only opener use is inside #[cfg(test)] and is therefore compiled out",
+    openerPattern.test(testModule) && testModule.startsWith("#[cfg(test)]"),
+    "the exception is named and gated, not waved through",
+  );
+  check(
+    "the lifted core is the only admission discipline",
+    !codeOnly(
+      readFileSync(
+        join(
+          REPO,
+          "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs",
+        ),
+        "utf8",
+      ),
+    ).includes("canonical_event_stream_component"),
+    "the binary-module implementation was deleted, not duplicated",
+  );
+
+  // ---- 2. structural: no caller-side idempotency scan survives ------------
+  for (const [label, path] of [
+    ["daemon", "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs"],
+    ["runtime bridge", "crates/services/src/agentic/runtime/event_log_bridge.rs"],
+  ]) {
+    const source = codeOnly(readFileSync(join(REPO, path), "utf8"));
+    check(
+      `no caller-side idempotency scan survives in the ${label}`,
+      !source.includes("existing_event_by_idempotency_key"),
+      "dedup is inherited from admission, not re-implemented",
+    );
+  }
+
+  // ---- 3. the capability surface stays at four operations ----------------
+  const traitBlock = coreCode.slice(
+    coreCode.indexOf("pub trait EventStreamAdmission"),
+  );
+  const traitBody = traitBlock.slice(0, traitBlock.indexOf("\n}"));
+  const traitMethods = (traitBody.match(/\n\s{4}fn\s+\w+/g) || []).map((m) =>
+    m.trim().replace(/^fn\s+/, ""),
+  );
+  check(
+    "the capability surface is exactly four operations",
+    traitMethods.length === 4,
+    `methods=${traitMethods.join(",") || "none"}`,
+  );
+  check(
+    "the four operations are the ruled ones",
+    ["admit_event", "read_head", "admit_lease_transition", "advance_checkpoint"]
+      .every((name) => traitMethods.includes(name)),
+    "a fifth requires a filed record",
+  );
+
+  // ---- live plane --------------------------------------------------------
+  const plane = await startIsolatedPlane({});
+  if (!plane) {
+    console.log("M5_ENVIRONMENTAL_PREREQUISITE_FAILED=daemon_binary_absent");
+    process.exit(2);
+  }
+  try {
+    const principal = {
+      email: "m5-genericity-owner@local",
+      password: "m5-owner-password",
+      principal_id: "usr_m5_genericity_owner",
+    };
+    await request(plane.daemonUrl, "POST", "/v1/hypervisor/principals", principal);
+    const login = await request(plane.daemonUrl, "POST", "/v1/hypervisor/auth/login", {
+      email: principal.email,
+      password: principal.password,
+    });
+    const auth = { authorization: `Bearer ${login.body?.session_token}` };
+    check(
+      "the isolated plane authenticates an owner",
+      typeof login.body?.session_token === "string" &&
+        login.body.session_token.length > 0,
+      `login=${login.status}`,
+    );
+
+    const append = (namespace, tail, key, payload, expectedHead) =>
+      request(
+        plane.daemonUrl,
+        "POST",
+        `/v1/event-streams/${namespace}/${tail}/events`,
+        declaration({
+          class_id: "demo.admitted",
+          idempotency_key: key,
+          recorded_at_ms: 1,
+          payload,
+          ...(expectedHead ? { expected_head: expectedHead } : {}),
+        }),
+        auth,
+      );
+    const readHead = (namespace, tail) =>
+      request(
+        plane.daemonUrl,
+        "GET",
+        `/v1/event-streams/${namespace}/${tail}`,
+        undefined,
+        auth,
+      );
+
+    // ---- 4. BOOT INJECTION IS LIVE ---------------------------------------
+    // The un-injected unit proof shows the boundary refuses. Only a booted
+    // daemon can show the wiring is actually present.
+    const first = await append("thread-orchestration", "s1", "k1", { n: 1 });
+    check(
+      "boot injection is LIVE: a real admission succeeds against a booted daemon",
+      first.status === 200 && typeof first.body?.agentgres_sequence === "number",
+      `status=${first.status} seq=${first.body?.agentgres_sequence}`,
+    );
+    check(
+      "an un-injected build would be visible here, not silent",
+      first.body?.error?.code !== "event_stream_admission_capability_absent",
+      "the capability-absent refusal is the failure this assertion would show",
+    );
+
+    // ---- 5. POSITIVE DETECTION: the thread plane is instrumentable -------
+    const planeAfterFirst = await readHead("thread-orchestration", "s1");
+    const threadSeqBefore = planeAfterFirst.body?.agentgres_sequence;
+    check(
+      "the thread plane is READABLE — the instrument can see it at all",
+      planeAfterFirst.status === 200 && typeof threadSeqBefore === "number",
+      `status=${planeAfterFirst.status} seq=${threadSeqBefore}`,
+    );
+    const second = await append(
+      "thread-orchestration",
+      "s1",
+      "k2",
+      { n: 2 },
+      first.body?.admitted_head?.resulting_head_ref,
+    );
+    const planeMoved = await readHead("thread-orchestration", "s1");
+    check(
+      "the instrument reads NON-ZERO movement when the thread plane IS traversed",
+      second.status === 200 &&
+        planeMoved.body?.agentgres_sequence > threadSeqBefore,
+      `seq ${threadSeqBefore} -> ${planeMoved.body?.agentgres_sequence}`,
+    );
+    const instrumentProven =
+      planeAfterFirst.status === 200 &&
+      typeof threadSeqBefore === "number" &&
+      planeMoved.body?.agentgres_sequence > threadSeqBefore;
+    // FAIL CLOSED: without a proven instrument, "zero traversals" below would
+    // be indistinguishable from "the plane is absent".
+    check(
+      "the zero-traversal assertion has a PROVEN instrument (fails closed otherwise)",
+      instrumentProven,
+      instrumentProven
+        ? "movement observed before zero is claimed"
+        : "instrument unproven — zero below would be meaningless",
+    );
+
+    const threadHeadBeforeScheduler = planeMoved.body?.admitted_head;
+    const threadSeqBeforeScheduler = planeMoved.body?.agentgres_sequence;
+
+    // ---- 6. TWO NAMESPACES traverse identical code ------------------------
+    const scheduler = await append("automation-scheduler", "s1", "k1", { n: 1 });
+    check(
+      "a second, unrelated owner namespace admits through the same path",
+      scheduler.status === 200 &&
+        typeof scheduler.body?.agentgres_sequence === "number",
+      `status=${scheduler.status}`,
+    );
+    const shape = (body) => Object.keys(body || {}).sort().join(",");
+    check(
+      "both namespaces produce structurally identical admitted facts",
+      shape(first.body) === shape(scheduler.body) &&
+        shape(first.body?.admitted_head) === shape(scheduler.body?.admitted_head),
+      `keys=${shape(first.body)}`,
+    );
+    check(
+      "each namespace brands with its OWN namespace and no other",
+      first.body?.stream_id?.includes("thread-orchestration") &&
+        scheduler.body?.stream_id?.includes("automation-scheduler") &&
+        !scheduler.body?.stream_id?.includes("thread-orchestration") &&
+        !JSON.stringify(scheduler.body).includes("thread-orchestration"),
+      `scheduler stream=${scheduler.body?.stream_id}`,
+    );
+    check(
+      "the two namespaces are separate object identities, not one shared chain",
+      first.body?.admitted_head?.operation_ref !==
+        scheduler.body?.admitted_head?.operation_ref,
+      "distinct operation refs",
+    );
+
+    // ---- 7. ZERO THREAD-PLANE TRAVERSAL, now that the instrument is proven -
+    const threadAfterScheduler = await readHead("thread-orchestration", "s1");
+    check(
+      "driving automation-scheduler produced ZERO thread-plane traversals",
+      instrumentProven &&
+        threadAfterScheduler.body?.agentgres_sequence ===
+          threadSeqBeforeScheduler &&
+        threadAfterScheduler.body?.admitted_head?.resulting_head_ref ===
+          threadHeadBeforeScheduler?.resulting_head_ref,
+      `thread seq ${threadSeqBeforeScheduler} -> ${threadAfterScheduler.body?.agentgres_sequence}`,
+    );
+
+    // ---- 8. whole-stream key enforcement, live ----------------------------
+    const walked = [];
+    let head = scheduler.body?.admitted_head?.resulting_head_ref;
+    for (let n = 0; n < 4; n += 1) {
+      const step = await append(
+        "automation-scheduler",
+        "s1",
+        `filler-${n}`,
+        { filler: n },
+        head,
+      );
+      walked.push(step.status);
+      head = step.body?.admitted_head?.resulting_head_ref;
+    }
+    check(
+      "the stream walks forward under expected-head CAS",
+      walked.every((status) => status === 200),
+      `statuses=${walked.join(",")}`,
+    );
+    const replay = await append("automation-scheduler", "s1", "k1", { n: 1 }, head);
+    check(
+      "a duplicate key FIVE events back replays the original, live",
+      replay.status === 200 &&
+        replay.body?.replayed === true &&
+        replay.body?.agentgres_sequence === scheduler.body?.agentgres_sequence,
+      `replayed=${replay.body?.replayed} seq=${replay.body?.agentgres_sequence} original=${scheduler.body?.agentgres_sequence}`,
+    );
+    const conflict = await append(
+      "automation-scheduler",
+      "s1",
+      "k1",
+      { n: 999 },
+      head,
+    );
+    check(
+      "same key with different bytes refuses by its own name",
+      conflict.status === 422 &&
+        conflict.body?.error?.code === "event_stream_same_key_different_bytes",
+      `status=${conflict.status} code=${conflict.body?.error?.code}`,
+    );
+
+    // ---- 9. the event-class line is structural ---------------------------
+    const ephemeral = await request(
+      plane.daemonUrl,
+      "POST",
+      "/v1/event-streams/automation-scheduler/s2/events",
+      declaration({ class_id: "demo.ephemeral", payload: { n: 1 } }),
+      auth,
+    );
+    check(
+      "an ephemeral class mints no sequence, head, root, or receipt",
+      ephemeral.status === 200 &&
+        ephemeral.body?.delivery === "ephemeral" &&
+        ephemeral.body?.agentgres_sequence === undefined &&
+        ephemeral.body?.admitted_head === undefined,
+      `delivery=${ephemeral.body?.delivery}`,
+    );
+    const ephemeralStream = await readHead("automation-scheduler", "s2");
+    check(
+      "ephemeral delivery left NO admitted stream behind",
+      ephemeralStream.status === 404,
+      `status=${ephemeralStream.status}`,
+    );
+    const undeclared = await request(
+      plane.daemonUrl,
+      "POST",
+      "/v1/event-streams/automation-scheduler/s3/events",
+      declaration({ class_id: "demo.unknown", payload: {} }),
+      auth,
+    );
+    check(
+      "an undeclared class refuses rather than defaulting to either side",
+      undeclared.status === 422 &&
+        undeclared.body?.error?.code === "event_class_undeclared",
+      `status=${undeclared.status} code=${undeclared.body?.error?.code}`,
+    );
+
+    // ---- 10. CAS is real -------------------------------------------------
+    const stale = await append(
+      "automation-scheduler",
+      "s1",
+      "stale-key",
+      { n: 1 },
+      scheduler.body?.admitted_head?.resulting_head_ref,
+    );
+    check(
+      "a stale expected head is refused, not silently accepted",
+      stale.status === 409 &&
+        stale.body?.error?.code === "event_stream_expected_head_conflict",
+      `status=${stale.status} code=${stale.body?.error?.code}`,
+    );
+    const noncanonical = await append(
+      "Thread-Orchestration",
+      "s1",
+      "k9",
+      { n: 1 },
+    );
+    check(
+      "a non-canonical owner namespace refuses",
+      noncanonical.status === 422,
+      `status=${noncanonical.status}`,
+    );
+
+    // NOTE — no anonymous-refusal assertions here, deliberately.
+    //
+    // `auth_gate` enforces only when `auth_enforced()` says the deployment
+    // posture requires it, and this isolated plane is local-dev, where
+    // anonymous access is the DESIGNED posture. An assertion that anonymous
+    // reads refuse would have been measuring the plane's posture, not the
+    // gate. The M4 aggregate verifier already proves uniform anonymous
+    // refusal under an exposed posture, byte-identical against a pinned
+    // anchor; restating it weakly here would add a bar that passes for the
+    // wrong reason.
+
+  } finally {
+    await plane.stop();
+  }
+
+  check(
+    "the assertion count is pinned",
+    passed + failures.length === EXPECTED_CHECKS,
+    `ran=${passed + failures.length} expected=${EXPECTED_CHECKS}`,
+  );
+
+  const total = passed + failures.length;
+  console.log(`${passed}/${total} passed`);
+  if (failures.length) {
+    console.log(`M5 event-substrate genericity: FAIL (${failures.join("; ")})`);
+    process.exit(1);
+  }
+  console.log(
+    "M5 event-substrate genericity: PASS (comment-stripped opener check, two-namespace traversal, positive-detection zero-thread-plane, live boot injection)",
+  );
+}
+
+main().catch((error) => {
+  console.log(`M5_ENVIRONMENTAL_PREREQUISITE_FAILED=${error?.message || error}`);
+  process.exit(2);
+});
