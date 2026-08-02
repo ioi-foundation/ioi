@@ -1173,6 +1173,19 @@ fn cursor_seq(
 
 /// Build a one-shot SSE body (the JS `writeSse` contract) over the events with seq
 /// greater than the cursor; 409 if the cursor is beyond the latest seq.
+/// Build the SSE body from DURABLE ADMITTED HISTORY.
+///
+/// This body is not a one-shot stream whose contents vanish once written. The
+/// events come from `replay_runtime_events`, which projects the stream's
+/// admitted Agentgres history, so the same request re-issued returns the same
+/// bytes and a resumed request returns exactly the tail after its cursor.
+///
+/// The resume contract is now EXPLICIT on the wire. Previously a consumer had
+/// to infer where to resume from the last `id:` it happened to parse; a
+/// consumer that dropped the connection mid-body had no durable statement of
+/// where it got to. The response now carries the resume point and the latest
+/// admitted sequence as headers, so resumption is read from the response
+/// rather than reconstructed from it.
 fn sse_events_response(
     events: Vec<Value>,
     params: &HashMap<String, String>,
@@ -1205,10 +1218,20 @@ fn sse_events_response(
         let data = serde_json::to_string(event).unwrap_or_default();
         body.push_str(&format!("id: {id}\nevent: runtime.event\ndata: {data}\n\n"));
     }
+    let delivered_through = events
+        .iter()
+        .map(event_seq)
+        .filter(|seq| *seq > since.unwrap_or(0))
+        .max()
+        .unwrap_or_else(|| since.unwrap_or(0));
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "text/event-stream")
         .header(header::CACHE_CONTROL, "no-cache")
+        // The resume contract, stated rather than inferred.
+        .header("x-ioi-resume-after-seq", delivered_through.to_string())
+        .header("x-ioi-latest-seq", latest_seq.to_string())
+        .header("x-ioi-delivery-source", "durable_admitted_history")
         .body(Body::from(body))
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }

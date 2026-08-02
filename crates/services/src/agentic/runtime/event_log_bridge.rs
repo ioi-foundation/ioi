@@ -374,6 +374,48 @@ pub fn persist_runtime_thread_event_json(
     Ok(Some(admitted))
 }
 
+/// The class an admitted delivery gap is carried under.
+///
+/// A gap is a first-class admitted event, not metadata: it occupies a sequence
+/// on the stream, it is replayed, and a subscriber resuming from a checkpoint
+/// sees it in order alongside the events around it.
+pub const DELIVERY_GAP_CLASS_ID: &str = "runtime.delivery_gap";
+
+/// Admit one delivery gap onto the runtime-orchestration gap stream.
+///
+/// The gap stream is per-owner-namespace rather than per-thread because a
+/// broadcast lag is not attributable to one thread -- the events that were
+/// skipped are exactly the ones nobody can identify.
+pub fn admit_delivery_gap(state_dir: &str, skipped: u64) -> Result<(), String> {
+    let _ = state_dir;
+    let payload = json!({
+        "class_id": DELIVERY_GAP_CLASS_ID,
+        "skipped_event_count": skipped,
+        "outcome": "delivery_gap",
+        "nonclaim": "The skipped events are unrecoverable; this records that they existed and were lost, so a replayed history cannot look complete.",
+    });
+    let tail = super::event_stream_admission::stream_tail("runtime:delivery-gaps");
+    let head = super::event_stream_admission::read_head(
+        super::event_stream_admission::THREAD_ORCHESTRATION_NAMESPACE,
+        &tail,
+    )
+    .map_err(|refusal| refusal.to_string())?;
+    super::event_stream_admission::admit_event(agentgres::event_stream::EventAdmission {
+        owner_namespace: super::event_stream_admission::THREAD_ORCHESTRATION_NAMESPACE,
+        stream_tail: &tail,
+        op_kind: "event_stream.append",
+        expected_head: head.as_ref().map(|projection| projection.head.as_str()),
+        payload: &payload,
+        recorded_at_ms: 0,
+        idem_key: &format!(
+            "delivery-gap-{skipped}-{}",
+            head.as_ref().map(|h| h.seq).unwrap_or(0)
+        ),
+    })
+    .map(|_| ())
+    .map_err(|refusal| refusal.to_string())
+}
+
 /// Subscribe to a runtime [`KernelEvent`](ioi_types::app::KernelEvent) broadcast and
 /// persist each [`KernelEvent::RuntimeThreadEvent`] carrier onto the daemon's event
 /// log at `state_dir`. Other variants are ignored (the typed-receipt mapping is a
@@ -412,7 +454,41 @@ pub async fn run_event_log_bridge(
             Ok(_) => {}
             Err(RecvError::Closed) => break,
             Err(RecvError::Lagged(skipped)) => {
-                tracing::warn!(skipped, "event-log bridge lagged; dropped runtime events");
+                // NEVER a silent drop.
+                //
+                // A broadcast lag means runtime events were produced and are
+                // now unrecoverable from the channel -- this bridge is what
+                // admits them, so nothing else has seen them. Logging a
+                // warning here discarded truth and left the admitted history
+                // looking complete, which is worse than losing the events: a
+                // consumer replaying that history would see no evidence that
+                // anything was missing.
+                //
+                // The gap is therefore ADMITTED as its own typed event, so it
+                // becomes part of the durable stream a subscriber replays and
+                // resumes from. "Gap" is one of this record's named outcomes,
+                // not a log line, and a consumer can now detect it by reading
+                // truth rather than by reading the daemon's stderr.
+                let state_dir = state_dir.clone();
+                let recorded =
+                    tokio::task::spawn_blocking(move || admit_delivery_gap(&state_dir, skipped))
+                        .await;
+                match recorded {
+                    Ok(Ok(())) => {}
+                    Ok(Err(error)) => {
+                        // The gap could not be admitted. This is the one case
+                        // that must be loud AND must not be papered over: the
+                        // stream now has an unrecorded hole.
+                        tracing::error!(
+                            %error, skipped,
+                            "event-log bridge lagged AND could not admit the delivery gap; \
+                             the admitted stream has an unrecorded hole"
+                        );
+                    }
+                    Err(error) => {
+                        tracing::error!(%error, skipped, "delivery-gap admission task panicked");
+                    }
+                }
             }
         }
     }

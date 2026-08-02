@@ -34,7 +34,7 @@ import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");
-const EXPECTED_CHECKS = 43;
+const EXPECTED_CHECKS = 46;
 
 let passed = 0;
 const failures = [];
@@ -633,6 +633,33 @@ async function main() {
       expiring.status === 200 && deliverExpired.status === 409 &&
         deliverExpired.body?.error?.code === "subscription_lease_expired",
       `status=${deliverExpired.status} code=${deliverExpired.body?.error?.code}`,
+    );
+
+
+    // ---- 13. NO SILENT LOSS IS A CONTROL-FLOW FACT (F3) -----------------
+    const bridgeSource = codeOnly(
+      readFileSync(join(REPO, "crates/services/src/agentic/runtime/event_log_bridge.rs"), "utf8"),
+    );
+    check(
+      "a broadcast lag ADMITS a typed gap instead of dropping silently",
+      bridgeSource.includes("admit_delivery_gap") &&
+        !/Lagged\(skipped\)[\s\S]{0,200}?tracing::warn!\(\s*skipped,\s*"event-log bridge lagged; dropped/.test(bridgeSource),
+      "the silent-drop warn is gone and the gap is admitted onto the stream",
+    );
+    check(
+      "the delivery gap is a first-class admitted EVENT, not metadata",
+      bridgeSource.includes("DELIVERY_GAP_CLASS_ID") &&
+        bridgeSource.includes("event_stream.append"),
+      "it occupies a sequence and is replayed like any other event",
+    );
+    const sseSource = codeOnly(
+      readFileSync(join(REPO, "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs"), "utf8"),
+    );
+    check(
+      "the SSE body states its resume contract rather than requiring inference",
+      sseSource.includes("x-ioi-resume-after-seq") &&
+        sseSource.includes("x-ioi-delivery-source"),
+      "resume point and source are read FROM the response, not reconstructed from it",
     );
 
     // NOTE — no anonymous-refusal assertions here, deliberately.
