@@ -2351,6 +2351,22 @@ async fn async_main() -> anyhow::Result<()> {
             post(event_stream_routes::handle_subscription_create),
         )
         .route(
+            "/v1/subscriptions/:owner_namespace/:lease_tail",
+            get(event_stream_routes::handle_subscription_get),
+        )
+        .route(
+            "/v1/subscriptions/:owner_namespace/:lease_tail/checkpoint",
+            post(event_stream_routes::handle_subscription_checkpoint),
+        )
+        .route(
+            "/v1/subscriptions/:owner_namespace/:lease_tail/revoke",
+            post(event_stream_routes::handle_subscription_revoke),
+        )
+        .route(
+            "/v1/subscriptions/:owner_namespace/:lease_tail/delivery",
+            get(event_stream_routes::handle_subscription_delivery),
+        )
+        .route(
             "/v1/goal-orchestration/outcome-rooms",
             get(outcome_room_routes::handle_outcome_rooms_list)
                 .post(outcome_room_routes::handle_outcome_room_create),

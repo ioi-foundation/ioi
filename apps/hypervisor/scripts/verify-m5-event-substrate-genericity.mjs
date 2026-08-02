@@ -34,7 +34,7 @@ import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");
-const EXPECTED_CHECKS = 32;
+const EXPECTED_CHECKS = 43;
 
 let passed = 0;
 const failures = [];
@@ -504,6 +504,135 @@ async function main() {
       "a non-canonical owner namespace refuses",
       noncanonical.status === 422,
       `status=${noncanonical.status}`,
+    );
+
+
+    // ---- 12. THE LEASE PLANE (F2) ---------------------------------------
+    // These assertions exist because the record's positive_proof[0] demands a
+    // leased subscription that survives restart, resumes from its durable
+    // acknowledged checkpoint, and reconstructs exact accepted history. The
+    // previous cut reported complete with none of it implemented.
+    const leaseNs = "automation-scheduler";
+    const created = await request(plane.daemonUrl, "POST", "/v1/subscriptions", {
+      owner_namespace: leaseNs,
+      stream_tail: "s1",
+      subscriber_ref: "subscriber://m5/verifier",
+      lease_tail: "sub_1",
+      permitted_event_class_ids: ["demo.admitted"],
+      max_undelivered_events: 3,
+      recorded_at_ms: 1,
+    }, auth);
+    const REQUIRED_LEASE_FIELDS = [
+      "schema_version", "lease_id", "stream_id", "subscriber_ref", "lease_state",
+      "projection_binding", "backpressure", "admitted_lease_transition",
+    ];
+    const missing = REQUIRED_LEASE_FIELDS.filter(
+      (f) => created.body?.[f] === undefined || created.body?.[f] === null,
+    );
+    check(
+      "the create response carries every REQUIRED field of the declared lease schema",
+      created.status === 200 && missing.length === 0,
+      `status=${created.status} missing=${missing.join(",") || "none"}`,
+    );
+
+    const leaseRead = await request(
+      plane.daemonUrl, "GET", `/v1/subscriptions/${leaseNs}/sub_1`, undefined, auth);
+    check(
+      "a lease is READABLE as admitted truth, not adapter-local state",
+      leaseRead.status === 200 && leaseRead.body?.lease_state === "active",
+      `status=${leaseRead.status} state=${leaseRead.body?.lease_state}`,
+    );
+
+    const deliverFirst = await request(
+      plane.daemonUrl, "GET", `/v1/subscriptions/${leaseNs}/sub_1/delivery`, undefined, auth);
+    check(
+      "delivery serves the stream's admitted events through the lease",
+      deliverFirst.status === 200 && Array.isArray(deliverFirst.body?.events),
+      `status=${deliverFirst.status} events=${deliverFirst.body?.events?.length} pending=${deliverFirst.body?.pending_total}`,
+    );
+    check(
+      "lag resolves to a TYPED OUTCOME bounded by the declared window, never a silent drop",
+      deliverFirst.body?.delivery_outcome === "bounded_by_backpressure_window" ||
+        deliverFirst.body?.delivery_outcome === "drained",
+      `outcome=${deliverFirst.body?.delivery_outcome} window=${deliverFirst.body?.backpressure_window} pending=${deliverFirst.body?.pending_total}`,
+    );
+
+    // Checkpoint substitution: the record names it as a fault that must fail
+    // closed. An arbitrary integer must not become an acknowledged fact.
+    const bogusCheckpoint = await request(
+      plane.daemonUrl, "POST", `/v1/subscriptions/${leaseNs}/sub_1/checkpoint`,
+      { acknowledged_seq: 9999, recorded_at_ms: 2 }, auth);
+    check(
+      "checkpoint substitution refuses: an unadmitted sequence cannot be acknowledged",
+      bogusCheckpoint.status === 422 &&
+        bogusCheckpoint.body?.error?.code === "subscription_checkpoint_not_admitted",
+      `status=${bogusCheckpoint.status} code=${bogusCheckpoint.body?.error?.code}`,
+    );
+
+    const ackSeq = deliverFirst.body?.events?.[0]?.seq;
+    const advanced = await request(
+      plane.daemonUrl, "POST", `/v1/subscriptions/${leaseNs}/sub_1/checkpoint`,
+      { acknowledged_seq: ackSeq, recorded_at_ms: 3 }, auth);
+    check(
+      "a checkpoint advance is an ADMITTED transition, not a scalar the adapter holds",
+      advanced.status === 200 &&
+        advanced.body?.acknowledged_checkpoint?.acknowledged_seq === ackSeq &&
+        typeof advanced.body?.admitted_lease_transition?.operation_ref === "string",
+      `status=${advanced.status} ack=${advanced.body?.acknowledged_checkpoint?.acknowledged_seq} op=${advanced.body?.admitted_lease_transition?.operation_ref?.slice(0, 48)}`,
+    );
+    const rewind = await request(
+      plane.daemonUrl, "POST", `/v1/subscriptions/${leaseNs}/sub_1/checkpoint`,
+      { acknowledged_seq: 0, recorded_at_ms: 4 }, auth);
+    check(
+      "a checkpoint cannot REWIND: re-delivering acknowledged events refuses",
+      rewind.status === 409 &&
+        rewind.body?.error?.code === "subscription_checkpoint_would_rewind",
+      `status=${rewind.status} code=${rewind.body?.error?.code}`,
+    );
+
+    const deliverAfterAck = await request(
+      plane.daemonUrl, "GET", `/v1/subscriptions/${leaseNs}/sub_1/delivery`, undefined, auth);
+    check(
+      "delivery RESUMES FROM THE DURABLE CHECKPOINT, not from the beginning",
+      deliverAfterAck.status === 200 &&
+        deliverAfterAck.body?.delivered_from_checkpoint === ackSeq &&
+        deliverAfterAck.body?.events?.every((e) => e.seq > ackSeq),
+      `from=${deliverAfterAck.body?.delivered_from_checkpoint} first=${deliverAfterAck.body?.events?.[0]?.seq}`,
+    );
+
+    // Revoked lease: delivery under it is UNLEASED delivery and must refuse by
+    // name, not return an empty list. "Delivered nothing" and "may not
+    // deliver" are different facts.
+    const revoked = await request(
+      plane.daemonUrl, "POST", `/v1/subscriptions/${leaseNs}/sub_1/revoke`,
+      { recorded_at_ms: 5 }, auth);
+    check(
+      "revoke is an admitted lease transition",
+      revoked.status === 200 && revoked.body?.lease_state === "revoked",
+      `status=${revoked.status} state=${revoked.body?.lease_state}`,
+    );
+    const deliverRevoked = await request(
+      plane.daemonUrl, "GET", `/v1/subscriptions/${leaseNs}/sub_1/delivery`, undefined, auth);
+    check(
+      "delivery under a REVOKED lease refuses by name rather than returning empty",
+      deliverRevoked.status === 409 &&
+        deliverRevoked.body?.error?.code === "subscription_lease_revoked",
+      `status=${deliverRevoked.status} code=${deliverRevoked.body?.error?.code}`,
+    );
+
+    const expiring = await request(plane.daemonUrl, "POST", "/v1/subscriptions", {
+      owner_namespace: leaseNs, stream_tail: "s1",
+      subscriber_ref: "subscriber://m5/expiring", lease_tail: "sub_exp",
+      permitted_event_class_ids: ["demo.admitted"], max_undelivered_events: 3,
+      expires_at_ms: 1, recorded_at_ms: 1,
+    }, auth);
+    const deliverExpired = await request(
+      plane.daemonUrl, "GET", `/v1/subscriptions/${leaseNs}/sub_exp/delivery`, undefined, auth);
+    check(
+      "delivery past EXPIRY refuses by name",
+      expiring.status === 200 && deliverExpired.status === 409 &&
+        deliverExpired.body?.error?.code === "subscription_lease_expired",
+      `status=${deliverExpired.status} code=${deliverExpired.body?.error?.code}`,
     );
 
     // NOTE — no anonymous-refusal assertions here, deliberately.
