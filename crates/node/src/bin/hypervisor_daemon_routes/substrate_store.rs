@@ -17,6 +17,7 @@
 //! `IOI_SUBSTRATE_DUAL_WRITE_DOMAINS`), which is the pre-promotion
 //! evidence lane proven by `substrate-parity`.
 
+use agentgres::event_stream::AdmissionRefusal;
 use agentgres::mux::{
     spawn_mux_writer_cfg, ExactProjection, MuxAdmitError, MuxEngine, MuxHandle, MuxStatusSnapshot,
     WriterConfig,
@@ -317,19 +318,16 @@ fn lock_existing_writer(_data_dir: &str) -> std::io::Result<Option<()>> {
     ))
 }
 
+/// Confirm the substrate log is durable.
+///
+/// The BODY of this check was lifted to `agentgres::event_stream` on
+/// 2026-08-02 so that one durability discipline — and one fault-injection
+/// hook — serves every admission path. This name survives because the
+/// mechanically frozen M4 room path calls it; it is an adapter over the
+/// lifted function, not a second implementation.
 fn confirm_required_admission_durability(data_dir: &str) -> std::io::Result<()> {
-    if std::env::var("IOI_TEST_FORCE_REQUIRED_ADMISSION_SYNC_FAILURE")
-        .ok()
-        .as_deref()
-        == Some("1")
-    {
-        return Err(std::io::Error::other(
-            "test-forced required-admission durability failure",
-        ));
-    }
-    let dir = engine_dir(data_dir);
-    std::fs::File::open(dir.join("muxlog.bin"))?.sync_all()?;
-    std::fs::File::open(dir)?.sync_all()
+    agentgres::event_stream::confirm_log_durability(&engine_dir(data_dir))
+        .map_err(|refusal| std::io::Error::other(refusal.to_string()))
 }
 
 fn build_op(record_dir: &str, record_id: &str, record: &Value) -> Operation {
@@ -2341,18 +2339,21 @@ pub(crate) fn admit_outcome_room_system_operation(
 // Agentgres transition with an exact expected head; a head conflict is a
 // refusal, never a silent retry.
 
-fn canonical_event_stream_component(value: &str, max_len: usize) -> bool {
-    !value.is_empty()
-        && value.len() <= max_len
-        && !value.contains("..")
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
-}
-
-/// Admit one event append against the exact Agentgres head of one
-/// owner-namespaced stream. `expected_head` None means "this stream must not
-/// yet exist"; Some(head) is compare-and-swap against that exact head.
+/// Steward the process writer handle for one event-stream admission, then
+/// delegate the discipline to `agentgres::event_stream`.
+///
+/// The discipline was LIFTED to the library on 2026-08-02 under
+/// `m5-agentgres-durable-event-subscription-successor` — a move, not a copy:
+/// canonicality gates, idempotent re-projection, the same-key-different-bytes
+/// refusal, head-conflict mapping, durability confirmation, and the
+/// ack-versus-projection cross-check all live there and were deleted from
+/// here in the same commit.
+///
+/// What remains is the one thing the library deliberately CANNOT do: acquire
+/// a handle. `with_current_handle` takes the cross-process writer lock, checks
+/// the log generation, and owns the process-local cache as a single
+/// mechanism — which is why exactly one steward exists per process, and why
+/// the library exposes no opener for anyone to call instead.
 pub(crate) fn admit_event_stream_operation(
     data_dir: &str,
     owner_namespace: &str,
@@ -2362,112 +2363,53 @@ pub(crate) fn admit_event_stream_operation(
     payload: &Value,
     recorded_at_ms: u64,
     idem_key: &str,
-) -> std::io::Result<ExactProjection> {
-    let invalid = |message: &str| {
-        std::io::Error::new(std::io::ErrorKind::InvalidInput, message.to_owned())
-    };
-    if !canonical_event_stream_component(owner_namespace, 96)
-        || !owner_namespace
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_' | b'.'))
-    {
-        return Err(invalid("event stream owner namespace is not canonical"));
-    }
-    if !canonical_event_stream_component(stream_tail, 160) {
-        return Err(invalid("event stream tail is not canonical"));
-    }
-    if op_kind.is_empty()
-        || op_kind.len() > 96
-        || !op_kind.bytes().all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'.')
-        })
-    {
-        return Err(invalid("event stream operation kind is not canonical"));
-    }
-    if expected_head.is_some_and(|head| {
-        !head.strip_prefix("sha256:").is_some_and(|tail| {
-            tail.len() == 64
-                && tail
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
-        })
-    }) {
-        return Err(invalid("event stream expected head is not canonical"));
-    }
-    if idem_key.is_empty() || idem_key.len() > 256 {
-        return Err(invalid("event stream idempotency key is not canonical"));
-    }
-
-    let object_ref = agentgres::refs::event_stream_object_ref(owner_namespace, stream_tail);
-    let domain = agentgres::refs::event_stream_domain(owner_namespace, stream_tail);
-    let operation = Operation {
-        domain: domain.clone(),
-        object_ref: object_ref.clone(),
-        op_kind: op_kind.to_owned(),
-        expected_head: expected_head.map(str::to_owned),
-        expected_absent: expected_head.is_none(),
-        payload: payload.clone(),
-        recorded_at_ms,
-        idem_key: idem_key.to_owned(),
-    };
-
-    with_current_handle(data_dir, |handle| {
-        if let Some(existing) = handle.project_exact(&domain, &object_ref)? {
-            if existing.operation == operation {
-                confirm_required_admission_durability(data_dir)?;
-                return Ok(existing);
-            }
-        }
-        let ack = match handle.admit(operation.clone()) {
-            Ok(ack) => ack,
-            Err(MuxAdmitError::Refused(
-                Refusal::ExpectedHeadConflict { .. } | Refusal::ExpectedAbsentConflict { .. },
-            )) => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::AlreadyExists,
-                    "event stream Agentgres head conflict",
-                ))
-            }
-            Err(error) => {
-                ERRORS.fetch_add(1, Ordering::Relaxed);
-                return Err(std::io::Error::other(format!(
-                    "event stream Agentgres admission failed: {error}"
-                )));
-            }
-        };
-        confirm_required_admission_durability(data_dir)?;
-        let exact = handle.project_exact(&domain, &object_ref)?.ok_or_else(|| {
-            std::io::Error::other("event stream Agentgres admission has no exact projection")
-        })?;
-        if exact.operation != operation
-            || exact.seq != ack.seq
-            || exact.head != ack.new_head
-            || exact.admission_batch_seq != ack.batch_seq
-            || exact.admission_root != ack.root
-        {
-            return Err(std::io::Error::other(
-                "event stream Agentgres projection disagrees with its admission ack",
-            ));
-        }
-        ADMITTED.fetch_add(1, Ordering::Relaxed);
-        Ok(exact)
+) -> Result<ExactProjection, AdmissionRefusal> {
+    let engine = engine_dir(data_dir);
+    let outcome = with_current_handle(data_dir, |handle| {
+        Ok(agentgres::event_stream::admit_event_stream_operation(
+            handle,
+            &engine,
+            agentgres::event_stream::EventAdmission {
+                owner_namespace,
+                stream_tail,
+                op_kind,
+                expected_head,
+                payload,
+                recorded_at_ms,
+                idem_key,
+            },
+        ))
     })
+    .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))?;
+    match outcome {
+        Ok(exact) => {
+            ADMITTED.fetch_add(1, Ordering::Relaxed);
+            Ok(exact)
+        }
+        Err(refusal) => {
+            if matches!(refusal, AdmissionRefusal::SubstrateUnavailable(_)) {
+                ERRORS.fetch_add(1, Ordering::Relaxed);
+            }
+            Err(refusal)
+        }
+    }
 }
 
 /// Read the exact current admitted head for one owner-namespaced stream.
+/// Handle stewardship here; the read discipline in the library.
 pub(crate) fn read_event_stream_operation(
     data_dir: &str,
     owner_namespace: &str,
     stream_tail: &str,
-) -> std::io::Result<Option<ExactProjection>> {
-    if !canonical_event_stream_component(owner_namespace, 96)
-        || !canonical_event_stream_component(stream_tail, 160)
-    {
-        return Ok(None);
-    }
-    let object_ref = agentgres::refs::event_stream_object_ref(owner_namespace, stream_tail);
-    let domain = agentgres::refs::event_stream_domain(owner_namespace, stream_tail);
-    with_current_handle(data_dir, |handle| handle.project_exact(&domain, &object_ref))
+) -> Result<Option<ExactProjection>, AdmissionRefusal> {
+    with_current_handle(data_dir, |handle| {
+        Ok(agentgres::event_stream::read_event_stream_head(
+            handle,
+            owner_namespace,
+            stream_tail,
+        ))
+    })
+    .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))?
 }
 
 /// Read the current canonical head for one bounded OutcomeRoom System.

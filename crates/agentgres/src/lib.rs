@@ -16,6 +16,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod event_stream;
 pub mod mux;
 pub mod refs;
 pub mod replica;

@@ -68,10 +68,10 @@ mod editor_routes;
 mod endgame_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
 mod environment_routes;
-#[path = "hypervisor_daemon_routes/event_stream_routes.rs"]
-mod event_stream_routes;
 #[path = "hypervisor_daemon_routes/eval_suite_routes.rs"]
 mod eval_suite_routes;
+#[path = "hypervisor_daemon_routes/event_stream_routes.rs"]
+mod event_stream_routes;
 #[path = "hypervisor_daemon_routes/feedback_routes.rs"]
 mod feedback_routes;
 #[path = "hypervisor_daemon_routes/foundry_routes.rs"]

@@ -18,6 +18,7 @@
 
 use super::substrate_store;
 use super::{AppError, DaemonState};
+use agentgres::event_stream::AdmissionRefusal;
 use axum::extract::{Path as AxumPath, State};
 use axum::http::StatusCode;
 use axum::Json;
@@ -29,6 +30,30 @@ fn bad(status: StatusCode, code: &str, message: &str) -> AppError {
         status,
         json!({ "error": { "code": code, "message": message } }).to_string(),
     )
+}
+
+/// Map one typed substrate refusal onto the wire.
+///
+/// The refusal VOCABULARY is the library's, not this route's: the code and
+/// message come from `AdmissionRefusal` so that the same failure names itself
+/// identically wherever admission is attempted. A route that reworded the
+/// substrate's refusals would make two callers of one mechanism look like two
+/// mechanisms.
+fn refused(refusal: AdmissionRefusal) -> AppError {
+    let status = match refusal {
+        AdmissionRefusal::HeadConflict => StatusCode::CONFLICT,
+        AdmissionRefusal::CoordinatesNotCanonical(_)
+        | AdmissionRefusal::SameKeyDifferentBytes { .. } => StatusCode::UNPROCESSABLE_ENTITY,
+        // An absent capability is a wiring fault in THIS deployment, not a
+        // client error and not an upstream failure: it is retryable only
+        // after the boundary is wired, so it is reported as unavailable.
+        AdmissionRefusal::CapabilityAbsent => StatusCode::SERVICE_UNAVAILABLE,
+        AdmissionRefusal::DurabilityUnconfirmed(_)
+        | AdmissionRefusal::ProjectionDisagreesWithAck
+        | AdmissionRefusal::SubstrateUnavailable(_) => StatusCode::BAD_GATEWAY,
+    };
+    let message = refusal.to_string();
+    bad(status, refusal.code(), &message)
 }
 
 fn text<'a>(value: &'a Value, key: &str) -> &'a str {
@@ -129,23 +154,7 @@ pub(crate) async fn handle_event_stream_append(
         recorded_at_ms,
         idem_key,
     )
-    .map_err(|error| match error.kind() {
-        std::io::ErrorKind::AlreadyExists => bad(
-            StatusCode::CONFLICT,
-            "event_stream_expected_head_conflict",
-            "the stream advanced past the supplied expected head; re-read and retry against the exact current head",
-        ),
-        std::io::ErrorKind::InvalidInput => bad(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "event_stream_coordinates_not_canonical",
-            "stream coordinates are not canonical",
-        ),
-        _ => bad(
-            StatusCode::BAD_GATEWAY,
-            "event_stream_admission_failed",
-            "the Agentgres admission path refused this append",
-        ),
-    })?;
+    .map_err(refused)?;
 
     Ok(Json(json!({
         "delivery": "admitted",
@@ -171,14 +180,9 @@ pub(crate) async fn handle_event_stream_get(
     State(st): State<Arc<DaemonState>>,
     AxumPath((owner_namespace, stream_tail)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
-    let exact = substrate_store::read_event_stream_operation(&st.data_dir, &owner_namespace, &stream_tail)
-        .map_err(|_| {
-            bad(
-                StatusCode::BAD_GATEWAY,
-                "event_stream_read_failed",
-                "the Agentgres projection could not be read",
-            )
-        })?;
+    let exact =
+        substrate_store::read_event_stream_operation(&st.data_dir, &owner_namespace, &stream_tail)
+            .map_err(refused)?;
     let Some(exact) = exact else {
         return Err(bad(
             StatusCode::NOT_FOUND,
@@ -208,7 +212,12 @@ pub(crate) async fn handle_subscription_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    for required in ["owner_namespace", "stream_tail", "subscriber_ref", "lease_tail"] {
+    for required in [
+        "owner_namespace",
+        "stream_tail",
+        "subscriber_ref",
+        "lease_tail",
+    ] {
         if text(&body, required).is_empty() {
             return Err(bad(
                 StatusCode::BAD_REQUEST,
@@ -223,8 +232,9 @@ pub(crate) async fn handle_subscription_create(
 
     // A lease may only be issued over a stream that actually exists: an
     // unleased delivery is refused, and so is a lease over nothing.
-    let stream = substrate_store::read_event_stream_operation(&st.data_dir, &owner_namespace, &stream_tail)
-        .map_err(|_| bad(StatusCode::BAD_GATEWAY, "event_stream_read_failed", "the Agentgres projection could not be read"))?;
+    let stream =
+        substrate_store::read_event_stream_operation(&st.data_dir, &owner_namespace, &stream_tail)
+            .map_err(refused)?;
     if stream.is_none() {
         return Err(bad(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -264,26 +274,12 @@ pub(crate) async fn handle_subscription_create(
         "subscription_lease.admit",
         body.get("expected_head").and_then(Value::as_str),
         &body,
-        body.get("recorded_at_ms").and_then(Value::as_u64).unwrap_or_default(),
+        body.get("recorded_at_ms")
+            .and_then(Value::as_u64)
+            .unwrap_or_default(),
         &format!("lease-{lease_tail}"),
     )
-    .map_err(|error| match error.kind() {
-        std::io::ErrorKind::AlreadyExists => bad(
-            StatusCode::CONFLICT,
-            "subscription_lease_head_conflict",
-            "the lease advanced past the supplied expected head",
-        ),
-        std::io::ErrorKind::InvalidInput => bad(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "subscription_coordinates_not_canonical",
-            "lease coordinates are not canonical",
-        ),
-        _ => bad(
-            StatusCode::BAD_GATEWAY,
-            "subscription_admission_failed",
-            "the Agentgres admission path refused this lease",
-        ),
-    })?;
+    .map_err(refused)?;
 
     Ok(Json(json!({
         "lease_id": format!("subscription-lease://{lease_tail}"),
