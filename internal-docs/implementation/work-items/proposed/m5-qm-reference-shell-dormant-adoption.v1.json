@@ -1,0 +1,92 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m5-qm-reference-shell-dormant-adoption",
+  "stage_id": "M5",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Adopt the ratified ioi.ai reference-UX seed (github.com/yc-software/qm, MIT) into apps/ioi-ai/ as a DORMANT asset: fork, strip YC branding, retain the MIT license and attribution, rebrand; keep the stack VERBATIM (Lit/Vite/TS/Node/Fastify/Postgres) with no React port. The asset is not served, not rebound, and makes no parity or executable claim."
+  ],
+  "status": "proposed",
+  "objective": "Land the QM reference shell as inert, license-clean, rebranded source under apps/ioi-ai/ so later surface convergence starts from the ratified seed instead of a from-scratch shell. Precedent: the dormant UX seeds preserved by PRs #93-#95 — retained evidence, zero claims. M5_QM_REFERENCE_SHELL_DORMANT_ADOPTION_EXIT=0.",
+  "falsifiable_claim": "The adopted tree carries no YC branding, retains MIT license and attribution, matches the upstream stack verbatim with no React port, is reachable from no serve path, route, registry, or build output, and grants no parity, executable, membership, or product claim.",
+  "selected_profile": "One dormant source adoption under apps/ioi-ai/; no build wiring, no serve wiring, no daemon awareness.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/domains/ioi-ai/control-plane.md"
+  ],
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m5-qm-reference-shell-dormant-adoption",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m5-qm-reference-shell-dormant-adoption.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Owner ruling 2026-08-02 (queued post-#133, executed as the first M5-branch batch): QM is already the ratified ioi.ai reference-UX seed in modules/product-surface-ux-proof.md; m4.md's M4-era prohibition on apps/ioi-ai/ was deliberately left untouched and this record activates nothing during M4's frozen window — the adoption is inert bytes. The executable rebind is a separate record (m5-qm-reference-shell-executable-rebind) sequenced after the orchestration seam and participant closeout.",
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "in_scope": [
+    "Fork, de-brand, retain MIT license + attribution, rebrand, and place the verbatim-stack source under apps/ioi-ai/.",
+    "A provenance note binding the upstream commit adopted and the license retention.",
+    "Proof that no serve path, route, build output, or registry reaches the tree."
+  ],
+  "out_of_scope": [
+    "Serving, rebinding, executing, or making any parity claim.",
+    "Any React port or stack change — the stack is adopted verbatim.",
+    "Any change to m4.md or the frozen M4 surface."
+  ],
+  "implementation_actions": [
+    "Vendor the upstream tree at a pinned commit; strip YC branding; retain LICENSE and attribution; rebrand strings and identifiers.",
+    "Record the upstream pin and license disposition in a provenance file beside the tree.",
+    "Add the dormancy proof: enumerate serve/build/registry surfaces and show none reach apps/ioi-ai/."
+  ],
+  "consequential_effects_and_final_invokers": [],
+  "ordered_product_operator_journey": [],
+  "positive_proof": [
+    "The adopted tree exists, license-clean and rebranded, byte-stable, with the upstream pin recorded, and the dormancy proof shows zero reachability from any serve, build, route, or registry surface."
+  ],
+  "adversarial_or_fault_proof": "Reject any serve/build/registry reachability into apps/ioi-ai/, any residual YC branding, any missing MIT attribution, and any executable or parity language in the adopted tree's own documentation.",
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [
+    "The dormant tree owns nothing and migrates nothing; the rebind record owns every truth crossing when it activates."
+  ],
+  "evidence_index": {
+    "literal_exit": "M5_QM_REFERENCE_SHELL_DORMANT_ADOPTION_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M5/m5-qm-reference-shell-dormant-adoption.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/ux-seeds",
+      "present_when": "current_precedent",
+      "evidence_scope": "the PRs #93-#95 dormant-seed precedent this adoption follows"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "Not served, not rebound, not executable, no parity claim, no product membership, no authority of any kind; the live collaborative frontier remains complementary to Workflow Compositor templates."
+  ],
+  "rollback_or_stop_rule": "Stop if adoption would require serving, rebinding, wiring a build, altering m4.md, or touching the frozen M4 surface; roll back by deleting the dormant tree, which owns nothing.",
+  "source_provenance": "Owner QM seed ruling 2026-08-02 (director session), executed by the implementer as the first M5-branch batch per the post-#133 brief.",
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "5e1899e29b27b43da8d2992fb165bd1847d8e3eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "839bc31447decd49c16ffc0e27e80c29d1b3298d9d9b394418a1ea569a30e3ee",
+    "owners": [
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "92930e5cf1d8b1b063f1d9bf66df2bc4304586878dc1519371aa485c0f7a544c"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/control-plane.md",
+        "sha256": "55a2e9986c1ac83e87327604f10627df132e3f85087845c0383ebe878989c2ef"
+      }
+    ]
+  }
+}

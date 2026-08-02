@@ -84,7 +84,7 @@ only when this census has zero unresolved live seeds.
 
 | Surface | Starting UX | Disposition |
 | --- | --- | --- |
-| ioi.ai Goal Space / Rooms | QM | Reference UX seed for interaction and information-architecture work; rebind to the GoalRun, bounded-System, Agentgres, and typed room-projection owners before any executable or parity claim. |
+| ioi.ai Goal Space / Rooms | QM (github.com/yc-software/qm, MIT) | Reference UX seed for interaction and information-architecture work. Adopted DORMANT into `apps/ioi-ai/` by `m5-qm-reference-shell-dormant-adoption` (de-branded, MIT-retained, stack verbatim, no React port, not served/rebound). Executable rebind to the GoalRun, bounded-System, Agentgres, wallet-network/CapabilityLease, and harness-registry owners is `m5-qm-reference-shell-executable-rebind`, sequenced after the orchestration seam and participant closeout; no executable or parity claim before it verifies. |
 
 QM is an implementation starting point, not an architecture owner, truth store,
 admission path, product-membership grant, or parity result. During M4 the

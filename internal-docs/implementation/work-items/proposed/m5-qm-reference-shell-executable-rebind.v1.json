@@ -1,0 +1,103 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m5-qm-reference-shell-executable-rebind",
+  "stage_id": "M5",
+  "record_role": "implementation_cut",
+  "required_work": [
+    "Rebind the dormant QM reference shell to the canonical owners so it becomes an executable ioi.ai surface: Postgres state to daemon/Agentgres projections, keychain UX to wallet-network/CapabilityLease authority, and harness plugins to the harness registry — with fail-closed states, canonical receipts, and no host-database dependence."
+  ],
+  "status": "proposed",
+  "objective": "Turn the adopted-but-dormant QM shell into a rebound executable surface over the real owners, preserving source context and typed authority, so ioi.ai Goal Space / Rooms runs on canonical truth rather than QM's own Postgres and keychain. M5_QM_REFERENCE_SHELL_EXECUTABLE_REBIND_EXIT=0.",
+  "falsifiable_claim": "Every truth the shell renders resolves to a daemon/Agentgres projection, every authority crossing to a wallet-network/CapabilityLease grant, and every harness to the registry; no QM Postgres row, keychain secret, or plugin path remains a truth, authority, or admission owner, and the surface fails closed when an owner is unavailable.",
+  "selected_profile": "The minimum Goal Space / Rooms journey rebound end to end over the canonical owners for one hosted OutcomeRoom and its GoalRun.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/domains/ioi-ai/control-plane.md",
+    "docs/architecture/foundations/objects/goal-run-execution.md"
+  ],
+  "contract_families": [],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m5-qm-reference-shell-executable-rebind",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m5-qm-reference-shell-executable-rebind.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "current_implementation_evidence": "Owner ruling 2026-08-02: the executable rebind is sequenced AFTER m5-goalrun-thread-orchestration-seam and m5-participant-frontier-result-closeout, because a shell rebound over GoalRun execution and participant/frontier/result truth cannot be proven until those owners are themselves verified. This record is filed proposed and does not execute in the same batch as the dormant adoption.",
+  "dependency_work_item_ids": [
+    "m5-qm-reference-shell-dormant-adoption",
+    "m5-goalrun-thread-orchestration-seam",
+    "m5-participant-frontier-result-closeout"
+  ],
+  "external_gates": [],
+  "in_scope": [
+    "Postgres state to daemon/Agentgres read projections; the shell owns no truth store.",
+    "Keychain UX to wallet-network/CapabilityLease authority crossings with receipts.",
+    "Harness plugins to the harness registry; no plugin path is an admission owner.",
+    "Fail-closed product states for every unavailable owner; policy-filtered read-only projections."
+  ],
+  "out_of_scope": [
+    "Any host-database dependence in the exit portability proof.",
+    "Any second truth, authority, admission, or sequencing owner introduced by the shell.",
+    "Any change to m4.md or the frozen M4 surface."
+  ],
+  "implementation_actions": [
+    "Replace QM's Postgres reads with daemon/Agentgres projection calls behind the same view seams.",
+    "Route every authority crossing through wallet-network/CapabilityLease and render its receipt.",
+    "Resolve harnesses through the registry; delete plugin-path admission.",
+    "Prove fail-closed states for each unavailable owner and policy-filtered read-only projection."
+  ],
+  "consequential_effects_and_final_invokers": [],
+  "ordered_product_operator_journey": [],
+  "positive_proof": [
+    "The rebound Goal Space / Rooms journey renders canonical truth, crosses authority only through leases with receipts, resolves harnesses through the registry, and reconstructs after restart with no host database."
+  ],
+  "adversarial_or_fault_proof": "Reject any surviving QM Postgres/keychain/plugin truth or authority owner, any host-database dependence, any non-fail-closed unavailable-owner state, and any second sequencing owner.",
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [
+    "The dormant adoption is the read-old input; the rebind is write-new against canonical owners; no compatibility layer becomes a second truth owner."
+  ],
+  "evidence_index": {
+    "literal_exit": "M5_QM_REFERENCE_SHELL_EXECUTABLE_REBIND_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M5/m5-qm-reference-shell-executable-rebind.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the served-reference rebind precedent whose owner discipline this record follows"
+    }
+  ],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "Grants no wallet authority by rendering it; closes no other stage; makes no parity claim against QM upstream."
+  ],
+  "rollback_or_stop_rule": "Stop before rebinding if either sequenced dependency is unverified, if the rebind would introduce a second truth/authority/sequencing owner, if it would require host-database dependence, or if it would touch m4.md or the frozen M4 surface; roll back through the affected owner's successor path.",
+  "source_provenance": "Owner QM seed ruling 2026-08-02 (director session), filed by the implementer as the sequenced executable half of the QM adoption.",
+  "canon_snapshot": {
+    "captured_at": "2026-07-30",
+    "captured_at_commit": "5e1899e29b27b43da8d2992fb165bd1847d8e3eb",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "a96d60f3279b6986cabbeed13088166f6504816cb84a3f3ebb5ddf04fcee87fb",
+    "owners": [
+      {
+        "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+        "sha256": "92930e5cf1d8b1b063f1d9bf66df2bc4304586878dc1519371aa485c0f7a544c"
+      },
+      {
+        "path": "docs/architecture/domains/ioi-ai/control-plane.md",
+        "sha256": "55a2e9986c1ac83e87327604f10627df132e3f85087845c0383ebe878989c2ef"
+      },
+      {
+        "path": "docs/architecture/foundations/objects/goal-run-execution.md",
+        "sha256": "adc7f070e32b95e6bad21274fe508aa79d1efea4b42986779e0e918ddc3c6d5e"
+      }
+    ]
+  }
+}
