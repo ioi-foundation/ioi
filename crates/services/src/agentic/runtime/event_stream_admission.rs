@@ -160,4 +160,45 @@ mod tests {
             .expect_err("reads must refuse too; a read fallback is a fallback");
         assert_eq!(read, AdmissionRefusal::CapabilityAbsent);
     }
+
+    // A stream carrying pre-Agentgres history must REFUSE writes and name its
+    // migration successor -- never continue on the legacy spine, and never
+    // recompute the history it already has. Classification is on the presence
+    // of that history, so this drives the real predicate over a real file.
+    #[test]
+    fn a_legacy_stream_is_classified_legacy_and_its_refusal_names_the_successor() {
+        let dir = std::env::temp_dir().join(format!("ioi-homing-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let events = dir.join("events");
+        std::fs::create_dir_all(&events).unwrap();
+        let state_dir = dir.to_string_lossy().to_string();
+
+        // No file at these coordinates: the stream admits.
+        assert_eq!(
+            classify_stream(&state_dir, "thr_new:events"),
+            StreamHoming::Admitted
+        );
+
+        // Pre-existing history: the stream is legacy.
+        let legacy = events.join(format!("{}.jsonl", stream_tail("thr_old:events")));
+        std::fs::write(&legacy, "{\"seq\":1}\n").unwrap();
+        assert_eq!(
+            classify_stream(&state_dir, "thr_old:events"),
+            StreamHoming::Legacy
+        );
+
+        // An EMPTY file is not history. Treating it as legacy would strand a
+        // stream that never carried an event.
+        let empty = events.join(format!("{}.jsonl", stream_tail("thr_empty:events")));
+        std::fs::write(&empty, "").unwrap();
+        assert_eq!(
+            classify_stream(&state_dir, "thr_empty:events"),
+            StreamHoming::Admitted
+        );
+
+        let refusal = unmigrated_refusal("thr_old:events");
+        assert!(refusal.contains(LEGACY_STREAM_MIGRATION_SUCCESSOR));
+        assert!(refusal.contains("refused rather than continued"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

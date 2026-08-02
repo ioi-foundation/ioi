@@ -2475,6 +2475,23 @@ pub(crate) fn admit_event_stream_operation(
     }
 }
 
+/// Read one stream's full admitted history. Daemon-only: the replay path runs
+/// in the process that holds the handle, so it needs no injected permission.
+pub(crate) fn read_event_stream_history(
+    data_dir: &str,
+    owner_namespace: &str,
+    stream_tail: &str,
+) -> Result<Vec<ExactProjection>, AdmissionRefusal> {
+    with_current_handle(data_dir, |handle| {
+        Ok(agentgres::event_stream::read_event_stream_history(
+            handle,
+            owner_namespace,
+            stream_tail,
+        ))
+    })
+    .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))?
+}
+
 /// Read the exact current admitted head for one owner-namespaced stream.
 /// Handle stewardship here; the read discipline in the library.
 pub(crate) fn read_event_stream_operation(

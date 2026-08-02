@@ -213,35 +213,6 @@ fn managed_session_state_digest(sessions: &[Value]) -> String {
 /// — the bridge counterpart of the daemon's idempotency check, so the runtime side
 /// never appends a duplicate line for a logically-identical event (the two writers
 /// share one log file).
-fn existing_event_by_idempotency_key(
-    state_dir: &str,
-    event_stream_id: &str,
-    idempotency_key: &str,
-) -> Option<Value> {
-    if idempotency_key.is_empty() {
-        return None;
-    }
-    let path = Path::new(state_dir)
-        .join("events")
-        .join(format!("{}.jsonl", sha256_hex(event_stream_id)));
-    let contents = fs::read_to_string(&path).ok()?;
-    for line in contents.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-        let Ok(event) = serde_json::from_str::<Value>(line) else {
-            continue;
-        };
-        if event.get("idempotency_key").and_then(Value::as_str) == Some(idempotency_key) {
-            return Some(event);
-        }
-    }
-    None
-}
-
-/// Inject the resolved daemon `thread_id` and its `event_stream_id` into a
-/// session-keyed runtime thread event built by a turn-execution producer.
 fn finalize_thread_routing(event: &mut Value, thread_id: &str) {
     if let Some(object) = event.as_object_mut() {
         object.insert(
@@ -271,10 +242,19 @@ fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> R
     Ok(())
 }
 
-/// Admit a runtime thread event through the kernel (which assigns `seq` from the
-/// stream's `latest_seq`) and append the admitted event to the daemon's log.
-/// Mirrors the daemon's `admit_and_persist_event` so events produced from the
-/// runtime side are indistinguishable on the log from daemon-admitted events.
+/// Admit a runtime thread event onto its stream's Agentgres chain, through
+/// the injected admission capability.
+///
+/// This crate cannot open the substrate: the handle steward lives in the
+/// daemon. So this writer admits through the injection boundary, and when no
+/// capability has been injected it REFUSES — it never reverts to the legacy
+/// append-only log.
+///
+/// Idempotency is not re-implemented here. The whole-stream key check lives
+/// inside admission, so this writer inherits it through the admit it already
+/// calls; the caller-side log scan this function used to perform is deleted.
+/// The per-stream lock is gone with it: race safety comes from the CAS, whose
+/// loser re-reads and re-derives against the winner's admitted fact.
 pub fn admit_and_persist_runtime_event(state_dir: &str, event: Value) -> Result<Value, String> {
     let event_stream_id = event
         .get("event_stream_id")
@@ -284,33 +264,74 @@ pub fn admit_and_persist_runtime_event(state_dir: &str, event: Value) -> Result<
     if event_stream_id.is_empty() {
         return Err("runtime thread event requires event_stream_id".to_string());
     }
-    let idempotency_key = event
+
+    // Classification precedes dispatch, on a determined fact — never on a
+    // failure, which is what would make it a fallback.
+    if super::event_stream_admission::classify_stream(state_dir, &event_stream_id)
+        == super::event_stream_admission::StreamHoming::Legacy
+    {
+        return Err(super::event_stream_admission::unmigrated_refusal(
+            &event_stream_id,
+        ));
+    }
+
+    // The kernel still SHAPES the event; it no longer sequences it.
+    let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+        "event": event,
+        "state_dir": state_dir,
+    }))
+    .map_err(|error| format!("build admission request: {error}"))?;
+    let record = RuntimeKernelService::new()
+        .admit_runtime_thread_event(&request)
+        .map_err(|error| format!("admit runtime thread event: {error:?}"))?;
+    let mut shaped = serde_json::to_value(&record.event)
+        .map_err(|error| format!("serialize admitted event: {error}"))?;
+
+    let idempotency_key = shaped
         .get("idempotency_key")
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
-    // Serialize the dedup-check + kernel admit (latest_seq) + append against the daemon
-    // and any other writer to this stream.
-    with_event_stream_lock(state_dir, &event_stream_id, || {
-        if let Some(existing) =
-            existing_event_by_idempotency_key(state_dir, &event_stream_id, &idempotency_key)
-        {
-            return Ok(existing);
-        }
-        let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
-            "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
-            "event": event,
-            "state_dir": state_dir,
-        }))
-        .map_err(|error| format!("build admission request: {error}"))?;
-        let record = RuntimeKernelService::new()
-            .admit_runtime_thread_event(&request)
-            .map_err(|error| format!("admit runtime thread event: {error:?}"))?;
-        let admitted = serde_json::to_value(&record.event)
-            .map_err(|error| format!("serialize admitted event: {error}"))?;
-        append_event_line(state_dir, &event_stream_id, &admitted)?;
-        Ok(admitted)
-    })
+    if idempotency_key.is_empty() {
+        return Err("an admitted runtime event carries an idempotency key".to_string());
+    }
+    // Discarded before admission so two submissions of one logical event
+    // carry identical bytes: sequence is the substrate's fact, not the
+    // event's content.
+    if let Some(object) = shaped.as_object_mut() {
+        object.remove("seq");
+    }
+
+    let tail = super::event_stream_admission::stream_tail(&event_stream_id);
+    let head = super::event_stream_admission::read_head(
+        super::event_stream_admission::THREAD_ORCHESTRATION_NAMESPACE,
+        &tail,
+    )
+    .map_err(|refusal| refusal.to_string())?;
+    let expected_head = head.as_ref().map(|projection| projection.head.as_str());
+
+    let admitted =
+        super::event_stream_admission::admit_event(agentgres::event_stream::EventAdmission {
+            owner_namespace: super::event_stream_admission::THREAD_ORCHESTRATION_NAMESPACE,
+            stream_tail: &tail,
+            op_kind: "event_stream.append",
+            expected_head,
+            payload: &shaped,
+            recorded_at_ms: shaped
+                .get("at_ms")
+                .and_then(Value::as_u64)
+                .unwrap_or_default(),
+            idem_key: &idempotency_key,
+        })
+        .map_err(|refusal| refusal.to_string())?;
+
+    let mut result = admitted.projection.operation.payload.clone();
+    if let Some(object) = result.as_object_mut() {
+        object.insert("seq".to_string(), json!(admitted.projection.seq));
+        object.insert("replayed".to_string(), json!(admitted.replayed));
+    }
+    Ok(result)
 }
 
 /// Bridge a managed-session snapshot onto the daemon's event log for `session_id`.
