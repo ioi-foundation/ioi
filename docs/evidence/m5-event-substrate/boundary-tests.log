@@ -1,12 +1,12 @@
-IOI_MEASURED_COMMIT=f6c2bcebd4139d2315cea95a45ea9717bb4050d5
-   Compiling ioi-types v0.1.0 (/var/tmp/ioi-wt-final2/crates/types)
-   Compiling ioi-ipc v0.2.0 (/var/tmp/ioi-wt-final2/crates/ipc)
-   Compiling ioi-telemetry v0.1.0 (/var/tmp/ioi-wt-final2/crates/telemetry)
-   Compiling ioi-memory v0.1.0 (/var/tmp/ioi-wt-final2/crates/memory)
-   Compiling xcap v0.0.14 (/var/tmp/ioi-wt-final2/third_party/cargo-patches/xcap-0.0.14)
-   Compiling imap-proto v0.10.2 (/var/tmp/ioi-wt-final2/third_party/cargo-patches/imap-proto-0.10.2)
-   Compiling agentgres v0.1.0 (/var/tmp/ioi-wt-final2/crates/agentgres)
-   Compiling ioi-macros v0.1.0 (/var/tmp/ioi-wt-final2/crates/macros)
+IOI_MEASURED_COMMIT=422aa685e89d246d8f29dac74342fc8c3eff34d0
+   Compiling ioi-types v0.1.0 (/var/tmp/ioi-wt-def/crates/types)
+   Compiling ioi-ipc v0.2.0 (/var/tmp/ioi-wt-def/crates/ipc)
+   Compiling ioi-telemetry v0.1.0 (/var/tmp/ioi-wt-def/crates/telemetry)
+   Compiling xcap v0.0.14 (/var/tmp/ioi-wt-def/third_party/cargo-patches/xcap-0.0.14)
+   Compiling ioi-memory v0.1.0 (/var/tmp/ioi-wt-def/crates/memory)
+   Compiling imap-proto v0.10.2 (/var/tmp/ioi-wt-def/third_party/cargo-patches/imap-proto-0.10.2)
+   Compiling agentgres v0.1.0 (/var/tmp/ioi-wt-def/crates/agentgres)
+   Compiling ioi-macros v0.1.0 (/var/tmp/ioi-wt-def/crates/macros)
    Compiling imap v2.4.1
 warning: structure field `runtimeTruthSource` should have a snake case name
     --> crates/types/src/app/generated/architecture_contracts.rs:4806:9
@@ -118,15 +118,15 @@ warning: structure field `runtimeTruthSource` should have a snake case name
 24237 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
       |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
 
-   Compiling ioi-api v0.1.0 (/var/tmp/ioi-wt-final2/crates/api)
-   Compiling ioi-pii v0.1.0 (/var/tmp/ioi-wt-final2/crates/pii)
+   Compiling ioi-api v0.1.0 (/var/tmp/ioi-wt-def/crates/api)
+   Compiling ioi-pii v0.1.0 (/var/tmp/ioi-wt-def/crates/pii)
 warning: `ioi-types` (lib) generated 18 warnings
-   Compiling ioi-crypto v0.1.0 (/var/tmp/ioi-wt-final2/crates/crypto)
-   Compiling ioi-storage v0.1.0 (/var/tmp/ioi-wt-final2/crates/storage)
-   Compiling ioi-drivers v0.1.0 (/var/tmp/ioi-wt-final2/crates/drivers)
-   Compiling ioi-state v0.1.0 (/var/tmp/ioi-wt-final2/crates/state)
-   Compiling ioi-client v0.2.0 (/var/tmp/ioi-wt-final2/crates/client)
-   Compiling ioi-services v0.1.0 (/var/tmp/ioi-wt-final2/crates/services)
+   Compiling ioi-crypto v0.1.0 (/var/tmp/ioi-wt-def/crates/crypto)
+   Compiling ioi-storage v0.1.0 (/var/tmp/ioi-wt-def/crates/storage)
+   Compiling ioi-drivers v0.1.0 (/var/tmp/ioi-wt-def/crates/drivers)
+   Compiling ioi-state v0.1.0 (/var/tmp/ioi-wt-def/crates/state)
+   Compiling ioi-client v0.2.0 (/var/tmp/ioi-wt-def/crates/client)
+   Compiling ioi-services v0.1.0 (/var/tmp/ioi-wt-def/crates/services)
 warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
   --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
    |
@@ -202,7 +202,7 @@ warning: method `to_value` is never used
 
 warning: `ioi-services` (lib) generated 9 warnings (run `cargo fix --lib -p ioi-services` to apply 1 suggestion)
 warning: `ioi-services` (lib test) generated 2 warnings (2 duplicates)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 49s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 48s
      Running unittests src/lib.rs (target/debug/deps/ioi_services-03bd7f912cc09600)
 
 running 2 tests

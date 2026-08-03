@@ -1,4 +1,4 @@
-IOI_MEASURED_COMMIT=f6c2bcebd4139d2315cea95a45ea9717bb4050d5
+IOI_MEASURED_COMMIT=422aa685e89d246d8f29dac74342fc8c3eff34d0
 PASS the comment-stripped opener check is not vacuous — the raw source DOES match (its own doc comment names the openers), so a raw grep would be prose matching prose
 PASS lifted core has no handle-acquisition path in SHIPPED code — 0 opener call sites in the part that ships, comments stripped
 PASS the only opener use is inside #[cfg(test)] and is therefore compiled out — the exception is named and gated, not waved through
@@ -7,7 +7,7 @@ PASS no caller-side idempotency scan survives in the daemon — dedup is inherit
 PASS no caller-side idempotency scan survives in the runtime bridge — dedup is inherited from admission, not re-implemented
 PASS the capability surface is exactly four operations — methods=admit_event,read_head,admit_lease_transition,advance_checkpoint
 PASS the four operations are the ruled ones — a fifth requires a filed record
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=1099321 port=46691 inode=213870467 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2142459 port=38101 inode=221966536 owned=true
 PASS the isolated plane authenticates an owner — login=200
 PASS a stream is declared once, inside an expected-absent genesis operation — status=200 seq=0
 PASS redeclaration is refused by the substrate's own compare-and-swap — status=409 code=event_stream_already_declared
@@ -52,7 +52,7 @@ PASS lease response keys are pinned byte-for-byte — keys=acknowledged_checkpoi
 PASS delivery response keys are pinned byte-for-byte — keys=backpressure_window,delivered_from_checkpoint,delivery_outcome,events,lease_id,nonclaim,pending_total,resume_after_seq
 PASS a refusal body is byte-identical to its pinned bytes — match=true
 PASS every refusal body carries exactly {error:{code,message}} and nothing else — uniform refusal envelope across six distinct refusals
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=1099964 port=46467 inode=214885461 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2143038 port=46691 inode=221955862 owned=true
 PASS a lease SURVIVES RESTART with its admitted state intact — state=revoked ack=1
 PASS the stream reconstructs EXACT accepted history across restart — head unchanged=true
 PASS the traversal instrument is READABLE — walks=0 admits=17
@@ -60,7 +60,7 @@ PASS the instrument reads NON-ZERO when an admitted append DOES traverse — adm
 PASS an ephemeral append performs ZERO history walks — walks 0 -> 0
 PASS an ephemeral append performs ZERO admissions — admits 18 -> 18
 PASS the ephemeral path resolved its class from steward-held state, not the log — cache hits 15 -> 16
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=1100516 port=37021 inode=214646048 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2143617 port=40667 inode=221971807 owned=true
 PASS an ephemeral append on a COLD (restarted) daemon performs ZERO history walks — walks 0 -> 0 (Codex measured 0 -> 1 before the fix)
 PASS an ephemeral append on a COLD daemon performs ZERO admissions — admits 0 -> 0
 PASS the declaration was hydrated at STEWARD OPEN, not on the delivery path — open-time fills=5, unchanged by delivery
