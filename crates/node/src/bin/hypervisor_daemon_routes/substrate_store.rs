@@ -2462,9 +2462,17 @@ pub(crate) fn remember_declaration(owner_namespace: &str, stream_tail: &str, dec
 
 /// Look up one stream's admitted declaration.
 ///
-/// A hit touches no substrate surface at all. A miss — a stream declared by an
-/// earlier process — performs exactly one history read and then caches, so the
-/// cost is once per stream per process rather than once per append.
+/// THE CONTRACT, as implemented: the declaration projection is rebuilt at
+/// STEWARD OPEN, and this lookup touches no substrate surface on any path. A
+/// hit returns held state. A MISS MEANS THE STREAM WAS NEVER DECLARED, which
+/// the route refuses as `event_stream_undeclared` — it does NOT fall back to a
+/// history read.
+///
+/// The earlier text here described a lazy read that no longer exists, and the
+/// lazy read was itself the defect: it made the ephemeral boundary hold only
+/// for a warm cache, so the first ephemeral append after a restart traversed
+/// Agentgres. Contract prose describing a deleted path is worse than no prose,
+/// because a reader trusts it.
 /// CORRECTNESS PREMISE, STATED SO IT CANNOT LAPSE SILENTLY: this cache NEVER
 /// invalidates, and that is sound only because a declaration is immutable for
 /// the life of its stream — `handle_event_stream_create` refuses redeclaration

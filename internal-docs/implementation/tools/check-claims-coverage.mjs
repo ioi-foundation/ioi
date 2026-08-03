@@ -67,7 +67,26 @@ export function measuredCommit(bytes) {
   return match === null ? null : match[1];
 }
 
-export function evaluate({ recordId, record, manifest, readBytes, packetHead }) {
+/// Real git operations. Injectable so the self-test drives the SAME predicate
+/// production drives — a self-test against a reimplementation proves the
+/// reimplementation.
+export const REAL_GIT = {
+  isAncestor(measured) {
+    try {
+      execSync(`git merge-base --is-ancestor ${measured} HEAD`, { cwd: REPO, stdio: "ignore" });
+      return true;
+    } catch { return false; }
+  },
+  evidenceOnlyDelta(measured) {
+    try {
+      const changed = execSync(`git diff --name-only ${measured} HEAD`, { cwd: REPO })
+        .toString().trim().split("\n").filter(Boolean);
+      return changed.length > 0 && changed.every((f) => f.startsWith("docs/evidence/"));
+    } catch { return false; }
+  },
+};
+
+export function evaluate({ recordId, record, manifest, readBytes, packetHead, git = REAL_GIT }) {
   const findings = [];
   const claims = [];
   for (const field of CLAIM_FIELDS) {
@@ -167,21 +186,20 @@ export function evaluate({ recordId, record, manifest, readBytes, packetHead }) 
           `${recordId}: ${key} retained bytes (${mapping.retained_bytes}) declare no IOI_MEASURED_COMMIT — a log that cannot state its own commit cannot support a claim about one`));
         continue;
       }
-      // FIXPOINT. Evidence that measures HEAD cannot be committed without
-      // changing HEAD, so "embedded sha == HEAD" is unsatisfiable at the
-      // moment the bytes are landed. The rule is kept exact rather than
-      // loosened: the embedded sha may also be an ancestor of HEAD PROVIDED
-      // the only difference between them is retained evidence itself. Any
-      // code, record, or M0 artifact in that delta and the bytes are stale
-      // again -- which is the condition the rule exists to catch.
-      const evidenceOnlyDelta = (from) => {
-        try {
-          const changed = execSync(`git diff --name-only ${from} HEAD`, { cwd: REPO })
-            .toString().trim().split("\n").filter(Boolean);
-          return changed.length > 0 && changed.every((f) => f.startsWith("docs/evidence/"));
-        } catch { return false; }
-      };
-      if (measured !== packetHead && !evidenceOnlyDelta(measured)) {
+      // FIXPOINT, BOTH CLAUSES. Evidence measuring HEAD cannot be committed
+      // without moving HEAD, so "embedded sha == HEAD" is unsatisfiable at the
+      // moment bytes land. The rule is therefore: the embedded sha is accepted
+      // when it is an ANCESTOR of HEAD **and** the entire measured→HEAD delta
+      // is retained evidence.
+      //
+      // Both clauses are enforced. Checking only the delta was a real hole:
+      // `git diff --name-only A HEAD` compares TREES, so any commit with the
+      // right tree difference satisfied it — ancestor or not, and a commit
+      // AHEAD of HEAD satisfies it too. Codex demonstrated it with a synthetic
+      // non-ancestor producing an identical eight-file delta. Tree equality is
+      // not history; the ancestry clause is what ties the bytes to this line
+      // of development.
+      if (measured !== packetHead && !(git.isAncestor(measured) && git.evidenceOnlyDelta(measured))) {
         findings.push(finding("error","claims-coverage",
           `${recordId}: ${key} retained bytes measured ${measured.slice(0,9)} but the packet HEAD is ${packetHead.slice(0,9)} — the evidence is for a different commit`));
         continue;
@@ -281,6 +299,34 @@ function selfTest() {
       readBytes: () => `IOI_MEASURED_COMMIT=${"a".repeat(40)}\n` + goodBytes,
       packetHead: "a".repeat(40),
     }, false],
+    // The fixpoint rule has TWO clauses and both are load-bearing. Codex's
+    // attack shape is the first case: a non-ancestor whose tree delta against
+    // HEAD is evidence-only. Tree equality is not history.
+    ["Codex's attack shape: a NON-ANCESTOR with an evidence-only delta", {
+      manifest: map(),
+      readBytes: () => `IOI_MEASURED_COMMIT=${"c".repeat(40)}\n` + goodBytes,
+      packetHead: "a".repeat(40),
+      git: { isAncestor: () => false, evidenceOnlyDelta: () => true },
+    }, true],
+    // A commit AHEAD of HEAD also has a tree delta and is also not an ancestor.
+    ["a DESCENDANT of HEAD with an evidence-only delta", {
+      manifest: map(),
+      readBytes: () => `IOI_MEASURED_COMMIT=${"d".repeat(40)}\n` + goodBytes,
+      packetHead: "a".repeat(40),
+      git: { isAncestor: () => false, evidenceOnlyDelta: () => true },
+    }, true],
+    ["a valid ANCESTOR with an evidence-only delta is ACCEPTED", {
+      manifest: map(),
+      readBytes: () => `IOI_MEASURED_COMMIT=${"e".repeat(40)}\n` + goodBytes,
+      packetHead: "a".repeat(40),
+      git: { isAncestor: () => true, evidenceOnlyDelta: () => true },
+    }, false],
+    ["an ancestor whose delta carries NON-evidence", {
+      manifest: map(),
+      readBytes: () => `IOI_MEASURED_COMMIT=${"f".repeat(40)}\n` + goodBytes,
+      packetHead: "a".repeat(40),
+      git: { isAncestor: () => true, evidenceOnlyDelta: () => false },
+    }, true],
     ["a mapping for a claim the record does not have", {
       manifest: { claim_coverage: [...map().claim_coverage, { claim_field: "positive_proof", claim_index: 9, check_name: "covers-claim-one", retained_bytes: "good.log" }] },
       readBytes: reader,
