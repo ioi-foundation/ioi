@@ -46,6 +46,8 @@ test("pre-next-leg propagates a compositor-tier failure", () => {
     "architecture-contract-bar",
     "agentgres-ref-minting-boundary",
     "shared-schema-def-byte-identity",
+    "attestation-chain-append-only",
+    "attestation-chain-integration",
     "system-genesis-compiler",
     "architecture-docs",
     "work-items",

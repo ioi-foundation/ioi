@@ -54,6 +54,22 @@ export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
     command: process.execPath,
     args: Object.freeze(["scripts/check-shared-schema-defs.mjs"]),
   }),
+  // Wired 2026-08-03. This bar existed for three rounds with NO tracked caller
+  // -- a manually retained log is not a per-push control, and a control nobody
+  // runs is documentation. That is the written-but-unenforced class this
+  // program already filed a successor about
+  // (m0-nonenforcing-check-closure-successor), recurring in a bar built inside
+  // this very cut.
+  Object.freeze({
+    id: "attestation-chain-append-only",
+    command: process.execPath,
+    args: Object.freeze(["scripts/check-attestation-chain.mjs"]),
+  }),
+  Object.freeze({
+    id: "attestation-chain-integration",
+    command: process.execPath,
+    args: Object.freeze(["scripts/test-attestation-chain-integration.mjs"]),
+  }),
   Object.freeze({
     id: "system-genesis-compiler",
     command: "npm",

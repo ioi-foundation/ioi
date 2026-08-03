@@ -56,7 +56,7 @@ thing I edited, which is why the head must be appended past and never edited.
 | # | Finding | Disposition | Commit | Standing check |
 |---|---|---|---|---|
 | R4 | **The gate enforced half its own rule.** The rule is ancestor **and** complete-evidence-delta; only the delta was checked. `git diff --name-only A HEAD` compares trees, so any commit with the right tree difference passed — non-ancestor or descendant. | **Fixed.** Both clauses bind. Git ops are injectable so the self-test drives the production predicate. | `45d280ee7` | Four load-bearing cases incl. acceptance; self-test 11 → 15. Proven on a **real** synthetic non-ancestor (422aa685e's tree on an unrelated parent): without the clause its forged bytes were accepted **7/7**; with it, refused. |
-| R5 | **Retained packet stated the superseded rule** at four sites. The executable rule had moved past its prose, and a reader trusting the prose would rebuild the unsatisfiable version. | **Fixed** at all four. | `45d280ee7` | Ledger: `prose-states-superseded-rule` |
+| R5 | **Retained packet stated the superseded rule** at four sites. The executable rule had moved past its prose, and a reader trusting the prose would rebuild the unsatisfiable version. | **Fixed at three of four at `45d280ee7`; the fourth (`check-claims-coverage.mjs:59`) survived and was fixed at `c76c33450` under R9.** This line previously read "Fixed at all four", which was false when written — the second false "corrected" claim about the same file. | `45d280ee7`, `c76c33450` | Ledger: `prose-states-superseded-rule` |
 | R6 | **Cache correctness-premise comment described the deleted lazy read.** | **Fixed** to the actual contract: hydration at steward open, a miss means never declared, no delivery-time substrate access. | `45d280ee7` | The site where the premise must be exactly right |
 
 ## Re-review findings (Codex, fourth pass) and what the round surfaced
@@ -121,6 +121,13 @@ it crashed and reported `0/0`. Worse, `RUN=$?` captured a trailing `echo`, so a
 **crashed verifier was recorded as exit 0**. That is report-versus-bytes wearing
 shell clothes. The first attempt was discarded rather than reported. Ledger:
 `recorded-verdict-not-measured-verdict`.
+
+### The rule that ends this class
+
+Any claim that a disposition line was changed **quotes the changed bytes in the
+report**. A quote cannot be stale-claimed; a summary can. This entry is the
+first under that rule, and the quoted before/after is in the commit message
+that changed it.
 
 ## Defects the gates caught in already-committed code
 

@@ -133,7 +133,13 @@ async function main() {
   if (previous !== null) {
     const heldBefore = (sequence, bytes) => {
       try {
-        const revs = execSync(`git rev-list --max-count=60 HEAD -- ${ANCHOR}`, { cwd: REPO })
+        // HEAD^ AND ITS ANCESTORS — never HEAD. The commit under evaluation
+        // may not vouch for its own bytes. Searching from HEAD let a commit
+        // containing novel rewritten bytes prove they "were held before" by
+        // pointing at itself: self-attestation, the invisible-evidence class
+        // at the git layer. Restoration legality is a fact about history
+        // BEFORE this commit, so that is the only history consulted.
+        const revs = execSync(`git rev-list --max-count=60 HEAD^ -- ${ANCHOR}`, { cwd: REPO })
           .toString().trim().split("\n").filter(Boolean);
         return revs.some((rev) => {
           try {
