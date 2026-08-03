@@ -1,11 +1,12 @@
-   Compiling ioi-types v0.1.0 (/var/tmp/ioi-wt-packet/crates/types)
-   Compiling ioi-ipc v0.2.0 (/var/tmp/ioi-wt-packet/crates/ipc)
-   Compiling ioi-telemetry v0.1.0 (/var/tmp/ioi-wt-packet/crates/telemetry)
-   Compiling xcap v0.0.14 (/var/tmp/ioi-wt-packet/third_party/cargo-patches/xcap-0.0.14)
-   Compiling ioi-memory v0.1.0 (/var/tmp/ioi-wt-packet/crates/memory)
-   Compiling imap-proto v0.10.2 (/var/tmp/ioi-wt-packet/third_party/cargo-patches/imap-proto-0.10.2)
-   Compiling agentgres v0.1.0 (/var/tmp/ioi-wt-packet/crates/agentgres)
-   Compiling ioi-macros v0.1.0 (/var/tmp/ioi-wt-packet/crates/macros)
+IOI_MEASURED_COMMIT=f6c2bcebd4139d2315cea95a45ea9717bb4050d5
+   Compiling ioi-types v0.1.0 (/var/tmp/ioi-wt-final2/crates/types)
+   Compiling ioi-ipc v0.2.0 (/var/tmp/ioi-wt-final2/crates/ipc)
+   Compiling ioi-telemetry v0.1.0 (/var/tmp/ioi-wt-final2/crates/telemetry)
+   Compiling ioi-memory v0.1.0 (/var/tmp/ioi-wt-final2/crates/memory)
+   Compiling xcap v0.0.14 (/var/tmp/ioi-wt-final2/third_party/cargo-patches/xcap-0.0.14)
+   Compiling imap-proto v0.10.2 (/var/tmp/ioi-wt-final2/third_party/cargo-patches/imap-proto-0.10.2)
+   Compiling agentgres v0.1.0 (/var/tmp/ioi-wt-final2/crates/agentgres)
+   Compiling ioi-macros v0.1.0 (/var/tmp/ioi-wt-final2/crates/macros)
    Compiling imap v2.4.1
 warning: structure field `runtimeTruthSource` should have a snake case name
     --> crates/types/src/app/generated/architecture_contracts.rs:4806:9
@@ -117,15 +118,15 @@ warning: structure field `runtimeTruthSource` should have a snake case name
 24237 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
       |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
 
-   Compiling ioi-api v0.1.0 (/var/tmp/ioi-wt-packet/crates/api)
-   Compiling ioi-pii v0.1.0 (/var/tmp/ioi-wt-packet/crates/pii)
+   Compiling ioi-api v0.1.0 (/var/tmp/ioi-wt-final2/crates/api)
+   Compiling ioi-pii v0.1.0 (/var/tmp/ioi-wt-final2/crates/pii)
 warning: `ioi-types` (lib) generated 18 warnings
-   Compiling ioi-crypto v0.1.0 (/var/tmp/ioi-wt-packet/crates/crypto)
-   Compiling ioi-storage v0.1.0 (/var/tmp/ioi-wt-packet/crates/storage)
-   Compiling ioi-drivers v0.1.0 (/var/tmp/ioi-wt-packet/crates/drivers)
-   Compiling ioi-state v0.1.0 (/var/tmp/ioi-wt-packet/crates/state)
-   Compiling ioi-client v0.2.0 (/var/tmp/ioi-wt-packet/crates/client)
-   Compiling ioi-services v0.1.0 (/var/tmp/ioi-wt-packet/crates/services)
+   Compiling ioi-crypto v0.1.0 (/var/tmp/ioi-wt-final2/crates/crypto)
+   Compiling ioi-storage v0.1.0 (/var/tmp/ioi-wt-final2/crates/storage)
+   Compiling ioi-drivers v0.1.0 (/var/tmp/ioi-wt-final2/crates/drivers)
+   Compiling ioi-state v0.1.0 (/var/tmp/ioi-wt-final2/crates/state)
+   Compiling ioi-client v0.2.0 (/var/tmp/ioi-wt-final2/crates/client)
+   Compiling ioi-services v0.1.0 (/var/tmp/ioi-wt-final2/crates/services)
 warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
   --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
    |
@@ -201,8 +202,8 @@ warning: method `to_value` is never used
 
 warning: `ioi-services` (lib) generated 9 warnings (run `cargo fix --lib -p ioi-services` to apply 1 suggestion)
 warning: `ioi-services` (lib test) generated 2 warnings (2 duplicates)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 06s
-     Running unittests src/lib.rs (target/debug/deps/ioi_services-596857763e91d55f)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 49s
+     Running unittests src/lib.rs (target/debug/deps/ioi_services-03bd7f912cc09600)
 
 running 2 tests
 test agentic::runtime::event_stream_admission::tests::an_uninjected_process_refuses_and_never_falls_back ... ok
@@ -210,49 +211,49 @@ test agentic::runtime::event_stream_admission::tests::a_legacy_stream_is_classif
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 3530 filtered out; finished in 0.00s
 
-     Running tests/agent_runtime_anti_cheat.rs (target/debug/deps/agent_runtime_anti_cheat-18e94dde47e5fec8)
+     Running tests/agent_runtime_anti_cheat.rs (target/debug/deps/agent_runtime_anti_cheat-8b56303ff07d3c3d)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
 
-     Running tests/bounded_runtime_invariants.rs (target/debug/deps/bounded_runtime_invariants-3accb44b97ca402f)
+     Running tests/bounded_runtime_invariants.rs (target/debug/deps/bounded_runtime_invariants-8c2fcf1123fcdf51)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
 
-     Running tests/envelope_integration.rs (target/debug/deps/envelope_integration-e429d04f2ae42929)
+     Running tests/envelope_integration.rs (target/debug/deps/envelope_integration-6d9e08e3d1d1ecfd)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
 
-     Running tests/m2_session_chain_contract_proofs.rs (target/debug/deps/m2_session_chain_contract_proofs-7580292d46325c03)
+     Running tests/m2_session_chain_contract_proofs.rs (target/debug/deps/m2_session_chain_contract_proofs-8c8927caef5db523)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
 
-     Running tests/m2_storage_contract_proofs.rs (target/debug/deps/m2_storage_contract_proofs-44a54c44f44646ae)
+     Running tests/m2_storage_contract_proofs.rs (target/debug/deps/m2_storage_contract_proofs-06a06aedb9c5ccb8)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
 
-     Running tests/pii_hard_gates.rs (target/debug/deps/pii_hard_gates-70338561d623ab65)
+     Running tests/pii_hard_gates.rs (target/debug/deps/pii_hard_gates-b60563dce9328815)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
 
-     Running tests/pii_metrics.rs (target/debug/deps/pii_metrics-8573609a7ba2b139)
+     Running tests/pii_metrics.rs (target/debug/deps/pii_metrics-01623bccc5e67c5c)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
 
-     Running tests/timer_planner_live_e2e.rs (target/debug/deps/timer_planner_live_e2e-a8973e4dacfb95fa)
+     Running tests/timer_planner_live_e2e.rs (target/debug/deps/timer_planner_live_e2e-d2ab16a9b481c044)
 
 running 0 tests
 

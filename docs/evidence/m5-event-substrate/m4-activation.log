@@ -1,7 +1,8 @@
-   Compiling ioi-types v0.1.0 (/var/tmp/ioi-wt-packet/crates/types)
-   Compiling ioi-telemetry v0.1.0 (/var/tmp/ioi-wt-packet/crates/telemetry)
-   Compiling zk-types v0.1.0 (/var/tmp/ioi-wt-packet/crates/plugins/zk-types)
-   Compiling ioi-node v0.1.0 (/var/tmp/ioi-wt-packet/crates/node)
+IOI_MEASURED_COMMIT=f6c2bcebd4139d2315cea95a45ea9717bb4050d5
+   Compiling ioi-types v0.1.0 (/var/tmp/ioi-wt-final2/crates/types)
+   Compiling ioi-telemetry v0.1.0 (/var/tmp/ioi-wt-final2/crates/telemetry)
+   Compiling zk-types v0.1.0 (/var/tmp/ioi-wt-final2/crates/plugins/zk-types)
+   Compiling ioi-node v0.1.0 (/var/tmp/ioi-wt-final2/crates/node)
 warning: structure field `runtimeTruthSource` should have a snake case name
     --> crates/types/src/app/generated/architecture_contracts.rs:4806:9
      |
@@ -112,18 +113,18 @@ warning: structure field `runtimeTruthSource` should have a snake case name
 24237 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
       |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
 
-   Compiling ioi-api v0.1.0 (/var/tmp/ioi-wt-packet/crates/api)
-   Compiling ioi-pii v0.1.0 (/var/tmp/ioi-wt-packet/crates/pii)
+   Compiling ioi-api v0.1.0 (/var/tmp/ioi-wt-final2/crates/api)
+   Compiling ioi-pii v0.1.0 (/var/tmp/ioi-wt-final2/crates/pii)
 warning: `ioi-types` (lib) generated 18 warnings
-   Compiling ioi-crypto v0.1.0 (/var/tmp/ioi-wt-packet/crates/crypto)
-   Compiling ioi-storage v0.1.0 (/var/tmp/ioi-wt-packet/crates/storage)
-   Compiling zk-driver-succinct v0.1.0 (/var/tmp/ioi-wt-packet/crates/plugins/zk-driver-succinct)
-   Compiling ioi-system v0.1.0 (/var/tmp/ioi-wt-packet/crates/system)
-   Compiling ioi-ipc v0.2.0 (/var/tmp/ioi-wt-packet/crates/ipc)
-   Compiling ioi-drivers v0.1.0 (/var/tmp/ioi-wt-packet/crates/drivers)
-   Compiling ioi-state v0.1.0 (/var/tmp/ioi-wt-packet/crates/state)
-   Compiling ioi-client v0.2.0 (/var/tmp/ioi-wt-packet/crates/client)
-   Compiling ioi-services v0.1.0 (/var/tmp/ioi-wt-packet/crates/services)
+   Compiling ioi-crypto v0.1.0 (/var/tmp/ioi-wt-final2/crates/crypto)
+   Compiling ioi-storage v0.1.0 (/var/tmp/ioi-wt-final2/crates/storage)
+   Compiling zk-driver-succinct v0.1.0 (/var/tmp/ioi-wt-final2/crates/plugins/zk-driver-succinct)
+   Compiling ioi-system v0.1.0 (/var/tmp/ioi-wt-final2/crates/system)
+   Compiling ioi-ipc v0.2.0 (/var/tmp/ioi-wt-final2/crates/ipc)
+   Compiling ioi-drivers v0.1.0 (/var/tmp/ioi-wt-final2/crates/drivers)
+   Compiling ioi-state v0.1.0 (/var/tmp/ioi-wt-final2/crates/state)
+   Compiling ioi-client v0.2.0 (/var/tmp/ioi-wt-final2/crates/client)
+   Compiling ioi-services v0.1.0 (/var/tmp/ioi-wt-final2/crates/services)
 warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
   --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
    |
@@ -197,11 +198,11 @@ warning: method `to_value` is never used
 137 |     fn to_value(&self) -> Value {
     |        ^^^^^^^^
 
-   Compiling ioi-tx v0.1.0 (/var/tmp/ioi-wt-packet/crates/tx)
-   Compiling ioi-consensus v0.1.0 (/var/tmp/ioi-wt-packet/crates/consensus)
-   Compiling ioi-networking v0.1.0 (/var/tmp/ioi-wt-packet/crates/networking)
-   Compiling ioi-execution v0.1.0 (/var/tmp/ioi-wt-packet/crates/execution)
-   Compiling ioi-validator v0.1.0 (/var/tmp/ioi-wt-packet/crates/validator)
+   Compiling ioi-tx v0.1.0 (/var/tmp/ioi-wt-final2/crates/tx)
+   Compiling ioi-consensus v0.1.0 (/var/tmp/ioi-wt-final2/crates/consensus)
+   Compiling ioi-networking v0.1.0 (/var/tmp/ioi-wt-final2/crates/networking)
+   Compiling ioi-execution v0.1.0 (/var/tmp/ioi-wt-final2/crates/execution)
+   Compiling ioi-validator v0.1.0 (/var/tmp/ioi-wt-final2/crates/validator)
 warning: `ioi-services` (lib) generated 9 warnings (run `cargo fix --lib -p ioi-services` to apply 1 suggestion)
 warning: unused import: `remove_record`
   --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:32:55
@@ -212,28 +213,28 @@ warning: unused import: `remove_record`
    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
 
 warning: unnecessary parentheses around closure body
-    --> crates/node/src/bin/hypervisor-daemon.rs:4918:22
+    --> crates/node/src/bin/hypervisor-daemon.rs:4927:22
      |
-4918 |     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+4927 |     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
      |                      ^                                                              ^
      |
      = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
 help: remove these parentheses
      |
-4918 -     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
-4918 +     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+4927 -     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+4927 +     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
      |
 
 warning: unnecessary parentheses around closure body
-    --> crates/node/src/bin/hypervisor-daemon.rs:4958:22
+    --> crates/node/src/bin/hypervisor-daemon.rs:4967:22
      |
-4958 |     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+4967 |     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
      |                      ^                                                              ^
      |
 help: remove these parentheses
      |
-4958 -     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
-4958 +     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+4967 -     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+4967 +     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
      |
 
 warning: variable does not need to be mutable
@@ -524,17 +525,17 @@ warning: field `transitions` is never read
     |         ^^^^^^^^^^^
 
 warning: `ioi-node` (bin "hypervisor-daemon") generated 36 warnings (run `cargo fix --bin "hypervisor-daemon" -p ioi-node` to apply 7 suggestions)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2m 14s
-M4_GOALRUN_ACTIVATION_DAEMON_BINARY_SHA256=sha256:aaa864176a38787c5b08c37ffdcc45d8e63ff3756cefa712acdcef6483434840
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=3470447 port=33791 inode=202325619 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=3486976 port=46751 inode=202787847 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=serve pid=3487020 port=43757 inode=202500719 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=3488473 port=44863 inode=202794418 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=3488693 port=37557 inode=202325858 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=3488995 port=44473 inode=202784678 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=3507415 port=35661 inode=202919130 owned=true
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 51s
+M4_GOALRUN_ACTIVATION_DAEMON_BINARY_SHA256=sha256:6d44b0af7a85411671f4ae65313553d5a60514401343e79069c30d9204c08304
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=1236950 port=33245 inode=215786549 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=1253582 port=44473 inode=215708086 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=serve pid=1253735 port=45779 inode=215685065 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=1255209 port=37007 inode=215685112 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=1255429 port=45299 inode=215940997 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=1255721 port=36007 inode=215786671 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=1274534 port=39703 inode=216071015 owned=true
 PASS startup leaves retired M3 legacy WorkResult bytes inert: never listed, never folded into the canonical registry, never rewritten, never deleted — list=200/listed=false canonical=0 legacy=1 legacy_bytes_unchanged=true
-PASS draft persists typed ioi_goal_draft and an origin tag cannot bypass activation — draft=201/undefined bypass=422/goal_run_activation_required_for_origin durable_tree=sha256:b7bc9693f921c25dc12d39c1b05d2c07a6ee9b32b122c798955b3f099781acdc->sha256:b7bc9693f921c25dc12d39c1b05d2c07a6ee9b32b122c798955b3f099781acdc
+PASS draft persists typed ioi_goal_draft and an origin tag cannot bypass activation — draft=201/undefined bypass=422/goal_run_activation_required_for_origin durable_tree=sha256:c24807cfafb01a18f69d5345a32085a73457070fa1953223b6f7e1709072af4a->sha256:c24807cfafb01a18f69d5345a32085a73457070fa1953223b6f7e1709072af4a
 PASS draft activation conforms to the registered durable contract — No errors
 PASS daemon resolves owner, source, and an immutable content-addressed profile closure
 PASS caller profile injection refuses before activation persistence — 400/goal_run_activation_draft_request_invalid
@@ -557,19 +558,19 @@ PASS activation admission receipt validates its registered contract and both por
 PASS authorized submit retry replays instead of minting a second GoalRun — 200/undefined
 PASS a prefix-shaped state ref without local owner evidence refuses replay — 409/goal_run_activation_state_evidence_missing
 PASS tampered admitted-state bytes refuse before projection — 409/goal_run_activation_state_integrity_failure
-PASS zero-execution GoalRun start refuses before reservation, dependency resolution, or receipt effects — 422/goal_run_execution_budget_exhausted tree=sha256:c0ff14bb8e2d1c53d36a304fe19e0b7f2fcc016ef6cb2bf3658eaa8ebfc12f3a->sha256:c0ff14bb8e2d1c53d36a304fe19e0b7f2fcc016ef6cb2bf3658eaa8ebfc12f3a
-PASS zero-execution GoalRun refuses WorkResult creation before record, backlink, or receipt effects — 422/goal_run_execution_budget_exhausted tree=sha256:c0ff14bb8e2d1c53d36a304fe19e0b7f2fcc016ef6cb2bf3658eaa8ebfc12f3a->sha256:c0ff14bb8e2d1c53d36a304fe19e0b7f2fcc016ef6cb2bf3658eaa8ebfc12f3a
-PASS zero-execution GoalRun refuses OutcomeDelta creation before record, backlink, or receipt effects — 422/goal_run_execution_budget_exhausted tree=sha256:c0ff14bb8e2d1c53d36a304fe19e0b7f2fcc016ef6cb2bf3658eaa8ebfc12f3a->sha256:c0ff14bb8e2d1c53d36a304fe19e0b7f2fcc016ef6cb2bf3658eaa8ebfc12f3a
+PASS zero-execution GoalRun start refuses before reservation, dependency resolution, or receipt effects — 422/goal_run_execution_budget_exhausted tree=sha256:42200487555bbbfdccfae2de7ab32cc0061a5f8116f05bdc43fa10894f4d990b->sha256:42200487555bbbfdccfae2de7ab32cc0061a5f8116f05bdc43fa10894f4d990b
+PASS zero-execution GoalRun refuses WorkResult creation before record, backlink, or receipt effects — 422/goal_run_execution_budget_exhausted tree=sha256:42200487555bbbfdccfae2de7ab32cc0061a5f8116f05bdc43fa10894f4d990b->sha256:42200487555bbbfdccfae2de7ab32cc0061a5f8116f05bdc43fa10894f4d990b
+PASS zero-execution GoalRun refuses OutcomeDelta creation before record, backlink, or receipt effects — 422/goal_run_execution_budget_exhausted tree=sha256:42200487555bbbfdccfae2de7ab32cc0061a5f8116f05bdc43fa10894f4d990b->sha256:42200487555bbbfdccfae2de7ab32cc0061a5f8116f05bdc43fa10894f4d990b
 PASS missing exact execution-ceiling release refuses before GoalRun admission — 409/goal_run_execution_ceiling_missing
 PASS tampered execution-ceiling bytes refuse their stale content address — 409/goal_run_execution_ceiling_contract_invalid
 PASS widened or defaulted execution ceilings refuse instead of inferring invocation capacity — widened=409/goal_run_execution_ceiling_integrity_failure defaulted=409/goal_run_execution_ceiling_contract_invalid
-PASS generic WorkResult and OutcomeDelta routes cannot bypass room ownership or the zero-execution GoalRun ceiling — zero=422/goal_run_execution_budget_exhausted,422/goal_run_execution_budget_exhausted room=422/422,422/422 registryDelta=0/0 durable_tree=sha256:2ad13200fea8f565662e081a85f6a21b235a49274634d2bbf9fbd0aeb51399c1->sha256:2ad13200fea8f565662e081a85f6a21b235a49274634d2bbf9fbd0aeb51399c1
+PASS generic WorkResult and OutcomeDelta routes cannot bypass room ownership or the zero-execution GoalRun ceiling — zero=422/goal_run_execution_budget_exhausted,422/goal_run_execution_budget_exhausted room=422/422,422/422 registryDelta=0/0 durable_tree=sha256:188777fec1663cb4596aeb3f7cfb3d1dafa55bc7e043fe7b25c2df44c292258b->sha256:188777fec1663cb4596aeb3f7cfb3d1dafa55bc7e043fe7b25c2df44c292258b
 PASS restart replays activation, GoalRun root/head, and receipts from durable state — 200/undefined
 PASS malformed GoalRun sibling makes reads, activation replay, and mutation fail closed — list=500/goal_run_registry_unreadable get=500/goal_run_registry_unreadable activation=409/goal_run_activation_goal_registry_unreadable mutation=500/goal_run_registry_unreadable
 PASS duplicate canonical GoalRun reference refuses complete-census projection — list=500/goal_run_registry_unreadable activation=409/goal_run_activation_goal_registry_unreadable
 PASS restart preserves the resultless GoalRun and creates no invocation result, delta, backlink, or receipt — 200/results=0/deltas=0
 PASS authenticated GoalRun creation cannot bind another owner's Session/workspace — 202/403/goal_run_target_session_owner_mismatch
-PASS activation replay and submit authorize before existence and expose one owner-mismatch refusal class — owner=200 existing_get=403/goal_run_activation_projection_owner_mismatch existing_submit=403/goal_run_activation_projection_owner_mismatch missing_get=403/goal_run_activation_projection_owner_mismatch missing_submit=403/goal_run_activation_projection_owner_mismatch durable_tree=sha256:79f63cb18c4bebcf13796b9bd6641e3d5fbde1889a934fae608275a43d225914->sha256:79f63cb18c4bebcf13796b9bd6641e3d5fbde1889a934fae608275a43d225914
+PASS activation replay and submit authorize before existence and expose one owner-mismatch refusal class — owner=200 existing_get=403/goal_run_activation_projection_owner_mismatch existing_submit=403/goal_run_activation_projection_owner_mismatch missing_get=403/goal_run_activation_projection_owner_mismatch missing_submit=403/goal_run_activation_projection_owner_mismatch durable_tree=sha256:dc1e289aa3d18e2b0dc024f2e0a6bf93adfdd9d62a06ca9401e7143e33e07085->sha256:dc1e289aa3d18e2b0dc024f2e0a6bf93adfdd9d62a06ca9401e7143e33e07085
 PASS exposed anonymous caller cannot read activation source, authority, or receipts — 401/authentication_required/anchor_pinned=true/anchor_keys=needs_bootstrap,ok,reason
 PASS GoalRun start, reconcile, recovery, and event projection enforce authentication/owner authorization before any existing or missing lifecycle truth — start=403/goal_run_mutation_owner_mismatch reconcile=403/goal_run_mutation_owner_mismatch recovery=403/goal_run_mutation_owner_mismatch anonymous_statuses=401,401,401,401,401,401,401,401,401 anonymous_distinct_bodies=1 anonymous_reason=authentication_required events=403/goal_run_global_truth_owner_mismatch
 PASS cross-owner and exposed anonymous callers cannot mutate GoalRun result or delta truth through either route family — outsider=403/goal_run_mutation_owner_mismatch,403/goal_run_mutation_owner_mismatch,403/work_truth_goal_owner_mismatch,403/work_truth_goal_owner_mismatch anonymous_statuses=401,401,401,401,401,401 anonymous_distinct_bodies=1 matches_lifecycle_refusal=true resultDelta=0/0
