@@ -127,8 +127,13 @@ internal-docs/reverse-engineering
 # cache state, and nested working checkouts stay local; see
 # internal-docs/implementation/README.md#version-control-classification.
 /internal-docs/implementation/worktrees/
-/internal-docs/implementation/NOW.md
-/internal-docs/implementation/generated/program-state.v1.json
+# NOW.md and program-state.v1.json were ignored while every OTHER generated
+# artifact beside them was tracked. The estate's own README and program/rules.md
+# link to them, so check-estate failed on any fresh clone or detached worktree
+# while passing wherever someone had run the generator -- the estate was only
+# coherent on a machine that had already built it. Generated artifacts a GATE
+# DEPENDS ON must be committed, the same discipline the M0 artifacts already
+# follow: regenerate, then commit.
 /internal-docs/implementation/generated/.fast-lane-stamp
 /internal-docs/implementation/generated/.certify/
 /internal-docs/implementation/**/.cache/
