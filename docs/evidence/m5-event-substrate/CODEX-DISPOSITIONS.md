@@ -59,6 +59,47 @@ thing I edited, which is why the head must be appended past and never edited.
 | R5 | **Retained packet stated the superseded rule** at four sites. The executable rule had moved past its prose, and a reader trusting the prose would rebuild the unsatisfiable version. | **Fixed** at all four. | `45d280ee7` | Ledger: `prose-states-superseded-rule` |
 | R6 | **Cache correctness-premise comment described the deleted lazy read.** | **Fixed** to the actual contract: hydration at steward open, a miss means never declared, no delivery-time substrate access. | `45d280ee7` | The site where the premise must be exactly right |
 
+## Re-review findings (Codex, fourth pass) and what the round surfaced
+
+| # | Finding | Disposition | Commit | Standing check |
+|---|---|---|---|---|
+| R7 | **Anchor sequence 30 rewritten in place** at the Aug 3 M0 regen — the second head-mutation, one sequence after the first. | **Fixed.** Entry 30 restored byte-exact from `b550ee293` (its `2eb3b91f` digest is what the split sidecar binds, and that binding resolves again); sequence **31 appended** for the Aug 3 across-dates review with the model-computed predecessor. | `c76c33450` | `check-attestation-chain` |
+| R8 | **The rule lost to a default.** "Extend within a review date, append across dates" was violated twice — not by decision, but because the M0 fixpoint loop rewrites the last anchor entry every iteration. | **Fixed: the default now refuses.** Append-only against the first parent, plus every digest-bound sidecar must resolve. Runs per push, so a rewrite fails the commit containing it. | `c76c33450` | Both bars **proven red on the live defect first** — entry 30's rewrite refused by name and field list; the dangling `2eb3b91f68ac` binding refused by digest |
+| R9 | **A surviving strict-equality sentence**, in a disposition that claimed all four sites fixed. | **Fixed** at `:59`; repo swept clean; the disposition entry corrected to say what actually happened. | `c76c33450` | Ledger: `prose-states-superseded-rule` |
+| — | **M4 aggregate 97/98**, `exact=false`, at a commit range with **zero `.rs` files**. | **Reclassified**, not fixed: two consecutive 98/98 runs at the same commit. Successor filed with the failing bytes. | `9329b3859` | `m4-exact-projection-assertion-nondeterminism-successor` |
+
+### The restoration-only rule
+
+My own repair *is* a head rewrite relative to its parent, so the new bar would
+have refused it. Rather than grant an exemption, a non-append is legal **only
+when the resulting bytes are ones that entry demonstrably held earlier in
+history** — checkable, not declared. An exemption says "trust this once"; this
+says "verify this is a restoration." Two self-test cases cover it; nine total.
+
+### The flake, at its true width
+
+| Run | Verdict | Root | Target | Incremental |
+|---|---|---|---|---|
+| red | 97/98 | 82% used | shared 591G | unset |
+| green 1 | 98/98 | 48% used | per-run | `=0` |
+| green 2 | 98/98 | 49% used | per-run | `=0` |
+
+Correlation **recorded, not claimed as cause**. What is established: the commit
+range carried zero `.rs` files, so the failing daemon was compiled from source
+identical to the passing one — cleared by arithmetic, not argument. Two fixes
+are explicitly **out of scope** on the successor: no retry loop (it converts a
+flaky red into a slow green and destroys the signal) and no loosening (the
+assertion caught nothing false). The danger is not the false alarm; it is the
+true alarm nobody believes.
+
+### Two defects in my own runner, found on the first discriminating attempt
+
+`CARGO_TARGET_DIR` does not satisfy the verifier's in-worktree binary lookup —
+it crashed and reported `0/0`. Worse, `RUN=$?` captured a trailing `echo`, so a
+**crashed verifier was recorded as exit 0**. That is report-versus-bytes wearing
+shell clothes. The first attempt was discarded rather than reported. Ledger:
+`recorded-verdict-not-measured-verdict`.
+
 ## Defects the gates caught in already-committed code
 
 Redeclaration replayed as success under bare CAS · appends CAS-ing against
@@ -75,4 +116,7 @@ forbidden thing before the checked boundary) · **`absolute-claim-conditional-pr
 (an unconditional claim mapped to a check that only exercises the favourable
 path — 7/7 was false because the ephemeral claim rode a warm-cache-only probe) ·
 **`chain-head-edited-not-appended`** (the one destructive edit a hash chain does
-not resist).
+not resist) · **`rule-loses-to-default`** (a rule contradicting a tool's default
+loses under pressure, twice, until the default itself refuses) ·
+**`recorded-verdict-not-measured-verdict`** (a crashed run recorded as success
+because the exit code came from the wrong command).
