@@ -35,6 +35,7 @@
 // reads what a run left behind, so it cannot be satisfied by a verifier that
 // was never executed.
 
+import { execSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,7 +54,20 @@ function finding(severity, kind, message) {
 /// Pure: takes already-read values and a byte-reader, so the self-test below
 /// drives the SAME predicate the real run drives. A self-test against a
 /// reimplementation would prove the reimplementation.
-export function evaluate({ recordId, record, manifest, readBytes }) {
+/// The commit a retained log says it measured.
+///
+/// Retained bytes must state their own provenance IN the bytes. Twice now a
+/// packet has reported gates "at the exact commit" while a retained log
+/// actually measured an earlier one -- the report was a false statement and
+/// nothing mechanical contradicted it. A log that does not declare its commit
+/// is refused, and one that declares a different commit than the packet HEAD
+/// is refused, so the claim cannot be made by prose again.
+export function measuredCommit(bytes) {
+  const match = /^IOI_MEASURED_COMMIT=([0-9a-f]{40})$/m.exec(bytes ?? "");
+  return match === null ? null : match[1];
+}
+
+export function evaluate({ recordId, record, manifest, readBytes, packetHead }) {
   const findings = [];
   const claims = [];
   for (const field of CLAIM_FIELDS) {
@@ -143,6 +157,22 @@ export function evaluate({ recordId, record, manifest, readBytes }) {
       );
       continue;
     }
+    // The bytes must declare which commit produced them, and it must be the
+    // commit the packet claims. This is the mechanism that retires
+    // evidence-at-the-wrong-HEAD.
+    if (packetHead !== undefined) {
+      const measured = measuredCommit(bytes);
+      if (measured === null) {
+        findings.push(finding("error","claims-coverage",
+          `${recordId}: ${key} retained bytes (${mapping.retained_bytes}) declare no IOI_MEASURED_COMMIT — a log that cannot state its own commit cannot support a claim about one`));
+        continue;
+      }
+      if (measured !== packetHead) {
+        findings.push(finding("error","claims-coverage",
+          `${recordId}: ${key} retained bytes measured ${measured.slice(0,9)} but the packet HEAD is ${packetHead.slice(0,9)} — the evidence is for a different commit`));
+        continue;
+      }
+    }
     // The named check must appear PASSING. Presence alone would let a failing
     // check satisfy the claim it was supposed to prove.
     // Recognise the PASS forms the estate's runners actually emit. A verifier
@@ -224,6 +254,19 @@ function selfTest() {
       manifest: map(),
       readBytes: (p) => (p === "good.log" ? "PASS covers-claim-one\nFAIL covers-claim-two — broke\n" : null),
     }, true],
+    ["retained bytes that declare no measured commit", {
+      manifest: map(), readBytes: reader, packetHead: "a".repeat(40),
+    }, true],
+    ["retained bytes measured at a DIFFERENT commit", {
+      manifest: map(),
+      readBytes: () => `IOI_MEASURED_COMMIT=${"b".repeat(40)}\n` + goodBytes,
+      packetHead: "a".repeat(40),
+    }, true],
+    ["retained bytes measured at the packet HEAD", {
+      manifest: map(),
+      readBytes: () => `IOI_MEASURED_COMMIT=${"a".repeat(40)}\n` + goodBytes,
+      packetHead: "a".repeat(40),
+    }, false],
     ["a mapping for a claim the record does not have", {
       manifest: { claim_coverage: [...map().claim_coverage, { claim_field: "positive_proof", claim_index: 9, check_name: "covers-claim-one", retained_bytes: "good.log" }] },
       readBytes: reader,
@@ -271,7 +314,15 @@ function main() {
       continue;
     }
     const record = JSON.parse(readFileSync(recordPath, "utf8"));
+    // Packet HEAD comes from git, not from a file anyone can edit.
+    let packetHead;
+    try {
+      packetHead = execSync("git rev-parse HEAD", { cwd: REPO }).toString().trim();
+    } catch {
+      packetHead = undefined;
+    }
     const result = evaluate({
+      packetHead,
       recordId: manifest.work_item_id ?? name,
       record,
       manifest,
