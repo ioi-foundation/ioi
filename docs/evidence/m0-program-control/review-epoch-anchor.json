@@ -527,25 +527,41 @@
     },
     {
       "authorship_binding": "self_declared_unsigned",
+      "epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
+      "latest_epoch_identity_set_sha256": "d5e000ef94d980e8eb0efbaf555bf469f87e8107756ab45c46fafc076162144c",
+      "latest_epoch_reviewed_entry_count": 1424,
+      "latest_epoch_reviewed_entry_set_sha256": "dfd409f5f4c163fd4e01645c74a7fcc6399ab3e75910062010c50b3668a4d9df",
+      "predecessor_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
+      "program_source_material_sha256": "c1288cabaa765787feb198b8a823f92372f9969eba430f4db83195a432da8187",
+      "review_lock_sha256": "7a442b06ef6893f71968e9c9877837449da7a61ee93493a18ccc41e815d529ec",
+      "reviewed_as_of": "2026-08-01",
+      "reviewer_id": "reviewer://ioi/m0-program-control-m4-agentgres-composition-review",
+      "sequence": 29,
+      "total_reviewed_entry_count": 1597,
+      "total_reviewed_entry_set_sha256": "94503cef2317cf3974f1993eada0064c41fba184e23f9910b4832dec9b72b98d",
+      "total_reviewed_identity_set_sha256": "79d71d3f6ffdd30ae2eb2c164efac1fef850808ed17d21758627670377a8ccaa"
+    },
+    {
+      "authorship_binding": "self_declared_unsigned",
       "epoch_id": "m5-event-substrate-review-fix-2026-08-02",
       "latest_epoch_identity_set_sha256": "59dc33f46bb7edcab428d847cd0128ff51c9ea98a0a2013c46e14b57d561014c",
       "latest_epoch_reviewed_entry_count": 1430,
-      "latest_epoch_reviewed_entry_set_sha256": "6c29f16d5c6c4d0937c808ddc9eaa63859dcb07f4060f710e2fc79e7b31bcf3a",
-      "predecessor_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
-      "program_source_material_sha256": "a8fbc232e9a214f32ccde529349672dc18cc9371e5300db5c751e11aafe3f730",
-      "review_lock_sha256": "0ca07b14ba2a2f88a95acbf87d6a6703ee443a34850b35b40c4407db53890cd7",
+      "latest_epoch_reviewed_entry_set_sha256": "54099e7c03ac4b98f35f7900fe335d6fca104a6f0ebd4782f696c245a4fc8518",
+      "predecessor_entry_sha256": "4c4e758d35c6262faf47db5dbbe8dc0c2a21c25a15132ef279fc31e4a70f0de3",
+      "program_source_material_sha256": "7aa4ff88c39a4c31447d33c1d9f413d9c661d742f655c2d61173c77363831277",
+      "review_lock_sha256": "0b96fa99cc296da40eeb65b1e9e4e79acb3b734944d3466f2643103a3ebed0e1",
       "reviewed_as_of": "2026-08-02",
-      "reviewer_id": "reviewer://ioi/m0-program-control-m4-agentgres-composition-review",
-      "sequence": 29,
+      "reviewer_id": "reviewer://ioi/m0-program-control-m5-event-substrate-review",
+      "sequence": 30,
       "total_reviewed_entry_count": 1603,
-      "total_reviewed_entry_set_sha256": "ea493c2deab2816ef563d830e93a2a125184e51d0ce54d11e7ac54d062a043aa",
+      "total_reviewed_entry_set_sha256": "95e567479664743af446f6cfbec869847547ba3137f1c49f99c25cfeb2f86854",
       "total_reviewed_identity_set_sha256": "45b0a45ac5e731c51bd962775a65585498a9d589f166acd8ee6bbb8a417f9ec1"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "4b978cb1de8cf735200eae39c10664574493a578e17ad06d719e1da6283d55dd",
+    "entry_sha256": "2eb3b91f68ac53eb6ac1c8e1070679dcdbe1916180ffb600892033635d28521a",
     "epoch_id": "m5-event-substrate-review-fix-2026-08-02",
-    "sequence": 29
+    "sequence": 30
   }
 }
