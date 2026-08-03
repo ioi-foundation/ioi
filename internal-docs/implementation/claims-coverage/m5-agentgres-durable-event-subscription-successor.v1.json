@@ -52,6 +52,14 @@
       "check_name": "a_duplicate_key_n_events_back_replays_the_original",
       "retained_bytes": "docs/evidence/m5-event-substrate/agentgres-tests.log",
       "why": "Whole-stream key enforcement inside admit. Observed red on the real subject: reverting the walk to head-only fails exactly this assertion while the consecutive-duplicate assertion still passes."
+    },
+    {
+      "claim_field": "adversarial_or_fault_proof",
+      "claim_index": 4,
+      "coverage_state": "covered",
+      "check_name": "an ephemeral append performs ZERO history walks",
+      "retained_bytes": "docs/evidence/m5-event-substrate/m5-genericity.log",
+      "why": "Codex P0, closed at 6ce5d43f7. The executed check counts traversals on an instrumented steward and asserts zero on the ephemeral path, having first proven the instrument reads NON-ZERO on an admitted append -- positive detection, because an unchanged head is consistent with a read that happened. Proven red by restoring the exact filed defect (walks 22 -> 23, cache hits flat at 0)."
     }
   ]
 }

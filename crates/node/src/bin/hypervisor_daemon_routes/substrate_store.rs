@@ -2456,8 +2456,15 @@ pub(crate) fn remember_declaration(owner_namespace: &str, stream_tail: &str, dec
 /// A hit touches no substrate surface at all. A miss — a stream declared by an
 /// earlier process — performs exactly one history read and then caches, so the
 /// cost is once per stream per process rather than once per append.
-/// Invalidation is not needed: redeclaration refuses, so a declaration is
-/// immutable for the life of the stream.
+/// CORRECTNESS PREMISE, STATED SO IT CANNOT LAPSE SILENTLY: this cache NEVER
+/// invalidates, and that is sound only because a declaration is immutable for
+/// the life of its stream — `handle_event_stream_create` refuses redeclaration
+/// outright. If a declared-amendment operation is ever introduced, this cache
+/// goes stale the moment the first amendment is admitted, and nothing here
+/// will notice. The two things that stop that are this comment and the
+/// redeclaration-refuses regression assertion in
+/// `verify-m5-event-substrate-genericity.mjs`; whoever adds amendment must
+/// break the latter, which is the point of it being there.
 pub(crate) fn lookup_declaration(
     data_dir: &str,
     owner_namespace: &str,
