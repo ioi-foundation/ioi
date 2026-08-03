@@ -92,6 +92,28 @@ flaky red into a slow green and destroys the signal) and no loosening (the
 assertion caught nothing false). The danger is not the false alarm; it is the
 true alarm nobody believes.
 
+### The gate caught a stale-artifact defect in my own commit
+
+`9329b3859` **shipped stale M0 artifacts while `m0 --write` had reported
+success.** Not a flake — an ordering defect. `generate-now --write` ran *after*
+`m0 --write`, and its outputs (`NOW.md`, `program-state.v1.json`) became
+**tracked** when the hydration fix landed, so regenerating them invalidated the
+artifacts M0 had just written. Before that fix those files were invisible to M0
+and the order was irrelevant.
+
+**A correct fix in one place silently added an ordering constraint in another,
+and nothing carried it forward** — a cross-component variant of the orphaned-rule
+class. Isolated by stashing the uncommitted edit and re-checking *before*
+diagnosing, which is what made "the commit itself was stale" a fact rather than
+a guess. Corrected at `46a60482f`; the order is `generate-now --write` →
+`m0 --write` → `--check`.
+
+Mechanization is **deliberately queued, not skipped**: a regeneration wrapper
+encoding that order is the right fix, and landing it now would reopen the census
+and manufacture another round. Until it lands the order lives in the commit
+statement and here. `rule-loses-to-default` says a stated order eventually
+loses — accepted; it loses after this packet ships, not during.
+
 ### Two defects in my own runner, found on the first discriminating attempt
 
 `CARGO_TARGET_DIR` does not satisfy the verifier's in-worktree binary lookup —

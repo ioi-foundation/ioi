@@ -1,13 +1,36 @@
-IOI_MEASURED_COMMIT=eb1e1f2653e2e6a0ab18ebf0dfe782bfe13fe021
-   Compiling ioi-types v0.1.0 (/var/tmp/ioi-wt-r4/crates/types)
-   Compiling ioi-ipc v0.2.0 (/var/tmp/ioi-wt-r4/crates/ipc)
-   Compiling ioi-telemetry v0.1.0 (/var/tmp/ioi-wt-r4/crates/telemetry)
-   Compiling xcap v0.0.14 (/var/tmp/ioi-wt-r4/third_party/cargo-patches/xcap-0.0.14)
-   Compiling ioi-memory v0.1.0 (/var/tmp/ioi-wt-r4/crates/memory)
-   Compiling imap-proto v0.10.2 (/var/tmp/ioi-wt-r4/third_party/cargo-patches/imap-proto-0.10.2)
-   Compiling agentgres v0.1.0 (/var/tmp/ioi-wt-r4/crates/agentgres)
-   Compiling ioi-macros v0.1.0 (/var/tmp/ioi-wt-r4/crates/macros)
-   Compiling imap v2.4.1
+IOI_MEASURED_COMMIT=46a60482f49c8215b80d4247c1a2e50fab72bcc6
+IOI_ENV_ROOT_USED_PCT=48%
+IOI_ENV_LOADAVG=6.02 6.89 5.19 2/4064 2690650
+   Compiling hex v0.4.3
+   Compiling winnow v0.7.14
+   Compiling libp2p v0.53.2
+   Compiling hyper v1.8.1
+   Compiling tokio-stream v0.1.18
+   Compiling dcrypt-algorithms v1.2.2
+   Compiling zbus v3.15.2
+   Compiling procfs-core v0.16.0
+   Compiling tonic v0.11.0
+   Compiling hyper-util v0.1.20
+   Compiling axum v0.7.9
+   Compiling toml_parser v1.0.8+spec-1.1.0
+   Compiling toml_edit v0.23.10+spec-1.0.0
+   Compiling procfs v0.16.0
+   Compiling dcrypt-kem v1.2.2
+   Compiling dcrypt-sign v1.2.2
+   Compiling dcrypt-symmetric v1.2.2
+   Compiling dcrypt-pke v1.2.2
+   Compiling proc-macro-crate v3.4.0
+   Compiling parity-scale-codec-derive v3.7.5
+   Compiling prometheus v0.13.4
+   Compiling dcrypt-hybrid v1.2.2
+   Compiling dcrypt v1.2.2
+   Compiling parity-scale-codec v3.7.5
+   Compiling ioi-types v0.1.0 (/var/tmp/ioi-wt-frz/crates/types)
+   Compiling ioi-telemetry v0.1.0 (/var/tmp/ioi-wt-frz/crates/telemetry)
+   Compiling atspi-common v0.3.0
+   Compiling atspi-proxies v0.3.0
+   Compiling atspi-connection v0.3.0
+   Compiling atspi v0.19.0
 warning: structure field `runtimeTruthSource` should have a snake case name
     --> crates/types/src/app/generated/architecture_contracts.rs:4806:9
      |
@@ -118,15 +141,16 @@ warning: structure field `runtimeTruthSource` should have a snake case name
 24237 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
       |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
 
-   Compiling ioi-api v0.1.0 (/var/tmp/ioi-wt-r4/crates/api)
-   Compiling ioi-pii v0.1.0 (/var/tmp/ioi-wt-r4/crates/pii)
+   Compiling ioi-api v0.1.0 (/var/tmp/ioi-wt-frz/crates/api)
+   Compiling ioi-pii v0.1.0 (/var/tmp/ioi-wt-frz/crates/pii)
 warning: `ioi-types` (lib) generated 18 warnings
-   Compiling ioi-crypto v0.1.0 (/var/tmp/ioi-wt-r4/crates/crypto)
-   Compiling ioi-storage v0.1.0 (/var/tmp/ioi-wt-r4/crates/storage)
-   Compiling ioi-drivers v0.1.0 (/var/tmp/ioi-wt-r4/crates/drivers)
-   Compiling ioi-state v0.1.0 (/var/tmp/ioi-wt-r4/crates/state)
-   Compiling ioi-client v0.2.0 (/var/tmp/ioi-wt-r4/crates/client)
-   Compiling ioi-services v0.1.0 (/var/tmp/ioi-wt-r4/crates/services)
+   Compiling ioi-crypto v0.1.0 (/var/tmp/ioi-wt-frz/crates/crypto)
+   Compiling ioi-storage v0.1.0 (/var/tmp/ioi-wt-frz/crates/storage)
+   Compiling ioi-ipc v0.2.0 (/var/tmp/ioi-wt-frz/crates/ipc)
+   Compiling ioi-drivers v0.1.0 (/var/tmp/ioi-wt-frz/crates/drivers)
+   Compiling ioi-state v0.1.0 (/var/tmp/ioi-wt-frz/crates/state)
+   Compiling ioi-client v0.2.0 (/var/tmp/ioi-wt-frz/crates/client)
+   Compiling ioi-services v0.1.0 (/var/tmp/ioi-wt-frz/crates/services)
 warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
   --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
    |
@@ -202,7 +226,7 @@ warning: method `to_value` is never used
 
 warning: `ioi-services` (lib) generated 9 warnings (run `cargo fix --lib -p ioi-services` to apply 1 suggestion)
 warning: `ioi-services` (lib test) generated 2 warnings (2 duplicates)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 48s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 43s
      Running unittests src/lib.rs (target/debug/deps/ioi_services-03bd7f912cc09600)
 
 running 2 tests

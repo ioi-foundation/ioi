@@ -1,3 +1,5 @@
-IOI_MEASURED_COMMIT=eb1e1f2653e2e6a0ab18ebf0dfe782bfe13fe021
+IOI_MEASURED_COMMIT=46a60482f49c8215b80d4247c1a2e50fab72bcc6
+IOI_ENV_ROOT_USED_PCT=49%
+IOI_ENV_LOADAVG=11.68 8.01 5.74 2/4067 2726438
 [WARN] root-entry: root file is not one of the two declared entry points: source-dispositions.v1.json
 check-estate: PASS (0 error, 1 warn, 0 skip)

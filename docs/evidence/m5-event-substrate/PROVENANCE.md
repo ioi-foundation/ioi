@@ -7,7 +7,7 @@ log that declares no commit, or a commit that is neither the packet HEAD nor an
 ANCESTOR of it whose entire measured-to-HEAD delta is retained evidence. Both
 clauses bind: tree equality is not history.
 
-- measured commit: `eb1e1f2653e2e6a0ab18ebf0dfe782bfe13fe021`
+- measured commit: `46a60482f49c8215b80d4247c1a2e50fab72bcc6`
 - this evidence commit is its child, and the delta between them is evidence
   ONLY — which is the condition the fixpoint rule requires.
 
@@ -20,6 +20,7 @@ clauses bind: tree equality is not history.
 | boundary-tests.log | injection boundary + stream homing | 2/2 PASS (exit 0) |
 | m0.log | M0 supplied-snapshot check | 1603 entries, exit verified (exit 0) |
 | check-estate.log | estate integrity | PASS (exit 0) |
+| attestation-chain.log | anchor append-only + bindings resolve | PASS (exit 0) |
 
 ## Supplied build inputs
 
