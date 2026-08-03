@@ -1270,6 +1270,18 @@ per-line logs — is **ephemeral delivery-only**. The reliable discriminator is
 transition versus sample: a heartbeat is ephemeral, while the lapse transition
 that heartbeat's absence produces is admitted truth.
 
+Consulting the admitted event-class declaration is a read-only projection
+lookup, not an Agentgres operation. Resolving which side of the line an
+occurrence falls on necessarily requires reading the declaration, and that read
+does not itself constitute admission. The bar for ephemeral delivery is
+therefore unchanged and remains stated in the negative: no admission, no
+append, no durability wait. An implementation that satisfies the classification
+by traversing the stream's history on every delivery has met the letter of the
+rule and broken it — the ephemeral path must resolve its class from held
+projection state, and a verifier must establish that by COUNTING traversals
+rather than by observing that the head did not move. An unchanged head is
+consistent with a read that happened.
+
 The decisive bar is structural, not numeric: **an ephemeral delivery awaits no
 Agentgres operation.** A path that blocks on admission is not ephemeral no
 matter how fast it is, and a path that mints truth off the admission spine is
