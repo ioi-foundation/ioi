@@ -1,0 +1,59 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m4-exact-projection-assertion-nondeterminism-successor",
+  "stage_id": "M4",
+  "record_role": "implementation_cut",
+  "status": "proposed",
+  "canon_owners": ["docs/architecture/components/agentgres/doctrine.md"],
+  "contract_families": [],
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "objective": "Make the M4 exact-projection assertion deterministic, so a red result means a regression and a green result means its absence.",
+  "falsifiable_claim": "The claim fails if the exact-projection assertion in verify-m4-outcome-room-system-spine.mjs can return a different verdict across runs at one commit with no source difference.",
+  "in_scope": [
+    "Root-cause the nondeterminism in the exact-projection comparison: ordering, timing against admission durability, or a shared-resource dependency in the isolated plane.",
+    "Make the assertion deterministic, or make its precondition explicit so an unmet precondition refuses as environmental rather than reporting a substantive failure."
+  ],
+  "out_of_scope": [
+    "Retrying the assertion until it passes. A retry converts a flaky red into a slow green and destroys the signal this record exists to restore.",
+    "Loosening the assertion. It caught nothing false; it reported red at 1/98 under conditions nobody has isolated."
+  ],
+  "aggregate_disposition": {
+    "state": "deliberately_non_gating",
+    "not_a_child_of": "m4-outcome-room-system-spine",
+    "why": "Owner ruling 2026-08-03. M4 is certified and its 98/98 bar stands; binding this would reopen a certified stage for a verifier defect rather than a substrate one. It is filed because a proof that can flake RED can also mask a real regression in the noise -- the danger is not the false alarm, it is the true alarm nobody believes."
+  },
+  "implementation_actions": [
+    "Instrument the exact-projection comparison to capture both sides when it disagrees.",
+    "Reproduce under the recorded conditions of the red run: root filesystem at 82%, shared 591G target directory, CARGO_INCREMENTAL unset.",
+    "Add a deterministic precondition or an explicit environmental refusal."
+  ],
+  "positive_proof": [
+    "The exact-projection assertion returns the identical verdict across repeated runs at one commit, under both constrained and unconstrained disk and load.",
+    "An unmet precondition surfaces as a named environmental refusal, distinguishable from a substantive assertion failure."
+  ],
+  "adversarial_or_fault_proof": [
+    "Reject a retry loop that masks nondeterminism by re-running until green; the verdict must be stable, not eventually favourable.",
+    "Reject an environmental refusal that is reported as a passing assertion, which would convert an unmeasured condition into a claim of correctness."
+  ],
+  "remaining_nonclaims": [
+    "This record does not claim the red run indicated any substrate defect; two subsequent runs at the same commit passed 98/98 and the commit range carried zero .rs changes.",
+    "This record does not claim the cause is known. The conditions of the red run are recorded, not explained."
+  ],
+  "rollback_or_stop_rule": "Stop if determinism cannot be achieved without weakening what the assertion proves; a weaker assertion that never flakes is worse than a strong one that sometimes does.",
+  "current_implementation_evidence": "FILED 2026-08-03 from the M5 review-fix pass. The M4 aggregate returned 97/98 at c76c33450 with a single failure -- RUNTIME RESULT REFUSAL: exact goal bytes are sealed and post-receipt substitution is detected, where every component held (closed=true, receipt_root=true, facts_root=true, 409, work_result_output_truth_diverged, whole_tree_unchanged=true) EXCEPT exact=false. The commit range eb1e1f265..c76c33450 contains ZERO .rs files, so the daemon binary was identical to the one that passed 98/98. Two subsequent runs at c76c33450 passed 98/98 each, reclassifying the failure as verifier or environment nondeterminism. Conditions differed: the red run had the root filesystem at 82% with a shared 591G target directory and CARGO_INCREMENTAL unset; both green runs had root at 48-49%, a per-run target directory, and CARGO_INCREMENTAL=0. That correlation is recorded, NOT claimed as cause. Failing bytes retained at docs/evidence/m5-event-substrate/flake-evidence/.",
+  "evidence_refs": ["docs/evidence/m5-event-substrate/flake-evidence/m4-exact-projection-flake.txt"],
+  "evidence_index": [],
+  "code_anchors": ["apps/hypervisor/scripts/verify-m4-outcome-room-system-spine.mjs"],
+  "private_artifacts": [],
+  "consequential_effects_and_final_invokers": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "selected_profile": "sovereign-local",
+  "required_work": [],
+  "source_provenance": [],
+  "canon_snapshot": {}
+}

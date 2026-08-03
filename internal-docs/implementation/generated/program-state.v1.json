@@ -7,7 +7,7 @@
     "check_command": "node internal-docs/implementation/tools/generate-now.mjs --check"
   },
   "provenance": {
-    "orientation_inputs_sha256": "3a24584b618753c13317fddb7d289da2238faf736035b94872b89d1ec9463d7d",
+    "orientation_inputs_sha256": "344c9a0c06ff0e05f3473e138d1f86ac72b50ca592bf42d71b4e6b343871740b",
     "sequence_sha256": "bce04cda8eade7634e22ac8555eb47559336af8fa17d3a2c34fe83758e89b075"
   },
   "current_stage": "M0",
@@ -194,9 +194,10 @@
       "module": "stages/m4.md",
       "state": "verified",
       "state_reason": "exact sequence exit gate is verified",
-      "record_count": 2,
+      "record_count": 3,
       "status_counts": {
-        "verified": 2
+        "verified": 2,
+        "proposed": 1
       },
       "held_records": [],
       "aggregate_held_by": [],
@@ -464,6 +465,13 @@
       "status": "proposed",
       "state": "post_exit_successor",
       "why": "M2 reached verified on 2026-07-28, before this record existed. A post-exit corrective successor cannot gate an exit that already occurred, and binding it would require reopening a verified stage. It is owned by the M2 rails (R-AUTH/R-CONTRACT) per the 2026-08-02 sequencing ruling and gates nothing; its own literal is its closure."
+    },
+    {
+      "work_item_id": "m4-exact-projection-assertion-nondeterminism-successor",
+      "stage_id": "M4",
+      "status": "proposed",
+      "state": "deliberately_non_gating",
+      "why": "Owner ruling 2026-08-03. M4 is certified and its 98/98 bar stands; binding this would reopen a certified stage for a verifier defect rather than a substrate one. It is filed because a proof that can flake RED can also mask a real regression in the noise -- the danger is not the false alarm, it is the true alarm nobody believes."
     },
     {
       "work_item_id": "m5-p0-readiness-verifier",

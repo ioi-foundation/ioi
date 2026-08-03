@@ -107,6 +107,7 @@ Real work that is deliberately not on the critical path, so it is never nominate
 | `m0-declared-relationship-enforcement-successor` | M0 | proposed | `post_exit_successor` |
 | `m0-review-epoch-partial-attestation-successor` | M0 | proposed | `deliberately_non_gating` |
 | `m2-authority-ref-shape-unification-successor` | M2 | proposed | `post_exit_successor` |
+| `m4-exact-projection-assertion-nondeterminism-successor` | M4 | proposed | `deliberately_non_gating` |
 | `m5-p0-readiness-verifier` | M5 | proposed | `consumes_stage_exit_cannot_gate_it` |
 | `m5-qm-reference-shell-executable-rebind` | M5 | proposed | `deliberately_non_gating` |
 | `m5-thread-event-legacy-stream-migration-successor` | M5 | proposed | `deliberately_non_gating` |
@@ -139,7 +140,7 @@ at a release gate  node internal-docs/implementation/tools/check-program.mjs
 ## Provenance
 
 ```text
-orientation inputs  3a24584b618753c13317fddb7d289da2238faf736035b94872b89d1ec9463d7d
+orientation inputs  344c9a0c06ff0e05f3473e138d1f86ac72b50ca592bf42d71b4e6b343871740b
 sequence            bce04cda8eade7634e22ac8555eb47559336af8fa17d3a2c34fe83758e89b075
 ```
 
