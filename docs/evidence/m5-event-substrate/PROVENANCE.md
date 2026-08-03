@@ -7,7 +7,7 @@ log that declares no commit, or a commit that is neither the packet HEAD nor an
 ANCESTOR of it whose entire measured-to-HEAD delta is retained evidence. Both
 clauses bind: tree equality is not history.
 
-- measured commit: `422aa685e89d246d8f29dac74342fc8c3eff34d0`
+- measured commit: `eb1e1f2653e2e6a0ab18ebf0dfe782bfe13fe021`
 - this evidence commit is its child, and the delta between them is evidence
   ONLY — which is the condition the fixpoint rule requires.
 

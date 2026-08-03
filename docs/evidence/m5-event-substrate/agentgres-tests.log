@@ -1,51 +1,51 @@
-IOI_MEASURED_COMMIT=422aa685e89d246d8f29dac74342fc8c3eff34d0
-   Compiling agentgres v0.1.0 (/var/tmp/ioi-wt-def/crates/agentgres)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.22s
+IOI_MEASURED_COMMIT=eb1e1f2653e2e6a0ab18ebf0dfe782bfe13fe021
+   Compiling agentgres v0.1.0 (/var/tmp/ioi-wt-r4/crates/agentgres)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.25s
      Running unittests src/lib.rs (target/debug/deps/agentgres-a9a9c3d0209b1deb)
 
 running 50 tests
 test event_stream::tests::capability_methods_are_distinct_permissions ... ok
-test event_stream::tests::refusal_codes_are_pinned ... ok
-test event_stream::tests::expected_head_must_be_a_full_sha256 ... ok
 test event_stream::tests::coordinate_validation_is_namespace_generic ... ok
+test event_stream::tests::expected_head_must_be_a_full_sha256 ... ok
+test event_stream::tests::refusal_codes_are_pinned ... ok
 test event_stream::tests::forced_durability_failure_refuses ... ok
 test mux::tests::expected_absent_same_key_batch_admits_exactly_one ... ok
-test mux::tests::expected_absent_refuses_foreign_same_key_occupant ... ok
 test mux::tests::mux_project_domain_filters_frames ... ok
 test mux::tests::mux_domain_forks_into_single_engine_and_diverges ... ok
-test mux::tests::strict_exact_projection_refuses_unrooted_admitted_frame ... ok
+test mux::tests::expected_absent_refuses_foreign_same_key_occupant ... ok
 test mux::tests::per_domain_roots_independent_of_interleaving ... ok
-test mux::tests::strict_exact_projection_refuses_oversized_frame_before_allocation ... ok
-test mux::tests::status_first_inspection_does_not_initialize_writer_storage ... ok
 test mux::tests::shutdown_reports_final_flush_failure_to_caller_and_writer ... ok
-test mux::tests::strict_exact_projection_refuses_one_byte_truncation ... ok
 test mux::tests::startup_refuses_malformed_frame_without_changing_bytes ... ok
+test mux::tests::strict_exact_projection_refuses_one_byte_truncation ... ok
 test mux::tests::writer_fsync_error_returns_typed_uncertainty_and_stops ... ok
-test mux::tests::startup_refuses_oversized_length_without_changing_bytes ... ok
-test refs::tests::event_stream_refs_are_namespace_generic ... ok
-test refs::tests::ref_formats_are_byte_identical_to_the_retired_route_formatters ... ok
-test mux::tests::strict_exact_projection_refuses_malformed_json ... ok
-test tests::expected_absent_is_backward_compatible_on_the_wire ... ok
-test mux::tests::strict_exact_projection_refuses_deleted_log ... ok
-test tests::expected_head_conflict_refuses_without_poisoning_batch ... ok
-test mux::tests::startup_refuses_semantically_invalid_frame_without_changing_bytes ... ok
-test tests::deterministic_roots_across_runs ... ok
-test tests::fork_is_isolated_from_parent ... ok
 test mux::tests::mux_recovery_replays_all_domains ... ok
+test mux::tests::status_first_inspection_does_not_initialize_writer_storage ... ok
+test mux::tests::strict_exact_projection_refuses_malformed_json ... ok
+test mux::tests::startup_refuses_oversized_length_without_changing_bytes ... ok
+test mux::tests::startup_refuses_semantically_invalid_frame_without_changing_bytes ... ok
+test mux::tests::strict_exact_projection_refuses_oversized_frame_before_allocation ... ok
+test refs::tests::event_stream_refs_are_namespace_generic ... ok
+test mux::tests::strict_exact_projection_refuses_deleted_log ... ok
+test refs::tests::ref_formats_are_byte_identical_to_the_retired_route_formatters ... ok
+test tests::expected_absent_is_backward_compatible_on_the_wire ... ok
 test mux::tests::writer_write_error_returns_typed_uncertainty_and_stops ... ok
+test mux::tests::strict_exact_projection_refuses_unrooted_admitted_frame ... ok
+test tests::deterministic_roots_across_runs ... ok
+test tests::expected_head_conflict_refuses_without_poisoning_batch ... ok
 test tests::recovery_replay_matches ... ok
-test mux::tests::startup_recovery_discards_batch_with_partial_domain_root ... ok
+test tests::fork_is_isolated_from_parent ... ok
 test mux::tests::writer_projection_serves_latest_payloads ... ok
+test mux::tests::writer_exact_projection_agrees_with_admission_ack ... ok
+test mux::tests::startup_recovery_discards_batch_with_partial_domain_root ... ok
+test mux::tests::startup_recovery_discards_syntactically_valid_unrooted_batch ... ok
 test mux::tests::sync_mode_acks_carry_device_flush_label ... ok
 test mux::tests::torn_tail_is_truncated_on_recovery ... ok
-test mux::tests::startup_recovery_discards_syntactically_valid_unrooted_batch ... ok
-test mux::tests::writer_exact_projection_agrees_with_admission_ack ... ok
 test mux::tests::promotion_fences_stale_primary ... ok
 test event_stream::tests::same_key_same_bytes_replays_and_same_key_different_bytes_refuses ... ok
 test mux::tests::catch_up_resyncs_replica_gap_then_streams_live ... ok
-test mux::tests::writer_status_snapshot_is_consistent_during_append ... ok
-test mux::tests::quorum_label_capped_by_same_host_links ... ok
 test tests::group_commit_writer_admits_under_concurrency ... ok
+test mux::tests::quorum_label_capped_by_same_host_links ... ok
+test mux::tests::writer_status_snapshot_is_consistent_during_append ... ok
 test mux::tests::mux_writer_combines_domains_under_concurrency ... ok
 test event_stream::tests::a_duplicate_key_n_events_back_replays_the_original ... ok
 test mux::tests::replicated_ack_upgrades_durability_and_replica_root_matches ... ok
@@ -55,5 +55,5 @@ test mux::tests::oversized_domain_root_refuses_its_domain_without_stopping_write
 test tests::substrate_writer_enforces_replayable_frame_limit_per_operation ... ok
 test mux::tests::exact_limit_admits_and_oversized_same_key_does_not_poison_mixed_batch ... ok
 
-test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.72s
+test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.92s
 

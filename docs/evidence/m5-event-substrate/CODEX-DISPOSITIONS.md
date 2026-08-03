@@ -51,6 +51,14 @@ opened the handle at all.
 without breaking a predecessor's hash. The chain protects everything except the
 thing I edited, which is why the head must be appended past and never edited.
 
+## Re-review findings (Codex, third pass)
+
+| # | Finding | Disposition | Commit | Standing check |
+|---|---|---|---|---|
+| R4 | **The gate enforced half its own rule.** The rule is ancestor **and** complete-evidence-delta; only the delta was checked. `git diff --name-only A HEAD` compares trees, so any commit with the right tree difference passed — non-ancestor or descendant. | **Fixed.** Both clauses bind. Git ops are injectable so the self-test drives the production predicate. | `45d280ee7` | Four load-bearing cases incl. acceptance; self-test 11 → 15. Proven on a **real** synthetic non-ancestor (422aa685e's tree on an unrelated parent): without the clause its forged bytes were accepted **7/7**; with it, refused. |
+| R5 | **Retained packet stated the superseded rule** at four sites. The executable rule had moved past its prose, and a reader trusting the prose would rebuild the unsatisfiable version. | **Fixed** at all four. | `45d280ee7` | Ledger: `prose-states-superseded-rule` |
+| R6 | **Cache correctness-premise comment described the deleted lazy read.** | **Fixed** to the actual contract: hydration at steward open, a miss means never declared, no delivery-time substrate access. | `45d280ee7` | The site where the premise must be exactly right |
+
 ## Defects the gates caught in already-committed code
 
 Redeclaration replayed as success under bare CAS · appends CAS-ing against
