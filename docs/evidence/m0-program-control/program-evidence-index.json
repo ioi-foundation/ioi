@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-08-01",
+  "as_of_date": "2026-08-02",
   "assurance_posture": {
     "accepted_head_currentness": "not_established",
     "authorship_binding": "self_declared_label_unsigned",
@@ -8,7 +8,7 @@
     "repository_baseline_present": true,
     "snapshot_head_binding": "verified"
   },
-  "build_fingerprint": "b9a7a21d1d3cb0d76b26e12d04088821aabc4ca8d595515c1870c755c165b3a4",
+  "build_fingerprint": "146253df59d6f874a954d67a3fd4c375a3ca25b3349fdd99b8b27654bdae5e70",
   "consumption_rule": "Evidence matches the supplied repository snapshot only when the read-only checker reproduces this fingerprint and every manifest hash; currentness requires an outside rollback-domain checkpoint.",
   "evidence_format": "ioi.m0.program_evidence_index.v1",
   "evidence_items": [

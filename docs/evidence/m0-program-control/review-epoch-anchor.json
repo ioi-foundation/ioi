@@ -527,25 +527,25 @@
     },
     {
       "authorship_binding": "self_declared_unsigned",
-      "epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
-      "latest_epoch_identity_set_sha256": "2944d3e1b2dc31a95cdb0580d79f98df77de5f744686e90c9aa4908004d4f818",
-      "latest_epoch_reviewed_entry_count": 1429,
-      "latest_epoch_reviewed_entry_set_sha256": "0659b99fe9b769abd397ad3c2e566a9799871b77f9240531b969e072e43e5747",
+      "epoch_id": "m5-event-substrate-review-fix-2026-08-02",
+      "latest_epoch_identity_set_sha256": "59dc33f46bb7edcab428d847cd0128ff51c9ea98a0a2013c46e14b57d561014c",
+      "latest_epoch_reviewed_entry_count": 1430,
+      "latest_epoch_reviewed_entry_set_sha256": "6c29f16d5c6c4d0937c808ddc9eaa63859dcb07f4060f710e2fc79e7b31bcf3a",
       "predecessor_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
-      "program_source_material_sha256": "52b4be4ab8306ff0f24e100ca3b1915dc63ef28d55b183692891896664a5b7a8",
-      "review_lock_sha256": "4fa3a88db043812fed54fdbdc86847ae3c0e5393f5e7bfd13dfb31ecf1bee1d4",
-      "reviewed_as_of": "2026-08-01",
+      "program_source_material_sha256": "a8fbc232e9a214f32ccde529349672dc18cc9371e5300db5c751e11aafe3f730",
+      "review_lock_sha256": "0ca07b14ba2a2f88a95acbf87d6a6703ee443a34850b35b40c4407db53890cd7",
+      "reviewed_as_of": "2026-08-02",
       "reviewer_id": "reviewer://ioi/m0-program-control-m4-agentgres-composition-review",
       "sequence": 29,
-      "total_reviewed_entry_count": 1602,
-      "total_reviewed_entry_set_sha256": "9c244eed58372a5ed6521f2069e9441b1eb5a0e63170bbeb3fc5c2279a669938",
-      "total_reviewed_identity_set_sha256": "8903802906af7dedd2ef22f09d6ba4edba9e836fc98a4d2a3e18e29f37cf8251"
+      "total_reviewed_entry_count": 1603,
+      "total_reviewed_entry_set_sha256": "ea493c2deab2816ef563d830e93a2a125184e51d0ce54d11e7ac54d062a043aa",
+      "total_reviewed_identity_set_sha256": "45b0a45ac5e731c51bd962775a65585498a9d589f166acd8ee6bbb8a417f9ec1"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "f9cfd34803c30e82194df5a9dd7f3e8a44c145fc89e844f6e4717dc363f04a57",
-    "epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
+    "entry_sha256": "4b978cb1de8cf735200eae39c10664574493a578e17ad06d719e1da6283d55dd",
+    "epoch_id": "m5-event-substrate-review-fix-2026-08-02",
     "sequence": 29
   }
 }

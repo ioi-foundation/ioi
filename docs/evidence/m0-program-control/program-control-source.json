@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-08-01",
+  "as_of_date": "2026-08-02",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -497,7 +497,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/agentgres/doctrine.md",
-      "source_sha256": "5016e0f51e855b4dd21c286e09d7371c4bcaceee45e5f3b76093ec258853964e"
+      "source_sha256": "7fa59e32562ec945e305f0057d531b474afed9655eaa515af2a3bc360785bf7b"
     },
     {
       "role": "landed owner canon",
@@ -559,7 +559,7 @@
           },
           {
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "0b7d453547a3213929d41f5b38465cdeeed6a16c8a02c7d58b287e06066d4d8a",
+            "source_sha256": "115db45ee8e7d1084798ea52aaa924e8168451f229916fbcd515f6a674dcf8e9",
             "note": "enumerated Hypervisor daemon registry"
           },
           {
@@ -734,7 +734,7 @@
           },
           {
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "0b7d453547a3213929d41f5b38465cdeeed6a16c8a02c7d58b287e06066d4d8a",
+            "source_sha256": "115db45ee8e7d1084798ea52aaa924e8168451f229916fbcd515f6a674dcf8e9",
             "note": "enumerated Hypervisor daemon registry"
           },
           {
@@ -1654,16 +1654,16 @@
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
     "snapshot_head_sequence": 29,
-    "snapshot_head_entry_sha256": "f9cfd34803c30e82194df5a9dd7f3e8a44c145fc89e844f6e4717dc363f04a57",
+    "snapshot_head_entry_sha256": "4b978cb1de8cf735200eae39c10664574493a578e17ad06d719e1da6283d55dd",
     "snapshot_predecessor_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
     "reviewer_label": "reviewer://ioi/m0-program-control-m4-agentgres-composition-review",
     "reviewer_label_status": "self_declared_unsigned",
-    "review_lock_sha256": "4fa3a88db043812fed54fdbdc86847ae3c0e5393f5e7bfd13dfb31ecf1bee1d4",
-    "review_epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
-    "reviewed_as_of": "2026-08-01",
-    "reviewed_identity_set_sha256": "2944d3e1b2dc31a95cdb0580d79f98df77de5f744686e90c9aa4908004d4f818",
-    "reviewed_entry_set_sha256": "0659b99fe9b769abd397ad3c2e566a9799871b77f9240531b969e072e43e5747",
-    "program_source_material_sha256": "52b4be4ab8306ff0f24e100ca3b1915dc63ef28d55b183692891896664a5b7a8",
+    "review_lock_sha256": "0ca07b14ba2a2f88a95acbf87d6a6703ee443a34850b35b40c4407db53890cd7",
+    "review_epoch_id": "m5-event-substrate-review-fix-2026-08-02",
+    "reviewed_as_of": "2026-08-02",
+    "reviewed_identity_set_sha256": "59dc33f46bb7edcab428d847cd0128ff51c9ea98a0a2013c46e14b57d561014c",
+    "reviewed_entry_set_sha256": "6c29f16d5c6c4d0937c808ddc9eaa63859dcb07f4060f710e2fc79e7b31bcf3a",
+    "program_source_material_sha256": "a8fbc232e9a214f32ccde529349672dc18cc9371e5300db5c751e11aafe3f730",
     "assurance_posture": {
       "chain_integrity_within_snapshot": "verified",
       "snapshot_head_binding": "verified",
