@@ -546,21 +546,21 @@
       "epoch_id": "m5-event-substrate-review-fix-2026-08-02",
       "latest_epoch_identity_set_sha256": "59dc33f46bb7edcab428d847cd0128ff51c9ea98a0a2013c46e14b57d561014c",
       "latest_epoch_reviewed_entry_count": 1430,
-      "latest_epoch_reviewed_entry_set_sha256": "54099e7c03ac4b98f35f7900fe335d6fca104a6f0ebd4782f696c245a4fc8518",
+      "latest_epoch_reviewed_entry_set_sha256": "00d7d5c0d541307213fd968e26392a5b175ed8f82725833e3375ec9ea103e5a1",
       "predecessor_entry_sha256": "4c4e758d35c6262faf47db5dbbe8dc0c2a21c25a15132ef279fc31e4a70f0de3",
       "program_source_material_sha256": "7aa4ff88c39a4c31447d33c1d9f413d9c661d742f655c2d61173c77363831277",
-      "review_lock_sha256": "0b96fa99cc296da40eeb65b1e9e4e79acb3b734944d3466f2643103a3ebed0e1",
+      "review_lock_sha256": "fd0ee422f609152bf111b63907ab97d8be74f9b6a5fe30a8fae1d9715126ae72",
       "reviewed_as_of": "2026-08-02",
       "reviewer_id": "reviewer://ioi/m0-program-control-m5-event-substrate-review",
       "sequence": 30,
       "total_reviewed_entry_count": 1603,
-      "total_reviewed_entry_set_sha256": "95e567479664743af446f6cfbec869847547ba3137f1c49f99c25cfeb2f86854",
+      "total_reviewed_entry_set_sha256": "6499d9ab52155a3a588544536e401c3fc9004ff3139fecb28a0d1012cd1ac15d",
       "total_reviewed_identity_set_sha256": "45b0a45ac5e731c51bd962775a65585498a9d589f166acd8ee6bbb8a417f9ec1"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "2eb3b91f68ac53eb6ac1c8e1070679dcdbe1916180ffb600892033635d28521a",
+    "entry_sha256": "d52a1f160c280c19d0a4ec330083b3bf2ca45c1c02fe943d47cd137cc06e7c2d",
     "epoch_id": "m5-event-substrate-review-fix-2026-08-02",
     "sequence": 30
   }
