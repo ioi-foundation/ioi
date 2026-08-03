@@ -2338,6 +2338,10 @@ async fn async_main() -> anyhow::Result<()> {
             get(work_result_routes::handle_outcome_delta_get),
         )
         .route(
+            "/v1/event-streams/_substrate-traversals",
+            get(event_stream_routes::handle_substrate_traversals),
+        )
+        .route(
             "/v1/event-streams/:owner_namespace/:stream_tail",
             get(event_stream_routes::handle_event_stream_get)
                 .post(event_stream_routes::handle_event_stream_create),

@@ -180,13 +180,27 @@ fn admitted_declaration(
     owner_namespace: &str,
     stream_tail: &str,
 ) -> Result<Option<Value>, Refused> {
-    let history =
-        substrate_store::read_event_stream_history(&st.data_dir, owner_namespace, stream_tail)
-            .map_err(refused)?;
-    Ok(history
-        .into_iter()
-        .find(|projection| projection.operation.op_kind == GENESIS_OP_KIND)
-        .map(|projection| projection.operation.payload))
+    substrate_store::lookup_declaration(&st.data_dir, owner_namespace, stream_tail, GENESIS_OP_KIND)
+        .map_err(refused)
+}
+
+/// GET /v1/event-streams/_substrate-traversals — the steward's traversal
+/// counters, so a verifier can assert ZERO substrate traversals on the
+/// ephemeral path by POSITIVE DETECTION.
+///
+/// An unchanged head does not prove a read did not happen; only counting the
+/// reads does. These counters are the instrument, and the verifier proves the
+/// instrument can read non-zero before it trusts a zero.
+pub(crate) async fn handle_substrate_traversals(
+    State(_st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, Refused> {
+    let (walks, hits, fills, admitted) = substrate_store::traversal_counters();
+    Ok(Json(json!({
+        "history_walks": walks,
+        "declaration_cache_hits": hits,
+        "declaration_cache_fills": fills,
+        "admitted_operations": admitted,
+    })))
 }
 
 /// POST /v1/event-streams/:owner_namespace/:stream_tail
@@ -245,6 +259,7 @@ pub(crate) async fn handle_event_stream_create(
         other => refused(other),
     })?;
     let exact = &admitted.projection;
+    substrate_store::remember_declaration(&owner_namespace, &stream_tail, declaration);
 
     Ok(Json(json!({
         "stream_id": format!("event-stream://{owner_namespace}/{stream_tail}"),

@@ -34,7 +34,7 @@ import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");
-const EXPECTED_CHECKS = 54;
+const EXPECTED_CHECKS = 59;
 
 let passed = 0;
 const failures = [];
@@ -763,6 +763,75 @@ async function main() {
       check("the stream reconstructs EXACT accepted history across restart", false,
         "restart plane unavailable — failing closed rather than skipping");
     }
+
+
+    // ---- 16. THE EPHEMERAL PATH TOUCHES NO SUBSTRATE (F1b) --------------
+    // Codex P0: the append route consulted the admitted declaration by walking
+    // the stream's FULL HISTORY on every append, including ephemeral ones. An
+    // ephemeral class is defined by awaiting no Agentgres operation, so a
+    // mandatory traversal before the ephemeral return made the event-class line
+    // a claim about what happens after a substrate read rather than a claim
+    // that none occurs.
+    //
+    // POSITIVE DETECTION, not head-unchanged. An unchanged head is entirely
+    // consistent with a read that happened; only counting reads distinguishes
+    // "did not traverse" from "traversed and changed nothing". This is the
+    // same instrument-first discipline as the zero-thread-plane assertion.
+    const counters = () =>
+      request(plane.daemonUrl, "GET", "/v1/event-streams/_substrate-traversals", undefined, auth);
+
+    await declare("automation-scheduler", "eph");
+    const beforeWarm = await counters();
+    check(
+      "the traversal instrument is READABLE",
+      beforeWarm.status === 200 &&
+        typeof beforeWarm.body?.history_walks === "number" &&
+        typeof beforeWarm.body?.admitted_operations === "number",
+      `walks=${beforeWarm.body?.history_walks} admits=${beforeWarm.body?.admitted_operations}`,
+    );
+
+    // Prove the instrument reads NON-ZERO when the substrate IS traversed.
+    const admittedAppend = await append("automation-scheduler", "eph", "warm-1", { n: 1 });
+    const afterAdmitted = await counters();
+    const instrumentProvenLive =
+      admittedAppend.status === 200 &&
+      afterAdmitted.body?.admitted_operations > beforeWarm.body?.admitted_operations;
+    check(
+      "the instrument reads NON-ZERO when an admitted append DOES traverse",
+      instrumentProvenLive,
+      `admits ${beforeWarm.body?.admitted_operations} -> ${afterAdmitted.body?.admitted_operations}`,
+    );
+
+    // Now the ephemeral path, measured.
+    const beforeEphemeral = await counters();
+    const eph = await request(
+      plane.daemonUrl,
+      "POST",
+      "/v1/event-streams/automation-scheduler/eph/events",
+      declaration({ class_id: "demo.ephemeral", payload: { n: 7 } }),
+      auth,
+    );
+    const afterEphemeral = await counters();
+    check(
+      "an ephemeral append performs ZERO history walks",
+      instrumentProvenLive &&
+        afterEphemeral.body?.history_walks === beforeEphemeral.body?.history_walks,
+      `walks ${beforeEphemeral.body?.history_walks} -> ${afterEphemeral.body?.history_walks}`,
+    );
+    check(
+      "an ephemeral append performs ZERO admissions",
+      eph.status === 200 &&
+        eph.body?.delivery === "ephemeral" &&
+        afterEphemeral.body?.admitted_operations ===
+          beforeEphemeral.body?.admitted_operations,
+      `admits ${beforeEphemeral.body?.admitted_operations} -> ${afterEphemeral.body?.admitted_operations}`,
+    );
+    check(
+      "the ephemeral path resolved its class from steward-held state, not the log",
+      afterEphemeral.body?.declaration_cache_hits >
+        beforeEphemeral.body?.declaration_cache_hits,
+      `cache hits ${beforeEphemeral.body?.declaration_cache_hits} -> ${afterEphemeral.body?.declaration_cache_hits}`,
+    );
 
     // NOTE — no anonymous-refusal assertions here, deliberately.
     //

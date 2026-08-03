@@ -2415,6 +2415,84 @@ impl agentgres::event_stream::EventStreamAdmission for SubstrateEventStreamAdmis
     }
 }
 
+/// Steward-held declarations, and the instrumentation that proves the
+/// ephemeral path never touches the substrate.
+///
+/// Codex P0 (2026-08-02): the append route consulted the admitted declaration
+/// by walking the stream's full history — on EVERY append, including ephemeral
+/// ones. An ephemeral class is defined by awaiting no Agentgres operation, so a
+/// mandatory history walk before the ephemeral return made the event-class line
+/// a statement about what happens AFTER a substrate traversal rather than a
+/// statement that none occurs.
+///
+/// The declaration is now a read-only lookup over steward-held in-memory state.
+/// The counters exist so the verifier can assert ZERO traversals by positive
+/// detection rather than by inferring it from an unchanged head — an unchanged
+/// head is consistent with a read that happened.
+pub(crate) static HISTORY_WALKS: AtomicU64 = AtomicU64::new(0);
+pub(crate) static DECLARATION_CACHE_HITS: AtomicU64 = AtomicU64::new(0);
+pub(crate) static DECLARATION_CACHE_FILLS: AtomicU64 = AtomicU64::new(0);
+
+static DECLARATIONS: OnceLock<Mutex<std::collections::HashMap<String, Value>>> = OnceLock::new();
+
+fn declaration_cache() -> &'static Mutex<std::collections::HashMap<String, Value>> {
+    DECLARATIONS.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Record one stream's declaration at admission time, so no later append has
+/// to go looking for it.
+pub(crate) fn remember_declaration(owner_namespace: &str, stream_tail: &str, declaration: &Value) {
+    if let Ok(mut cache) = declaration_cache().lock() {
+        cache.insert(
+            format!("{owner_namespace}/{stream_tail}"),
+            declaration.clone(),
+        );
+        DECLARATION_CACHE_FILLS.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+/// Look up one stream's admitted declaration.
+///
+/// A hit touches no substrate surface at all. A miss — a stream declared by an
+/// earlier process — performs exactly one history read and then caches, so the
+/// cost is once per stream per process rather than once per append.
+/// Invalidation is not needed: redeclaration refuses, so a declaration is
+/// immutable for the life of the stream.
+pub(crate) fn lookup_declaration(
+    data_dir: &str,
+    owner_namespace: &str,
+    stream_tail: &str,
+    genesis_op_kind: &str,
+) -> Result<Option<Value>, AdmissionRefusal> {
+    let key = format!("{owner_namespace}/{stream_tail}");
+    if let Ok(cache) = declaration_cache().lock() {
+        if let Some(found) = cache.get(&key) {
+            DECLARATION_CACHE_HITS.fetch_add(1, Ordering::Relaxed);
+            return Ok(Some(found.clone()));
+        }
+    }
+    HISTORY_WALKS.fetch_add(1, Ordering::Relaxed);
+    let history = read_event_stream_history(data_dir, owner_namespace, stream_tail)?;
+    let found = history
+        .into_iter()
+        .find(|projection| projection.operation.op_kind == genesis_op_kind)
+        .map(|projection| projection.operation.payload);
+    if let Some(declaration) = found.as_ref() {
+        remember_declaration(owner_namespace, stream_tail, declaration);
+    }
+    Ok(found)
+}
+
+/// Substrate-traversal counters, for the positive-detection assertion.
+pub(crate) fn traversal_counters() -> (u64, u64, u64, u64) {
+    (
+        HISTORY_WALKS.load(Ordering::Relaxed),
+        DECLARATION_CACHE_HITS.load(Ordering::Relaxed),
+        DECLARATION_CACHE_FILLS.load(Ordering::Relaxed),
+        ADMITTED.load(Ordering::Relaxed),
+    )
+}
+
 /// Steward the process writer handle for one event-stream admission, then
 /// delegate the discipline to `agentgres::event_stream`.
 ///
