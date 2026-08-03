@@ -60,8 +60,10 @@ function finding(severity, kind, message) {
 /// packet has reported gates "at the exact commit" while a retained log
 /// actually measured an earlier one -- the report was a false statement and
 /// nothing mechanical contradicted it. A log that does not declare its commit
-/// is refused, and one that declares a different commit than the packet HEAD
-/// is refused, so the claim cannot be made by prose again.
+/// is refused. A declared commit is accepted only when it equals the packet
+/// HEAD, or is an ANCESTOR of HEAD whose entire measured-to-HEAD delta is
+/// retained evidence -- both clauses, because tree equality is not history.
+/// The claim can no longer be made by prose.
 export function measuredCommit(bytes) {
   const match = /^IOI_MEASURED_COMMIT=([0-9a-f]{40})$/m.exec(bytes ?? "");
   return match === null ? null : match[1];
