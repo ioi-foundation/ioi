@@ -194,12 +194,13 @@ fn admitted_declaration(
 pub(crate) async fn handle_substrate_traversals(
     State(_st): State<Arc<DaemonState>>,
 ) -> Result<Json<Value>, Refused> {
-    let (walks, hits, fills, admitted) = substrate_store::traversal_counters();
+    let (walks, hits, fills, admitted, domains) = substrate_store::traversal_counters();
     Ok(Json(json!({
         "history_walks": walks,
         "declaration_cache_hits": hits,
         "declaration_cache_fills": fills,
         "admitted_operations": admitted,
+        "hydrated_domains": domains,
     })))
 }
 

@@ -582,10 +582,19 @@ async fn async_main() -> anyhow::Result<()> {
     // A failed install is FATAL. It can only mean a second capability in one
     // process, which would mean two stewards; a daemon that will not start is
     // a better outcome than one that starts with two writers to one log.
+    if let Err(error) = substrate_store::ensure_steward_open(&state.data_dir) {
+        eprintln!("hypervisor-daemon: steward open failed at boot: {error}");
+    }
+
     if let Err(error) =
+        // Open the steward at boot so the declaration projection is hydrated
+        // before the first request. Without this a process whose first request
+        // is an ephemeral append would never open the handle at all -- the
+        // ephemeral path deliberately touches no substrate surface, so the fix
+        // that removed the traversal also removed what used to force the open.
         ioi_services::agentic::runtime::event_stream_admission::install(std::sync::Arc::new(
-            substrate_store::SubstrateEventStreamAdmission::new(state.data_dir.clone()),
-        ))
+                substrate_store::SubstrateEventStreamAdmission::new(state.data_dir.clone()),
+            ))
     {
         eprintln!("hypervisor-daemon: {error}");
         std::process::exit(1);

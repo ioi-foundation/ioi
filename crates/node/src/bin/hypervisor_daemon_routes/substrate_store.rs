@@ -1866,6 +1866,14 @@ fn initialize_handle_with(
         return None;
     }
 
+    // Rebuild the declaration projection before the writer starts serving, so
+    // no request path ever has to go looking for a declaration. This runs
+    // AFTER backfill: the engine's domain map is only fully populated once
+    // recovery and backfill have replayed the log, and hydrating before that
+    // silently found zero domains -- which the restart probe caught as
+    // open-time fills of 0.
+    hydrate_declarations(&engine, "event_stream.genesis");
+
     let mut replicas = Vec::new();
     if !addrs.is_empty() {
         let independent = std::env::var("IOI_SUBSTRATE_REPLICA_INDEPENDENT")
@@ -2432,6 +2440,7 @@ impl agentgres::event_stream::EventStreamAdmission for SubstrateEventStreamAdmis
 pub(crate) static HISTORY_WALKS: AtomicU64 = AtomicU64::new(0);
 pub(crate) static DECLARATION_CACHE_HITS: AtomicU64 = AtomicU64::new(0);
 pub(crate) static DECLARATION_CACHE_FILLS: AtomicU64 = AtomicU64::new(0);
+pub(crate) static HYDRATED_DOMAINS: AtomicU64 = AtomicU64::new(0);
 
 static DECLARATIONS: OnceLock<Mutex<std::collections::HashMap<String, Value>>> = OnceLock::new();
 
@@ -2466,37 +2475,87 @@ pub(crate) fn remember_declaration(owner_namespace: &str, stream_tail: &str, dec
 /// `verify-m5-event-substrate-genericity.mjs`; whoever adds amendment must
 /// break the latter, which is the point of it being there.
 pub(crate) fn lookup_declaration(
-    data_dir: &str,
+    _data_dir: &str,
     owner_namespace: &str,
     stream_tail: &str,
-    genesis_op_kind: &str,
+    _genesis_op_kind: &str,
 ) -> Result<Option<Value>, AdmissionRefusal> {
     let key = format!("{owner_namespace}/{stream_tail}");
-    if let Ok(cache) = declaration_cache().lock() {
-        if let Some(found) = cache.get(&key) {
-            DECLARATION_CACHE_HITS.fetch_add(1, Ordering::Relaxed);
-            return Ok(Some(found.clone()));
-        }
+    let found = declaration_cache()
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(&key).cloned());
+    if found.is_some() {
+        DECLARATION_CACHE_HITS.fetch_add(1, Ordering::Relaxed);
     }
-    HISTORY_WALKS.fetch_add(1, Ordering::Relaxed);
-    let history = read_event_stream_history(data_dir, owner_namespace, stream_tail)?;
-    let found = history
-        .into_iter()
-        .find(|projection| projection.operation.op_kind == genesis_op_kind)
-        .map(|projection| projection.operation.payload);
-    if let Some(declaration) = found.as_ref() {
-        remember_declaration(owner_namespace, stream_tail, declaration);
-    }
+    // NO LAZY FILL. The declaration projection is rebuilt at steward open, so
+    // after hydration a miss means the stream was never declared -- which is
+    // already a refusal at the route. The lazy fill this replaced made the
+    // FIRST ephemeral append after a restart walk history (Codex measured
+    // history_walks 0 -> 1 against an exact-commit binary), which meant the
+    // ephemeral boundary held only for a warm cache. An absolute claim cannot
+    // rest on a conditional path.
     Ok(found)
 }
 
+/// Rebuild the declaration projection at steward open.
+///
+/// This rides the open/replay pass that already rebuilds DomainState — it adds
+/// no second walk of its own, and it runs before any request is served, so the
+/// delivery path never traverses. Fills are counted SEPARATELY from delivery-
+/// time walks: hydration is expected to touch the log exactly once at open,
+/// and conflating that with a per-append traversal would make the counter
+/// unable to distinguish the two.
+fn hydrate_declarations(engine: &MuxEngine, genesis_op_kind: &str) {
+    let domains: Vec<String> = engine
+        .domains()
+        .filter(|domain| domain.starts_with("event-stream-operations."))
+        .cloned()
+        .collect();
+    HYDRATED_DOMAINS.fetch_add(domains.len() as u64, Ordering::Relaxed);
+    for domain in domains {
+        // The operation carries its own object_ref, so the owner namespace and
+        // stream tail are read from admitted truth rather than parsed back out
+        // of the domain string (a tail may itself contain dots — `lease.sub_1`).
+        let mut genesis: Vec<(String, Value)> = Vec::new();
+        let _ = engine.project_domain(&domain, 0, &mut |frame| {
+            if let agentgres::mux::MuxLogFrame::Admitted(record) = frame {
+                if record.op.op_kind == genesis_op_kind {
+                    genesis.push((record.op.object_ref.clone(), record.op.payload.clone()));
+                }
+            }
+        });
+        for (object_ref, declaration) in genesis {
+            if let Some(rest) = object_ref.strip_prefix("agentgres://event-stream-operations/") {
+                if let Some((owner_namespace, stream_tail)) = rest.split_once('/') {
+                    remember_declaration(owner_namespace, stream_tail, &declaration);
+                }
+            }
+        }
+    }
+}
+
+/// Open the steward once at boot so the declaration projection is rebuilt
+/// before any request is served.
+///
+/// This is required, not an optimisation. Removing every substrate access from
+/// the declaration lookup means nothing on the delivery path triggers steward
+/// open any more — so hydration, which happens AT open, would never run for a
+/// process whose first request is an ephemeral append. The fix removed the
+/// traversal and, by doing so, removed the thing that used to force the open.
+/// Boot-time open closes that.
+pub(crate) fn ensure_steward_open(data_dir: &str) -> std::io::Result<()> {
+    with_current_handle(data_dir, |_handle| Ok(()))
+}
+
 /// Substrate-traversal counters, for the positive-detection assertion.
-pub(crate) fn traversal_counters() -> (u64, u64, u64, u64) {
+pub(crate) fn traversal_counters() -> (u64, u64, u64, u64, u64) {
     (
         HISTORY_WALKS.load(Ordering::Relaxed),
         DECLARATION_CACHE_HITS.load(Ordering::Relaxed),
         DECLARATION_CACHE_FILLS.load(Ordering::Relaxed),
         ADMITTED.load(Ordering::Relaxed),
+        HYDRATED_DOMAINS.load(Ordering::Relaxed),
     )
 }
 

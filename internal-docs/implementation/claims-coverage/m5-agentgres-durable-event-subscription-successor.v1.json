@@ -57,9 +57,9 @@
       "claim_field": "adversarial_or_fault_proof",
       "claim_index": 4,
       "coverage_state": "covered",
-      "check_name": "an ephemeral append performs ZERO history walks",
+      "check_name": "an ephemeral append on a COLD (restarted) daemon performs ZERO history walks",
       "retained_bytes": "docs/evidence/m5-event-substrate/m5-genericity.log",
-      "why": "Codex P0, closed at 6ce5d43f7. The executed check counts traversals on an instrumented steward and asserts zero on the ephemeral path, having first proven the instrument reads NON-ZERO on an admitted append -- positive detection, because an unchanged head is consistent with a read that happened. Proven red by restoring the exact filed defect (walks 22 -> 23, cache hits flat at 0)."
+      "why": "Codex P0 and its restart recurrence, closed. The claim is ABSOLUTE -- an ephemeral delivery performs zero substrate traversals -- so it is now backed by the COLD-restart probe rather than the warm-cache one. The previous 7/7 was FALSE: an absolute claim was mapped to a conditional probe that only ever measured a warm process, and Codex measured history_walks 0 -> 1 on the first ephemeral append after a restart. The declaration projection is rebuilt at steward open, which the daemon forces at boot; open-time fills are counted separately from delivery-time walks so the two cannot be conflated. Proven red by removing boot hydration."
     }
   ]
 }

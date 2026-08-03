@@ -34,7 +34,7 @@ import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");
-const EXPECTED_CHECKS = 59;
+const EXPECTED_CHECKS = 62;
 
 let passed = 0;
 const failures = [];
@@ -832,6 +832,65 @@ async function main() {
         beforeEphemeral.body?.declaration_cache_hits,
       `cache hits ${beforeEphemeral.body?.declaration_cache_hits} -> ${afterEphemeral.body?.declaration_cache_hits}`,
     );
+
+
+    // ---- 17. THE EPHEMERAL BOUNDARY HOLDS ACROSS RESTART (F-R1) ---------
+    // Codex's reproduction, verbatim. The previous probe measured a WARM
+    // cache only, so an absolute claim ("an ephemeral delivery performs zero
+    // substrate traversals") was backed by a conditional path: the first
+    // ephemeral append after a daemon restart lazily walked history, measured
+    // at history_walks 0 -> 1. The declaration projection is now rebuilt at
+    // steward open, and open-time fills are counted SEPARATELY from
+    // delivery-time walks so the two cannot be conflated.
+    const restartedEph = await startIsolatedPlane({ dataDir: plane.dataDir });
+    if (restartedEph) {
+      try {
+        const rl = await request(restartedEph.daemonUrl, "POST", "/v1/hypervisor/auth/login", {
+          email: principal.email, password: principal.password,
+        });
+        const ra = { authorization: `Bearer ${rl.body?.session_token}` };
+        const rc = () =>
+          request(restartedEph.daemonUrl, "GET", "/v1/event-streams/_substrate-traversals", undefined, ra);
+
+        // COLD process. Nothing has been appended on this daemon yet.
+        const cold = await rc();
+        const coldEph = await request(
+          restartedEph.daemonUrl,
+          "POST",
+          "/v1/event-streams/automation-scheduler/eph/events",
+          declaration({ class_id: "demo.ephemeral", payload: { n: 99 } }),
+          ra,
+        );
+        const afterCold = await rc();
+        check(
+          "an ephemeral append on a COLD (restarted) daemon performs ZERO history walks",
+          coldEph.status === 200 &&
+            coldEph.body?.delivery === "ephemeral" &&
+            afterCold.body?.history_walks === cold.body?.history_walks,
+          `walks ${cold.body?.history_walks} -> ${afterCold.body?.history_walks} (Codex measured 0 -> 1 before the fix)`,
+        );
+        check(
+          "an ephemeral append on a COLD daemon performs ZERO admissions",
+          afterCold.body?.admitted_operations === cold.body?.admitted_operations,
+          `admits ${cold.body?.admitted_operations} -> ${afterCold.body?.admitted_operations}`,
+        );
+        check(
+          "the declaration was hydrated at STEWARD OPEN, not on the delivery path",
+          cold.body?.declaration_cache_fills > 0 &&
+            afterCold.body?.declaration_cache_fills === cold.body?.declaration_cache_fills,
+          `open-time fills=${cold.body?.declaration_cache_fills}, unchanged by delivery`,
+        );
+      } finally {
+        await restartedEph.stop();
+      }
+    } else {
+      check("an ephemeral append on a COLD (restarted) daemon performs ZERO history walks", false,
+        "restart plane unavailable — failing closed rather than skipping");
+      check("an ephemeral append on a COLD daemon performs ZERO admissions", false,
+        "restart plane unavailable — failing closed rather than skipping");
+      check("the declaration was hydrated at STEWARD OPEN, not on the delivery path", false,
+        "restart plane unavailable — failing closed rather than skipping");
+    }
 
     // NOTE — no anonymous-refusal assertions here, deliberately.
     //
