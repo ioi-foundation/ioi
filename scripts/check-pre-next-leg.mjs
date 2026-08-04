@@ -86,6 +86,11 @@ export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
     args: Object.freeze(["internal-docs/implementation/tools/check-tracked-callers.mjs"]),
   }),
   Object.freeze({
+    id: "internal-architecture-headers",
+    command: process.execPath,
+    args: Object.freeze(["scripts/check-internal-architecture-headers.mjs"]),
+  }),
+  Object.freeze({
     id: "system-genesis-compiler",
     command: "npm",
     args: Object.freeze(["run", "check:system-genesis-compiler"]),
