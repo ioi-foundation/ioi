@@ -95,6 +95,15 @@ export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
     command: process.execPath,
     args: Object.freeze(["scripts/check-discovery-exclusions.mjs"]),
   }),
+  // Wired the day the census caught it uncalled. The completeness bar is the
+  // strongest single claim the QM cut makes -- the adopted tree is upstream
+  // bytes, exactly, in both directions -- and an unwired bar making the
+  // strongest claim is the worst possible thing to leave as documentation.
+  Object.freeze({
+    id: "adoption-completeness",
+    command: process.execPath,
+    args: Object.freeze(["scripts/check-adoption-completeness.mjs"]),
+  }),
   Object.freeze({
     id: "system-genesis-compiler",
     command: "npm",

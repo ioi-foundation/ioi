@@ -44,6 +44,7 @@ const PINNED_GATE_VECTORS = Object.freeze([
   { id: "tracked-caller-census", command: NODE, args: ["internal-docs/implementation/tools/check-tracked-callers.mjs"] },
   { id: "internal-architecture-headers", command: NODE, args: ["scripts/check-internal-architecture-headers.mjs"] },
   { id: "discovery-exclusions", command: NODE, args: ["scripts/check-discovery-exclusions.mjs"] },
+  { id: "adoption-completeness", command: NODE, args: ["scripts/check-adoption-completeness.mjs"] },
   { id: "system-genesis-compiler", command: "npm", args: ["run","check:system-genesis-compiler"] },
   { id: "architecture-docs", command: "npm", args: ["run","check:architecture-docs"] },
   { id: "work-items", command: "npm", args: ["run","check:work-items"] },
