@@ -24,14 +24,15 @@ Both requested rulings ratified:
    decision space and exact questions for legal review; the accepted ADR lands
    in `docs/decisions/` through its own leg after legal review.
 
-R-12 amendment recorded at ratification: the classification *substance* was
-already ruled in the M5 director-cell STOP-1 answers (admitted iff it changes
-durable state/authority/obligation, is needed for replay, or bars/enables a
-claim; ephemeral = deltas/presence/cursor/progress/log-lines;
-transitions-not-samples; structural invariant that the ephemeral path awaits
-no Agentgres operation; p95 150 ms ephemeral / 1000 ms admitted-ack with canon
-owning the values). R-12's residual is therefore only the fold of that
-standing ruling into its two named owners, not a fresh definitional gap.
+R-12 amendment recorded at ratification, matching the verifier's byte-check
+below: the classification substance was ruled in the M5 director-cell STOP-1
+answers and its agentgres-side canon landed at `3b193423b` — inside this
+document's own provenance HEAD, so the original R-12 entry claimed a gap that
+was already partially closed. The residual is only the
+`events-receipts-delivery-bundles.md` owner side referencing the agentgres
+classification (two owners that can drift until it does), folded in the same
+owner pass as R-11. The corrected entry's lesson stands: a claim of absence
+needs byte-verification exactly as a claim of presence does.
 
 Provenance: full canon familiarization pass over `docs/architecture/`
 (foundations 21 files + 17 object modules, domains 16 files, components 7
