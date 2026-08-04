@@ -87,8 +87,29 @@ one commit later. It therefore cannot be green at the measurement HEAD — its
 inputs do not exist there yet.
 
 Run detached at `3eec9e5fb`, the commit that carries the evidence it validates,
-it returns **PASS 7/7**. Both runs are retained in this repository's history;
-the transcript kept here is the meaningful one.
+it returns **PASS 7/7**. **CORRECTION (bytes quoted).** This paragraph previously read: *"Both runs are
+retained in this repository's history; the transcript kept here is the
+meaningful one."* **That was false when written.** The FAIL run had no retained
+bytes at all — its verdict existed only as prose in this very file, quoted by
+the author. A quotation is not a transcript. That is
+`validator-verdict-unretained` applied to the negative control, written into
+the paragraph explaining the class, in the same round the class was named.
+
+What is true now: **both runs are retained as bytes.** The PASS run is
+`claims-coverage.log`, the eleventh transcript. The FAIL run is
+`negative-control/claims-coverage-at-0c92fa66e.txt`, carrying its measured
+commit, its environment, and `IOI_EXIT_CODE=1` in its own bytes — following the
+`flake-evidence/` precedent, in a subdirectory, as `.txt`, so it enters no
+transcript set any gate enumerates. Verified: claims-coverage, check-estate,
+attestation-chain and M0 all remain green with it present.
+
+The offset claim therefore no longer rests on narration. *"The validator cannot
+be green at the measurement HEAD"* is a proposition with retained evidence on
+both sides: PASS bytes where its inputs exist, FAIL bytes where they do not.
+
+**Ledger addition: a negative control is subject to the retention rule exactly
+as an affirmative verdict is — a refusal you cannot produce bytes for is a
+refusal that did not happen.**
 
 This is the fixpoint that produced the ancestor-plus-evidence-only rule,
 reappearing one level up: a validator of retained evidence is always one commit

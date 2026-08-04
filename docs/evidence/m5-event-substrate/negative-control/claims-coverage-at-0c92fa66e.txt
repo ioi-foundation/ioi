@@ -1,0 +1,14 @@
+IOI_MEASURED_COMMIT=0c92fa66eb318bcac3a19475f8a400e839635c76
+IOI_ENV_ROOT_USED_PCT=50%
+IOI_ENV_LOADAVG=1.38 1.40 1.28 6/3954 2218482
+IOI_NEGATIVE_CONTROL=1 — this run is EXPECTED to refuse; a nonzero exit is the result, not a failure
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: positive_proof[0] retained bytes measured ef42ca4ba but the packet HEAD is 0c92fa66e — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: positive_proof[1] retained bytes measured ef42ca4ba but the packet HEAD is 0c92fa66e — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[0] retained bytes measured ef42ca4ba but the packet HEAD is 0c92fa66e — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[1] retained bytes measured ef42ca4ba but the packet HEAD is 0c92fa66e — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[2] retained bytes measured ef42ca4ba but the packet HEAD is 0c92fa66e — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[3] retained bytes measured ef42ca4ba but the packet HEAD is 0c92fa66e — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[4] retained bytes measured ef42ca4ba but the packet HEAD is 0c92fa66e — the evidence is for a different commit
+claims-coverage: 0/7 claim(s) covered by an executed check with retained passing bytes; 15 predeclared cases self-tested
+check-claims-coverage: FAIL (7 error, 0 warn, 0 skip)
+IOI_EXIT_CODE=1
