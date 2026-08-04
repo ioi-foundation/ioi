@@ -45,13 +45,18 @@ export const ADOPTIONS = Object.freeze([
       ".dockerignore", ".env.example", ".git/",
     ]),
     // Declared per-file deviations: display-string rebrands only.
-    deviations: Object.freeze([
-      "CLAUDE.md", "README.md", "AGENTS.md", "CONTRIBUTING.md", "SECURITY.md",
-      "deployment.md", "docs/deploy-directory.md", "cli/README.md",
-      "cli/templates/deployment/SKILL.md", "cli/templates/deployment/deployment.md",
-      "skills-seed/README.md", "docs/architecture.md", "docs/plugins.md",
-      "local/README.md",
-    ]),
+    // MEASURED, NOT GUESSED, AND CURRENTLY EMPTY.
+    //
+    // The finding this list records: there was NO display-only branding in this
+    // tree. Every YC string is `@yc-software/qm` (an npm package identity, even
+    // inside .md files where it appears in copy-pasteable install commands) or
+    // `yc-software/qm` in a git-origin check. The original "14 files rebranded"
+    // was 14 files of IDENTITY rewriting wearing a rebrand's name.
+    //
+    // A first version of this list was guessed from memory; the stale-deviation
+    // check below caught six entries that were byte-identical to upstream. A
+    // deviation list that is not measured widens what may differ.
+    deviations: Object.freeze([]),
     // Files this repository adds and upstream never had.
     additions: Object.freeze(["IOI-ADOPTION-PROVENANCE.md"]),
   }),
