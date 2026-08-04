@@ -157,6 +157,49 @@ fix, per-entry review provenance, resolves both. Until then a genuine
 within-date second entry review is a STOP: nothing that cannot be represented
 truthfully gets represented.
 
+### Declared input surfaces — REVIEWED CONTROL, NOT LOAD-BEARING THIS ROUND
+
+**Every log in this packet is admissible under the OLD strict rule** (ancestor
+plus evidence-only delta). The mechanism below became operative for *future*
+rounds only, and only after disposition. Its first outing must not be the
+outing a literal depends on, so this round remeasured everything — Rust gates
+included — rather than carry anything forward under a novel admissibility
+argument.
+
+Semantics, fail-closed at every default: surfaces are pinned literal data
+beside the argv vectors; a log with no declared surface keeps the strict rule
+(declaring one is opt-in NARROWING, never opt-out of scrutiny); a surface must
+mechanically cover its own producers; and evidence at ancestor A is admissible
+iff every path in `diff(A..HEAD)` is retained evidence or matches no glob in
+that surface. Absent path information is inadmissible — an empty list satisfies
+`.every` vacuously and would fail open.
+
+**Codex's refutation is encoded as a required proof.** The zero-`.rs`
+carry-forward was wrong by construction: the verifiers are *JavaScript*
+verdict-owners, and `.cargo/**`, `Cargo.lock`, `rust-toolchain.toml`, fixtures,
+and binary-selection helpers all move Rust-gate outcomes with no `.rs` change.
+Each surface covers source, verifier scripts, fixtures, build configuration,
+generated inputs, and the environment contract.
+
+Seven proofs, in `scripts/test-declared-surface-proofs.mjs`:
+
+| # | Case | Verdict |
+|---|---|---|
+| i | delta touches a declared surface | refused |
+| ii | delta touches the gate's own verifier | refused (self-inclusion) |
+| iii | delta outside every declared surface | admitted |
+| iv | undeclared gate + non-evidence delta | refused (strict default) |
+| v | a surface omitting its own producer | GATE FAILURE |
+| vi | every shipped surface covers its producers | holds |
+| vii | `Cargo.lock`, `.cargo/config.toml`, `rust-toolchain.toml`, fixtures | refused — zero `.rs`, still invalidating |
+
+### The scope boundary, acknowledged as permanently binding
+
+The cut closes on pin-fix verification and apparatus moves to the M0
+successors — but any defect touching **this cut's claims, bytes, measured
+commit, or transition result stays blocking regardless of where it is
+implemented**. Moving work to a successor does not move its blocking power.
+
 ### The rule that ends this class
 
 Any claim that a disposition line was changed **quotes the changed bytes in the
@@ -176,7 +219,11 @@ against a hardcoded zero, so no lease could expire. None found by inspection.
 `gate-green-in-a-working-tree` (recurred as invisible evidence) ·
 `content-rejecting-floor` (a bar that rejects real content to catch corruption)
 · `met-the-letter-broke-the-rule` (a structural bar satisfied by doing the
-forbidden thing before the checked boundary) · **`absolute-claim-conditional-probe`**
+forbidden thing before the checked boundary) · **`pin-restates-its-subject`**
+(a pin computed from what it pins asserts nothing — the general form of
+written-but-unenforced) · **`label-is-not-closure`** (a "tool-only delta" label
+asserted a closure nobody had computed; the director's premise, killed by
+inviting the attack rather than defending it) · **`absolute-claim-conditional-probe`**
 (an unconditional claim mapped to a check that only exercises the favourable
 path — 7/7 was false because the ephemeral claim rode a warm-cache-only probe) ·
 **`chain-head-edited-not-appended`** (the one destructive edit a hash chain does
