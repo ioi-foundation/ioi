@@ -20,8 +20,8 @@
   "required_work": [
     "Adopt github.com/yc-software/qm (MIT) as the dormant ioi.ai reference-UX seed under apps/ioi-ai/: fork, strip YC branding, retain the MIT license and attribution, rebrand \u2014 stack VERBATIM (Lit/Vite; no React port). The tree lands inert: not served, not rebound, no parity or executable claim."
   ],
-  "objective": "Land the ratified ioi.ai reference-UX seed (QM) as preserved dormant evidence, exactly as the Palantir-derived Hypervisor seeds landed in PRs #93-#95: adopt-in-place so later surface convergence rebinds a real, bootable artifact instead of reauthoring a shell. M5_QM_DORMANT_ADOPTION_EXIT=0.",
-  "falsifiable_claim": "The adopted tree under apps/ioi-ai/ carries the upstream stack verbatim (Lit/Vite, no React port), retains the MIT license and attribution with YC branding stripped, is reachable from no served route, binds no daemon truth, and asserts no parity, executable, or product-membership claim.",
+  "objective": "Vendor the QM reference shell as PINNED VERBATIM BYTES, dormant: byte-identical to upstream at the declared pin modulo a declared exclusion list, not served, not rebound, not built, not resolved by the package manager.",
+  "falsifiable_claim": "The claim fails if any adopted file differs from upstream bytes at the pin without a declared per-file deviation, if any upstream file is neither adopted nor declared excluded, or if any resolver, build, or serve path reaches the tree.",
   "selected_profile": "One dormant adopted tree under apps/ioi-ai/ with license provenance retained; zero serving, zero rebinding.",
   "in_scope": [
     "Fork import, branding strip, MIT license + attribution retention, rebrand naming pass.",
@@ -41,7 +41,13 @@
   "positive_proof": [
     "The adopted tree exists under apps/ioi-ai/ at a pinned upstream commit with MIT license and attribution retained and YC branding absent, and no served route or binding references it."
   ],
-  "adversarial_or_fault_proof": "Reject a served route to the dormant tree, a daemon/Agentgres binding from it, a missing license or attribution file, surviving YC branding, and any stack substitution.",
+  "adversarial_or_fault_proof": [
+    "Reject a served route to the dormant tree, a daemon/Agentgres binding from it, a missing license or attribution file, surviving YC branding, and any stack substitution.",
+    "Reject an adopted file that differs from upstream bytes without a declared per-file deviation: the completeness bar compares blob SHAs in both directions, so a forged identity cannot pass as a rebrand.",
+    "Reject an upstream file that is neither adopted nor on the declared exclusion list -- which is how three .gitignore files were silently skipped by `git add -A` honouring a .gitignore inside the tree being added.",
+    "Reject a stale deviation entry that is byte-identical to upstream: a deviation list nobody measures widens what may differ.",
+    "Reject a tree that the package manager still resolves while declared dormant. Reachability is asked of the RESOLVER, and not via `npm query`, which answers from the lock -- a cached resolution reported the tree unreachable while the config globbed it."
+  ],
   "compatibility_and_migration": [
     "The dormant tree is additive; removing it restores the prior estate byte-exact."
   ],

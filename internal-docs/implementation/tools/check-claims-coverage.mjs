@@ -398,6 +398,30 @@ function main() {
     totalCovered += result.covered;
   }
 
+  // CONVERSE BAR: every published packet must be NAMED by a claims manifest.
+  //
+  // The gate checks that mapped claims have evidence. It said nothing about a
+  // cut with no manifest at all -- which is invisible to it by construction.
+  // That is include-list fail-open, the oldest class in this ledger, and it
+  // does not get to survive its own rediscovery.
+  const packets = existsSync(join(REPO, "docs/evidence"))
+    ? readdirSync(join(REPO, "docs/evidence"), { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .filter((e) => existsSync(join(REPO, "docs/evidence", e.name, "PACKET.md")))
+        .map((e) => `docs/evidence/${e.name}/PACKET.md`)
+    : [];
+  const mappedRecords = manifests.map((name) =>
+    JSON.parse(readFileSync(join(COVERAGE_DIR, name), "utf8")).work_item_id ?? name);
+  for (const packet of packets) {
+    const slug = packet.split("/")[2];
+    const named = mappedRecords.some((r) => slug.split("-").every((part) => part.length < 3 || r.includes(part)));
+    if (!named) {
+      findings.push(finding("error", "claims-coverage",
+        `${packet} is published but NO claims manifest names its cut — a packet the claims gate cannot see is ` +
+        `unmapped by construction, which is include-list fail-open`));
+    }
+  }
+
   const errors = findings.filter((f) => f.severity === "error");
   for (const f of findings) {
     console.log(`[${f.severity.toUpperCase()}] ${f.kind}: ${f.message}`);

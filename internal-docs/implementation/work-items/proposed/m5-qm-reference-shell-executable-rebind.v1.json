@@ -10,7 +10,8 @@
   "contract_families": [],
   "dependency_work_item_ids": [
     "m5-goalrun-thread-orchestration-seam",
-    "m5-participant-frontier-result-closeout"
+    "m5-participant-frontier-result-closeout",
+    "m0-effect-walk-null-child-guards-successor"
   ],
   "external_gates": [],
   "consequential_effects_and_final_invokers": [],
@@ -36,9 +37,11 @@
     "Stack substitution (deferred to surface convergence)."
   ],
   "implementation_actions": [
+    "FIRST ACT: drop the apps/ioi-ai/ declared discovery exclusion and bring the tree into the census. The exclusion exists only because the tree is dormant; a rebind that serves an UNDISCOVERED tree is the second-spine defect at the census layer. This is the action drops_at names.",
     "Map each QM state read/write to its canonical owner projection or admission path before any serving.",
     "Rebind authority and harness surfaces; register served routes through the census epoch flow.",
-    "Prove fail-closed behavior for every absent owner."
+    "Prove fail-closed behavior for every absent owner.",
+    "Carry IOI branding on the SERVED SURFACE at the display and config layer, without touching vendored identity bytes. The dormant cut proved every YC string in the vendored tree is an identity a resolver, installer, or cross-reference depends on, so branding is a property of what we SERVE and never of what we VENDOR. A served surface presenting YC identity violates the owner's intent; a vendored tree with forged identities violates ours."
   ],
   "positive_proof": [
     "The served surface renders live daemon truth with zero QM-local truth writes and typed refusals on every authority crossing."
@@ -98,5 +101,6 @@
     "why": "Owner ruling 2026-08-02: apps/ioi-ai/ SCAFFOLDING gates M5, and the dormant adoption is the scaffolding. Binding the rebind would extend the M5 exit from 'the seed is adopted' to 'the seed runs against canonical owners' \u2014 a scope increase the ruling did not make. This is a decision, not a hedge: the scaffold is gating, its execution is not. The earlier transitive concern (that binding the rebind would pull in the seam) is moot now that the seam and the event successor are bound children in their own right. AMENDED BY OWNER RULING 2026-08-02 (final): non-gating for M5 AND a named gating child of M6. The record is no longer merely excluded from one aggregate \u2014 it is bound into another, so the product intent (ioi-ai real, not parked) has a MECHANICAL home rather than an intention. m6-product-surface-and-typed-workspaces.aggregate_child_ids now names it, which means M6 cannot certify without ioi-ai executable against canonical owners, enforced by the same certify-stage machinery that governs every other child. Both dependencies are M5-gating children, so the moment M5 certifies this is immediately actionable as early M6 work.",
     "ruled_on": "2026-08-02",
     "gating_child_of": "m6-product-surface-and-typed-workspaces"
-  }
+  },
+  "current_implementation_evidence": " OBLIGATIONS BOUND 2026-08-04. Dropping the discovery exclusion re-exposes the null-child crash that exclusion currently hides, so m0-effect-walk-null-child-guards-successor is a MECHANICAL dependency, not prose: the census cannot walk the tree until the effect walk survives it. Branding moved here from the dormant cut, where strict application of 'rebrand touches display strings only' emptied its own input set."
 }
