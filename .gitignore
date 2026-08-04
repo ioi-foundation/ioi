@@ -63,6 +63,10 @@ docs/evidence/*
 # ledger, one layer up.
 !docs/evidence/m5-event-substrate/
 !docs/evidence/m5-event-substrate/**
+# Same rule, same reason: a review packet a reviewer must read has to be
+# readable FROM THE COMMIT. Evidence only I can see is not evidence.
+!docs/evidence/qm-dormant-adoption/
+!docs/evidence/qm-dormant-adoption/**
 !docs/evidence/m0-program-control/
 !docs/evidence/m0-program-control/**
 !docs/evidence/p0-collaboration-readiness/

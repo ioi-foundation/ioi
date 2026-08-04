@@ -1,0 +1,8 @@
+IOI_MEASURED_COMMIT=3dda6066f6ecd73b8f36d02cb4876a0498ef0a3e
+IOI_ENV_ROOT_USED_PCT=50%
+[WARN] tracked-caller: apps/developers-ioi-ai/scripts/check-live-readiness.mjs is deliberately unwired: keep-as-manual by owner ruling 2026-08-04; owning program: web-estate; wiring reconsidered at that program's next active cut
+[WARN] tracked-caller: apps/developers-ioi-ai/scripts/check-seo-routing.mjs is deliberately unwired: keep-as-manual by owner ruling 2026-08-04; owning program: web-estate; wiring reconsidered at that program's next active cut
+[WARN] tracked-caller: apps/hypervisor/scripts/check-augmentation-tokens.mjs is deliberately unwired: keep-as-manual by owner ruling 2026-08-04; owning program: shell-ownership; wiring reconsidered at that program's next active cut
+[WARN] tracked-caller: apps/hypervisor/scripts/check-source-neutral.mjs is deliberately unwired: keep-as-manual by owner ruling 2026-08-04; owning program: shell-ownership; wiring reconsidered at that program's next active cut
+tracked-caller census: 63 check-* executable(s); 59 with a tracked caller; 0 uncalled and undispositioned; 4 deliberately unwired
+check-tracked-callers: PASS (0 error, 4 warn, 0 skip)

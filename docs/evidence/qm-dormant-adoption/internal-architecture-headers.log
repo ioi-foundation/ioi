@@ -1,0 +1,4 @@
+IOI_MEASURED_COMMIT=3dda6066f6ecd73b8f36d02cb4876a0498ef0a3e
+IOI_ENV_ROOT_USED_PCT=50%
+internal-architecture headers: 25 file(s) under internal-docs/architecture/; 0 violation(s)
+check-internal-architecture-headers: PASS (0 error, 0 warn, 0 skip)
