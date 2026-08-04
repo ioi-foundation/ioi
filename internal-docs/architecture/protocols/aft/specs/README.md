@@ -1,5 +1,7 @@
 # Aft Specs
 
+Status: internal protocol spec index (AFT corpus); non-canonical.
+
 This directory is the internal prose/spec workspace for Asymptote Fault
 Tolerance (AFT). It is supporting protocol context; `docs/architecture/` and
 accepted ADRs remain canonical.

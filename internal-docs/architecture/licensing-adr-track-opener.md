@@ -3,7 +3,8 @@
 Status: track opener; non-canonical working draft. Opened by owner ruling
 2026-08-04 as a parallel track independent of every program gate. The accepted
 ADR lands in `docs/decisions/` through its own canon leg after legal review;
-nothing here rides the M5 branch or amends canon.
+nothing here rides the M5 branch or amends canon. Canonical owner docs and accepted ADRs win
+if this document later drifts.
 
 Parent: [`canonical-ioi-thesis-and-canon-change-recommendations.md`](./canonical-ioi-thesis-and-canon-change-recommendations.md), R-03.
 

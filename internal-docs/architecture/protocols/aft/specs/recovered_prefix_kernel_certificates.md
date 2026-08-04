@@ -1,6 +1,7 @@
 # Recovered Prefix Kernel Certificates
 
 Status: exploratory future-work note, not a current protocol claim.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 
 This document defines one plausible lightweight proof family for the bounded
 recovered-prefix lane that the repository now exercises in runtime and bounded

@@ -1,5 +1,7 @@
 # NestedGuardian
 
+Status: internal protocol spec (AFT corpus); non-canonical.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 NestedGuardian is the witness-augmented mode within the broader Aft
 Fault Tolerance family.
 

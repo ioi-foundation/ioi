@@ -1,5 +1,7 @@
 # GuardianMajority Fault Model
 
+Status: internal protocol spec (AFT corpus); non-canonical.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 This document defines the production fault model for `AftSafetyMode::GuardianMajority`.
 
 ## Thought Experiment: The Republic of Inconvenient Paperwork

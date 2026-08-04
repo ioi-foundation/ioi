@@ -1,5 +1,7 @@
 # Equal-Authority Canonical Ordering
 
+Status: internal protocol spec (AFT corpus); non-canonical.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 This document defines the architectural meaning of AFT's `99%`
 equal-authority ordering consensus claim.
 

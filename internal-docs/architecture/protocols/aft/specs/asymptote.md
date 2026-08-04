@@ -1,5 +1,7 @@
 # Asymptote
 
+Status: internal protocol spec (AFT corpus); non-canonical.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 `Asymptote` is the scalable two-tier finality mode in the Aft Fault Tolerance
 family.
 

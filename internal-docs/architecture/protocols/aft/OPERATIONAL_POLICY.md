@@ -1,5 +1,7 @@
 # Aft Operational Policy
 
+Status: internal protocol operations note (AFT corpus); non-canonical.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 This document is the operator-facing contract for `GuardianMajority`.
 
 For the current PSC-based runtime, operators should read this together with one

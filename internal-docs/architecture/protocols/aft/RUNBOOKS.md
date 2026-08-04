@@ -1,5 +1,7 @@
 # Aft Runbooks
 
+Status: internal protocol runbook (AFT corpus); non-canonical.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 ## Registry Rollback Event
 
 1. Freeze new committee and witness registrations.
