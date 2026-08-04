@@ -793,7 +793,20 @@ export function reachabilityIntoExcludedTrees(repoRoot, sourceFiles) {
     const needle = exclusion.path.replace(/\/$/, "");
     const edge = new RegExp(
       [
+        // NAMED / DEFAULT / NAMESPACE import.
         String.raw`import\s[^
+]*from\s*['"\`][^'"\`]*` + needle,
+        // BARE SIDE-EFFECT import -- `import "./app"`. Found because a negative
+        // control stopped reproducing: the synthetic edge was rewritten in this
+        // form and the teeth reported PASS. It is the single most common way to
+        // reach a dormant tree (it exists precisely to run a module for effect),
+        // and an earlier narrowing of this regex -- correctly aimed at killing
+        // mention-based false positives -- removed it along with them.
+        String.raw`import\s*['"\`][^'"\`]*` + needle,
+        // DYNAMIC import and RE-EXPORT, the other two edges that execute or
+        // re-expose a module without ever writing `import ... from`.
+        String.raw`import\(\s*['"\`][^'"\`]*` + needle,
+        String.raw`export\s[^
 ]*from\s*['"\`][^'"\`]*` + needle,
         String.raw`require\(\s*['"\`][^'"\`]*` + needle,
         String.raw`(?:workspaces|include|paths|projects)[^
