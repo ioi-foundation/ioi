@@ -122,6 +122,41 @@ it crashed and reported `0/0`. Worse, `RUN=$?` captured a trailing `echo`, so a
 shell clothes. The first attempt was discarded rather than reported. Ledger:
 `recorded-verdict-not-measured-verdict`.
 
+### The control refused its own director's sequence
+
+Worth reading as evidence of the control's independence rather than as process
+trivia. The GO for this round specified "census epoch 32" unconditionally,
+carried forward from rounds where reviewed entries had actually moved. This
+round moved **zero `.rs` files and zero reviewed entries**.
+
+The attempt was executed, and refused — by running, not by reasoning:
+
+- appending anchor 32 with entry 31's `epoch_id` **succeeded**, then M0 refused:
+  `review anchor sequence 32 duplicates an anchored epoch`
+- the attestation binds the anchor head's `epoch_id` to the lock's current epoch
+  id, so entry 32 **must** carry the colliding id
+- therefore a within-date re-close requires **rewriting entry 31** — which the
+  append-only bar built this same round refuses, correctly
+
+Five escapes existed and every one falsifies something: rewrite entry 31 (the
+act the bar exists to prevent, twice already); a distinct id (breaks the
+attestation binding); a duplicate same-date lock partition (two epochs claiming
+one entry set); re-dating to tomorrow (falsifying when the review happened);
+or forcing past the refusal. None was taken. The tree was restored and the
+collision queued.
+
+**The ruling was that the order was wrong and the chain was right.** Entry
+review ⇒ epoch append; artifact refresh ⇏ epoch. The chain refused to represent
+a review that never happened, against an explicit instruction from the person
+who commissioned it.
+
+The residual structural defect — the anchor cannot represent two closes on one
+date — is queued as scope on `m0-review-epoch-partial-attestation-successor`,
+which already owns the epoch model's coarseness from the other side. One model
+fix, per-entry review provenance, resolves both. Until then a genuine
+within-date second entry review is a STOP: nothing that cannot be represented
+truthfully gets represented.
+
 ### The rule that ends this class
 
 Any claim that a disposition line was changed **quotes the changed bytes in the

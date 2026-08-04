@@ -7,7 +7,7 @@ log that declares no commit, or a commit that is neither the packet HEAD nor an
 ANCESTOR of it whose entire measured-to-HEAD delta is retained evidence. Both
 clauses bind: tree equality is not history.
 
-- measured commit: `46a60482f49c8215b80d4247c1a2e50fab72bcc6`
+- measured commit: `b2f5a3b2a916568b3a41fedee8391d46d7912740`
 - this evidence commit is its child, and the delta between them is evidence
   ONLY — which is the condition the fixpoint rule requires.
 
@@ -21,6 +21,8 @@ clauses bind: tree equality is not history.
 | m0.log | M0 supplied-snapshot check | 1603 entries, exit verified (exit 0) |
 | check-estate.log | estate integrity | PASS (exit 0) |
 | attestation-chain.log | anchor append-only + bindings resolve | PASS (exit 0) |
+| pre-next-leg-gates.log | pre-next-leg gate pin + propagation | PASS (exit 0) |
+| attestation-integration.log | committed head-rewrite attack must be REFUSED | PASS (exit 0) |
 
 ## Supplied build inputs
 
@@ -36,3 +38,12 @@ satisfy.
 `CARGO_INCREMENTAL=0` for gate runs. Unbounded incremental cache reached 352G
 and drove the root filesystem to 100%, failing the wallet fixture with exit 101
 — a poisoned signal that reads as a code regression.
+
+## No census this round, by ruling
+
+`b2f5a3b2a` moved zero `.rs` files and zero reviewed entries, and M0 is green at
+HEAD. The rule, now explicit: **entry review ⇒ epoch append; artifact refresh ⇏
+epoch.** A tool-only commit needs at most regeneration, and a green `--check`
+needs nothing. The attempt to append anyway was refused by the chain — see the
+dispositions entry, which records that the control refused its own director's
+sequence.
