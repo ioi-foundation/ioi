@@ -110,6 +110,7 @@ test("pre-next-leg propagates a compositor-tier failure", () => {
     "tracked-caller-census",
     "internal-architecture-headers",
     "discovery-exclusions",
+    "adoption-completeness",
     "system-genesis-compiler",
     "architecture-docs",
     "work-items",
