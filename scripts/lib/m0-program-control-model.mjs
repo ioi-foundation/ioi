@@ -756,10 +756,75 @@ function listJavaScriptFilesRecursive(repoRoot, relativeDirectory) {
     .sort();
 }
 
+/// DECLARED discovery exclusions — pinned literal data, printed every run.
+///
+/// A tree can be inert to the RUNTIME and still change a gate's behaviour,
+/// because discovery reads the repository, not the runtime. The QM adoption
+/// proved it: 1221 files of upstream TypeScript, never served, never built,
+/// never executed, took M0 down. "Inert" described intent; the input surface
+/// disagreed.
+///
+/// An exclusion is a BLIND SPOT: declared here, printed every run, carrying its
+/// own expiry. A blind spot you are forced to read is a disposition; one you
+/// must find in source is a defect.
+export const DECLARED_DISCOVERY_EXCLUSIONS = Object.freeze([
+  Object.freeze({
+    path: "apps/ioi-ai/",
+    grounds: "dormant adoption of upstream QM bytes: not served, not rebound, not built, no route registration",
+    ruling_date: "2026-08-04",
+    pin_sha: "5eb3393315b45b338b860572ab516db9f6eae6da",
+    drops_at: "m5-qm-reference-shell-executable-rebind — M6's FIRST act drops this exclusion and brings the tree into discovery",
+  }),
+]);
+
+export function isDeclaredExcluded(relativePath) {
+  return DECLARED_DISCOVERY_EXCLUSIONS.some((e) => relativePath.startsWith(e.path));
+}
+
+/// The exclusion ASSERTS dormancy; this CHECKS it. Any reachability edge into
+/// an excluded tree means the tree is not dormant and the exclusion is false.
+///
+/// MENTION IS NOT REACHABILITY. A work-item record naming apps/ioi-ai is
+/// declaring scope, which is its job. A first version matched bare occurrences
+/// and fired on eight records and documents; the teeth must fire on EDGES.
+export function reachabilityIntoExcludedTrees(repoRoot, sourceFiles) {
+  const findings = [];
+  for (const exclusion of DECLARED_DISCOVERY_EXCLUSIONS) {
+    const needle = exclusion.path.replace(/\/$/, "");
+    const edge = new RegExp(
+      [
+        String.raw`import\s[^
+]*from\s*['"\`][^'"\`]*` + needle,
+        String.raw`require\(\s*['"\`][^'"\`]*` + needle,
+        String.raw`(?:workspaces|include|paths|projects)[^
+]{0,80}` + needle,
+        String.raw`(?:serve|mount|static|route|registerRoute|app\.use)[^
+]{0,80}` + needle,
+      ].join("|"),
+      "m",
+    );
+    for (const relativePath of sourceFiles) {
+      if (relativePath.startsWith(exclusion.path)) continue;
+      let source;
+      try { source = readRepoFile(repoRoot, relativePath).source; } catch { continue; }
+      if (edge.test(source)) {
+        findings.push(
+          `undeclared-reachable-excluded-tree: ${relativePath} has a reachability edge into ` +
+          `${needle}, which is declared EXCLUDED on the grounds that it is dormant. A reachable ` +
+          `tree is not dormant; drop the exclusion and bring it into discovery, or remove the ` +
+          `edge. The census refuses to do either silently.`,
+        );
+      }
+    }
+  }
+  return findings;
+}
+
 function activeApplicationSourceFiles(repoRoot) {
   const roots = fs.readdirSync(path.join(repoRoot, "apps"), { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => `apps/${entry.name}/src`)
+    .filter((relativePath) => !isDeclaredExcluded(relativePath))
     .filter((relativePath) => fs.existsSync(path.join(repoRoot, relativePath)));
   if (fs.existsSync(path.join(repoRoot, "apps/sas-xyz/v2"))) {
     roots.push("apps/sas-xyz/v2");

@@ -1,0 +1,5 @@
+IOI_MEASURED_COMMIT=7c99cac616a18efc9fb3cbb589caf6fba9912a64
+IOI_PROOF=ii-pass-with-printed-exclusion
+[WARN] discovery-exclusion: apps/ioi-ai/ — 1221 tracked file(s) hidden from discovery. Grounds: dormant adoption of upstream QM bytes: not served, not rebound, not built, no route registration. Ruled 2026-08-04. Pin 5eb3393315b45b338b860572ab516db9f6eae6da. Expires: m5-qm-reference-shell-executable-rebind — M6's FIRST act drops this exclusion and brings the tree into discovery
+discovery exclusions: 1 declared; 0 reachability violation(s)
+check-discovery-exclusions: PASS (0 error, 1 warn, 0 skip)

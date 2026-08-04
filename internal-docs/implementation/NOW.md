@@ -9,7 +9,7 @@ This file is a projection. It owns no sequence and no status. Sequence lives in
 
 | Stage | State | Records | Exit gate |
 | --- | --- | --- | --- |
-| [M0](./stages/m0.md) — Program Control And Claim Lock | evidence_ready — **exit gate held by osh-0025** | verified_historical_with_open_successor 8, verified 3, proposed 3 | `m0-program-control-selected-profile-exit-proof` |
+| [M0](./stages/m0.md) — Program Control And Claim Lock | evidence_ready — **exit gate held by osh-0025** | verified_historical_with_open_successor 8, verified 3, proposed 4 | `m0-program-control-selected-profile-exit-proof` |
 | [M3](./stages/m3.md) — Generic Pursuit And Result Seam | evidence_ready — **exit gate held by osh-0079** | verified 8, verified_historical_with_open_successor 3 | `m3-direct-path-and-exit-proof` |
 | [M5](./stages/m5.md) — Participants, Local Agents, And Shared Frontier | pending | verified 1, proposed 11 | `m5-selected-profile-exit-proof` |
 
@@ -20,7 +20,7 @@ This file is a projection. It owns no sequence and no status. Sequence lives in
 - why it is current: exact sequence exit gate is verified_historical_with_open_successor under osh-0025
 - depends on: (nothing)
 - stage module: [`stages/m0.md`](./stages/m0.md)
-- records: 14 (verified_historical_with_open_successor 8, verified 3, proposed 3)
+- records: 15 (verified_historical_with_open_successor 8, verified 3, proposed 4)
 - exit gate: `m0-program-control-selected-profile-exit-proof`
 
 ## Next cut
@@ -107,6 +107,7 @@ Real work that is deliberately not on the critical path, so it is never nominate
 | Work item | Stage | Status | Why it does not gate |
 | --- | --- | --- | --- |
 | `m0-declared-relationship-enforcement-successor` | M0 | proposed | `post_exit_successor` |
+| `m0-effect-walk-null-child-guards-successor` | M0 | proposed | `deliberately_non_gating` |
 | `m0-gate-input-closure-successor` | M0 | proposed | `deliberately_non_gating` |
 | `m0-review-epoch-partial-attestation-successor` | M0 | proposed | `deliberately_non_gating` |
 | `m2-authority-ref-shape-unification-successor` | M2 | proposed | `post_exit_successor` |
@@ -143,7 +144,7 @@ at a release gate  node internal-docs/implementation/tools/check-program.mjs
 ## Provenance
 
 ```text
-orientation inputs  b71cfc5922924ee0f828618145c0e7bd668f02f2006e62f3ce19db25a20cfcab
+orientation inputs  408896806253962cc0adc4cf3b915f0396f065beb735551a5f24a2af0431dd18
 sequence            bce04cda8eade7634e22ac8555eb47559336af8fa17d3a2c34fe83758e89b075
 ```
 

@@ -3220,7 +3220,37 @@ function enclosingJavaScriptFunction(node, sourceFile) {
   return null;
 }
 
-function collectJavaScriptEffects({ repoRoot, relativePath }) {
+// THE PER-FILE DISCOVERY BOUNDARY.
+//
+// Any throw from parsing or walking one file becomes a NAMED refusal carrying
+// that file. Placed here, at the single entry every caller uses, rather than at
+// a throw site -- because there is no single throw site. The TS AST hands back
+// NULL children, and every guard in the effect walk is undefined-shaped
+// (`current !== undefined` at the loop, `expression === undefined` at the
+// caller), so a null passes all of them and dies in the first predicate that
+// reads .kind. Three patches aimed at individual sites all missed; the boundary
+// catches this defect, the next TS-syntax novelty, and the module-resolver
+// throw with one placement.
+//
+// IT DOES NOT SKIP. The refusal aborts the run, because a file the census
+// cannot read can contain a route. Declared-excluded trees never reach here --
+// that is what the declaration is for, and it is the only way a file is
+// legitimately not walked.
+function collectJavaScriptEffects(args) {
+  try {
+    return collectJavaScriptEffectsUnguarded(args);
+  } catch (error) {
+    throw new Error(
+      `undeclared-unparseable-tree: ${args.relativePath} ` +
+      `(${error?.constructor?.name ?? "Error"}: ${error?.message ?? String(error)}). ` +
+      `M0 discovery refuses bytes it cannot walk rather than skipping them: an unreadable ` +
+      `file can contain a route. Either declare the tree in DECLARED_DISCOVERY_EXCLUSIONS ` +
+      `with grounds and an expiry, or fix the source.`,
+    );
+  }
+}
+
+function collectJavaScriptEffectsUnguarded({ repoRoot, relativePath }) {
   const { source } = readRepoFile(repoRoot, relativePath);
   const effects = [];
   for (const context of javascriptContexts(relativePath, source)) {

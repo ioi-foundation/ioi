@@ -7,7 +7,7 @@
     "check_command": "node internal-docs/implementation/tools/generate-now.mjs --check"
   },
   "provenance": {
-    "orientation_inputs_sha256": "b71cfc5922924ee0f828618145c0e7bd668f02f2006e62f3ce19db25a20cfcab",
+    "orientation_inputs_sha256": "408896806253962cc0adc4cf3b915f0396f065beb735551a5f24a2af0431dd18",
     "sequence_sha256": "bce04cda8eade7634e22ac8555eb47559336af8fa17d3a2c34fe83758e89b075"
   },
   "current_stage": "M0",
@@ -62,11 +62,11 @@
       "module": "stages/m0.md",
       "state": "evidence_ready",
       "state_reason": "exact sequence exit gate is verified_historical_with_open_successor under osh-0025",
-      "record_count": 14,
+      "record_count": 15,
       "status_counts": {
         "verified_historical_with_open_successor": 8,
         "verified": 3,
-        "proposed": 3
+        "proposed": 4
       },
       "held_records": [
         "m0-adjacent-canon-doc-class-and-placement-disposition",
@@ -452,6 +452,13 @@
       "status": "proposed",
       "state": "post_exit_successor",
       "why": "M0 reached verified before this record existed; a post-exit successor cannot gate an exit that already occurred. Its own literal is its closure."
+    },
+    {
+      "work_item_id": "m0-effect-walk-null-child-guards-successor",
+      "stage_id": "M0",
+      "status": "proposed",
+      "state": "deliberately_non_gating",
+      "why": "Owner ruling 2026-08-04. Filed, not fixed inline. With the declared discovery exclusion in place the path is unreachable from estate sources, so filing is honest and sufficient; fixing it changes census semantics and must be reviewed as such."
     },
     {
       "work_item_id": "m0-gate-input-closure-successor",

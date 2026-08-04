@@ -91,6 +91,11 @@ export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
     args: Object.freeze(["scripts/check-internal-architecture-headers.mjs"]),
   }),
   Object.freeze({
+    id: "discovery-exclusions",
+    command: process.execPath,
+    args: Object.freeze(["scripts/check-discovery-exclusions.mjs"]),
+  }),
+  Object.freeze({
     id: "system-genesis-compiler",
     command: "npm",
     args: Object.freeze(["run", "check:system-genesis-compiler"]),

@@ -1,0 +1,66 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-effect-walk-null-child-guards-successor",
+  "stage_id": "M0",
+  "record_role": "implementation_cut",
+  "status": "proposed",
+  "canon_owners": [
+    "docs/architecture/_meta/source-of-truth-map.md"
+  ],
+  "contract_families": [],
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "objective": "Make the M0 JavaScript effect walk correct against NULL AST children, so discovery reads every file it is given instead of dying on one.",
+  "falsifiable_claim": "The claim fails if any TypeScript source the estate may legitimately contain can make the effect walk throw rather than yield effects.",
+  "in_scope": [
+    "Correct the null/undefined asymmetry through the effect walk: the loop guard at unwrapJavaScriptExpression tests `current !== undefined` and the caller at resolveJavaScriptEffect tests `expression === undefined`, so a NULL child passes every guard and dies in the first predicate that reads .kind.",
+    "Establish, with evidence, which files begin contributing census entries once the walk stops throwing -- because that is a change to what the census can SEE."
+  ],
+  "out_of_scope": [
+    "Fixing this inside the M5 QM adoption cut. Null-tolerant guards change census semantics: files that previously crashed would start contributing entries, and a change to what a census can see gets its own cut and its own review.",
+    "Skip-and-continue. A file the walk cannot read can contain a route -- the file that exposed this defect is literally apps/ioi-ai/src/api/routes/admin/sessions.ts."
+  ],
+  "aggregate_disposition": {
+    "state": "deliberately_non_gating",
+    "not_a_child_of": "m0-selected-profile-exit-proof",
+    "why": "Owner ruling 2026-08-04. Filed, not fixed inline. With the declared discovery exclusion in place the path is unreachable from estate sources, so filing is honest and sufficient; fixing it changes census semantics and must be reviewed as such."
+  },
+  "implementation_actions": [
+    "Audit every undefined-shaped guard on the effect-walk path and make it null-safe.",
+    "Re-run discovery over the adopted tree with the exclusion dropped and record the delta in census entries.",
+    "Only then consider dropping the apps/ioi-ai/ exclusion."
+  ],
+  "positive_proof": [
+    "The effect walk completes over the adopted upstream tree with no throw and no skipped file.",
+    "The census-entry delta from making the walk null-safe is measured and recorded before the exclusion is dropped."
+  ],
+  "adversarial_or_fault_proof": [
+    "Reject a fix that makes the walk null-TOLERANT by skipping the node: skipping a subtree silently narrows what the census sees, which is the defect this record exists to remove, not a fix for it.",
+    "Reject dropping the apps/ioi-ai/ exclusion before the census-entry delta is measured -- discovery widening unobserved is how a blind spot becomes an unnoticed claim."
+  ],
+  "remaining_nonclaims": [
+    "This record does not claim the adopted upstream tree is defective. THE ADOPTED TREE DID NOT BREAK M0 -- IT REVEALED M0. The null/undefined asymmetry is ours and was always there; estate sources simply never produced the AST shape that exposes it.",
+    "This record does not claim the frame chain is the only path to the defect; it is the one reproduced."
+  ],
+  "rollback_or_stop_rule": "Stop if null-safety cannot be achieved without narrowing what the walk reports; a walk that sees less is worse than one that refuses loudly.",
+  "current_implementation_evidence": "FILED 2026-08-04 from the M5 QM adoption. Reproduced independently in a detached worktree at 83529c984 with node --stack-trace-limit=120 (node_modules symlinked; the scratch tree has none): 91 frames, entirely in scripts/lib/m0-program-control.mjs -- unwrapJavaScriptExpression:2571 reading .kind of null, reached via resolveJavaScriptEffect:2933, memberEffectDescriptor:2871 in mutual recursion with resolveJavaScriptEffect:2984, from visit:3242 under deep ts.forEachChild recursion. THE DEFECT IS SYSTEMIC, WHICH IS WHY THREE INDIVIDUAL PATCHES MISSED IT: there is no single throw site, because every guard in the chain is undefined-shaped and a null passes all of them. The exposing file is apps/ioi-ai/src/api/routes/admin/sessions.ts. Transcript and a repro head retained at docs/evidence/m0-effect-walk-null/.",
+  "evidence_refs": [
+    "docs/evidence/m0-effect-walk-null/instrument-null-child-frames.txt",
+    "docs/evidence/m0-effect-walk-null/minimal-repro-head.ts"
+  ],
+  "evidence_index": [],
+  "code_anchors": [
+    "scripts/lib/m0-program-control.mjs"
+  ],
+  "private_artifacts": [],
+  "consequential_effects_and_final_invokers": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "selected_profile": "sovereign-local",
+  "required_work": [],
+  "source_provenance": [],
+  "canon_snapshot": {}
+}
