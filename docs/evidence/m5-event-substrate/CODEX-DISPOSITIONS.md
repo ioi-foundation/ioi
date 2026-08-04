@@ -157,41 +157,31 @@ fix, per-entry review provenance, resolves both. Until then a genuine
 within-date second entry review is a STOP: nothing that cannot be represented
 truthfully gets represented.
 
-### Declared input surfaces — REVIEWED CONTROL, NOT LOAD-BEARING THIS ROUND
+### Declared input surfaces — WITHDRAWN (Codex option (b))
 
-**Every log in this packet is admissible under the OLD strict rule** (ancestor
-plus evidence-only delta). The mechanism below became operative for *future*
-rounds only, and only after disposition. Its first outing must not be the
-outing a literal depends on, so this round remeasured everything — Rust gates
-included — rather than carry anything forward under a novel admissibility
-argument.
+The mechanism is removed from this cut entirely. The literal's dependency chain
+is now substrate + pin fix + the strict measured-commit rule, and nothing else.
 
-Semantics, fail-closed at every default: surfaces are pinned literal data
-beside the argv vectors; a log with no declared surface keeps the strict rule
-(declaring one is opt-in NARROWING, never opt-out of scrutiny); a surface must
-mechanically cover its own producers; and evidence at ancestor A is admissible
-iff every path in `diff(A..HEAD)` is retained evidence or matches no glob in
-that surface. Absent path information is inadmissible — an empty list satisfies
-`.every` vacuously and would fail open.
+Two P0 defects, both mine, both found by Codex:
 
-**Codex's refutation is encoded as a required proof.** The zero-`.rs`
-carry-forward was wrong by construction: the verifiers are *JavaScript*
-verdict-owners, and `.cargo/**`, `Cargo.lock`, `rust-toolchain.toml`, fixtures,
-and binary-selection helpers all move Rust-gate outcomes with no `.rs` change.
-Each surface covers source, verifier scripts, fixtures, build configuration,
-generated inputs, and the environment contract.
+**The proof runner printed `FAIL` and exited 0.** It had zero exit-code calls.
+Its `7/7` was structurally unfalsifiable by exit status — and because the suite
+sat in the gate list, the packet's green depended on it exiting zero, which it
+always did. `recorded-verdict-not-measured-verdict`, second instance, this one
+**authored rather than inherited**.
 
-Seven proofs, in `scripts/test-declared-surface-proofs.mjs`:
+**The declared surfaces omitted real inputs**, provable end-to-end by a
+`third_party/` mutation that left stale Rust evidence admissible. The surfaces
+were themselves a label asserting a closure nobody had computed — the exact
+failure the mechanism existed to prevent, reproduced inside it.
 
-| # | Case | Verdict |
-|---|---|---|
-| i | delta touches a declared surface | refused |
-| ii | delta touches the gate's own verifier | refused (self-inclusion) |
-| iii | delta outside every declared surface | admitted |
-| iv | undeclared gate + non-evidence delta | refused (strict default) |
-| v | a surface omitting its own producer | GATE FAILURE |
-| vi | every shipped surface covers its producers | holds |
-| vii | `Cargo.lock`, `.cargo/config.toml`, `rust-toolchain.toml`, fixtures | refused — zero `.rs`, still invalidating |
+**The process lesson that names this round:** a control labelled
+*non-load-bearing* whose **proof suite sits in the gate list** is load-bearing
+for the packet's green. *Not-load-bearing is a property of the wiring, not of
+the label* — which is `label-is-not-closure` applied to my own mitigation.
+
+Filed as `m0-gate-input-closure-successor` with both attacks recorded verbatim
+as its acceptance tests. It debuts under its own review or not at all.
 
 ### The scope boundary, acknowledged as permanently binding
 

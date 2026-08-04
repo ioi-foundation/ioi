@@ -9,7 +9,7 @@ This file is a projection. It owns no sequence and no status. Sequence lives in
 
 | Stage | State | Records | Exit gate |
 | --- | --- | --- | --- |
-| [M0](./stages/m0.md) — Program Control And Claim Lock | evidence_ready — **exit gate held by osh-0025** | verified_historical_with_open_successor 8, verified 3, proposed 2 | `m0-program-control-selected-profile-exit-proof` |
+| [M0](./stages/m0.md) — Program Control And Claim Lock | evidence_ready — **exit gate held by osh-0025** | verified_historical_with_open_successor 8, verified 3, proposed 3 | `m0-program-control-selected-profile-exit-proof` |
 | [M3](./stages/m3.md) — Generic Pursuit And Result Seam | evidence_ready — **exit gate held by osh-0079** | verified 8, verified_historical_with_open_successor 3 | `m3-direct-path-and-exit-proof` |
 | [M5](./stages/m5.md) — Participants, Local Agents, And Shared Frontier | pending | proposed 12 | `m5-selected-profile-exit-proof` |
 
@@ -20,7 +20,7 @@ This file is a projection. It owns no sequence and no status. Sequence lives in
 - why it is current: exact sequence exit gate is verified_historical_with_open_successor under osh-0025
 - depends on: (nothing)
 - stage module: [`stages/m0.md`](./stages/m0.md)
-- records: 13 (verified_historical_with_open_successor 8, verified 3, proposed 2)
+- records: 14 (verified_historical_with_open_successor 8, verified 3, proposed 3)
 - exit gate: `m0-program-control-selected-profile-exit-proof`
 
 ## Next cut
@@ -105,6 +105,7 @@ Real work that is deliberately not on the critical path, so it is never nominate
 | Work item | Stage | Status | Why it does not gate |
 | --- | --- | --- | --- |
 | `m0-declared-relationship-enforcement-successor` | M0 | proposed | `post_exit_successor` |
+| `m0-gate-input-closure-successor` | M0 | proposed | `deliberately_non_gating` |
 | `m0-review-epoch-partial-attestation-successor` | M0 | proposed | `deliberately_non_gating` |
 | `m2-authority-ref-shape-unification-successor` | M2 | proposed | `post_exit_successor` |
 | `m4-exact-projection-assertion-nondeterminism-successor` | M4 | proposed | `deliberately_non_gating` |
@@ -140,7 +141,7 @@ at a release gate  node internal-docs/implementation/tools/check-program.mjs
 ## Provenance
 
 ```text
-orientation inputs  344c9a0c06ff0e05f3473e138d1f86ac72b50ca592bf42d71b4e6b343871740b
+orientation inputs  9ad2f3033c528b4d64c1e18d1612314f375889e9595312711a917bb1be4c6b6e
 sequence            bce04cda8eade7634e22ac8555eb47559336af8fa17d3a2c34fe83758e89b075
 ```
 

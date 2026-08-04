@@ -79,12 +79,6 @@ export const REAL_GIT = {
       return true;
     } catch { return false; }
   },
-  changedPaths(measured) {
-    try {
-      return execSync(`git diff --name-only ${measured} HEAD`, { cwd: REPO })
-        .toString().trim().split("\n").filter(Boolean);
-    } catch { return []; }
-  },
   evidenceOnlyDelta(measured) {
     try {
       const changed = execSync(`git diff --name-only ${measured} HEAD`, { cwd: REPO })
@@ -94,107 +88,7 @@ export const REAL_GIT = {
   },
 };
 
-/// DECLARED INPUT SURFACES — pinned literal data, never derived.
-///
-/// A pin computed from its subject does not pin it; it restates it. So these
-/// quadruples are written here by hand: the retained log, the scripts that
-/// PRODUCE it, and the globs whose change can invalidate it.
-///
-/// CLOSURE VOCABULARY (Codex, and it supersedes any narrower reading): a Rust
-/// gate's verdict is NOT owned by .rs alone. The verifiers are JavaScript
-/// verdict-owners, and `.cargo/**`, `Cargo.lock`, `rust-toolchain.toml`,
-/// fixtures, generated inputs, and binary-selection helpers all move Rust-gate
-/// outcomes with zero .rs change. A "tool-only delta" is therefore not a safe
-/// carry-forward unless the closure says so. Each surface covers source,
-/// verifier scripts, fixtures, build configuration, generated inputs, and the
-/// environment contract.
-///
-/// Semantics, fail-closed at every default:
-///   * A log with NO declared surface keeps the strict rule (ancestor plus
-///     evidence-only delta). Declaring a surface is opt-in NARROWING of what
-///     invalidates that evidence — never opt-out of scrutiny.
-///   * A surface MUST contain the producing scripts themselves. Checked, not
-///     trusted: otherwise the obvious attack is to modify the verifier inside
-///     a "tool-only" delta and keep claiming its old result.
-///   * Evidence measuring ancestor A is admissible iff every path in
-///     diff(A..HEAD) is retained evidence OR matches no glob in the surface.
-export const DECLARED_SURFACES = Object.freeze({
-  "docs/evidence/m5-event-substrate/agentgres-tests.log": Object.freeze({
-    producers: Object.freeze(["crates/agentgres/"]),
-    surface: Object.freeze([
-      "crates/", "apps/hypervisor/scripts/", "apps/hypervisor/fixtures/",
-      "Cargo.toml", "Cargo.lock", ".cargo/", "rust-toolchain.toml",
-      "package.json", "package-lock.json",
-    ]),
-  }),
-  "docs/evidence/m5-event-substrate/boundary-tests.log": Object.freeze({
-    producers: Object.freeze(["crates/services/"]),
-    surface: Object.freeze([
-      "crates/", "apps/hypervisor/scripts/", "apps/hypervisor/fixtures/",
-      "Cargo.toml", "Cargo.lock", ".cargo/", "rust-toolchain.toml",
-      "package.json", "package-lock.json",
-    ]),
-  }),
-  "docs/evidence/m5-event-substrate/m5-genericity.log": Object.freeze({
-    producers: Object.freeze(["apps/hypervisor/scripts/verify-m5-event-substrate-genericity.mjs"]),
-    surface: Object.freeze([
-      "crates/", "apps/hypervisor/scripts/", "apps/hypervisor/fixtures/",
-      "Cargo.toml", "Cargo.lock", ".cargo/", "rust-toolchain.toml",
-      "package.json", "package-lock.json",
-    ]),
-  }),
-  "docs/evidence/m5-event-substrate/m4-aggregate.log": Object.freeze({
-    producers: Object.freeze(["apps/hypervisor/scripts/verify-m4-outcome-room-system-spine.mjs"]),
-    surface: Object.freeze([
-      "crates/", "apps/hypervisor/scripts/", "apps/hypervisor/fixtures/",
-      "Cargo.toml", "Cargo.lock", ".cargo/", "rust-toolchain.toml",
-      "package.json", "package-lock.json",
-    ]),
-  }),
-  "docs/evidence/m5-event-substrate/m4-activation.log": Object.freeze({
-    producers: Object.freeze(["apps/hypervisor/scripts/verify-m4-goalrun-activation-plane.mjs"]),
-    surface: Object.freeze([
-      "crates/", "apps/hypervisor/scripts/", "apps/hypervisor/fixtures/",
-      "Cargo.toml", "Cargo.lock", ".cargo/", "rust-toolchain.toml",
-      "package.json", "package-lock.json",
-    ]),
-  }),
-});
-
-/// Mandatory self-inclusion. A surface that does not cover its own producers
-/// is a GATE FAILURE, not a warning: it would let the verifier be edited while
-/// its old verdict kept standing.
-export function selfInclusionFindings(surfaces = DECLARED_SURFACES) {
-  const findings = [];
-  for (const [log, declaration] of Object.entries(surfaces)) {
-    for (const producer of declaration.producers ?? []) {
-      const covered = (declaration.surface ?? []).some((glob) => producer.startsWith(glob));
-      if (!covered) {
-        findings.push(
-          finding("error", "claims-coverage",
-            `declared surface for ${log} does NOT cover its own producer ${producer}; a gate whose verifier can change outside its surface can keep a stale verdict`),
-        );
-      }
-    }
-  }
-  return findings;
-}
-
-/// Is a stale-but-ancestor log still admissible under its declared surface?
-export function admissibleUnderSurface(changedPaths, declaration) {
-  if (declaration === undefined) return false; // strict default
-  // An unavailable path list must NOT read as "nothing changed" -- an empty
-  // array satisfies `.every` vacuously, which would fail OPEN. Absence of
-  // information is inadmissible.
-  if (!Array.isArray(changedPaths) || changedPaths.length === 0) return false;
-  return changedPaths.every(
-    (path) =>
-      path.startsWith("docs/evidence/") ||
-      !(declaration.surface ?? []).some((glob) => path.startsWith(glob)),
-  );
-}
-
-export function evaluate({ recordId, record, manifest, readBytes, packetHead, git = REAL_GIT, surfaces = DECLARED_SURFACES }) {
+export function evaluate({ recordId, record, manifest, readBytes, packetHead, git = REAL_GIT }) {
   const findings = [];
   const claims = [];
   for (const field of CLAIM_FIELDS) {
@@ -307,13 +201,7 @@ export function evaluate({ recordId, record, manifest, readBytes, packetHead, gi
       // non-ancestor producing an identical eight-file delta. Tree equality is
       // not history; the ancestry clause is what ties the bytes to this line
       // of development.
-      const surfaceOk =
-        git.isAncestor(measured) &&
-        admissibleUnderSurface(
-          typeof git.changedPaths === "function" ? git.changedPaths(measured) : null,
-          surfaces[mapping.retained_bytes],
-        );
-      if (measured !== packetHead && !(git.isAncestor(measured) && git.evidenceOnlyDelta(measured)) && !surfaceOk) {
+      if (measured !== packetHead && !(git.isAncestor(measured) && git.evidenceOnlyDelta(measured))) {
         findings.push(finding("error","claims-coverage",
           `${recordId}: ${key} retained bytes measured ${measured.slice(0,9)} but the packet HEAD is ${packetHead.slice(0,9)} — the evidence is for a different commit`));
         continue;
@@ -462,7 +350,6 @@ function main() {
   const findings = selfTestFailures.map((message) =>
     finding("error", "claims-coverage", message),
   );
-  findings.push(...selfInclusionFindings());
 
   const manifests = existsSync(COVERAGE_DIR)
     ? readdirSync(COVERAGE_DIR).filter((name) => name.endsWith(".v1.json"))

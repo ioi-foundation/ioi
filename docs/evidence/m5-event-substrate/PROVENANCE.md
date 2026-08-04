@@ -22,13 +22,23 @@ clauses bind: tree equality is not history.
 | check-estate.log | estate integrity | PASS (exit 0) |
 | attestation-chain.log | anchor append-only + bindings resolve | PASS (exit 0) |
 | pre-next-leg-gates.log | pre-next-leg gate pin + propagation | PASS (exit 0) |
-| declared-surface-proofs.log | seven declared-surface proofs incl. Cargo.lock-class | PASS (exit 0) |
 | attestation-integration.log | committed head-rewrite attack must be REFUSED | PASS (exit 0) |
 
 ## Supplied build inputs
 
-`node_modules` and `target` are symlinked from the main checkout. Every source
-byte under test is the worktree's own checkout; only build inputs are shared.
+`node_modules` and `target` are symlinked from the main checkout.
+
+**CORRECTION (bytes quoted, per the R5 template).** This paragraph previously
+asserted: *"Every source byte under test is the worktree's own checkout; only
+build inputs are shared."* **That was false when written.** The
+declared-surface proof runner imported its predicate through an ABSOLUTE
+shared-checkout path, so at least one verdict-owning source byte came from
+outside the worktree — the assertion was a claim about isolation that the
+runner itself violated. It is true now only because that runner is withdrawn
+from the tree entirely; the remaining gates resolve their sources relative to
+the worktree. The claim is stated as conditional-on-inspection rather than
+assumed, because "only build inputs are shared" is exactly the kind of closure
+a label can assert and nobody computes.
 Named because each has produced a failure that reads as a regression and is not
 one: missing `ajv`, root filesystem exhaustion from unbounded incremental cache,
 and the verifiers' in-worktree binary lookup that `CARGO_TARGET_DIR` does not

@@ -7,7 +7,7 @@
     "check_command": "node internal-docs/implementation/tools/generate-now.mjs --check"
   },
   "provenance": {
-    "orientation_inputs_sha256": "344c9a0c06ff0e05f3473e138d1f86ac72b50ca592bf42d71b4e6b343871740b",
+    "orientation_inputs_sha256": "9ad2f3033c528b4d64c1e18d1612314f375889e9595312711a917bb1be4c6b6e",
     "sequence_sha256": "bce04cda8eade7634e22ac8555eb47559336af8fa17d3a2c34fe83758e89b075"
   },
   "current_stage": "M0",
@@ -62,11 +62,11 @@
       "module": "stages/m0.md",
       "state": "evidence_ready",
       "state_reason": "exact sequence exit gate is verified_historical_with_open_successor under osh-0025",
-      "record_count": 13,
+      "record_count": 14,
       "status_counts": {
         "verified_historical_with_open_successor": 8,
         "verified": 3,
-        "proposed": 2
+        "proposed": 3
       },
       "held_records": [
         "m0-adjacent-canon-doc-class-and-placement-disposition",
@@ -451,6 +451,13 @@
       "status": "proposed",
       "state": "post_exit_successor",
       "why": "M0 reached verified before this record existed; a post-exit successor cannot gate an exit that already occurred. Its own literal is its closure."
+    },
+    {
+      "work_item_id": "m0-gate-input-closure-successor",
+      "stage_id": "M0",
+      "status": "proposed",
+      "state": "deliberately_non_gating",
+      "why": "Withdrawn from the M5 event-substrate cut by owner ruling on Codex option (b) 2026-08-04. The mechanism was sound in intent and defective in execution, and a control must not become load-bearing for a packet it was written inside. It debuts under its own review."
     },
     {
       "work_item_id": "m0-review-epoch-partial-attestation-successor",
