@@ -43,19 +43,19 @@ const CALLER_GLOBS = Object.freeze([
 /// run. Pinned literal data — never derived from what happens to be uncalled,
 /// because a census computed from its subject restates it.
 export const UNWIRED_DISPOSITIONS = Object.freeze({
-  // STATE ONLY. Each line records what is observable — uncalled as of the
-  // census date, owning program named, intent UNKNOWN — and claims nothing
-  // about whether the executable is dormant by design. Saying "deliberately
-  // dormant" would be asserting an owner's intent nobody has stated on the
-  // record; the disposition's job is to say exactly that nobody has.
+  // RULED. Owner ruling of 2026-08-04 ratified keep-as-manual for all four:
+  // the census keeps each on the record, nothing on the critical path blocks
+  // on them, and wiring is decided when the owning program next has an active
+  // cut. A ruling is not a waiver — the disposition still prints on every
+  // run, so the cost of staying unwired remains visible.
   "apps/hypervisor/scripts/check-augmentation-tokens.mjs":
-    "uncalled as of 2026-08-04; owning program: shell-ownership; intent UNKNOWN; pending owner ruling",
+    "keep-as-manual by owner ruling 2026-08-04; owning program: shell-ownership; wiring reconsidered at that program's next active cut",
   "apps/hypervisor/scripts/check-source-neutral.mjs":
-    "uncalled as of 2026-08-04; owning program: shell-ownership; intent UNKNOWN; pending owner ruling",
+    "keep-as-manual by owner ruling 2026-08-04; owning program: shell-ownership; wiring reconsidered at that program's next active cut",
   "apps/developers-ioi-ai/scripts/check-live-readiness.mjs":
-    "uncalled as of 2026-08-04; owning program: web-estate; intent UNKNOWN; pending owner ruling",
+    "keep-as-manual by owner ruling 2026-08-04; owning program: web-estate; wiring reconsidered at that program's next active cut",
   "apps/developers-ioi-ai/scripts/check-seo-routing.mjs":
-    "uncalled as of 2026-08-04; owning program: web-estate; intent UNKNOWN; pending owner ruling",
+    "keep-as-manual by owner ruling 2026-08-04; owning program: web-estate; wiring reconsidered at that program's next active cut",
 });
 
 export function evaluate({ executables, callerText, dispositions }) {
