@@ -7,7 +7,7 @@ log that declares no commit, or a commit that is neither the packet HEAD nor an
 ANCESTOR of it whose entire measured-to-HEAD delta is retained evidence. Both
 clauses bind: tree equality is not history.
 
-- measured commit: `b2f5a3b2a916568b3a41fedee8391d46d7912740`
+- measured commit: `ef42ca4ba134dedad899fec9f3aca2160cb5354e`
 - this evidence commit is its child, and the delta between them is evidence
   ONLY — which is the condition the fixpoint rule requires.
 
@@ -22,6 +22,7 @@ clauses bind: tree equality is not history.
 | check-estate.log | estate integrity | PASS (exit 0) |
 | attestation-chain.log | anchor append-only + bindings resolve | PASS (exit 0) |
 | pre-next-leg-gates.log | pre-next-leg gate pin + propagation | PASS (exit 0) |
+| declared-surface-proofs.log | seven declared-surface proofs incl. Cargo.lock-class | PASS (exit 0) |
 | attestation-integration.log | committed head-rewrite attack must be REFUSED | PASS (exit 0) |
 
 ## Supplied build inputs
@@ -47,3 +48,14 @@ epoch.** A tool-only commit needs at most regeneration, and a green `--check`
 needs nothing. The attempt to append anyway was refused by the chain — see the
 dispositions entry, which records that the control refused its own director's
 sequence.
+
+## ADMISSIBILITY OF THIS PACKET
+
+**Every log here is admissible under the STRICT rule** — ancestor plus
+evidence-only delta. Nothing was carried forward. The Rust gates were
+remeasured at this commit rather than inherited, so no novel admissibility
+argument appears anywhere in the literal's dependency chain.
+
+The declared-input-surface mechanism ships as a **reviewed control that is not
+load-bearing**. It becomes operative for future rounds only after disposition.
+Its first outing must not be the outing a literal depends on.
