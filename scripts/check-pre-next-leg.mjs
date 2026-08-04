@@ -76,6 +76,16 @@ export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
     args: Object.freeze(["internal-docs/implementation/tools/regenerate-program-state.mjs"]),
   }),
   Object.freeze({
+    id: "claims-coverage",
+    command: process.execPath,
+    args: Object.freeze(["internal-docs/implementation/tools/check-claims-coverage.mjs"]),
+  }),
+  Object.freeze({
+    id: "tracked-caller-census",
+    command: process.execPath,
+    args: Object.freeze(["internal-docs/implementation/tools/check-tracked-callers.mjs"]),
+  }),
+  Object.freeze({
     id: "system-genesis-compiler",
     command: "npm",
     args: Object.freeze(["run", "check:system-genesis-compiler"]),

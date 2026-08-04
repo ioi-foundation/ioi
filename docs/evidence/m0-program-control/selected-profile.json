@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-08-03",
-  "build_fingerprint": "3cc482ff96a9a6f0889f02b7708fb634dd12b9e6aed90070abdafe98e4c36ff0",
+  "build_fingerprint": "3a43b3d70873cdae9194f121fc8b85c75ccd2c3e1ba80ecf6937fb04dfbdbcbd",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {

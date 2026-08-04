@@ -143,7 +143,7 @@ at a release gate  node internal-docs/implementation/tools/check-program.mjs
 ## Provenance
 
 ```text
-orientation inputs  9c1b7d8711a9bd6a9de6105cd6ac57ca812f28f8a1f4acd11057b5c83a0bbd4d
+orientation inputs  64f9b7a8dec8e7ba2881425704577c3fff3647c16c208ed254d75223687c3b2b
 sequence            bce04cda8eade7634e22ac8555eb47559336af8fa17d3a2c34fe83758e89b075
 ```
 
