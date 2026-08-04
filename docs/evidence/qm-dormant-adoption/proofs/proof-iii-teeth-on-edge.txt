@@ -1,0 +1,10 @@
+IOI_MEASURED_COMMIT=778bfda1c7ce7e17291de4d1b4c220179595ee5c
+IOI_PROOF=iii-teeth-on-synthetic-edge
+IOI_EXPECTED_EXIT=1
+IOI_NOTE=One import edge into the excluded tree. The exclusion asserts dormancy; a reachable tree is not dormant.
+[WARN] discovery-exclusion: apps/ioi-ai/ — 1224 tracked file(s) hidden from discovery. Grounds: dormant adoption of upstream QM bytes: not served, not rebound, not built, no route registration. Ruled 2026-08-04. Pin 5eb3393315b45b338b860572ab516db9f6eae6da. Expires: m5-qm-reference-shell-executable-rebind — M6's FIRST act drops this exclusion and brings the tree into discovery
+[ERROR] discovery-exclusion: undeclared-reachable-excluded-tree: scripts/_synthetic-reachability-edge.mjs has a reachability edge into apps/ioi-ai, which is declared EXCLUDED on the grounds that it is dormant. A reachable tree is not dormant; drop the exclusion and bring it into discovery, or remove the edge. The census refuses to do either silently.
+discovery exclusions: 1 declared; 1 reachability violation(s)
+check-discovery-exclusions: FAIL (1 error, 1 warn, 0 skip)
+IOI_EXIT_CODE=1
+IOI_VERDICT=as-declared

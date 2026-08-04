@@ -3,7 +3,7 @@
   "work_item_id": "m5-qm-reference-shell-dormant-adoption",
   "record_path": "internal-docs/implementation/work-items/proposed/m5-qm-reference-shell-dormant-adoption.v1.json",
   "note": "Authored so the claims gate SEES this cut. An unmapped cut is invisible to the gate by construction -- include-list fail-open, the oldest class in the ledger.",
-  "retained_bytes_provenance": "Detached-worktree runs at the packet commit; IOI_MEASURED_COMMIT in every transcript.",
+  "retained_bytes_provenance": "All bytes measured DETACHED in a dedicated worktree at 778bfda1c, a commit containing BOTH subjects -- the adopted tree (1224 files) and the gate that hides it -- asserted before measurement in subjects-present-at-measurement.txt. Every transcript carries IOI_MEASURED_COMMIT, IOI_EXPECTED_EXIT, IOI_EXIT_CODE and IOI_VERDICT, negatives included, because a bare exit 1 cannot distinguish a gate that refused correctly from one that broke.",
   "packets": [
     "docs/evidence/qm-dormant-adoption/PACKET.md"
   ],
@@ -11,46 +11,52 @@
     {
       "claim_field": "positive_proof",
       "claim_index": 0,
-      "coverage_state": "not_covered",
-      "why": "Pending packet v2 measurement; retained bytes land with the detached gate run."
+      "coverage_state": "covered",
+      "check_name": "check-discovery-exclusions",
+      "retained_bytes": "docs/evidence/qm-dormant-adoption/proofs/proof-ii-pass-with-exclusion.txt",
+      "why": "The exclusion PRINTS on every run with grounds, pin, and a named expiry; 1224 files declared hidden."
     },
     {
       "claim_field": "adversarial_or_fault_proof",
       "claim_index": 0,
       "coverage_state": "covered",
-      "check_name": "adoption completeness",
-      "retained_bytes": "docs/evidence/qm-dormant-adoption/adoption-completeness.log",
-      "why": "Blob-SHA completeness in both directions, or the resolver-asked workspace tooth."
+      "check_name": "adoption-completeness",
+      "retained_bytes": "docs/evidence/qm-dormant-adoption/gates/gate-adoption-completeness.log",
+      "why": "Blob-SHA comparison in BOTH directions against the pin, upstream side rebuilt with git ls-tree from a bare clone."
     },
     {
       "claim_field": "adversarial_or_fault_proof",
       "claim_index": 1,
       "coverage_state": "covered",
-      "check_name": "adoption completeness",
-      "retained_bytes": "docs/evidence/qm-dormant-adoption/adoption-completeness.log",
-      "why": "Blob-SHA completeness in both directions, or the resolver-asked workspace tooth."
+      "check_name": "adoption-completeness",
+      "retained_bytes": "docs/evidence/qm-dormant-adoption/gates/gate-adoption-completeness.log",
+      "why": "The silent-skip mechanism: git declining to ADD is caught by the upstream->adopted direction, not by the strip list."
     },
     {
       "claim_field": "adversarial_or_fault_proof",
       "claim_index": 2,
       "coverage_state": "covered",
-      "check_name": "adoption completeness",
-      "retained_bytes": "docs/evidence/qm-dormant-adoption/adoption-completeness.log",
-      "why": "Blob-SHA completeness in both directions, or the resolver-asked workspace tooth."
+      "check_name": "adoption-completeness",
+      "retained_bytes": "docs/evidence/qm-dormant-adoption/gates/gate-adoption-completeness.log",
+      "why": "A stale deviation entry byte-identical to upstream is refused; it caught six guessed entries of my own."
     },
     {
       "claim_field": "adversarial_or_fault_proof",
       "claim_index": 3,
       "coverage_state": "covered",
-      "check_name": "npm resolves",
-      "retained_bytes": "docs/evidence/qm-dormant-adoption/proofs/A4-red-workspace-reachable.txt",
-      "why": "Blob-SHA completeness in both directions, or the resolver-asked workspace tooth."
+      "check_name": "iv-resolver-asked-workspace-absent",
+      "retained_bytes": "docs/evidence/qm-dormant-adoption/proofs/proof-iv-workspace-unreachable.txt",
+      "why": "npm's own resolver asked, not the lock. Exit 1 IS the green state: 'No workspaces found'. IOI_EXPECTED_EXIT=1, IOI_VERDICT=as-declared.",
+      "expected_verdict": "refusal"
     },
     {
       "claim_field": "adversarial_or_fault_proof",
       "claim_index": 4,
-      "coverage_state": "not_covered",
-      "why": "Pending packet v2 measurement."
+      "coverage_state": "covered",
+      "check_name": "iii-teeth-on-synthetic-edge",
+      "retained_bytes": "docs/evidence/qm-dormant-adoption/proofs/proof-iii-teeth-on-edge.txt",
+      "why": "Teeth fire on a TRACKED synthetic edge into the excluded tree. Six edge forms now covered; a bare side-effect import was missed until this proof stopped reproducing.",
+      "expected_verdict": "refusal"
     }
   ]
 }

@@ -1,0 +1,8 @@
+IOI_MEASURED_COMMIT=778bfda1c7ce7e17291de4d1b4c220179595ee5c
+IOI_PROOF=check-estate
+IOI_EXPECTED_EXIT=any
+[WARN] root-entry: root file is not one of the two declared entry points: source-dispositions.v1.json
+[ERROR] work-item-unlisted: work-item-private-artifact-paths-are-gitignored is not named in stages/m9.md; a record invisible in its stage module cannot be found by a reader of the sequence
+check-estate: FAIL (1 error, 1 warn, 0 skip)
+IOI_EXIT_CODE=1
+IOI_VERDICT=recorded

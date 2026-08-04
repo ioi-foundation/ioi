@@ -1,0 +1,4 @@
+IOI_MEASURED_COMMIT=778bfda1c7ce7e17291de4d1b4c220179595ee5c
+adopted_tree_files=1224
+gate_present=yes
+completeness_bar_present=yes

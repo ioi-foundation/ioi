@@ -1,0 +1,17 @@
+IOI_MEASURED_COMMIT=778bfda1c7ce7e17291de4d1b4c220179595ee5c
+IOI_PROOF=i-refusal-without-declaration
+IOI_EXPECTED_EXIT=1
+IOI_NOTE=Real adopted tree present; declaration REMOVED. Must be a NAMED refusal carrying the file, never a raw TypeError.
+Error: undeclared-unparseable-tree: apps/ioi-ai/src/api/routes/admin/sessions.ts (TypeError: Cannot read properties of null (reading 'kind')). M0 discovery refuses bytes it cannot walk rather than skipping them: an unreadable file can contain a route. Either declare the tree in DECLARED_DISCOVERY_EXCLUSIONS with grounds and an expiry, or fix the source.
+    at collectJavaScriptEffects (file:///tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-c/scripts/lib/m0-program-control.mjs:3243:11)
+    at javascriptSourceHasEffects (file:///tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-c/scripts/lib/m0-program-control.mjs:3303:10)
+    at file:///tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-c/scripts/lib/m0-program-control-model.mjs:1054:8
+    at Array.filter (<anonymous>)
+    at activeJavaScriptEffectSources (file:///tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-c/scripts/lib/m0-program-control-model.mjs:1051:21)
+    at assertRepositoryDiscoveryCoverage (file:///tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-c/scripts/lib/m0-program-control-model.mjs:1085:5)
+    at discoverRepositorySurface (file:///tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-c/scripts/lib/m0-program-control-model.mjs:1266:3)
+    at checkM0Artifacts (file:///tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-c/scripts/lib/m0-program-control-model.mjs:6690:29)
+    at checkArtifacts (file:///tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-c/scripts/m0-program-control.mjs:139:19)
+    at main (file:///tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-c/scripts/m0-program-control.mjs:160:5)
+IOI_EXIT_CODE=1
+IOI_VERDICT=as-declared

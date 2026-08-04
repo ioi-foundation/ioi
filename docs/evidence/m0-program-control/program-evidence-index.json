@@ -8,7 +8,7 @@
     "repository_baseline_present": true,
     "snapshot_head_binding": "verified"
   },
-  "build_fingerprint": "6d8c234986c493f400139906c452a33b679f7ac6c7df03a5b60751d7d76a6310",
+  "build_fingerprint": "b46e49515dba1709e467fdf0a024c99a6b6d2b5739c632d87c112d92a90da96e",
   "consumption_rule": "Evidence matches the supplied repository snapshot only when the read-only checker reproduces this fingerprint and every manifest hash; currentness requires an outside rollback-domain checkpoint.",
   "evidence_format": "ioi.m0.program_evidence_index.v1",
   "evidence_items": [

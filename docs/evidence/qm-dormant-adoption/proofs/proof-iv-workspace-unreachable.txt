@@ -1,0 +1,9 @@
+IOI_MEASURED_COMMIT=778bfda1c7ce7e17291de4d1b4c220179595ee5c
+IOI_PROOF=iv-resolver-asked-workspace-absent
+IOI_EXPECTED_EXIT=1
+IOI_NOTE=npm's own resolver, not the lock. A4-green: apps/ioi-ai must NOT resolve as a workspace.
+npm error No workspaces found:
+npm error   --workspace=apps/ioi-ai
+npm error A complete log of this run can be found in: /home/heathledger/.npm/_logs/2026-08-04T22_25_46_147Z-debug-0.log
+IOI_EXIT_CODE=1
+IOI_VERDICT=as-declared

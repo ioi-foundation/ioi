@@ -1,0 +1,6 @@
+IOI_MEASURED_COMMIT=778bfda1c7ce7e17291de4d1b4c220179595ee5c
+IOI_PROOF=m0-program-control
+IOI_EXPECTED_EXIT=any
+M0 supplied-snapshot check passed: 1603 entries, exit verified, fingerprint 6d8c234986c493f400139906c452a33b679f7ac6c7df03a5b60751d7d76a6310; currentness not established.
+IOI_EXIT_CODE=0
+IOI_VERDICT=recorded

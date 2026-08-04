@@ -213,9 +213,44 @@ export function evaluate({ recordId, record, manifest, readBytes, packetHead, gi
     // prints "PASS <label>"; cargo prints "test <name> ... ok". Accepting both
     // is recognising real transcript formats -- it is NOT loosening the bar,
     // because a FAILING line in either format still does not match.
+    // A DECLARED NEGATIVE CONTROL IS COVERED BY ITS REFUSAL, NOT BY A PASS.
+    //
+    // An adversarial proof's whole value is that the bar went RED on a real
+    // subject. Demanding PASS bytes makes every such proof unmappable, which
+    // pushes the strongest evidence in a cut OUT of this gate entirely -- the
+    // same include-list fail-open this gate exists to close, one level down.
+    //
+    // The bar for a negative control is STRICTLY STRONGER than for a positive
+    // one, not weaker. It must show a refusal, and the transcript must have
+    // DECLARED that refusal in advance: IOI_EXPECTED_EXIT set, a non-zero
+    // IOI_EXIT_CODE, and IOI_VERDICT=as-declared. A proof that merely happened
+    // to fail proves nothing -- it is indistinguishable from a broken gate,
+    // which is exactly how a no-op synthetic edge once passed for evidence.
+    if (mapping.expected_verdict === "refusal") {
+      const declared = /^IOI_EXPECTED_EXIT=(?!any$)\S+$/m.test(bytes);
+      const nonZero = /^IOI_EXIT_CODE=(?!0$)\d+$/m.test(bytes);
+      const asDeclared = /^IOI_VERDICT=as-declared$/m.test(bytes);
+      const named = bytes.includes(mapping.check_name);
+      if (!(declared && nonZero && asDeclared && named)) {
+        findings.push(finding("error", "claims-coverage",
+          `${recordId}: ${key} is declared a NEGATIVE CONTROL but its retained bytes do not show a ` +
+          `pre-declared refusal (need IOI_EXPECTED_EXIT set to a specific code, a non-zero IOI_EXIT_CODE, ` +
+          `IOI_VERDICT=as-declared, and the named check present; got declared=${declared} ` +
+          `nonZero=${nonZero} asDeclared=${asDeclared} named=${named}) — a proof that merely happened to ` +
+          `fail is indistinguishable from a broken gate`));
+        continue;
+      }
+      covered += 1;
+      continue;
+    }
     const passing = bytes.split("\n").some((line) => {
       if (!line.includes(mapping.check_name)) return false;
-      return /^\s*PASS\b/.test(line) || /\.\.\.\s*ok\s*$/.test(line);
+      // Three real transcript formats: a verifier's "PASS <label>", cargo's
+      // "test <name> ... ok", and the form every check-* executable in this
+      // estate prints -- "<name>: PASS (0 error, ...)". The third was missing,
+      // which meant the gate could not read the output of the runners it was
+      // built to gate. A FAIL line still matches none of them.
+      return /^\s*PASS\b/.test(line) || /\.\.\.\s*ok\s*$/.test(line) || /:\s*PASS\b/.test(line);
     });
     if (!passing) {
       findings.push(

@@ -1,0 +1,7 @@
+IOI_MEASURED_COMMIT=778bfda1c7ce7e17291de4d1b4c220179595ee5c
+IOI_PROOF=attestation-chain
+IOI_EXPECTED_EXIT=any
+attestation-chain: 31 anchor entries, 2 bound sidecar(s); 9 predeclared cases self-tested
+check-attestation-chain: PASS (0 error, 0 warn, 0 skip)
+IOI_EXIT_CODE=0
+IOI_VERDICT=recorded
