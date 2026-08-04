@@ -1,14 +1,14 @@
-IOI_MEASURED_COMMIT=ef42ca4ba134dedad899fec9f3aca2160cb5354e
-IOI_ENV_ROOT_USED_PCT=48%
-IOI_ENV_LOADAVG=5.17 4.37 2.62 2/3940 312603
+IOI_MEASURED_COMMIT=0c92fa66eb318bcac3a19475f8a400e839635c76
+IOI_ENV_ROOT_USED_PCT=50%
+IOI_ENV_LOADAVG=6.45 7.12 5.31 4/4220 2432740
    Compiling hex v0.4.3
    Compiling winnow v0.7.14
    Compiling libp2p v0.53.2
    Compiling hyper v1.8.1
    Compiling tokio-stream v0.1.18
    Compiling dcrypt-algorithms v1.2.2
-   Compiling procfs-core v0.16.0
    Compiling zbus v3.15.2
+   Compiling procfs-core v0.16.0
    Compiling tonic v0.11.0
    Compiling hyper-util v0.1.20
    Compiling axum v0.7.9
@@ -25,8 +25,8 @@ IOI_ENV_LOADAVG=5.17 4.37 2.62 2/3940 312603
    Compiling dcrypt-hybrid v1.2.2
    Compiling dcrypt v1.2.2
    Compiling parity-scale-codec v3.7.5
-   Compiling ioi-types v0.1.0 (/var/tmp/ioi-wt-cl/crates/types)
-   Compiling ioi-telemetry v0.1.0 (/var/tmp/ioi-wt-cl/crates/telemetry)
+   Compiling ioi-types v0.1.0 (/var/tmp/ioi-wt-dc2/crates/types)
+   Compiling ioi-telemetry v0.1.0 (/var/tmp/ioi-wt-dc2/crates/telemetry)
    Compiling atspi-common v0.3.0
    Compiling atspi-proxies v0.3.0
    Compiling atspi-connection v0.3.0
@@ -141,16 +141,16 @@ warning: structure field `runtimeTruthSource` should have a snake case name
 24237 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
       |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
 
-   Compiling ioi-api v0.1.0 (/var/tmp/ioi-wt-cl/crates/api)
-   Compiling ioi-pii v0.1.0 (/var/tmp/ioi-wt-cl/crates/pii)
+   Compiling ioi-api v0.1.0 (/var/tmp/ioi-wt-dc2/crates/api)
+   Compiling ioi-pii v0.1.0 (/var/tmp/ioi-wt-dc2/crates/pii)
 warning: `ioi-types` (lib) generated 18 warnings
-   Compiling ioi-crypto v0.1.0 (/var/tmp/ioi-wt-cl/crates/crypto)
-   Compiling ioi-storage v0.1.0 (/var/tmp/ioi-wt-cl/crates/storage)
-   Compiling ioi-ipc v0.2.0 (/var/tmp/ioi-wt-cl/crates/ipc)
-   Compiling ioi-drivers v0.1.0 (/var/tmp/ioi-wt-cl/crates/drivers)
-   Compiling ioi-state v0.1.0 (/var/tmp/ioi-wt-cl/crates/state)
-   Compiling ioi-client v0.2.0 (/var/tmp/ioi-wt-cl/crates/client)
-   Compiling ioi-services v0.1.0 (/var/tmp/ioi-wt-cl/crates/services)
+   Compiling ioi-crypto v0.1.0 (/var/tmp/ioi-wt-dc2/crates/crypto)
+   Compiling ioi-storage v0.1.0 (/var/tmp/ioi-wt-dc2/crates/storage)
+   Compiling ioi-ipc v0.2.0 (/var/tmp/ioi-wt-dc2/crates/ipc)
+   Compiling ioi-drivers v0.1.0 (/var/tmp/ioi-wt-dc2/crates/drivers)
+   Compiling ioi-state v0.1.0 (/var/tmp/ioi-wt-dc2/crates/state)
+   Compiling ioi-client v0.2.0 (/var/tmp/ioi-wt-dc2/crates/client)
+   Compiling ioi-services v0.1.0 (/var/tmp/ioi-wt-dc2/crates/services)
 warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
   --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
    |
@@ -226,7 +226,7 @@ warning: method `to_value` is never used
 
 warning: `ioi-services` (lib) generated 9 warnings (run `cargo fix --lib -p ioi-services` to apply 1 suggestion)
 warning: `ioi-services` (lib test) generated 2 warnings (2 duplicates)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 51s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 02s
      Running unittests src/lib.rs (target/debug/deps/ioi_services-03bd7f912cc09600)
 
 running 2 tests

@@ -1,6 +1,6 @@
-IOI_MEASURED_COMMIT=ef42ca4ba134dedad899fec9f3aca2160cb5354e
-IOI_ENV_ROOT_USED_PCT=49%
-IOI_ENV_LOADAVG=6.24 4.78 2.98 3/4040 352629
+IOI_MEASURED_COMMIT=0c92fa66eb318bcac3a19475f8a400e839635c76
+IOI_ENV_ROOT_USED_PCT=51%
+IOI_ENV_LOADAVG=31.52 13.68 7.76 3/4224 2473104
 warning: structure field `runtimeTruthSource` should have a snake case name
     --> crates/types/src/app/generated/architecture_contracts.rs:4806:9
      |
@@ -507,17 +507,17 @@ warning: field `transitions` is never read
     |         ^^^^^^^^^^^
 
 warning: `ioi-node` (bin "hypervisor-daemon") generated 36 warnings (run `cargo fix --bin "hypervisor-daemon" -p ioi-node` to apply 7 suggestions)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.32s
-M4_GOALRUN_ACTIVATION_DAEMON_BINARY_SHA256=sha256:29af31f118ebbb7bb596bb4e485f3e7cdc0bcc3eb540cbc3533b7209f8cbcfb8
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=476900 port=38837 inode=466373403 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=493193 port=43081 inode=466486830 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=serve pid=493473 port=40263 inode=466483881 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=494855 port=37537 inode=466495340 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=495127 port=45077 inode=466499371 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=495200 port=44225 inode=466497092 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=513882 port=45871 inode=466630137 owned=true
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.31s
+M4_GOALRUN_ACTIVATION_DAEMON_BINARY_SHA256=sha256:249e5028adfcf804418b4b44968aaf17a861db89086e583d48813601dd5a1a77
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2604684 port=33823 inode=480002722 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2621018 port=46277 inode=480529479 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=serve pid=2621193 port=33463 inode=480220778 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2622572 port=40141 inode=480220785 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2622643 port=45455 inode=480533831 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2622912 port=41731 inode=480540730 owned=true
+IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2641338 port=46409 inode=480200254 owned=true
 PASS startup leaves retired M3 legacy WorkResult bytes inert: never listed, never folded into the canonical registry, never rewritten, never deleted — list=200/listed=false canonical=0 legacy=1 legacy_bytes_unchanged=true
-PASS draft persists typed ioi_goal_draft and an origin tag cannot bypass activation — draft=201/undefined bypass=422/goal_run_activation_required_for_origin durable_tree=sha256:3a2ac38465c182dd852209e69bcc66e9e6efae6b6b5e6a15d01e1a12d54f03da->sha256:3a2ac38465c182dd852209e69bcc66e9e6efae6b6b5e6a15d01e1a12d54f03da
+PASS draft persists typed ioi_goal_draft and an origin tag cannot bypass activation — draft=201/undefined bypass=422/goal_run_activation_required_for_origin durable_tree=sha256:9f30e62960f2a2c77413fe775bc3ac28f57fc2076ad3ade11883996633539e2b->sha256:9f30e62960f2a2c77413fe775bc3ac28f57fc2076ad3ade11883996633539e2b
 PASS draft activation conforms to the registered durable contract — No errors
 PASS daemon resolves owner, source, and an immutable content-addressed profile closure
 PASS caller profile injection refuses before activation persistence — 400/goal_run_activation_draft_request_invalid
@@ -540,19 +540,19 @@ PASS activation admission receipt validates its registered contract and both por
 PASS authorized submit retry replays instead of minting a second GoalRun — 200/undefined
 PASS a prefix-shaped state ref without local owner evidence refuses replay — 409/goal_run_activation_state_evidence_missing
 PASS tampered admitted-state bytes refuse before projection — 409/goal_run_activation_state_integrity_failure
-PASS zero-execution GoalRun start refuses before reservation, dependency resolution, or receipt effects — 422/goal_run_execution_budget_exhausted tree=sha256:cc08f1d93f3755a5b2d80ec31fb22ebd4b9452017e07af723ac2936be6e5c73b->sha256:cc08f1d93f3755a5b2d80ec31fb22ebd4b9452017e07af723ac2936be6e5c73b
-PASS zero-execution GoalRun refuses WorkResult creation before record, backlink, or receipt effects — 422/goal_run_execution_budget_exhausted tree=sha256:cc08f1d93f3755a5b2d80ec31fb22ebd4b9452017e07af723ac2936be6e5c73b->sha256:cc08f1d93f3755a5b2d80ec31fb22ebd4b9452017e07af723ac2936be6e5c73b
-PASS zero-execution GoalRun refuses OutcomeDelta creation before record, backlink, or receipt effects — 422/goal_run_execution_budget_exhausted tree=sha256:cc08f1d93f3755a5b2d80ec31fb22ebd4b9452017e07af723ac2936be6e5c73b->sha256:cc08f1d93f3755a5b2d80ec31fb22ebd4b9452017e07af723ac2936be6e5c73b
+PASS zero-execution GoalRun start refuses before reservation, dependency resolution, or receipt effects — 422/goal_run_execution_budget_exhausted tree=sha256:5873201f781bd1dfb889e19385de7eb9b170e75d25e9146d24237e858355d38d->sha256:5873201f781bd1dfb889e19385de7eb9b170e75d25e9146d24237e858355d38d
+PASS zero-execution GoalRun refuses WorkResult creation before record, backlink, or receipt effects — 422/goal_run_execution_budget_exhausted tree=sha256:5873201f781bd1dfb889e19385de7eb9b170e75d25e9146d24237e858355d38d->sha256:5873201f781bd1dfb889e19385de7eb9b170e75d25e9146d24237e858355d38d
+PASS zero-execution GoalRun refuses OutcomeDelta creation before record, backlink, or receipt effects — 422/goal_run_execution_budget_exhausted tree=sha256:5873201f781bd1dfb889e19385de7eb9b170e75d25e9146d24237e858355d38d->sha256:5873201f781bd1dfb889e19385de7eb9b170e75d25e9146d24237e858355d38d
 PASS missing exact execution-ceiling release refuses before GoalRun admission — 409/goal_run_execution_ceiling_missing
 PASS tampered execution-ceiling bytes refuse their stale content address — 409/goal_run_execution_ceiling_contract_invalid
 PASS widened or defaulted execution ceilings refuse instead of inferring invocation capacity — widened=409/goal_run_execution_ceiling_integrity_failure defaulted=409/goal_run_execution_ceiling_contract_invalid
-PASS generic WorkResult and OutcomeDelta routes cannot bypass room ownership or the zero-execution GoalRun ceiling — zero=422/goal_run_execution_budget_exhausted,422/goal_run_execution_budget_exhausted room=422/422,422/422 registryDelta=0/0 durable_tree=sha256:ba22b0bd31e049f4bfae7dc517d7b9450a9e8d3483416f18a26b22fbf644c9ab->sha256:ba22b0bd31e049f4bfae7dc517d7b9450a9e8d3483416f18a26b22fbf644c9ab
+PASS generic WorkResult and OutcomeDelta routes cannot bypass room ownership or the zero-execution GoalRun ceiling — zero=422/goal_run_execution_budget_exhausted,422/goal_run_execution_budget_exhausted room=422/422,422/422 registryDelta=0/0 durable_tree=sha256:1616997605a5f0a969e978c2f158b4dc8e5e5abd408608290a4fe281dcee14cb->sha256:1616997605a5f0a969e978c2f158b4dc8e5e5abd408608290a4fe281dcee14cb
 PASS restart replays activation, GoalRun root/head, and receipts from durable state — 200/undefined
 PASS malformed GoalRun sibling makes reads, activation replay, and mutation fail closed — list=500/goal_run_registry_unreadable get=500/goal_run_registry_unreadable activation=409/goal_run_activation_goal_registry_unreadable mutation=500/goal_run_registry_unreadable
 PASS duplicate canonical GoalRun reference refuses complete-census projection — list=500/goal_run_registry_unreadable activation=409/goal_run_activation_goal_registry_unreadable
 PASS restart preserves the resultless GoalRun and creates no invocation result, delta, backlink, or receipt — 200/results=0/deltas=0
 PASS authenticated GoalRun creation cannot bind another owner's Session/workspace — 202/403/goal_run_target_session_owner_mismatch
-PASS activation replay and submit authorize before existence and expose one owner-mismatch refusal class — owner=200 existing_get=403/goal_run_activation_projection_owner_mismatch existing_submit=403/goal_run_activation_projection_owner_mismatch missing_get=403/goal_run_activation_projection_owner_mismatch missing_submit=403/goal_run_activation_projection_owner_mismatch durable_tree=sha256:778ad1146472c4eb2790736f72cfdf3080b27fa0ecc7fecb15056783db46b611->sha256:778ad1146472c4eb2790736f72cfdf3080b27fa0ecc7fecb15056783db46b611
+PASS activation replay and submit authorize before existence and expose one owner-mismatch refusal class — owner=200 existing_get=403/goal_run_activation_projection_owner_mismatch existing_submit=403/goal_run_activation_projection_owner_mismatch missing_get=403/goal_run_activation_projection_owner_mismatch missing_submit=403/goal_run_activation_projection_owner_mismatch durable_tree=sha256:6d3dd8d05c27e8158582dfe65874911540bc4bfd8cfc20d08d07ab574e208fa4->sha256:6d3dd8d05c27e8158582dfe65874911540bc4bfd8cfc20d08d07ab574e208fa4
 PASS exposed anonymous caller cannot read activation source, authority, or receipts — 401/authentication_required/anchor_pinned=true/anchor_keys=needs_bootstrap,ok,reason
 PASS GoalRun start, reconcile, recovery, and event projection enforce authentication/owner authorization before any existing or missing lifecycle truth — start=403/goal_run_mutation_owner_mismatch reconcile=403/goal_run_mutation_owner_mismatch recovery=403/goal_run_mutation_owner_mismatch anonymous_statuses=401,401,401,401,401,401,401,401,401 anonymous_distinct_bodies=1 anonymous_reason=authentication_required events=403/goal_run_global_truth_owner_mismatch
 PASS cross-owner and exposed anonymous callers cannot mutate GoalRun result or delta truth through either route family — outsider=403/goal_run_mutation_owner_mismatch,403/goal_run_mutation_owner_mismatch,403/work_truth_goal_owner_mismatch,403/work_truth_goal_owner_mismatch anonymous_statuses=401,401,401,401,401,401 anonymous_distinct_bodies=1 matches_lifecycle_refusal=true resultDelta=0/0

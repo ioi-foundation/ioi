@@ -7,7 +7,7 @@ log that declares no commit, or a commit that is neither the packet HEAD nor an
 ANCESTOR of it whose entire measured-to-HEAD delta is retained evidence. Both
 clauses bind: tree equality is not history.
 
-- measured commit: `ef42ca4ba134dedad899fec9f3aca2160cb5354e`
+- measured commit: `0c92fa66eb318bcac3a19475f8a400e839635c76`
 - this evidence commit is its child, and the delta between them is evidence
   ONLY — which is the condition the fixpoint rule requires.
 
@@ -66,6 +66,8 @@ evidence-only delta. Nothing was carried forward. The Rust gates were
 remeasured at this commit rather than inherited, so no novel admissibility
 argument appears anywhere in the literal's dependency chain.
 
-The declared-input-surface mechanism ships as a **reviewed control that is not
-load-bearing**. It becomes operative for future rounds only after disposition.
-Its first outing must not be the outing a literal depends on.
+**The declared-input-surface mechanism is WITHDRAWN** (Codex option (b)) and is
+not in this tree. The literal's dependency chain is substrate + pin fix + the
+strict measured-commit rule, and nothing else. It is filed as
+`m0-gate-input-closure-successor` carrying both Codex attacks as acceptance
+tests, and debuts under its own review or not at all.
