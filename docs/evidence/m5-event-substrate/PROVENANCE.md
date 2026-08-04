@@ -22,6 +22,7 @@ clauses bind: tree equality is not history.
 | check-estate.log | estate integrity | PASS (exit 0) |
 | attestation-chain.log | anchor append-only + bindings resolve | PASS (exit 0) |
 | pre-next-leg-gates.log | pre-next-leg gate pin + propagation | PASS (exit 0) |
+| claims-coverage.log | the packet validator itself | PASS 7/7 (exit 0) |
 | attestation-integration.log | committed head-rewrite attack must be REFUSED | PASS (exit 0) |
 
 ## Supplied build inputs
@@ -71,3 +72,32 @@ not in this tree. The literal's dependency chain is substrate + pin fix + the
 strict measured-commit rule, and nothing else. It is filed as
 `m0-gate-input-closure-successor` carrying both Codex attacks as acceptance
 tests, and debuts under its own review or not at all.
+
+## The validator measures the EVIDENCE commit, not the measurement commit
+
+`claims-coverage.log` is the eleventh transcript and the only one whose
+measured commit differs from the other ten — deliberately, and the difference
+is the finding.
+
+Run detached at `0c92fa66e`, the measurement HEAD shared by the other ten, the
+validator returns **FAIL 0/7**. That verdict is CORRECT: at that commit the
+retained logs are the previous round's, and they do not measure it. The
+validator's input is the retained evidence itself, which by construction lands
+one commit later. It therefore cannot be green at the measurement HEAD — its
+inputs do not exist there yet.
+
+Run detached at `3eec9e5fb`, the commit that carries the evidence it validates,
+it returns **PASS 7/7**. Both runs are retained in this repository's history;
+the transcript kept here is the meaningful one.
+
+This is the fixpoint that produced the ancestor-plus-evidence-only rule,
+reappearing one level up: a validator of retained evidence is always one commit
+behind the thing it measures. Stating it here rather than quietly measuring at
+the convenient commit, because "measured at the same HEAD as the others" would
+have been a claim about this log that is false.
+
+**Ledger: `validator-verdict-unretained`** — the closing instance of the
+recorded-verdict family, distinguished by the verdict being TRUE. `PASS 7/7`
+was reported in the gates table with no transcript behind it. Truth without
+bytes and falsehood without bytes are indistinguishable to every future reader,
+which is the whole reason the class exists.
