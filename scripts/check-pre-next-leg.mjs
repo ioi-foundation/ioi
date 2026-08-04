@@ -71,6 +71,11 @@ export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
     args: Object.freeze(["scripts/test-attestation-chain-integration.mjs"]),
   }),
   Object.freeze({
+    id: "program-state-regeneration-order",
+    command: process.execPath,
+    args: Object.freeze(["internal-docs/implementation/tools/regenerate-program-state.mjs"]),
+  }),
+  Object.freeze({
     id: "system-genesis-compiler",
     command: "npm",
     args: Object.freeze(["run", "check:system-genesis-compiler"]),
