@@ -7,7 +7,7 @@
     "check_command": "node internal-docs/implementation/tools/generate-now.mjs --check"
   },
   "provenance": {
-    "orientation_inputs_sha256": "9ad2f3033c528b4d64c1e18d1612314f375889e9595312711a917bb1be4c6b6e",
+    "orientation_inputs_sha256": "9c1b7d8711a9bd6a9de6105cd6ac57ca812f28f8a1f4acd11057b5c83a0bbd4d",
     "sequence_sha256": "bce04cda8eade7634e22ac8555eb47559336af8fa17d3a2c34fe83758e89b075"
   },
   "current_stage": "M0",
@@ -17,12 +17,12 @@
     "M5"
   ],
   "next_cut": {
-    "work_item_id": "m5-agentgres-durable-event-subscription-successor",
+    "work_item_id": "m5-goalrun-thread-orchestration-seam",
     "status": "proposed",
     "status_authority": "private_record",
-    "status_authority_ref": "internal-docs/implementation/work-items/proposed/m5-agentgres-durable-event-subscription-successor.v1.json",
+    "status_authority_ref": "internal-docs/implementation/work-items/proposed/m5-goalrun-thread-orchestration-seam.v1.json",
     "dependencies_satisfied": true,
-    "record_ref": "internal-docs/implementation/work-items/proposed/m5-agentgres-durable-event-subscription-successor.v1.json"
+    "record_ref": "internal-docs/implementation/work-items/proposed/m5-goalrun-thread-orchestration-seam.v1.json"
   },
   "differential_lanes": [
     {
@@ -218,7 +218,8 @@
       "state_reason": "exact sequence exit gate is proposed",
       "record_count": 12,
       "status_counts": {
-        "proposed": 12
+        "verified": 1,
+        "proposed": 11
       },
       "held_records": [],
       "aggregate_held_by": [],

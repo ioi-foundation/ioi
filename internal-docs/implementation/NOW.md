@@ -11,7 +11,7 @@ This file is a projection. It owns no sequence and no status. Sequence lives in
 | --- | --- | --- | --- |
 | [M0](./stages/m0.md) — Program Control And Claim Lock | evidence_ready — **exit gate held by osh-0025** | verified_historical_with_open_successor 8, verified 3, proposed 3 | `m0-program-control-selected-profile-exit-proof` |
 | [M3](./stages/m3.md) — Generic Pursuit And Result Seam | evidence_ready — **exit gate held by osh-0079** | verified 8, verified_historical_with_open_successor 3 | `m3-direct-path-and-exit-proof` |
-| [M5](./stages/m5.md) — Participants, Local Agents, And Shared Frontier | pending | proposed 12 | `m5-selected-profile-exit-proof` |
+| [M5](./stages/m5.md) — Participants, Local Agents, And Shared Frontier | pending | verified 1, proposed 11 | `m5-selected-profile-exit-proof` |
 
 ## Earliest open stage
 
@@ -25,30 +25,32 @@ This file is a projection. It owns no sequence and no status. Sequence lives in
 
 ## Next cut
 
-**`m5-agentgres-durable-event-subscription-successor`** — proposed
+**`m5-goalrun-thread-orchestration-seam`** — proposed
 
-Implement the general Agentgres/daemon event and projection-subscription substrate: typed owner-namespaced EventStream admission plus durable ProjectionSubscriptionLease checkpoints, revocation, backpressure, gap, and rebase outcomes; M5_AGENTGRES_DURABLE_EVENT_SUBSCRIPTION_EXIT=0.
+Bind every executing GoalRun and harness-to-harness delegation to the daemon-owned thread event, thread fork, managed session, session launch recipe, and harness session binding primitives.
 
-- record: [`work-items/proposed/m5-agentgres-durable-event-subscription-successor.v1.json`](./work-items/proposed/m5-agentgres-durable-event-subscription-successor.v1.json)
-- status authority: `private_record` → `internal-docs/implementation/work-items/proposed/m5-agentgres-durable-event-subscription-successor.v1.json`
+- record: [`work-items/proposed/m5-goalrun-thread-orchestration-seam.v1.json`](./work-items/proposed/m5-goalrun-thread-orchestration-seam.v1.json)
+- status authority: `private_record` → `internal-docs/implementation/work-items/proposed/m5-goalrun-thread-orchestration-seam.v1.json`
 - dependencies satisfied: yes
 - canon owners:
-  - `docs/architecture/components/agentgres/api-object-model.md`
-  - `docs/architecture/components/agentgres/doctrine.md`
-  - `docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md`
+  - `docs/architecture/_meta/implementation-matrix.md`
   - `docs/architecture/components/daemon-runtime/doctrine.md`
+  - `docs/architecture/components/hypervisor/core-clients-surfaces.md`
+  - `docs/architecture/domains/ioi-ai/control-plane.md`
+  - `docs/architecture/foundations/objects/goal-run-execution.md`
+  - `docs/decisions/0031-goalrun-execution-composes-thread-orchestration.md`
 - in scope:
-  - EventStream typed owner namespace, atomic Agentgres expected-head append, root, receipt, replay, and gap proof.
-  - ProjectionSubscriptionLease subscriber, projection/filter hash, permitted subjects/labels, expiry/revocation, durable acknowledged checkpoint, backpressure bounds, and typed gap/rebase outcomes.
-  - The canonical POST /v1/subscriptions owner and daemon PEP/delivery path, with SSE, WebSocket, local broadcast, libp2p, and storage as replaceable adapters.
-  - Positive, unleased, lag, restart, replay, revocation, checkpoint-substitution, and adapter-loss proof.
-  - Genericity proven by a second customer: at least two distinct typed stream owner namespaces — one thread-orchestration owner and one deliberately non-GoalRun, non-thread owner — admitted, replayed, and subscribed through the identical canonical path, with no code branch keyed to either owner's vocabulary.
-  - Per-owner-namespace event-class declaration: each stream owner declares its admitted-truth event kinds by owner-declared payload schema ref and its ephemeral delivery-only classes; admitted classes cross atomic Agentgres transitions, ephemeral classes mint no sequence, head, root, receipt, or truth.
+  - M5.0 and ADR 0031's exact five-owner GoalRun execution composition
+  - One primary harness requesting one bounded delegated harness only through daemon-owned fork/session/launch contracts
+  - Exact GoalRun refs to kernel event, fork, managed-session, launch-recipe, harness-binding, receipt, and replay truth
+  - Positive, denial, stale-state, substitution, restart, replay, fault, and retained-evidence proof for the seam
 - out of scope:
-  - M5.0's bounded GoalRun thread/fork/session/harness composition; that cut explicitly makes no general pub/sub claim.
-  - Untrusted-workload containment, owned by M9.
-  - M4 room truth and both M4 literals.
-  - Creating this proposed record implements nothing or changes any current stage status.
+  - M4 room admission, CAS, lineage, replay, projection, or literals
+  - M5 pairing, participant admission, frontier, claim, Attempt, Finding, VerifierChallenge, acceptance, export, or settlement lifecycles
+  - General durable pub/sub, dynamic subscription creation, durable subscriber checkpoints, and accepted-event losslessness; those belong to m5-agentgres-durable-event-subscription-successor.
+  - General untrusted-workload isolation or a strong-sandbox claim; those remain in M9.
+  - Deleting GoalRun, requiring a Session for a non-executing GoalRun, or granting authority through a thread, fork, Session, or harness binding
+  - Creating this proposed record does not implement behavior, close its literal, or change M4 status.
 
 ## Permitted differential lanes
 
@@ -123,7 +125,7 @@ at a release gate  node internal-docs/implementation/tools/check-program.mjs
 
 ## What blocks advancement
 
-- 2 canon subject(s) exist only on this branch and carry no classification; they grant no coverage until they land
+- 6 canon subject(s) exist only on this branch and carry no classification; they grant no coverage until they land
 - 14 canon subject digest(s) changed since the reviewed baseline; affected stages: FUTURE, M0, M10, M11, M14, M2, M3, M4, M6, M7, M9
 - open successor hold `osh-0019` on `docs/architecture/components/daemon-runtime/doctrine.md`: successor `m9-hypervisor-app-primary-attach-binding-and-retirement`; 2 predecessor closure(s) project as `verified_historical_with_open_successor`
 - open successor hold `osh-0020` on `docs/architecture/components/hypervisor/core-clients-surfaces.md`: successor `m9-hypervisor-app-primary-attach-binding-and-retirement`; 6 predecessor closure(s) project as `verified_historical_with_open_successor`
@@ -141,7 +143,7 @@ at a release gate  node internal-docs/implementation/tools/check-program.mjs
 ## Provenance
 
 ```text
-orientation inputs  9ad2f3033c528b4d64c1e18d1612314f375889e9595312711a917bb1be4c6b6e
+orientation inputs  9c1b7d8711a9bd6a9de6105cd6ac57ca812f28f8a1f4acd11057b5c83a0bbd4d
 sequence            bce04cda8eade7634e22ac8555eb47559336af8fa17d3a2c34fe83758e89b075
 ```
 

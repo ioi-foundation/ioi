@@ -1,7 +1,7 @@
 {
   "evidence_format": "ioi.program.claims_coverage.v1",
   "work_item_id": "m5-agentgres-durable-event-subscription-successor",
-  "record_path": "internal-docs/implementation/work-items/proposed/m5-agentgres-durable-event-subscription-successor.v1.json",
+  "record_path": "internal-docs/implementation/work-items/active/m5-agentgres-durable-event-subscription-successor.v1.json",
   "note": "Every claim in the owning record maps to a named executed check with retained bytes, or is declared not_covered. A not_covered declaration does NOT silence this gate; it names the gap and still fails. Retained bytes must show the named check PASSING, so a mapping cannot be satisfied by a check that never ran.",
   "retained_bytes_provenance": "Gate bytes are produced by fresh detached processes in a dedicated detached worktree at the exact commit under review. A working-tree run is not admissible evidence: a gate green in a working tree can be green on uncommitted bytes. Retained bytes must declare IOI_MEASURED_COMMIT. The declared commit is accepted when it equals the packet HEAD, or when it is an ANCESTOR of HEAD whose entire measured-to-HEAD delta is retained evidence. Both clauses bind: tree equality is not history, so a non-ancestor (or a commit ahead of HEAD) with an evidence-only tree diff is refused.",
   "claim_coverage": [

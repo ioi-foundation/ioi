@@ -11,8 +11,8 @@
   },
   "universe": {
     "rule": "Subjects are discovered from the filesystem under the roots declared in tools/lib/canon-universe.mjs. No index file bounds the universe, so a new canon file is a detected addition rather than a silent omission.",
-    "discovered_subject_count": 1233,
-    "mappable_subject_count": 578,
+    "discovered_subject_count": 1237,
+    "mappable_subject_count": 582,
     "attachment_count": 655
   },
   "classification_counts": {
@@ -34,6 +34,26 @@
       {
         "id": "docs/architecture/_meta/schemas/projection-subscription-lease.v1.schema.json",
         "kind": "contract_schema",
+        "reason": "unclassified"
+      },
+      {
+        "id": "docs/evidence/m5-event-substrate/CODEX-DISPOSITIONS.md",
+        "kind": "retained_evidence",
+        "reason": "unclassified"
+      },
+      {
+        "id": "docs/evidence/m5-event-substrate/PROVENANCE.md",
+        "kind": "retained_evidence",
+        "reason": "unclassified"
+      },
+      {
+        "id": "docs/evidence/m5-event-substrate/review-epoch-30-split.v1.json",
+        "kind": "retained_evidence",
+        "reason": "unclassified"
+      },
+      {
+        "id": "docs/evidence/m5-event-substrate/review-epoch-31-split.v1.json",
+        "kind": "retained_evidence",
         "reason": "unclassified"
       },
       {
@@ -151,7 +171,7 @@
         "owning_subject": "docs/architecture/components/agentgres/doctrine.md",
         "classification": "planned",
         "was": "b083eb85bded59f19e988f826101f66f512c2e68557425133c7e948bf5a4007e",
-        "now": "5016e0f51e855b4dd21c286e09d7371c4bcaceee45e5f3b76093ec258853964e",
+        "now": "7fa59e32562ec945e305f0057d531b474afed9655eaa515af2a3bc360785bf7b",
         "review_required": {
           "stages": [
             "FUTURE",
@@ -208,7 +228,7 @@
         "owning_subject": "docs/evidence/m0-program-control/blocker-ledger.json",
         "classification": "actively_sequenced",
         "was": "a5387971cdaa4f866c3f2c0945a5bdab93223d96813ae32a2c9b2972d99ee5bd",
-        "now": "75e6e4a13e9ddf33cbff99600debf7f9833065a649046867de5de98e805d52a2",
+        "now": "36dafcac833765a0102fc7ea7fc6b4bb6397b04cc9a3eb319299c215493bffc3",
         "review_required": {
           "stages": [
             "M0"
@@ -231,7 +251,7 @@
         "owning_subject": "docs/evidence/m0-program-control/current-baselines.json",
         "classification": "actively_sequenced",
         "was": "cfbfcefb5d4687fc9a396fcc2ff8a5f0c91cb81f3f3caf28a2ad654d2500b007",
-        "now": "1d15287157bfc410654f929f065823dfb6783d874362ad342c0affa47165d68d",
+        "now": "8ee9f0669f6bb2ba70bfe39f854fcb3008c6947b4795e6cb4994cd9dc0b5be26",
         "review_required": {
           "stages": [
             "M0"
@@ -254,7 +274,7 @@
         "owning_subject": "docs/evidence/m0-program-control/effect-census.json",
         "classification": "actively_sequenced",
         "was": "b7764c1d023ca1266f1e590e218adcaa6d158157544685afdc3dc847d8ad973c",
-        "now": "f19248ff779f27f3b22619232e77ae5c5912e67e90681f2cf9cebdb60f0d604e",
+        "now": "ec87c1ed6a4e62e0335b6d3224d375b71a0c07dbe2e9a931acb13a94c53189b1",
         "review_required": {
           "stages": [
             "M0"
@@ -277,7 +297,7 @@
         "owning_subject": "docs/evidence/m0-program-control/m0-exit-report.json",
         "classification": "actively_sequenced",
         "was": "5ef04906d8082821f8f1fe2a48b5c299978f271a16efc307ccc9045e46ee14ef",
-        "now": "178ad7054f4862b0a2b55d24758e3930215fc577cd4c8a43996835d9035c9576",
+        "now": "97a0c568cbcb7fdb2d1d61ee8347a42dbc08e9775233a289650f3c40e1003303",
         "review_required": {
           "stages": [
             "M0"
@@ -300,7 +320,7 @@
         "owning_subject": "docs/evidence/m0-program-control/manifest.json",
         "classification": "actively_sequenced",
         "was": "2dc99d3ce378d53e55b62fdaf46a1daf64b772531dc127419403764b7f583f4f",
-        "now": "0fd7bca576e75282fc83c07840acd2107129787ab8fd3a8455ec5ee710458874",
+        "now": "d1c5c6e2cc040f49571766eb9cc13fecc5293459e05754422aa5415be8fedba4",
         "review_required": {
           "stages": [
             "M0"
@@ -323,7 +343,7 @@
         "owning_subject": "docs/evidence/m0-program-control/pg-gate-map.json",
         "classification": "actively_sequenced",
         "was": "a1de2e44b4db2a6a15d0c03b558914d318fcd1facf3078ec22158382843f7ee9",
-        "now": "cf51682361d40e893eb293066bbad2b347117b9791ea06254a39078b2a16266c",
+        "now": "01f542b3e4ccebaa130d56ce9019703c7dd283fe66edfcc4696c13042d66c887",
         "review_required": {
           "stages": [
             "M0"
@@ -346,7 +366,7 @@
         "owning_subject": "docs/evidence/m0-program-control/program-control-source.json",
         "classification": "actively_sequenced",
         "was": "9dd8595b8f452d2b25e9fded31c02ea9caddec77202207fccb25d146847befb9",
-        "now": "5a162ebd51fba7a15e8d038150bd8e2d4851af2999bf7a8beda5a811a05e836a",
+        "now": "e0a28a9fc66ac2b3ed874b65c11a3b437e0bfd362e7cf5db1e72599e60e03901",
         "review_required": {
           "stages": [
             "M0"
@@ -369,7 +389,7 @@
         "owning_subject": "docs/evidence/m0-program-control/program-evidence-index.json",
         "classification": "actively_sequenced",
         "was": "40e7aabaf957733b8236351a5bb93ad4e1f535dc010757cc2b6168bb1f3aac47",
-        "now": "783ee57e6a6916b7c5060e78d8d0916da1d71b7154c61cd927ffe41f058c5519",
+        "now": "35e853c745e03bd356ce42a8d858372750bfe68ee45b0bafc197b7e2ac40b681",
         "review_required": {
           "stages": [
             "M0"
@@ -392,7 +412,7 @@
         "owning_subject": "docs/evidence/m0-program-control/release-ladder.json",
         "classification": "actively_sequenced",
         "was": "bbf9c2bf4cab57475f403eedd63867af34c49f0cf68eeee8b6495dd80238343d",
-        "now": "250e98ed9f1e9849d234067b8dde4c5c9494de05598c277135434f208ae84583",
+        "now": "6989cb870658343c933f633078e1c04b6efeceaa2a2d9d0acdfd44a93f089717",
         "review_required": {
           "stages": [
             "M0"
@@ -415,7 +435,7 @@
         "owning_subject": "docs/evidence/m0-program-control/review-epoch-anchor.json",
         "classification": "actively_sequenced",
         "was": "c9f7b649bf5da159a585b9bf6218d6c8f6532b04ed95248c10d44c642c87452b",
-        "now": "024140d640a1e75e4ed30b68e007e8e8df36a6e0c0fcb537e2f26877cdf94d6d",
+        "now": "8b0952fe421f766750586f68406a6106a6607054190053439fc4b4c019038cf0",
         "review_required": {
           "stages": [
             "M0"
@@ -438,7 +458,7 @@
         "owning_subject": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
         "classification": "actively_sequenced",
         "was": "0d163dfcb3f48f454def1d5ac5bd045f35a06e4d45872234ce1b604e4df3f9e6",
-        "now": "909d06a7160849a9131d691d5f605a20af7533bfe25fee32b8e41be6fc3c0bdb",
+        "now": "d3fb582b9b9f0bb52b9a01eb3037f4fea077d9fa9df3c89b451e49084fcc3419",
         "review_required": {
           "stages": [
             "M0"
@@ -461,7 +481,7 @@
         "owning_subject": "docs/evidence/m0-program-control/selected-profile.json",
         "classification": "actively_sequenced",
         "was": "fa8580b3322dd6faf74dc0a21161710653974628f86bdd2c554acf0c9b586912",
-        "now": "f579aa7d1e4f94f925c60adcae74cc1f3616fe83eee64d9d74bc3d869282395f",
+        "now": "02a466e09024304d7a12e89bd82c68aefa494ac5fea7d7038697f395603998bb",
         "review_required": {
           "stages": [
             "M0"
@@ -553,7 +573,7 @@
   },
   "orphan_counts": {
     "unclassified_subjects": 0,
-    "unmerged_branch_subjects": 2,
+    "unmerged_branch_subjects": 6,
     "removed_subjects": 0,
     "absent_from_this_checkout": 0,
     "unbound_modules": 0
