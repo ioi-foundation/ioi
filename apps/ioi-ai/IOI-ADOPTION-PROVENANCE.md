@@ -31,23 +31,53 @@ TypeScript); no React port, no rewrite.
 
 Verified absent after the copy; no leak.
 
-## Branding versus attribution — deliberately different acts
+## Pinned verbatim vendoring — the corrected claim
 
-YC branding is stripped from **prose** (14 files: `README.md`, `CLAUDE.md`,
-docs, tests). MIT `LICENSE` and its `Copyright (c) 2026 QM contributors` are
-**retained verbatim** — MIT requires attribution, and stripping branding is not
-a licence to strip attribution.
+**This tree is byte-identical to upstream at pin `5eb3393315b45b338b860572ab516db9f6eae6da`,
+modulo the declared exclusion list.** Proven by `check-adoption-completeness`:
+blob-SHA comparison in both directions, **empty deviation list**, 1224 files,
+0 discrepancies. MIT `LICENSE` and `Copyright (c) 2026 QM contributors` are
+upstream bytes like everything else.
 
-**A correction worth recording.** The first rebranding pass rewrote
-`package.json` and `package-lock.json` too, turning the real npm scope
-`@yc-software/qm` into `@IOI/qm` and a live release tarball URL into one that
-does not exist. That is not rebranding, it is corrupting machine identities that
-happen to contain a string. Both files were restored **verbatim** from the
-pinned fetch. Branding lives in prose; identities are bytes a resolver depends
-on, and the difference is not cosmetic.
+### CORRECTION (bytes quoted)
 
-Remaining `yc-software` occurrences: 7, all in `package.json` /
-`package-lock.json`, all dependency identities or URLs, all intentional.
+This document previously claimed: *"YC branding is stripped from **prose** (14
+files: `README.md`, `CLAUDE.md`, docs, tests)."* It also carried a paragraph
+headed *"A correction worth recording"* asserting that machine identities had
+been restored — **that assertion was false when written**: eleven files still
+carried rewrites. Codex found two; nine more were found on sweep.
+
+The deeper correction is about the ACT, not the count. **The 14 rewrites were
+identity rewriting wearing a rebrand's name.** All were reverted. Applying
+*rebrand touches display strings only* strictly yields an **empty rebrand set**,
+because every YC string in this tree is an identity a resolver, installer, or
+cross-reference depends on: `@yc-software/qm` in npm install commands (including
+inside `.md` files), and `yc-software/qm` in a `git origin` check in `AGENTS.md`.
+**No display-only branding existed.**
+
+The branding obligation has not vanished — it moved to where it belongs. The
+rebind record now carries it: the **served surface** presents IOI branding at
+the display and config layer, without touching vendored identity bytes.
+Branding is a property of what we serve, never of what we vendor.
+
+### Exclusion list — exhaustive or false
+
+`.git` · `.github` · `deploy` · `fly` · `aws` · `.dockerignore` · `.env.example`
+· `.claude` · `.codex`
+
+The earlier list **omitted three `.gitignore` files** that were never adopted —
+not because they were stripped, but because **`git add -A` honours a
+`.gitignore` inside the tree being added**. The list was true about what was
+removed and silent about what git declined to add. All three are now adopted
+verbatim, and the completeness bar closes that mechanism and every sibling of it
+generically.
+
+A method note, because it produced a wrong number: the first completeness diff
+was taken against a working **copy** of upstream — a copy produced by the same
+skip mechanism it was meant to detect — and reported 1239 upstream files where
+the pin has **1277**. The upstream side is now rebuilt from the pin via
+`git ls-tree` on a bare clone. *The verifier must not inherit the subject's
+enumeration.*
 
 ## What this cut claims
 

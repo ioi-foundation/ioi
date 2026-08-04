@@ -2,7 +2,12 @@
   "name": "ioi-network-monorepo",
   "private": true,
   "workspaces": [
-    "apps/*",
+    "apps/aiagent-xyz",
+    "apps/benchmarks",
+    "apps/developers-ioi-ai",
+    "apps/hypervisor",
+    "apps/hypervisor-web",
+    "apps/sas-xyz",
     "packages/*"
   ],
   "scripts": {

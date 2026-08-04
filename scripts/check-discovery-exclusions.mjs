@@ -14,7 +14,7 @@
 // discovery to walk a reachable tree, and it will not keep excluding one. Either
 // is a decision an owner makes, not a tool.
 
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -35,6 +35,36 @@ function main() {
       `[WARN] discovery-exclusion: ${e.path} — ${count} tracked file(s) hidden from discovery. ` +
       `Grounds: ${e.grounds}. Ruled ${e.ruling_date}. Pin ${e.pin_sha}. Expires: ${e.drops_at}`,
     );
+  }
+
+  // WORKSPACE REACHABILITY, ASKED OF THE RESOLVER — never grepped from config.
+  //
+  // A literal path match against package.json is a guess about what npm will
+  // do. The resolver is the authority on what resolves, so the tooth asks it.
+  //
+  // AND IT MUST NOT ASK VIA THE LOCK. `npm query .workspace` answers from
+  // package-lock.json, which is a CACHED resolution: it reported apps/ioi-ai
+  // absent while `workspaces: ["apps/*"]` and apps/ioi-ai/package.json both
+  // existed, purely because the lock had not been regenerated since adoption.
+  // A stale cache reporting "not reachable" is the most dangerous possible
+  // answer. `npm pkg get --workspace <path>` resolves against the CONFIG and
+  // errors "No workspaces found" for a path the resolver does not admit.
+  for (const e of DECLARED_DISCOVERY_EXCLUSIONS) {
+    const target = e.path.replace(/\/$/, "");
+    let resolved = false;
+    try {
+      execFileSync("npm", ["pkg", "get", "name", "--workspace", target],
+        { cwd: REPO, stdio: ["ignore", "pipe", "pipe"] });
+      resolved = true;
+    } catch { resolved = false; }
+    if (resolved) {
+      findings.push(
+        `undeclared-reachable-excluded-tree: npm resolves ${target} as a WORKSPACE, but it is ` +
+        `declared EXCLUDED on the grounds that it is dormant. The resolver's view is the ` +
+        `reachability: a tree the package manager will install, link, and hoist is not dormant. ` +
+        `Remove it from the workspace globs, or drop the exclusion and bring it into discovery.`,
+      );
+    }
   }
 
   // Teeth. Only non-excluded sources are scanned for edges INTO excluded trees.
