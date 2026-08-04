@@ -38,8 +38,20 @@ function main() {
   }
 
   // Teeth. Only non-excluded sources are scanned for edges INTO excluded trees.
+  // Teeth scan CODE AND BUILD WIRING ONLY.
+  //
+  // Work-item records and prose describe reachability; they do not create it.
+  // The narrowed edge predicate still matched a record whose text reads
+  // "...can contain a route -- the file that exposed this defect is literally
+  // apps/ioi-ai/src/api/routes/...", which is a record doing its job. Scanning
+  // declarations for edges is the same mistake as scanning them for mentions,
+  // one level finer: the question is what MAKES the tree reachable, and a
+  // record makes nothing reachable.
   const candidates = tracked.filter(
     (p) => /\.(mjs|js|ts|tsx|json|toml|rs)$/.test(p) &&
+      !p.startsWith("internal-docs/implementation/work-items/") &&
+      !p.startsWith("internal-docs/architecture/") &&
+      !p.startsWith("docs/architecture/") &&
       !DECLARED_DISCOVERY_EXCLUSIONS.some((e) => p.startsWith(e.path)) &&
       !p.startsWith("docs/evidence/") &&
       !p.startsWith("internal-docs/implementation/evidence/") &&

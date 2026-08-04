@@ -7,7 +7,7 @@
     "check_command": "node internal-docs/implementation/tools/generate-now.mjs --check"
   },
   "provenance": {
-    "orientation_inputs_sha256": "408896806253962cc0adc4cf3b915f0396f065beb735551a5f24a2af0431dd18",
+    "orientation_inputs_sha256": "f1f4044018341c6d0422133d0a81abba8d5f5cd0c49120d4b732a5446d1ecd65",
     "sequence_sha256": "bce04cda8eade7634e22ac8555eb47559336af8fa17d3a2c34fe83758e89b075"
   },
   "current_stage": "M0",
@@ -500,7 +500,7 @@
       "stage_id": "M5",
       "status": "proposed",
       "state": "deliberately_non_gating",
-      "why": "Owner ruling 2026-08-02: apps/ioi-ai/ SCAFFOLDING gates M5, and the dormant adoption is the scaffolding. Binding the rebind would extend the M5 exit from 'the seed is adopted' to 'the seed runs against canonical owners' — a scope increase the ruling did not make. This is a decision, not a hedge: the scaffold is gating, its execution is not. The earlier transitive concern (that binding the rebind would pull in the seam) is moot now that the seam and the event successor are bound children in their own right."
+      "why": "Owner ruling 2026-08-02: apps/ioi-ai/ SCAFFOLDING gates M5, and the dormant adoption is the scaffolding. Binding the rebind would extend the M5 exit from 'the seed is adopted' to 'the seed runs against canonical owners' — a scope increase the ruling did not make. This is a decision, not a hedge: the scaffold is gating, its execution is not. The earlier transitive concern (that binding the rebind would pull in the seam) is moot now that the seam and the event successor are bound children in their own right. AMENDED BY OWNER RULING 2026-08-02 (final): non-gating for M5 AND a named gating child of M6. The record is no longer merely excluded from one aggregate — it is bound into another, so the product intent (ioi-ai real, not parked) has a MECHANICAL home rather than an intention. m6-product-surface-and-typed-workspaces.aggregate_child_ids now names it, which means M6 cannot certify without ioi-ai executable against canonical owners, enforced by the same certify-stage machinery that governs every other child. Both dependencies are M5-gating children, so the moment M5 certifies this is immediately actionable as early M6 work."
     },
     {
       "work_item_id": "m5-thread-event-legacy-stream-migration-successor",
