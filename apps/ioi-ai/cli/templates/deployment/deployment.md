@@ -1,6 +1,6 @@
 # Deploy QM
 
-This repository defines one QM deployment. The `@IOI/qm` dependency supplies
+This repository defines one QM deployment. The `@yc-software/qm` dependency supplies
 the deployment engine; this repository owns the organization-specific config,
 sandbox layer, provider coordinates, and generated Slack manifests.
 
@@ -60,7 +60,7 @@ For a repository without `qm.config.jsonc`, first confirm the hosting target
 and the derived slug, then initialize its root with the current CLI:
 
 ```bash
-npm exec --yes --package=@IOI/qm@latest -- \
+npm exec --yes --package=@yc-software/qm@latest -- \
   qm init . --org <slug> --target <fly-or-aws> --model-provider <provider>
 npm install
 ```

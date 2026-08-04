@@ -456,7 +456,7 @@ test("init preflights package.json and completes an install-first package manife
     assert.equal(manifest.private, true);
     assert.equal(manifest.engines?.node, ">=24.0.0");
     assert.equal(manifest.scripts?.deploy, "qm up");
-    assert.equal(manifest.dependencies?.["@IOI/qm"], cliVersion());
+    assert.equal(manifest.dependencies?.["@yc-software/qm"], cliVersion());
     assert.equal(manifest.dependencies?.["qm-cli"], undefined);
     assert.equal(manifest.dependencies?.other, "1.0.0");
   } finally {
@@ -472,7 +472,7 @@ test("init preserves an installed local package artifact", () => {
       join(dir, "package.json"),
       JSON.stringify({
         private: true,
-        dependencies: { "@IOI/qm": "file:../packages/IOI-qm-0.1.0.tgz" },
+        dependencies: { "@yc-software/qm": "file:../packages/yc-software-qm-0.1.0.tgz" },
       }),
     );
 
@@ -481,7 +481,7 @@ test("init preserves an installed local package artifact", () => {
     const manifest = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) as {
       dependencies?: Record<string, string>;
     };
-    assert.equal(manifest.dependencies?.["@IOI/qm"], "file:../packages/IOI-qm-0.1.0.tgz");
+    assert.equal(manifest.dependencies?.["@yc-software/qm"], "file:../packages/yc-software-qm-0.1.0.tgz");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -541,7 +541,7 @@ test("the scaffold is an npm-backed deployment repository with no CI coupling an
       scripts?: Record<string, string>;
     };
     assert.equal(packageJson.private, true);
-    assert.equal(packageJson.dependencies?.["@IOI/qm"], cliVersion());
+    assert.equal(packageJson.dependencies?.["@yc-software/qm"], cliVersion());
     assert.equal(packageJson.scripts?.check, "qm check");
     assert.ok(existsSync(join(dir, "deployment.md")));
     assert.ok(existsSync(join(dir, ".codex", "skills", "deploy-qm", "SKILL.md")));

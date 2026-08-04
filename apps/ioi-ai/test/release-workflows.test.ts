@@ -38,7 +38,7 @@ test("the release signs private images without requiring anonymous registry acce
   assert.match(workflow, /platforms: linux\/amd64\s+provenance: false/);
   assert.match(
     workflow,
-    /image='ghcr\.io\/IOI\/qm\/\$\{\{ matrix\.name \}\}@\$\{\{ steps\.build\.outputs\.digest \}\}'\s+cosign sign --yes "\$image"\s+cosign verify "\$image"/,
+    /image='ghcr\.io\/yc-software\/qm\/\$\{\{ matrix\.name \}\}@\$\{\{ steps\.build\.outputs\.digest \}\}'\s+cosign sign --yes "\$image"\s+cosign verify "\$image"/,
   );
   assert.ok(workflow.indexOf("docker/login-action") < workflow.indexOf("docker/build-push-action"));
   assert.ok(workflow.indexOf("docker/build-push-action") < workflow.indexOf("Sign exact image"));
@@ -55,7 +55,7 @@ test("the CLI package publishes publicly with provenance", () => {
   assert.equal(manifest.private, undefined);
   assert.equal(manifest.publishConfig?.access, "public");
   assert.equal(manifest.publishConfig?.provenance, true);
-  assert.equal(manifest.repository?.url, "git+https://github.com/IOI/qm.git");
+  assert.equal(manifest.repository?.url, "git+https://github.com/yc-software/qm.git");
   assert.equal(manifest.repository?.directory, "cli");
   assert.equal(manifest.scripts?.["verify:release"], undefined);
   assert.equal(existsSync("cli/scripts/verify-release-manifest.mjs"), false);
@@ -104,7 +104,7 @@ test("the published package pins real image digests, never the checked-in sentin
 test("the release republishes nothing already on npm so a half-finished run can resume", () => {
   const workflow = readFileSync(".github/workflows/publish-cli.yml", "utf8");
 
-  assert.match(workflow, /if npm view "@IOI\/qm@\$version" version/);
+  assert.match(workflow, /if npm view "@yc-software\/qm@\$version" version/);
   assert.ok(
     workflow.indexOf("npm view") < workflow.indexOf("npm publish --provenance"),
     "the already-published check guards the publish rather than following it",
@@ -167,7 +167,7 @@ test("the tag is created atomically at the released commit, never adopted from e
 test("a resumed publish keeps npm only when it already pins the digests being released", () => {
   const workflow = readFileSync(".github/workflows/publish-cli.yml", "utf8");
 
-  assert.match(workflow, /npm pack "@IOI\/qm@\$version"/);
+  assert.match(workflow, /npm pack "@yc-software\/qm@\$version"/);
   assert.match(workflow, /tar -xzf "\$published\/\$tarball" -C "\$published" package\/manifest\.json/);
   assert.match(workflow, /is on npm pinning different image digests; bump the version/);
   assert.ok(

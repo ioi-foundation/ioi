@@ -6,7 +6,7 @@ security guarantees, target behavior, and lifecycle are in
 the agent-consumable package runbook into the deployment repository.
 
 ```bash
-npm exec --yes --package=@IOI/qm@latest -- \
+npm exec --yes --package=@yc-software/qm@latest -- \
   qm init . --org acme --target aws
 npm install
 npm exec qm -- check
@@ -18,7 +18,7 @@ npm exec qm -- up --yes
 npm exec qm -- check --live
 ```
 
-This package is published to npm as `@IOI/qm`, with npm provenance attesting the
+This package is published to npm as `@yc-software/qm`, with npm provenance attesting the
 building workflow. A release is one dispatch of `.github/workflows/release.yml` from
 `main`: it signs and pushes the first-party images, publishes the package pinning their
 digests, and then tags `v<version>` and creates the GitHub release with the resolved
@@ -111,7 +111,7 @@ the contributor worktree loop and is separate from the portable deployment contr
 
 ## Package contract
 
-The `@IOI/qm/contract` export is the supported programmatic surface for
+The `@yc-software/qm/contract` export is the supported programmatic surface for
 conformance tests. It exposes the contract version, parsing/rendering
 functions, and provider ids without registering arbitrary runtime plugins.
 Incompatible directory

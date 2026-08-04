@@ -99,10 +99,10 @@ known limitations.
 
 ## Deploy it for your org
 
-Create an organization-owned deployment repository that depends on `@IOI/qm`:
+Create an organization-owned deployment repository that depends on `@yc-software/qm`:
 
 ```bash
-npm exec --yes --package=@IOI/qm@latest -- \
+npm exec --yes --package=@yc-software/qm@latest -- \
   qm init . --org <slug> --target <fly-or-aws>
 npm install
 ```
@@ -136,12 +136,12 @@ Populate it once, then clone it to work in:
 ```bash
 gh repo create <org>/qm-private --private
 
-git clone --bare git@github.com:IOI/qm qm-seed.git
+git clone --bare git@github.com:yc-software/qm qm-seed.git
 git -C qm-seed.git push --mirror git@github.com:<org>/qm-private
 rm -rf qm-seed.git
 
 git clone git@github.com:<org>/qm-private
-git -C qm-private remote add upstream git@github.com:IOI/qm
+git -C qm-private remote add upstream git@github.com:yc-software/qm
 ```
 
 Create the private fork with a plain clone, as shown above, and never with GitHub's fork

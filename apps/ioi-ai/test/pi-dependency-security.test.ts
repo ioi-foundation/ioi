@@ -6,7 +6,7 @@ import test from "node:test";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 const piCodingAgentTarball =
-  "https://github.com/IOI/pi/releases/download/qm-pi-coding-agent-0.82.0-security.2/earendil-works-pi-coding-agent-0.82.0-qm-security.2.tgz";
+  "https://github.com/yc-software/pi/releases/download/qm-pi-coding-agent-0.82.0-security.2/earendil-works-pi-coding-agent-0.82.0-qm-security.2.tgz";
 
 function installedVersion(path: string): string {
   const manifestUrl = new URL(`../node_modules/${path}/package.json`, import.meta.url);

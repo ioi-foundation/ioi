@@ -29,7 +29,7 @@ test("the package uses the organization scope while keeping the qm command", () 
     name?: string;
     bin?: Record<string, string>;
   };
-  assert.equal(packageManifest.name, "@IOI/qm");
+  assert.equal(packageManifest.name, "@yc-software/qm");
   assert.equal(packageManifest.bin?.qm, "dist/bin/qm.js");
 });
 
@@ -52,17 +52,17 @@ test(
       const version = packageManifest["version"] as string;
       registry = createServer((request, response) => {
         const origin = `http://${request.headers.host}`;
-        if (request.url && decodeURIComponent(request.url) === "/@IOI/qm") {
+        if (request.url && decodeURIComponent(request.url) === "/@yc-software/qm") {
           response.setHeader("content-type", "application/json");
           response.end(
             JSON.stringify({
-              name: "@IOI/qm",
+              name: "@yc-software/qm",
               "dist-tags": { latest: version },
               versions: {
                 [version]: {
                   ...packageManifest,
                   dist: {
-                    tarball: `${origin}/@IOI/qm/-/qm-${version}.tgz`,
+                    tarball: `${origin}/@yc-software/qm/-/qm-${version}.tgz`,
                     shasum: createHash("sha1").update(tarballBytes).digest("hex"),
                     integrity: `sha512-${createHash("sha512").update(tarballBytes).digest("base64")}`,
                   },
@@ -72,7 +72,7 @@ test(
           );
           return;
         }
-        if (request.url === `/@IOI/qm/-/qm-${version}.tgz`) {
+        if (request.url === `/@yc-software/qm/-/qm-${version}.tgz`) {
           response.setHeader("content-type", "application/octet-stream");
           response.end(tarballBytes);
           return;
@@ -94,7 +94,7 @@ test(
           [
             "exec",
             "--yes",
-            `--package=@IOI/qm@${version}`,
+            `--package=@yc-software/qm@${version}`,
             "--",
             "qm",
             "init",
@@ -118,7 +118,7 @@ test(
           cwd: consumer.dir,
           env: { ...env, NPM_CONFIG_REGISTRY: registryUrl },
         });
-        const installed = join(consumer.dir, "node_modules", "@IOI", "qm");
+        const installed = join(consumer.dir, "node_modules", "@yc-software", "qm");
         assert.equal(lstatSync(installed).isSymbolicLink(), false);
         assert.ok(realpathSync(installed).startsWith(`${realpathSync(consumer.dir)}/`));
         const imageManifest = JSON.parse(readFileSync(join(installed, "manifest.json"), "utf8")) as {
@@ -135,7 +135,7 @@ test(
         };
         assert.equal(consumerPackage.private, true);
         assert.equal(consumerPackage.scripts?.deploy, "qm up");
-        assert.equal(consumerPackage.dependencies?.["@IOI/qm"], version);
+        assert.equal(consumerPackage.dependencies?.["@yc-software/qm"], version);
       }
       await new Promise<void>((resolve, reject) => registry!.close((error) => (error ? reject(error) : resolve())));
       registry = undefined;
@@ -275,7 +275,7 @@ else if (command === "secretsmanager get-secret-value") {
         [
           "--input-type=module",
           "--eval",
-          'import("@IOI/qm/contract").then((m) => process.stdout.write(String(m.contractVersion)))',
+          'import("@yc-software/qm/contract").then((m) => process.stdout.write(String(m.contractVersion)))',
         ],
         { cwd: deployment, encoding: "utf8" },
       );
