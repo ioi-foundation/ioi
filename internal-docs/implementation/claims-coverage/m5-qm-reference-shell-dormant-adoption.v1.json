@@ -4,6 +4,9 @@
   "record_path": "internal-docs/implementation/work-items/proposed/m5-qm-reference-shell-dormant-adoption.v1.json",
   "note": "Authored so the claims gate SEES this cut. An unmapped cut is invisible to the gate by construction -- include-list fail-open, the oldest class in the ledger.",
   "retained_bytes_provenance": "Detached-worktree runs at the packet commit; IOI_MEASURED_COMMIT in every transcript.",
+  "packets": [
+    "docs/evidence/qm-dormant-adoption/PACKET.md"
+  ],
   "claim_coverage": [
     {
       "claim_field": "positive_proof",

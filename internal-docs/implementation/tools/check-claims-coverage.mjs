@@ -400,27 +400,50 @@ function main() {
 
   // CONVERSE BAR: every published packet must be NAMED by a claims manifest.
   //
-  // The gate checks that mapped claims have evidence. It said nothing about a
-  // cut with no manifest at all -- which is invisible to it by construction.
-  // That is include-list fail-open, the oldest class in this ledger, and it
-  // does not get to survive its own rediscovery.
-  const packets = existsSync(join(REPO, "docs/evidence"))
-    ? readdirSync(join(REPO, "docs/evidence"), { withFileTypes: true })
-        .filter((e) => e.isDirectory())
-        .filter((e) => existsSync(join(REPO, "docs/evidence", e.name, "PACKET.md")))
-        .map((e) => `docs/evidence/${e.name}/PACKET.md`)
+  // The gate above checks that MAPPED claims have evidence. It said nothing
+  // about a cut with no manifest at all -- which is invisible to it by
+  // construction. That is include-list fail-open, the oldest class in this
+  // ledger, and it does not get to survive its own rediscovery.
+  //
+  // THE NAMING IS EXPLICIT, NOT INFERRED. A first version matched packet slug
+  // words against work_item_id by substring, which is the same fail-open shape
+  // one layer down: a manifest would silently vouch for a packet it never
+  // mentions, purely because the words overlap. A manifest must LIST the
+  // packets it covers, and the match is an exact path.
+  //
+  // THE SURFACE SIZE PRINTS ON EVERY RUN. `PACKET.md` is a convention this
+  // program is only now adopting: 1 of 52 directories under docs/evidence/
+  // carries one. A bar that inspects one directory must not read as though it
+  // inspected fifty-two, so the count is stated rather than implied.
+  const EVIDENCE = join(REPO, "docs", "evidence");
+  const packets = existsSync(EVIDENCE)
+    ? readdirSync(EVIDENCE, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => `docs/evidence/${entry.name}/PACKET.md`)
+        .filter((path) => existsSync(join(REPO, path)))
     : [];
-  const mappedRecords = manifests.map((name) =>
-    JSON.parse(readFileSync(join(COVERAGE_DIR, name), "utf8")).work_item_id ?? name);
+  const declaredPackets = new Set(
+    manifests.flatMap((name) =>
+      JSON.parse(readFileSync(join(COVERAGE_DIR, name), "utf8")).packets ?? []),
+  );
   for (const packet of packets) {
-    const slug = packet.split("/")[2];
-    const named = mappedRecords.some((r) => slug.split("-").every((part) => part.length < 3 || r.includes(part)));
-    if (!named) {
+    if (declaredPackets.has(packet)) continue;
+    findings.push(finding("error", "claims-coverage",
+      `${packet} is published but NO claims manifest declares it in its "packets" list — a packet the ` +
+      `claims gate cannot see is unmapped by construction, which is include-list fail-open`));
+  }
+  for (const declared of declaredPackets) {
+    if (!existsSync(join(REPO, declared))) {
       findings.push(finding("error", "claims-coverage",
-        `${packet} is published but NO claims manifest names its cut — a packet the claims gate cannot see is ` +
-        `unmapped by construction, which is include-list fail-open`));
+        `a claims manifest declares packet ${declared}, which does not exist — a declaration that names ` +
+        `nothing cannot be discharged by anything`));
     }
   }
+  console.log(
+    `[WARN] claims-coverage: packet naming — ${packets.length} PACKET.md under docs/evidence/ ` +
+    `(of ${existsSync(EVIDENCE) ? readdirSync(EVIDENCE, { withFileTypes: true }).filter((e) => e.isDirectory()).length : 0} ` +
+    `evidence directories); ${declaredPackets.size} declared by a manifest`,
+  );
 
   const errors = findings.filter((f) => f.severity === "error");
   for (const f of findings) {
