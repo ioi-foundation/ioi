@@ -9925,8 +9925,10 @@ fn prepare_session_create_bundle(
             "receipt_ref": format!("receipt://hypervisor/session-initial-input/{identity}"),
             "truth_class": "session_transcript",
             "disposition": "session_only_non_goal",
-            "goal_run_ref": Value::Null,
-            "goal_run_activation_ref": Value::Null,
+            // C-1: the platform never names an application family as a dedicated
+            // field. The former `goal_run_ref`/`goal_run_activation_ref` null
+            // non-grants are expressed as the absence of subject attachments.
+            "subject_attachments": [],
             "owner_ref": owner_ref,
             "runtimeTruthSource": "daemon-runtime"
         })
@@ -9940,8 +9942,8 @@ fn prepare_session_create_bundle(
             "entry_ref": projection.get("entry_ref"),
             "content_hash": projection.get("content_hash"),
             "disposition": "session_only_non_goal",
-            "goal_run_ref": Value::Null,
-            "goal_run_activation_ref": Value::Null,
+            // C-1: named app-family fields are retired; no subject was attached.
+            "subject_attachments": [],
             "owner_ref": owner_ref,
             "request_hash": request_hash,
             "non_grants": {"goal_identity":"none","goal_activation":"none","authority_widening":"none"},
@@ -9998,6 +10000,12 @@ fn prepare_session_create_bundle(
         "editor_target_ref": inputs.get("editor_target_ref").cloned().unwrap_or(Value::Null),
         "initial_input_projection": initial_input_projection,
         "latest_receipt_refs": latest_receipt_refs,
+        // C-1 (core-clients-surfaces.md `HypervisorSession.subject_attachments`):
+        // typed owner-registered rows {subject_kind, subject_ref, attachment_role}
+        // are the ONLY way a Session names the work it serves. Create accepts no
+        // attachment inputs yet (W3 C-1 backend row), so the honest state is the
+        // empty set — never a named app-family field.
+        "subject_attachments": [],
         "owner_ref": owner_ref,
         "request_hash": request_hash,
         "created_at": created_at,
@@ -10358,8 +10366,13 @@ fn session_create_projection(intent: &Value, idempotent_replay: bool) -> Value {
         "receipt_ref": intent.pointer("/provisioning_receipt/record/id"),
         "initial_input_projection": record.get("initial_input_projection"),
         "latest_receipt_refs": record.get("latest_receipt_refs"),
-        "goal_run_ref": Value::Null,
-        "goal_run_activation_ref": Value::Null,
+        // C-1: `subject_attachments[]` is the ONLY way a Session names the work it
+        // serves (owner-registered subject_kind/subject_ref/attachment_role). The
+        // retired named app-family fields are gone, not aliased.
+        "subject_attachments": record
+            .get("subject_attachments")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
         "idempotent_replay": idempotent_replay,
         "owner_ref": intent.get("owner_ref"),
         "request_hash": intent.get("request_hash"),
@@ -17895,6 +17908,131 @@ pub(crate) async fn handle_sessions_list(
             "owner_ref": owner_ref,
             "total": total,
             "sessions": sessions,
+            "runtimeTruthSource": "daemon-runtime"
+        })),
+    )
+}
+
+/// GET /v1/hypervisor/sessions/overview — counts-first projection over the persisted session
+/// records for the Work / Sessions view (W0.6). Owner-filtered BEFORE any count or aggregation
+/// (policy filtering precedes counts, per the Work read-model contract). Designed against the
+/// C-1 attachment model from day one: workload identity rolls up from `subject_attachments`
+/// (owner-registered subject_kind/subject_ref/attachment_role), never from named app fields.
+/// Read-only; same strict-registry refusal discipline as the list (no partial overview).
+pub(crate) async fn handle_sessions_overview(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let owner_ref = match session_request_owner(&st.data_dir, &headers) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    if let Err(error) = recover_session_create_intents(&st) {
+        return session_create_commit_failure_response("session-create-recovery://pending", &error);
+    }
+    let records = match enumerate_hypervisor_sessions_strict(&st) {
+        Ok(records) => records,
+        Err(detail) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error":{
+                    "code":"session_registry_unavailable",
+                    "message":"The complete Session registry cannot be proven; no partial overview is projected.",
+                    "detail":detail
+                }})),
+            )
+        }
+    };
+    let mut owned: Vec<Value> = records
+        .into_iter()
+        .filter(|record| {
+            record
+                .get("owner_ref")
+                .and_then(Value::as_str)
+                .unwrap_or("user://local-operator")
+                == owner_ref
+        })
+        .collect();
+    owned.sort_by(|a, b| {
+        let ca = a.get("created_at").and_then(Value::as_str).unwrap_or("");
+        let cb = b.get("created_at").and_then(Value::as_str).unwrap_or("");
+        cb.cmp(ca)
+    });
+    let mut by_lifecycle_state = std::collections::BTreeMap::<String, u64>::new();
+    let mut by_project = std::collections::BTreeMap::<String, u64>::new();
+    let mut attachments_by_kind = std::collections::BTreeMap::<String, u64>::new();
+    let mut attachments_by_role = std::collections::BTreeMap::<String, u64>::new();
+    let mut sessions_with_attachments = 0u64;
+    for record in &owned {
+        let lifecycle = record
+            .get("lifecycle_state")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown");
+        *by_lifecycle_state.entry(lifecycle.to_string()).or_insert(0) += 1;
+        let project = record
+            .get("project_ref")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("(none)");
+        *by_project.entry(project.to_string()).or_insert(0) += 1;
+        // Records persisted before this field exists carry no attachments — the
+        // honest reading of an absent field is the empty set, never a fabrication.
+        let attachments = record
+            .get("subject_attachments")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        if !attachments.is_empty() {
+            sessions_with_attachments += 1;
+        }
+        for attachment in &attachments {
+            let kind = attachment
+                .get("subject_kind")
+                .and_then(Value::as_str)
+                .unwrap_or("(unregistered)");
+            *attachments_by_kind.entry(kind.to_string()).or_insert(0) += 1;
+            let role = attachment
+                .get("attachment_role")
+                .and_then(Value::as_str)
+                .unwrap_or("(unregistered)");
+            *attachments_by_role.entry(role.to_string()).or_insert(0) += 1;
+        }
+    }
+    let newest: Vec<Value> = owned
+        .iter()
+        .take(5)
+        .map(|record| {
+            json!({
+                "session_ref": record.get("session_ref"),
+                "project_ref": record.get("project_ref"),
+                "environment_ref": record.get("environment_ref"),
+                "lifecycle_state": record.get("lifecycle_state"),
+                "subject_attachments": record
+                    .get("subject_attachments")
+                    .cloned()
+                    .unwrap_or_else(|| json!([])),
+                "created_at": record.get("created_at"),
+            })
+        })
+        .collect();
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.hypervisor.sessions-overview.v1",
+            "owner_ref": owner_ref,
+            "total": owned.len(),
+            "by_lifecycle_state": by_lifecycle_state,
+            "by_project": by_project,
+            "subject_attachments": {
+                "sessions_with_attachments": sessions_with_attachments,
+                "by_subject_kind": attachments_by_kind,
+                "by_attachment_role": attachments_by_role
+            },
+            "newest": newest,
+            "gaps": [
+                "session_kind/session_mode are not recorded on daemon session records (Lane A Cut #1) — kind/mode counts are absent, not fabricated",
+                "session create accepts no subject-attachment inputs yet (W3 C-1 backend row) — attachment rollups are honestly empty until owners attach subjects"
+            ],
             "runtimeTruthSource": "daemon-runtime"
         })),
     )

@@ -85,9 +85,9 @@ seed only; bytes win.
 |---|---|---|---|
 | HypervisorCoreWorkspaceRegistration (work row) | canon :3468-3478; served in core taxonomy | `/v1/hypervisor/core-taxonomy` hypervisor-daemon.rs:1056; workspace row w/ `/work` documented daemon-runtime/api.md:1018 | — |
 | HypervisorSession | canon :3955-4010; NO schema in `docs/architecture/_meta/schemas/` (no `hypervisor-session.*.schema.json`) | `/v1/hypervisor/sessions` GET+POST :3190; `:id/events` :3195; `:id/execute` :3199; `:id/ports/revoke` :3203; `:id` GET+DELETE :3207 | schema-registry gap (W3, one-file PR) |
-| Sessions overview | none | route-missing (only ODK connector-sessions have `/overview` :1547; pattern exists: work-results/overview :2333, outcome-rooms/overview :2388) | **W0.6** (`GET /v1/hypervisor/sessions/overview`) |
+| Sessions overview | `ioi.hypervisor.sessions-overview.v1` | **LANDED W0.6**: `GET /v1/hypervisor/sessions/overview` hypervisor-daemon.rs:3214 (handler lifecycle_routes.rs:18034) — owner-filtered before counts; by_lifecycle_state/by_project + `subject_attachments` rollup (by_subject_kind/by_attachment_role) + newest refs; kind/mode counts named absent (not recorded on Cut #1 records) | — |
 | Session lineage / fork / children / transition / history | none | route-missing (grep: no `sessions/:id/{lineage,fork,children,transition,history}`) | **W3** |
-| `subject_attachments` on session records | canon :3971-3984 | field-missing — zero `subject_attachments` hits across `hypervisor_daemon_routes/*.rs` | **W3** (C-1 backend) |
+| `subject_attachments` on session records | canon :3971-3984 | **INTRODUCED W0.6**: session record + create/initial-input projections carry `subject_attachments: []` (honest empty — create accepts no attachment inputs yet); the three retired named-field sites (`goal_run_ref`/`goal_run_activation_ref` null non-grants) are migrated to the attachment model. Remaining W3 scope: attachment inputs + list/get filters | **W3** (attachment inputs + filters) |
 | SessionExecutionBinding (session/env/thread/work_run composition) | daemon comment "T7-2" hypervisor-daemon.rs:2878 | create :2880; get :2884; events :2888; input :2892; stop :2896; archive :2900; restore :2904 | — |
 | Session launch recipe admission | `hypervisor-session-launch-recipe-admission.v1.schema.json`; canon :2957-2973 | POST `/v1/hypervisor/session-launch-recipe-admissions` :1084 | — |
 | HarnessSessionBinding (+admission, readiness, spawn, terminal-attach) | `harness-session-binding{,-admission,-readiness,-spawn,-terminal-attach}` schemas; canon :2905-3060 | binding-admissions :1088; terminal-attachments :1120; harness-bindings :1232 | — |
@@ -198,7 +198,7 @@ elements bind through `subject_attachments` (C-1) — never a named app field.
 | Session detail — D4 object fields | canon :2688-2704 / :3955-4010; session GET :3207 | partial (vendor `/details/:env` + cockpit panel 00-core.js) | wired-read |
 | Session detail — D5 view (transcript, step graph, tool/model calls, gates, receipts, replay) | :2706-2710 composed from execution-binding GET/events :2884/:2888 + thread GET :787 + turns + workruns :1169 — read-only composition per C-3 (:3320-3328) | partial (Run Timeline iframe replaces transcript, 00-core.js:9-13) | wired-read (events via W0.4 event client; `:id/events` SSE wrapped) |
 | Session detail — D6 waterfall + detail drawer | :2712-2718; run-replay/work-ledger reads :1309, :2328 | wired as separate readouts (`/__ioi/run-timeline`, `/__ioi/work-ledger`) | wired-read (compose; proof behind drilldown) |
-| Session detail — subject chips/filter | `subject_attachments` :3971-3984 | field-missing in daemon records (0 grep hits); C-4 sites: retired named fields `goal_run_ref`/`goal_run_activation_ref` (null non-grants) in session initial-input projection + receipt lifecycle_routes.rs:9928-9929, :9943-9944, :10361 — migrate at the PR that touches them | disabled-named-gap → wired-read after W3 C-1 row |
+| Session detail — subject chips/filter | `subject_attachments` :3971-3984 | field present since W0.6 (records + projections carry `subject_attachments: []`; the three C-4 named-field sites are MIGRATED — no `goal_run_ref`/`goal_run_activation_ref` remains in session code); attachments stay empty until W3 adds attachment inputs | disabled-named-gap → wired-read after W3 C-1 row (attachment inputs + filters) |
 | D7 WorkRun view (phase, harness, usage, conversation, review, delivery) | :2720-2727 / :4222-4284; workruns :1164-1176 | partial (cockpit panel WorkRun pane) | wired-read |
 | WorkRun execute control | workruns/:id/execute :1174 | wired in cockpit panel | wired-action-receipted (lease client) |
 | Work/Rooms list + graph-first room detail | outcome-rooms :2383-2427 (graph :2418, discussion :2422, replay :2414) | wired read-only at `/__ioi/missions` (surface-registry.mjs:50) | wired-read (rehome) |
@@ -217,8 +217,11 @@ elements bind through `subject_attachments` (C-1) — never a named app field.
 
 ## 5. Ordered PR list
 
-1. **W0.6** — `GET /v1/hypervisor/sessions/overview` (counts by lifecycle_state/kind, newest
-   refs; owner-filtered before counts). Serial: touches hypervisor-daemon.rs (merge hotspot).
+1. **W0.6 — DONE 2026-08-05** — `GET /v1/hypervisor/sessions/overview` landed
+   (hypervisor-daemon.rs:3214; handler lifecycle_routes.rs:18034): counts by
+   lifecycle_state/project + subject-attachment rollup + newest refs, owner-filtered before
+   counts; kind/mode counts named absent (not on Cut #1 records). Same PR introduced
+   `subject_attachments` on session records and migrated the three named-field sites.
 2. **W0.1** — v2 shell `/work` + the 8 typed-view routes render read-first skeletons with honest
    empty/degraded states; breadcrumb + back-stack identity per :1724-1725.
 3. **W1** — Work/Sessions list rehomed from `renderSessionsRoot` semantics onto the read client
@@ -237,9 +240,11 @@ elements bind through `subject_attachments` (C-1) — never a named app field.
    execute, teardown, ports-revoke; execution-binding input/stop/archive/restore; room
    transition/attach/detach verbs. Every enabled control receipted; everything else
    disabled-named-gap.
-8. **W3** — C-1 backend: `subject_attachments[]` on daemon session records (+ list/get/overview
-   projection + filter); migrate the three named-field sites (lifecycle_routes.rs:9928, :9943,
-   :10361) in the same PR that touches them; then Work row subject chips go live.
+8. **W3** — C-1 backend, remaining scope after W0.6: attachment INPUTS (owner-registered
+   subject_kind/subject_ref/attachment_role admission on create/attach) + list/get filters.
+   Already landed in W0.6: the field on records + all three projections, the overview rollup,
+   and the migration of the three named-field sites (no `goal_run_ref`/`goal_run_activation_ref`
+   remains in session code). Then Work row subject chips go live.
 9. **W3** — Session lineage family (lineage/fork/children projection routes + the lineage pane);
    register the missing `hypervisor-session` schema in `_meta/schemas/`.
 10. **W3** — HypervisorWorkQueue/WorkItem backend family ONLY if an implemented contract pulls

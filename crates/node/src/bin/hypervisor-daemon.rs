@@ -3194,6 +3194,12 @@ async fn async_main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_sessions_list)
                 .post(lifecycle_routes::handle_session_create),
         )
+        // W0.6 — counts-first Sessions overview for the Work / Sessions view;
+        // owner-filtered before counts; C-1 subject_attachments rollup.
+        .route(
+            "/v1/hypervisor/sessions/overview",
+            get(lifecycle_routes::handle_sessions_overview),
+        )
         .route(
             "/v1/hypervisor/sessions/:id/events",
             get(lifecycle_routes::handle_session_events),
