@@ -28,6 +28,9 @@ Start with [`START_HERE.md`](./START_HERE.md). Then use:
   convergence target from later gated horizons;
 - [`term-boundaries.md`](./foundations/term-boundaries.md) when a name is
   ambiguous — it owns what each protected term means and must not mean;
+- [`internet-of-intelligence.md`](./foundations/internet-of-intelligence.md)
+  and [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md) for the two
+  categories IOI claims to implement, and the north-star network proof;
 - [`vocabulary.md`](./_meta/vocabulary.md) and
   [`canonical-enums.md`](./foundations/canonical-enums.md) for shared names and
   values;
@@ -508,16 +511,16 @@ namespace.
 
 ## North-Star Network Proof
 
-IOI has demonstrated an Internet of Intelligence only when an independently
-operated external Worker can discover eligible work through a policy-bound
-projection, negotiate semantic/action profiles, submit a typed participation
-request, receive bounded context/resource/authority/budget leases, claim work,
-return a verifiable contribution, preserve credit and dispute lineage, and exit
-with portable permitted state. The proof must not require participants to share
-one runtime, operational database, administrator, or continued trust/access to
-an IOI-hosted room. Same-owner multi-model, multi-worker, or multi-node
-orchestration is a primary same-system L0 capability and proof target, but it is
-not this cross-system network proof.
+Owner: [`internet-of-intelligence.md`](./foundations/internet-of-intelligence.md)
+§ North-Star Network Proof. The proof is stated there once, in full; the
+sentence below is navigation, and the owner wins on any point of substance.
+
+In one line: IOI has demonstrated an Internet of Intelligence only when an
+**independently operated external Worker** completes the whole arc — discovery
+through a policy-bound projection, admission, bounded leases, claim, verifiable
+contribution, preserved credit and dispute lineage, portable exit — without
+sharing a runtime, an operational database, an administrator, or continued
+access to an IOI-hosted room. Same-owner multiplicity never satisfies it.
 
 ## Non-Negotiables
 
