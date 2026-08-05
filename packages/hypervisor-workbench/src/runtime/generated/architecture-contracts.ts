@@ -6385,6 +6385,189 @@ export type LocalAgentPairingSessionEnvelopeV1 = {
   status: "created" | "challenge_issued" | "agent_proof_received" | "bootstrap_bound" | "composition_submitted" | "participation_submitted" | "completed" | "expired" | "rejected" | "cancelled" | "revoked" | "failed_closed";
 };
 
+export type AttemptEnvelopeV1 = {
+  schema_version: "ioi.foundations.attempt-envelope.v1";
+  attempt_id: string;
+  outcome_room_ref?: string | null;
+  system_binding?: Record<string, unknown> | null;
+  work_subject_ref: string;
+  goal_run_ref?: string | null;
+  frontier_item_ref?: string | null;
+  work_claim_ref?: string | null;
+  participant_ref: string;
+  bound_coordinates: {
+      outcome_room: {
+            record_ref: string;
+            host_domain_ref: string;
+            control_hash: string;
+          };
+      frontier_item: {
+            record_ref: string;
+            outcome_room_ref: string;
+            revision: number;
+            record_hash: string;
+          };
+      work_claim: {
+            record_ref: string;
+            outcome_room_ref: string;
+            frontier_item_ref: string;
+            claimant_ref: string;
+            revision: number;
+            record_hash: string;
+          };
+      participant_lease: {
+            record_ref: string;
+            outcome_room_ref: string;
+            principal_ref: string;
+            revision: number;
+            record_hash: string;
+          };
+      goal_run: {
+            record_ref: string;
+            outcome_room_ref: string;
+            updated_at: string | null;
+            record_hash: string;
+          };
+    } | null;
+  declared_method_and_hypothesis_refs?: Array<string>;
+  parent_and_derivation_refs?: Array<string>;
+  input_state_and_environment_refs?: Array<string>;
+  worker_model_resolver_tool_and_runtime_version_refs?: Array<string>;
+  authority_and_policy_refs?: Array<string>;
+  resource_and_cost_refs?: Array<string>;
+  outcome_class: "positive" | "negative" | "inconclusive" | "invalid" | "exploit_found" | "superseded";
+  work_result_ref?: string | null;
+  outcome_delta_refs?: Array<string>;
+  artifact_evidence_and_receipt_refs?: Array<string>;
+  verifier_refs?: Array<string>;
+  reproduction_state: "unreviewed" | "reproducible" | "not_reproduced" | "contradicted" | "invalidated";
+  artifact_license_ip_retention_and_export_refs?: Array<string>;
+  contribution_refs?: Array<string>;
+  status: "draft" | "running" | "submitted" | "admitted" | "challenged" | "accepted" | "rejected" | "superseded";
+};
+
+export type FindingEnvelopeV1 = {
+  schema_version: "ioi.foundations.finding-envelope.v1";
+  finding_id: string;
+  outcome_room_ref?: string | null;
+  system_binding?: Record<string, unknown> | null;
+  attempt_ref: string;
+  work_result_ref: string;
+  participant_ref: string;
+  proposed_by_ref: string;
+  bound_coordinates: {
+      attempt: {
+            record_ref: string;
+            outcome_room_ref: string;
+            participant_ref: string;
+            work_result_ref: string;
+            revision: number;
+            record_hash: string;
+          };
+      work_result: {
+            record_ref: string;
+            outcome_room_ref: string;
+            goal_run_ref: string;
+            goal_ref: string;
+            updated_at: string | null;
+            record_hash: string;
+          };
+      participant_lease: {
+            record_ref: string;
+            outcome_room_ref: string;
+            principal_ref: string;
+            revision: number;
+            record_hash: string;
+          };
+      supersedes_finding: {
+            record_ref: string;
+            outcome_room_ref: string;
+            revision: number;
+            record_hash: string;
+          } | null;
+    } | null;
+  proposition: string;
+  finding_kind: "hypothesis" | "observation" | "claim" | "negative_result" | "integrity_incident" | "mapping_claim" | "causal_claim" | "counterexample" | "synthesis";
+  confidence_or_uncertainty?: number | null;
+  valid_time?: {
+      start: string | null;
+      end: string | null;
+    } | null;
+  transaction_time: string;
+  source_and_observation_context_refs?: Array<string>;
+  supporting_evidence_refs?: Array<string>;
+  proof_refs?: Array<string>;
+  contradicting_evidence_refs?: Array<string>;
+  applicability_and_counterexample_refs?: Array<string>;
+  provenance_ontology_and_mapping_refs?: Array<string>;
+  proposed_effect_refs?: Array<string>;
+  supersedes_ref?: string | null;
+  dispute_ref?: string | null;
+  status: "branch_local" | "proposed" | "admitted" | "contradicted" | "superseded" | "disputed" | "rejected" | "archived";
+};
+
+export type WorkResultEnvelopeV1 = {
+  schema_version: "ioi.foundations.work-result-envelope.v1";
+  work_result_id: string;
+  work_subject_ref: string;
+  system_binding?: Record<string, unknown> | null;
+  produced_by_ref: string;
+  submitted_by_ref: string;
+  operator_and_affiliation_refs?: Array<string>;
+  invocation_or_run_ref?: string | null;
+  result_profile: "software_implementation" | "research" | "ontology_mutation" | "incident_resolution" | "service_delivery" | "physical_mission" | "review" | "evaluation" | "custom";
+  result_profile_ref?: string | null;
+  result_payload_ref?: string | null;
+  producer_component_resolution: {
+      resolved_component_set_snapshot_ref: string | null;
+      resolved_component_set_hash: string | null;
+      component_resolution_receipt_ref: string | null;
+      resolver_kind: "harness_profile" | "agent_harness_adapter" | "none";
+      resolver_revision_ref: string | null;
+      resolver_content_hash: string | null;
+    };
+  declared_method_and_lineage_refs?: Array<string>;
+  information_flow_label_refs?: Array<string>;
+  outcome_class: "positive" | "negative" | "inconclusive" | "invalid" | "exploit_found" | "superseded";
+  status: "completed" | "failed" | "blocked" | "partial" | "challenged" | "superseded";
+  outcome_delta_refs?: Array<string>;
+  observation_refs?: Array<string>;
+  claim_refs?: Array<string>;
+  uncertainty: number | string | Record<string, unknown> | null;
+  supporting_evidence_refs?: Array<string>;
+  contradicting_evidence_refs?: Array<string>;
+  artifact_receipt_and_trace_refs?: Array<string>;
+  resource_and_cost_refs?: Array<string>;
+  authority_and_policy_refs?: Array<string>;
+  blocker_and_decision_request_refs?: Array<string>;
+  verifier_refs?: Array<string>;
+  license_disclosure_retention_and_export_refs?: Array<string>;
+  reproduction_state: "unreviewed" | "reproducible" | "not_reproduced" | "contradicted" | "invalidated" | null;
+  reproduction_refs?: Array<string>;
+  acceptance_ref?: string | null;
+  review_refs?: Array<string>;
+  supersedes_work_result_ref?: string | null;
+  superseded_by_ref?: string | null;
+  summary_ref?: string | null;
+  next_action: "none" | "repair" | "review" | "verify" | "replicate" | "synthesize" | "ask_user" | "escalate" | "update_work_queue";
+};
+
+export type OutcomeDeltaEnvelopeV1 = {
+  schema_version: "ioi.foundations.outcome-delta-envelope.v1";
+  outcome_delta_id: string;
+  work_subject_ref: string;
+  system_binding?: Record<string, unknown> | null;
+  proposed_by_ref: string;
+  target_ref: string;
+  delta_kind: "create" | "update" | "supersede" | "reject" | "merge" | "promote" | "rollback" | "course_correct" | "close";
+  payload_ref: string;
+  precondition_and_invariant_refs?: Array<string>;
+  expected_effect_ref?: string | null;
+  verifier_and_acceptance_refs?: Array<string>;
+  information_flow_label_refs?: Array<string>;
+  status: "proposed" | "evaluating" | "admitted" | "rejected" | "superseded" | "rolled_back";
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -10982,6 +11165,102 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/attempt-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/attempt-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/attempt-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/finding-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/finding-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/finding-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-verified-status.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/work-result-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/work-result-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/work-result-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -17590,6 +17869,90 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/objects/attempt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/objects/attempt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json",
+    "contract_id": "schema://ioi/foundations/objects/attempt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/objects/finding-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/objects/finding-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-verified-status.json",
+    "contract_id": "schema://ioi/foundations/objects/finding-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-verified-status.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/objects/work-result-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/objects/work-result-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json",
+    "contract_id": "schema://ioi/foundations/objects/work-result-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json",
+    "contract_id": "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -18462,7 +18825,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:(?:artifact|cid)://[^\\s]{1,500}|encrypted_ref)$",
   "^(?:(?:context-profile|resource|evidence)://[^\\s]{1,500}|scope:[^\\s]{1,500})$",
   "^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[^\\s]{1,500})$",
+  "^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$",
   "^(?:(?:implementation-result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$",
+  "^(?:(?:implementation_result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$",
   "^(?:(?:receipt|agentgres)://[^\\s]{1,500}|sha256:[0-9a-f]{64})$",
   "^(?:(?:tool|connector|capability)://[^\\s]{1,500}|prim:[a-z0-9*._-]{1,200})$",
   "^(?:(?:worker|model-route|runtime)://[^\\s]{1,500}|(?:harness-profile|agent-harness-adapter|tool)://[^\\s]{1,500}/revision/[^\\s]{1,500})$",
@@ -18524,6 +18889,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$",
   "^(?:gate|policy)://[^\\s]{1,240}$",
   "^(?:goal|automation-run|work-run|run|invocation|work-claim)://[^\\s]{1,500}$",
+  "^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\\s]{1,500}$",
   "^(?:goal|task|service)://[^\\s]{1,500}$",
   "^(?:grant|approval)://[^\\s]{1,500}$",
   "^(?:grant|policy)://[^\\s]{1,500}$",
@@ -18531,12 +18897,15 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$",
   "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}/revision/[^\\s]{1,500}$",
   "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$",
+  "^(?:harness_invocation|run|work_run|automation-run|service)://[^\\s]{1,500}$",
   "^(?:heartbeat|receipt)://[^\\s]{1,500}$",
   "^(?:intent|prompt)://[^\\s]{1,500}$",
   "^(?:lease|resource-lease|budget)://[^\\s]{1,500}$",
   "^(?:license|policy)://[^\\s]{1,500}$",
   "^(?:license|policy|restricted-view|receipt)://[^\\s]{1,500}$",
+  "^(?:license|policy|restricted_view|receipt)://[^\\s]{1,500}$",
   "^(?:message|artifact)://[^\\s]{1,500}$",
+  "^(?:method|attempt|finding|work-result|artifact|trace)://[^\\s]{1,500}$",
   "^(?:method|finding|artifact)://[^\\s]{1,500}$",
   "^(?:network|chain|domain)://[^\\s]{1,248}$",
   "^(?:observed-state|agentgres)://[^\\s]{1,240}$",
@@ -18612,6 +18981,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:verifier-path|verification|receipt)://[^\\s]+$",
   "^(?:verifier-path|verifier-challenge)://[^\\s]{1,500}$",
   "^(?:verifier-path|worker|gate|receipt)://[^\\s]{1,500}$",
+  "^(?:verifier_path|rubric|gate)://[^\\s]{1,500}$",
+  "^(?:verifier_path|verifier-challenge)://[^\\s]{1,500}$",
+  "^(?:verifier_path|worker|gate|receipt)://[^\\s]{1,500}$",
   "^(?:wallet|org|project)://[^\\s]{1,240}$",
   "^(?:wallet|org|project)://[^\\s]{1,248}$",
   "^(?:wallet|org|project|runtime)://[^\\s]{1,240}$",
@@ -18622,6 +18994,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:work-run|run)://[^\\s]{1,500}$",
   "^(?:worker|agent)://[^\\s]{1,500}$",
   "^(?:worker|harness-profile|agent-harness-adapter|model_route|runtime|node)://[^\\s]{1,500}$",
+  "^(?:worker|model_route|harness-profile|agent-harness-adapter|tool|runtime)://[^\\s]{1,500}$",
   "^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$",
   "^(?:worker|service|org|domain|system)://[^\\s]{1,500}$",
   "^(?:worker|service|org|domain|wallet|agentgres)://[^\\s]{1,248}$",
@@ -19158,7 +19531,11 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1": "sha256:ad637d27192a3087072ebfa5c7a90a17d6ca67a4aad5d275ecfba2749b6bc625",
   "schema://ioi/foundations/objects/work-claim-lease-envelope/v1": "sha256:ebe0f6bca0871c8be2c763bc4c9b29cd558bb58ef6ca4262c010f7e1fda05ed5",
   "schema://ioi/foundations/objects/verifier-challenge-envelope/v1": "sha256:7f20bf2e1c5cf6e056051a647676c045f41d0af0ccd418805eb8e9f2a280d627",
-  "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1": "sha256:0512d443c8bbfe28b3f4ff9906ee081b0a471506882a9f6fb891d7697c4aebb7"
+  "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1": "sha256:0512d443c8bbfe28b3f4ff9906ee081b0a471506882a9f6fb891d7697c4aebb7",
+  "schema://ioi/foundations/objects/attempt-envelope/v1": "sha256:5884e7798b927a8243c1313b9b89dc4de3b6f17e345e616bd830bb0b2ec3c5fe",
+  "schema://ioi/foundations/objects/finding-envelope/v1": "sha256:3f6670b624ce8921e3aacaa62a3caa25bf7754e325f2848050cb54d0b78887d5",
+  "schema://ioi/foundations/objects/work-result-envelope/v1": "sha256:71268aebf0e18716c1d964bb99c403542ff87b7dc39365e24fc4d21071963c04",
+  "schema://ioi/foundations/objects/outcome-delta-envelope/v1": "sha256:d2e27d92cb2812358fddd2d10c5dcb47d6e0f7563306cb2f2dc90bc74aa03350"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -68692,6 +69069,1367 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       }
     }
+  },
+  "schema://ioi/foundations/objects/attempt-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/attempt-envelope/v1",
+    "title": "AttemptEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.attempt-envelope.v1",
+    "description": "Durable provenance for positive, negative, inconclusive, invalid, exploit-finding, and superseded work over an already admitted GoalRun. Creating or transitioning it does not launch work or grant execution authority. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#attemptenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. `bound_coordinates` is non-null only for a room-scoped Attempt; the rule that a non-room Attempt MUST NOT fabricate room coordinates stays with the owner and is not restated as schema logic.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "attempt_id",
+      "work_subject_ref",
+      "participant_ref",
+      "bound_coordinates",
+      "outcome_class",
+      "reproduction_state",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.attempt-envelope.v1"
+      },
+      "attempt_id": {
+        "type": "string",
+        "pattern": "^attempt://[^\\s]{1,500}$"
+      },
+      "outcome_room_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^outcome-room://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "system_binding": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "work_subject_ref": {
+        "type": "string",
+        "pattern": "^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\\s]{1,500}$"
+      },
+      "goal_run_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^goal://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "frontier_item_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^frontier://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "work_claim_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^work-claim://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "participant_ref": {
+        "type": "string",
+        "pattern": "^(?:participant-lease|system|worker|agent)://[^\\s]{1,500}$"
+      },
+      "bound_coordinates": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "outcome_room",
+              "frontier_item",
+              "work_claim",
+              "participant_lease",
+              "goal_run"
+            ],
+            "properties": {
+              "outcome_room": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "host_domain_ref",
+                  "control_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^outcome-room://[^\\s]{1,500}$"
+                  },
+                  "host_domain_ref": {
+                    "type": "string",
+                    "pattern": "^domain://[^\\s]{1,500}$"
+                  },
+                  "control_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "frontier_item": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "outcome_room_ref",
+                  "revision",
+                  "record_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^frontier://[^\\s]{1,500}$"
+                  },
+                  "outcome_room_ref": {
+                    "type": "string",
+                    "pattern": "^outcome-room://[^\\s]{1,500}$"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "record_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "work_claim": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "outcome_room_ref",
+                  "frontier_item_ref",
+                  "claimant_ref",
+                  "revision",
+                  "record_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^work-claim://[^\\s]{1,500}$"
+                  },
+                  "outcome_room_ref": {
+                    "type": "string",
+                    "pattern": "^outcome-room://[^\\s]{1,500}$"
+                  },
+                  "frontier_item_ref": {
+                    "type": "string",
+                    "pattern": "^frontier://[^\\s]{1,500}$"
+                  },
+                  "claimant_ref": {
+                    "type": "string",
+                    "pattern": "^participant-lease://[^\\s]{1,500}$"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "record_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "participant_lease": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "outcome_room_ref",
+                  "principal_ref",
+                  "revision",
+                  "record_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^participant-lease://[^\\s]{1,500}$"
+                  },
+                  "outcome_room_ref": {
+                    "type": "string",
+                    "pattern": "^outcome-room://[^\\s]{1,500}$"
+                  },
+                  "principal_ref": {
+                    "type": "string",
+                    "pattern": "^(?:worker|agent)://[^\\s]{1,500}$"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "record_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "goal_run": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "outcome_room_ref",
+                  "updated_at",
+                  "record_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^goal://[^\\s]{1,500}$"
+                  },
+                  "outcome_room_ref": {
+                    "type": "string",
+                    "pattern": "^outcome-room://[^\\s]{1,500}$"
+                  },
+                  "updated_at": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "record_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "declared_method_and_hypothesis_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:method|finding|artifact)://[^\\s]{1,500}$"
+        }
+      },
+      "parent_and_derivation_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:attempt|artifact|finding)://[^\\s]{1,500}$"
+        }
+      },
+      "input_state_and_environment_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:state|environment|worktree|dataset)://[^\\s]{1,500}$"
+        }
+      },
+      "worker_model_resolver_tool_and_runtime_version_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:worker|model_route|harness-profile|agent-harness-adapter|tool|runtime)://[^\\s]{1,500}$"
+        }
+      },
+      "authority_and_policy_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:grant|policy)://[^\\s]{1,500}$"
+        }
+      },
+      "resource_and_cost_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:resource-lease|spend|ledger)://[^\\s]{1,500}$"
+        }
+      },
+      "outcome_class": {
+        "enum": [
+          "positive",
+          "negative",
+          "inconclusive",
+          "invalid",
+          "exploit_found",
+          "superseded"
+        ]
+      },
+      "work_result_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^work-result://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "outcome_delta_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^outcome-delta://[^\\s]{1,500}$"
+        }
+      },
+      "artifact_evidence_and_receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"
+        }
+      },
+      "verifier_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:verifier_path|verifier-challenge)://[^\\s]{1,500}$"
+        }
+      },
+      "reproduction_state": {
+        "enum": [
+          "unreviewed",
+          "reproducible",
+          "not_reproduced",
+          "contradicted",
+          "invalidated"
+        ]
+      },
+      "artifact_license_ip_retention_and_export_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:license|policy)://[^\\s]{1,500}$"
+        }
+      },
+      "contribution_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:contribution|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "running",
+          "submitted",
+          "admitted",
+          "challenged",
+          "accepted",
+          "rejected",
+          "superseded"
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/finding-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/finding-envelope/v1",
+    "title": "FindingEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.finding-envelope.v1",
+    "description": "A provenance-bearing assertion a domain admitted. Admission proves the domain admitted the assertion; it does not make the proposition universally true, so uncertainty, applicability, contradiction, time, and dispute state are preserved. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The rule that `supersedes_ref` must strictly resolve to a Finding in the same room is a cross-record constraint owned by the owner doc, not expressible here.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "finding_id",
+      "attempt_ref",
+      "work_result_ref",
+      "participant_ref",
+      "proposed_by_ref",
+      "bound_coordinates",
+      "proposition",
+      "finding_kind",
+      "transaction_time",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.finding-envelope.v1"
+      },
+      "finding_id": {
+        "type": "string",
+        "pattern": "^finding://[^\\s]{1,500}$"
+      },
+      "outcome_room_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^outcome-room://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "system_binding": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "attempt_ref": {
+        "type": "string",
+        "pattern": "^attempt://[^\\s]{1,500}$"
+      },
+      "work_result_ref": {
+        "type": "string",
+        "pattern": "^work-result://[^\\s]{1,500}$"
+      },
+      "participant_ref": {
+        "type": "string",
+        "pattern": "^participant-lease://[^\\s]{1,500}$"
+      },
+      "proposed_by_ref": {
+        "type": "string",
+        "pattern": "^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$"
+      },
+      "bound_coordinates": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "attempt",
+              "work_result",
+              "participant_lease",
+              "supersedes_finding"
+            ],
+            "properties": {
+              "attempt": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "outcome_room_ref",
+                  "participant_ref",
+                  "work_result_ref",
+                  "revision",
+                  "record_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^attempt://[^\\s]{1,500}$"
+                  },
+                  "outcome_room_ref": {
+                    "type": "string",
+                    "pattern": "^outcome-room://[^\\s]{1,500}$"
+                  },
+                  "participant_ref": {
+                    "type": "string",
+                    "pattern": "^participant-lease://[^\\s]{1,500}$"
+                  },
+                  "work_result_ref": {
+                    "type": "string",
+                    "pattern": "^work-result://[^\\s]{1,500}$"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "record_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "work_result": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "outcome_room_ref",
+                  "goal_run_ref",
+                  "goal_ref",
+                  "updated_at",
+                  "record_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^work-result://[^\\s]{1,500}$"
+                  },
+                  "outcome_room_ref": {
+                    "type": "string",
+                    "pattern": "^outcome-room://[^\\s]{1,500}$"
+                  },
+                  "goal_run_ref": {
+                    "type": "string",
+                    "pattern": "^goal://[^\\s]{1,500}$"
+                  },
+                  "goal_ref": {
+                    "type": "string",
+                    "pattern": "^goal://[^\\s]{1,500}$"
+                  },
+                  "updated_at": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "record_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "participant_lease": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "record_ref",
+                  "outcome_room_ref",
+                  "principal_ref",
+                  "revision",
+                  "record_hash"
+                ],
+                "properties": {
+                  "record_ref": {
+                    "type": "string",
+                    "pattern": "^participant-lease://[^\\s]{1,500}$"
+                  },
+                  "outcome_room_ref": {
+                    "type": "string",
+                    "pattern": "^outcome-room://[^\\s]{1,500}$"
+                  },
+                  "principal_ref": {
+                    "type": "string",
+                    "pattern": "^(?:worker|agent)://[^\\s]{1,500}$"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "record_hash": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "supersedes_finding": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "record_ref",
+                      "outcome_room_ref",
+                      "revision",
+                      "record_hash"
+                    ],
+                    "properties": {
+                      "record_ref": {
+                        "type": "string",
+                        "pattern": "^finding://[^\\s]{1,500}$"
+                      },
+                      "outcome_room_ref": {
+                        "type": "string",
+                        "pattern": "^outcome-room://[^\\s]{1,500}$"
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "record_hash": {
+                        "type": "string",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "proposition": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 8000
+      },
+      "finding_kind": {
+        "enum": [
+          "hypothesis",
+          "observation",
+          "claim",
+          "negative_result",
+          "integrity_incident",
+          "mapping_claim",
+          "causal_claim",
+          "counterexample",
+          "synthesis"
+        ]
+      },
+      "confidence_or_uncertainty": {
+        "oneOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "valid_time": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "A closed or half-open interval, per canon's `interval` type.",
+            "required": [
+              "start",
+              "end"
+            ],
+            "properties": {
+              "start": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "end": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "transaction_time": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "source_and_observation_context_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$"
+        }
+      },
+      "supporting_evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "proof_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "contradicting_evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|finding)://[^\\s]{1,500}$"
+        }
+      },
+      "applicability_and_counterexample_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:policy|finding|ontology)://[^\\s]{1,500}$"
+        }
+      },
+      "provenance_ontology_and_mapping_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:provenance|ontology|ontology-mapping)://[^\\s]{1,500}$"
+        }
+      },
+      "proposed_effect_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$"
+        }
+      },
+      "supersedes_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^finding://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "dispute_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^dispute://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "branch_local",
+          "proposed",
+          "admitted",
+          "contradicted",
+          "superseded",
+          "disputed",
+          "rejected",
+          "archived"
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/work-result-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/work-result-envelope/v1",
+    "title": "WorkResultEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.work-result-envelope.v1",
+    "description": "The generic bounded result seam returned by a GoalRun, claim, worker, harness, service, research attempt, ontology operation, incident response, or embodied mission. Profile-specific fields stay behind `result_profile_ref` and `result_payload_ref`. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. Every repeated ref set is bounded to at most 64 unique entries because the owner states that bound directly; producers and readers refuse an over-bound record rather than truncating it.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "work_result_id",
+      "work_subject_ref",
+      "produced_by_ref",
+      "submitted_by_ref",
+      "result_profile",
+      "producer_component_resolution",
+      "outcome_class",
+      "status",
+      "uncertainty",
+      "reproduction_state",
+      "next_action"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.work-result-envelope.v1"
+      },
+      "work_result_id": {
+        "type": "string",
+        "pattern": "^work-result://[^\\s]{1,500}$"
+      },
+      "work_subject_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "system_binding": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "produced_by_ref": {
+        "type": "string",
+        "pattern": "^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"
+      },
+      "submitted_by_ref": {
+        "type": "string",
+        "pattern": "^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"
+      },
+      "operator_and_affiliation_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "invocation_or_run_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:harness_invocation|run|work_run|automation-run|service)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "result_profile": {
+        "enum": [
+          "software_implementation",
+          "research",
+          "ontology_mutation",
+          "incident_resolution",
+          "service_delivery",
+          "physical_mission",
+          "review",
+          "evaluation",
+          "custom"
+        ]
+      },
+      "result_profile_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:schema|profile)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "result_payload_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "description": "An implementation_result://, artifact://, or cid:// ref, or the literal `encrypted_ref`, per canon.",
+            "pattern": "^(?:(?:implementation_result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "producer_component_resolution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resolved_component_set_snapshot_ref",
+          "resolved_component_set_hash",
+          "component_resolution_receipt_ref",
+          "resolver_kind",
+          "resolver_revision_ref",
+          "resolver_content_hash"
+        ],
+        "properties": {
+          "resolved_component_set_snapshot_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^artifact://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolved_component_set_hash": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "component_resolution_receipt_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolver_kind": {
+            "enum": [
+              "harness_profile",
+              "agent_harness_adapter",
+              "none"
+            ]
+          },
+          "resolver_revision_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolver_content_hash": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "declared_method_and_lineage_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:method|attempt|finding|work-result|artifact|trace)://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "information_flow_label_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^ifc-label://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "outcome_class": {
+        "enum": [
+          "positive",
+          "negative",
+          "inconclusive",
+          "invalid",
+          "exploit_found",
+          "superseded"
+        ]
+      },
+      "status": {
+        "enum": [
+          "completed",
+          "failed",
+          "blocked",
+          "partial",
+          "challenged",
+          "superseded"
+        ]
+      },
+      "outcome_delta_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^outcome-delta://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "observation_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "claim_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:finding|ontology-assertion|evidence)://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "uncertainty": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          {
+            "type": "object",
+            "description": "A profile-defined uncertainty structure; canon leaves its shape to the declared result profile."
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "supporting_evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "contradicting_evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:finding|ontology-assertion|evidence|artifact)://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "artifact_receipt_and_trace_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "resource_and_cost_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "authority_and_policy_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "description": "A URI-shaped ref or a scope: authority selector, per canon.",
+          "pattern": "^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$"
+        },
+        "maxItems": 64
+      },
+      "blocker_and_decision_request_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:blocker|handoff|proposal)://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "verifier_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:verifier_path|worker|gate|receipt)://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "license_disclosure_retention_and_export_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:license|policy|restricted_view|receipt)://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "reproduction_state": {
+        "oneOf": [
+          {
+            "enum": [
+              "unreviewed",
+              "reproducible",
+              "not_reproduced",
+              "contradicted",
+              "invalidated"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "reproduction_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "acceptance_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:acceptance|decision|receipt)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "review_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "supersedes_work_result_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^work-result://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "superseded_by_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:work-result|outcome-delta)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "summary_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:message|artifact)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "next_action": {
+        "enum": [
+          "none",
+          "repair",
+          "review",
+          "verify",
+          "replicate",
+          "synthesize",
+          "ask_user",
+          "escalate",
+          "update_work_queue"
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/outcome-delta-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
+    "title": "OutcomeDeltaEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.outcome-delta-envelope.v1",
+    "description": "The proposed change an admitted producer derives from a WorkResult or other admitted proposer. It inherits the complete information-flow label set of what it derives from and may only add labels; it can never drop, replace, or weaken inherited labels. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/work-results-and-lifecycle.md#outcomedeltaenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. Every repeated ref set is bounded to at most 64 unique entries because the owner states that bound directly.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "outcome_delta_id",
+      "work_subject_ref",
+      "proposed_by_ref",
+      "target_ref",
+      "delta_kind",
+      "payload_ref",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.outcome-delta-envelope.v1"
+      },
+      "outcome_delta_id": {
+        "type": "string",
+        "pattern": "^outcome-delta://[^\\s]{1,500}$"
+      },
+      "work_subject_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "system_binding": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "proposed_by_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "target_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "delta_kind": {
+        "enum": [
+          "create",
+          "update",
+          "supersede",
+          "reject",
+          "merge",
+          "promote",
+          "rollback",
+          "course_correct",
+          "close"
+        ]
+      },
+      "payload_ref": {
+        "type": "string",
+        "pattern": "^(?:artifact|patch|mapping|state-delta)://[^\\s]{1,500}$"
+      },
+      "precondition_and_invariant_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:policy|gate|state)://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "expected_effect_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^effect://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "verifier_and_acceptance_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:verifier_path|rubric|gate)://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "information_flow_label_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^ifc-label://[^\\s]{1,500}$"
+        },
+        "maxItems": 64
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "evaluating",
+          "admitted",
+          "rejected",
+          "superseded",
+          "rolled_back"
+        ]
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -76957,7 +78695,11 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1": [],
   "schema://ioi/foundations/objects/work-claim-lease-envelope/v1": [],
   "schema://ioi/foundations/objects/verifier-challenge-envelope/v1": [],
-  "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1": []
+  "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1": [],
+  "schema://ioi/foundations/objects/attempt-envelope/v1": [],
+  "schema://ioi/foundations/objects/finding-envelope/v1": [],
+  "schema://ioi/foundations/objects/work-result-envelope/v1": [],
+  "schema://ioi/foundations/objects/outcome-delta-envelope/v1": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -78702,4 +80444,28 @@ export function validateLocalAgentPairingSessionEnvelopeV1(
   value: unknown,
 ): value is LocalAgentPairingSessionEnvelopeV1 {
   return validateArchitectureContract("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1", value).ok;
+}
+
+export function validateAttemptEnvelopeV1(
+  value: unknown,
+): value is AttemptEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/attempt-envelope/v1", value).ok;
+}
+
+export function validateFindingEnvelopeV1(
+  value: unknown,
+): value is FindingEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/finding-envelope/v1", value).ok;
+}
+
+export function validateWorkResultEnvelopeV1(
+  value: unknown,
+): value is WorkResultEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/work-result-envelope/v1", value).ok;
+}
+
+export function validateOutcomeDeltaEnvelopeV1(
+  value: unknown,
+): value is OutcomeDeltaEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/outcome-delta-envelope/v1", value).ok;
 }

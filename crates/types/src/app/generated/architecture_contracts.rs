@@ -192,6 +192,10 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/work-claim-lease-envelope/v1", "sha256:ebe0f6bca0871c8be2c763bc4c9b29cd558bb58ef6ca4262c010f7e1fda05ed5"),
     ("schema://ioi/foundations/objects/verifier-challenge-envelope/v1", "sha256:7f20bf2e1c5cf6e056051a647676c045f41d0af0ccd418805eb8e9f2a280d627"),
     ("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1", "sha256:0512d443c8bbfe28b3f4ff9906ee081b0a471506882a9f6fb891d7697c4aebb7"),
+    ("schema://ioi/foundations/objects/attempt-envelope/v1", "sha256:5884e7798b927a8243c1313b9b89dc4de3b6f17e345e616bd830bb0b2ec3c5fe"),
+    ("schema://ioi/foundations/objects/finding-envelope/v1", "sha256:3f6670b624ce8921e3aacaa62a3caa25bf7754e325f2848050cb54d0b78887d5"),
+    ("schema://ioi/foundations/objects/work-result-envelope/v1", "sha256:71268aebf0e18716c1d964bb99c403542ff87b7dc39365e24fc4d21071963c04"),
+    ("schema://ioi/foundations/objects/outcome-delta-envelope/v1", "sha256:d2e27d92cb2812358fddd2d10c5dcb47d6e0f7563306cb2f2dc90bc74aa03350"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -68855,6 +68859,1856 @@ pub enum LocalAgentPairingSessionEnvelopeV1Status {
     FailedClosed,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AttemptEnvelopeV1 {
+    pub schema_version: AttemptEnvelopeV1SchemaVersion,
+    pub attempt_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome_room_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_binding: Option<serde_json::Value>,
+    pub work_subject_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goal_run_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frontier_item_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub work_claim_ref: Option<String>,
+    pub participant_ref: String,
+    pub bound_coordinates: Option<AttemptEnvelopeV1BoundCoordinates>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub declared_method_and_hypothesis_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_and_derivation_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_state_and_environment_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worker_model_resolver_tool_and_runtime_version_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authority_and_policy_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource_and_cost_refs: Option<Vec<String>>,
+    pub outcome_class: AttemptEnvelopeV1OutcomeClass,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub work_result_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome_delta_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artifact_evidence_and_receipt_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verifier_refs: Option<Vec<String>>,
+    pub reproduction_state: AttemptEnvelopeV1ReproductionState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artifact_license_ip_retention_and_export_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contribution_refs: Option<Vec<String>>,
+    pub status: AttemptEnvelopeV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AttemptEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/attempt-envelope/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/attempt-envelope/v1","title":"AttemptEnvelope","x-ioi-schema-version":"ioi.foundations.attempt-envelope.v1","description":"Durable provenance for positive, negative, inconclusive, invalid, exploit-finding, and superseded work over an already admitted GoalRun. Creating or transitioning it does not launch work or grant execution authority. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#attemptenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. `bound_coordinates` is non-null only for a room-scoped Attempt; the rule that a non-room Attempt MUST NOT fabricate room coordinates stays with the owner and is not restated as schema logic.","type":"object","additionalProperties":false,"required":["schema_version","attempt_id","work_subject_ref","participant_ref","bound_coordinates","outcome_class","reproduction_state","status"],"properties":{"schema_version":{"const":"ioi.foundations.attempt-envelope.v1"},"attempt_id":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"oneOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\\s]{1,500}$"},"goal_run_ref":{"oneOf":[{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},{"type":"null"}]},"frontier_item_ref":{"oneOf":[{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},{"type":"null"}]},"work_claim_ref":{"oneOf":[{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},{"type":"null"}]},"participant_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|agent)://[^\\s]{1,500}$"},"bound_coordinates":{"oneOf":[{"type":"object","additionalProperties":false,"required":["outcome_room","frontier_item","work_claim","participant_lease","goal_run"],"properties":{"outcome_room":{"type":"object","additionalProperties":false,"required":["record_ref","host_domain_ref","control_hash"],"properties":{"record_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"host_domain_ref":{"type":"string","pattern":"^domain://[^\\s]{1,500}$"},"control_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"frontier_item":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"work_claim":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","frontier_item_ref","claimant_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"frontier_item_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"claimant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"goal_run":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"updated_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}}},{"type":"null"}]},"declared_method_and_hypothesis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:method|finding|artifact)://[^\\s]{1,500}$"}},"parent_and_derivation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|artifact|finding)://[^\\s]{1,500}$"}},"input_state_and_environment_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:state|environment|worktree|dataset)://[^\\s]{1,500}$"}},"worker_model_resolver_tool_and_runtime_version_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:worker|model_route|harness-profile|agent-harness-adapter|tool|runtime)://[^\\s]{1,500}$"}},"authority_and_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|policy)://[^\\s]{1,500}$"}},"resource_and_cost_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-lease|spend|ledger)://[^\\s]{1,500}$"}},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"work_result_ref":{"oneOf":[{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},{"type":"null"}]},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"}},"artifact_evidence_and_receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"}},"verifier_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier_path|verifier-challenge)://[^\\s]{1,500}$"}},"reproduction_state":{"enum":["unreviewed","reproducible","not_reproduced","contradicted","invalidated"]},"artifact_license_ip_retention_and_export_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:license|policy)://[^\\s]{1,500}$"}},"contribution_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|receipt)://[^\\s]{1,500}$"}},"status":{"enum":["draft","running","submitted","admitted","challenged","accepted","rejected","superseded"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AttemptEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attempt_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"attempt_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attempt_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: match object.remove(r#"outcome_room_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            system_binding: match object.remove(r#"system_binding"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<serde_json::Value>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            work_subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            goal_run_ref: match object.remove(r#"goal_run_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            frontier_item_ref: match object.remove(r#"frontier_item_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            work_claim_ref: match object.remove(r#"work_claim_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            participant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_coordinates: serde_json::from_value::<Option<AttemptEnvelopeV1BoundCoordinates>>(
+                object
+                    .remove(r#"bound_coordinates"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bound_coordinates"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_method_and_hypothesis_refs: match object
+                .remove(r#"declared_method_and_hypothesis_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            parent_and_derivation_refs: match object.remove(r#"parent_and_derivation_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            input_state_and_environment_refs: match object
+                .remove(r#"input_state_and_environment_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            worker_model_resolver_tool_and_runtime_version_refs: match object
+                .remove(r#"worker_model_resolver_tool_and_runtime_version_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            authority_and_policy_refs: match object.remove(r#"authority_and_policy_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            resource_and_cost_refs: match object.remove(r#"resource_and_cost_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            outcome_class: serde_json::from_value::<AttemptEnvelopeV1OutcomeClass>(
+                object
+                    .remove(r#"outcome_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_ref: match object.remove(r#"work_result_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            outcome_delta_refs: match object.remove(r#"outcome_delta_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            artifact_evidence_and_receipt_refs: match object
+                .remove(r#"artifact_evidence_and_receipt_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            verifier_refs: match object.remove(r#"verifier_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            reproduction_state: serde_json::from_value::<AttemptEnvelopeV1ReproductionState>(
+                object
+                    .remove(r#"reproduction_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reproduction_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_license_ip_retention_and_export_refs: match object
+                .remove(r#"artifact_license_ip_retention_and_export_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            contribution_refs: match object.remove(r#"contribution_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            status: serde_json::from_value::<AttemptEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AttemptEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.attempt-envelope.v1"#)]
+    IoiFoundationsAttemptEnvelopeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AttemptEnvelopeV1BoundCoordinates {
+    pub outcome_room: AttemptEnvelopeV1BoundCoordinatesOutcomeRoom,
+    pub frontier_item: AttemptEnvelopeV1BoundCoordinatesFrontierItem,
+    pub work_claim: AttemptEnvelopeV1BoundCoordinatesWorkClaim,
+    pub participant_lease: AttemptEnvelopeV1BoundCoordinatesParticipantLease,
+    pub goal_run: AttemptEnvelopeV1BoundCoordinatesGoalRun,
+}
+
+impl<'de> serde::Deserialize<'de> for AttemptEnvelopeV1BoundCoordinates {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/attempt-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["outcome_room","frontier_item","work_claim","participant_lease","goal_run"],"properties":{"outcome_room":{"type":"object","additionalProperties":false,"required":["record_ref","host_domain_ref","control_hash"],"properties":{"record_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"host_domain_ref":{"type":"string","pattern":"^domain://[^\\s]{1,500}$"},"control_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"frontier_item":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"work_claim":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","frontier_item_ref","claimant_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"frontier_item_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"claimant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"goal_run":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"updated_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            outcome_room: serde_json::from_value::<AttemptEnvelopeV1BoundCoordinatesOutcomeRoom>(
+                object
+                    .remove(r#"outcome_room"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frontier_item: serde_json::from_value::<AttemptEnvelopeV1BoundCoordinatesFrontierItem>(
+                object
+                    .remove(r#"frontier_item"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frontier_item"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_claim: serde_json::from_value::<AttemptEnvelopeV1BoundCoordinatesWorkClaim>(
+                object
+                    .remove(r#"work_claim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_claim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_lease: serde_json::from_value::<
+                AttemptEnvelopeV1BoundCoordinatesParticipantLease,
+            >(
+                object
+                    .remove(r#"participant_lease"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_lease"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            goal_run: serde_json::from_value::<AttemptEnvelopeV1BoundCoordinatesGoalRun>(
+                object
+                    .remove(r#"goal_run"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"goal_run"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AttemptEnvelopeV1BoundCoordinatesOutcomeRoom {
+    pub record_ref: String,
+    pub host_domain_ref: String,
+    pub control_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AttemptEnvelopeV1BoundCoordinatesOutcomeRoom {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/attempt-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["record_ref","host_domain_ref","control_hash"],"properties":{"record_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"host_domain_ref":{"type":"string","pattern":"^domain://[^\\s]{1,500}$"},"control_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            record_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            host_domain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"host_domain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"host_domain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            control_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"control_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"control_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AttemptEnvelopeV1BoundCoordinatesFrontierItem {
+    pub record_ref: String,
+    pub outcome_room_ref: String,
+    pub revision: ArchitectureContractSignedInteger,
+    pub record_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AttemptEnvelopeV1BoundCoordinatesFrontierItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/attempt-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            record_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractSignedInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AttemptEnvelopeV1BoundCoordinatesWorkClaim {
+    pub record_ref: String,
+    pub outcome_room_ref: String,
+    pub frontier_item_ref: String,
+    pub claimant_ref: String,
+    pub revision: ArchitectureContractSignedInteger,
+    pub record_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AttemptEnvelopeV1BoundCoordinatesWorkClaim {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/attempt-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","frontier_item_ref","claimant_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"frontier_item_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"claimant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            record_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frontier_item_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"frontier_item_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frontier_item_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            claimant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"claimant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claimant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractSignedInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AttemptEnvelopeV1BoundCoordinatesParticipantLease {
+    pub record_ref: String,
+    pub outcome_room_ref: String,
+    pub principal_ref: String,
+    pub revision: ArchitectureContractSignedInteger,
+    pub record_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AttemptEnvelopeV1BoundCoordinatesParticipantLease {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/attempt-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            record_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractSignedInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AttemptEnvelopeV1BoundCoordinatesGoalRun {
+    pub record_ref: String,
+    pub outcome_room_ref: String,
+    pub updated_at: Option<String>,
+    pub record_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AttemptEnvelopeV1BoundCoordinatesGoalRun {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/attempt-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"updated_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            record_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AttemptEnvelopeV1OutcomeClass {
+    #[serde(rename = r#"positive"#)]
+    Positive,
+    #[serde(rename = r#"negative"#)]
+    Negative,
+    #[serde(rename = r#"inconclusive"#)]
+    Inconclusive,
+    #[serde(rename = r#"invalid"#)]
+    Invalid,
+    #[serde(rename = r#"exploit_found"#)]
+    ExploitFound,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AttemptEnvelopeV1ReproductionState {
+    #[serde(rename = r#"unreviewed"#)]
+    Unreviewed,
+    #[serde(rename = r#"reproducible"#)]
+    Reproducible,
+    #[serde(rename = r#"not_reproduced"#)]
+    NotReproduced,
+    #[serde(rename = r#"contradicted"#)]
+    Contradicted,
+    #[serde(rename = r#"invalidated"#)]
+    Invalidated,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AttemptEnvelopeV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"running"#)]
+    Running,
+    #[serde(rename = r#"submitted"#)]
+    Submitted,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"challenged"#)]
+    Challenged,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FindingEnvelopeV1 {
+    pub schema_version: FindingEnvelopeV1SchemaVersion,
+    pub finding_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome_room_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_binding: Option<serde_json::Value>,
+    pub attempt_ref: String,
+    pub work_result_ref: String,
+    pub participant_ref: String,
+    pub proposed_by_ref: String,
+    pub bound_coordinates: Option<FindingEnvelopeV1BoundCoordinates>,
+    pub proposition: String,
+    pub finding_kind: FindingEnvelopeV1FindingKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence_or_uncertainty: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub valid_time: Option<FindingEnvelopeV1ValidTime>,
+    pub transaction_time: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_and_observation_context_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supporting_evidence_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contradicting_evidence_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub applicability_and_counterexample_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provenance_ontology_and_mapping_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proposed_effect_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supersedes_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dispute_ref: Option<String>,
+    pub status: FindingEnvelopeV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for FindingEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/finding-envelope/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/finding-envelope/v1","title":"FindingEnvelope","x-ioi-schema-version":"ioi.foundations.finding-envelope.v1","description":"A provenance-bearing assertion a domain admitted. Admission proves the domain admitted the assertion; it does not make the proposition universally true, so uncertainty, applicability, contradiction, time, and dispute state are preserved. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The rule that `supersedes_ref` must strictly resolve to a Finding in the same room is a cross-record constraint owned by the owner doc, not expressible here.","type":"object","additionalProperties":false,"required":["schema_version","finding_id","attempt_ref","work_result_ref","participant_ref","proposed_by_ref","bound_coordinates","proposition","finding_kind","transaction_time","status"],"properties":{"schema_version":{"const":"ioi.foundations.finding-envelope.v1"},"finding_id":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"oneOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"attempt_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"proposed_by_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$"},"bound_coordinates":{"oneOf":[{"type":"object","additionalProperties":false,"required":["attempt","work_result","participant_lease","supersedes_finding"],"properties":{"attempt":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","participant_ref","work_result_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"work_result":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","goal_run_ref","goal_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"goal_run_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"goal_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"updated_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"supersedes_finding":{"oneOf":[{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},{"type":"null"}]}}},{"type":"null"}]},"proposition":{"type":"string","minLength":1,"maxLength":8000},"finding_kind":{"enum":["hypothesis","observation","claim","negative_result","integrity_incident","mapping_claim","causal_claim","counterexample","synthesis"]},"confidence_or_uncertainty":{"oneOf":[{"type":"number"},{"type":"null"}]},"valid_time":{"oneOf":[{"type":"object","additionalProperties":false,"description":"A closed or half-open interval, per canon's `interval` type.","required":["start","end"],"properties":{"start":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"end":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},{"type":"null"}]},"transaction_time":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"source_and_observation_context_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$"}},"supporting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"proof_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"contradicting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|finding)://[^\\s]{1,500}$"}},"applicability_and_counterexample_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|ontology)://[^\\s]{1,500}$"}},"provenance_ontology_and_mapping_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:provenance|ontology|ontology-mapping)://[^\\s]{1,500}$"}},"proposed_effect_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$"}},"supersedes_ref":{"oneOf":[{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},{"type":"null"}]},"dispute_ref":{"oneOf":[{"type":"string","pattern":"^dispute://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["branch_local","proposed","admitted","contradicted","superseded","disputed","rejected","archived"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<FindingEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            finding_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"finding_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"finding_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: match object.remove(r#"outcome_room_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            system_binding: match object.remove(r#"system_binding"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<serde_json::Value>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            attempt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"attempt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attempt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_result_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_result_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposed_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_coordinates: serde_json::from_value::<Option<FindingEnvelopeV1BoundCoordinates>>(
+                object
+                    .remove(r#"bound_coordinates"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bound_coordinates"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposition: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            finding_kind: serde_json::from_value::<FindingEnvelopeV1FindingKind>(
+                object
+                    .remove(r#"finding_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"finding_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            confidence_or_uncertainty: match object.remove(r#"confidence_or_uncertainty"#) {
+                Some(field_value) => serde_json::from_value::<Option<f64>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            valid_time: match object.remove(r#"valid_time"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<FindingEnvelopeV1ValidTime>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            transaction_time: serde_json::from_value::<String>(
+                object
+                    .remove(r#"transaction_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transaction_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_and_observation_context_refs: match object
+                .remove(r#"source_and_observation_context_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            supporting_evidence_refs: match object.remove(r#"supporting_evidence_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            proof_refs: match object.remove(r#"proof_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            contradicting_evidence_refs: match object.remove(r#"contradicting_evidence_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            applicability_and_counterexample_refs: match object
+                .remove(r#"applicability_and_counterexample_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            provenance_ontology_and_mapping_refs: match object
+                .remove(r#"provenance_ontology_and_mapping_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            proposed_effect_refs: match object.remove(r#"proposed_effect_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            supersedes_ref: match object.remove(r#"supersedes_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            dispute_ref: match object.remove(r#"dispute_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            status: serde_json::from_value::<FindingEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FindingEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.finding-envelope.v1"#)]
+    IoiFoundationsFindingEnvelopeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FindingEnvelopeV1BoundCoordinates {
+    pub attempt: FindingEnvelopeV1BoundCoordinatesAttempt,
+    pub work_result: FindingEnvelopeV1BoundCoordinatesWorkResult,
+    pub participant_lease: FindingEnvelopeV1BoundCoordinatesParticipantLease,
+    pub supersedes_finding: Option<FindingEnvelopeV1BoundCoordinatesSupersedesFinding>,
+}
+
+impl<'de> serde::Deserialize<'de> for FindingEnvelopeV1BoundCoordinates {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/finding-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["attempt","work_result","participant_lease","supersedes_finding"],"properties":{"attempt":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","participant_ref","work_result_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"work_result":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","goal_run_ref","goal_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"goal_run_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"goal_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"updated_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"supersedes_finding":{"oneOf":[{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            attempt: serde_json::from_value::<FindingEnvelopeV1BoundCoordinatesAttempt>(
+                object
+                    .remove(r#"attempt"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attempt"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result: serde_json::from_value::<FindingEnvelopeV1BoundCoordinatesWorkResult>(
+                object
+                    .remove(r#"work_result"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_result"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_lease: serde_json::from_value::<
+                FindingEnvelopeV1BoundCoordinatesParticipantLease,
+            >(
+                object
+                    .remove(r#"participant_lease"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_lease"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supersedes_finding: serde_json::from_value::<
+                Option<FindingEnvelopeV1BoundCoordinatesSupersedesFinding>,
+            >(
+                object
+                    .remove(r#"supersedes_finding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supersedes_finding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FindingEnvelopeV1BoundCoordinatesAttempt {
+    pub record_ref: String,
+    pub outcome_room_ref: String,
+    pub participant_ref: String,
+    pub work_result_ref: String,
+    pub revision: ArchitectureContractSignedInteger,
+    pub record_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FindingEnvelopeV1BoundCoordinatesAttempt {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/finding-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","participant_ref","work_result_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            record_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_result_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_result_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractSignedInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FindingEnvelopeV1BoundCoordinatesWorkResult {
+    pub record_ref: String,
+    pub outcome_room_ref: String,
+    pub goal_run_ref: String,
+    pub goal_ref: String,
+    pub updated_at: Option<String>,
+    pub record_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FindingEnvelopeV1BoundCoordinatesWorkResult {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/finding-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","goal_run_ref","goal_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"goal_run_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"goal_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"updated_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            record_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            goal_run_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"goal_run_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"goal_run_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            goal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"goal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"goal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FindingEnvelopeV1BoundCoordinatesParticipantLease {
+    pub record_ref: String,
+    pub outcome_room_ref: String,
+    pub principal_ref: String,
+    pub revision: ArchitectureContractSignedInteger,
+    pub record_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FindingEnvelopeV1BoundCoordinatesParticipantLease {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/finding-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            record_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractSignedInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FindingEnvelopeV1BoundCoordinatesSupersedesFinding {
+    pub record_ref: String,
+    pub outcome_room_ref: String,
+    pub revision: ArchitectureContractSignedInteger,
+    pub record_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FindingEnvelopeV1BoundCoordinatesSupersedesFinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/finding-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            record_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractSignedInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FindingEnvelopeV1FindingKind {
+    #[serde(rename = r#"hypothesis"#)]
+    Hypothesis,
+    #[serde(rename = r#"observation"#)]
+    Observation,
+    #[serde(rename = r#"claim"#)]
+    Claim,
+    #[serde(rename = r#"negative_result"#)]
+    NegativeResult,
+    #[serde(rename = r#"integrity_incident"#)]
+    IntegrityIncident,
+    #[serde(rename = r#"mapping_claim"#)]
+    MappingClaim,
+    #[serde(rename = r#"causal_claim"#)]
+    CausalClaim,
+    #[serde(rename = r#"counterexample"#)]
+    Counterexample,
+    #[serde(rename = r#"synthesis"#)]
+    Synthesis,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FindingEnvelopeV1ValidTime {
+    pub start: Option<String>,
+    pub end: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for FindingEnvelopeV1ValidTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/finding-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"description":"A closed or half-open interval, per canon's `interval` type.","required":["start","end"],"properties":{"start":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"end":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            start: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"start"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"start"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            end: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"end"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"end"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FindingEnvelopeV1Status {
+    #[serde(rename = r#"branch_local"#)]
+    BranchLocal,
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"contradicted"#)]
+    Contradicted,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"disputed"#)]
+    Disputed,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorkResultEnvelopeV1 {
+    pub schema_version: WorkResultEnvelopeV1SchemaVersion,
+    pub work_result_id: String,
+    pub work_subject_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_binding: Option<serde_json::Value>,
+    pub produced_by_ref: String,
+    pub submitted_by_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub operator_and_affiliation_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invocation_or_run_ref: Option<String>,
+    pub result_profile: WorkResultEnvelopeV1ResultProfile,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result_profile_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result_payload_ref: Option<String>,
+    pub producer_component_resolution: WorkResultEnvelopeV1ProducerComponentResolution,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub declared_method_and_lineage_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub information_flow_label_refs: Option<Vec<String>>,
+    pub outcome_class: WorkResultEnvelopeV1OutcomeClass,
+    pub status: WorkResultEnvelopeV1Status,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome_delta_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub observation_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claim_refs: Option<Vec<String>>,
+    pub uncertainty: WorkResultEnvelopeV1Uncertainty,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supporting_evidence_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contradicting_evidence_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artifact_receipt_and_trace_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource_and_cost_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authority_and_policy_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blocker_and_decision_request_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verifier_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub license_disclosure_retention_and_export_refs: Option<Vec<String>>,
+    pub reproduction_state: Option<WorkResultEnvelopeV1ReproductionState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reproduction_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acceptance_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub review_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supersedes_work_result_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub superseded_by_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary_ref: Option<String>,
+    pub next_action: WorkResultEnvelopeV1NextAction,
+}
+
+impl<'de> serde::Deserialize<'de> for WorkResultEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/work-result-envelope/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/work-result-envelope/v1","title":"WorkResultEnvelope","x-ioi-schema-version":"ioi.foundations.work-result-envelope.v1","description":"The generic bounded result seam returned by a GoalRun, claim, worker, harness, service, research attempt, ontology operation, incident response, or embodied mission. Profile-specific fields stay behind `result_profile_ref` and `result_payload_ref`. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. Every repeated ref set is bounded to at most 64 unique entries because the owner states that bound directly; producers and readers refuse an over-bound record rather than truncating it.","type":"object","additionalProperties":false,"required":["schema_version","work_result_id","work_subject_ref","produced_by_ref","submitted_by_ref","result_profile","producer_component_resolution","outcome_class","status","uncertainty","reproduction_state","next_action"],"properties":{"schema_version":{"const":"ioi.foundations.work-result-envelope.v1"},"work_result_id":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"produced_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"submitted_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"operator_and_affiliation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"maxItems":64},"invocation_or_run_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness_invocation|run|work_run|automation-run|service)://[^\\s]{1,500}$"},{"type":"null"}]},"result_profile":{"enum":["software_implementation","research","ontology_mutation","incident_resolution","service_delivery","physical_mission","review","evaluation","custom"]},"result_profile_ref":{"oneOf":[{"type":"string","pattern":"^(?:schema|profile)://[^\\s]{1,500}$"},{"type":"null"}]},"result_payload_ref":{"oneOf":[{"type":"string","description":"An implementation_result://, artifact://, or cid:// ref, or the literal `encrypted_ref`, per canon.","pattern":"^(?:(?:implementation_result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"},{"type":"null"}]},"producer_component_resolution":{"type":"object","additionalProperties":false,"required":["resolved_component_set_snapshot_ref","resolved_component_set_hash","component_resolution_receipt_ref","resolver_kind","resolver_revision_ref","resolver_content_hash"],"properties":{"resolved_component_set_snapshot_ref":{"oneOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},{"type":"null"}]},"resolved_component_set_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"component_resolution_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"declared_method_and_lineage_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:method|attempt|finding|work-result|artifact|trace)://[^\\s]{1,500}$"},"maxItems":64},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^ifc-label://[^\\s]{1,500}$"},"maxItems":64},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"status":{"enum":["completed","failed","blocked","partial","challenged","superseded"]},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"},"maxItems":64},"observation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"maxItems":64},"claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence)://[^\\s]{1,500}$"},"maxItems":64},"uncertainty":{"anyOf":[{"type":"number"},{"type":"string","minLength":1,"maxLength":2000},{"type":"object","description":"A profile-defined uncertainty structure; canon leaves its shape to the declared result profile."},{"type":"null"}]},"supporting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"},"maxItems":64},"contradicting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence|artifact)://[^\\s]{1,500}$"},"maxItems":64},"artifact_receipt_and_trace_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$"},"maxItems":64},"resource_and_cost_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\\s]{1,500}$"},"maxItems":64},"authority_and_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","description":"A URI-shaped ref or a scope: authority selector, per canon.","pattern":"^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$"},"maxItems":64},"blocker_and_decision_request_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:blocker|handoff|proposal)://[^\\s]{1,500}$"},"maxItems":64},"verifier_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier_path|worker|gate|receipt)://[^\\s]{1,500}$"},"maxItems":64},"license_disclosure_retention_and_export_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:license|policy|restricted_view|receipt)://[^\\s]{1,500}$"},"maxItems":64},"reproduction_state":{"oneOf":[{"enum":["unreviewed","reproducible","not_reproduced","contradicted","invalidated"]},{"type":"null"}]},"reproduction_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$"},"maxItems":64},"acceptance_ref":{"oneOf":[{"type":"string","pattern":"^(?:acceptance|decision|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"review_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"maxItems":64},"supersedes_work_result_ref":{"oneOf":[{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},{"type":"null"}]},"superseded_by_ref":{"oneOf":[{"type":"string","pattern":"^(?:work-result|outcome-delta)://[^\\s]{1,500}$"},{"type":"null"}]},"summary_ref":{"oneOf":[{"type":"string","pattern":"^(?:message|artifact)://[^\\s]{1,500}$"},{"type":"null"}]},"next_action":{"enum":["none","repair","review","verify","replicate","synthesize","ask_user","escalate","update_work_queue"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<WorkResultEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_result_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_result_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: match object.remove(r#"system_binding"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<serde_json::Value>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            produced_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"produced_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"produced_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            submitted_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"submitted_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"submitted_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operator_and_affiliation_refs: match object.remove(r#"operator_and_affiliation_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            invocation_or_run_ref: match object.remove(r#"invocation_or_run_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            result_profile: serde_json::from_value::<WorkResultEnvelopeV1ResultProfile>(
+                object
+                    .remove(r#"result_profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"result_profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            result_profile_ref: match object.remove(r#"result_profile_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            result_payload_ref: match object.remove(r#"result_payload_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            producer_component_resolution: serde_json::from_value::<
+                WorkResultEnvelopeV1ProducerComponentResolution,
+            >(
+                object
+                    .remove(r#"producer_component_resolution"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"producer_component_resolution"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_method_and_lineage_refs: match object
+                .remove(r#"declared_method_and_lineage_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            information_flow_label_refs: match object.remove(r#"information_flow_label_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            outcome_class: serde_json::from_value::<WorkResultEnvelopeV1OutcomeClass>(
+                object
+                    .remove(r#"outcome_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<WorkResultEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_delta_refs: match object.remove(r#"outcome_delta_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            observation_refs: match object.remove(r#"observation_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            claim_refs: match object.remove(r#"claim_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            uncertainty: serde_json::from_value::<WorkResultEnvelopeV1Uncertainty>(
+                object
+                    .remove(r#"uncertainty"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"uncertainty"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supporting_evidence_refs: match object.remove(r#"supporting_evidence_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            contradicting_evidence_refs: match object.remove(r#"contradicting_evidence_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            artifact_receipt_and_trace_refs: match object
+                .remove(r#"artifact_receipt_and_trace_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            resource_and_cost_refs: match object.remove(r#"resource_and_cost_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            authority_and_policy_refs: match object.remove(r#"authority_and_policy_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            blocker_and_decision_request_refs: match object
+                .remove(r#"blocker_and_decision_request_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            verifier_refs: match object.remove(r#"verifier_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            license_disclosure_retention_and_export_refs: match object
+                .remove(r#"license_disclosure_retention_and_export_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            reproduction_state: serde_json::from_value::<
+                Option<WorkResultEnvelopeV1ReproductionState>,
+            >(
+                object
+                    .remove(r#"reproduction_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reproduction_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reproduction_refs: match object.remove(r#"reproduction_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            acceptance_ref: match object.remove(r#"acceptance_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            review_refs: match object.remove(r#"review_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            supersedes_work_result_ref: match object.remove(r#"supersedes_work_result_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            superseded_by_ref: match object.remove(r#"superseded_by_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            summary_ref: match object.remove(r#"summary_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            next_action: serde_json::from_value::<WorkResultEnvelopeV1NextAction>(
+                object
+                    .remove(r#"next_action"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"next_action"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkResultEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.work-result-envelope.v1"#)]
+    IoiFoundationsWorkResultEnvelopeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkResultEnvelopeV1ResultProfile {
+    #[serde(rename = r#"software_implementation"#)]
+    SoftwareImplementation,
+    #[serde(rename = r#"research"#)]
+    Research,
+    #[serde(rename = r#"ontology_mutation"#)]
+    OntologyMutation,
+    #[serde(rename = r#"incident_resolution"#)]
+    IncidentResolution,
+    #[serde(rename = r#"service_delivery"#)]
+    ServiceDelivery,
+    #[serde(rename = r#"physical_mission"#)]
+    PhysicalMission,
+    #[serde(rename = r#"review"#)]
+    Review,
+    #[serde(rename = r#"evaluation"#)]
+    Evaluation,
+    #[serde(rename = r#"custom"#)]
+    Custom,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorkResultEnvelopeV1ProducerComponentResolution {
+    pub resolved_component_set_snapshot_ref: Option<String>,
+    pub resolved_component_set_hash: Option<String>,
+    pub component_resolution_receipt_ref: Option<String>,
+    pub resolver_kind: WorkResultEnvelopeV1ProducerComponentResolutionResolverKind,
+    pub resolver_revision_ref: Option<String>,
+    pub resolver_content_hash: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for WorkResultEnvelopeV1ProducerComponentResolution {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/work-result-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["resolved_component_set_snapshot_ref","resolved_component_set_hash","component_resolution_receipt_ref","resolver_kind","resolver_revision_ref","resolver_content_hash"],"properties":{"resolved_component_set_snapshot_ref":{"oneOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},{"type":"null"}]},"resolved_component_set_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"component_resolution_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            resolved_component_set_snapshot_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resolved_component_set_snapshot_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resolved_component_set_snapshot_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_component_set_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resolved_component_set_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resolved_component_set_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            component_resolution_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"component_resolution_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"component_resolution_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolver_kind: serde_json::from_value::<
+                WorkResultEnvelopeV1ProducerComponentResolutionResolverKind,
+            >(
+                object
+                    .remove(r#"resolver_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolver_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolver_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resolver_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolver_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolver_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resolver_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolver_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkResultEnvelopeV1ProducerComponentResolutionResolverKind {
+    #[serde(rename = r#"harness_profile"#)]
+    HarnessProfile,
+    #[serde(rename = r#"agent_harness_adapter"#)]
+    AgentHarnessAdapter,
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkResultEnvelopeV1OutcomeClass {
+    #[serde(rename = r#"positive"#)]
+    Positive,
+    #[serde(rename = r#"negative"#)]
+    Negative,
+    #[serde(rename = r#"inconclusive"#)]
+    Inconclusive,
+    #[serde(rename = r#"invalid"#)]
+    Invalid,
+    #[serde(rename = r#"exploit_found"#)]
+    ExploitFound,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkResultEnvelopeV1Status {
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"failed"#)]
+    Failed,
+    #[serde(rename = r#"blocked"#)]
+    Blocked,
+    #[serde(rename = r#"partial"#)]
+    Partial,
+    #[serde(rename = r#"challenged"#)]
+    Challenged,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum WorkResultEnvelopeV1Uncertainty {
+    Branch1(f64),
+    Branch2(String),
+    Branch3(serde_json::Value),
+    Branch4(()),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkResultEnvelopeV1ReproductionState {
+    #[serde(rename = r#"unreviewed"#)]
+    Unreviewed,
+    #[serde(rename = r#"reproducible"#)]
+    Reproducible,
+    #[serde(rename = r#"not_reproduced"#)]
+    NotReproduced,
+    #[serde(rename = r#"contradicted"#)]
+    Contradicted,
+    #[serde(rename = r#"invalidated"#)]
+    Invalidated,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkResultEnvelopeV1NextAction {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"repair"#)]
+    Repair,
+    #[serde(rename = r#"review"#)]
+    Review,
+    #[serde(rename = r#"verify"#)]
+    Verify,
+    #[serde(rename = r#"replicate"#)]
+    Replicate,
+    #[serde(rename = r#"synthesize"#)]
+    Synthesize,
+    #[serde(rename = r#"ask_user"#)]
+    AskUser,
+    #[serde(rename = r#"escalate"#)]
+    Escalate,
+    #[serde(rename = r#"update_work_queue"#)]
+    UpdateWorkQueue,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OutcomeDeltaEnvelopeV1 {
+    pub schema_version: OutcomeDeltaEnvelopeV1SchemaVersion,
+    pub outcome_delta_id: String,
+    pub work_subject_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_binding: Option<serde_json::Value>,
+    pub proposed_by_ref: String,
+    pub target_ref: String,
+    pub delta_kind: OutcomeDeltaEnvelopeV1DeltaKind,
+    pub payload_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub precondition_and_invariant_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_effect_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verifier_and_acceptance_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub information_flow_label_refs: Option<Vec<String>>,
+    pub status: OutcomeDeltaEnvelopeV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for OutcomeDeltaEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/outcome-delta-envelope/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/outcome-delta-envelope/v1","title":"OutcomeDeltaEnvelope","x-ioi-schema-version":"ioi.foundations.outcome-delta-envelope.v1","description":"The proposed change an admitted producer derives from a WorkResult or other admitted proposer. It inherits the complete information-flow label set of what it derives from and may only add labels; it can never drop, replace, or weaken inherited labels. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/work-results-and-lifecycle.md#outcomedeltaenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. Every repeated ref set is bounded to at most 64 unique entries because the owner states that bound directly.","type":"object","additionalProperties":false,"required":["schema_version","outcome_delta_id","work_subject_ref","proposed_by_ref","target_ref","delta_kind","payload_ref","status"],"properties":{"schema_version":{"const":"ioi.foundations.outcome-delta-envelope.v1"},"outcome_delta_id":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"proposed_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"target_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"delta_kind":{"enum":["create","update","supersede","reject","merge","promote","rollback","course_correct","close"]},"payload_ref":{"type":"string","pattern":"^(?:artifact|patch|mapping|state-delta)://[^\\s]{1,500}$"},"precondition_and_invariant_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|gate|state)://[^\\s]{1,500}$"},"maxItems":64},"expected_effect_ref":{"oneOf":[{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},{"type":"null"}]},"verifier_and_acceptance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier_path|rubric|gate)://[^\\s]{1,500}$"},"maxItems":64},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^ifc-label://[^\\s]{1,500}$"},"maxItems":64},"status":{"enum":["proposed","evaluating","admitted","rejected","superseded","rolled_back"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<OutcomeDeltaEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_delta_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_delta_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_delta_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: match object.remove(r#"system_binding"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<serde_json::Value>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            proposed_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposed_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            delta_kind: serde_json::from_value::<OutcomeDeltaEnvelopeV1DeltaKind>(
+                object
+                    .remove(r#"delta_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"delta_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            precondition_and_invariant_refs: match object
+                .remove(r#"precondition_and_invariant_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            expected_effect_ref: match object.remove(r#"expected_effect_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            verifier_and_acceptance_refs: match object.remove(r#"verifier_and_acceptance_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            information_flow_label_refs: match object.remove(r#"information_flow_label_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            status: serde_json::from_value::<OutcomeDeltaEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OutcomeDeltaEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.outcome-delta-envelope.v1"#)]
+    IoiFoundationsOutcomeDeltaEnvelopeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OutcomeDeltaEnvelopeV1DeltaKind {
+    #[serde(rename = r#"create"#)]
+    Create,
+    #[serde(rename = r#"update"#)]
+    Update,
+    #[serde(rename = r#"supersede"#)]
+    Supersede,
+    #[serde(rename = r#"reject"#)]
+    Reject,
+    #[serde(rename = r#"merge"#)]
+    Merge,
+    #[serde(rename = r#"promote"#)]
+    Promote,
+    #[serde(rename = r#"rollback"#)]
+    Rollback,
+    #[serde(rename = r#"course_correct"#)]
+    CourseCorrect,
+    #[serde(rename = r#"close"#)]
+    Close,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OutcomeDeltaEnvelopeV1Status {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"evaluating"#)]
+    Evaluating,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"rolled_back"#)]
+    RolledBack,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -73453,6 +75307,102 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/attempt-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/attempt-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/attempt-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/finding-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/finding-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/finding-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-verified-status.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/work-result-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/work-result-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/work-result-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -81359,6 +83309,138 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/attempt-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/attempt-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/attempt-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/finding-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/finding-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-verified-status.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/finding-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-verified-status.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/work-result-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/work-result-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/work-result-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/outcome-delta-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/outcome-delta-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/outcome-delta-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -82902,6 +84984,10 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/work-claim-lease-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/work-claim-lease-envelope/v1","title":"WorkClaimLeaseEnvelope","x-ioi-schema-version":"ioi.foundations.work-claim-lease-envelope.v1","description":"The claim lease under which bounded work is awarded. `active` is the executable award and requires the exact accepted terms root, an admitted CollaborationTermsAcceptanceReceipt, the required context/resource/tool/budget leases, applicable authority, and a room/domain admission receipt. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#workclaimleaseenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The room-scoped and direct bilateral shapes differ only by which nullable fields are populated; the cross-field rules binding them stay with the owner and are not restated as schema logic.","type":"object","additionalProperties":false,"required":["schema_version","work_claim_id","claimant_ref","collaboration_terms_ref","collaboration_terms_root","terms_acceptance_ref","contribution_policy_ref","settlement_profile_ref","bounded_scope_ref","duplicate_work_policy","issued_at","expires_at","renewal_count","status"],"properties":{"schema_version":{"const":"ioi.foundations.work-claim-lease-envelope.v1"},"work_claim_id":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},"outcome_room_ref":{"oneOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"frontier_item_ref":{"oneOf":[{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},{"type":"null"}]},"claimant_ref":{"type":"string","pattern":"^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$"},"claimant_participant_lease_ref":{"oneOf":[{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},{"type":"null"}]},"eligibility_match_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"task_offer_ref":{"oneOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]},"task_acceptance_ref":{"oneOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]},"routing_decision_ref":{"oneOf":[{"type":"string","pattern":"^routing-decision://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_acceptance_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"contribution_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"quote_ref":{"oneOf":[{"type":"string","pattern":"^quote://[^\\s]{1,500}$"},{"type":"null"}]},"budget_reservation_ref":{"oneOf":[{"type":"string","pattern":"^(?:budget|spend|allocation)://[^\\s]{1,500}$"},{"type":"null"}]},"settlement_profile_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"bounded_scope_ref":{"type":"string","pattern":"^(?:task|task_brief|policy)://[^\\s]{1,500}$"},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^context_lease://[^\\s]{1,500}$"}},"authority_resource_compute_data_budget_and_tool_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$"}},"duplicate_work_policy":{"enum":["exclusive","allowed","independent_replication","adversarial_replication"]},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"heartbeat_ref":{"oneOf":[{"type":"string","pattern":"^(?:heartbeat|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"renewal_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"release_or_reassignment_reason":{"oneOf":[{"type":"string","minLength":1,"maxLength":1000},{"type":"null"}]},"status":{"enum":["proposed","active","waiting","released","expired","reassigned","completed","quarantined","revoked"]}}}"#),
     ("schema://ioi/foundations/objects/verifier-challenge-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v1","title":"VerifierChallengeEnvelope","x-ioi-schema-version":"ioi.foundations.verifier-challenge-envelope.v1","description":"A typed challenge against a metric, rule, verifier, evidence set, eligibility decision, result, exploit, independence claim, collusion claim, or ontology mapping. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#verifierchallengeenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here.","type":"object","additionalProperties":false,"required":["schema_version","verifier_challenge_id","challenger_ref","challenged_ref","challenge_kind","adjudicator_policy_ref","reverification_required","status"],"properties":{"schema_version":{"const":"ioi.foundations.verifier-challenge-envelope.v1"},"verifier_challenge_id":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,500}$"},"outcome_room_ref":{"oneOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"challenger_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$"},"challenged_ref":{"type":"string","pattern":"^(?:attempt|finding|verifier_path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$"},"challenge_kind":{"enum":["metric","rule","verifier","evidence","eligibility","result","exploit","independence","collusion","mapping"]},"challenge_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"adjudicator_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"prior_rule_version_ref":{"oneOf":[{"type":"string","pattern":"^(?:rubric|verifier_path)://[^\\s]{1,500}$"},{"type":"null"}]},"proposed_rule_version_ref":{"oneOf":[{"type":"string","pattern":"^(?:rubric|verifier_path)://[^\\s]{1,500}$"},{"type":"null"}]},"affected_attempt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"}},"reverification_required":{"type":"boolean"},"adjudication_ref":{"oneOf":[{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["proposed","admitted","investigating","upheld","rejected","rule_changed","reverifying","resolved","withdrawn"]}}}"#),
     ("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1","title":"LocalAgentPairingSessionEnvelope","x-ioi-schema-version":"ioi.foundations.local-agent-pairing-session-envelope.v1","description":"The short-lived, pre-AIIP bootstrap contract binding one product-initiated pairing challenge to one local client key and origin, so an already-running user-owned local agent can submit typed proposals without receiving ambient product, room, runtime, or authority access. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The `challenge` and `client_binding` subobjects are phase-qualified and null before their phase; the phase rules themselves stay with the owner. `bootstrap_non_grants` is projected as its canon literal `none` values because the contract's whole point is that pairing grants nothing.","type":"object","additionalProperties":false,"required":["schema_version","pairing_session_id","initiated_by_ref","initiating_surface_ref","target_kind","target_scope_ref","claimed_local_agent","pairing_transport","challenge","client_binding","claim_attempt_policy","allowed_bootstrap_actions","bootstrap_non_grants","submission_refs","contribution_lane","assurance_posture","failure_reason_code","created_at","updated_at","completed_at","status"],"properties":{"schema_version":{"const":"ioi.foundations.local-agent-pairing-session-envelope.v1"},"pairing_session_id":{"type":"string","pattern":"^local-agent-pairing://[^\\s]{1,500}$"},"initiated_by_ref":{"type":"string","pattern":"^(?:user|org)://[^\\s]{1,500}$"},"initiating_surface_ref":{"type":"string","pattern":"^surface://[^\\s]{1,500}$"},"target_kind":{"enum":["room_guest","private_worker","organization_worker"]},"target_scope_ref":{"type":"string","pattern":"^(?:outcome-room|user|org)://[^\\s]{1,500}$"},"room_discovery_ref":{"oneOf":[{"type":"string","pattern":"^room-discovery://[^\\s]{1,500}$"},{"type":"null"}]},"claimed_local_agent":{"type":"object","additionalProperties":false,"required":["display_name","resolver_kind","resolver_revision_ref","resolver_content_hash","semantic_harness_profile_revision_ref","semantic_harness_profile_content_hash","execution_posture"],"properties":{"display_name":{"type":"string","minLength":1,"maxLength":500},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"semantic_harness_profile_revision_ref":{"oneOf":[{"type":"string","pattern":"^harness-profile://[^\\s]{1,500}$"},{"type":"null"}]},"semantic_harness_profile_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"execution_posture":{"enum":["instrumented_adapter","prompt_only"]}}},"pairing_transport":{"enum":["loopback","device_code","copy_command"]},"challenge":{"oneOf":[{"type":"object","additionalProperties":false,"required":["challenge_hash","authentication_factor_kind","issued_at","expires_at","single_use"],"properties":{"challenge_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authentication_factor_kind":{"enum":["one_time_challenge","device_code","signed_nonce"]},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"single_use":{"const":true}}},{"type":"null"}]},"client_binding":{"oneOf":[{"type":"object","additionalProperties":false,"required":["agent_public_key_ref","proof_of_possession_hash","origin_kind","origin_binding_hash","bound_at"],"properties":{"agent_public_key_ref":{"type":"string","pattern":"^key://[^\\s]{1,500}$"},"proof_of_possession_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"origin_kind":{"enum":["loopback_endpoint","device_client","bootstrap_client"]},"origin_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"bound_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},{"type":"null"}]},"claim_attempt_policy":{"type":"object","additionalProperties":false,"required":["failed_attempt_limit","failed_attempt_count","rate_limit_policy_ref"],"properties":{"failed_attempt_limit":{"type":"integer","minimum":1,"maximum":9007199254740991},"failed_attempt_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"rate_limit_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}},"allowed_bootstrap_actions":{"type":"array","uniqueItems":true,"items":{"enum":["read_discovery","submit_worker_composition","submit_room_participation_request"]}},"bootstrap_non_grants":{"type":"object","additionalProperties":false,"required":["authority","room_membership","room_database_access","private_context_access","connector_or_secret_access","budget_or_spend","effect_execution"],"properties":{"authority":{"const":"none"},"room_membership":{"const":"none"},"room_database_access":{"const":"none"},"private_context_access":{"const":"none"},"connector_or_secret_access":{"const":"none"},"budget_or_spend":{"const":"none"},"effect_execution":{"const":"none"}}},"submission_refs":{"type":"object","additionalProperties":false,"required":["worker_composition_ref","room_participation_request_ref","first_aiip_packet_ref"],"properties":{"worker_composition_ref":{"oneOf":[{"type":"string","pattern":"^composition://[^\\s]{1,500}$"},{"type":"null"}]},"room_participation_request_ref":{"oneOf":[{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},{"type":"null"}]},"first_aiip_packet_ref":{"oneOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]}}},"contribution_lane":{"enum":["instrumented_candidate","proposal_only"]},"assurance_posture":{"type":"object","additionalProperties":false,"required":["pairing_proves","prompt_only_ceiling"],"properties":{"pairing_proves":{"const":"client_key_and_origin_binding_only"},"prompt_only_ceiling":{"const":"attested"}}},"failure_reason_code":{"oneOf":[{"enum":["challenge_expired","challenge_replayed","invalid_proof","key_mismatch","origin_mismatch","attempt_exhausted","rate_limited","scope_escalation","malformed_submission","policy_denied","target_unavailable"]},{"type":"null"}]},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"completed_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"status":{"enum":["created","challenge_issued","agent_proof_received","bootstrap_bound","composition_submitted","participation_submitted","completed","expired","rejected","cancelled","revoked","failed_closed"]}}}"#),
+    ("schema://ioi/foundations/objects/attempt-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/attempt-envelope/v1","title":"AttemptEnvelope","x-ioi-schema-version":"ioi.foundations.attempt-envelope.v1","description":"Durable provenance for positive, negative, inconclusive, invalid, exploit-finding, and superseded work over an already admitted GoalRun. Creating or transitioning it does not launch work or grant execution authority. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#attemptenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. `bound_coordinates` is non-null only for a room-scoped Attempt; the rule that a non-room Attempt MUST NOT fabricate room coordinates stays with the owner and is not restated as schema logic.","type":"object","additionalProperties":false,"required":["schema_version","attempt_id","work_subject_ref","participant_ref","bound_coordinates","outcome_class","reproduction_state","status"],"properties":{"schema_version":{"const":"ioi.foundations.attempt-envelope.v1"},"attempt_id":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"oneOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\\s]{1,500}$"},"goal_run_ref":{"oneOf":[{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},{"type":"null"}]},"frontier_item_ref":{"oneOf":[{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},{"type":"null"}]},"work_claim_ref":{"oneOf":[{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},{"type":"null"}]},"participant_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|agent)://[^\\s]{1,500}$"},"bound_coordinates":{"oneOf":[{"type":"object","additionalProperties":false,"required":["outcome_room","frontier_item","work_claim","participant_lease","goal_run"],"properties":{"outcome_room":{"type":"object","additionalProperties":false,"required":["record_ref","host_domain_ref","control_hash"],"properties":{"record_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"host_domain_ref":{"type":"string","pattern":"^domain://[^\\s]{1,500}$"},"control_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"frontier_item":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"work_claim":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","frontier_item_ref","claimant_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"frontier_item_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"claimant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"goal_run":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"updated_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}}},{"type":"null"}]},"declared_method_and_hypothesis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:method|finding|artifact)://[^\\s]{1,500}$"}},"parent_and_derivation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|artifact|finding)://[^\\s]{1,500}$"}},"input_state_and_environment_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:state|environment|worktree|dataset)://[^\\s]{1,500}$"}},"worker_model_resolver_tool_and_runtime_version_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:worker|model_route|harness-profile|agent-harness-adapter|tool|runtime)://[^\\s]{1,500}$"}},"authority_and_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|policy)://[^\\s]{1,500}$"}},"resource_and_cost_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-lease|spend|ledger)://[^\\s]{1,500}$"}},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"work_result_ref":{"oneOf":[{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},{"type":"null"}]},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"}},"artifact_evidence_and_receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"}},"verifier_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier_path|verifier-challenge)://[^\\s]{1,500}$"}},"reproduction_state":{"enum":["unreviewed","reproducible","not_reproduced","contradicted","invalidated"]},"artifact_license_ip_retention_and_export_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:license|policy)://[^\\s]{1,500}$"}},"contribution_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|receipt)://[^\\s]{1,500}$"}},"status":{"enum":["draft","running","submitted","admitted","challenged","accepted","rejected","superseded"]}}}"#),
+    ("schema://ioi/foundations/objects/finding-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/finding-envelope/v1","title":"FindingEnvelope","x-ioi-schema-version":"ioi.foundations.finding-envelope.v1","description":"A provenance-bearing assertion a domain admitted. Admission proves the domain admitted the assertion; it does not make the proposition universally true, so uncertainty, applicability, contradiction, time, and dispute state are preserved. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The rule that `supersedes_ref` must strictly resolve to a Finding in the same room is a cross-record constraint owned by the owner doc, not expressible here.","type":"object","additionalProperties":false,"required":["schema_version","finding_id","attempt_ref","work_result_ref","participant_ref","proposed_by_ref","bound_coordinates","proposition","finding_kind","transaction_time","status"],"properties":{"schema_version":{"const":"ioi.foundations.finding-envelope.v1"},"finding_id":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"oneOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"attempt_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"proposed_by_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$"},"bound_coordinates":{"oneOf":[{"type":"object","additionalProperties":false,"required":["attempt","work_result","participant_lease","supersedes_finding"],"properties":{"attempt":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","participant_ref","work_result_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"work_result":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","goal_run_ref","goal_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"goal_run_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"goal_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"updated_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"supersedes_finding":{"oneOf":[{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},{"type":"null"}]}}},{"type":"null"}]},"proposition":{"type":"string","minLength":1,"maxLength":8000},"finding_kind":{"enum":["hypothesis","observation","claim","negative_result","integrity_incident","mapping_claim","causal_claim","counterexample","synthesis"]},"confidence_or_uncertainty":{"oneOf":[{"type":"number"},{"type":"null"}]},"valid_time":{"oneOf":[{"type":"object","additionalProperties":false,"description":"A closed or half-open interval, per canon's `interval` type.","required":["start","end"],"properties":{"start":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"end":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},{"type":"null"}]},"transaction_time":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"source_and_observation_context_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$"}},"supporting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"proof_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"contradicting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|finding)://[^\\s]{1,500}$"}},"applicability_and_counterexample_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|ontology)://[^\\s]{1,500}$"}},"provenance_ontology_and_mapping_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:provenance|ontology|ontology-mapping)://[^\\s]{1,500}$"}},"proposed_effect_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$"}},"supersedes_ref":{"oneOf":[{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},{"type":"null"}]},"dispute_ref":{"oneOf":[{"type":"string","pattern":"^dispute://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["branch_local","proposed","admitted","contradicted","superseded","disputed","rejected","archived"]}}}"#),
+    ("schema://ioi/foundations/objects/work-result-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/work-result-envelope/v1","title":"WorkResultEnvelope","x-ioi-schema-version":"ioi.foundations.work-result-envelope.v1","description":"The generic bounded result seam returned by a GoalRun, claim, worker, harness, service, research attempt, ontology operation, incident response, or embodied mission. Profile-specific fields stay behind `result_profile_ref` and `result_payload_ref`. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. Every repeated ref set is bounded to at most 64 unique entries because the owner states that bound directly; producers and readers refuse an over-bound record rather than truncating it.","type":"object","additionalProperties":false,"required":["schema_version","work_result_id","work_subject_ref","produced_by_ref","submitted_by_ref","result_profile","producer_component_resolution","outcome_class","status","uncertainty","reproduction_state","next_action"],"properties":{"schema_version":{"const":"ioi.foundations.work-result-envelope.v1"},"work_result_id":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"produced_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"submitted_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"operator_and_affiliation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"maxItems":64},"invocation_or_run_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness_invocation|run|work_run|automation-run|service)://[^\\s]{1,500}$"},{"type":"null"}]},"result_profile":{"enum":["software_implementation","research","ontology_mutation","incident_resolution","service_delivery","physical_mission","review","evaluation","custom"]},"result_profile_ref":{"oneOf":[{"type":"string","pattern":"^(?:schema|profile)://[^\\s]{1,500}$"},{"type":"null"}]},"result_payload_ref":{"oneOf":[{"type":"string","description":"An implementation_result://, artifact://, or cid:// ref, or the literal `encrypted_ref`, per canon.","pattern":"^(?:(?:implementation_result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"},{"type":"null"}]},"producer_component_resolution":{"type":"object","additionalProperties":false,"required":["resolved_component_set_snapshot_ref","resolved_component_set_hash","component_resolution_receipt_ref","resolver_kind","resolver_revision_ref","resolver_content_hash"],"properties":{"resolved_component_set_snapshot_ref":{"oneOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},{"type":"null"}]},"resolved_component_set_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"component_resolution_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"declared_method_and_lineage_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:method|attempt|finding|work-result|artifact|trace)://[^\\s]{1,500}$"},"maxItems":64},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^ifc-label://[^\\s]{1,500}$"},"maxItems":64},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"status":{"enum":["completed","failed","blocked","partial","challenged","superseded"]},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"},"maxItems":64},"observation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"maxItems":64},"claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence)://[^\\s]{1,500}$"},"maxItems":64},"uncertainty":{"anyOf":[{"type":"number"},{"type":"string","minLength":1,"maxLength":2000},{"type":"object","description":"A profile-defined uncertainty structure; canon leaves its shape to the declared result profile."},{"type":"null"}]},"supporting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"},"maxItems":64},"contradicting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence|artifact)://[^\\s]{1,500}$"},"maxItems":64},"artifact_receipt_and_trace_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$"},"maxItems":64},"resource_and_cost_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\\s]{1,500}$"},"maxItems":64},"authority_and_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","description":"A URI-shaped ref or a scope: authority selector, per canon.","pattern":"^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$"},"maxItems":64},"blocker_and_decision_request_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:blocker|handoff|proposal)://[^\\s]{1,500}$"},"maxItems":64},"verifier_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier_path|worker|gate|receipt)://[^\\s]{1,500}$"},"maxItems":64},"license_disclosure_retention_and_export_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:license|policy|restricted_view|receipt)://[^\\s]{1,500}$"},"maxItems":64},"reproduction_state":{"oneOf":[{"enum":["unreviewed","reproducible","not_reproduced","contradicted","invalidated"]},{"type":"null"}]},"reproduction_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$"},"maxItems":64},"acceptance_ref":{"oneOf":[{"type":"string","pattern":"^(?:acceptance|decision|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"review_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"maxItems":64},"supersedes_work_result_ref":{"oneOf":[{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},{"type":"null"}]},"superseded_by_ref":{"oneOf":[{"type":"string","pattern":"^(?:work-result|outcome-delta)://[^\\s]{1,500}$"},{"type":"null"}]},"summary_ref":{"oneOf":[{"type":"string","pattern":"^(?:message|artifact)://[^\\s]{1,500}$"},{"type":"null"}]},"next_action":{"enum":["none","repair","review","verify","replicate","synthesize","ask_user","escalate","update_work_queue"]}}}"#),
+    ("schema://ioi/foundations/objects/outcome-delta-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/outcome-delta-envelope/v1","title":"OutcomeDeltaEnvelope","x-ioi-schema-version":"ioi.foundations.outcome-delta-envelope.v1","description":"The proposed change an admitted producer derives from a WorkResult or other admitted proposer. It inherits the complete information-flow label set of what it derives from and may only add labels; it can never drop, replace, or weaken inherited labels. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/work-results-and-lifecycle.md#outcomedeltaenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. Every repeated ref set is bounded to at most 64 unique entries because the owner states that bound directly.","type":"object","additionalProperties":false,"required":["schema_version","outcome_delta_id","work_subject_ref","proposed_by_ref","target_ref","delta_kind","payload_ref","status"],"properties":{"schema_version":{"const":"ioi.foundations.outcome-delta-envelope.v1"},"outcome_delta_id":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"proposed_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"target_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"delta_kind":{"enum":["create","update","supersede","reject","merge","promote","rollback","course_correct","close"]},"payload_ref":{"type":"string","pattern":"^(?:artifact|patch|mapping|state-delta)://[^\\s]{1,500}$"},"precondition_and_invariant_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|gate|state)://[^\\s]{1,500}$"},"maxItems":64},"expected_effect_ref":{"oneOf":[{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},{"type":"null"}]},"verifier_and_acceptance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier_path|rubric|gate)://[^\\s]{1,500}$"},"maxItems":64},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^ifc-label://[^\\s]{1,500}$"},"maxItems":64},"status":{"enum":["proposed","evaluating","admitted","rejected","superseded","rolled_back"]}}}"#),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -83054,6 +85140,10 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/work-claim-lease-envelope/v1", r#"[]"#),
     ("schema://ioi/foundations/objects/verifier-challenge-envelope/v1", r#"[]"#),
     ("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/attempt-envelope/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/finding-envelope/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/work-result-envelope/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/outcome-delta-envelope/v1", r#"[]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -83070,8 +85160,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:(?:grant|policy|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|scope:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500})$"#,
     ),
     (
+        r#"^(?:(?:grant|policy|receipt)://[^\s]{1,500}|scope:[a-z0-9*._-]{1,200})$"#,
+        r#"^(?:(?:grant|policy|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|scope:[a-z0-9*._-]{1,200})$"#,
+    ),
+    (
         r#"^(?:(?:implementation-result|artifact|cid)://[^\s]{1,500}|encrypted_ref)$"#,
         r#"^(?:(?:implementation-result|artifact|cid)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|encrypted_ref)$"#,
+    ),
+    (
+        r#"^(?:(?:implementation_result|artifact|cid)://[^\s]{1,500}|encrypted_ref)$"#,
+        r#"^(?:(?:implementation_result|artifact|cid)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|encrypted_ref)$"#,
     ),
     (
         r#"^(?:(?:receipt|agentgres)://[^\s]{1,500}|sha256:[0-9a-f]{64})$"#,
@@ -83318,6 +85416,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:goal|automation-run|work-run|run|invocation|work-claim)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\s]{1,500}$"#,
+        r#"^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:goal|task|service)://[^\s]{1,500}$"#,
         r#"^(?:goal|task|service)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -83346,6 +85448,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:harness-profile|agent-harness-adapter):[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,200}$"#,
     ),
     (
+        r#"^(?:harness_invocation|run|work_run|automation-run|service)://[^\s]{1,500}$"#,
+        r#"^(?:harness_invocation|run|work_run|automation-run|service)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:heartbeat|receipt)://[^\s]{1,500}$"#,
         r#"^(?:heartbeat|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -83366,8 +85472,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:license|policy|restricted-view|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:license|policy|restricted_view|receipt)://[^\s]{1,500}$"#,
+        r#"^(?:license|policy|restricted_view|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:message|artifact)://[^\s]{1,500}$"#,
         r#"^(?:message|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:method|attempt|finding|work-result|artifact|trace)://[^\s]{1,500}$"#,
+        r#"^(?:method|attempt|finding|work-result|artifact|trace)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:method|finding|artifact)://[^\s]{1,500}$"#,
@@ -83670,6 +85784,18 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:verifier-path|worker|gate|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:verifier_path|rubric|gate)://[^\s]{1,500}$"#,
+        r#"^(?:verifier_path|rubric|gate)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:verifier_path|verifier-challenge)://[^\s]{1,500}$"#,
+        r#"^(?:verifier_path|verifier-challenge)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:verifier_path|worker|gate|receipt)://[^\s]{1,500}$"#,
+        r#"^(?:verifier_path|worker|gate|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:wallet|org|project)://[^\s]{1,240}$"#,
         r#"^(?:wallet|org|project)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
@@ -83708,6 +85834,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:worker|harness-profile|agent-harness-adapter|model_route|runtime|node)://[^\s]{1,500}$"#,
         r#"^(?:worker|harness-profile|agent-harness-adapter|model_route|runtime|node)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:worker|model_route|harness-profile|agent-harness-adapter|tool|runtime)://[^\s]{1,500}$"#,
+        r#"^(?:worker|model_route|harness-profile|agent-harness-adapter|tool|runtime)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:worker|service|org|domain|agentgres)://[^\s]{1,248}$"#,
@@ -86837,6 +88967,18 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-verified-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-verified-status.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -87585,6 +89727,26 @@ mod tests {
         },
         "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1" => {
             serde_json::from_value::<LocalAgentPairingSessionEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/attempt-envelope/v1" => {
+            serde_json::from_value::<AttemptEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/finding-envelope/v1" => {
+            serde_json::from_value::<FindingEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/work-result-envelope/v1" => {
+            serde_json::from_value::<WorkResultEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/outcome-delta-envelope/v1" => {
+            serde_json::from_value::<OutcomeDeltaEnvelopeV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -88339,6 +90501,26 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/attempt-envelope/v1" => {
+            let projection = serde_json::from_value::<AttemptEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/finding-envelope/v1" => {
+            let projection = serde_json::from_value::<FindingEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/work-result-envelope/v1" => {
+            let projection = serde_json::from_value::<WorkResultEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/outcome-delta-envelope/v1" => {
+            let projection = serde_json::from_value::<OutcomeDeltaEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -88475,8 +90657,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            574,
-            "the registered golden corpus must remain the explicit 574-fixture bar",
+            586,
+            "the registered golden corpus must remain the explicit 586-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -88695,7 +90877,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 548,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 558,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

@@ -1,0 +1,13 @@
+{
+  "schema_version": "ioi.foundations.finding-envelope.v1",
+  "finding_id": "finding://ioi/goal-9/finding/4",
+  "attempt_ref": "attempt://ioi/goal-9/attempt/2",
+  "work_result_ref": "work-result://ioi/goal-9/result/2",
+  "participant_ref": "participant-lease://room/outcome-1/participant/7",
+  "proposed_by_ref": "worker://ioi/local/implementer-1",
+  "bound_coordinates": null,
+  "proposition": "The reported refusal reproduces only when the lease heartbeat is already stale.",
+  "finding_kind": "negative_result",
+  "transaction_time": "2026-08-05T12:00:00Z",
+  "status": "admitted"
+}
