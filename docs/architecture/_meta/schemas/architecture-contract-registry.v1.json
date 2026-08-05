@@ -7147,7 +7147,7 @@
     {
       "contract_id": "schema://ioi/foundations/outcome-delta/v3",
       "canonical_name": "OutcomeDelta",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#outcomedeltaenvelope",
       "schema_version": "ioi.foundations.outcome-delta.v3",
       "maturity": "partial",
       "stability": "provisional",
@@ -7600,7 +7600,7 @@
     {
       "contract_id": "schema://ioi/foundations/work-result/v3",
       "canonical_name": "WorkResult",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope-and-outcomedeltaenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope",
       "schema_version": "ioi.foundations.work-result.v3",
       "maturity": "partial",
       "stability": "provisional",
@@ -7970,6 +7970,194 @@
         },
         {
           "path": "fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/attempt-envelope/v1",
+      "canonical_name": "AttemptEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#attemptenvelope",
+      "schema_version": "ioi.foundations.attempt-envelope.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "attempt-envelope.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AttemptEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AttemptEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/attempt-envelope-v1/positive-minimal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/attempt-envelope-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/attempt-envelope-v1/negative-invented-outcome-class.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/finding-envelope/v1",
+      "canonical_name": "FindingEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope",
+      "schema_version": "ioi.foundations.finding-envelope.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "finding-envelope.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "FindingEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "FindingEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/finding-envelope-v1/positive-minimal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/finding-envelope-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/finding-envelope-v1/negative-verified-status.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/work-result-envelope/v1",
+      "canonical_name": "WorkResultEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope",
+      "schema_version": "ioi.foundations.work-result-envelope.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "work-result-envelope.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "WorkResultEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "WorkResultEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/work-result-envelope-v1/positive-minimal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/work-result-envelope-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
+      "canonical_name": "OutcomeDeltaEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#outcomedeltaenvelope",
+      "schema_version": "ioi.foundations.outcome-delta-envelope.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "outcome-delta-envelope.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OutcomeDeltaEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OutcomeDeltaEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/outcome-delta-envelope-v1/positive-minimal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/outcome-delta-envelope-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json",
           "expected_failure": "schema"
         }
       ]

@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.foundations.work-result-envelope.v1",
+  "work_result_id": "work-result://ioi/goal-9/result/2",
+  "work_subject_ref": "goal://ioi/goal-9",
+  "produced_by_ref": "worker://ioi/local/implementer-1",
+  "submitted_by_ref": "worker://ioi/local/implementer-1",
+  "result_profile": "research",
+  "producer_component_resolution": {
+    "resolved_component_set_snapshot_ref": null,
+    "resolved_component_set_hash": null,
+    "component_resolution_receipt_ref": null,
+    "resolver_kind": "none",
+    "resolver_revision_ref": null,
+    "resolver_content_hash": null
+  },
+  "outcome_class": "inconclusive",
+  "status": "partial",
+  "uncertainty": null,
+  "reproduction_state": null,
+  "next_action": "replicate",
+  "unexpected_field": "x"
+}

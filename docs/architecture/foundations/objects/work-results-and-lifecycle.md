@@ -19,7 +19,15 @@ module here reuses. Doctrine and lifecycle semantics for these objects are owned
 by [`../../components/daemon-runtime/doctrine.md`](../../components/daemon-runtime/doctrine.md);
 this module does not restate them.
 
-## WorkResultEnvelope and OutcomeDeltaEnvelope
+## WorkResultEnvelope
+
+`WorkResultEnvelope` and [`OutcomeDeltaEnvelope`](#outcomedeltaenvelope) were
+carried under one shared heading, which left both families addressable only by a
+single anchor. They are two contracts with two lifecycles and two registered
+contract ids, so each now owns its own heading; the shared rules that genuinely
+span them — the 64-entry ref bound, the information-flow label inheritance, and
+the substrate-generic `system_binding` rule — are stated once, at the end of the
+`OutcomeDeltaEnvelope` section, and govern both.
 
 `WorkResultEnvelope` is the generic bounded result seam returned by a GoalRun,
 claim, worker, harness, service, research attempt, ontology operation, incident
@@ -121,6 +129,13 @@ applicable component revisions/hashes. `resolver_kind` independently
 discriminates the exact resolver pair for projection and replay; family refs or
 current registry heads are invalid provenance.
 
+## OutcomeDeltaEnvelope
+
+`OutcomeDeltaEnvelope` is the proposed change an admitted producer derives from
+a `WorkResult` or other admitted proposer. It is a separate contract from the
+result that proposed it: a result may carry many deltas, a delta has its own
+admission lifecycle, and neither status implies the other.
+
 ```yaml
 OutcomeDeltaEnvelope:
   outcome_delta_id: outcome-delta://...
@@ -143,7 +158,12 @@ OutcomeDeltaEnvelope:
   status: proposed | evaluating | admitted | rejected | superseded | rolled_back
 ```
 
-The registered v3 form bounds every repeated ref set in `WorkResultEnvelope`
+### Rules shared by both families
+
+The three rules below span `WorkResultEnvelope` and `OutcomeDeltaEnvelope` and
+are stated once here rather than duplicated under each heading.
+
+The registered forms bound every repeated ref set in `WorkResultEnvelope`
 and `OutcomeDeltaEnvelope` to at most 64 unique entries. Producers and readers
 MUST refuse an over-bound record; they MUST NOT truncate, partially project, or
 silently omit refs to manufacture a valid result.

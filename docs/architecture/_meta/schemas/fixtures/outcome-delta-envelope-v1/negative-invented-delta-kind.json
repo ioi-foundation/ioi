@@ -1,0 +1,10 @@
+{
+  "schema_version": "ioi.foundations.outcome-delta-envelope.v1",
+  "outcome_delta_id": "outcome-delta://ioi/goal-9/delta/1",
+  "work_subject_ref": "goal://ioi/goal-9",
+  "proposed_by_ref": "work-result://ioi/goal-9/result/2",
+  "target_ref": "ontology://acme/research/v3",
+  "delta_kind": "delete",
+  "payload_ref": "mapping://acme/research/crosswalk/8",
+  "status": "evaluating"
+}

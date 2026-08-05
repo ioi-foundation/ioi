@@ -1,0 +1,408 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/finding-envelope/v1",
+  "title": "FindingEnvelope",
+  "x-ioi-schema-version": "ioi.foundations.finding-envelope.v1",
+  "description": "A provenance-bearing assertion a domain admitted. Admission proves the domain admitted the assertion; it does not make the proposition universally true, so uncertainty, applicability, contradiction, time, and dispute state are preserved. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The rule that `supersedes_ref` must strictly resolve to a Finding in the same room is a cross-record constraint owned by the owner doc, not expressible here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "finding_id",
+    "attempt_ref",
+    "work_result_ref",
+    "participant_ref",
+    "proposed_by_ref",
+    "bound_coordinates",
+    "proposition",
+    "finding_kind",
+    "transaction_time",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.finding-envelope.v1"
+    },
+    "finding_id": {
+      "type": "string",
+      "pattern": "^finding://[^\\s]{1,500}$"
+    },
+    "outcome_room_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^outcome-room://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "system_binding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "attempt_ref": {
+      "type": "string",
+      "pattern": "^attempt://[^\\s]{1,500}$"
+    },
+    "work_result_ref": {
+      "type": "string",
+      "pattern": "^work-result://[^\\s]{1,500}$"
+    },
+    "participant_ref": {
+      "type": "string",
+      "pattern": "^participant-lease://[^\\s]{1,500}$"
+    },
+    "proposed_by_ref": {
+      "type": "string",
+      "pattern": "^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$"
+    },
+    "bound_coordinates": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "attempt",
+            "work_result",
+            "participant_lease",
+            "supersedes_finding"
+          ],
+          "properties": {
+            "attempt": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "record_ref",
+                "outcome_room_ref",
+                "participant_ref",
+                "work_result_ref",
+                "revision",
+                "record_hash"
+              ],
+              "properties": {
+                "record_ref": {
+                  "type": "string",
+                  "pattern": "^attempt://[^\\s]{1,500}$"
+                },
+                "outcome_room_ref": {
+                  "type": "string",
+                  "pattern": "^outcome-room://[^\\s]{1,500}$"
+                },
+                "participant_ref": {
+                  "type": "string",
+                  "pattern": "^participant-lease://[^\\s]{1,500}$"
+                },
+                "work_result_ref": {
+                  "type": "string",
+                  "pattern": "^work-result://[^\\s]{1,500}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "record_hash": {
+                  "type": "string",
+                  "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+              }
+            },
+            "work_result": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "record_ref",
+                "outcome_room_ref",
+                "goal_run_ref",
+                "goal_ref",
+                "updated_at",
+                "record_hash"
+              ],
+              "properties": {
+                "record_ref": {
+                  "type": "string",
+                  "pattern": "^work-result://[^\\s]{1,500}$"
+                },
+                "outcome_room_ref": {
+                  "type": "string",
+                  "pattern": "^outcome-room://[^\\s]{1,500}$"
+                },
+                "goal_run_ref": {
+                  "type": "string",
+                  "pattern": "^goal://[^\\s]{1,500}$"
+                },
+                "goal_ref": {
+                  "type": "string",
+                  "pattern": "^goal://[^\\s]{1,500}$"
+                },
+                "updated_at": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "record_hash": {
+                  "type": "string",
+                  "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+              }
+            },
+            "participant_lease": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "record_ref",
+                "outcome_room_ref",
+                "principal_ref",
+                "revision",
+                "record_hash"
+              ],
+              "properties": {
+                "record_ref": {
+                  "type": "string",
+                  "pattern": "^participant-lease://[^\\s]{1,500}$"
+                },
+                "outcome_room_ref": {
+                  "type": "string",
+                  "pattern": "^outcome-room://[^\\s]{1,500}$"
+                },
+                "principal_ref": {
+                  "type": "string",
+                  "pattern": "^(?:worker|agent)://[^\\s]{1,500}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "record_hash": {
+                  "type": "string",
+                  "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+              }
+            },
+            "supersedes_finding": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "record_ref",
+                    "outcome_room_ref",
+                    "revision",
+                    "record_hash"
+                  ],
+                  "properties": {
+                    "record_ref": {
+                      "type": "string",
+                      "pattern": "^finding://[^\\s]{1,500}$"
+                    },
+                    "outcome_room_ref": {
+                      "type": "string",
+                      "pattern": "^outcome-room://[^\\s]{1,500}$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "record_hash": {
+                      "type": "string",
+                      "pattern": "^sha256:[0-9a-f]{64}$"
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proposition": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000
+    },
+    "finding_kind": {
+      "enum": [
+        "hypothesis",
+        "observation",
+        "claim",
+        "negative_result",
+        "integrity_incident",
+        "mapping_claim",
+        "causal_claim",
+        "counterexample",
+        "synthesis"
+      ]
+    },
+    "confidence_or_uncertainty": {
+      "oneOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "valid_time": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "A closed or half-open interval, per canon's `interval` type.",
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "end": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "transaction_time": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "source_and_observation_context_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$"
+      }
+    },
+    "supporting_evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
+      }
+    },
+    "proof_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
+      }
+    },
+    "contradicting_evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:evidence|artifact|finding)://[^\\s]{1,500}$"
+      }
+    },
+    "applicability_and_counterexample_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:policy|finding|ontology)://[^\\s]{1,500}$"
+      }
+    },
+    "provenance_ontology_and_mapping_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:provenance|ontology|ontology-mapping)://[^\\s]{1,500}$"
+      }
+    },
+    "proposed_effect_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$"
+      }
+    },
+    "supersedes_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^finding://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dispute_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^dispute://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "branch_local",
+        "proposed",
+        "admitted",
+        "contradicted",
+        "superseded",
+        "disputed",
+        "rejected",
+        "archived"
+      ]
+    }
+  }
+}

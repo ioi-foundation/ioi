@@ -1,0 +1,11 @@
+{
+  "schema_version": "ioi.foundations.attempt-envelope.v1",
+  "attempt_id": "attempt://ioi/goal-9/attempt/2",
+  "work_subject_ref": "goal://ioi/goal-9",
+  "participant_ref": "worker://ioi/local/implementer-1",
+  "bound_coordinates": null,
+  "outcome_class": "negative",
+  "reproduction_state": "not_reproduced",
+  "status": "admitted",
+  "unexpected_field": "x"
+}
