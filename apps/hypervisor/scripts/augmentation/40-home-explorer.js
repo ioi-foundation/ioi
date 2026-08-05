@@ -125,11 +125,21 @@
       gov = '<div class="flex flex-col gap-2">' + govRows.join("") + "</div>" +
         ([appr, fo, ops, led].some((x) => !x) ? '<div class="mt-2 px-1 text-xs text-content-tertiary">Some projections did not answer — this view may be incomplete.</div>' : "");
     }
-    const apps = IOI_APPS.map((a) =>
-      '<a href="' + a.href + '" class="flex items-center gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3 transition-colors hover:bg-surface-hover" style="text-decoration:none">' +
-      '<span aria-hidden="true" style="font-size:17px">' + a.icon + "</span>" +
-      '<span class="flex min-w-0 flex-col"><span class="truncate text-sm font-medium text-content-primary">' + esc(a.name) + "</span>" +
-      '<span class="truncate text-xs text-content-tertiary">' + esc(a.desc) + "</span></span></a>").join("");
+    // W0.2: the estate grid renders the compiled product-surface projection (owner applications
+    // + substrate lane) — daemon registration records via 35-app-catalog.js, never a hand list.
+    const apps = compiledApps().map((a) => {
+      const href = (a.open_today && a.open_today.href) || (a.launchable ? (a.launch_route || a.route) : "") || "";
+      const reason = a.launchable ? "" : (a.disabled_reason_codes || []).join(", ") || "not launchable";
+      return '<a href="' + (href || "#applications") + '" title="' + esc(a.route + (reason ? " — " + reason : "")) + '" class="flex items-center gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3 transition-colors hover:bg-surface-hover" style="text-decoration:none' + (a.launchable || href ? "" : ";opacity:.55") + '">' +
+        '<span aria-hidden="true" style="font-size:17px">' + (a.icon || "◳") + "</span>" +
+        '<span class="flex min-w-0 flex-col"><span class="truncate text-sm font-medium text-content-primary">' + esc(a.name) + "</span>" +
+        '<span class="truncate text-xs text-content-tertiary">' + esc(a.desc || a.route || "") + "</span></span></a>";
+    }).join("");
+    const appsBand = apps ||
+      '<div class="px-1 text-sm text-content-tertiary" style="padding:14px 4px">Compiled product-surface projection not loaded — no catalog is shown rather than a stale hand list.</div>';
+    const appsDown = compiledApps().length && !compiledDaemonOk()
+      ? '<div class="px-1 text-xs text-content-tertiary" style="margin:8px 0 0">Daemon unavailable (' + esc(compiledDaemonCode()) + ') — static first-party inventory; launch state unknown.</div>'
+      : "";
     // Ported application surfaces (app-catalog projection) render ahead of the family tiles;
     // data-ioi-app carries the display title for the Open-Application interceptor.
     const portedApps = catalogApps().map((a) =>
@@ -151,9 +161,9 @@
       hbSection("Applications", '<a href="#applications" class="text-xs text-content-secondary hover:text-content-primary" style="text-decoration:none">View all →</a>') +
       (portedApps
         ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' + portedApps + "</div>" +
-          '<div class="px-1 text-xs text-content-tertiary" style="margin:14px 0 8px">Suite</div>'
+          '<div class="px-1 text-xs text-content-tertiary" style="margin:14px 0 8px">Owner applications + substrate (compiled projection)</div>'
         : "") +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' + apps + "</div>" +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' + appsBand + "</div>" + appsDown +
       "</div>";
   }
   function goComposer() {

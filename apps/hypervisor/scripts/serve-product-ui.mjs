@@ -33,7 +33,7 @@ import { MCH_APP_TILE_URI, MCH_STORE_ICON_URI, MCH_HERO_URI, MCH_EXAMPLES_STRIP_
 import { MON_APP_TILE_URI, MON_WIZ_STRIP_URI, MON_CARDS_STRIP_URI } from "./monitors-assets.mjs";
 import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
-import { appCatalog } from "./app-catalog.mjs";
+import { compileProductSurfaces } from "./surface-compiler.mjs";
 import { bindSurface, boundSurface, boundActionRoute, embeddableRoutes } from "./surface-registry.mjs";
 import { canonicalTimelineRef, escHtml } from "../surfaces/kit.mjs";
 import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
@@ -1448,47 +1448,44 @@ function renderSessionsRoot(sessionsRes, envSummary) {
   return automationsShell("Sessions", inner);
 }
 
-function renderApplications() {
-  // The autonomous-systems suite + the substrate lane (canon: core-clients-surfaces.md "The
-  // Autonomous-Systems Application Suite"; detail: internal-docs/prompts/autonomous-systems-
-  // suite/suite-guide.md). Every href opens a REAL surface today; where a suite identity is
-  // wider than its current surface, the copy names what is live and what is adopting.
-  const SUITE = [
-    { icon: "🎨", name: "Studio", desc: "Compose systems & agents — agent lens live (inventory, model routes, runner adapters); system canvas adopting.", href: "/__ioi/agent-studio" },
-    { icon: "⚡", name: "Automations", desc: "Durable triggers, schedules, monitors, services — condition → governed effect.", href: "/__ioi/automations" },
-    { icon: "🧬", name: "Ontology", desc: "The semantic world-model — Ontology Manager over the typed COM; Object Explorer + ODK substrate linked within.", href: "/__ioi/ontology/manager" },
-    { icon: "🌐", name: "Data", desc: "Supply the world-model — sources, syncs, data recipes, datasets, media sets, consent posture.", href: "/__ioi/odk#data-planes" },
-    { icon: "🛡", name: "Governance", desc: "Authority — approvals, identity, leases, revocation, release gates, kill switches, budgets, gaps.", href: "/__ioi/governance" },
-    { icon: "🚀", name: "Missions", desc: "Fleet of running systems — the mission run queue + incident/blocker inbox over daemon truth.", href: "/__ioi/missions" },
-    { icon: "📒", name: "Provenance", desc: "Proof plane — unified receipts stream, state roots, timelines live; lineage canvas adopting.", href: "/__ioi/work-ledger" },
-    { icon: "🧪", name: "Evaluations", desc: "Eval-suite library over real subjects/consent + feedback candidate source; scoring & EvalRun adopting.", href: "/__ioi/evaluations" },
-    { icon: "📈", name: "Improvement", desc: "Proposals, what-if simulation, apply-under-gates — proposal lane live; change inbox adopting.", href: "/__ioi/agent-studio#improvement-proposals" },
-    { icon: "🏗", name: "Foundry", desc: "Model substrate — catalog, routes, draft specs, run plans, promotion previews.", href: "/__ioi/foundry" },
-    { icon: "🛒", name: "Marketplace", desc: "Distribution — listings, publish candidates, admission reviews (admission-only).", href: "/__ioi/marketplace" },
-    { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench" },
-    { icon: "🔌", name: "Developer Console", desc: "Extend the environment — connectors, MCP, sealed credentials, SDK on-ramps, developer tools.", href: "/__ioi/connections" },
-  ];
-  const SUBSTRATE = [
-    { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, kernel-boundary posture.", href: "/__ioi/environments" },
-    { icon: "⚙", name: "Operations", desc: "Infrastructure — scheduler health, providers, placement/failover, storage custody, capacity, spend.", href: "/__ioi/operations" },
-  ];
-  const card = (s) => {
-    const inner = `<div class="main"><div class="name">${s.icon} ${CX_ESC(s.name)}<span class="pill ok">open</span></div><div class="meta">${CX_ESC(s.desc)}</div></div>`;
-    return `<a class="card" href="${s.href}">${inner}<span class="act ghost">Open →</span></a>`;
+function renderApplications(compiled) {
+  // W0.2: this readout renders the compiled product-surface projection (surface-compiler.mjs) —
+  // registration records from the daemon compiler route, never a hand list. The former SUITE/
+  // SUBSTRATE arrays (catalog #2) are deleted; membership + launchability are daemon truth,
+  // presentation decoration is the compiler's declared static registration-record input.
+  const daemonDown = !compiled || compiled.daemon?.available !== true;
+  const banner = daemonDown
+    ? `<div class="card"><div class="main"><div class="name">Daemon unavailable<span class="pill warn">${CX_ESC(compiled?.daemon?.code || "daemon_unavailable")}</span></div><div class="meta">The product-surface compiler could not reach POST /v1/hypervisor/product-surface-projections. The rows below are the safe static first-party inventory — names and canonical routes only; launch state is honestly unknown, nothing is fabricated.</div></div></div>`
+    : "";
+  const stateBits = (s) => {
+    const state = s.launchable
+      ? '<span class="pill ok">launchable</span>'
+      : `<span class="pill warn" title="${CX_ESC((s.disabled_reason_codes || []).join(", "))}">${CX_ESC((s.disabled_reason_codes || [])[0] || "not launchable")}</span>`;
+    const today = s.open_today ? ` · live today: <a href="${CX_ESC(s.open_today.href)}">${CX_ESC(s.open_today.label)}</a>` : "";
+    return { state, today };
   };
-  // Ported application surfaces — rendered from the app catalog (parity-matrix membership), the
-  // same projection the shell launcher fetches at /__ioi/api/applications; never a hand list.
+  const card = (s) => {
+    const { state, today } = stateBits(s);
+    const openHref = s.launchable ? (s.launch_route || s.route) : (s.open_today ? s.open_today.href : null);
+    return `<div class="card"><div class="main"><div class="name">${s.icon || "◳"} ${CX_ESC(s.name)}${state}</div><div class="meta">${CX_ESC(s.desc || "")} · <code>${CX_ESC(s.route || "")}</code>${today}</div></div>${openHref ? `<a class="act ghost" href="${CX_ESC(openHref)}">Open →</a>` : ""}</div>`;
+  };
+  const owners = (compiled?.applications || []).filter((a) => a.lane === "owner");
+  const substrate = (compiled?.applications || []).filter((a) => a.lane === "substrate");
+  const workspaces = compiled?.workspaces || [];
+  // Evidence band (catalog #3, demoted): ported tool surfaces — implementation evidence with
+  // zero catalog authority; their lanes keep serving until each one's Wave 1 rehome / Wave 4 cutover.
   const portedCard = (a) => {
     const ico = a.icon ? `<img src="${a.icon}" alt="" style="width:18px;height:18px;vertical-align:-4px;border-radius:4px"> ` : "◳ ";
     return `<a class="card" href="${a.route}"><div class="main"><div class="name">${ico}${CX_ESC(a.title)}<span class="pill ok">open</span></div><div class="meta">${CX_ESC(a.family)} · ${CX_ESC(a.route)}</div></div><span class="act ghost">Open →</span></a>`;
   };
-  const ported = appCatalog().apps;
+  const ported = compiled?.apps || [];
   return automationsShell(
     "Applications",
-    `<h1>Applications</h1><p class="sub">The autonomous-systems suite — compose, ground, govern, run, prove, evaluate, improve, package, distribute, operate. Generated apps land here as launchable entries. Home's governed-work band expands into the <a href="/__ioi/home">full readout</a>.</p>${SUITE.map(card).join("")}
-    ${ported.length ? `<h2 style="margin-top:26px">Ported apps</h2><p class="sub">Faithful ports of reference application surfaces inside the suite families — pixel-parity shell over daemon truth.</p>${ported.map(portedCard).join("")}` : ""}
-    <h2 style="margin-top:26px">Substrate</h2><p class="sub">The type 1 + 2 hypervisor face — the foundation the suite runs on, kept distinct from it.</p>${SUBSTRATE.map(card).join("")}
-    <h2 style="margin-top:26px">Horizon</h2><div class="card"><div class="main"><div class="name">🤖 HypervisorOS<span class="pill muted">horizon</span></div><div class="meta">Embodied systems lane over the same governed substrate — named only; no surfaces yet.</div></div></div>`,
+    `<h1>Applications</h1><p class="sub">One catalog/compiler projection over the registration records — the twelve owner applications, the substrate lane, and the core workspaces, with per-org launch state from the daemon. Home's governed-work band expands into the <a href="/__ioi/home">full readout</a>.</p>${banner}
+    ${owners.map(card).join("")}
+    <h2 style="margin-top:26px">Substrate</h2><p class="sub">Environments and Operations — the foundation the owner applications run on, kept distinct from them.</p>${substrate.map(card).join("")}
+    <h2 style="margin-top:26px">Core workspaces</h2>${workspaces.map(card).join("")}
+    ${ported.length ? `<h2 style="margin-top:26px">Ported tool surfaces</h2><p class="sub">Implementation evidence, not catalog authority — these lanes keep serving until each surface's rehome/cutover.</p>${ported.map(portedCard).join("")}` : ""}`,
   );
 }
 
@@ -8170,8 +8167,11 @@ async function handleEstateRequest(req, res, body) {
       }
       const v2Route = v2RouteFor(pathname);
       if (v2Route && v2Route.disposition !== "vendor_spa") {
+        // W0.2: the page's estate-navigation band renders the compiled product-surface
+        // projection (surface-compiler.mjs) — daemon registration records, never a hand list.
+        const compiled = await compileProductSurfaces({ headers: daemonRequestHeaders(req) });
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-        res.end(renderV2RouteShellPage(v2Route));
+        res.end(renderV2RouteShellPage(v2Route, compiled));
         return;
       }
     }
@@ -8551,17 +8551,21 @@ async function handleEstateRequest(req, res, body) {
       }
     }
 
-    // ---- App catalog — the registry of ported application surfaces (membership = parity-matrix
-    // truth via app-catalog.mjs; every launcher lane renders from this one projection).
+    // ---- Compiled product-surface projection (W0.2) — the ONE projection every launcher lane
+    // renders (nav, catalog, palette, launch state). Compiled per request from the daemon's
+    // registration-record compiler route; identity headers forwarded; no serve-side caching of
+    // identity-bound output. Includes the demoted evidence band (ported tool surfaces).
     if (pathname === "/__ioi/api/applications" && req.method === "GET") {
-      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(JSON.stringify(appCatalog()));
+      const compiled = await compileProductSurfaces({ headers: daemonRequestHeaders(req) });
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(JSON.stringify(compiled));
       return;
     }
-    // ---- Applications estate — the owned breadth launcher (Connections re-homed as Developer & Integrations).
+    // ---- Applications estate — the owned breadth launcher over the compiled projection.
     if (pathname === "/__ioi/applications" && req.method === "GET") {
+      const compiled = await compileProductSurfaces({ headers: daemonRequestHeaders(req) });
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderApplications());
+      res.end(renderApplications(compiled));
       return;
     }
     // ---- Feedback & Annotations — the queue over the daemon feedback plane.

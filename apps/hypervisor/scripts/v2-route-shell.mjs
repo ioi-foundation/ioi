@@ -79,10 +79,10 @@ export const V2_ROUTE_TABLE = [
     kind: "core workspace",
     rule: "one catalog/compiler projection",
     waves: "W0.2 · W1",
-    build_state: "shell-only (W0.1) — W0.2 product-surface compiler feeds this workspace first and retires the hand-maintained catalogs (surfaces/applications.md §5)",
+    build_state: "compiler-fed (W0.2) — nav/catalog/palette/launch render the compiled product-surface projection (scripts/surface-compiler.mjs); the three hand-maintained catalogs are retired as authorities; the Wave 1 build lands the full workspace page (surfaces/applications.md §5)",
     serving_today: [
-      { href: "/__ioi/applications", label: "Applications estate readout", note: "legacy readout over the registered-surface estate" },
-      { href: "/__ioi/home", label: "Estate launcher", note: "the owned launcher lanes (hand-maintained tile list — retired by the W0.2 compiler)" },
+      { href: "/__ioi/applications", label: "Applications estate readout", note: "renders the compiled product-surface projection (W0.2)" },
+      { href: "/__ioi/home", label: "Estate launcher", note: "the owned launcher lanes — fed by the same compiled projection as of W0.2" },
     ],
   },
   {
@@ -374,8 +374,35 @@ function pageShell(title, inner) {
 <style>${PAGE_CSS}</style></head><body><div class="wrap">${inner}</div></body></html>`;
 }
 
-// The honest W0.1 surface shell page. States what exists; fabricates nothing.
-export function renderV2RouteShellPage(row) {
+// W0.2: estate-navigation band on every shell page, rendered from the compiled product-surface
+// projection (scripts/surface-compiler.mjs — daemon registration records via
+// POST /v1/hypervisor/product-surface-projections). Honest absence: daemon down → the band says
+// so and shows the safe static first-party inventory with launch state unknown; compiled not
+// supplied at all → a named absence line, never a hand list.
+function navBand(row, compiled) {
+  const esc = escHtml;
+  if (!compiled) {
+    return `<div class="empty">Compiled product-surface projection not available for this render — navigation is omitted rather than hand-listed.</div>`;
+  }
+  const link = (s) => {
+    const here = s.route === row.route;
+    const label = `${s.icon ? s.icon + " " : ""}${s.name}`;
+    if (here) return `<span class="pill muted" title="this page">${esc(label)}</span>`;
+    const title = s.launchable ? s.route : `${s.route} — ${(s.disabled_reason_codes || []).join(", ") || "not launchable"}`;
+    return `<a class="pill muted" style="text-decoration:none" href="${esc(s.route)}" title="${esc(title)}">${esc(label)}${s.launchable ? "" : " ·⃠"}</a>`;
+  };
+  const down = compiled.daemon?.available !== true
+    ? `<p class="sub" style="margin:8px 0 0">Daemon unavailable (<code>${esc(compiled.daemon?.code || "daemon_unavailable")}</code>) — this band shows the safe static first-party inventory; launch state is honestly unknown, nothing is fabricated.</p>`
+    : "";
+  const wraps = (items) => `<div style="display:flex;flex-wrap:wrap;gap:6px">${items.join("")}</div>`;
+  return `${wraps((compiled.workspaces || []).map(link))}
+    <div style="height:8px"></div>
+    ${wraps((compiled.applications || []).map(link))}${down}`;
+}
+
+// The honest W0.1 surface shell page. States what exists; fabricates nothing. `compiled` is the
+// W0.2 compiled product-surface projection feeding the navigation band.
+export function renderV2RouteShellPage(row, compiled) {
   const esc = escHtml;
   const reserved = row.disposition === "reserved";
   const serving = (row.serving_today || [])
@@ -403,7 +430,9 @@ export function renderV2RouteShellPage(row) {
     </dl>
     <h2>Serving this surface today</h2>
     ${servingBlock}
-    <div class="foot">Route declared in the canonical target-route ledger (core-clients-surfaces.md § Canonical Target Routes) and resolved by the W0.1 route table (<code>apps/hypervisor/scripts/v2-route-shell.mjs</code>). <a href="/ai">← Home</a></div>`,
+    <h2>Estate navigation — compiled product-surface projection (W0.2)</h2>
+    ${navBand(row, compiled)}
+    <div class="foot">Route declared in the canonical target-route ledger (core-clients-surfaces.md § Canonical Target Routes) and resolved by the W0.1 route table (<code>apps/hypervisor/scripts/v2-route-shell.mjs</code>); navigation compiled by <code>apps/hypervisor/scripts/surface-compiler.mjs</code>. <a href="/ai">← Home</a></div>`,
   );
 }
 
