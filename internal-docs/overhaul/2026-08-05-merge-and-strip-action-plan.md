@@ -6,7 +6,9 @@ testing and proof generation that consumes iteration (evidence transcripts,
 fixtures-for-checkers, context inhibitors) goes; the product and its doctrine
 stay.
 
-Status: DRAFT for owner ratification. Execution assignments in §8.
+Status: RATIFIED by owner on 2026-08-05, including all §10 defaults; repository
+changes executed through Phase 3. Phase 4 is post-merge verification and
+communication, not another implementation change.
 Rollback guarantee: §9 — everything stripped remains recoverable from tags.
 
 ---
@@ -137,8 +139,10 @@ reassessed plan as ordinary engineering tasks:
 - Post-strip verification is exactly three commands: `cargo build` green,
   `cargo test` workspace green (1 known pre-existing failure, item §5.3.3),
   `npm run lint && npm run typecheck` green. No other bars exist to satisfy.
-- Reviewer (Codex): formally released from the M5 review program with thanks;
-  future review engagements are per-request, not per-cut.
+- **Reviewer release — 2026-08-05.** Codex is released, with thanks, from the
+  standing M5/QM review program. The pending QM re-review is withdrawn. Future
+  review is engaged only by explicit request; no per-cut or review-epoch
+  obligation remains.
 - Director memory: prune obsolete standing rules (M0 regen-in-change, epoch
   mechanics, install-estate prohibition, literal/transition rules) after the
   strip lands so future sessions don't enforce dead ceremony.
