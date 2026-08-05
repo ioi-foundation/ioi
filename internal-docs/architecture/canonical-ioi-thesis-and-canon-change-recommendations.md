@@ -1,7 +1,9 @@
 # The Canonical Categorical Internet Of Intelligence — Thesis For Adoption And Canon Change Recommendations
 
-Status: ratified sequenced canon agenda (owner ruling 2026-08-04); still
-non-canonical as text. Nothing in this file amends a canonical owner under
+Status: ratified sequenced canon agenda (owner ruling 2026-08-04), **EXECUTED IN
+FULL on 2026-08-05** — see the status table below. Still non-canonical as text;
+the canon it recommended now lives at its owners, and this file is the record of
+what was recommended, what was measured, and what closed. Nothing in this file amends a canonical owner under
 `docs/architecture/`. Canonical owner docs and accepted ADRs win if this
 document later drifts.
 
@@ -510,6 +512,87 @@ The 2026-07-30 hypervisor surface end-state audit
 already files the Settings-ownerless finding, the absent M6 surface-record
 contract families, and the `UX-00` gap with their own owners; they are not
 duplicated into this document.
+
+## Status Table — What Closed (2026-08-05)
+
+The whole agenda executed on 2026-08-05 in thirteen changes. Every R-item is
+closed. This table is the record; where an item was **re-scoped at
+byte-verification** — because the register named a gap that had already moved —
+the re-scope is stated rather than smoothed over, since the register's own R-12
+lesson is that a claim of absence needs byte-verification exactly as a claim of
+presence does. It earned that lesson four more times here.
+
+| Item | State | Closing change | Landed at |
+| --- | --- | --- | --- |
+| Register cleanup | **closed** | restated every retired-estate passage as a live obligation; the register now declares itself the sole live carrier of the Tier-2 gap namings | PR #142 |
+| R-01 | **closed** | `foundations/internet-of-intelligence.md` minted from Part I, registered in `_meta/source-of-truth-map.md`; north-star proof deduplicated as the strict union of both prior copies | PR #144 |
+| R-02 | **closed** | protected-term row in `foundations/term-boundaries.md`, category `protocol`, all five Must-Not-Mean failure modes plus two more | PR #144 |
+| R-03 | **closed** | ADR 0033: split surface (Apache-2.0 protocol surface now, CC BY 4.0 prose now, BBSL reference implementation to 2029-11-06, marks and certification separate); D-1 and D-2 both fixed in `LICENSE-BBSL`; `LICENSE-MANIFEST.json` covers 6,354 tracked files with zero unmatched. Counsel review stated as advised inside the ADR | PR #153 |
+| R-04 | **closed — landed, not stripped** | ADR 0025 landed through acceptance. Judgment recorded: `execution-horizons.md:255` still carries the six-point binding bar, and both citing owners already stated the decision's substance as current prose, so stripping the citations would have deleted a pointer to something canon lives by | PR #143 |
+| R-05 | **closed** | § The Reference-Implementation Contract in `foundations/web4-and-ioi-stack.md`: five designation conditions, parity by fixture + **refusal** + surface completeness + independence disclosure, and the rule that a designated release cannot legislate | PR #152 |
+| R-06 | **closed** | new owner `foundations/protocol-governance-neutrality.md`, registered in the ownership map: three roles held apart, the change process and its timing-only emergency exception, four falsifiable capture resistances, versioning rights | PR #152 |
+| R-07 | **closed as a definition** | `ioi_public_conformance_profile_v1` in `docs/conformance/README.md`: mechanical admission rule, three entitlement levels each with an explicit *not* column, and the profile's own `target_defined` row. Defined and unpopulated, and it says so; **no proof apparatus was built, per the run's standing rule** | PR #152 |
+| R-08 | **closed — re-scoped at the bytes** | ten envelope families registered with schemas derived field-for-field from their owners, fixtures red-proven in both directions, and a deriving Rust type each. Registry 144 → 153 contracts, **153 of 153 with a `rust_projection`** | PR #145, #146 (family 1 pre-landed) |
+| R-09 | **closed** | ADR 0032 + owner section in `core-clients-surfaces.md`: four axes, the `INV-18` split between contract claims and party claims, and the ruling that an exit proof claims binary + codegen + transport and **not** authoring party unless a disclosed third party authored one | PR #149 |
+| R-10 | **closed — re-scoped at the bytes** | `INV-39` (invariants.md had nothing) + § The authenticated time source in `platform-operability.md`: lease TTL/heartbeat/expiry bound to the temporal contract, and forged-time refusal, which did not exist | PR #148 |
+| R-11 | **closed** | closed backpressure and fairness discipline sets + participant-observable denial semantics; four consequences including "silence is not a denial" and "a denial consumes nothing" | PR #147 |
+| R-12-residual | **closed** | `events-receipts-delivery-bundles.md` now references the agentgres classification instead of restating it, and adds the delivery-side obligations the classification does not cover | PR #147 |
+| R-13 | **closed** | verification-cost class on `VerifierPath` and acceptance profiles (`negligible … unverifiable_at_price`), routing may reason over it, and the pricing rule that an unverifiable-at-price ceiling travels with the **price**, not the receipt | PR #150 |
+| R-14 | **closed** | one clause per owner: parameter/gradient egress as declassification, cross-boundary exchange as a governed Worker Training workload never a substrate primitive, and Information-Flow Invariant 8 as the cross-reference | PR #151 |
+| R-15 | **closed** | `machine_authority_share` in the flywheel owner and on `AssurancePostureProjection`; unlabeled routes count as provider-trust, and a falling share is information rather than embarrassment | PR #150 |
+
+### Items re-scoped at byte-verification
+
+Four register claims were measurably stale on the day they were worked. Each
+re-scope is recorded in its own change and summarized here:
+
+1. **R-08's scope.** "No registered contract" was false for eight of the ten
+   names: a v3 contract already existed at the same `canonical_owner_ref`
+   anchor. The honest residual was the **foundations envelope** registration —
+   `ioi.foundations.*` namespace, canon's own required set where every v3 schema
+   is total, neighbouring families left opaque. Only `RoomParticipantLease` and
+   `LocalAgentPairingSession` had nothing at all.
+2. **R-08's constraint.** The "71 of 88" quarantine was the **ts-rs export
+   lane** over `apps/hypervisor/src/generated/hypervisor-contracts/`, not the
+   architecture contract registry this item writes into. `term-boundaries.md`
+   still linked to the deleted quarantine register; repaired in the same change.
+3. **R-10.** Most of it was already closed — `INV-36`, the Temporal
+   Verification Contract, the `clock` plane, and declared skew tolerance all
+   existed. The genuine residual was an absent invariant, an unbound
+   lease/heartbeat path, and a missing forged-time refusal.
+4. **R-06's owner path.** The register wrote
+   `foundations/marketplace-neutrality.md`; the file is at
+   `domains/marketplace-neutrality.md`.
+
+### Deviations from the register, under canon precedence
+
+Where a register clause met a canonical owner that already claimed the subject,
+the owner won and the deviation is recorded:
+
+- **R-11's member sets** went to `foundations/canonical-enums.md`, not to the
+  two named owners, because that file's charter reads "This file owns the member
+  sets. Other docs show the enum only as a labeled excerpt with a link here."
+  The named owners carry the semantics.
+- **R-13's `VerifierPath` clause** split: `evaluations.md` owns the class (a
+  judgment-contract property), while `VerifierPath` itself is defined by
+  `domains/ioi-ai/collaborative-outcome-pattern.md` and carries only the
+  declaration requirement.
+- **R-09** landed as ADR 0032 refining ADR 0002 rather than editing it, per this
+  repository's convention that accepted ADRs are amended by successors.
+- **R-05/R-06** each chose between two options the register offered: a section
+  in `web4-and-ioi-stack.md` for R-05 (it already carried the recorded gap), and
+  a **sibling** owner for R-06 (extending `marketplace-neutrality.md` would have
+  merged the two questions R-06 exists to separate).
+
+### Standing rules honored
+
+No proof apparatus was rebuilt. This run produced canon text, two ADRs, nine
+contract registrations with their generated Rust and TypeScript projections,
+fixtures, and license drafting — and certified nothing. Fixture red-proofs ran
+through the existing generator and the existing generated Rust test; no checker,
+gate, script, or npm target was added. The post-strip verification bar was met
+throughout: `cargo build`, `cargo test`, `cargo fmt --check`, `npm run lint`,
+`npm run typecheck` all green, with the architecture-contract suite at 14/14.
 
 ## Sequencing Summary
 
