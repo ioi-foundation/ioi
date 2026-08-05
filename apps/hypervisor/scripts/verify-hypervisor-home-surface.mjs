@@ -102,7 +102,7 @@ async function run() {
   const portedSeeds = (matrix.seeds || []).filter((s) => s.shell_pixel_certified && s.candidate_surface);
   const catRes = await sGet("/__ioi/api/applications");
   let catalog = null; try { catalog = JSON.parse(catRes.text); } catch { /* non-json */ }
-  ok("app catalog endpoint serves the matrix projection", catRes.status === 200 && catalog && catalog.schema === "ioi.hypervisor.app-catalog.v1", `status ${catRes.status}`);
+  ok("catalog endpoint serves the compiled product-surface projection (evidence band = matrix truth)", catRes.status === 200 && catalog && catalog.schema === "ioi.hypervisor.compiled-product-surfaces.v1" && Array.isArray(catalog.applications), `status ${catRes.status}`);
   const catRoutes = [...new Set(((catalog && catalog.apps) || []).map((a) => a.route))];
   ok("catalog lists every certified seed", portedSeeds.length > 0 && portedSeeds.every((s) => catRoutes.includes(s.candidate_surface.split("?")[0])), `${catRoutes.length} catalog apps vs ${portedSeeds.length} certified seeds`);
   ok("catalog invents no apps beyond the matrix", ((catalog && catalog.apps) || []).length === portedSeeds.length);

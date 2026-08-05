@@ -3,6 +3,12 @@
 // explicit registry declaration for a read_only_by_contract surface whose completeness comes from
 // its product contract rather than a reference-shell certification. PRESENTATION is registry code
 // truth (display title + app tile icon). This module decides neither.
+//
+// W0.2 role demotion: this projection is IMPLEMENTATION EVIDENCE ONLY — zero catalog authority
+// (canon core-clients-surfaces.md: capture provenance/parity evidence never governs catalog
+// membership). Catalog/nav/palette/launch truth is the compiled product-surface projection
+// (scripts/surface-compiler.mjs), which carries this band on `apps` so the ported tool-surface
+// lanes stay reachable until each one's Wave 1 rehome / Wave 4 cutover.
 import { readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

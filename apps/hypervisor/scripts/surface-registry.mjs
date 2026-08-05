@@ -4,6 +4,11 @@
 // (presentation truth — app-catalog.mjs reads it from here), canonical route, and the paths of
 // its verifier + certification artifact.
 //
+// W0.2 role note: SURFACES is serving-mount + evidence truth for the ported tool surfaces, NOT
+// a product catalog. Catalog/nav/palette/launch truth is the compiled product-surface
+// projection (scripts/surface-compiler.mjs over the daemon's registration records); the
+// evidence band it carries derives from app-catalog.mjs, which reads presentation from here.
+//
 // Implementations bind under the surface-module contract { meta, load(ctx), render(model, ctx),
 // actions } — extracted modules (surfaces/<slug>/index.mjs) are imported and bound HERE, so the
 // registry is the single mount point; a surface whose code still lives in the serve file may
