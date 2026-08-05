@@ -537,6 +537,53 @@ train a worker
 → route future work through MoW
 ```
 
+## Cross-Boundary Parameter Exchange Is A Workload, Never A Primitive
+
+Federated learning and its relatives — gradient sharing, parameter averaging,
+split learning, cross-institution distillation — are **not refuted by this
+canon; they are classified.** Each is a *governed Worker Training workload
+running on the substrate*, and none is ever a substrate primitive.
+
+A cross-boundary parameter-exchange campaign is an ordinary member of the
+lifecycle above and takes the ordinary path. It is a training engagement with
+an exact scope, a terms root, contribution accounting, metering, eligibility
+gates under the `InstitutionalLearningBoundaryProfile`, evaluation receipts, and
+a bounded worker as its output. It earns nothing by being distributed: a
+participant contributing gradients is a supplier of training material and is
+accounted for as one, with the same attribution, consideration, and exit terms
+any other contributor gets. Every crossing inside it is a declassification event
+governed by
+[`institutional-learning-boundary.md`](./institutional-learning-boundary.md)
+§ Parameter And Gradient Egress Is Declassification.
+
+**What "never a substrate primitive" rules out, concretely.** The coordination
+substrate is authority, receipts, leases, and settlement — not a learning
+protocol. So:
+
+- No aggregation round, parameter server, or gradient exchange is a coordination
+  mechanism between systems. Systems coordinate through AIIP handoffs, bounded
+  leases, and admitted operations; a training topology is a workload's internal
+  shape, not a network layer.
+- Participation in a training campaign creates **no** membership, authority,
+  admission path, or standing between the participating domains. Contributing
+  gradients is not joining a system.
+- A shared or global model is never operational truth, an authority source, or
+  a substitute for admitted domain state. `INV-18` applies unchanged: several
+  institutions feeding one model remain several parties, and one model fed by
+  several institutions is not therefore trustworthy.
+- No campaign may require participants to share one runtime, one operational
+  database, one administrator, or continued trust in the aggregator — the same
+  bar the north-star network proof sets
+  ([`internet-of-intelligence.md`](./internet-of-intelligence.md)).
+
+**Why the classification matters rather than being a taxonomy exercise.** If
+knowledge exchange were the coordination substrate, every participant would need
+to trust the aggregator with rights it cannot revoke, and the network would be
+open only to parties whose interests already align — a consortium, not an
+economy. Making it a workload keeps the substrate neutral about *how* anyone
+trains, while keeping the rights, attribution, and revocation questions where
+they can still be answered.
+
 ## Full-Stack Boundary
 
 Worker Training connects the IOI stack; it does not replace it:
