@@ -250,6 +250,92 @@ The graph can become a moat only when its staged evidence measurably improves:
 - user confidence that autonomous work is attributable, replayable, revocable,
   and economically settleable.
 
+## Verification Cost As A Pricing Boundary
+
+A labor economy prices work. Pricing *unverifiable* work silently reintroduces
+exactly the trust the substrate exists to remove — the buyer pays a
+verified-work price and receives an attested-work product, and nothing in the
+receipt says so. This is the binding constraint on the whole category
+([`internet-of-intelligence.md`](./internet-of-intelligence.md) § The Binding
+Constraint), and it lands here as a pricing rule rather than an observation.
+
+Every priced unit of work carries the verification-cost class of the
+`VerifierPath` and acceptance profile that stand behind it — the closed set is
+owned by
+[`../components/hypervisor/evaluations.md`](../components/hypervisor/evaluations.md)
+§ Verification Cost Is A Declared Class:
+
+```text
+negligible | sublinear | comparable | superlinear | unverifiable_at_price
+```
+
+**The pricing rule.** Work whose declared assurance ceiling is
+`unverifiable_at_price` must carry that ceiling **visibly at the point of
+pricing**, and must not be priced, listed, quoted, or settled as verified work.
+Three consequences, each ruling out a way the rule could be evaded while
+technically observed:
+
+1. **The ceiling travels with the price, not with the receipt.** A buyer who
+   discovers the assurance ceiling only after settlement was priced without it.
+   Quotes, listings, marketplace entries, and service orders carry the class;
+   discovering it in a post-hoc evidence bundle is not disclosure.
+2. **Cheap verification is never inferred from cheap work.** A low price is not
+   evidence of a `negligible` class, and a high price is not evidence of a
+   `comparable` one. The class comes from the verifier, and only from the
+   verifier.
+3. **An unverifiable-at-price claim is not thereby worthless, and must not be
+   priced as if it were fraudulent either.** Reputation, repeated-game
+   structure, escrow, milestone release, and dispute rails are the honest
+   instruments for that work — the same residual human labor markets use. What
+   is forbidden is the third option: charging the verified price and staying
+   quiet.
+
+Pricing unverifiable work as verified is an anti-pattern of the same class as
+treating a receipt as correctness. It is listed with the others in
+§ Anti-Patterns, and it is the one most likely to be profitable in the short
+run, which is why it is stated as a rule and not a preference.
+
+## The Adoption Bet, Measured
+
+The category claim is that the machine-authority path becomes unavoidable —
+that institutions with real liability eventually demand the sovereign version
+over vertically integrated, provider-trust, ambient-authority convenience. That
+is a **bet**, and canon says so
+([`internet-of-intelligence.md`](./internet-of-intelligence.md) § The Adoption
+Bet). A claim of that shape should be falsifiable from receipts rather than
+asserted from conviction.
+
+**The indicator: machine-authority share of consequential effects.** Per
+deployment and in aggregate, the share of consequential effects that crossed the
+machine-authority path — bounded, revocable, receipted delegation — versus those
+that crossed an explicitly labeled **provider-trust route**, where the effect
+depended on trusting a provider rather than on a resolved authority boundary.
+
+- **The denominator is consequential effects, not requests.** Reads, drafts, and
+  local-only work are excluded; the bet is about effects that cross an entity
+  boundary, which is the only place the two routes differ.
+- **Both routes are legitimate and both are counted.** A provider-trust route is
+  not a violation — `web4-and-ioi-stack.md` defines the provider-trust boundary
+  as a real posture with real uses. The indicator measures which one the world
+  chooses, and an indicator that could only report success would measure
+  nothing.
+- **Unlabeled is counted as provider-trust.** An effect whose route cannot be
+  determined from receipts is counted against the machine-authority share, never
+  toward it. Any other default lets the indicator improve through poor
+  instrumentation, and the first thing a flattering metric does is stop
+  measuring.
+- **It is an indicator, not a target.** It grants no authority, gates no
+  release, and prices nothing. Routing an effect to satisfy the indicator rather
+  than the work is the failure this sentence exists to name.
+- **A falling share is information, not embarrassment.** The bet is honestly
+  losable. If the machine-authority share does not rise where liability is
+  real, that is the evidence the category argument said it would produce, and
+  suppressing it would forfeit the reason for measuring at all.
+
+The assurance-posture projection that surfaces this indicator to adopters is
+named by
+[`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md).
+
 ## Stack Economic Roles
 
 | Layer | Economic role | Boundary |
@@ -1017,6 +1103,13 @@ portable reputation, or economic finality.
 
 Do not model:
 
+- work whose declared assurance ceiling is `unverifiable_at_price` as verified
+  work in any quote, listing, order, or settlement — the ceiling travels with
+  the price, and disclosing it only in a post-hoc evidence bundle is not
+  disclosure;
+- the machine-authority share indicator as a target, a gate, or a release
+  condition, or an effect routed to improve the indicator rather than to fit
+  the work;
 - Agentgres as a priced product surface for every state write or projection;
 - wallet.network as a per-approval, per-connector, or per-authority toll booth;
 - Private mode as a cosmetic upsell without local, BYO private node,

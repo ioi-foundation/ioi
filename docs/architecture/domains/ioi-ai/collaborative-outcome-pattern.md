@@ -658,7 +658,13 @@ wallet grant and not a replacement for local/domain governance.
 deterministic checks, tests, static analysis, browser/computer-use evidence,
 LLM-as-judge steps, trained verifier workers, human review, benchmark gates, or
 Foundry eval jobs. Model judges are permitted as evidence, but they are not
-truth by themselves.
+truth by themselves. Every `VerifierPath` declares a verification-cost class
+(`negligible | sublinear | comparable | superlinear | unverifiable_at_price`)
+owned by
+[`../../components/hypervisor/evaluations.md`](../../components/hypervisor/evaluations.md)
+§ Verification Cost Is A Declared Class; orchestration may select, escalate, or
+refuse on that class, and a path that cannot state its class is not a selectable
+verification shape.
 
 `OrchestrationDecisionReceipt` records why the conductor chose the plan it
 chose. It should preserve candidate-set commitment, orchestration policy hash,
