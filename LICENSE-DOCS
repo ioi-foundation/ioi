@@ -1,0 +1,25 @@
+Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+Copyright 2026 IOI Foundation
+
+This license governs the paths that LICENSE-MANIFEST.json assigns to the license
+class "cc_by_4_0" -- IOI's specification and decision prose. It is effective as of
+that manifest's effective date and does not wait for the LICENSE-BBSL Change Date.
+
+You are free to share and adapt this material for any purpose, including
+commercially, provided you give appropriate credit, provide a link to the license,
+and indicate if changes were made.
+
+The full legal code is at:
+
+    https://creativecommons.org/licenses/by/4.0/legalcode
+
+SPDX-License-Identifier: CC-BY-4.0
+
+Attribution requirement, stated concretely: credit "IOI Foundation" and link to the
+source document. Attribution does not imply endorsement, certification, or any claim
+that a derived work conforms to IOI's contracts.
+
+No trademark, service mark, or logo right is granted. The names "IOI", "IOI Network",
+"IOI Kernel", and "Hypervisor" are reserved; see LICENSE-BBSL section 5,
+LICENSE-MANIFEST.json, and docs/decisions/0033.

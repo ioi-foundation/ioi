@@ -201,7 +201,7 @@ papered over.
 
 | Property | Owning contract today | Honest state |
 | --- | --- | --- |
-| Open protocol surface | the enumerated open surface and offline-verifiability requirements in [`economic-flywheel-and-pricing-boundaries.md`](./economic-flywheel-and-pricing-boundaries.md) | doctrine, not yet a versioned protocol-surface manifest; see gaps below |
+| Open protocol surface | the enumerated open surface and offline-verifiability requirements in [`economic-flywheel-and-pricing-boundaries.md`](./economic-flywheel-and-pricing-boundaries.md), enumerated and versioned in [`../../../LICENSE-MANIFEST.json`](../../../LICENSE-MANIFEST.json) `open_protocol_surface` under [ADR 0033](../../decisions/0033-licensing-split-surface-and-license-manifest.md) | contracted; the surface is enumerated and permissively licensed, and ADR 0033 is unreviewed by counsel |
 | Reference implementation | § The Reference-Implementation Contract below — five designation conditions, the parity claim (fixture, refusal, surface completeness, independence disclosure), and the rule that a designated release cannot legislate | contracted, planned; no release is designated and no parity claim exists |
 | Conformance certification | `ConformanceProfile` / `CertificationClaim` / `EcosystemAssuranceProfile` in [`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md), plus the defined public profile `ioi_public_conformance_profile_v1` in [`../../conformance/README.md`](../../conformance/README.md) | contracted, planned; the public profile is defined and unpopulated, and no issuer-accreditation or issuer-separation rule exists |
 | Credible neutrality | [`marketplace-neutrality.md`](../domains/marketplace-neutrality.md) for routing/marketplace; [`protocol-governance-neutrality.md`](./protocol-governance-neutrality.md) for IOI as spec owner and network operator | both owned; the governance contract is written and its change process, objection record, and designation record are unimplemented |
@@ -217,14 +217,20 @@ certification lineage and interop reach. That argument currently has two open
 flanks, and pretending otherwise would be exactly the theater this doctrine
 forbids:
 
-1. **The license question is unresolved.** Kernel/runtime components carry
-   `LICENSE-BBSL` while this doctrine requires the load-bearing open surface
-   to be "implementable and independently operable" under permissive or
-   standards-compatible terms. Both ADR 0015 and the flywheel doc require a
-   separate accepted licensing ADR to resolve this, and none exists. Until it
-   does, the single most load-bearing adopt-vs-fork input — may a third party
-   legally implement and operate L0 — is open. Owner: a dedicated licensing
-   ADR with legal review; tracked as a recorded gap, not silently assumed.
+1. **The license question is architecturally resolved and legally unreviewed.**
+   [ADR 0033](../../decisions/0033-licensing-split-surface-and-license-manifest.md)
+   splits the surface: the protocol surface — registered contracts, schemas,
+   invariants, fixtures, both generated projections, the conformance tree, and
+   the client-facing protocol type libraries — is Apache-2.0 **now**;
+   specification and decision prose is CC BY 4.0 **now**; the reference
+   implementation stays under `LICENSE-BBSL` until the 2029-11-06 Change Date;
+   marks and certification are separate. `LICENSE-MANIFEST.json` defines the
+   Licensed Work per path, and the grant is now perpetual and irrevocable except
+   on the licensee's own breach. So the load-bearing input — may a third party
+   legally implement and operate L0 — is answered yes for the open surface.
+   **The remaining flank is that ADR 0033 has not been reviewed by external
+   counsel**, and it says so itself; no public release should rely on it until
+   that review happens.
 2. **The conformance suite is not yet runnable by an outsider.** What an
    adopter runs and what passing entitles them to say is now defined —
    `ioi_public_conformance_profile_v1` in
