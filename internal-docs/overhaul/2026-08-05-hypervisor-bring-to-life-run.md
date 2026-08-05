@@ -193,7 +193,7 @@ unchecked row, refreshes its brief at the bytes, and executes.
 |---|---|---|
 | Phase A: per-surface briefs at `internal-docs/implementation/surfaces/` (20 files + `_index.md`) | ☑ 2026-08-05 | landed via PRs #155–#159; briefs pin canon cites to blob 21ae389fe (C-1..C-4 canon commit) |
 | C-1..C-4 canon layering fixes | ☑ 2026-08-05 | landed in core-clients-surfaces.md (#155); surviving daemon/UI named-field sites recorded in briefs, migrate at the PR that touches them |
-| W0.1 v2 route shell | ☐ | delete the live `/automations`→`/__ioi` redirect hijack at cutover (home.md §3) |
+| W0.1 v2 route shell | ☑ 2026-08-05 | all 23 canonical routes + `/work/sessions` resolve from ONE table at `apps/hypervisor/scripts/v2-route-shell.mjs:29`; bare `/sessions` answers the daemon's typed 410; the home.md §3 `/automations` hijack retired (canonical route now renders the shell page, legacy readout linked) |
 | W0.2 surface compiler | ☐ | compiler route already exists (applications.md §2); gaps = grouping, policy filtering, system-interface join |
 | W0.3 read + authority clients | ☐ | lease-gateway order at bytes: 428 credential → 403 wallet → receipted (developer-console.md §1) |
 | W0.4 event client (M5 plane) | ☐ | automation-scheduler owner namespace already fixtured in the M5 contract (automations.md §2) |

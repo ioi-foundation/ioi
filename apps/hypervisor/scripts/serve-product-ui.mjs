@@ -41,6 +41,7 @@ import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineN
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { mintTestGrant, awaitingWalletAuthority } from "./lib/wallet-authority.mjs";
 import { handleSystemGenesisSurfaces } from "./system-genesis-surfaces.mjs";
+import { v2RouteFor, RETIRED_UI_ROUTES, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal } from "./v2-route-shell.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
 // renders ({id, phase, userInput|todoGroup|text}). Streamed entries are emitted once each (keyed by
@@ -8144,6 +8145,34 @@ async function handleEstateRequest(req, res, body) {
           const w = await fetch(`${DAEMON}/v1/hypervisor/auth/whoami`, { headers: { Cookie: req.headers.cookie || "", ...(req.headers["x-forwarded-host"] ? { "X-Forwarded-Host": req.headers["x-forwarded-host"] } : {}) } });
           if (w.status === 401) { res.writeHead(302, { Location: "/__ioi/login" }); res.end(); return; }
         } catch { /* daemon transient — fail open, never lock the operator out */ }
+      }
+    }
+    // ---- W0.1 v2 route shell (bring-to-life run) — the canonical target-route ledger
+    // (core-clients-surfaces.md § Canonical Target Routes) resolves from ONE data-driven route
+    // table (scripts/v2-route-shell.mjs). Bodies are honest surface shells (name · canonical
+    // route · owner kind · what serves it today · named build state) — no fixture data. Legacy
+    // /__ioi/* readouts keep serving untouched until each surface's Wave 1 rehome / Wave 4
+    // cutover. Rows marked vendor_spa (Projects) deliberately fall through: the vendored SPA
+    // already serves that canonical experience at this exact route. Retired UI routes
+    // (/sessions) answer the daemon's typed 410 semantics instead of soft-404ing into the SPA —
+    // a link to the canonical replacement, never a redirect alias.
+    if (req.method === "GET") {
+      const retiredReplacement = RETIRED_UI_ROUTES[pathname];
+      if (retiredReplacement) {
+        if ((req.headers["accept"] || "").includes("text/html")) {
+          res.writeHead(410, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+          res.end(renderRetiredUiRoutePage(pathname, retiredReplacement));
+        } else {
+          res.writeHead(410, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(retiredUiRouteRefusal(pathname, retiredReplacement)));
+        }
+        return;
+      }
+      const v2Route = v2RouteFor(pathname);
+      if (v2Route && v2Route.disposition !== "vendor_spa") {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(renderV2RouteShellPage(v2Route));
+        return;
       }
     }
     // Agent-run conversation. The SPA's V1 conversation pane (`sr` in use-conversation-stream) opens

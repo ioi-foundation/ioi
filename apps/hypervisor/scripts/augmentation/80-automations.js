@@ -1,6 +1,9 @@
-  // ---- Automations are PROJECT-FIRST and owned: route the top-nav "Automations" to the owned
-  // surface (the SPA's org-scoped WorkflowService page is not canonical), and show a project's
-  // automations on its detail page with a create entry that pre-fills the project. ----------------
+  // ---- `/automations` is a CANONICAL v2 route and the W0.1 route shell serves it (canon wins:
+  // the old capture-handler rewrite of this route into /__ioi/automations was the home.md §3
+  // hijack, retired at W0.1). The SPA's org-scoped WorkflowService page is still not canonical,
+  // so canonical-route clicks are forced into a FULL navigation — the owned server (v2 route
+  // shell) answers, and the legacy readout stays reachable via the explicit link on that page.
+  // The project-detail panel below is unchanged. ---------------------------------------------------
   function wireAutomationsNav() {
     if (window.__ioiAutomationsNavWired) return;
     window.__ioiAutomationsNavWired = true;
@@ -11,7 +14,7 @@
         if (!a || a.classList.contains("ioi-connections-nav")) return; // not our Connections clone
         e.preventDefault();
         e.stopPropagation();
-        window.location.assign("/__ioi/automations");
+        window.location.assign("/automations"); // full load — the v2 route shell resolves it, not the SPA router
       },
       true, // capture — beat the SPA router
     );
