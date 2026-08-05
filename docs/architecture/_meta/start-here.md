@@ -277,6 +277,11 @@ verification, evidence, receipts, and physical safety where applicable.
 
 ### Internet Of Intelligence
 
+The category is defined by
+[`../foundations/internet-of-intelligence.md`](../foundations/internet-of-intelligence.md).
+The table below is a reader aid over one of its consequences — that
+multiplicity is not the same as independence — and does not define the term.
+
 IOI facilitates an Internet of Intelligence when it preserves all four forms
 of plurality instead of conflating them:
 
@@ -460,14 +465,17 @@ Read Goal Space and Hypervisor as two views over one fabric:
 
 ## North-Star Internet-of-Intelligence Test
 
-An independently operated external Worker must be able to discover an eligible
-OutcomeRoom through a policy-bound projection, negotiate semantic/action
-profiles, request admission, receive bounded leases, claim work, return a
-verifiable contribution, retain credit/dispute lineage, and exit with a
-portable policy-filtered participant-state bundle. Passing the test cannot
-require one runtime, operational database, administrator, or continued access
-to an IOI-hosted room. This is the minimum network proof; same-owner worker or
-model multiplicity alone does not satisfy it.
+Owner: [`../foundations/internet-of-intelligence.md`](../foundations/internet-of-intelligence.md)
+§ North-Star Network Proof. Read it there; what follows is orientation, not the
+test, and the owner wins on any point of substance.
+
+The minimum network proof asks one thing: can an **independently operated
+external Worker** discover an eligible OutcomeRoom, get admitted, receive
+bounded leases, do claimed work, return a verifiable contribution, keep its
+credit and dispute lineage, and leave with a portable participant-state bundle
+— all without sharing a runtime, an operational database, an administrator, or
+continued access to an IOI-hosted room? Same-owner worker or model multiplicity
+alone does not satisfy it.
 
 ## Most Common Boundary Mistakes
 
