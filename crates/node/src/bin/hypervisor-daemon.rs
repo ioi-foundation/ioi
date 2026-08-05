@@ -607,6 +607,9 @@ async fn async_main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/healthz", get(|| async { "OK" }))
         .route("/readyz", get(|| async { "OK" }))
+        // W0.6 — the honest capability index of this router's route families,
+        // mechanically derived from this file's own .route() registrations.
+        .route("/v1", get(operability_routes::handle_v1_index))
         .route("/sessions", any(lifecycle_routes::handle_retired_hypervisor_route))
         .route("/missions", any(lifecycle_routes::handle_retired_hypervisor_route))
         .route("/__ioi/*path", any(lifecycle_routes::handle_retired_hypervisor_route))
@@ -1314,6 +1317,12 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/operations",
             get(orchestration_routes::handle_operations),
         )
+        // W0.6 — scheduler LIVENESS only (loop-derived tick heartbeat + catch-up/misfire
+        // posture); the records-derived schedule posture stays on /v1/hypervisor/operations.
+        .route(
+            "/v1/hypervisor/scheduler/status",
+            get(orchestration_routes::handle_scheduler_status),
+        )
         // Foundry object plane (foundation) — draft FoundrySpec / FoundryRunPlan objects + an
         // overview projection over the real model-mount catalog. Draft-only: no training/eval
         // execution, no promotion or registry mutation, no authority crossing.
@@ -1969,6 +1978,14 @@ async fn async_main() -> anyhow::Result<()> {
             get(governance_routes::handle_approval_get)
                 .patch(governance_routes::handle_approval_patch)
                 .delete(governance_routes::handle_approval_delete),
+        )
+        // W0.6 — ONE read projection over every persisted decision plane (governance
+        // approval-requests, thread approvals, improvement proposals, memory-mutation
+        // proposals, marketplace admission-reviews) + the named synchronous-planner
+        // plane. Read-only; decisions execute on each plane's existing route.
+        .route(
+            "/v1/hypervisor/governance/approvals-inbox",
+            get(governance_routes::handle_approvals_inbox),
         )
         .route(
             "/v1/hypervisor/governance/cohorts",
@@ -3191,6 +3208,12 @@ async fn async_main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_sessions_list)
                 .post(lifecycle_routes::handle_session_create),
         )
+        // W0.6 — counts-first Sessions overview for the Work / Sessions view;
+        // owner-filtered before counts; C-1 subject_attachments rollup.
+        .route(
+            "/v1/hypervisor/sessions/overview",
+            get(lifecycle_routes::handle_sessions_overview),
+        )
         .route(
             "/v1/hypervisor/sessions/:id/events",
             get(lifecycle_routes::handle_session_events),
@@ -3416,6 +3439,12 @@ async fn async_main() -> anyhow::Result<()> {
             axum::routing::delete(lifecycle_routes::handle_scim_config_delete),
         )
         // Invites + domain verification + custom domain (multi-user IdP).
+        // W0.6 — the minimal honest org-identity read record (org://local scope,
+        // domains, member/IdP posture; absent fields named, never fabricated).
+        .route(
+            "/v1/hypervisor/organization",
+            get(lifecycle_routes::handle_organization_get),
+        )
         .route(
             "/v1/hypervisor/org-invite",
             get(lifecycle_routes::handle_org_invite_get)
@@ -4206,7 +4235,7 @@ pub(crate) fn iso_now() -> String {
 // timeline as a manual run. Interval schedules only for now (cron is a later slice).
 const SCHED_TICK_SECS: u64 = 15;
 
-fn epoch_of(iso: &str) -> Option<i64> {
+pub(crate) fn epoch_of(iso: &str) -> Option<i64> {
     use time::format_description::well_known::Rfc3339;
     time::OffsetDateTime::parse(iso, &Rfc3339)
         .ok()
@@ -4431,19 +4460,41 @@ async fn automation_scheduler(data_dir: String, base_url: String) {
     // Let the HTTP listener come up before the first self-call.
     sleep(std::time::Duration::from_secs(5)).await;
     let client = reqwest::Client::new();
+    let booted_at = iso_now();
+    let mut tick_seq: u64 = 0;
     loop {
-        scheduler_tick(&data_dir, &base_url, &client).await;
+        tick_seq += 1;
+        scheduler_tick(&data_dir, &base_url, &client, &booted_at, tick_seq).await;
         sleep(std::time::Duration::from_secs(SCHED_TICK_SECS)).await;
     }
 }
 
-async fn scheduler_tick(data_dir: &str, base_url: &str, client: &reqwest::Client) {
+/// W0.6 scheduler liveness: the record family + slot the tick heartbeat persists into, read by
+/// `GET /v1/hypervisor/scheduler/status` (orchestration_routes::handle_scheduler_status). The
+/// heartbeat is LOOP-derived truth (this tick actually ran) — distinct from the records-derived
+/// schedule posture `/v1/hypervisor/operations` already projects.
+pub(crate) const SCHEDULER_HEARTBEAT_FAMILY: &str = "scheduler-heartbeats";
+pub(crate) const SCHEDULER_HEARTBEAT_ID: &str = "automation-scheduler";
+pub(crate) const SCHEDULER_TICK_SECS: u64 = SCHED_TICK_SECS;
+
+async fn scheduler_tick(
+    data_dir: &str,
+    base_url: &str,
+    client: &reqwest::Client,
+    booted_at: &str,
+    tick_seq: u64,
+) {
     let now = iso_now();
     let Some(now_ts) = epoch_of(&now) else {
         return;
     };
     let automations = read_record_dir(data_dir, "automations");
     let execs = read_record_dir(data_dir, "automation-executions");
+    let mut scheduled_active = 0u64;
+    let mut fired_dispatches = 0u64;
+    let mut misfire_skips = 0u64;
+    let mut next_run_initialized = 0u64;
+    let automations_seen = automations.len();
     for a in automations {
         let Some(id) = a.get("automation_id").and_then(|v| v.as_str()) else {
             continue;
@@ -4455,6 +4506,7 @@ async fn scheduler_tick(data_dir: &str, base_url: &str, client: &reqwest::Client
         if !schedule_is_active(&spec) {
             continue; // not a scheduled automation (interval or cron)
         }
+        scheduled_active += 1;
         // next fire from now (interval → now+interval; cron → next matching slot). Fallback +1h.
         let next_target =
             || schedule_next_run(&spec, &now).unwrap_or_else(|| iso_add_secs(&now, 3600));
@@ -4467,6 +4519,7 @@ async fn scheduler_tick(data_dir: &str, base_url: &str, client: &reqwest::Client
             let mut up = a.clone();
             up["next_run_at"] = json!(next_target());
             let _ = persist_record(data_dir, "automations", id, &up);
+            next_run_initialized += 1;
             continue;
         };
         if now_ts < next_ts {
@@ -4490,10 +4543,12 @@ async fn scheduler_tick(data_dir: &str, base_url: &str, client: &reqwest::Client
             .count() as i64;
         if running >= max_conc {
             let _ = persist_record(data_dir, "automations", id, &up);
+            misfire_skips += 1;
             continue;
         }
         up["last_run_at"] = json!(now);
         let _ = persist_record(data_dir, "automations", id, &up);
+        fired_dispatches += 1;
         // Fire through the manual-run path. Spawn so the tick stays fast; apply failure_policy on result.
         let url = format!("{base_url}/v1/hypervisor/automations/{id}/runs");
         let failure_policy = a
@@ -4528,6 +4583,29 @@ async fn scheduler_tick(data_dir: &str, base_url: &str, client: &reqwest::Client
             }
         });
     }
+    // Loop-derived liveness heartbeat (W0.6): the ONLY truth that the scheduler loop actually ran
+    // this tick. `fired_dispatches` counts dispatches (the run is spawned), not completions —
+    // run outcomes live in automation-executions / the work ledger.
+    let heartbeat = json!({
+        "schema_version": "ioi.hypervisor.scheduler-heartbeat.v1",
+        "loop": "automation_scheduler",
+        "booted_at": booted_at,
+        "tick_seq": tick_seq,
+        "last_tick_at": now,
+        "tick_interval_secs": SCHED_TICK_SECS,
+        "automations_seen": automations_seen,
+        "scheduled_active": scheduled_active,
+        "fired_dispatches": fired_dispatches,
+        "misfire_skips": misfire_skips,
+        "next_run_initialized": next_run_initialized,
+        "runtimeTruthSource": "daemon-runtime"
+    });
+    let _ = persist_record(
+        data_dir,
+        SCHEDULER_HEARTBEAT_FAMILY,
+        SCHEDULER_HEARTBEAT_ID,
+        &heartbeat,
+    );
 }
 
 /// Seed the baseline provider + backend catalog as Agentgres-admitted records:

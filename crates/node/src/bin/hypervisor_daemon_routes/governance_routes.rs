@@ -760,6 +760,232 @@ pub(crate) async fn handle_approval_delete(
     g_del(&st.data_dir, KIND_APPROVAL, &id)
 }
 
+// ---- Unified approvals inbox (W0.6) ------------------------------------------------------------
+
+/// GET /v1/hypervisor/governance/approvals-inbox — ONE read projection over every
+/// decision plane the daemon persists, so Governance / Approvals reads a single queue
+/// instead of four disjoint ones. Folds, with a typed source ref per row:
+///   1. governance approval-requests            (status == "pending")
+///   2. thread/tool-exec approvals              (kernel approval-queue, pending-only)
+///   3. improvement proposals                   (state == "pending")
+///   4. memory-mutation proposals               (review_state == "proposed")
+/// plus the two decision-shaped planes, as named rows — never silent absorption:
+///   5. marketplace admission-reviews           (decision == "pending")
+///   6. the POST-only `*-admissions` planners   (synchronous; nothing queues — the
+///      plane is named with pending 0 and its routes, mechanically derived)
+/// Read-only: every row points `decide` at the plane's EXISTING mutation route; this
+/// projection mints no new authority and performs no transitions.
+pub(crate) async fn handle_approvals_inbox(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let mut items: Vec<Value> = Vec::new();
+    let mut planes: Vec<Value> = Vec::new();
+
+    // 1. Governance approval-requests (record-only transitions, receipted on decide).
+    let approvals = read_record_dir(&st.data_dir, KIND_APPROVAL);
+    let mut governance_pending = 0usize;
+    for record in &approvals {
+        if record.get("status").and_then(Value::as_str) != Some("pending") {
+            continue;
+        }
+        governance_pending += 1;
+        let id = record.get("id").and_then(Value::as_str).unwrap_or("");
+        items.push(json!({
+            "source_plane": "governance_approval_request",
+            "item_ref": record.get("ref"),
+            "subject_ref": record.get("subject_ref"),
+            "title": record.get("request_kind"),
+            "reason": record.get("reason"),
+            "status": "pending",
+            "created_at": record.get("created_at"),
+            "updated_at": record.get("updated_at"),
+            "decide": {
+                "route": format!("/v1/hypervisor/governance/approval-requests/{id}"),
+                "method": "PATCH",
+                "transitions": ["approve", "reject", "revoke"]
+            }
+        }));
+    }
+    planes.push(json!({
+        "plane": "governance_approval_request",
+        "read_route": "/v1/hypervisor/governance/approval-requests",
+        "pending": governance_pending,
+        "total": approvals.len()
+    }));
+
+    // 2. Thread/tool-exec approvals (embedded on agent/run records; kernel projection).
+    let (thread_pending, thread_errors) = super::lifecycle_routes::pending_thread_approvals(&st);
+    let thread_pending_len = thread_pending.len();
+    for entry in thread_pending {
+        let thread_id = entry.get("thread_id").and_then(Value::as_str).unwrap_or("");
+        let approval_id = entry
+            .get("approval_id")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        items.push(json!({
+            "source_plane": "thread_approval",
+            "item_ref": Value::Null,
+            "thread_id": thread_id,
+            "approval_id": approval_id,
+            "run_id": entry.get("run_id"),
+            // The typed source identity of this plane IS the (thread_id, approval_id)
+            // pair; the subject is the run when one is bound, else the thread. No new
+            // ref scheme is minted here.
+            "subject_ref": entry.get("run_id").and_then(Value::as_str).filter(|value| !value.is_empty()).map(str::to_string).unwrap_or_else(|| thread_id.to_string()),
+            "reason": entry.get("reason"),
+            "status": "pending",
+            "lease_status": entry.get("lease_status"),
+            "receipt_refs": entry.get("receipt_refs"),
+            "decide": {
+                "route": format!("/v1/threads/{thread_id}/approvals/{approval_id}/decision"),
+                "method": "POST",
+                "transitions": ["approve", "reject", "revoke"]
+            }
+        }));
+    }
+    planes.push(json!({
+        "plane": "thread_approval",
+        "read_route": "(embedded on agent/run records; no standalone list route)",
+        "pending": thread_pending_len,
+        "projection_errors": thread_errors
+    }));
+
+    // 3. Improvement proposals (owner: Intelligence/Improvement; the inbox projects).
+    let improvements = read_record_dir(&st.data_dir, "improvement-proposals");
+    let mut improvement_pending = 0usize;
+    for record in &improvements {
+        if record.get("state").and_then(Value::as_str) != Some("pending") {
+            continue;
+        }
+        improvement_pending += 1;
+        let id = record
+            .get("improvement_id")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        items.push(json!({
+            "source_plane": "improvement_proposal",
+            "item_ref": record.get("proposal_ref"),
+            "subject_ref": record.get("target_ref"),
+            "title": record.get("proposal_kind"),
+            "reason": record.get("reason"),
+            "status": "pending",
+            "created_at": record.get("created_at"),
+            "decide": {
+                "route": format!("/v1/hypervisor/intelligence/improvement-proposals/{id}"),
+                "method": "POST",
+                "transitions": ["approve", "reject", "apply"]
+            }
+        }));
+    }
+    planes.push(json!({
+        "plane": "improvement_proposal",
+        "read_route": "/v1/hypervisor/intelligence/improvement-proposals",
+        "pending": improvement_pending,
+        "total": improvements.len()
+    }));
+
+    // 4. Memory-mutation proposals (owner: Intelligence memory plane).
+    let mutations = read_record_dir(&st.data_dir, "memory-mutation-proposals");
+    let mut mutation_pending = 0usize;
+    for record in &mutations {
+        if record.get("review_state").and_then(Value::as_str) != Some("proposed") {
+            continue;
+        }
+        mutation_pending += 1;
+        let id = record
+            .get("mutation_id")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        items.push(json!({
+            "source_plane": "memory_mutation_proposal",
+            "item_ref": record.get("proposal_ref"),
+            "subject_ref": record.get("target_ref"),
+            "title": record.get("operation"),
+            "reason": record.get("reason"),
+            "status": "proposed",
+            "created_at": record.get("created_at"),
+            "decide": {
+                "route": format!("/v1/hypervisor/memory-mutation-proposals/{id}"),
+                "method": "POST",
+                "transitions": ["approve", "reject"]
+            }
+        }));
+    }
+    planes.push(json!({
+        "plane": "memory_mutation_proposal",
+        "read_route": "/v1/hypervisor/memory-mutation-proposals",
+        "pending": mutation_pending,
+        "total": mutations.len()
+    }));
+
+    // 5. Marketplace admission-reviews (decision-shaped: a review whose decision is
+    // still "pending" is an open decision; `admitted` != `published`).
+    let reviews = read_record_dir(&st.data_dir, "marketplace-admission-reviews");
+    let mut review_pending = 0usize;
+    for record in &reviews {
+        if record.get("decision").and_then(Value::as_str) != Some("pending") {
+            continue;
+        }
+        review_pending += 1;
+        let id = record.get("id").and_then(Value::as_str).unwrap_or("");
+        items.push(json!({
+            "source_plane": "marketplace_admission_review",
+            "item_ref": record.get("ref"),
+            "subject_ref": record.get("candidate_ref"),
+            "title": "marketplace admission review",
+            "status": "pending",
+            "created_at": record.get("created_at"),
+            "updated_at": record.get("updated_at"),
+            "decide": {
+                "route": format!("/v1/hypervisor/marketplace/admission-reviews/{id}"),
+                "method": "PATCH",
+                "transitions": ["needs_changes", "admitted", "rejected"]
+            }
+        }));
+    }
+    planes.push(json!({
+        "plane": "marketplace_admission_review",
+        "read_route": "/v1/hypervisor/marketplace/admission-reviews",
+        "pending": review_pending,
+        "total": reviews.len()
+    }));
+
+    // 6. The POST-only `*-admissions` planner family: pure synchronous kernel
+    // planners — the decision returns to the caller at POST time and nothing
+    // queues. Named here (routes mechanically derived from the router source, so
+    // this row cannot silently drift) rather than silently absorbed.
+    let admission_planner_routes: Vec<String> = super::operability_routes::parsed_router_routes()
+        .iter()
+        .filter(|route| {
+            route.path.ends_with("-admissions") && route.methods == vec!["POST".to_string()]
+        })
+        .map(|route| route.path.clone())
+        .collect();
+    planes.push(json!({
+        "plane": "admission_planners",
+        "routes": admission_planner_routes,
+        "pending": 0,
+        "note": "synchronous planners: POST returns the admission decision to the caller; no pending queue exists"
+    }));
+
+    // Newest first across planes (ISO timestamps compare lexicographically).
+    items.sort_by(|a, b| {
+        let ca = a.get("created_at").and_then(Value::as_str).unwrap_or("");
+        let cb = b.get("created_at").and_then(Value::as_str).unwrap_or("");
+        cb.cmp(ca)
+    });
+    let pending_total = items.len();
+    Json(json!({
+        "ok": true,
+        "schema_version": "ioi.hypervisor.governance.approvals-inbox.v1",
+        "pending_total": pending_total,
+        "items": items,
+        "planes": planes,
+        "read_only": true,
+        "note": "read projection only — every decision executes on the source plane's existing route; this inbox mints no new mutation authority",
+        "generated_at": iso_now(),
+        "runtimeTruthSource": "daemon-runtime"
+    }))
+}
+
 // ---- ReleaseControl ----------------------------------------------------------------------------
 pub(crate) async fn handle_release_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     g_list(&st.data_dir, KIND_RELEASE, "release_controls")

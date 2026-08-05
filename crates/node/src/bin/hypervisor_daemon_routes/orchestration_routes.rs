@@ -398,6 +398,67 @@ pub(crate) async fn handle_cron_preview(Query(q): Query<HashMap<String, String>>
     Json(json!({ "ok": true, "runs": runs }))
 }
 
+/// GET /v1/hypervisor/scheduler/status — scheduler LIVENESS only (W0.6). Projects the
+/// loop-derived tick heartbeat the background `automation_scheduler` persists each tick, plus the
+/// loop's fixed catch-up/misfire posture. Liveness is heartbeat-derived truth: `live` when the
+/// last tick is within 2x the tick interval (+ boot slack), `stale` when a heartbeat exists but
+/// has aged out, and an honest `no_heartbeat_recorded` when none was ever persisted. This route
+/// does NOT duplicate the records-derived schedule posture (per-automation enabled/trigger/
+/// next_run_at/last_run_at) that `/v1/hypervisor/operations` already projects — it points there.
+pub(crate) async fn handle_scheduler_status(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let heartbeat = read_record_dir(&st.data_dir, super::SCHEDULER_HEARTBEAT_FAMILY)
+        .into_iter()
+        .find(|record| {
+            record.get("loop").and_then(Value::as_str) == Some("automation_scheduler")
+                || record.get("id").and_then(Value::as_str) == Some(super::SCHEDULER_HEARTBEAT_ID)
+        });
+    let tick_interval_secs = super::SCHEDULER_TICK_SECS;
+    let posture = json!({
+        "tick_interval_secs": tick_interval_secs,
+        "fires_on_create": false,
+        "catch_up": "none — a due schedule fires once per due check; the next occurrence is computed from now, missed occurrences are not backfilled",
+        "misfire_at_concurrency_cap": "skip_occurrence — next_run_at still advances so the slot is not retried",
+        "dispatch_path": "fires through the manual-run path (POST /v1/hypervisor/automations/:id/runs), same run history/state_root/transcript as a manual run"
+    });
+    let Some(heartbeat) = heartbeat else {
+        return Json(json!({
+            "ok": true,
+            "schema_version": "ioi.hypervisor.scheduler-status.v1",
+            "liveness": "no_heartbeat_recorded",
+            "detail": "no scheduler heartbeat has ever been persisted in this data dir — the loop has not completed a tick yet (first tick lands ~5s + one interval after daemon start), or this data dir predates the heartbeat",
+            "heartbeat": Value::Null,
+            "posture": posture,
+            "schedule_posture_route": "/v1/hypervisor/operations",
+            "runtimeTruthSource": "daemon-runtime"
+        }));
+    };
+    let now = iso_now();
+    let last_tick_at = heartbeat
+        .get("last_tick_at")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let age_seconds = match (super::epoch_of(&now), super::epoch_of(last_tick_at)) {
+        (Some(now_ts), Some(tick_ts)) => Some(now_ts - tick_ts),
+        _ => None,
+    };
+    let liveness = match age_seconds {
+        Some(age) if age <= (2 * tick_interval_secs as i64) + 5 => "live",
+        Some(_) => "stale",
+        None => "unknown_heartbeat_timestamp",
+    };
+    Json(json!({
+        "ok": true,
+        "schema_version": "ioi.hypervisor.scheduler-status.v1",
+        "liveness": liveness,
+        "age_seconds": age_seconds,
+        "heartbeat": heartbeat,
+        "posture": posture,
+        "schedule_posture_route": "/v1/hypervisor/operations",
+        "note": "liveness is heartbeat-derived: it proves the last completed tick, never that the loop will tick again",
+        "runtimeTruthSource": "daemon-runtime"
+    }))
+}
+
 /// GET /v1/hypervisor/operations — the execution-health projection over the automation substrate:
 /// what is scheduled, what fired, what failed, what needs attention. Real records only (honest-empty).
 pub(crate) async fn handle_operations(State(st): State<Arc<DaemonState>>) -> Json<Value> {

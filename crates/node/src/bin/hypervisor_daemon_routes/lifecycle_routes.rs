@@ -34,9 +34,11 @@ use ioi_services::agentic::runtime::kernel::agentgres_admission::{
 };
 use ioi_services::agentic::runtime::kernel::approval::{
     ApprovalDecisionAuthorityRequest, ApprovalDecisionStateUpdateRequest,
-    ApprovalRequestAuthorityRequest, ApprovalRequestStateUpdateRequest,
-    ApprovalRevokeStateUpdateRequest, APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
+    ApprovalQueueProjectionRequest, ApprovalRequestAuthorityRequest,
+    ApprovalRequestStateUpdateRequest, ApprovalRevokeStateUpdateRequest,
+    APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
     APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION,
     APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
     APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -164,6 +166,64 @@ fn coalesce_str<'a>(value: &'a Value, keys: &[&str]) -> Option<&'a str> {
 fn thread_id_for_agent(agent_id: &str) -> String {
     let suffix = agent_id.strip_prefix("agent_").unwrap_or(agent_id);
     format!("thread_{suffix}")
+}
+
+/// Pending thread/tool-exec approvals across ALL threads, via the kernel
+/// approval-queue projection (pending-only) per persisted agent record. Pure read
+/// for the unified approvals-inbox projection; a per-thread projection failure is
+/// returned as an error row so the caller can name degradation instead of
+/// silently dropping a plane. Returns (pending queue entries, error rows).
+pub(crate) fn pending_thread_approvals(st: &DaemonState) -> (Vec<Value>, Vec<Value>) {
+    let mut pending = Vec::new();
+    let mut errors = Vec::new();
+    for agent in read_record_dir(&st.data_dir, "agents") {
+        let Some(agent_id) = agent
+            .get("id")
+            .or_else(|| agent.get("agent_id"))
+            .and_then(Value::as_str)
+        else {
+            continue;
+        };
+        let thread_id = thread_id_for_agent(agent_id);
+        let request: ApprovalQueueProjectionRequest = match serde_json::from_value(json!({
+            "schema_version": APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION,
+            "thread_id": thread_id,
+            "state_dir": st.data_dir,
+            "include_resolved": false,
+        })) {
+            Ok(request) => request,
+            Err(error) => {
+                errors.push(json!({ "thread_id": thread_id, "error": error.to_string() }));
+                continue;
+            }
+        };
+        match RuntimeKernelService::new().project_approval_queue(&request) {
+            Ok(record) => {
+                for entry in record.approvals {
+                    if entry.get("status").and_then(Value::as_str) != Some("pending") {
+                        continue;
+                    }
+                    // Slim row: identity + decision-relevant state only; the full
+                    // request stays behind the thread's own read surface.
+                    pending.push(json!({
+                        "thread_id": entry.get("thread_id"),
+                        "run_id": entry.get("run_id"),
+                        "approval_id": entry.get("approval_id"),
+                        "status": entry.get("status"),
+                        "reason": entry.get("reason"),
+                        "request_event_id": entry.get("request_event_id"),
+                        "lease_id": entry.get("lease_id"),
+                        "lease_status": entry.get("lease_status"),
+                        "receipt_refs": entry.get("receipt_refs"),
+                    }));
+                }
+            }
+            Err(error) => {
+                errors.push(json!({ "thread_id": thread_id, "error": format!("{error:?}") }));
+            }
+        }
+    }
+    (pending, errors)
 }
 
 /// Project a thread record from persisted state via the kernel thread/turn
@@ -9925,8 +9985,10 @@ fn prepare_session_create_bundle(
             "receipt_ref": format!("receipt://hypervisor/session-initial-input/{identity}"),
             "truth_class": "session_transcript",
             "disposition": "session_only_non_goal",
-            "goal_run_ref": Value::Null,
-            "goal_run_activation_ref": Value::Null,
+            // C-1: the platform never names an application family as a dedicated
+            // field. The former `goal_run_ref`/`goal_run_activation_ref` null
+            // non-grants are expressed as the absence of subject attachments.
+            "subject_attachments": [],
             "owner_ref": owner_ref,
             "runtimeTruthSource": "daemon-runtime"
         })
@@ -9940,8 +10002,8 @@ fn prepare_session_create_bundle(
             "entry_ref": projection.get("entry_ref"),
             "content_hash": projection.get("content_hash"),
             "disposition": "session_only_non_goal",
-            "goal_run_ref": Value::Null,
-            "goal_run_activation_ref": Value::Null,
+            // C-1: named app-family fields are retired; no subject was attached.
+            "subject_attachments": [],
             "owner_ref": owner_ref,
             "request_hash": request_hash,
             "non_grants": {"goal_identity":"none","goal_activation":"none","authority_widening":"none"},
@@ -9998,6 +10060,12 @@ fn prepare_session_create_bundle(
         "editor_target_ref": inputs.get("editor_target_ref").cloned().unwrap_or(Value::Null),
         "initial_input_projection": initial_input_projection,
         "latest_receipt_refs": latest_receipt_refs,
+        // C-1 (core-clients-surfaces.md `HypervisorSession.subject_attachments`):
+        // typed owner-registered rows {subject_kind, subject_ref, attachment_role}
+        // are the ONLY way a Session names the work it serves. Create accepts no
+        // attachment inputs yet (W3 C-1 backend row), so the honest state is the
+        // empty set — never a named app-family field.
+        "subject_attachments": [],
         "owner_ref": owner_ref,
         "request_hash": request_hash,
         "created_at": created_at,
@@ -10358,8 +10426,13 @@ fn session_create_projection(intent: &Value, idempotent_replay: bool) -> Value {
         "receipt_ref": intent.pointer("/provisioning_receipt/record/id"),
         "initial_input_projection": record.get("initial_input_projection"),
         "latest_receipt_refs": record.get("latest_receipt_refs"),
-        "goal_run_ref": Value::Null,
-        "goal_run_activation_ref": Value::Null,
+        // C-1: `subject_attachments[]` is the ONLY way a Session names the work it
+        // serves (owner-registered subject_kind/subject_ref/attachment_role). The
+        // retired named app-family fields are gone, not aliased.
+        "subject_attachments": record
+            .get("subject_attachments")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
         "idempotent_replay": idempotent_replay,
         "owner_ref": intent.get("owner_ref"),
         "request_hash": intent.get("request_hash"),
@@ -15268,6 +15341,58 @@ pub(crate) async fn handle_org_invite_reset(State(st): State<Arc<DaemonState>>) 
     let _ = persist_record(&st.data_dir, "org-invite", "invite", &rec);
     Json(json!({ "ok": true, "invite": rec }))
 }
+
+/// GET /v1/hypervisor/organization — the minimal honest org-identity read record (W0.6).
+/// Projects ONLY what the daemon actually persists about the organization scope: the
+/// `org://local` scope the product projection binds, the vanity domain, verified domains,
+/// member/IdP posture counts, and the auth-policy mode. There is NO org display-name/tier/
+/// billing-identity record in the daemon — those fields are named absent, never fabricated.
+/// Secrets never leave: the invite token, SSO/OIDC client secrets, and SCIM tokens are not
+/// projected here.
+pub(crate) async fn handle_organization_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    ensure_operator(&st.data_dir);
+    let principals_total = read_record_dir(&st.data_dir, "principals").len();
+    let domain_verifications = read_record_dir(&st.data_dir, "domain-verifications");
+    let verified_domains: Vec<String> = domain_verifications
+        .iter()
+        .filter(|record| record.get("verified").and_then(Value::as_bool) == Some(true))
+        .filter_map(|record| {
+            record
+                .get("domain")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect();
+    let custom_domain = read_record_dir(&st.data_dir, "custom-domain")
+        .into_iter()
+        .find(|record| record["id"].as_str() == Some("custom-domain"))
+        .and_then(|record| record["domain"].as_str().map(String::from));
+    let invite_configured = load_org_invite(&st.data_dir).is_some();
+    Json(json!({
+        "ok": true,
+        "schema_version": "ioi.hypervisor.organization-identity.v1",
+        "organization": {
+            "org_ref": "org://local",
+            "display_name": Value::Null,
+            "custom_domain": custom_domain,
+            "verified_domains": verified_domains,
+            "domain_verifications_total": domain_verifications.len(),
+            "members": { "principals_total": principals_total },
+            "identity_providers": {
+                "sso_configurations": read_record_dir(&st.data_dir, "sso-configurations").len(),
+                "scim_configurations": read_record_dir(&st.data_dir, "scim-configurations").len(),
+                "oidc_login_configured": !read_record_dir(&st.data_dir, "oidc-config").is_empty()
+            },
+            "invite_link_configured": invite_configured,
+            "auth_policy_mode": auth_policy(&st.data_dir).get("mode").cloned().unwrap_or(Value::Null)
+        },
+        "gaps": [
+            "no org display-name/tier/billing-identity record exists in the daemon — display_name is null because nothing real backs it",
+            "org://local is the daemon's only organization scope; multi-org records do not exist"
+        ],
+        "runtimeTruthSource": "daemon-runtime"
+    }))
+}
 /// POST /v1/hypervisor/org-invite/accept {invite_id, email, name, password} — provision a member +
 /// issue a session. Fails closed if the invite id doesn't match the current link.
 pub(crate) async fn handle_org_invite_accept(
@@ -17895,6 +18020,131 @@ pub(crate) async fn handle_sessions_list(
             "owner_ref": owner_ref,
             "total": total,
             "sessions": sessions,
+            "runtimeTruthSource": "daemon-runtime"
+        })),
+    )
+}
+
+/// GET /v1/hypervisor/sessions/overview — counts-first projection over the persisted session
+/// records for the Work / Sessions view (W0.6). Owner-filtered BEFORE any count or aggregation
+/// (policy filtering precedes counts, per the Work read-model contract). Designed against the
+/// C-1 attachment model from day one: workload identity rolls up from `subject_attachments`
+/// (owner-registered subject_kind/subject_ref/attachment_role), never from named app fields.
+/// Read-only; same strict-registry refusal discipline as the list (no partial overview).
+pub(crate) async fn handle_sessions_overview(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let owner_ref = match session_request_owner(&st.data_dir, &headers) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    if let Err(error) = recover_session_create_intents(&st) {
+        return session_create_commit_failure_response("session-create-recovery://pending", &error);
+    }
+    let records = match enumerate_hypervisor_sessions_strict(&st) {
+        Ok(records) => records,
+        Err(detail) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error":{
+                    "code":"session_registry_unavailable",
+                    "message":"The complete Session registry cannot be proven; no partial overview is projected.",
+                    "detail":detail
+                }})),
+            )
+        }
+    };
+    let mut owned: Vec<Value> = records
+        .into_iter()
+        .filter(|record| {
+            record
+                .get("owner_ref")
+                .and_then(Value::as_str)
+                .unwrap_or("user://local-operator")
+                == owner_ref
+        })
+        .collect();
+    owned.sort_by(|a, b| {
+        let ca = a.get("created_at").and_then(Value::as_str).unwrap_or("");
+        let cb = b.get("created_at").and_then(Value::as_str).unwrap_or("");
+        cb.cmp(ca)
+    });
+    let mut by_lifecycle_state = std::collections::BTreeMap::<String, u64>::new();
+    let mut by_project = std::collections::BTreeMap::<String, u64>::new();
+    let mut attachments_by_kind = std::collections::BTreeMap::<String, u64>::new();
+    let mut attachments_by_role = std::collections::BTreeMap::<String, u64>::new();
+    let mut sessions_with_attachments = 0u64;
+    for record in &owned {
+        let lifecycle = record
+            .get("lifecycle_state")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown");
+        *by_lifecycle_state.entry(lifecycle.to_string()).or_insert(0) += 1;
+        let project = record
+            .get("project_ref")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("(none)");
+        *by_project.entry(project.to_string()).or_insert(0) += 1;
+        // Records persisted before this field exists carry no attachments — the
+        // honest reading of an absent field is the empty set, never a fabrication.
+        let attachments = record
+            .get("subject_attachments")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        if !attachments.is_empty() {
+            sessions_with_attachments += 1;
+        }
+        for attachment in &attachments {
+            let kind = attachment
+                .get("subject_kind")
+                .and_then(Value::as_str)
+                .unwrap_or("(unregistered)");
+            *attachments_by_kind.entry(kind.to_string()).or_insert(0) += 1;
+            let role = attachment
+                .get("attachment_role")
+                .and_then(Value::as_str)
+                .unwrap_or("(unregistered)");
+            *attachments_by_role.entry(role.to_string()).or_insert(0) += 1;
+        }
+    }
+    let newest: Vec<Value> = owned
+        .iter()
+        .take(5)
+        .map(|record| {
+            json!({
+                "session_ref": record.get("session_ref"),
+                "project_ref": record.get("project_ref"),
+                "environment_ref": record.get("environment_ref"),
+                "lifecycle_state": record.get("lifecycle_state"),
+                "subject_attachments": record
+                    .get("subject_attachments")
+                    .cloned()
+                    .unwrap_or_else(|| json!([])),
+                "created_at": record.get("created_at"),
+            })
+        })
+        .collect();
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.hypervisor.sessions-overview.v1",
+            "owner_ref": owner_ref,
+            "total": owned.len(),
+            "by_lifecycle_state": by_lifecycle_state,
+            "by_project": by_project,
+            "subject_attachments": {
+                "sessions_with_attachments": sessions_with_attachments,
+                "by_subject_kind": attachments_by_kind,
+                "by_attachment_role": attachments_by_role
+            },
+            "newest": newest,
+            "gaps": [
+                "session_kind/session_mode are not recorded on daemon session records (Lane A Cut #1) — kind/mode counts are absent, not fabricated",
+                "session create accepts no subject-attachment inputs yet (W3 C-1 backend row) — attachment rollups are honestly empty until owners attach subjects"
+            ],
             "runtimeTruthSource": "daemon-runtime"
         })),
     )
