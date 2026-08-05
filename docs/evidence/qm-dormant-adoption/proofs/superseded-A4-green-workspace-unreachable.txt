@@ -1,0 +1,7 @@
+IOI_MEASURED_COMMIT=0397a1d9f50b25136c97af6631d9192529cc7408
+IOI_PROOF=A4-green-workspace-unreachable
+IOI_NOTE=Post-A3. npm pkg get --workspace apps/ioi-ai now errors 'No workspaces found'; apps/hypervisor still resolves, so the fix removed one workspace and not the mechanism.
+[WARN] discovery-exclusion: apps/ioi-ai/ — 1224 tracked file(s) hidden from discovery. Grounds: dormant adoption of upstream QM bytes: not served, not rebound, not built, no route registration. Ruled 2026-08-04. Pin 5eb3393315b45b338b860572ab516db9f6eae6da. Expires: m5-qm-reference-shell-executable-rebind — M6's FIRST act drops this exclusion and brings the tree into discovery
+discovery exclusions: 1 declared; 0 reachability violation(s)
+check-discovery-exclusions: PASS (0 error, 1 warn, 0 skip)
+IOI_EXIT_CODE=0

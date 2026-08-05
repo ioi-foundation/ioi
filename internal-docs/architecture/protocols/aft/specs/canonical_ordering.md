@@ -1,5 +1,7 @@
 # Canonical Ordering
 
+Status: internal protocol spec (AFT corpus); non-canonical.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 This document is the normative protocol model for AFT's proof-carrying
 equal-authority ordering path. It is the ordering-specific component of the
 repository's broader `99% Byzantine Tolerance` claim in the AFT model delta:

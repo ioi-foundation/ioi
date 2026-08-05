@@ -213,35 +213,6 @@ fn managed_session_state_digest(sessions: &[Value]) -> String {
 /// — the bridge counterpart of the daemon's idempotency check, so the runtime side
 /// never appends a duplicate line for a logically-identical event (the two writers
 /// share one log file).
-fn existing_event_by_idempotency_key(
-    state_dir: &str,
-    event_stream_id: &str,
-    idempotency_key: &str,
-) -> Option<Value> {
-    if idempotency_key.is_empty() {
-        return None;
-    }
-    let path = Path::new(state_dir)
-        .join("events")
-        .join(format!("{}.jsonl", sha256_hex(event_stream_id)));
-    let contents = fs::read_to_string(&path).ok()?;
-    for line in contents.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-        let Ok(event) = serde_json::from_str::<Value>(line) else {
-            continue;
-        };
-        if event.get("idempotency_key").and_then(Value::as_str) == Some(idempotency_key) {
-            return Some(event);
-        }
-    }
-    None
-}
-
-/// Inject the resolved daemon `thread_id` and its `event_stream_id` into a
-/// session-keyed runtime thread event built by a turn-execution producer.
 fn finalize_thread_routing(event: &mut Value, thread_id: &str) {
     if let Some(object) = event.as_object_mut() {
         object.insert(
@@ -271,10 +242,19 @@ fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> R
     Ok(())
 }
 
-/// Admit a runtime thread event through the kernel (which assigns `seq` from the
-/// stream's `latest_seq`) and append the admitted event to the daemon's log.
-/// Mirrors the daemon's `admit_and_persist_event` so events produced from the
-/// runtime side are indistinguishable on the log from daemon-admitted events.
+/// Admit a runtime thread event onto its stream's Agentgres chain, through
+/// the injected admission capability.
+///
+/// This crate cannot open the substrate: the handle steward lives in the
+/// daemon. So this writer admits through the injection boundary, and when no
+/// capability has been injected it REFUSES — it never reverts to the legacy
+/// append-only log.
+///
+/// Idempotency is not re-implemented here. The whole-stream key check lives
+/// inside admission, so this writer inherits it through the admit it already
+/// calls; the caller-side log scan this function used to perform is deleted.
+/// The per-stream lock is gone with it: race safety comes from the CAS, whose
+/// loser re-reads and re-derives against the winner's admitted fact.
 pub fn admit_and_persist_runtime_event(state_dir: &str, event: Value) -> Result<Value, String> {
     let event_stream_id = event
         .get("event_stream_id")
@@ -284,33 +264,74 @@ pub fn admit_and_persist_runtime_event(state_dir: &str, event: Value) -> Result<
     if event_stream_id.is_empty() {
         return Err("runtime thread event requires event_stream_id".to_string());
     }
-    let idempotency_key = event
+
+    // Classification precedes dispatch, on a determined fact — never on a
+    // failure, which is what would make it a fallback.
+    if super::event_stream_admission::classify_stream(state_dir, &event_stream_id)
+        == super::event_stream_admission::StreamHoming::Legacy
+    {
+        return Err(super::event_stream_admission::unmigrated_refusal(
+            &event_stream_id,
+        ));
+    }
+
+    // The kernel still SHAPES the event; it no longer sequences it.
+    let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+        "event": event,
+        "state_dir": state_dir,
+    }))
+    .map_err(|error| format!("build admission request: {error}"))?;
+    let record = RuntimeKernelService::new()
+        .admit_runtime_thread_event(&request)
+        .map_err(|error| format!("admit runtime thread event: {error:?}"))?;
+    let mut shaped = serde_json::to_value(&record.event)
+        .map_err(|error| format!("serialize admitted event: {error}"))?;
+
+    let idempotency_key = shaped
         .get("idempotency_key")
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
-    // Serialize the dedup-check + kernel admit (latest_seq) + append against the daemon
-    // and any other writer to this stream.
-    with_event_stream_lock(state_dir, &event_stream_id, || {
-        if let Some(existing) =
-            existing_event_by_idempotency_key(state_dir, &event_stream_id, &idempotency_key)
-        {
-            return Ok(existing);
-        }
-        let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
-            "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
-            "event": event,
-            "state_dir": state_dir,
-        }))
-        .map_err(|error| format!("build admission request: {error}"))?;
-        let record = RuntimeKernelService::new()
-            .admit_runtime_thread_event(&request)
-            .map_err(|error| format!("admit runtime thread event: {error:?}"))?;
-        let admitted = serde_json::to_value(&record.event)
-            .map_err(|error| format!("serialize admitted event: {error}"))?;
-        append_event_line(state_dir, &event_stream_id, &admitted)?;
-        Ok(admitted)
-    })
+    if idempotency_key.is_empty() {
+        return Err("an admitted runtime event carries an idempotency key".to_string());
+    }
+    // Discarded before admission so two submissions of one logical event
+    // carry identical bytes: sequence is the substrate's fact, not the
+    // event's content.
+    if let Some(object) = shaped.as_object_mut() {
+        object.remove("seq");
+    }
+
+    let tail = super::event_stream_admission::stream_tail(&event_stream_id);
+    let head = super::event_stream_admission::read_head(
+        super::event_stream_admission::THREAD_ORCHESTRATION_NAMESPACE,
+        &tail,
+    )
+    .map_err(|refusal| refusal.to_string())?;
+    let expected_head = head.as_ref().map(|projection| projection.head.as_str());
+
+    let admitted =
+        super::event_stream_admission::admit_event(agentgres::event_stream::EventAdmission {
+            owner_namespace: super::event_stream_admission::THREAD_ORCHESTRATION_NAMESPACE,
+            stream_tail: &tail,
+            op_kind: "event_stream.append",
+            expected_head,
+            payload: &shaped,
+            recorded_at_ms: shaped
+                .get("at_ms")
+                .and_then(Value::as_u64)
+                .unwrap_or_default(),
+            idem_key: &idempotency_key,
+        })
+        .map_err(|refusal| refusal.to_string())?;
+
+    let mut result = admitted.projection.operation.payload.clone();
+    if let Some(object) = result.as_object_mut() {
+        object.insert("seq".to_string(), json!(admitted.projection.seq));
+        object.insert("replayed".to_string(), json!(admitted.replayed));
+    }
+    Ok(result)
 }
 
 /// Bridge a managed-session snapshot onto the daemon's event log for `session_id`.
@@ -353,6 +374,48 @@ pub fn persist_runtime_thread_event_json(
     Ok(Some(admitted))
 }
 
+/// The class an admitted delivery gap is carried under.
+///
+/// A gap is a first-class admitted event, not metadata: it occupies a sequence
+/// on the stream, it is replayed, and a subscriber resuming from a checkpoint
+/// sees it in order alongside the events around it.
+pub const DELIVERY_GAP_CLASS_ID: &str = "runtime.delivery_gap";
+
+/// Admit one delivery gap onto the runtime-orchestration gap stream.
+///
+/// The gap stream is per-owner-namespace rather than per-thread because a
+/// broadcast lag is not attributable to one thread -- the events that were
+/// skipped are exactly the ones nobody can identify.
+pub fn admit_delivery_gap(state_dir: &str, skipped: u64) -> Result<(), String> {
+    let _ = state_dir;
+    let payload = json!({
+        "class_id": DELIVERY_GAP_CLASS_ID,
+        "skipped_event_count": skipped,
+        "outcome": "delivery_gap",
+        "nonclaim": "The skipped events are unrecoverable; this records that they existed and were lost, so a replayed history cannot look complete.",
+    });
+    let tail = super::event_stream_admission::stream_tail("runtime:delivery-gaps");
+    let head = super::event_stream_admission::read_head(
+        super::event_stream_admission::THREAD_ORCHESTRATION_NAMESPACE,
+        &tail,
+    )
+    .map_err(|refusal| refusal.to_string())?;
+    super::event_stream_admission::admit_event(agentgres::event_stream::EventAdmission {
+        owner_namespace: super::event_stream_admission::THREAD_ORCHESTRATION_NAMESPACE,
+        stream_tail: &tail,
+        op_kind: "event_stream.append",
+        expected_head: head.as_ref().map(|projection| projection.head.as_str()),
+        payload: &payload,
+        recorded_at_ms: 0,
+        idem_key: &format!(
+            "delivery-gap-{skipped}-{}",
+            head.as_ref().map(|h| h.seq).unwrap_or(0)
+        ),
+    })
+    .map(|_| ())
+    .map_err(|refusal| refusal.to_string())
+}
+
 /// Subscribe to a runtime [`KernelEvent`](ioi_types::app::KernelEvent) broadcast and
 /// persist each [`KernelEvent::RuntimeThreadEvent`] carrier onto the daemon's event
 /// log at `state_dir`. Other variants are ignored (the typed-receipt mapping is a
@@ -391,7 +454,41 @@ pub async fn run_event_log_bridge(
             Ok(_) => {}
             Err(RecvError::Closed) => break,
             Err(RecvError::Lagged(skipped)) => {
-                tracing::warn!(skipped, "event-log bridge lagged; dropped runtime events");
+                // NEVER a silent drop.
+                //
+                // A broadcast lag means runtime events were produced and are
+                // now unrecoverable from the channel -- this bridge is what
+                // admits them, so nothing else has seen them. Logging a
+                // warning here discarded truth and left the admitted history
+                // looking complete, which is worse than losing the events: a
+                // consumer replaying that history would see no evidence that
+                // anything was missing.
+                //
+                // The gap is therefore ADMITTED as its own typed event, so it
+                // becomes part of the durable stream a subscriber replays and
+                // resumes from. "Gap" is one of this record's named outcomes,
+                // not a log line, and a consumer can now detect it by reading
+                // truth rather than by reading the daemon's stderr.
+                let state_dir = state_dir.clone();
+                let recorded =
+                    tokio::task::spawn_blocking(move || admit_delivery_gap(&state_dir, skipped))
+                        .await;
+                match recorded {
+                    Ok(Ok(())) => {}
+                    Ok(Err(error)) => {
+                        // The gap could not be admitted. This is the one case
+                        // that must be loud AND must not be papered over: the
+                        // stream now has an unrecorded hole.
+                        tracing::error!(
+                            %error, skipped,
+                            "event-log bridge lagged AND could not admit the delivery gap; \
+                             the admitted stream has an unrecorded hole"
+                        );
+                    }
+                    Err(error) => {
+                        tracing::error!(%error, skipped, "delivery-gap admission task panicked");
+                    }
+                }
             }
         }
     }

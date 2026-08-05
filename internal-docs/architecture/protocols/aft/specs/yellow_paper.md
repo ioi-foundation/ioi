@@ -1,5 +1,7 @@
 # Asymptote Fault Tolerance (AFT) Yellow Paper
 
+Status: internal protocol spec (AFT corpus); non-canonical.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 The internal yellow paper source is maintained in
 [`yellow_paper.tex`](./yellow_paper.tex).
 

@@ -1,0 +1,18 @@
+{
+  "schema_version": "ioi.agentgres.event_stream.v1",
+  "stream_id": "event-stream://thread-orchestration/aut_masquerade",
+  "owner_namespace": "automation-scheduler",
+  "owner_ref": "automation://aut_masquerade",
+  "event_class_declaration": {
+    "admitted_truth_classes": [
+      {
+        "class_id": "schedule.fired",
+        "payload_schema_ref": "schema://ioi/components/daemon-runtime/automation-schedule-fired/v1"
+      }
+    ],
+    "ephemeral_delivery_classes": []
+  },
+  "admitted_head": {
+    "operation_ref": "agentgres://operation/event-stream/automation-scheduler/aut_masquerade/sequence/1/head/sha256:4444444444444444444444444444444444444444444444444444444444444444"
+  }
+}

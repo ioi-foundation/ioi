@@ -1,0 +1,58 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m5-effect-census-duplicated-call-corpora-successor",
+  "stage_id": "M9",
+  "record_role": "private_verifier",
+  "status": "proposed",
+  "objective": "Restore `effect census binds transitive closures without duplicating call corpora` to green on the M5 lineage, by deciding which of the two corpora a transitive_function_closure entry is entitled to emit -- and making the writer emit exactly that one.",
+  "falsifiable_claim": "No entry in effect-census.json carries handler_calls, handler_call_sequence, registration_handler_call_sequence, discovered_handler_calls, or discovered_handler_call_sequence, and check-pre-next-leg passes in full on the M5 lineage.",
+  "canon_owners": [
+    "internal-docs/implementation/stages/m9.md"
+  ],
+  "canon_snapshot": {},
+  "contract_families": [],
+  "dependency_work_item_ids": [],
+  "required_work": [],
+  "in_scope": [
+    "The census writer's emission for handler_resolution == transitive_function_closure, and the six affected M5 event-stream route entries."
+  ],
+  "out_of_scope": [
+    "The QM dormant-adoption cut, which inherited this and does not own it.",
+    "Any weakening of the test: the assertion is the contract, and deleting it would close the finding by deleting the finder."
+  ],
+  "implementation_actions": [],
+  "consequential_effects_and_final_invokers": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "positive_proof": [
+    "node --test scripts/lib/m0-program-control.test.mjs passes in full on the M5 lineage.",
+    "node scripts/check-pre-next-leg.mjs exits 0 detached at the M5 tip."
+  ],
+  "adversarial_or_fault_proof": [
+    "MEASURED ATTRIBUTION, not inferred. Entries carrying handler_calls: 6 at 4c8f1d794 (M5 cut), 6 at 0c92fa66e, and 0 at the merge-base with master (5e1899e29). The six are all event_stream_routes::handle_* with handler_resolution 'transitive_function_closure' -- the resolution mode the M5 cut introduced.",
+    "THE TEST WAS NEVER RUN AT THAT TIP. master's full check-pre-next-leg is green (exit 0), the M5 lineage's is not. The M5 packet was reviewed CLEAN without the full suite being run detached at its own tip, so a red test shipped inside a certified cut. The gate existed; nobody asked it.",
+    "Do NOT close this by relaxing the assertion. It forbids CO-PRESENCE of the two call corpora on one entry, and both keys are present on all six: handler_calls/handler_call_sequence at 8/8, 76/166, 96/205, 104/217, 96/245, and 83/191. MEASURED, AND A CORRECTION ON THE RECORD: an earlier version of this line said 'the same 8-element list'. Only ONE entry is 8/8, and even that pair is NOT equal. The first entry was sampled and generalised to six. The assertion never turned on equality -- co-presence is the defect, and the corrected arithmetic makes the case stronger, not weaker, because the two corpora disagree as well as duplicate."
+  ],
+  "product_journey_and_states": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "compatibility_and_migration": [],
+  "evidence_index": {
+    "literal_exit": "M9_INFRASTRUCTURE_PROFILE_CLAIM_GATE_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M9/m9-infrastructure-profile-claim-gate.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [],
+  "evidence_refs": [],
+  "remaining_nonclaims": [
+    "This record does not decide WHICH corpus is canonical; it requires that exactly one be emitted.",
+    "It makes no claim about entries outside the six measured."
+  ],
+  "rollback_or_stop_rule": "Withdraw on loss of selected live adapter evidence.",
+  "source_provenance": "Owner-ratified governed-compute restructuring, 2026-07-29.",
+  "title": "The M5 substrate routes emit handler_calls AND handler_call_sequence, which the effect-census test forbids",
+  "notes": "Found by the QM dormant-adoption cut's v3 full-suite run and confirmed PRE-EXISTING on the M5 lineage."
+}

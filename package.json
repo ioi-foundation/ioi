@@ -2,7 +2,12 @@
   "name": "ioi-network-monorepo",
   "private": true,
   "workspaces": [
-    "apps/*",
+    "apps/aiagent-xyz",
+    "apps/benchmarks",
+    "apps/developers-ioi-ai",
+    "apps/hypervisor",
+    "apps/hypervisor-web",
+    "apps/sas-xyz",
     "packages/*"
   ],
   "scripts": {
@@ -29,6 +34,8 @@
     "check:service-composition-evidence": "node scripts/check-service-composition-evidence.mjs",
     "check:artifact-availability-incident": "node scripts/check-artifact-availability-incident.mjs",
     "check:agentgres-ref-minting": "node scripts/check-agentgres-ref-minting.mjs",
+    "check:shared-schema-defs": "node scripts/check-shared-schema-defs.mjs",
+    "check:internal-architecture-headers": "node scripts/check-internal-architecture-headers.mjs",
     "check:conformance-docs": "node scripts/check-conformance-docs.mjs && node --test scripts/test-conformance-docs-integrity.mjs",
     "hypervisor-conformance": "node scripts/conformance/hypervisor-conformance.mjs",
     "hypervisor-conformance:docs": "node scripts/conformance/hypervisor-conformance.mjs docs",

@@ -1,5 +1,7 @@
 # NestedGuardian Formal Model
 
+Status: internal formal-model note (AFT corpus); non-canonical.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 This directory holds the formal artifacts for `NestedGuardian`.
 
 The corresponding internal prose note lives at

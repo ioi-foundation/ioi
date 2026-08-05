@@ -7,3 +7,12 @@ CMAKE = "cmake"
 WHISPER_DONT_GENERATE_BINDINGS = "1"
 TS_RS_EXPORT_DIR = { value = "apps/hypervisor/src/generated/hypervisor-contracts", relative = true }
 TS_RS_LARGE_INT = "number"
+
+# Ops constraint, filed 2026-08-02 and applied to ALL builds 2026-08-03.
+# Unbounded incremental cache reached 352G once and 591G total target twice,
+# driving the root filesystem to 100% and failing the wallet fixture with exit
+# 101 -- a poisoned signal that reads as a code regression and is not one. It
+# has already produced one false finding; this makes the default safe rather
+# than relying on each runner remembering the flag.
+[build]
+incremental = false

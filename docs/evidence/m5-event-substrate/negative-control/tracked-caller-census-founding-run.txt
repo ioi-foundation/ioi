@@ -1,0 +1,12 @@
+IOI_MEASURED_COMMIT=a1dbc885d8e1a9501239275aeb886f51d338ada2
+IOI_ENV_ROOT_USED_PCT=50%
+IOI_NEGATIVE_CONTROL=1 — the census's FOUNDING run, retained before any finding was fixed.
+IOI_NOTE=A census whose discovering run is not retained starts life violating the rule it enforces.
+[ERROR] tracked-caller: apps/developers-ioi-ai/scripts/check-live-readiness.mjs has NO tracked caller and no disposition — a bar nobody runs is documentation. Wire it, or declare it deliberately unwired with a reason.
+[ERROR] tracked-caller: apps/developers-ioi-ai/scripts/check-seo-routing.mjs has NO tracked caller and no disposition — a bar nobody runs is documentation. Wire it, or declare it deliberately unwired with a reason.
+[ERROR] tracked-caller: apps/hypervisor/scripts/check-augmentation-tokens.mjs has NO tracked caller and no disposition — a bar nobody runs is documentation. Wire it, or declare it deliberately unwired with a reason.
+[ERROR] tracked-caller: apps/hypervisor/scripts/check-source-neutral.mjs has NO tracked caller and no disposition — a bar nobody runs is documentation. Wire it, or declare it deliberately unwired with a reason.
+[ERROR] tracked-caller: internal-docs/implementation/tools/check-claims-coverage.mjs has NO tracked caller and no disposition — a bar nobody runs is documentation. Wire it, or declare it deliberately unwired with a reason.
+tracked-caller census: 60 check-* executable(s); 55 with a tracked caller; 5 uncalled and undispositioned; 0 deliberately unwired
+check-tracked-callers: FAIL (5 error, 0 warn, 0 skip)
+IOI_EXIT_CODE=1

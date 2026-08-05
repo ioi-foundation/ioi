@@ -899,76 +899,124 @@ fn append_persisted_events(
 /// stream's `latest_seq` from `<state_dir>/events/*.jsonl` and assigns seq+1, so the
 /// event lands AFTER the thread.started + turn events already on the log — then
 /// append the admitted event. Returns the admitted event (with seq, event_id, refs).
-/// Return the already-admitted event on `event_stream_id` carrying `idempotency_key`,
-/// if any. Makes admission idempotent: re-admitting the same logical event (a managed
-/// session re-projected on every browser action, a snapshot captured twice over an
-/// unchanged workspace, a re-applied restore with the same outcome) returns the prior
-/// event instead of appending a duplicate line — which would otherwise grow the log
-/// unboundedly and let GET /events show duplicate/stale records.
-fn existing_event_by_idempotency_key(
-    st: &DaemonState,
-    event_stream_id: &str,
-    idempotency_key: &str,
-) -> Option<Value> {
-    if idempotency_key.is_empty() {
-        return None;
-    }
-    let path = Path::new(st.data_dir.as_str())
-        .join("events")
-        .join(format!("{}.jsonl", sha256_hex_str(event_stream_id)));
-    let contents = fs::read_to_string(&path).ok()?;
-    for line in contents.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-        let Ok(event) = serde_json::from_str::<Value>(line) else {
-            continue;
-        };
-        if event.get("idempotency_key").and_then(|v| v.as_str()) == Some(idempotency_key) {
-            return Some(event);
-        }
-    }
-    None
-}
-
+/// Admit one runtime event onto its stream's Agentgres chain.
+///
+/// Idempotency is NOT re-implemented here. "This key admits exactly once" is
+/// admission discipline and lives inside the admission core, whole-stream, so
+/// this writer inherits it through the admit it already calls. The
+/// caller-side log scan this function used to perform is deleted: no scan
+/// survives the spine.
+///
+/// There is no per-stream lock either. Race safety comes from the CAS: a
+/// concurrent loser takes a head conflict, re-reads, and re-derives, and the
+/// re-derive re-runs the key check against the winner's admitted fact.
 fn admit_and_persist_event(st: &DaemonState, event: Value) -> Result<Value, AppError> {
     let event_stream_id = event
         .get("event_stream_id")
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
-    let idempotency_key = event
+    if event_stream_id.is_empty() {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "runtime event requires event_stream_id".to_string(),
+        ));
+    }
+    admit_runtime_event_onto_stream(st, &event_stream_id, event)
+}
+
+/// The one daemon-side path from a shaped runtime event to an admitted fact.
+///
+/// Classification precedes dispatch, on a DETERMINED FACT — does legacy
+/// history exist at these coordinates — and never on a failure. No error on
+/// either branch can change which branch was taken, so a broken substrate
+/// surfaces as a refusal instead of a quiet write to the old log.
+fn admit_runtime_event_onto_stream(
+    st: &DaemonState,
+    event_stream_id: &str,
+    event: Value,
+) -> Result<Value, AppError> {
+    use ioi_services::agentic::runtime::event_stream_admission as admission;
+
+    if admission::classify_stream(&st.data_dir, event_stream_id) == admission::StreamHoming::Legacy
+    {
+        return Err(AppError(
+            StatusCode::CONFLICT,
+            admission::unmigrated_refusal(event_stream_id),
+        ));
+    }
+
+    // The kernel still SHAPES the event (identity, refs). It no longer
+    // sequences it: its latest_seq is read from a log this stream no longer
+    // writes, so the substrate's exact sequence replaces it below.
+    let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
+        "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+        "event": event,
+        "state_dir": st.data_dir,
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let record = RuntimeKernelService::new()
+        .admit_runtime_thread_event(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let mut shaped = serde_json::to_value(&record.event)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    let idempotency_key = shaped
         .get("idempotency_key")
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
-    // Serialize dedup-check + admit (latest_seq) + append against the runtime event-log
-    // bridge (a second process writing the same stream file). Same lock path both sides.
-    ioi_services::agentic::runtime::event_log_bridge::with_event_stream_lock(
-        &st.data_dir,
-        &event_stream_id,
-        || {
-            if let Some(existing) =
-                existing_event_by_idempotency_key(st, &event_stream_id, &idempotency_key)
-            {
-                return Ok(existing);
+    if idempotency_key.is_empty() {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "an admitted runtime event carries an idempotency key".to_string(),
+        ));
+    }
+
+    // The kernel-minted seq is discarded before admission so that two
+    // submissions of one logical event carry identical bytes. Sequence is the
+    // substrate's fact about the event, not part of the authored event.
+    if let Some(object) = shaped.as_object_mut() {
+        object.remove("seq");
+    }
+
+    let tail = admission::stream_tail(event_stream_id);
+    let head = admission::read_head(admission::THREAD_ORCHESTRATION_NAMESPACE, &tail)
+        .map_err(|refusal| AppError(StatusCode::BAD_GATEWAY, refusal.to_string()))?;
+    let expected_head = head.as_ref().map(|projection| projection.head.as_str());
+
+    let admitted = admission::admit_event(agentgres::event_stream::EventAdmission {
+        owner_namespace: admission::THREAD_ORCHESTRATION_NAMESPACE,
+        stream_tail: &tail,
+        op_kind: "event_stream.append",
+        expected_head,
+        payload: &shaped,
+        recorded_at_ms: shaped
+            .get("at_ms")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or_default(),
+        idem_key: &idempotency_key,
+    })
+    .map_err(|refusal| {
+        let status = match refusal {
+            agentgres::event_stream::AdmissionRefusal::HeadConflict => StatusCode::CONFLICT,
+            agentgres::event_stream::AdmissionRefusal::SameKeyDifferentBytes { .. } => {
+                StatusCode::UNPROCESSABLE_ENTITY
             }
-            let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
-                "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
-                "event": event,
-                "state_dir": st.data_dir,
-            }))
-            .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-            let record = RuntimeKernelService::new()
-                .admit_runtime_thread_event(&request)
-                .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-            let admitted = serde_json::to_value(&record.event)
-                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-            append_persisted_events(st, &event_stream_id, std::slice::from_ref(&admitted))?;
-            Ok(admitted)
-        },
-    )
+            agentgres::event_stream::AdmissionRefusal::CapabilityAbsent => {
+                StatusCode::SERVICE_UNAVAILABLE
+            }
+            _ => StatusCode::BAD_GATEWAY,
+        };
+        AppError(status, refusal.to_string())
+    })?;
+
+    let mut result = admitted.projection.operation.payload.clone();
+    if let Some(object) = result.as_object_mut() {
+        object.insert("seq".to_string(), json!(admitted.projection.seq));
+        object.insert("replayed".to_string(), json!(admitted.replayed));
+    }
+    Ok(result)
 }
 
 /// Unified-event-log writer: run the kernel thread-event projection (which admits
@@ -979,18 +1027,16 @@ fn admit_and_persist_event(st: &DaemonState, event: Value) -> Result<Value, AppE
 /// the write half of the unified event model: GET /events reads back via `replay`.
 fn persist_thread_events(st: &DaemonState, thread_id: &str) -> Result<(), AppError> {
     let event_stream_id = format!("{thread_id}:events");
-    // This is a THIRD writer to the stream's <sha256(stream)>.jsonl (alongside
-    // admit_and_persist_event and the runtime bridge); it must take the SAME per-stream
-    // lock across its read-latest-seq (project) + append window, or it re-opens the
-    // duplicate-seq race the lock closes.
-    ioi_services::agentic::runtime::event_log_bridge::with_event_stream_lock(
-        &st.data_dir,
-        &event_stream_id,
-        || {
-            let admitted = project_runtime_events(st, "thread", thread_id, None)?;
-            append_persisted_events(st, &event_stream_id, &admitted)
-        },
-    )
+    // Each projected event admits through the SAME path as every other
+    // writer, so it inherits the same whole-stream key check. Re-running this
+    // projection is therefore idempotent without a dedup of its own, which is
+    // why the per-stream lock this function used to take is gone: the CAS and
+    // the key check together replace it.
+    let projected = project_runtime_events(st, "thread", thread_id, None)?;
+    for event in projected {
+        admit_runtime_event_onto_stream(st, &event_stream_id, event)?;
+    }
+    Ok(())
 }
 
 /// Replay the full persisted runtime-event log for a stream (`replay_kind = stream`)
@@ -1002,6 +1048,44 @@ fn replay_runtime_events(
     event_stream_id: &str,
     turn_id: Option<&str>,
 ) -> Result<Vec<Value>, AppError> {
+    use ioi_services::agentic::runtime::event_stream_admission as admission;
+
+    // Reads classify exactly as writes do, on the same determined fact. This
+    // is NOT a fallback: no substrate error routes a read to the legacy log.
+    // An admitted stream projects from Agentgres and only from Agentgres; a
+    // legacy stream reads its own inert history, which is history reading,
+    // not failure recovery.
+    if admission::classify_stream(&st.data_dir, event_stream_id)
+        == admission::StreamHoming::Admitted
+    {
+        let tail = admission::stream_tail(event_stream_id);
+        let history = crate::substrate_store::read_event_stream_history(
+            &st.data_dir,
+            admission::THREAD_ORCHESTRATION_NAMESPACE,
+            &tail,
+        )
+        .map_err(|refusal| AppError(StatusCode::BAD_GATEWAY, refusal.to_string()))?;
+        let mut events = Vec::with_capacity(history.len());
+        for projection in history {
+            let mut event = projection.operation.payload.clone();
+            if let Some(object) = event.as_object_mut() {
+                // Sequence is the substrate's fact about the event, stamped
+                // on read from the admitted projection rather than stored in
+                // the authored bytes.
+                object.insert("seq".to_string(), json!(projection.seq));
+            }
+            if replay_kind == "turn"
+                && turn_id.is_some_and(|wanted| {
+                    event.get("turn_id").and_then(|v| v.as_str()) != Some(wanted)
+                })
+            {
+                continue;
+            }
+            events.push(event);
+        }
+        return Ok(events);
+    }
+
     let request: RuntimeThreadEventReplayRequest = serde_json::from_value(json!({
         "schema_version": RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION,
         "replay_kind": replay_kind,
@@ -1089,6 +1173,19 @@ fn cursor_seq(
 
 /// Build a one-shot SSE body (the JS `writeSse` contract) over the events with seq
 /// greater than the cursor; 409 if the cursor is beyond the latest seq.
+/// Build the SSE body from DURABLE ADMITTED HISTORY.
+///
+/// This body is not a one-shot stream whose contents vanish once written. The
+/// events come from `replay_runtime_events`, which projects the stream's
+/// admitted Agentgres history, so the same request re-issued returns the same
+/// bytes and a resumed request returns exactly the tail after its cursor.
+///
+/// The resume contract is now EXPLICIT on the wire. Previously a consumer had
+/// to infer where to resume from the last `id:` it happened to parse; a
+/// consumer that dropped the connection mid-body had no durable statement of
+/// where it got to. The response now carries the resume point and the latest
+/// admitted sequence as headers, so resumption is read from the response
+/// rather than reconstructed from it.
 fn sse_events_response(
     events: Vec<Value>,
     params: &HashMap<String, String>,
@@ -1121,10 +1218,20 @@ fn sse_events_response(
         let data = serde_json::to_string(event).unwrap_or_default();
         body.push_str(&format!("id: {id}\nevent: runtime.event\ndata: {data}\n\n"));
     }
+    let delivered_through = events
+        .iter()
+        .map(event_seq)
+        .filter(|seq| *seq > since.unwrap_or(0))
+        .max()
+        .unwrap_or_else(|| since.unwrap_or(0));
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "text/event-stream")
         .header(header::CACHE_CONTROL, "no-cache")
+        // The resume contract, stated rather than inferred.
+        .header("x-ioi-resume-after-seq", delivered_through.to_string())
+        .header("x-ioi-latest-seq", latest_seq.to_string())
+        .header("x-ioi-delivery-source", "durable_admitted_history")
         .body(Body::from(body))
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }

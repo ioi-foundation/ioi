@@ -1,5 +1,7 @@
 # AFT Formal Models
 
+Status: internal formal-model index (AFT corpus); non-canonical.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 This directory is the top-level home for the formal artifacts backing the Aft
 protocol family.
 

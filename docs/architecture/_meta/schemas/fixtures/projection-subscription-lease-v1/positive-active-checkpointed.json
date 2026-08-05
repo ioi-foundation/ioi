@@ -1,0 +1,38 @@
+{
+  "schema_version": "ioi.agentgres.projection_subscription_lease.v1",
+  "lease_id": "subscription-lease://sub_7c1e",
+  "stream_id": "event-stream://thread-orchestration/thr_9f2c1a7b",
+  "subscriber_ref": "principal://local-operator",
+  "lease_state": "active",
+  "expires_at_ref": "time-source://ioi/authenticated/v1#lease-7c1e",
+  "projection_binding": {
+    "projection_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+    "permitted_event_class_ids": [
+      "turn.committed",
+      "token.delta"
+    ],
+    "permitted_subject_refs": [
+      "thread://thr_9f2c1a7b"
+    ],
+    "information_flow_label_refs": [
+      "label://ioi/local-only"
+    ]
+  },
+  "backpressure": {
+    "policy_ref": "policy://ioi/agentgres/backpressure/bounded-buffer/v1",
+    "max_undelivered_events": 1024,
+    "lag_outcome": "typed_gap"
+  },
+  "acknowledged_checkpoint": {
+    "admitted_checkpoint_transition": {
+      "operation_ref": "agentgres://operation/subscription-lease/sub_7c1e/sequence/2/head/sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "admission_receipt_ref": "receipt://agentgres/subscription-lease/sub_7c1e/batch/2/9999999999999999999999999999999999999999999999999999999999999999"
+    },
+    "acknowledged_at_ref": "time-source://ioi/authenticated/v1#ack-2"
+  },
+  "admitted_lease_transition": {
+    "operation_ref": "agentgres://operation/subscription-lease/sub_7c1e/sequence/1/head/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "admission_receipt_ref": "receipt://agentgres/subscription-lease/sub_7c1e/batch/1/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "delivery_adapter_kind": "sse"
+}

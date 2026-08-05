@@ -1,5 +1,7 @@
 # Deterministic Observer Sealing
 
+Status: internal protocol spec (AFT corpus); non-canonical.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 `CanonicalChallengeV1` is the normative equal-authority observer lane for
 `Asymptote`.
 

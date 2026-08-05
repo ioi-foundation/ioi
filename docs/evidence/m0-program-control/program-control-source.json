@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-08-01",
+  "as_of_date": "2026-08-03",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -497,7 +497,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/agentgres/doctrine.md",
-      "source_sha256": "b083eb85bded59f19e988f826101f66f512c2e68557425133c7e948bf5a4007e"
+      "source_sha256": "7fa59e32562ec945e305f0057d531b474afed9655eaa515af2a3bc360785bf7b"
     },
     {
       "role": "landed owner canon",
@@ -547,34 +547,35 @@
   ],
   "canon_contradictions": [],
   "discovery_source_coverage": {
+    "rule": "A new production route registry, RPC registry, service implementation, listener source, active JavaScript effect source, or JavaScript filesystem/process action fails before its entries can be consumed.",
     "groups": [
       {
         "coverage_id": "axum_route_registry",
         "sources": [
           {
-            "note": "enumerated conditional session-preview registry",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-            "source_sha256": "7e05decbabc6f2965f481203d48e7bf4cd04295647eba6040bcc416f18a1b709"
+            "source_sha256": "a523eef2368874f89d0f28b38bd7e72110dd0e8e92c002f78a106f06e23b5765",
+            "note": "enumerated conditional session-preview registry"
           },
           {
-            "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "d257f60b39c3a901ffdecb0a62ba5faa782426e0e5af62cb832888a706d0e339"
+            "source_sha256": "76851937528f2642951b6d2d7af864b06a32dc694cf4a4c765bc9a147a2fb57c",
+            "note": "enumerated Hypervisor daemon registry"
           },
           {
-            "note": "enumerated IBC HTTP registry",
             "source_file": "crates/plugins/http-rpc-gateway/src/lib.rs",
-            "source_sha256": "a53dc6bb436810a81fd795cb09c6990b732cc2f152fdda982d44f1debce9305a"
+            "source_sha256": "a53dc6bb436810a81fd795cb09c6990b732cc2f152fdda982d44f1debce9305a",
+            "note": "enumerated IBC HTTP registry"
           },
           {
-            "note": "enumerated telemetry HTTP registry",
             "source_file": "crates/telemetry/src/http.rs",
-            "source_sha256": "ee1f93186005554478cdcc44ec7379d482e65624b8b5f4f0d65a55aa1309c38c"
+            "source_sha256": "ee1f93186005554478cdcc44ec7379d482e65624b8b5f4f0d65a55aa1309c38c",
+            "note": "enumerated telemetry HTTP registry"
           },
           {
-            "note": "enumerated provider HTTP registry",
             "source_file": "crates/validator/src/standard/provider/server.rs",
-            "source_sha256": "4e61832dd2229cd05387fb6c1bb56612bc4ed507d177097148e61e6f3cca09d0"
+            "source_sha256": "4e61832dd2229cd05387fb6c1bb56612bc4ed507d177097148e61e6f3cca09d0",
+            "note": "enumerated provider HTTP registry"
           }
         ]
       },
@@ -582,59 +583,59 @@
         "coverage_id": "blockchain_service_implementation",
         "sources": [
           {
-            "note": "enumerated native service",
             "source_file": "crates/consensus/src/service.rs",
-            "source_sha256": "bedcd57774581caaaaa4fc8c45f293fac87ae352f457c809c5e290d5c4ebe065"
+            "source_sha256": "bedcd57774581caaaaa4fc8c45f293fac87ae352f457c809c5e290d5c4ebe065",
+            "note": "enumerated native service"
           },
           {
-            "note": "enumerated manifest-defined dynamic service wildcard",
             "source_file": "crates/execution/src/runtime_service/mod.rs",
-            "source_sha256": "e803e14cb9234d5fa73b0750551fd23741a664aafc83bf11b0582d9ac9b88eef"
+            "source_sha256": "e803e14cb9234d5fa73b0750551fd23741a664aafc83bf11b0582d9ac9b88eef",
+            "note": "enumerated manifest-defined dynamic service wildcard"
           },
           {
-            "note": "service_interface expansion source; generated registries are enumerated and macro-bound",
             "source_file": "crates/macros/src/lib.rs",
-            "source_sha256": "5e3e30f1fb80e6314b6b49e8b00319741f42523bdb7f6c387cf8d67ba662ef1f"
+            "source_sha256": "5e3e30f1fb80e6314b6b49e8b00319741f42523bdb7f6c387cf8d67ba662ef1f",
+            "note": "service_interface expansion source; generated registries are enumerated and macro-bound"
           },
           {
-            "note": "enumerated native service",
             "source_file": "crates/plugins/ibc-service/src/core/registry.rs",
-            "source_sha256": "8f711bd18f4f804f6fc72fd87f56043b64dd730c0c91d160f320fdcd0c74f810"
+            "source_sha256": "8f711bd18f4f804f6fc72fd87f56043b64dd730c0c91d160f320fdcd0c74f810",
+            "note": "enumerated native service"
           },
           {
-            "note": "enumerated native service",
             "source_file": "crates/services/src/agentic/leakage.rs",
-            "source_sha256": "c1c9b369aacbb171310f53a175dc201e207e0f76446b9c27de999432e4ec7b0b"
+            "source_sha256": "c1c9b369aacbb171310f53a175dc201e207e0f76446b9c27de999432e4ec7b0b",
+            "note": "enumerated native service"
           },
           {
-            "note": "enumerated native service",
             "source_file": "crates/services/src/agentic/runtime/service/mod.rs",
-            "source_sha256": "7a76d91400d77ced79a91241564f42b8d32b77bbd165b714b1f56a2be2a7ca2f"
+            "source_sha256": "7a76d91400d77ced79a91241564f42b8d32b77bbd165b714b1f56a2be2a7ca2f",
+            "note": "enumerated native service"
           },
           {
-            "note": "enumerated native service",
             "source_file": "crates/services/src/guardian_registry/service.rs",
-            "source_sha256": "11f4265b8c404559861b985df773c696ba36b7f9096a43901a1991a6fe9053a2"
+            "source_sha256": "11f4265b8c404559861b985df773c696ba36b7f9096a43901a1991a6fe9053a2",
+            "note": "enumerated native service"
           },
           {
-            "note": "enumerated native service",
             "source_file": "crates/services/src/identity/mod.rs",
-            "source_sha256": "c84f011835d2979cc9da8d3722e6b18177fd25f49f6c92f0fe2dbcd744aef4a1"
+            "source_sha256": "c84f011835d2979cc9da8d3722e6b18177fd25f49f6c92f0fe2dbcd744aef4a1",
+            "note": "enumerated native service"
           },
           {
-            "note": "enumerated native service",
             "source_file": "crates/services/src/provider_registry/mod.rs",
-            "source_sha256": "8d62352f6a386a9ac760a3ea3c965921cda493ccffe14b63b90e304f193b16bd"
+            "source_sha256": "8d62352f6a386a9ac760a3ea3c965921cda493ccffe14b63b90e304f193b16bd",
+            "note": "enumerated native service"
           },
           {
-            "note": "enumerated wallet.network service registry",
             "source_file": "crates/services/src/wallet_network/mod.rs",
-            "source_sha256": "8b4244ed4c3e4fb8f16c76863ef99818605e46a1c5313677f97465003e8609b0"
+            "source_sha256": "8b4244ed4c3e4fb8f16c76863ef99818605e46a1c5313677f97465003e8609b0",
+            "note": "enumerated wallet.network service registry"
           },
           {
-            "note": "no externally callable service method; transaction decorator and end-block hooks only",
             "source_file": "crates/vm/wasm/src/wasm_service.rs",
-            "source_sha256": "23cf77970be4bf81e0e5114883b2fffad8f6fe6ff8ad1d4b2c8d50609f5eae3c"
+            "source_sha256": "23cf77970be4bf81e0e5114883b2fffad8f6fe6ff8ad1d4b2c8d50609f5eae3c",
+            "note": "no externally callable service method; transaction decorator and end-block hooks only"
           }
         ]
       },
@@ -642,24 +643,24 @@
         "coverage_id": "proto_rpc_registry",
         "sources": [
           {
-            "note": "enumerated mounted workload RPC registries",
             "source_file": "crates/ipc/proto/blockchain/v1/blockchain.proto",
-            "source_sha256": "8079b9f80e346dd5fd27b8062c0638541c9f3bf2c111628a55346f8e4d7ccf3b"
+            "source_sha256": "8079b9f80e346dd5fd27b8062c0638541c9f3bf2c111628a55346f8e4d7ccf3b",
+            "note": "enumerated mounted workload RPC registries"
           },
           {
-            "note": "enumerated mounted workload and conditional Guardian RPC registries",
             "source_file": "crates/ipc/proto/control/v1/control.proto",
-            "source_sha256": "9cdaad1ae6cff08313c54001d9ff33cb2be48c452aaf99dda2c7f36c0fd0b825"
+            "source_sha256": "9cdaad1ae6cff08313c54001d9ff33cb2be48c452aaf99dda2c7f36c0fd0b825",
+            "note": "enumerated mounted workload and conditional Guardian RPC registries"
           },
           {
-            "note": "enumerated unmounted compatibility contract",
             "source_file": "crates/ipc/proto/model_mount/v1/model_mount.proto",
-            "source_sha256": "274342ce610f87b6448480046225fe74db3573b00e39ef6e1eab82c479e3eeb0"
+            "source_sha256": "274342ce610f87b6448480046225fe74db3573b00e39ef6e1eab82c479e3eeb0",
+            "note": "enumerated unmounted compatibility contract"
           },
           {
-            "note": "enumerated mounted public API registry",
             "source_file": "crates/ipc/proto/public/v1/public.proto",
-            "source_sha256": "d8860562792b22870f41a5c81d0046805b066c95fb08f73b24066f347f9e3a02"
+            "source_sha256": "d8860562792b22870f41a5c81d0046805b066c95fb08f73b24066f347f9e3a02",
+            "note": "enumerated mounted public API registry"
           }
         ]
       },
@@ -667,19 +668,19 @@
         "coverage_id": "tonic_service_registration",
         "sources": [
           {
-            "note": "enumerated conditional Guardian gRPC registry",
             "source_file": "crates/node/src/bin/guardian.rs",
-            "source_sha256": "fd064246fe8209bd36a6a947858a4d49426c5e6e4395151ddf823892604d6669"
+            "source_sha256": "fd064246fe8209bd36a6a947858a4d49426c5e6e4395151ddf823892604d6669",
+            "note": "enumerated conditional Guardian gRPC registry"
           },
           {
-            "note": "enumerated mounted public API registry",
             "source_file": "crates/validator/src/standard/orchestration/lifecycle.rs",
-            "source_sha256": "6d4584d6d55f3e481f1cc17f13080a4b8b403723d00f538db34e2c60e4653edf"
+            "source_sha256": "6d4584d6d55f3e481f1cc17f13080a4b8b403723d00f538db34e2c60e4653edf",
+            "note": "enumerated mounted public API registry"
           },
           {
-            "note": "enumerated mounted internal workload RPC registries",
             "source_file": "crates/validator/src/standard/workload/ipc/mod.rs",
-            "source_sha256": "e3cf54f361c9a5cbd34c5addb5f476cb312a2aee807de2bae0a2bc501c9aa15e"
+            "source_sha256": "e3cf54f361c9a5cbd34c5addb5f476cb312a2aee807de2bae0a2bc501c9aa15e",
+            "note": "enumerated mounted internal workload RPC registries"
           }
         ]
       },
@@ -687,114 +688,114 @@
         "coverage_id": "rust_listener_or_server_source",
         "sources": [
           {
-            "note": "enumerated standalone AGRS2 replication binary registration",
             "source_file": "crates/agentgres/src/bin/replica.rs",
-            "source_sha256": "51e5c931947e44d08274c8125dfcab2d679d8c9a88c589e18e4dba23ffac56d3"
+            "source_sha256": "51e5c931947e44d08274c8125dfcab2d679d8c9a88c589e18e4dba23ffac56d3",
+            "note": "enumerated standalone AGRS2 replication binary registration"
           },
           {
-            "note": "ReplicaServer binds occur only in the cfg(test) module",
             "source_file": "crates/agentgres/src/mux.rs",
-            "source_sha256": "981080e895898b655e08698a2197bf1208d04beb37b2a31a773646792056fba0"
+            "source_sha256": "981080e895898b655e08698a2197bf1208d04beb37b2a31a773646792056fba0",
+            "note": "ReplicaServer binds occur only in the cfg(test) module"
           },
           {
-            "note": "enumerated standalone AGRS2 replication wildcard",
             "source_file": "crates/agentgres/src/replica.rs",
-            "source_sha256": "fa6ee010f23b80373653729dccd2bb6dcb3061ac0b10518c157230db11a3c319"
+            "source_sha256": "fa6ee010f23b80373653729dccd2bb6dcb3061ac0b10518c157230db11a3c319",
+            "note": "enumerated standalone AGRS2 replication wildcard"
           },
           {
-            "note": "test support, not a shipped application listener",
             "source_file": "crates/cli/src/testing/backend.rs",
-            "source_sha256": "f5cd62080701e81fd7e202f8285528217bda995e2d3ec5a4ff71080bfa2d7adf"
+            "source_sha256": "f5cd62080701e81fd7e202f8285528217bda995e2d3ec5a4ff71080bfa2d7adf",
+            "note": "test support, not a shipped application listener"
           },
           {
-            "note": "test support, not a shipped application listener",
             "source_file": "crates/cli/src/testing/validator.rs",
-            "source_sha256": "f16f48ef0dd4405502287f5f69712125510b851387e5828b509011d676455562"
+            "source_sha256": "f16f48ef0dd4405502287f5f69712125510b851387e5828b509011d676455562",
+            "note": "test support, not a shipped application listener"
           },
           {
-            "note": "enumerated conditional Guardian gRPC registry",
             "source_file": "crates/node/src/bin/guardian.rs",
-            "source_sha256": "fd064246fe8209bd36a6a947858a4d49426c5e6e4395151ddf823892604d6669"
+            "source_sha256": "fd064246fe8209bd36a6a947858a4d49426c5e6e4395151ddf823892604d6669",
+            "note": "enumerated conditional Guardian gRPC registry"
           },
           {
-            "note": "ephemeral free-port reservation and private child runtime, reached through enumerated daemon and proxy entries",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/editor_host.rs",
-            "source_sha256": "aabb6cd0ae50b28ec61981c79b1299eda380eee6580747431d05fad3f7918645"
+            "source_sha256": "aabb6cd0ae50b28ec61981c79b1299eda380eee6580747431d05fad3f7918645",
+            "note": "ephemeral free-port reservation and private child runtime, reached through enumerated daemon and proxy entries"
           },
           {
-            "note": "enumerated dynamic lease-gated editor proxy wildcard",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs",
-            "source_sha256": "91a63096a50a817f742d9ce13e6e4df7b40781a1cddf3238662d91b720c154c7"
+            "source_sha256": "91a63096a50a817f742d9ce13e6e4df7b40781a1cddf3238662d91b720c154c7",
+            "note": "enumerated dynamic lease-gated editor proxy wildcard"
           },
           {
-            "note": "enumerated conditional session-preview registry",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-            "source_sha256": "7e05decbabc6f2965f481203d48e7bf4cd04295647eba6040bcc416f18a1b709"
+            "source_sha256": "a523eef2368874f89d0f28b38bd7e72110dd0e8e92c002f78a106f06e23b5765",
+            "note": "enumerated conditional session-preview registry"
           },
           {
-            "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "d257f60b39c3a901ffdecb0a62ba5faa782426e0e5af62cb832888a706d0e339"
+            "source_sha256": "76851937528f2642951b6d2d7af864b06a32dc694cf4a4c765bc9a147a2fb57c",
+            "note": "enumerated Hypervisor daemon registry"
           },
           {
-            "note": "enumerated signer POST /sign surface",
             "source_file": "crates/node/src/bin/signer.rs",
-            "source_sha256": "097e98860a4571982fd53b235975b522f5793ec13dadf1bdf8269c3b9ca4c396"
+            "source_sha256": "097e98860a4571982fd53b235975b522f5793ec13dadf1bdf8269c3b9ca4c396",
+            "note": "enumerated signer POST /sign surface"
           },
           {
-            "note": "enumerated IBC HTTP registry",
             "source_file": "crates/plugins/http-rpc-gateway/src/lib.rs",
-            "source_sha256": "a53dc6bb436810a81fd795cb09c6990b732cc2f152fdda982d44f1debce9305a"
+            "source_sha256": "a53dc6bb436810a81fd795cb09c6990b732cc2f152fdda982d44f1debce9305a",
+            "note": "enumerated IBC HTTP registry"
           },
           {
-            "note": "enumerated conditional Google OAuth callback",
             "source_file": "crates/services/src/agentic/runtime/connectors/google_auth.rs",
-            "source_sha256": "d013c5cbab210d99c465d80043373276873ea7edb2a3fd033539c9c3d0a897f1"
+            "source_sha256": "d013c5cbab210d99c465d80043373276873ea7edb2a3fd033539c9c3d0a897f1",
+            "note": "enumerated conditional Google OAuth callback"
           },
           {
-            "note": "cfg(test) fixture listener within a production source file",
             "source_file": "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs",
-            "source_sha256": "6ea7fb18c98887dec4ed04abe5ca8a9298a626b9cb3ea41a518b5145178354c6"
+            "source_sha256": "6ea7fb18c98887dec4ed04abe5ca8a9298a626b9cb3ea41a518b5145178354c6",
+            "note": "cfg(test) fixture listener within a production source file"
           },
           {
-            "note": "cfg(test) fixture listener within a production source file",
             "source_file": "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
-            "source_sha256": "4774ed141a95d5feccd67e45307d4537a6c882df54cd16ff29a71e5fcb1da08a"
+            "source_sha256": "4774ed141a95d5feccd67e45307d4537a6c882df54cd16ff29a71e5fcb1da08a",
+            "note": "cfg(test) fixture listener within a production source file"
           },
           {
-            "note": "cfg(test) fixture listener within a production source file",
             "source_file": "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs",
-            "source_sha256": "e76fb24c8a6effa8ace3a06498acd3a312349442ab52b535a2b3c52baade06b2"
+            "source_sha256": "e76fb24c8a6effa8ace3a06498acd3a312349442ab52b535a2b3c52baade06b2",
+            "note": "cfg(test) fixture listener within a production source file"
           },
           {
-            "note": "cfg(test) fixture listener within a production source file",
             "source_file": "crates/services/src/agentic/runtime/kernel/model_mount/storage_control.rs",
-            "source_sha256": "7e0e707914153ef0f4136f6e04095ee1bcebcc2fc123c082ad31a6f1e0471da9"
+            "source_sha256": "7e0e707914153ef0f4136f6e04095ee1bcebcc2fc123c082ad31a6f1e0471da9",
+            "note": "cfg(test) fixture listener within a production source file"
           },
           {
-            "note": "enumerated telemetry HTTP registry",
             "source_file": "crates/telemetry/src/http.rs",
-            "source_sha256": "ee1f93186005554478cdcc44ec7379d482e65624b8b5f4f0d65a55aa1309c38c"
+            "source_sha256": "ee1f93186005554478cdcc44ec7379d482e65624b8b5f4f0d65a55aa1309c38c",
+            "note": "enumerated telemetry HTTP registry"
           },
           {
-            "note": "enumerated encrypted Guardian channel wildcard",
             "source_file": "crates/validator/src/common/guardian/server.rs",
-            "source_sha256": "4b2faeed0acd7ea84b48f8987b9125906995746ad6daf6dd71dbd48c512bfbd5"
+            "source_sha256": "4b2faeed0acd7ea84b48f8987b9125906995746ad6daf6dd71dbd48c512bfbd5",
+            "note": "enumerated encrypted Guardian channel wildcard"
           },
           {
-            "note": "enumerated mounted public API registry",
             "source_file": "crates/validator/src/standard/orchestration/lifecycle.rs",
-            "source_sha256": "6d4584d6d55f3e481f1cc17f13080a4b8b403723d00f538db34e2c60e4653edf"
+            "source_sha256": "6d4584d6d55f3e481f1cc17f13080a4b8b403723d00f538db34e2c60e4653edf",
+            "note": "enumerated mounted public API registry"
           },
           {
-            "note": "enumerated provider HTTP registry",
             "source_file": "crates/validator/src/standard/provider/server.rs",
-            "source_sha256": "4e61832dd2229cd05387fb6c1bb56612bc4ed507d177097148e61e6f3cca09d0"
+            "source_sha256": "4e61832dd2229cd05387fb6c1bb56612bc4ed507d177097148e61e6f3cca09d0",
+            "note": "enumerated provider HTTP registry"
           },
           {
-            "note": "enumerated mounted internal workload RPC registries",
             "source_file": "crates/validator/src/standard/workload/ipc/mod.rs",
-            "source_sha256": "e3cf54f361c9a5cbd34c5addb5f476cb312a2aee807de2bae0a2bc501c9aa15e"
+            "source_sha256": "e3cf54f361c9a5cbd34c5addb5f476cb312a2aee807de2bae0a2bc501c9aa15e",
+            "note": "enumerated mounted internal workload RPC registries"
           }
         ]
       },
@@ -802,29 +803,29 @@
         "coverage_id": "service_interface_registry",
         "sources": [
           {
-            "note": "source template only; generated services are not mounted by this file",
             "source_file": "crates/cli/src/commands/scaffold.rs",
-            "source_sha256": "1fb3e5abe3a422804fc7d1802b53f117184bf8dd8b06e80f44ab41814386b0e4"
+            "source_sha256": "1fb3e5abe3a422804fc7d1802b53f117184bf8dd8b06e80f44ab41814386b0e4",
+            "note": "source template only; generated services are not mounted by this file"
           },
           {
-            "note": "enumerated unavailable legacy service",
             "source_file": "crates/services/src/agentic/evolution.rs",
-            "source_sha256": "c9c9571444ca40c91a2eb61cbf53ea839232b6c2e4f6768568767d8a1027f03d"
+            "source_sha256": "c9c9571444ca40c91a2eb61cbf53ea839232b6c2e4f6768568767d8a1027f03d",
+            "note": "enumerated unavailable legacy service"
           },
           {
-            "note": "enumerated native service",
             "source_file": "crates/services/src/agentic/optimizer.rs",
-            "source_sha256": "70157c64c2ef1af0a331bb7cbe203edddfc9249117d6ca1094bd67432640e332"
+            "source_sha256": "70157c64c2ef1af0a331bb7cbe203edddfc9249117d6ca1094bd67432640e332",
+            "note": "enumerated native service"
           },
           {
-            "note": "enumerated native service",
             "source_file": "crates/services/src/governance/mod.rs",
-            "source_sha256": "7108aadf177cf2a6fe10708aee96ea5452c3080d09b61a5a911f02f62e360e88"
+            "source_sha256": "7108aadf177cf2a6fe10708aee96ea5452c3080d09b61a5a911f02f62e360e88",
+            "note": "enumerated native service"
           },
           {
-            "note": "enumerated native service",
             "source_file": "crates/services/src/market/mod.rs",
-            "source_sha256": "25be6f78b9119239d57ccad95f8135e94e2fb1eccc062bf744586f00355dc2e0"
+            "source_sha256": "25be6f78b9119239d57ccad95f8135e94e2fb1eccc062bf744586f00355dc2e0",
+            "note": "enumerated native service"
           }
         ]
       },
@@ -832,124 +833,124 @@
         "coverage_id": "active_javascript_effect_source",
         "sources": [
           {
-            "note": "active application read projection",
             "source_file": "apps/benchmarks/src/App.tsx",
-            "source_sha256": "386c0f95ff520bf72a4acfe0429139ad7a375c5efc0954617c1b91ffdff6ece3"
+            "source_sha256": "386c0f95ff520bf72a4acfe0429139ad7a375c5efc0954617c1b91ffdff6ece3",
+            "note": "active application read projection"
           },
           {
-            "note": "dynamically concatenated product UI read crossing",
             "source_file": "apps/hypervisor/scripts/augmentation/10-run-timeline.js",
-            "source_sha256": "f879c0b2a2cd9d9673f8d8436880e9b59449bfe430c03469ef23ab92debcb227"
+            "source_sha256": "f879c0b2a2cd9d9673f8d8436880e9b59449bfe430c03469ef23ab92debcb227",
+            "note": "dynamically concatenated product UI read crossing"
           },
           {
-            "note": "dynamically concatenated product UI read crossing",
             "source_file": "apps/hypervisor/scripts/augmentation/35-app-catalog.js",
-            "source_sha256": "4d4bc784108d77d2f082a6aaabee3cbdd044fa6bc48ed849cccd7bd0022c1cc1"
+            "source_sha256": "4d4bc784108d77d2f082a6aaabee3cbdd044fa6bc48ed849cccd7bd0022c1cc1",
+            "note": "dynamically concatenated product UI read crossing"
           },
           {
-            "note": "dynamically concatenated product UI read crossing",
             "source_file": "apps/hypervisor/scripts/augmentation/40-home-explorer.js",
-            "source_sha256": "4033fd5dff13fa755871a7ae799df6f02880c25edee8d7c3cbc223b7e8c35c53"
+            "source_sha256": "4033fd5dff13fa755871a7ae799df6f02880c25edee8d7c3cbc223b7e8c35c53",
+            "note": "dynamically concatenated product UI read crossing"
           },
           {
-            "note": "dynamically concatenated product UI read, plan, and mutation crossings",
             "source_file": "apps/hypervisor/scripts/augmentation/50-new-session.js",
-            "source_sha256": "35b8cb3928856022ae9cdd49bb89ec85363bfbb7f1bcc85b3bbac8b232bbff78"
+            "source_sha256": "35b8cb3928856022ae9cdd49bb89ec85363bfbb7f1bcc85b3bbac8b232bbff78",
+            "note": "dynamically concatenated product UI read, plan, and mutation crossings"
           },
           {
-            "note": "dynamically concatenated product UI read and mutation crossings",
             "source_file": "apps/hypervisor/scripts/augmentation/70-cockpit-panel.js",
-            "source_sha256": "c0abbcbb68ba123f0aae984b6a3a8daa2c46ce4671f758acc9790493238921d8"
+            "source_sha256": "c0abbcbb68ba123f0aae984b6a3a8daa2c46ce4671f758acc9790493238921d8",
+            "note": "dynamically concatenated product UI read and mutation crossings"
           },
           {
-            "note": "standing product UI daemon crossings",
             "source_file": "apps/hypervisor/scripts/ioi-agent-runs.mjs",
-            "source_sha256": "f401cfa1f1573e59a191c590d3a6d5c0900f6fe0276b8a6a712ec1c5cab37338"
+            "source_sha256": "f401cfa1f1573e59a191c590d3a6d5c0900f6fe0276b8a6a712ec1c5cab37338",
+            "note": "standing product UI daemon crossings"
           },
           {
-            "note": "standing product UI daemon crossings and local preference file",
             "source_file": "apps/hypervisor/scripts/ioi-api-adapter.mjs",
-            "source_sha256": "59259b736ac512c146a55ce76716ff55e8ad0fa4a581d3d93f8b2356edef9e1d"
+            "source_sha256": "59259b736ac512c146a55ce76716ff55e8ad0fa4a581d3d93f8b2356edef9e1d",
+            "note": "standing product UI daemon crossings and local preference file"
           },
           {
-            "note": "standing product UI server, proxy, and daemon crossings",
             "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_sha256": "c4c925fb8bfa8cfa4cc25d12732368a8c7f141649624d9525ca16a17a2857741"
+            "source_sha256": "c4c925fb8bfa8cfa4cc25d12732368a8c7f141649624d9525ca16a17a2857741",
+            "note": "standing product UI server, proxy, and daemon crossings"
           },
           {
-            "note": "M1.7 system-genesis surfaces: readouts and verbatim daemon proxies",
             "source_file": "apps/hypervisor/scripts/system-genesis-surfaces.mjs",
-            "source_sha256": "f235bc2bc192207b52a97bf3fb0488a70cfb0d6590a7c6f03f00057073fce6a4"
+            "source_sha256": "f235bc2bc192207b52a97bf3fb0488a70cfb0d6590a7c6f03f00057073fce6a4",
+            "note": "M1.7 system-genesis surfaces: readouts and verbatim daemon proxies"
           },
           {
-            "note": "Vite development replay mutation crossing",
             "source_file": "apps/hypervisor/src/dev/hypervisorDevHostBridge.ts",
-            "source_sha256": "a4d26299329463c416d136633bec54822d1faacc8b9f13779e35276f2e6ea1a2"
+            "source_sha256": "a4d26299329463c416d136633bec54822d1faacc8b9f13779e35276f2e6ea1a2",
+            "note": "Vite development replay mutation crossing"
           },
           {
-            "note": "Vite development replay read crossing and local endpoint state",
             "source_file": "apps/hypervisor/src/dev/hypervisorDevReplayClient.ts",
-            "source_sha256": "33d63e3261517307ff527b95041ae7420f8dd36eaca2cc996c4cfe9dba6b683f"
+            "source_sha256": "33d63e3261517307ff527b95041ae7420f8dd36eaca2cc996c4cfe9dba6b683f",
+            "note": "Vite development replay read crossing and local endpoint state"
           },
           {
-            "note": "active browser appearance compatibility state",
             "source_file": "apps/hypervisor/src/services/hypervisorAppearance.ts",
-            "source_sha256": "b941bf54f7df71426fb4f30aced32462da1d2e13bfe629aabb758a42e0902bf2"
+            "source_sha256": "b941bf54f7df71426fb4f30aced32462da1d2e13bfe629aabb758a42e0902bf2",
+            "note": "active browser appearance compatibility state"
           },
           {
-            "note": "active literal host commands and local compatibility state",
             "source_file": "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
-            "source_sha256": "edc50052442f81e1cd9c3df458baf7ac98bd8d52d8aa4541803b8b723108dbf7"
+            "source_sha256": "edc50052442f81e1cd9c3df458baf7ac98bd8d52d8aa4541803b8b723108dbf7",
+            "note": "active literal host commands and local compatibility state"
           },
           {
-            "note": "dynamic host bridge leaf; all active literal callers are enumerated",
             "source_file": "apps/hypervisor/src/services/hypervisorHostBridge.ts",
-            "source_sha256": "95382438241ef622a0ed23a67fd1e0a97e6dfe2cbdb5eb5496d6d98ea3d05408"
+            "source_sha256": "95382438241ef622a0ed23a67fd1e0a97e6dfe2cbdb5eb5496d6d98ea3d05408",
+            "note": "dynamic host bridge leaf; all active literal callers are enumerated"
           },
           {
-            "note": "active literal host commands and local compatibility state",
             "source_file": "apps/hypervisor/src/services/hypervisorLaunchState.ts",
-            "source_sha256": "ead6b17fe4410a3b944c84986bea780258e5cd6f74bef29b0694ca14b4b13874"
+            "source_sha256": "ead6b17fe4410a3b944c84986bea780258e5cd6f74bef29b0694ca14b4b13874",
+            "note": "active literal host commands and local compatibility state"
           },
           {
-            "note": "standing product UI read and mutation crossings",
             "source_file": "apps/hypervisor/surfaces/approvals/index.mjs",
-            "source_sha256": "1add34976e38faae3980917a6abc07f58efa64f8712c800a4b30520730be288c"
+            "source_sha256": "1add34976e38faae3980917a6abc07f58efa64f8712c800a4b30520730be288c",
+            "note": "standing product UI read and mutation crossings"
           },
           {
-            "note": "standing product UI read crossing",
             "source_file": "apps/hypervisor/surfaces/ontology-context.mjs",
-            "source_sha256": "e4a498ec9eea24456cc0a33671cc5968304752f11aec487018f9a60a73545f75"
+            "source_sha256": "e4a498ec9eea24456cc0a33671cc5968304752f11aec487018f9a60a73545f75",
+            "note": "standing product UI read crossing"
           },
           {
-            "note": "standing product UI read crossings",
             "source_file": "apps/hypervisor/surfaces/ontology-manager/index.mjs",
-            "source_sha256": "65b9b7f0d03bfd6b5c192001de284abb2d0b8efa10a495b5656b55d2282cedf2"
+            "source_sha256": "65b9b7f0d03bfd6b5c192001de284abb2d0b8efa10a495b5656b55d2282cedf2",
+            "note": "standing product UI read crossings"
           },
           {
-            "note": "standing product UI read crossings",
             "source_file": "apps/hypervisor/surfaces/pipeline/index.mjs",
-            "source_sha256": "c27af691fb069819e873e1d71b4c7ae9ad6c9b080bd320b5fd748894cdd108c7"
+            "source_sha256": "c27af691fb069819e873e1d71b4c7ae9ad6c9b080bd320b5fd748894cdd108c7",
+            "note": "standing product UI read crossings"
           },
           {
-            "note": "standing product UI read and mutation crossings",
             "source_file": "apps/hypervisor/surfaces/sources/index.mjs",
-            "source_sha256": "da5bed6b35780fee1e38121361bc804d9d47cb39941b1d34b04e0be7abd9b471"
+            "source_sha256": "da5bed6b35780fee1e38121361bc804d9d47cb39941b1d34b04e0be7abd9b471",
+            "note": "standing product UI read and mutation crossings"
           },
           {
-            "note": "active demo application browser compatibility state",
             "source_file": "apps/sas-xyz/v2/app.jsx",
-            "source_sha256": "60d729fdf2dbd86dcafc3dfe85ffe0164950c22c9954a13c77baa6f58ac0644b"
+            "source_sha256": "60d729fdf2dbd86dcafc3dfe85ffe0164950c22c9954a13c77baa6f58ac0644b",
+            "note": "active demo application browser compatibility state"
           },
           {
-            "note": "development replay dispatch, local evidence write, and configured model upstream",
             "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
-            "source_sha256": "a7345f864c203348b5ac76a1956605e32cc0089e5098c8ebaec0a871c54c2a68"
+            "source_sha256": "a7345f864c203348b5ac76a1956605e32cc0089e5098c8ebaec0a871c54c2a68",
+            "note": "development replay dispatch, local evidence write, and configured model upstream"
           },
           {
-            "note": "explicit test-signer child-process crossing, dynamically loaded only by the development flag",
             "source_file": "scripts/lib/mint-approval-grant.mjs",
-            "source_sha256": "f78c822247a6abecfbe1ec1e8c0efc1f52fc25029a4a72a388a2cf68f77b1ba3"
+            "source_sha256": "f78c822247a6abecfbe1ec1e8c0efc1f52fc25029a4a72a388a2cf68f77b1ba3",
+            "note": "explicit test-signer child-process crossing, dynamically loaded only by the development flag"
           }
         ]
       },
@@ -957,142 +958,141 @@
         "coverage_id": "active_javascript_server_source",
         "sources": [
           {
-            "note": "spawned reference UI compatibility server; dynamic mock and static fallback are file-locked",
             "source_file": "apps/hypervisor/product-ui/server.cjs",
-            "source_sha256": "61090d7e9c1f90d0dc9f509b6297fb4859a4eee25d8b012378a8e540befbbfd3"
+            "source_sha256": "61090d7e9c1f90d0dc9f509b6297fb4859a4eee25d8b012378a8e540befbbfd3",
+            "note": "spawned reference UI compatibility server; dynamic mock and static fallback are file-locked"
           },
           {
-            "note": "standing product UI HTTP and WebSocket compatibility facade",
             "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_sha256": "c4c925fb8bfa8cfa4cc25d12732368a8c7f141649624d9525ca16a17a2857741"
+            "source_sha256": "c4c925fb8bfa8cfa4cc25d12732368a8c7f141649624d9525ca16a17a2857741",
+            "note": "standing product UI HTTP and WebSocket compatibility facade"
           },
           {
-            "note": "explicit development replay HTTP server",
             "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
-            "source_sha256": "a7345f864c203348b5ac76a1956605e32cc0089e5098c8ebaec0a871c54c2a68"
+            "source_sha256": "a7345f864c203348b5ac76a1956605e32cc0089e5098c8ebaec0a871c54c2a68",
+            "note": "explicit development replay HTTP server"
           }
         ]
       },
       {
+        "coverage_id": "active_javascript_system_effect_action",
         "actions": [
           {
-            "calls": [
-              "mkdirSync",
-              "writeFileSync"
-            ],
             "identity": "js-system-effect:apps/hypervisor/scripts/ioi-api-adapter.mjs#saveStore",
             "operation": "ANY /api/ioi.v1.UserService/SetPreference",
-            "source_anchor_sha256": "56f26176a22cd3b1842ef6152b5b03b98079272d98c30ba41377714c6fcdfb1b",
             "source_file": "apps/hypervisor/scripts/ioi-api-adapter.mjs",
-            "source_line": 185
-          },
-          {
-            "calls": [
-              "process.exit"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6733",
-            "operation": "PROCESS_EXIT product-ui reference bundle unavailable",
-            "source_anchor_sha256": "e6fbd330cbb79f2a4b061f9b1d0911d41e8aecfbd616bae583ef00f13c175958",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6733
-          },
-          {
-            "calls": [
-              "spawn"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6737",
-            "operation": "PROCESS_START product-ui reference server",
-            "source_anchor_sha256": "a09c84d7728f4a32d20a9e98c513a289ca65b06706d068a0ab741f3e44c61f03",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6737
-          },
-          {
-            "calls": [
-              "process.exit"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6741",
-            "operation": "PROCESS_EXIT propagate product-ui reference server exit",
-            "source_anchor_sha256": "91aa1cf7542dfcf2c141e275aef7f3c2f3e5210ccfd552ca26fcf541e027783f",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6741
-          },
-          {
-            "calls": [
-              "productUi.kill"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6742",
-            "operation": "SIGINT terminate product-ui reference server",
-            "source_anchor_sha256": "051f090d2a51ca9965ee2566b11249f146e8b2ee0be5779b489a94f4f1d8b3ad",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6742
-          },
-          {
-            "calls": [
-              "productUi.kill"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6743",
-            "operation": "SIGTERM terminate product-ui reference server",
-            "source_anchor_sha256": "5ee8fae5f118ffac6499d46e889fa8ba78fa289a065172e77188848c64de2510",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 6743
-          },
-          {
-            "calls": [
-              "process.exit"
-            ],
-            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#waitForMirror",
-            "operation": "PROCESS_EXIT product-ui reference server startup timeout",
-            "source_anchor_sha256": "07a055ad9350d7161fc208ca9ed8a5ebcdefc9a67a71074c40cce76f671fc80f",
-            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
-            "source_line": 10602
-          },
-          {
-            "calls": [
-              "process.exit"
-            ],
-            "identity": "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#module_scope_line_3701",
-            "operation": "PROCESS_EXIT development replay startup failure",
-            "source_anchor_sha256": "5091a4d12946a8c8f7357fe4b532c3c999a9c6092863d1a3cbcfbb93bf423209",
-            "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
-            "source_line": 3701
-          },
-          {
-            "calls": [
-              "process.exit"
-            ],
-            "identity": "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#shutdown",
-            "operation": "PROCESS_EXIT development replay signal shutdown",
-            "source_anchor_sha256": "f1e9ea388e9f848b69e30c46ebe5fef640d80bc397cdff02d4312a170e201158",
-            "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
-            "source_line": 3692
-          },
-          {
+            "source_line": 185,
+            "source_anchor_sha256": "56f26176a22cd3b1842ef6152b5b03b98079272d98c30ba41377714c6fcdfb1b",
             "calls": [
               "mkdirSync",
               "writeFileSync"
-            ],
-            "identity": "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#writeEvidenceFile",
-            "operation": "explicitly configured development evidence file write",
-            "source_anchor_sha256": "e2a5cc4f219ae5d79cee9398015e878b523ec6f885e3dd0c3a2c478e8747a009",
-            "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
-            "source_line": 2427
+            ]
           },
           {
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6733",
+            "operation": "PROCESS_EXIT product-ui reference bundle unavailable",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 6733,
+            "source_anchor_sha256": "e6fbd330cbb79f2a4b061f9b1d0911d41e8aecfbd616bae583ef00f13c175958",
+            "calls": [
+              "process.exit"
+            ]
+          },
+          {
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6737",
+            "operation": "PROCESS_START product-ui reference server",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 6737,
+            "source_anchor_sha256": "a09c84d7728f4a32d20a9e98c513a289ca65b06706d068a0ab741f3e44c61f03",
+            "calls": [
+              "spawn"
+            ]
+          },
+          {
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6741",
+            "operation": "PROCESS_EXIT propagate product-ui reference server exit",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 6741,
+            "source_anchor_sha256": "91aa1cf7542dfcf2c141e275aef7f3c2f3e5210ccfd552ca26fcf541e027783f",
+            "calls": [
+              "process.exit"
+            ]
+          },
+          {
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6742",
+            "operation": "SIGINT terminate product-ui reference server",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 6742,
+            "source_anchor_sha256": "051f090d2a51ca9965ee2566b11249f146e8b2ee0be5779b489a94f4f1d8b3ad",
+            "calls": [
+              "productUi.kill"
+            ]
+          },
+          {
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6743",
+            "operation": "SIGTERM terminate product-ui reference server",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 6743,
+            "source_anchor_sha256": "5ee8fae5f118ffac6499d46e889fa8ba78fa289a065172e77188848c64de2510",
+            "calls": [
+              "productUi.kill"
+            ]
+          },
+          {
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#waitForMirror",
+            "operation": "PROCESS_EXIT product-ui reference server startup timeout",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 10602,
+            "source_anchor_sha256": "07a055ad9350d7161fc208ca9ed8a5ebcdefc9a67a71074c40cce76f671fc80f",
+            "calls": [
+              "process.exit"
+            ]
+          },
+          {
+            "identity": "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#module_scope_line_3701",
+            "operation": "PROCESS_EXIT development replay startup failure",
+            "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
+            "source_line": 3701,
+            "source_anchor_sha256": "5091a4d12946a8c8f7357fe4b532c3c999a9c6092863d1a3cbcfbb93bf423209",
+            "calls": [
+              "process.exit"
+            ]
+          },
+          {
+            "identity": "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#shutdown",
+            "operation": "PROCESS_EXIT development replay signal shutdown",
+            "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
+            "source_line": 3692,
+            "source_anchor_sha256": "f1e9ea388e9f848b69e30c46ebe5fef640d80bc397cdff02d4312a170e201158",
+            "calls": [
+              "process.exit"
+            ]
+          },
+          {
+            "identity": "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#writeEvidenceFile",
+            "operation": "explicitly configured development evidence file write",
+            "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
+            "source_line": 2427,
+            "source_anchor_sha256": "e2a5cc4f219ae5d79cee9398015e878b523ec6f885e3dd0c3a2c478e8747a009",
+            "calls": [
+              "mkdirSync",
+              "writeFileSync"
+            ]
+          },
+          {
+            "identity": "js-system-effect:scripts/lib/mint-approval-grant.mjs#mintApprovalGrant",
+            "operation": "PROCESS_EXEC build and invoke deterministic test approval signer",
+            "source_file": "scripts/lib/mint-approval-grant.mjs",
+            "source_line": 16,
+            "source_anchor_sha256": "8adb367797854fdfc860b3c123348e91533d57442ebc29a3f7e1157eb0aef0b3",
             "calls": [
               "spawnSync",
               "spawnSync"
-            ],
-            "identity": "js-system-effect:scripts/lib/mint-approval-grant.mjs#mintApprovalGrant",
-            "operation": "PROCESS_EXEC build and invoke deterministic test approval signer",
-            "source_anchor_sha256": "8adb367797854fdfc860b3c123348e91533d57442ebc29a3f7e1157eb0aef0b3",
-            "source_file": "scripts/lib/mint-approval-grant.mjs",
-            "source_line": 16
+            ]
           }
-        ],
-        "coverage_id": "active_javascript_system_effect_action"
+        ]
       }
-    ],
-    "rule": "A new production route registry, RPC registry, service implementation, listener source, active JavaScript effect source, or JavaScript filesystem/process action fails before its entries can be consumed."
+    ]
   },
   "evidence_format": "ioi.m0.program_control_source.v1",
   "m0_exit_policy": {
@@ -1648,30 +1648,30 @@
     }
   ],
   "review_attestation": {
-    "assurance_posture": {
-      "accepted_head_currentness": "not_established",
-      "authorship_binding": "self_declared_label_unsigned",
-      "chain_integrity_within_snapshot": "verified",
-      "coherent_snapshot_rollback_resistance": "not_established",
-      "repository_baseline_present": true,
-      "snapshot_head_binding": "verified"
-    },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "f02514a71ca358d3fce3c10cfe3ecf4eb323eaaec905b44d7dfa041a18d7f0ea",
-    "review_epoch_id": "m4-agentgres-composition-source-review-2026-08-01",
-    "review_lock_sha256": "909d06a7160849a9131d691d5f605a20af7533bfe25fee32b8e41be6fc3c0bdb",
-    "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
-    "reviewed_as_of": "2026-08-01",
-    "reviewed_entry_set_sha256": "67af03a8d64416b5d86338b691c009ad1ce459b2a9d2938008dd9567e99ed290",
-    "reviewed_identity_set_sha256": "c91155d27942082beedc425184583f2c2f0c92c6744bea6dd34b1b33a4f18965",
-    "reviewer_label": "reviewer://ioi/m0-program-control-m4-agentgres-composition-review",
-    "reviewer_label_status": "self_declared_unsigned",
-    "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "65833d3a243c9eec4c666107d6099404de548e078fd356972787fc88b1f773cb",
-    "snapshot_head_sequence": 29,
-    "snapshot_predecessor_entry_sha256": "fe9ad5f56a80d4326cb3e52c1180d00fcfa7a787d2faa21c8c8059d7a748992c",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
-    "verification_scope": "supplied_repository_snapshot"
+    "verification_scope": "supplied_repository_snapshot",
+    "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
+    "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+    "snapshot_head_sequence": 31,
+    "snapshot_head_entry_sha256": "78826b09a9b37ff9aef2a2ddfb3aef323b910c34dbd7aced941504076bf5db63",
+    "snapshot_predecessor_entry_sha256": "2eb3b91f68ac53eb6ac1c8e1070679dcdbe1916180ffb600892033635d28521a",
+    "reviewer_label": "reviewer://ioi/m0-program-control-m5-event-substrate-review",
+    "reviewer_label_status": "self_declared_unsigned",
+    "review_lock_sha256": "d32b064badc5f22d9ab2ca4a82139a767337bc8bed421ea82376e398279c011e",
+    "review_epoch_id": "m5-event-substrate-review-fix-2026-08-03",
+    "reviewed_as_of": "2026-08-03",
+    "reviewed_identity_set_sha256": "59dc33f46bb7edcab428d847cd0128ff51c9ea98a0a2013c46e14b57d561014c",
+    "reviewed_entry_set_sha256": "39f7eb9ae59b774d9ba235f27dd4b8a8c770f1d245654a570a7d2d351506b568",
+    "program_source_material_sha256": "7aa4ff88c39a4c31447d33c1d9f413d9c661d742f655c2d61173c77363831277",
+    "assurance_posture": {
+      "chain_integrity_within_snapshot": "verified",
+      "snapshot_head_binding": "verified",
+      "repository_baseline_present": true,
+      "authorship_binding": "self_declared_label_unsigned",
+      "accepted_head_currentness": "not_established",
+      "coherent_snapshot_rollback_resistance": "not_established"
+    }
   },
   "selected_profile": {
     "exact_effect": {

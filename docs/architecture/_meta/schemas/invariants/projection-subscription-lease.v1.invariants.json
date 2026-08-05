@@ -1,0 +1,31 @@
+{
+  "$id": "invariant://ioi/components/agentgres/projection-subscription-lease/reference-only-transitions/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/agentgres/projection-subscription-lease/v1",
+  "rules": [
+    {
+      "rule_id": "projection_subscription_lease.transition.reference_only",
+      "description": "The lease's current state is admitted by a canonical Agentgres operation carried by reference; the family owns no lease-transition chain of its own.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.admitted_lease_transition.operation_ref"
+      }
+    },
+    {
+      "rule_id": "projection_subscription_lease.projection.filter_bound",
+      "description": "Delivery scope is content-bound: a lease names the exact projection hash and at least one permitted class, so a substituted projection cannot be presented as the leased one.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.projection_binding.permitted_event_class_ids"
+      }
+    },
+    {
+      "rule_id": "projection_subscription_lease.backpressure.bounded",
+      "description": "Every lease declares a backpressure policy reference, so lag resolves to a typed outcome rather than a silent drop.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.backpressure.policy_ref"
+      }
+    }
+  ]
+}

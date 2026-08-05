@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/agentgres/projection-subscription-lease/v1",
+  "title": "ProjectionSubscriptionLease",
+  "x-ioi-schema-version": "ioi.agentgres.projection_subscription_lease.v1",
+  "description": "A durable subscription lease over an owner-namespaced EventStream: subscriber scope, projection/filter binding, permitted subjects and information-flow labels, expiry and revocation, backpressure bounds, and an acknowledged-checkpoint projection. The family mints NO admission or checkpoint receipt and owns NO transition chain (ADR 0030): every lease transition and every checkpoint advance is a REFERENCE to the canonical Agentgres operation and receipt that admitted it. Delivery adapters (SSE, WebSocket, local broadcast, libp2p, storage) are replaceable and own nothing: an unleased delivery is refused, and lag never silently drops an accepted event \u2014 it yields a typed gap or rebase outcome.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lease_id",
+    "stream_id",
+    "subscriber_ref",
+    "lease_state",
+    "projection_binding",
+    "backpressure",
+    "admitted_lease_transition"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.agentgres.projection_subscription_lease.v1"
+    },
+    "lease_id": {
+      "type": "string",
+      "pattern": "^subscription-lease://[A-Za-z0-9._:-]+$"
+    },
+    "stream_id": {
+      "type": "string",
+      "pattern": "^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$",
+      "description": "The leased stream. A lease is scoped to exactly one owner-namespaced stream."
+    },
+    "subscriber_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The principal or component the lease is issued to. Delivery outside this subscriber is unleased and refused."
+    },
+    "lease_state": {
+      "type": "string",
+      "enum": [
+        "active",
+        "expired",
+        "revoked"
+      ],
+      "description": "Lease lifecycle. Expiry and revocation both stop delivery; neither rewrites admitted stream truth."
+    },
+    "expires_at_ref": {
+      "type": "string",
+      "description": "Reference to the authenticated time source binding for this lease's expiry. Time trust is an owner concern, referenced rather than asserted here."
+    },
+    "projection_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projection_hash",
+        "permitted_event_class_ids"
+      ],
+      "description": "What this lease may observe. The filter is content-bound so a substituted projection cannot be presented as the leased one.",
+      "properties": {
+        "projection_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "permitted_event_class_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "description": "Owner-declared class ids this lease may receive; classes outside the set are not delivered."
+        },
+        "permitted_subject_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "information_flow_label_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "backpressure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_ref",
+        "max_undelivered_events"
+      ],
+      "description": "Bounded delivery. Exceeding the bound produces a typed outcome; it never silently drops an accepted event.",
+      "properties": {
+        "policy_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Reference to the canon-owned backpressure/fairness policy vocabulary."
+        },
+        "max_undelivered_events": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "lag_outcome": {
+          "type": "string",
+          "enum": [
+            "typed_gap",
+            "typed_rebase",
+            "lease_revoked"
+          ]
+        }
+      }
+    },
+    "acknowledged_checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "admitted_checkpoint_transition"
+      ],
+      "description": "The durable acknowledged position. It is a PROJECTION of admitted truth: the position itself is carried by reference, so a checkpoint cannot be advanced by assertion or substituted with a forged scalar.",
+      "properties": {
+        "admitted_checkpoint_transition": {
+          "$ref": "#/$defs/agentgresOperationReference"
+        },
+        "acknowledged_at_ref": {
+          "type": "string"
+        }
+      }
+    },
+    "admitted_lease_transition": {
+      "$ref": "#/$defs/agentgresOperationReference",
+      "description": "The canonical Agentgres operation that admitted this lease's current state. The family owns no lease-transition chain of its own."
+    },
+    "delivery_adapter_kind": {
+      "type": "string",
+      "description": "The adapter currently carrying delivery (sse, websocket, local_broadcast, libp2p, storage). Adapters are replaceable and own no truth; adapter loss is a delivery fault, never an admitted-truth loss."
+    }
+  },
+  "$defs": {
+    "agentgresOperationReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_ref"
+      ],
+      "description": "A reference to canonical Agentgres truth, produced by this substrate's backed ref constructors. Every chain-bearing value \u2014 sequence, root, head, receipt \u2014 exists here only as a reference; no family owns a scalar of its own (ADR 0030). Fabricated agentgres:// strings are refused by shape and are not grandfathered. This $def is SHARED: the generator supports only local $refs, so each family carries a copy, and scripts/check-shared-schema-defs.mjs asserts every copy is byte-identical.",
+      "properties": {
+        "operation_ref": {
+          "type": "string",
+          "pattern": "^agentgres://[^\\s]{1,400}$"
+        },
+        "resulting_head_ref": {
+          "type": "string",
+          "pattern": "^agentgres://[^\\s]{1,400}$"
+        },
+        "admission_receipt_ref": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,400}$"
+        },
+        "admission_root_ref": {
+          "type": "string",
+          "pattern": "^(?:sha256:[0-9a-f]{64}|commitment://[^\\s]{1,400})$"
+        }
+      }
+    }
+  }
+}

@@ -1239,6 +1239,81 @@ scope; ordinary locally authorized restore/apply does not require wallet.network
 by definition
 ```
 
+## EventStream
+
+An `EventStream` is an owner-namespaced durable stream of typed occurrences.
+It is a composition over canonical Agentgres truth, never a second spine: the
+family mints no sequence, admission decision, receipt, state root, receipt
+root, or transition chain. Every chain-bearing value it carries is a
+*reference* to the canonical Agentgres operation that admitted it, produced by
+this crate's backed ref constructors — a fabricated `agentgres://` string is
+not evidence of admission and is not grandfathered.
+
+Typing belongs to the owner, not the substrate. Event kinds are declared per
+stream owner namespace by payload schema ref; there is no closed global
+event-kind enum, and no consumer vocabulary — GoalRun, thread, room, or any
+future customer's terms — is an admission-required field. The substrate
+branches on no namespace value: a namespace is an identity, never a switch.
+A stream's identity is bound to its declared namespace, so one owner's stream
+cannot masquerade as another's.
+
+### Admitted truth versus ephemeral delivery
+
+Each owner namespace declares which of its event classes are admitted truth
+and which are ephemeral delivery-only. The line is a property of the
+occurrence, not of its urgency:
+
+An occurrence is **admitted truth** if and only if it changes durable state,
+authority, or obligation; is required for replay; or bars or enables a claim.
+Everything else — token deltas, presence, cursor position, progress samples,
+per-line logs — is **ephemeral delivery-only**. The reliable discriminator is
+transition versus sample: a heartbeat is ephemeral, while the lapse transition
+that heartbeat's absence produces is admitted truth.
+
+Consulting the admitted event-class declaration is a read-only projection
+lookup, not an Agentgres operation. Resolving which side of the line an
+occurrence falls on necessarily requires reading the declaration, and that read
+does not itself constitute admission. The bar for ephemeral delivery is
+therefore unchanged and remains stated in the negative: no admission, no
+append, no durability wait. An implementation that satisfies the classification
+by traversing the stream's history on every delivery has met the letter of the
+rule and broken it — the ephemeral path must resolve its class from held
+projection state, and a verifier must establish that by COUNTING traversals
+rather than by observing that the head did not move. An unchanged head is
+consistent with a read that happened.
+
+The decisive bar is structural, not numeric: **an ephemeral delivery awaits no
+Agentgres operation.** A path that blocks on admission is not ephemeral no
+matter how fast it is, and a path that mints truth off the admission spine is
+the second-spine defect regardless of its latency. Conformance asserts the
+structural property directly.
+
+Latency targets exist to keep the ephemeral path honest, and are referenced by
+contracts rather than hardcoded in them so this owner can tune them without
+reopening a contract. Initial ratified values: **p95 ≤ 150 ms** for local
+ephemeral delivery, and **p95 ≤ 1000 ms** for admitted-append acknowledgment.
+
+## ProjectionSubscriptionLease
+
+A `ProjectionSubscriptionLease` is durable, revocable authority to observe a
+projection of one owner-namespaced stream. It carries subscriber scope, a
+content-bound projection/filter hash, permitted event classes, subjects, and
+information-flow labels, expiry and revocation, backpressure bounds, and an
+acknowledged-checkpoint projection.
+
+Like the stream family, it mints nothing: every lease transition and every
+checkpoint advance references the canonical Agentgres operation and receipt
+that admitted it, so a checkpoint cannot be advanced by assertion or
+substituted with a forged scalar.
+
+Delivery adapters — SSE, WebSocket, local broadcast, libp2p, storage — are
+replaceable and own no truth. Three refusals are load-bearing: an unleased
+delivery is refused; an expired or revoked lease stops delivery without
+rewriting admitted stream truth; and lag never silently drops an accepted
+event — it resolves to a typed gap or rebase outcome under the declared
+backpressure policy. Adapter loss is a delivery fault, never an admitted-truth
+loss.
+
 ## Related Canon
 
 - [`api-object-model.md`](./api-object-model.md): low-level Agentgres APIs,

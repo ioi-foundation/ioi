@@ -1,0 +1,34 @@
+{
+  "$id": "invariant://ioi/components/agentgres/event-stream/class-line-and-reference-only-chain/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/agentgres/event-stream/v1",
+  "rules": [
+    {
+      "rule_id": "event_stream.admitted_head.reference_only",
+      "description": "The stream's admitted position is a reference to a canonical Agentgres operation; the family owns no head scalar of its own.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.admitted_head.operation_ref"
+      }
+    },
+    {
+      "rule_id": "event_stream.identity.namespace_bound",
+      "description": "The stream identity is bound to its declared owner namespace: a stream cannot claim one namespace in its id while declaring another, which is what would let a second customer masquerade as the first.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.stream_id",
+        "prefix": "event-stream://",
+        "expected_path": "$.owner_namespace",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "event_stream.classes.admitted_declared",
+      "description": "Every stream declares at least one admitted-truth class: a stream that admits nothing is a delivery channel, not an event stream.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.event_class_declaration.admitted_truth_classes"
+      }
+    }
+  ]
+}

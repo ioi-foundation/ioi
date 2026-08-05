@@ -1,0 +1,105 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-declared-relationship-enforcement-successor",
+  "stage_id": "M0",
+  "record_role": "implementation_cut",
+  "status": "proposed",
+  "required_work": [
+    "Make the program's two declared gating relationships actually gate: a record's dependency_work_item_ids must be verified before that record may reach verified, and a non-aggregate record must be named by its stage's exit aggregate or carry a non-empty disposition."
+  ],
+  "objective": "The program-control model declares two gating relationships and enforces neither. Measured 2026-08-02: (1) DEPENDENCY GATE ABSENT \u2014 transition.mjs and certify-stage.mjs contain zero references to dependency_work_item_ids; the only consumers are generate-now.mjs (an advisory ready flag for next-cut ordering) and check-work-item-contract.mjs (which validates only that a dependency id resolves to a record, never that it is verified). The aggregate verification binding validates the AGGREGATE's own dependency_bindings but never a child's, so a child can reach verified with its whole declared chain unverified. (2) AGGREGATE-MEMBERSHIP GATE HALF-BUILT \u2014 the retired 68 KB checker enforced 'exactly one aggregate membership or an explicit disposition'; the lean rewrite carried forward only the forward direction (an aggregate names some children) and dropped the converse, so a record could belong to a stage, be named by no exit aggregate, and let the stage close without it. M0_DECLARED_RELATIONSHIP_ENFORCEMENT_EXIT=0.",
+  "falsifiable_claim": "The claim fails if a record can reach verified while any record in its dependency_work_item_ids is unverified, if a non-aggregate record in a stage that has an exit aggregate can escape both membership and a non-empty disposition, if an empty disposition field counts as a disposition, or if either gate is satisfied by prose rather than by a refusal.",
+  "selected_profile": "The two declared relationships across all work-item records as measured at fc18121a9.",
+  "canon_owners": [
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/start-here.md"
+  ],
+  "contract_families": [],
+  "dependency_work_item_ids": [],
+  "external_gates": [],
+  "consequential_effects_and_final_invokers": [],
+  "ordered_product_operator_journey": [],
+  "metrics_and_frozen_thresholds": [],
+  "evidence_refs": [],
+  "applicable_pg_ids": [],
+  "pg_gate_states": [],
+  "current_implementation_evidence": "FOUND BY (2026-08-02): the M5 exit aggregate named five children while ten non-aggregate M5 records existed. The cut then being built \u2014 m5-agentgres-durable-event-subscription-successor, whose entire purpose is removing the self-minted per-stream event spine \u2014 was named by no exit aggregate, so M5 could have closed with runtime events still on that spine. A declared dependency chain (aggregate -> m5-participant-frontier-result-closeout -> m5-goalrun-thread-orchestration-seam -> the successor) appeared to cover it, and reading the code showed the chain is documentation: nothing consults the field at verification. PARTIAL REMEDIATION ALREADY LANDED, not a substitute for this cut: the aggregate-membership converse was restored in check-work-item-shape.mjs and the owner bound the successor and the seam as children. While restoring it, a second hole was measured and closed \u2014 an EMPTY disposition field is truthy in JavaScript, and `aggregate_child_dispositions: []` is a common default, which silently exempted 133 of 166 non-aggregate records; the bar reported 15 findings where it owed far more. The dependency gate remains entirely absent and is this record's core work. WHY FIXTURES CANNOT REACH THIS (recorded verbatim, 2026-08-02): a synthetic fixture tests the PREDICATE, while mutating production data tests the predicate PLUS its WIRING PLUS its INPUT SET. Of the four defects measured this session, only the literal-exit bar was a predicate failure. transition.mjs throwing on 122 of 126 real records was an INPUT-SET failure. The dropped aggregate-membership converse and the empty-disposition exemption were WIRING failures \u2014 the predicate was fine or absent, and nothing routed real data through it. Fixtures cannot reach that region because the fixture author supplies the input set, which is the thing under test. A fifth instance landed the same day in the orientation generator: next_cut nominated a record whose own data declared post_exit_successor, and the first fix for it made those records invisible in NOW.md rather than merely unnominated \u2014 excluded from nomination must never mean excluded from view.",
+  "in_scope": [
+    "A verification-time refusal when a record's dependency_work_item_ids are not all verified, wired into the transition path rather than a report.",
+    "Fail-closed self-tests for both gates, including the empty-disposition case and a synthetic unverified-dependency case.",
+    "A disposition vocabulary so a deliberately non-gating record states WHY (post-exit successor, consumes-the-exit verifier, deliberately non-gating scope decision).",
+    "EXEMPTION-COUNT REPORTING for every program-control bar: each bar reports, against the REAL estate, how many records/subjects it checked, how many it exempted, and why \u2014 not merely its failure count. Four defects in one session shared this shape: a check that passed while enforcing nothing (the aggregate-membership converse dropped in the rewrite; the literal-exit bar reading a field no record carries; transition.mjs --apply throwing on 122 of 126 real records; a predicate that exempted 132 of 167). Every one had a green synthetic self-test, because fixture tests prove a predicate rejects a constructed bad case and never establish that it fires on production data. An exemption count would have made each visible on first run. The stronger form, to be applied wherever cheap: mutate a REAL subject, watch the bar fail, restore \u2014 which is what actually caught the empty-disposition hole."
+  ],
+  "out_of_scope": [
+    "Retroactively binding existing danglers \u2014 each needs an owner disposition, not a mechanical sweep.",
+    "Reopening any verified stage to satisfy a bookkeeping bar."
+  ],
+  "implementation_actions": [
+    "Add the dependency gate to the transition path with a named refusal.",
+    "Keep the restored aggregate-membership gate and its empty-disposition fix under self-test.",
+    "Enumerate remaining danglers so each is bound or dispositioned by its owner."
+  ],
+  "positive_proof": [
+    "A record whose declared dependency is unverified cannot reach verified, and a stage-owned record can neither escape membership nor satisfy the bar with an empty field."
+  ],
+  "adversarial_or_fault_proof": "Reject a verification with an unverified dependency, an empty disposition field presented as a disposition, a dangling record in a stage with an exit aggregate, and a gate satisfied by prose. Reject a bar whose self-test is exclusively synthetic: each gate must additionally demonstrate a failure induced by mutating a real estate subject, and must report its exemption count against the real corpus.",
+  "compatibility_and_migration": [
+    "Existing verified records are not re-verified; the gates apply to transitions from this cut forward, and existing danglers are dispositioned rather than force-bound."
+  ],
+  "evidence_index": {
+    "literal_exit": "M0_DECLARED_RELATIONSHIP_ENFORCEMENT_EXIT=0",
+    "retained_refs": [],
+    "expected_output_paths": [
+      "internal-docs/implementation/evidence/M0/m0-declared-relationship-enforcement-successor.exit.v1.txt"
+    ],
+    "task_exit_code_is_proof": false
+  },
+  "code_anchors": [
+    {
+      "path": "internal-docs/implementation/tools/transition.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the verification path that must gain the dependency gate"
+    },
+    {
+      "path": "internal-docs/implementation/tools/check-work-item-shape.mjs",
+      "present_when": "current_precedent",
+      "evidence_scope": "the restored aggregate-membership gate and its empty-disposition fix"
+    }
+  ],
+  "private_artifacts": [
+    {
+      "artifact_id": "work-item-record:m0-declared-relationship-enforcement-successor",
+      "artifact_class": "private_implementation_plan_and_status_record",
+      "path": "internal-docs/implementation/work-items/proposed/m0-declared-relationship-enforcement-successor.v1.json",
+      "product_authority": false,
+      "architecture_canon": false
+    }
+  ],
+  "remaining_nonclaims": [
+    "Filing enforces nothing. Until this cut lands, dependency_work_item_ids remains documentation and every chain expressed through it is advisory."
+  ],
+  "rollback_or_stop_rule": "Stop if enforcing either gate would require reopening a verified stage or force-binding a record whose owner has not dispositioned it; roll back by reverting the tooling change only.",
+  "source_provenance": "Implementer measurement 2026-08-02 during the M5 event-substrate cut; owner ruled both findings are one cut at M0 rather than two at M9, because they are the same failure \u2014 a declared relationship that no verification path consults \u2014 and M0 is where the control model is proven.",
+  "aggregate_disposition": {
+    "state": "post_exit_successor",
+    "not_a_child_of": "m0-program-control-selected-profile-exit-proof",
+    "why": "M0 reached verified before this record existed; a post-exit successor cannot gate an exit that already occurred. Its own literal is its closure.",
+    "recorded_on": "2026-08-02"
+  },
+  "canon_snapshot": {
+    "captured_at": "2026-08-02",
+    "captured_at_commit": "fc18121a9a38cc3daad27fc22f1a6bf7d8439ffa",
+    "snapshot_role": "Provenance for the canon revision this record was authored against. Drift detection is owned by generated/canon-baseline.v1.json via tools/canon-impact.mjs.",
+    "aggregate_sha256": "db60f75dcd9025da534078fc47ca24d5c576cd8533b50342b5e636edb0184a16",
+    "owners": [
+      {
+        "path": "docs/architecture/_meta/source-of-truth-map.md",
+        "sha256": "9d839d9e78ad1139156c1d05e5e02b8572466932e5033b6c76ff5db88f72fd58"
+      },
+      {
+        "path": "docs/architecture/_meta/start-here.md",
+        "sha256": "6a5cdf8ac430ccaae61b5a36ea8d105a08b5a2f6b5c2f7fa7da3553ddf9a5a32"
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "ioi.agentgres.projection_subscription_lease.v1",
+  "lease_id": "subscription-lease://sub_bad1",
+  "stream_id": "event-stream://thread-orchestration/thr_9f2c1a7b",
+  "subscriber_ref": "principal://local-operator",
+  "lease_state": "active",
+  "projection_binding": {
+    "projection_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+    "permitted_event_class_ids": [
+      "turn.committed"
+    ]
+  },
+  "backpressure": {
+    "policy_ref": "policy://ioi/agentgres/backpressure/bounded-buffer/v1",
+    "max_undelivered_events": 16
+  },
+  "acknowledged_checkpoint": {
+    "acknowledged_sequence": 42
+  },
+  "admitted_lease_transition": {
+    "operation_ref": "agentgres://operation/subscription-lease/sub_bad1/sequence/1/head/sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}

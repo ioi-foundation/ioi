@@ -1,0 +1,8 @@
+IOI_MEASURED_COMMIT=81ca7eac63b55dc88a4cec9980cda84aadaaf1d7
+IOI_PROOF=packet-convention-ratchet-integration
+IOI_COMMAND=node scripts/test-packet-convention-ratchet-integration.mjs
+IOI_WORKDIR=/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-v4
+IOI_EXPECTED_EXIT=0
+test-packet-convention-ratchet-integration: PASS — a commit that adds an evidence directory AND exempts it in the same commit must be REFUSED; got exit 1
+IOI_EXIT_CODE=0
+IOI_VERDICT=as-declared

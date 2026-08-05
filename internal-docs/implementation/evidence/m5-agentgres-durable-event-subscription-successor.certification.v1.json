@@ -1,0 +1,22 @@
+{
+  "evidence_format": "ioi.program.work_item_certification.v1",
+  "certification_scope": "single_work_item",
+  "work_item_id": "m5-agentgres-durable-event-subscription-successor",
+  "stage_id": "M5",
+  "record_role": "implementation_cut",
+  "status_from": "active",
+  "result": "PASS",
+  "record_sha256": "89fb80bed5bae2d9b48940de65073a97abd41a1f231cc9c72a045bbf26b941e7",
+  "adversarial_or_fault_proof": [
+    "Unleased delivery, cross-owner filters, expired/revoked leases, lag, checkpoint substitution, dropped adapter frames, restart, and rebase ambiguity fail closed or emit typed outcomes.",
+    "An ephemeral-class event presented for truth admission and an admitted-class event delivered without admission both fail closed with typed outcomes; any consumer-vocabulary field required at admission is a contract defect.",
+    "Reject an un-injected build that falls back to legacy JSONL instead of refusing — proven by constructing services state without the admission capability and driving a real bridge write, not by calling the refusal directly. The un-injected proof enters through the production bridge entry point, never a test-local reconstruction of it.",
+    "Reject a duplicate key admitted N events back being appended as a new event — proven by admitting a key, walking the stream six events forward, then re-submitting: replayed=true with the ORIGINAL seq and head. Observed red on the real subject before being trusted: reverting the whole-stream walk to the head-only projection fails exactly this assertion while the consecutive-duplicate assertion still passes, which is the scope the pre-ruling bar could not see.",
+    "An ephemeral-class delivery performs ZERO substrate traversals: no admission, no append, no durability wait, and no history read to resolve its own class. Proven by COUNTING traversals on an instrumented steward, not by observing an unchanged head — an unchanged head is consistent with a read that happened."
+  ],
+  "literal_exit": {
+    "expected": "M5_AGENTGRES_DURABLE_EVENT_SUBSCRIPTION_EXIT=0",
+    "artifact_path": "internal-docs/implementation/evidence/M5/m5-agentgres-durable-event-subscription-successor.exit.v1.txt",
+    "artifact_sha256": "28ee5fa9cc898af5a1f945be9476979147cde8b78630a52e79cf348177967182"
+  }
+}

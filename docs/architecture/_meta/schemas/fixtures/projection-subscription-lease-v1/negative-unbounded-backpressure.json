@@ -1,0 +1,20 @@
+{
+  "schema_version": "ioi.agentgres.projection_subscription_lease.v1",
+  "lease_id": "subscription-lease://sub_bad2",
+  "stream_id": "event-stream://automation-scheduler/aut_3d81ff40",
+  "subscriber_ref": "principal://ops-reader",
+  "lease_state": "active",
+  "projection_binding": {
+    "projection_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "permitted_event_class_ids": [
+      "schedule.fired"
+    ]
+  },
+  "backpressure": {
+    "policy_ref": "policy://ioi/agentgres/backpressure/bounded-buffer/v1",
+    "max_undelivered_events": 0
+  },
+  "admitted_lease_transition": {
+    "operation_ref": "agentgres://operation/subscription-lease/sub_bad2/sequence/1/head/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  }
+}

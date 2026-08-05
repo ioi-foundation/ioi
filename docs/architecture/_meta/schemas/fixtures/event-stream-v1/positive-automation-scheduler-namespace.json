@@ -1,0 +1,34 @@
+{
+  "schema_version": "ioi.agentgres.event_stream.v1",
+  "stream_id": "event-stream://automation-scheduler/aut_3d81ff40",
+  "owner_namespace": "automation-scheduler",
+  "owner_ref": "automation://aut_3d81ff40",
+  "event_class_declaration": {
+    "admitted_truth_classes": [
+      {
+        "class_id": "schedule.fired",
+        "payload_schema_ref": "schema://ioi/components/daemon-runtime/automation-schedule-fired/v1",
+        "classification_basis": "Enables a run claim and is required for replay of what the scheduler actually did."
+      },
+      {
+        "class_id": "trigger.suppressed",
+        "payload_schema_ref": "schema://ioi/components/daemon-runtime/automation-trigger-suppressed/v1",
+        "classification_basis": "Bars a claim: a suppressed trigger must be inspectable as a refusal."
+      }
+    ],
+    "ephemeral_delivery_classes": [
+      {
+        "class_id": "tick.sample",
+        "payload_schema_ref": "schema://ioi/components/daemon-runtime/automation-tick-sample/v1",
+        "classification_basis": "Progress sample of the scheduler clock; carries no obligation."
+      }
+    ],
+    "latency_budget_ref": "policy://ioi/agentgres/event-delivery-latency-budget/v1"
+  },
+  "admitted_head": {
+    "operation_ref": "agentgres://operation/event-stream/automation-scheduler/aut_3d81ff40/sequence/3/head/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "resulting_head_ref": "agentgres://event-stream/automation-scheduler/aut_3d81ff40/head/dddddddddddddddddddddddd",
+    "admission_receipt_ref": "receipt://agentgres/event-stream/automation-scheduler/aut_3d81ff40/batch/1/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "admission_root_ref": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  }
+}

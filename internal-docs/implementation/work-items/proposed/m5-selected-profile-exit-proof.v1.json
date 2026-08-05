@@ -70,11 +70,14 @@
   ],
   "external_gates": [],
   "aggregate_child_ids": [
+    "m5-agentgres-durable-event-subscription-successor",
     "m5-attribution-acceptance-and-challenge-boundary",
+    "m5-goalrun-thread-orchestration-seam",
     "m5-local-agent-pairing",
     "m5-pairing-identity-and-gateway-scope",
     "m5-participant-frontier-result-closeout",
-    "m5-portable-exit-independent-clients"
+    "m5-portable-exit-independent-clients",
+    "m5-qm-reference-shell-dormant-adoption"
   ],
   "aggregate_child_dispositions": [
     {
@@ -466,5 +469,19 @@
   ],
   "pr": null,
   "source_provenance": "Plan-level proposal derived from internal-docs/implementation/m0-m14-plan-gap-audit.md at origin/master 69592149186cb29383a397ad0aa3ad6f5ab4ab7b; status transaction 2026-07-22. Enriched under approved SA-2/SA-7/SA-9 private migration on 2026-07-22; status preserved.",
-  "last_status_transaction": "2026-07-22"
+  "last_status_transaction": "2026-07-22",
+  "owner_rulings": [
+    {
+      "ruling": "apps/ioi-ai/ scaffolding is required for M5 to exit.",
+      "ruled_on": "2026-08-02",
+      "effect": "m5-qm-reference-shell-dormant-adoption becomes a child of this aggregate. M5 can no longer reach verified without the ioi.ai reference-UX seed adopted into apps/ioi-ai/ and its literal M5_QM_DORMANT_ADOPTION_EXIT=0 retained.",
+      "found_by": "The record was filed at M5 and named in stages/m5.md but was not a child of this aggregate and carried no disposition, so the stage could have closed without it."
+    },
+    {
+      "ruling": "The durable-event-subscription successor and the GoalRun thread-orchestration seam both bind as children of the M5 exit.",
+      "ruled_on": "2026-08-02",
+      "effect": "M5 cannot reach verified without M5_AGENTGRES_DURABLE_EVENT_SUBSCRIPTION_EXIT=0 and M5_GOALRUN_THREAD_ORCHESTRATION_SEAM_EXIT=0 retained.",
+      "reason": "A cut whose entire purpose is removing the self-minted spine cannot be the thing M5 is permitted to close without. Direct membership is currently the ONLY enforced gate \u2014 measured 2026-08-02, no verification path consults dependency_work_item_ids \u2014 so anything that must be true at M5 exit has to be a child; transitive intent buys nothing until the dependency gate exists. The seam binds in the same act because it sits between the successor and the closeout, and omitting it reproduces the identical bypass one level up."
+    }
+  ]
 }

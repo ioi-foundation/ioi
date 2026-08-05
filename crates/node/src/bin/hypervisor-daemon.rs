@@ -70,6 +70,8 @@ mod endgame_routes;
 mod environment_routes;
 #[path = "hypervisor_daemon_routes/eval_suite_routes.rs"]
 mod eval_suite_routes;
+#[path = "hypervisor_daemon_routes/event_stream_routes.rs"]
+mod event_stream_routes;
 #[path = "hypervisor_daemon_routes/feedback_routes.rs"]
 mod feedback_routes;
 #[path = "hypervisor_daemon_routes/foundry_routes.rs"]
@@ -568,6 +570,35 @@ async fn async_main() -> anyhow::Result<()> {
         editor_runtimes: Mutex::new(HashMap::new()),
         editor_proxies: Mutex::new(HashMap::new()),
     });
+
+    // Inject the event-stream admission capability into the runtime side.
+    //
+    // The handle steward lives in this process and nowhere else: the library
+    // core cannot acquire a `MuxHandle` and the runtime crate has no
+    // substrate access at all. This is the wiring that makes runtime writers
+    // able to admit -- and its absence is precisely what the boundary below
+    // refuses on, rather than reverting to the legacy event log.
+    //
+    // A failed install is FATAL. It can only mean a second capability in one
+    // process, which would mean two stewards; a daemon that will not start is
+    // a better outcome than one that starts with two writers to one log.
+    if let Err(error) = substrate_store::ensure_steward_open(&state.data_dir) {
+        eprintln!("hypervisor-daemon: steward open failed at boot: {error}");
+    }
+
+    if let Err(error) =
+        // Open the steward at boot so the declaration projection is hydrated
+        // before the first request. Without this a process whose first request
+        // is an ephemeral append would never open the handle at all -- the
+        // ephemeral path deliberately touches no substrate surface, so the fix
+        // that removed the traversal also removed what used to force the open.
+        ioi_services::agentic::runtime::event_stream_admission::install(std::sync::Arc::new(
+                substrate_store::SubstrateEventStreamAdmission::new(state.data_dir.clone()),
+            ))
+    {
+        eprintln!("hypervisor-daemon: {error}");
+        std::process::exit(1);
+    }
 
     // Author the baseline provider + backend catalog as admitted records so the
     // snapshot/projection family lists them.
@@ -2314,6 +2345,39 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/outcome-deltas/*id",
             get(work_result_routes::handle_outcome_delta_get),
+        )
+        .route(
+            "/v1/event-streams/_substrate-traversals",
+            get(event_stream_routes::handle_substrate_traversals),
+        )
+        .route(
+            "/v1/event-streams/:owner_namespace/:stream_tail",
+            get(event_stream_routes::handle_event_stream_get)
+                .post(event_stream_routes::handle_event_stream_create),
+        )
+        .route(
+            "/v1/event-streams/:owner_namespace/:stream_tail/events",
+            post(event_stream_routes::handle_event_stream_append),
+        )
+        .route(
+            "/v1/subscriptions",
+            post(event_stream_routes::handle_subscription_create),
+        )
+        .route(
+            "/v1/subscriptions/:owner_namespace/:lease_tail",
+            get(event_stream_routes::handle_subscription_get),
+        )
+        .route(
+            "/v1/subscriptions/:owner_namespace/:lease_tail/checkpoint",
+            post(event_stream_routes::handle_subscription_checkpoint),
+        )
+        .route(
+            "/v1/subscriptions/:owner_namespace/:lease_tail/revoke",
+            post(event_stream_routes::handle_subscription_revoke),
+        )
+        .route(
+            "/v1/subscriptions/:owner_namespace/:lease_tail/delivery",
+            get(event_stream_routes::handle_subscription_delivery),
         )
         .route(
             "/v1/goal-orchestration/outcome-rooms",

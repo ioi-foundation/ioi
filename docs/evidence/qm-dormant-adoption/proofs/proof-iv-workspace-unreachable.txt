@@ -1,0 +1,11 @@
+IOI_MEASURED_COMMIT=81ca7eac63b55dc88a4cec9980cda84aadaaf1d7
+IOI_PROOF=iv-resolver-asked-workspace-absent
+IOI_COMMAND=npm pkg get name --workspace apps/ioi-ai
+IOI_WORKDIR=/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-v4
+IOI_EXPECTED_EXIT=1
+IOI_NOTE=npm's own resolver, not the lock. Exit 1 IS green: 'No workspaces found'.
+npm error No workspaces found:
+npm error   --workspace=apps/ioi-ai
+npm error A complete log of this run can be found in: /home/heathledger/.npm/_logs/2026-08-05T06_05_10_953Z-debug-0.log
+IOI_EXIT_CODE=1
+IOI_VERDICT=as-declared

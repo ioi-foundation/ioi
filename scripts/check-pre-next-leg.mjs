@@ -50,6 +50,66 @@ export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
     args: Object.freeze(["scripts/check-agentgres-ref-minting.mjs"]),
   }),
   Object.freeze({
+    id: "shared-schema-def-byte-identity",
+    command: process.execPath,
+    args: Object.freeze(["scripts/check-shared-schema-defs.mjs"]),
+  }),
+  // Wired 2026-08-03. This bar existed for three rounds with NO tracked caller
+  // -- a manually retained log is not a per-push control, and a control nobody
+  // runs is documentation. That is the written-but-unenforced class this
+  // program already filed a successor about
+  // (m0-nonenforcing-check-closure-successor), recurring in a bar built inside
+  // this very cut.
+  Object.freeze({
+    id: "attestation-chain-append-only",
+    command: process.execPath,
+    args: Object.freeze(["scripts/check-attestation-chain.mjs"]),
+  }),
+  Object.freeze({
+    id: "attestation-chain-integration",
+    command: process.execPath,
+    args: Object.freeze(["scripts/test-attestation-chain-integration.mjs"]),
+  }),
+  Object.freeze({
+    id: "program-state-regeneration-order",
+    command: process.execPath,
+    args: Object.freeze(["internal-docs/implementation/tools/regenerate-program-state.mjs"]),
+  }),
+  Object.freeze({
+    id: "claims-coverage",
+    command: process.execPath,
+    args: Object.freeze(["internal-docs/implementation/tools/check-claims-coverage.mjs"]),
+  }),
+  Object.freeze({
+    id: "tracked-caller-census",
+    command: process.execPath,
+    args: Object.freeze(["internal-docs/implementation/tools/check-tracked-callers.mjs"]),
+  }),
+  Object.freeze({
+    id: "internal-architecture-headers",
+    command: process.execPath,
+    args: Object.freeze(["scripts/check-internal-architecture-headers.mjs"]),
+  }),
+  Object.freeze({
+    id: "discovery-exclusions",
+    command: process.execPath,
+    args: Object.freeze(["scripts/check-discovery-exclusions.mjs"]),
+  }),
+  // Wired the day the census caught it uncalled. The completeness bar is the
+  // strongest single claim the QM cut makes -- the adopted tree is upstream
+  // bytes, exactly, in both directions -- and an unwired bar making the
+  // strongest claim is the worst possible thing to leave as documentation.
+  Object.freeze({
+    id: "packet-convention-ratchet-integration",
+    command: process.execPath,
+    args: Object.freeze(["scripts/test-packet-convention-ratchet-integration.mjs"]),
+  }),
+  Object.freeze({
+    id: "adoption-completeness",
+    command: process.execPath,
+    args: Object.freeze(["scripts/check-adoption-completeness.mjs"]),
+  }),
+  Object.freeze({
     id: "system-genesis-compiler",
     command: "npm",
     args: Object.freeze(["run", "check:system-genesis-compiler"]),

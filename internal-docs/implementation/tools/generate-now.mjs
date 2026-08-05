@@ -225,12 +225,26 @@ export function buildProjection() {
       r.work_item_id
     ),
   );
+  // A record that DECLARES it cannot gate its stage's exit is real work but not
+  // frontier work, and must never be nominated as the next cut. Without this,
+  // filing a post-exit successor into an early open stage hijacks the
+  // orientation: a fresh session booting from NOW.md would start the meta-work
+  // instead of the cut actually in flight.
+  const NON_GATING = new Set([
+    "post_exit_successor",
+    "deliberately_non_gating",
+    "consumes_stage_exit_cannot_gate_it",
+  ]);
+  const nonGating = (r) =>
+    NON_GATING.has(r.aggregate_disposition?.state ?? "");
+
   const stageRank = new Map(stages.map((s, i) => [s.id, i]));
   const openIds = new Set(openStages.map((s) => s.id));
   const candidates = records
     .filter((r) => openIds.has(r.stage_id))
     .filter((r) => statusAuthority(r).status !== "verified")
     .filter((r) => r.record_role !== "aggregate_exit")
+    .filter((r) => !nonGating(r))
     .map((r) => ({
       record: r,
       authority: statusAuthority(r),
@@ -295,6 +309,18 @@ export function buildProjection() {
       };
     });
 
+  const nonGatingFiled = records
+    .filter((r) => nonGating(r))
+    .filter((r) => statusAuthority(r).status !== "verified")
+    .map((r) => ({
+      work_item_id: r.work_item_id,
+      stage_id: r.stage_id,
+      status: statusAuthority(r).status,
+      state: r.aggregate_disposition?.state,
+      why: r.aggregate_disposition?.why ?? "",
+    }))
+    .sort((a, b) => (a.work_item_id < b.work_item_id ? -1 : 1));
+
   const divergences = records
     .map((r) => ({ id: r.work_item_id, ...statusAuthority(r) }))
     .filter((s) => s.owner === "tracked_merged_record" && !s.agrees);
@@ -344,6 +370,7 @@ export function buildProjection() {
     stages,
     currentStage,
     openStages,
+    nonGatingFiled,
     nextCut,
     differentialLanes,
     divergences,
@@ -546,6 +573,23 @@ function renderNow(p) {
     }
   }
   L.push("");
+  if (p.nonGatingFiled.length > 0) {
+    L.push("## Filed, not gating");
+    L.push("");
+    L.push(
+      "Real work that is deliberately not on the critical path, so it is never nominated as the next cut. Excluded from nomination, never from view.",
+    );
+    L.push("");
+    L.push("| Work item | Stage | Status | Why it does not gate |");
+    L.push("| --- | --- | --- | --- |");
+    for (const r of p.nonGatingFiled) {
+      L.push(
+        `| \`${r.work_item_id}\` | ${r.stage_id} | ${r.status} | \`${r.state}\` |`,
+      );
+    }
+    L.push("");
+  }
+
   L.push("## What to run");
   L.push("");
   L.push("```text");
@@ -657,6 +701,7 @@ function main() {
     differential_lanes: p.differentialLanes,
     stages: p.stages,
     status_authority_divergences: p.divergences,
+    filed_not_gating: p.nonGatingFiled,
     open_successor_holds: {
       ledger_ref: p.holds.ledger_ref,
       projection_rule:

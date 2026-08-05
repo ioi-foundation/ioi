@@ -7016,6 +7016,7 @@ dependencies = [
 name = "ioi-services"
 version = "0.1.0"
 dependencies = [
+ "agentgres",
  "anyhow",
  "async-trait",
  "base64 0.21.7",

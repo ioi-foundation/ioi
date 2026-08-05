@@ -17,6 +17,7 @@
 //! `IOI_SUBSTRATE_DUAL_WRITE_DOMAINS`), which is the pre-promotion
 //! evidence lane proven by `substrate-parity`.
 
+use agentgres::event_stream::AdmissionRefusal;
 use agentgres::mux::{
     spawn_mux_writer_cfg, ExactProjection, MuxAdmitError, MuxEngine, MuxHandle, MuxStatusSnapshot,
     WriterConfig,
@@ -317,19 +318,16 @@ fn lock_existing_writer(_data_dir: &str) -> std::io::Result<Option<()>> {
     ))
 }
 
+/// Confirm the substrate log is durable.
+///
+/// The BODY of this check was lifted to `agentgres::event_stream` on
+/// 2026-08-02 so that one durability discipline — and one fault-injection
+/// hook — serves every admission path. This name survives because the
+/// mechanically frozen M4 room path calls it; it is an adapter over the
+/// lifted function, not a second implementation.
 fn confirm_required_admission_durability(data_dir: &str) -> std::io::Result<()> {
-    if std::env::var("IOI_TEST_FORCE_REQUIRED_ADMISSION_SYNC_FAILURE")
-        .ok()
-        .as_deref()
-        == Some("1")
-    {
-        return Err(std::io::Error::other(
-            "test-forced required-admission durability failure",
-        ));
-    }
-    let dir = engine_dir(data_dir);
-    std::fs::File::open(dir.join("muxlog.bin"))?.sync_all()?;
-    std::fs::File::open(dir)?.sync_all()
+    agentgres::event_stream::confirm_log_durability(&engine_dir(data_dir))
+        .map_err(|refusal| std::io::Error::other(refusal.to_string()))
 }
 
 fn build_op(record_dir: &str, record_id: &str, record: &Value) -> Operation {
@@ -1868,6 +1866,14 @@ fn initialize_handle_with(
         return None;
     }
 
+    // Rebuild the declaration projection before the writer starts serving, so
+    // no request path ever has to go looking for a declaration. This runs
+    // AFTER backfill: the engine's domain map is only fully populated once
+    // recovery and backfill have replayed the log, and hydrating before that
+    // silently found zero domains -- which the restart probe caught as
+    // open-time fills of 0.
+    hydrate_declarations(&engine, "event_stream.genesis");
+
     let mut replicas = Vec::new();
     if !addrs.is_empty() {
         let independent = std::env::var("IOI_SUBSTRATE_REPLICA_INDEPENDENT")
@@ -2330,6 +2336,329 @@ pub(crate) fn admit_outcome_room_system_operation(
         ADMITTED.fetch_add(1, Ordering::Relaxed);
         Ok(exact)
     })
+}
+
+// --- generic owner-namespaced event-stream admission ------------------------
+//
+// The SAME CAS discipline the room family uses, with the owner namespace
+// carried as DATA. Nothing here branches on a namespace value and no consumer
+// vocabulary appears: that is what makes the >= 2-owner-namespace genericity
+// proof meaningful rather than decorative. An admitted event crosses an atomic
+// Agentgres transition with an exact expected head; a head conflict is a
+// refusal, never a silent retry.
+
+/// The daemon's implementation of the injected admission capability.
+///
+/// This is the only implementor in the process, and it is the only place a
+/// `MuxHandle` is reachable from: the library core cannot acquire one and the
+/// runtime side has no substrate access at all. The capability is what
+/// crosses the crate boundary; the handle never does.
+pub(crate) struct SubstrateEventStreamAdmission {
+    data_dir: String,
+}
+
+impl SubstrateEventStreamAdmission {
+    pub(crate) fn new(data_dir: impl Into<String>) -> Self {
+        Self {
+            data_dir: data_dir.into(),
+        }
+    }
+
+    fn admit_in_class(
+        &self,
+        request: agentgres::event_stream::EventAdmission<'_>,
+        class: agentgres::event_stream::OperationClass,
+    ) -> Result<agentgres::event_stream::Admitted, AdmissionRefusal> {
+        // Each capability method admits only its own operation class, so the
+        // four methods are four permissions rather than four spellings of one
+        // call. The rule is the library's; this only applies it.
+        agentgres::event_stream::require_operation_class(request.op_kind, class)?;
+        admit_event_stream_operation(
+            &self.data_dir,
+            request.owner_namespace,
+            request.stream_tail,
+            request.op_kind,
+            request.expected_head,
+            request.payload,
+            request.recorded_at_ms,
+            request.idem_key,
+        )
+    }
+}
+
+impl agentgres::event_stream::EventStreamAdmission for SubstrateEventStreamAdmission {
+    fn admit_event(
+        &self,
+        request: agentgres::event_stream::EventAdmission<'_>,
+    ) -> Result<agentgres::event_stream::Admitted, AdmissionRefusal> {
+        self.admit_in_class(request, agentgres::event_stream::OperationClass::Event)
+    }
+
+    fn read_head(
+        &self,
+        owner_namespace: &str,
+        stream_tail: &str,
+    ) -> Result<Option<ExactProjection>, AdmissionRefusal> {
+        read_event_stream_operation(&self.data_dir, owner_namespace, stream_tail)
+    }
+
+    fn admit_lease_transition(
+        &self,
+        request: agentgres::event_stream::EventAdmission<'_>,
+    ) -> Result<agentgres::event_stream::Admitted, AdmissionRefusal> {
+        self.admit_in_class(
+            request,
+            agentgres::event_stream::OperationClass::LeaseTransition,
+        )
+    }
+
+    fn advance_checkpoint(
+        &self,
+        request: agentgres::event_stream::EventAdmission<'_>,
+    ) -> Result<agentgres::event_stream::Admitted, AdmissionRefusal> {
+        self.admit_in_class(
+            request,
+            agentgres::event_stream::OperationClass::CheckpointAdvance,
+        )
+    }
+}
+
+/// Steward-held declarations, and the instrumentation that proves the
+/// ephemeral path never touches the substrate.
+///
+/// Codex P0 (2026-08-02): the append route consulted the admitted declaration
+/// by walking the stream's full history — on EVERY append, including ephemeral
+/// ones. An ephemeral class is defined by awaiting no Agentgres operation, so a
+/// mandatory history walk before the ephemeral return made the event-class line
+/// a statement about what happens AFTER a substrate traversal rather than a
+/// statement that none occurs.
+///
+/// The declaration is now a read-only lookup over steward-held in-memory state.
+/// The counters exist so the verifier can assert ZERO traversals by positive
+/// detection rather than by inferring it from an unchanged head — an unchanged
+/// head is consistent with a read that happened.
+pub(crate) static HISTORY_WALKS: AtomicU64 = AtomicU64::new(0);
+pub(crate) static DECLARATION_CACHE_HITS: AtomicU64 = AtomicU64::new(0);
+pub(crate) static DECLARATION_CACHE_FILLS: AtomicU64 = AtomicU64::new(0);
+pub(crate) static HYDRATED_DOMAINS: AtomicU64 = AtomicU64::new(0);
+
+static DECLARATIONS: OnceLock<Mutex<std::collections::HashMap<String, Value>>> = OnceLock::new();
+
+fn declaration_cache() -> &'static Mutex<std::collections::HashMap<String, Value>> {
+    DECLARATIONS.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Record one stream's declaration at admission time, so no later append has
+/// to go looking for it.
+pub(crate) fn remember_declaration(owner_namespace: &str, stream_tail: &str, declaration: &Value) {
+    if let Ok(mut cache) = declaration_cache().lock() {
+        cache.insert(
+            format!("{owner_namespace}/{stream_tail}"),
+            declaration.clone(),
+        );
+        DECLARATION_CACHE_FILLS.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+/// Look up one stream's admitted declaration.
+///
+/// THE CONTRACT, as implemented: the declaration projection is rebuilt at
+/// STEWARD OPEN, and this lookup touches no substrate surface on any path. A
+/// hit returns held state. A MISS MEANS THE STREAM WAS NEVER DECLARED, which
+/// the route refuses as `event_stream_undeclared` — it does NOT fall back to a
+/// history read.
+///
+/// The earlier text here described a lazy read that no longer exists, and the
+/// lazy read was itself the defect: it made the ephemeral boundary hold only
+/// for a warm cache, so the first ephemeral append after a restart traversed
+/// Agentgres. Contract prose describing a deleted path is worse than no prose,
+/// because a reader trusts it.
+/// CORRECTNESS PREMISE, STATED SO IT CANNOT LAPSE SILENTLY: this cache NEVER
+/// invalidates, and that is sound only because a declaration is immutable for
+/// the life of its stream — `handle_event_stream_create` refuses redeclaration
+/// outright. If a declared-amendment operation is ever introduced, this cache
+/// goes stale the moment the first amendment is admitted, and nothing here
+/// will notice. The two things that stop that are this comment and the
+/// redeclaration-refuses regression assertion in
+/// `verify-m5-event-substrate-genericity.mjs`; whoever adds amendment must
+/// break the latter, which is the point of it being there.
+pub(crate) fn lookup_declaration(
+    _data_dir: &str,
+    owner_namespace: &str,
+    stream_tail: &str,
+    _genesis_op_kind: &str,
+) -> Result<Option<Value>, AdmissionRefusal> {
+    let key = format!("{owner_namespace}/{stream_tail}");
+    let found = declaration_cache()
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(&key).cloned());
+    if found.is_some() {
+        DECLARATION_CACHE_HITS.fetch_add(1, Ordering::Relaxed);
+    }
+    // NO LAZY FILL. The declaration projection is rebuilt at steward open, so
+    // after hydration a miss means the stream was never declared -- which is
+    // already a refusal at the route. The lazy fill this replaced made the
+    // FIRST ephemeral append after a restart walk history (Codex measured
+    // history_walks 0 -> 1 against an exact-commit binary), which meant the
+    // ephemeral boundary held only for a warm cache. An absolute claim cannot
+    // rest on a conditional path.
+    Ok(found)
+}
+
+/// Rebuild the declaration projection at steward open.
+///
+/// This rides the open/replay pass that already rebuilds DomainState — it adds
+/// no second walk of its own, and it runs before any request is served, so the
+/// delivery path never traverses. Fills are counted SEPARATELY from delivery-
+/// time walks: hydration is expected to touch the log exactly once at open,
+/// and conflating that with a per-append traversal would make the counter
+/// unable to distinguish the two.
+fn hydrate_declarations(engine: &MuxEngine, genesis_op_kind: &str) {
+    let domains: Vec<String> = engine
+        .domains()
+        .filter(|domain| domain.starts_with("event-stream-operations."))
+        .cloned()
+        .collect();
+    HYDRATED_DOMAINS.fetch_add(domains.len() as u64, Ordering::Relaxed);
+    for domain in domains {
+        // The operation carries its own object_ref, so the owner namespace and
+        // stream tail are read from admitted truth rather than parsed back out
+        // of the domain string (a tail may itself contain dots — `lease.sub_1`).
+        let mut genesis: Vec<(String, Value)> = Vec::new();
+        let _ = engine.project_domain(&domain, 0, &mut |frame| {
+            if let agentgres::mux::MuxLogFrame::Admitted(record) = frame {
+                if record.op.op_kind == genesis_op_kind {
+                    genesis.push((record.op.object_ref.clone(), record.op.payload.clone()));
+                }
+            }
+        });
+        for (object_ref, declaration) in genesis {
+            if let Some(rest) = object_ref.strip_prefix("agentgres://event-stream-operations/") {
+                if let Some((owner_namespace, stream_tail)) = rest.split_once('/') {
+                    remember_declaration(owner_namespace, stream_tail, &declaration);
+                }
+            }
+        }
+    }
+}
+
+/// Open the steward once at boot so the declaration projection is rebuilt
+/// before any request is served.
+///
+/// This is required, not an optimisation. Removing every substrate access from
+/// the declaration lookup means nothing on the delivery path triggers steward
+/// open any more — so hydration, which happens AT open, would never run for a
+/// process whose first request is an ephemeral append. The fix removed the
+/// traversal and, by doing so, removed the thing that used to force the open.
+/// Boot-time open closes that.
+pub(crate) fn ensure_steward_open(data_dir: &str) -> std::io::Result<()> {
+    with_current_handle(data_dir, |_handle| Ok(()))
+}
+
+/// Substrate-traversal counters, for the positive-detection assertion.
+pub(crate) fn traversal_counters() -> (u64, u64, u64, u64, u64) {
+    (
+        HISTORY_WALKS.load(Ordering::Relaxed),
+        DECLARATION_CACHE_HITS.load(Ordering::Relaxed),
+        DECLARATION_CACHE_FILLS.load(Ordering::Relaxed),
+        ADMITTED.load(Ordering::Relaxed),
+        HYDRATED_DOMAINS.load(Ordering::Relaxed),
+    )
+}
+
+/// Steward the process writer handle for one event-stream admission, then
+/// delegate the discipline to `agentgres::event_stream`.
+///
+/// The discipline was LIFTED to the library on 2026-08-02 under
+/// `m5-agentgres-durable-event-subscription-successor` — a move, not a copy:
+/// canonicality gates, idempotent re-projection, the same-key-different-bytes
+/// refusal, head-conflict mapping, durability confirmation, and the
+/// ack-versus-projection cross-check all live there and were deleted from
+/// here in the same commit.
+///
+/// What remains is the one thing the library deliberately CANNOT do: acquire
+/// a handle. `with_current_handle` takes the cross-process writer lock, checks
+/// the log generation, and owns the process-local cache as a single
+/// mechanism — which is why exactly one steward exists per process, and why
+/// the library exposes no opener for anyone to call instead.
+pub(crate) fn admit_event_stream_operation(
+    data_dir: &str,
+    owner_namespace: &str,
+    stream_tail: &str,
+    op_kind: &str,
+    expected_head: Option<&str>,
+    payload: &Value,
+    recorded_at_ms: u64,
+    idem_key: &str,
+) -> Result<agentgres::event_stream::Admitted, AdmissionRefusal> {
+    let engine = engine_dir(data_dir);
+    let outcome = with_current_handle(data_dir, |handle| {
+        Ok(agentgres::event_stream::admit_event_stream_operation(
+            handle,
+            &engine,
+            agentgres::event_stream::EventAdmission {
+                owner_namespace,
+                stream_tail,
+                op_kind,
+                expected_head,
+                payload,
+                recorded_at_ms,
+                idem_key,
+            },
+        ))
+    })
+    .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))?;
+    match outcome {
+        Ok(admitted) => {
+            // A replay is not a new admission: counting it would inflate the
+            // admitted metric every time a duplicate is retried.
+            if !admitted.replayed {
+                ADMITTED.fetch_add(1, Ordering::Relaxed);
+            }
+            Ok(admitted)
+        }
+        Err(refusal) => {
+            if matches!(refusal, AdmissionRefusal::SubstrateUnavailable(_)) {
+                ERRORS.fetch_add(1, Ordering::Relaxed);
+            }
+            Err(refusal)
+        }
+    }
+}
+
+/// Read one stream's full admitted history. Daemon-only: the replay path runs
+/// in the process that holds the handle, so it needs no injected permission.
+pub(crate) fn read_event_stream_history(
+    data_dir: &str,
+    owner_namespace: &str,
+    stream_tail: &str,
+) -> Result<Vec<ExactProjection>, AdmissionRefusal> {
+    with_current_handle(data_dir, |handle| {
+        Ok(agentgres::event_stream::read_event_stream_history(
+            handle,
+            owner_namespace,
+            stream_tail,
+        ))
+    })
+    .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))?
+}
+
+/// Read the exact current admitted head for one owner-namespaced stream.
+/// Handle stewardship here; the read discipline in the library.
+pub(crate) fn read_event_stream_operation(
+    data_dir: &str,
+    owner_namespace: &str,
+    stream_tail: &str,
+) -> Result<Option<ExactProjection>, AdmissionRefusal> {
+    with_current_handle(data_dir, |handle| {
+        Ok(agentgres::event_stream::read_event_stream_head(
+            handle,
+            owner_namespace,
+            stream_tail,
+        ))
+    })
+    .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))?
 }
 
 /// Read the current canonical head for one bounded OutcomeRoom System.

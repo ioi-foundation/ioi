@@ -1,5 +1,7 @@
 # GuardianMajority Formal Model
 
+Status: internal formal-model note (AFT corpus); non-canonical.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
 This directory contains the formal artifacts for the production
 `GuardianMajority` mode of Aft Fault Tolerance.
 
