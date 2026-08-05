@@ -208,3 +208,12 @@ router = merge hotspot; standing rule).
    `/__ioi/run-replay`, `/__ioi/lineage`, `/__ioi/vertex` retired with typed
    410s per the 6-step rule; estate tiles/headers stop advertising the legacy
    paths.
+
+### Git/Agentgres transition-chain interfaces (epic)
+
+From the 2026-08-05 audit ([epic §2](../scm-transition-chain-epic.md)):
+Provenance gains transition-chain search/timeline, head/predecessor/gap/fork
+verification, the integrity-vs-currentness distinction, checkpoint
+verification, and proof export; it owns the receipt/checkpoint verification
++ export routes (epic §3 C9, a P3 leg) — these fold into the unified
+receipt-stream projection this brief already plans.

@@ -117,3 +117,13 @@ Reads ride the W0.3 read-projection client; authority actions ride the W0.3 auth
 7. **W2** — Membership/writer/continuity operations pane: proposal → Governance-gated decision → receipted execution, rendered as the governed two-step it is.
 8. **W3** — Backend builds + UI same wave: unified infrastructure-jobs projection (subjects via `subject_attachments`), capacity/utilization overview, RPO/RTO + degraded/partition rollup (§2 route-missing rows).
 9. **W4** — Cutover: `/__ioi/operations` retired with typed 410 per the 6-step rule; catalog tile (`serve-product-ui.mjs:1472`) repointed by the compiler projection; incidents-port and work-ledger cross-links repointed to `/operations`.
+
+### Git/Agentgres transition-chain interfaces (epic)
+
+From the 2026-08-05 audit ([epic §2](../scm-transition-chain-epic.md)):
+Operations gains the ingestion-health plane: signature failures, ingest lag,
+duplicates/out-of-order, Agentgres conflicts, dead letters,
+backfill/reconciliation, provider outages, and checkpoint health; it owns
+the health half of the reconciliation contracts (epic §3 C7 — Governance
+owns the approval half). Lands P2/P3, riding this brief's existing
+unified-jobs and rollup projections.

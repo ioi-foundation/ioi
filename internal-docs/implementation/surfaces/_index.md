@@ -35,6 +35,23 @@ brief is refreshed against the bytes before its surface is built (Phase B).
 Embodied Systems (`/embodied-systems`) is a reserved, nonlaunchable
 registration row in the compiler (planned) — no brief, no UI work.
 
+## Epics (cross-surface, 2026-08-05 audit absorption)
+
+- [`../scm-transition-chain-epic.md`](../scm-transition-chain-epic.md) — the
+  Git/Agentgres transition-chain epic: five P0 truthfulness defects (§1,
+  lands before any surface presents the Git workflow as governed), the
+  owner-by-owner missing-interface table (§2), the missing-contracts
+  build-list (§3), P0→P3 wave interleaving (§4). Coverage lands ONLY in
+  existing owners; the nine affected briefs (projects, developer-console,
+  developer-workspace, automations, work, governance, provenance, operations,
+  settings) each carry a final `### Git/Agentgres transition-chain interfaces
+  (epic)` pointer to their §2 row.
+- [`../repo-ux-disposition.md`](../repo-ux-disposition.md) — repository-wide
+  surface disposition ledger (estate surfaces outside these briefs: CLI/TUI,
+  editor targets, hypervisor-web, developers.ioi.ai, benchmarks, aiagent.xyz,
+  sas.xyz, QM); UNDISPOSITIONED rows await one owner-scope ruling pass
+  (charter ledger row).
+
 ## Shared plumbing every brief assumes (Wave 0)
 
 - **W0.1** v2 route shell: the 23 canonical routes as the shell route table;

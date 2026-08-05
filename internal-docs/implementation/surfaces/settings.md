@@ -287,3 +287,12 @@ authority client already encodes it. No row binds session-serving data (no
 11. **W4** — One-line canon PR: fix the five five-count locations (:819, :1793-1794,
     :4545-4546, :4582-4583, :4803) and add the dedicated `Hypervisor Settings` section
     beside the other core-workspace sections.
+
+### Git/Agentgres transition-chain interfaces (epic)
+
+From the 2026-08-05 audit ([epic §2](../scm-transition-chain-epic.md)):
+Settings — like Home and Systems — gains only preferences plus read-only
+summaries and deep links into the chain owners' surfaces, and may NEVER
+become a competing truth owner over transition-chain state (epic §5
+non-goal). Projection-only, writes-through-owners, exactly this brief's
+standing rule.

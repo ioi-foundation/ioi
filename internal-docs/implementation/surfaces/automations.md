@@ -217,3 +217,14 @@ deleted at W4 per the master ladder.
     `/__ioi/automations/monitors`, `/__ioi/studio/machinery`; delete the SPA WorkflowService
     stub surface and the `server.cjs` "Automate" fixture (:895); rail/nav rows come from the
     product-surface compiler only.
+
+### Git/Agentgres transition-chain interfaces (epic)
+
+From the 2026-08-05 audit ([epic §2](../scm-transition-chain-epic.md)):
+Automations gains provider-event mapping, workflow revision/run-attempt
+identity, the legal transition graph, reconciliation views, and the
+receipted outbound check projection; it owns the delivery/workflow/run/
+check/attempt identity contracts (epic §3 C3, a P1 item). Its inbound lane
+today is only the token-hash automation webhook
+(`orchestration_routes.rs:235-245`) — provider ingestion arrives via
+Developer Console's C4, mapped here at P2.
