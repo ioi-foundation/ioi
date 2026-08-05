@@ -105,7 +105,103 @@ paths are commitments to write that contract, not evidence it exists.
 | Temporal verification (INV-36) | covered as sub-criteria in [`platform-operability.md`](./hypervisor-core/platform-operability.md) (CPO-11) and [`attestation-assurance.md`](./hypervisor-core/attestation-assurance.md) (CAA-10) | `target_defined` |
 | IOI L1 settlement triggers | none — explicitly outside this tree's boundary (below) | `out_of_scope_nonclaim` |
 | HA / managed hosting / portable secret export (within SLC) | [`sovereign-local-completeness-matrix.v1.json`](./hypervisor-core/sovereign-local-completeness-matrix.v1.json) `external_conditional_nonclaims` | `out_of_scope_nonclaim` |
+| Outsider-runnable public conformance profile (`ioi_public_conformance_profile_v1`) | this file, § The Public Conformance Profile | `target_defined` (admission rule, entitlements, and boundary defined; membership uncomputed and no outside runner exists) |
+| Two-client independence, recorded by ADR 0032 axes | this file, § The two-client claim, expressed by axes | `target_defined` (vocabulary defined; no client has asserted axes) |
+| Reference-implementation designation and third-party parity | [`../architecture/foundations/web4-and-ioi-stack.md`](../architecture/foundations/web4-and-ioi-stack.md) § The Reference-Implementation Contract | `target_defined` (contract written; no release is designated and no parity claim exists) |
+| Protocol-governance neutrality (change process, capture resistance, versioning rights) | [`../architecture/foundations/protocol-governance-neutrality.md`](../architecture/foundations/protocol-governance-neutrality.md) | `target_defined` (contract written; no proposal registry, objection record, or designation record exists) |
 | Legacy CIRC/CEC stubs | [`../conformance/agentic-runtime/CIRC.md`](./agentic-runtime/CIRC.md), [`CEC.md`](./agentic-runtime/CEC.md) | `deprecated_stub` |
+
+## The Public Conformance Profile
+
+The index above is complete about what IOI claims and useless to an outsider who
+wants to check any of it: every row names a target and a state, and none says
+what an adopter *runs*. This section defines that — the definition and its
+contract surface, not new proof machinery. **No runner is built by this
+section, and none is claimed to exist.**
+
+### What the profile is
+
+**`ioi_public_conformance_profile_v1` is the named, versioned set of claims an
+outside adopter can check for themselves, together with what passing each one
+entitles them to say.** It is a *subset* of the index above, and being a subset
+is the point: a public profile that promised everything would be unrunnable, and
+an adopter would learn nothing from a bar nobody can clear.
+
+Admission to the profile is mechanical, not editorial. A claim is in
+`ioi_public_conformance_profile_v1` if and only if:
+
+1. its state is `active_invariant` or `target_runnable` — a claim whose contract
+   is unwritten or whose substrate does not exist cannot be run by anyone,
+   including us;
+2. its check runs against **published artifacts only** — registered schemas,
+   published fixtures, canonical matrices — with no dependency on a hosted IOI
+   service, an IOI-issued credential, network access to IOI, or non-public
+   material;
+3. its **negative cases are published alongside its positive ones**. A profile
+   entry that only demonstrates acceptance lets an adopter prove they can say
+   yes, which is the easy half and the wrong half; and
+4. its passing statement is written in the entitlement vocabulary below.
+
+A claim meeting all four is in the profile whether or not it flatters the
+implementation. A claim failing any is out, with the failing condition named —
+which makes the profile's *boundary* checkable too, rather than a curated list.
+
+### What passing entitles an adopter to say
+
+Passing is a statement about a checked surface, never about a system. Three
+levels, and the distinctions are the substance:
+
+| Entitlement | Earned by | Explicitly not |
+| --- | --- | --- |
+| `schema_conformant` | positive **and** negative fixture parity over the named registered contracts | that the implementation behaves correctly at runtime; a schema is a shape |
+| `behavior_conformant` | the above, plus matching typed refusals on every published negative case for the named claim | certification; that untested surfaces behave; that the implementation is secure |
+| `surface_complete` | the above across every claim in the profile, with a published manifest of what is implemented and what is declared unimplemented | that IOI endorses, certifies, supports, or has reviewed the implementation |
+
+**Refusal parity is the load-bearing half.** Agreeing about what to accept is
+cheap; agreeing about what to *refuse*, with the same typed reason, is what
+makes two implementations substitutable. An implementation that accepts what the
+reference refuses is more permissive, not more compatible.
+
+### What the profile is not
+
+- **Not certification.** A `CertificationClaim` is issued by an accredited
+  issuer under
+  [`../architecture/foundations/ecosystem-assurance-certification-liability.md`](../architecture/foundations/ecosystem-assurance-certification-liability.md).
+  Self-checking the public profile is a self-report and reads as one; passing it
+  is the *input* an issuer may consider, never a substitute for the issuer.
+- **Not a security claim.** Nothing here establishes that an implementation is
+  safe, correct, or fit for a purpose. The profile checks agreement with a
+  contract; a contract can be agreed with and badly implemented underneath.
+- **Not permission to use IOI's names.** Marks and naming are licensed
+  separately (see the licensing ADR); passing a public profile grants no naming
+  right, and claiming one is a marks violation regardless of the conformance
+  result.
+- **Not evidence of a passing north-star or first proof.** Those remain what the
+  index says they are.
+- **Not a gate on anything.** No release, admission, routing, or authority
+  decision depends on this profile. It is a self-service check, which is the
+  only kind an adopter can trust without trusting us.
+
+### The two-client claim, expressed by axes
+
+A conformance claim of "two independently implemented clients" is recorded as
+the **set of axes** each client asserts under
+[ADR 0032](../decisions/0032-independently-implemented-client-definition.md) —
+`separate_binary`, `separate_codegen`, `separate_transport`,
+`separate_authoring_party` — never as a boolean. A boolean would force a partial
+claim to overstate; the axis set lets a true partial claim be stated truthfully,
+and lets a reader see whether it demonstrates contract sufficiency, party
+adoption, or only packaging.
+
+### Honest state of this profile
+
+`ioi_public_conformance_profile_v1` is **defined and unpopulated.** Its admission
+rule, entitlement vocabulary, and boundary exist as of this section; no runner,
+harness, or published fixture bundle for outside execution exists on current
+master, and the profile's membership list has not been computed. Its own state
+in the index below is therefore `target_defined`, and it is listed there like
+every other claim — a profile exempt from the index would be exactly the
+unfalsifiable surface this file exists to prevent.
 
 ## Compatibility Labels
 
