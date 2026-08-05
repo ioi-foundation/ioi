@@ -435,8 +435,9 @@ async fn test_gc_respects_pinned_epochs() -> Result<()> {
     let keep_recent = 10;
     let epoch_size = 5;
 
-    // Disable auto-GC to control it manually
-    // We'll just set a very long interval so it doesn't run automatically
+    // Keep subsequent background passes infrequent so the post-pin assertions
+    // are driven by the manual triggers below. Correctness does not assume that
+    // the workload defers its startup GC pass.
     let gc_interval = 3600;
 
     let mut cluster = TestCluster::builder()
@@ -511,64 +512,67 @@ async fn test_gc_respects_pinned_epochs() -> Result<()> {
         )
         .await?;
 
-        // 1. Advance chain to make history available
-        println!("Advancing chain to height 20...");
-        wait_for_height(&rpc_addr, 20, Duration::from_secs(60)).await?;
-
-        // 2. Pin a specific height that is about to fall out of retention
-        let pinned_height = 12;
-        println!("Pinning height {}...", pinned_height);
+        // 1. Pin the current retained head. A fixed old height races the
+        // workload's permitted startup GC pass under parallel test load.
+        println!("Waiting for a retained head to pin...");
+        wait_for_height(&rpc_addr, 2, Duration::from_secs(60)).await?;
+        let pinned_height = client.get_status().await?.height;
+        println!("Pinning current retained height {}...", pinned_height);
         client.debug_pin_height(pinned_height).await?;
 
-        // Verify it exists currently
-        let block_12 = client
+        // Verify it exists currently.
+        let pinned_block = client
             .get_block_by_height(pinned_height)
             .await?
-            .expect("Block 12 should exist");
-        let root_12 = block_12.header.state_root;
+            .ok_or_else(|| anyhow!("Block {} should exist", pinned_height))?;
+        let pinned_root = pinned_block.header.state_root;
         let res = client
-            .query_state_at(root_12.clone(), b"system::validators::current")
+            .query_state_at(pinned_root.clone(), b"system::validators::current")
             .await;
         assert!(
             res.is_ok(),
-            "State at 12 should be queryable before pruning"
+            "State at pinned height {} should be queryable before pruning",
+            pinned_height
         );
 
-        // 3. Advance chain to push height 12 out of window
-        // current > 12 + 10 = 22. Let's go to 35 to be safe.
-        println!("Advancing chain to height 35...");
-        wait_for_height(&rpc_addr, 35, Duration::from_secs(60)).await?;
+        // 2. Advance far enough to push the pinned height out of the retention
+        // window, independent of the exact head observed above.
+        let post_retention_height = pinned_height.saturating_add(keep_recent).saturating_add(15);
+        println!("Advancing chain to height {}...", post_retention_height);
+        wait_for_height(&rpc_addr, post_retention_height, Duration::from_secs(60)).await?;
 
-        // 4. Trigger GC
+        // 3. Trigger GC.
         println!("Triggering GC...");
         let stats = client.debug_trigger_gc().await?;
         println!("GC Stats: {:?}", stats);
 
-        // 5. Assert Existence (Pin should save it)
+        // 4. Assert existence (the pin should save it).
         let res_pinned = client
-            .query_state_at(root_12.clone(), b"system::validators::current")
+            .query_state_at(pinned_root.clone(), b"system::validators::current")
             .await;
         assert!(
             res_pinned.is_ok(),
-            "Pinned state at 12 should still be available after GC"
+            "Pinned state at height {} should still be available after GC",
+            pinned_height
         );
 
-        // 6. Unpin
+        // 5. Unpin.
         println!("Unpinning height {}...", pinned_height);
         client.debug_unpin_height(pinned_height).await?;
 
-        // 7. Trigger GC again
+        // 6. Trigger GC again.
         println!("Triggering GC 2nd pass...");
         let stats2 = client.debug_trigger_gc().await?;
         println!("GC Stats 2: {:?}", stats2);
 
-        // 8. Assert Pruned
+        // 7. Assert pruned.
         let res_pruned = client
-            .query_state_at(root_12, b"system::validators::current")
+            .query_state_at(pinned_root, b"system::validators::current")
             .await;
         assert!(
             res_pruned.is_err(),
-            "State at 12 should be pruned after unpinning"
+            "State at height {} should be pruned after unpinning",
+            pinned_height
         );
         let err_str = res_pruned.unwrap_err().to_string();
         assert!(
