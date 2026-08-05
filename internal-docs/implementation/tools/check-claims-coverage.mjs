@@ -451,21 +451,41 @@ function main() {
   // carries one. A bar that inspects one directory must not read as though it
   // inspected fifty-two, so the count is stated rather than implied.
   const EVIDENCE = join(REPO, "docs", "evidence");
-  const packets = existsSync(EVIDENCE)
-    ? readdirSync(EVIDENCE, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => `docs/evidence/${entry.name}/PACKET.md`)
-        .filter((path) => existsSync(join(REPO, path)))
+  const BASELINE_PATH = join(REPO, "scripts", "packet-convention-baseline.v1.json");
+  const allDirs = existsSync(EVIDENCE)
+    ? readdirSync(EVIDENCE, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
     : [];
+  // THE RATCHET. Directories predating the convention are pinned in a baseline
+  // that may only SHRINK -- the same idiom as the agentgres ref-minting pin.
+  // Everything NOT on it must carry PACKET.md and be named by a manifest.
+  const baseline = existsSync(BASELINE_PATH)
+    ? new Set(JSON.parse(readFileSync(BASELINE_PATH, "utf8")).directories ?? [])
+    : new Set();
+  for (const name of baseline) {
+    if (!allDirs.includes(name)) {
+      findings.push(finding("error", "claims-coverage",
+        `packet-convention baseline pins ${name}, which no longer exists under docs/evidence/ — ` +
+        `a ratchet that names nothing cannot shrink honestly`));
+    }
+  }
+  const governed = allDirs.filter((name) => !baseline.has(name));
   const declaredPackets = new Set(
     manifests.flatMap((name) =>
       JSON.parse(readFileSync(join(COVERAGE_DIR, name), "utf8")).packets ?? []),
   );
-  for (const packet of packets) {
-    if (declaredPackets.has(packet)) continue;
-    findings.push(finding("error", "claims-coverage",
-      `${packet} is published but NO claims manifest declares it in its "packets" list — a packet the ` +
-      `claims gate cannot see is unmapped by construction, which is include-list fail-open`));
+  for (const name of governed) {
+    const packet = `docs/evidence/${name}/PACKET.md`;
+    if (!existsSync(join(REPO, packet))) {
+      findings.push(finding("error", "claims-coverage",
+        `docs/evidence/${name}/ postdates the PACKET.md convention and carries NO PACKET.md — ` +
+        `the baseline is shrink-only, so a new directory cannot be added to it`));
+      continue;
+    }
+    if (!declaredPackets.has(packet)) {
+      findings.push(finding("error", "claims-coverage",
+        `${packet} is published but NO claims manifest declares it in its "packets" list — a packet the ` +
+        `claims gate cannot see is unmapped by construction, which is include-list fail-open`));
+    }
   }
   for (const declared of declaredPackets) {
     if (!existsSync(join(REPO, declared))) {
@@ -475,9 +495,8 @@ function main() {
     }
   }
   console.log(
-    `[WARN] claims-coverage: packet naming — ${packets.length} PACKET.md under docs/evidence/ ` +
-    `(of ${existsSync(EVIDENCE) ? readdirSync(EVIDENCE, { withFileTypes: true }).filter((e) => e.isDirectory()).length : 0} ` +
-    `evidence directories); ${declaredPackets.size} declared by a manifest`,
+    `[WARN] claims-coverage: packet convention — ${governed.length} governed directory(ies) of ${allDirs.length}; ` +
+    `${baseline.size} pinned as pre-convention (shrink-only); ${declaredPackets.size} packet(s) declared by a manifest`,
   );
 
   const errors = findings.filter((f) => f.severity === "error");
