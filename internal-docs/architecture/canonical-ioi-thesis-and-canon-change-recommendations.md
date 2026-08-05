@@ -5,9 +5,29 @@ non-canonical as text. Nothing in this file amends a canonical owner under
 `docs/architecture/`. Canonical owner docs and accepted ADRs win if this
 document later drifts.
 
-Date: 2026-08-04.
+Date: 2026-08-04. Regime restatement: 2026-08-05.
 
-## Ruling Record (2026-08-04)
+**This register is now the sole live carrier of the Tier-2 gap namings.** The
+program estate that co-named them — `internal-docs/implementation/` (master
+guide, stages, modules, work items, `NOW.md`, and the whole sequencer toolchain)
+— was deleted on 2026-08-05 by the ratified merge-and-strip directive
+([`../overhaul/2026-08-05-merge-and-strip-action-plan.md`](../overhaul/2026-08-05-merge-and-strip-action-plan.md)
+§5.1), together with the certification harness, the checker/ratchet fleet, and
+the retained-evidence tree. Nothing in that estate survives to re-raise R-08
+through R-12; if this file stops naming a gap, the gap stops being named
+anywhere. Passages below that cite stage records, `NOW.md` blockers, or the M5
+branch are therefore rewritten as obligations owed by canon on their own terms.
+Dated provenance and the dated ruling record are kept verbatim as history — they
+record what was true when the agenda was ratified, not what binds work today.
+
+## Ruling Record (2026-08-04) — history, kept verbatim
+
+The two rulings below are recorded as they were made. Their *substance* — the
+tier ordering, R-03 as an independent parallel track — is still in force. Their
+*machinery* references (the M5 branch, the M5-gating tier, the canon leg) name a
+program estate deleted on 2026-08-05; see the regime restatement at the head of
+this file and the rewritten Sequencing Summary at the foot. Nothing here is
+edited to look like it was made under the current regime.
 
 Both requested rulings ratified:
 
@@ -34,11 +54,14 @@ classification (two owners that can drift until it does), folded in the same
 owner pass as R-11. The corrected entry's lesson stands: a claim of absence
 needs byte-verification exactly as a claim of presence does.
 
-Provenance: full canon familiarization pass over `docs/architecture/`
-(foundations 21 files + 17 object modules, domains 16 files, components 7
-subsystems, decisions ADR 0001–0031) plus the live program state under
-`internal-docs/implementation/` at branch
-`agent/hypervisor-m5-event-substrate`, HEAD `114d7561f`.
+Provenance (history, 2026-08-04): full canon familiarization pass over
+`docs/architecture/` (foundations 21 files + 17 object modules, domains 16
+files, components 7 subsystems, decisions ADR 0001–0031) plus the then-live
+program state under `internal-docs/implementation/` at branch
+`agent/hypervisor-m5-event-substrate`, HEAD `114d7561f`. That estate no longer
+exists in the working tree; the paths above resolve only inside history and at
+the `pre-overhaul/*` tags. They are recorded here because provenance must stay
+checkable, not because anything below depends on reading them.
 
 Purpose: (1) state, in canon-adoptable register, why the machine-authority and
 cryptographic-labor-economy substrate — and not the academic
@@ -47,11 +70,16 @@ Intelligence; (2) enumerate every recommended canon change surfaced by the
 familiarization pass and the independent assessment, each bound to its named
 canon owner.
 
-Sequencing discipline: no `docs/architecture/` edit proposed here rides the M5
-branch. `internal-docs/implementation/NOW.md` already names uncovered canon
-subjects and post-baseline digest drift as advancement blockers; canon edits
-follow `_meta/source-of-truth-map.md` ownership and the canon acceptance
-process as a separate leg after owner ruling.
+Sequencing discipline (restated 2026-08-05 for the light regime): the original
+rule — no `docs/architecture/` edit rides the M5 branch, because `NOW.md` named
+uncovered canon subjects and post-baseline digest drift as advancement blockers
+— is discharged. There is no M5 branch to keep clean, no `NOW.md` to raise a
+blocker, and no digest to drift. What survives it is the part that was never
+about the estate: **canon edits follow `_meta/source-of-truth-map.md` ownership,
+land at the named owner rather than inside a work record, and are proposed as
+their own change.** The post-strip verification bar is the whole bar — `cargo
+build`, `cargo test`, `npm run lint`, `npm run typecheck` — and this agenda adds
+no gate of its own.
 
 ---
 
@@ -262,10 +290,12 @@ R-15).
 
 Each recommendation names its canon owner(s) per `_meta/source-of-truth-map.md`
 discipline. Tiers order by structural leverage, not urgency; sequencing
-constraints are listed where they bind. Items already named inside stage
-records are restated here so they are not lost to the program estate — the
-stage docs correctly rule that canon gaps close in canon, by the named owner,
-never inside a work item.
+constraints are listed where they bind. Items that were once co-named inside
+stage records are restated here in full because the stage records are gone: the
+estate's own rule was that canon gaps close in canon, by the named owner, never
+inside a work item, and the strip made this register the only place the naming
+still lives. A reader needs nothing but this file and the owner docs it points
+at.
 
 ### Tier 0 — Definitional and structural
 
@@ -321,31 +351,56 @@ rights). Owner: extend `marketplace-neutrality.md` or mint a sibling
 foundations owner.
 
 **R-07 — Outsider-runnable conformance suite.** Adopters cannot self-certify;
-certification surface is contract-only. Sequencing is already ruled: the
-sovereign-local-completeness proof lands first (ADR 0021), then the claim
-coverage index in `docs/conformance/README.md` grows a runnable public
-profile. Restated here so the adoption-calculus framing keeps pulling it.
+certification surface is contract-only. What R-07 owes is a *definition* — the
+claim coverage index in `docs/conformance/README.md` grows a defined runnable
+public profile naming what an outside adopter runs and what passing it claims.
+ADR 0021's first-proof ordering governs when a sovereign-local-completeness
+*proof* may be claimed; it does not delay writing the contract surface such a
+proof would be checked against, and writing the definition first is what makes
+the eventual proof checkable. New proof apparatus is explicitly out of scope.
 
-### Tier 2 — M5-blocking canon gaps (named in `internal-docs/implementation/stages/m5.md`; close in canon before the affected M5 records claim exit)
+### Tier 2 — collaboration-substrate canon gaps (formerly the M5-blocking tier; now owed on their own terms)
 
-**R-08 — Register the M5 contract families.** Nineteen of twenty-two families
-resolve only through `reviewed_owner_locator` with empty `contract_ids` —
-including `LocalAgentPairingSessionEnvelope`, `RoomParticipantLeaseEnvelope`,
+These four were originally raised as stage-exit blockers in
+`internal-docs/implementation/stages/m5.md`. That file no longer exists, and no
+stage record can raise them again. They are restated here as ordinary canon
+obligations: each names a real absence at a named owner, and each stays true
+whether or not any milestone ever asks for it. **The gap is the reason; the gate
+never was.**
+
+**R-08 — Register the collaboration-substrate contract families.** Ten families
+that canon defines field-for-field under `foundations/objects/` have no
+registered contract, no schema, no fixtures, and no deriving Rust type:
+`LocalAgentPairingSessionEnvelope`, `RoomParticipantLeaseEnvelope`,
 `WorkFrontierItemEnvelope`, `WorkClaimLeaseEnvelope`, `AttemptEnvelope`,
-`FindingEnvelope`, `VerifierChallengeEnvelope`, `WorkResultEnvelope`/
+`FindingEnvelope`, `VerifierChallengeEnvelope`, `WorkResultEnvelope`,
 `OutcomeDeltaEnvelope`, `ParticipantStateBundleEnvelope`. Owners:
 `foundations/common-objects-and-envelopes.md` +
-`_meta/schemas/architecture-contract-registry.v1.json`. Constraint: new
-registrations must not grow the generated-contract quarantine (71 of 88
-generated TypeScript contracts currently have no deriving Rust type; the
-register is shrink-only).
+`_meta/schemas/architecture-contract-registry.v1.json`, with every family
+derived from its real field-level owner under `foundations/objects/`.
 
-**R-09 — Define "independently implemented client."** The M5 exit requires two
-independently implemented clients; no owner defines independence (separate
-transport? codegen? authoring party? binary?). Owners: ADR 0002 +
-`components/hypervisor/core-clients-surfaces.md`. Note the definition also
-interacts with `INV-18` (multiplicity is not independence) — the ruling should
-say which axes of independence the exit proof actually claims.
+*Constraint, re-scoped at the bytes on 2026-08-05.* The original constraint —
+"must not grow the generated-contract quarantine (71 of 88 generated TypeScript
+contracts have no deriving Rust type; the register is shrink-only)" — counted a
+quantity whose counting apparatus was deleted with the estate, and the
+`reviewed_owner_locator` resolution path it named went with it. Measured today:
+the registry carries **144 contracts, every one with both a
+`typescript_projection` and a `rust_projection` target** — there is no TS-only
+row left to shrink. The live constraint is the invariant that number was
+protecting, stated directly: **every new registration lands with its deriving
+Rust type in the same change — zero TypeScript-only growth, permanently.**
+`scripts/generate-architecture-contracts.mjs` is the enforcement surface, and
+its refusals are correct by construction: fit the schema to what both
+projections provably represent, never weaken the generator to admit a schema.
+
+**R-09 — Define "independently implemented client."** Canon requires two
+independently implemented clients and never says what independence is (separate
+transport? codegen? authoring party? binary?). The stage record that would have
+consumed the definition is gone; the definitional hole is not, because ADR 0002
+and `core-clients-surfaces.md` both lean on the phrase. Owners: ADR 0002 +
+`components/hypervisor/core-clients-surfaces.md`. The definition also interacts
+with `INV-18` (multiplicity is not independence) — the ruling must say which
+axes of independence any claim of two clients actually asserts.
 
 **R-10 — Authenticated time source.** Lease TTL, heartbeat, expiry, and
 forged-time denial all turn on authenticated time; no owner defines the
@@ -435,13 +490,25 @@ duplicated into this document.
 
 ## Sequencing Summary
 
-1. Nothing above edits `docs/architecture/` on the M5 branch; canon digest
-   drift is a named advancement blocker in the program estate.
-2. R-08 through R-12 gate M5 records and should be the first canon leg after
-   owner ruling, since the stage cannot exit around them.
-3. R-01/R-02 (definitional owner + protected term) can ride the same canon
-   leg cheaply; R-13/R-14 are one-owner-pass additions each.
-4. R-03 (licensing ADR) is independent of every program gate and is the
-   longest-lead item; it should start now regardless of sequencing elsewhere.
-5. R-05/R-06/R-07 follow the sovereign-local-completeness proof per the
-   already-ruled first-proof ordering.
+Restated 2026-08-05. The original summary sequenced this agenda against program
+gates — an M5 branch to stay off, a stage that could not exit around R-08
+through R-12, a first-proof ordering enforced by the estate. Three of those five
+clauses named machinery that no longer exists. What remains is ordering by
+dependency and leverage, which is the only ordering canon ever needed:
+
+1. **Nothing here waits on a branch or a milestone.** The M5 branch, the canon
+   digest, and the advancement-blocker mechanism are gone; canon edits are
+   ordinary changes at their named owners under `_meta/source-of-truth-map.md`.
+2. **R-08 through R-12 stay first by leverage, not by gate.** They are the
+   contract- and vocabulary-level absences other work compounds on: an
+   unregistered family is re-derived by every reader, and an undefined denial
+   vocabulary is re-invented by every implementer.
+3. **R-01/R-02 (definitional owner + protected term) ride cheaply alongside**;
+   R-13/R-14 are one-owner-pass additions each.
+4. **R-03 (licensing ADR) is independent of everything** and is the longest-lead
+   item; it starts regardless of sequencing elsewhere.
+5. **R-05/R-06/R-07 are contract-surface definitions, not proofs.** ADR 0021's
+   first-proof ordering still governs when a *proof* may be claimed; it does not
+   govern when the contract a future proof would satisfy may be *written*.
+   Writing the definition earlier is what lets the eventual proof be checked
+   against something.
