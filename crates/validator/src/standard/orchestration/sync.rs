@@ -44,6 +44,21 @@ pub(crate) fn sync_batch_max_blocks() -> u32 {
         .unwrap_or(50)
 }
 
+// The workload can persist the block currently being finalized before orchestration has
+// committed its final identity metadata. Sync may expose history only through orchestration's
+// committed tip, and the boundary block must be that exact identity.
+fn sync_response_entry_is_committed(
+    candidate_height: u64,
+    candidate_hash: Option<&[u8]>,
+    committed_height: u64,
+    committed_hash: Option<&[u8]>,
+) -> bool {
+    candidate_height < committed_height
+        || (candidate_height == committed_height
+            && candidate_hash.is_some()
+            && candidate_hash == committed_hash)
+}
+
 pub async fn start_catchup_to_peer<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     peer: PeerId,
@@ -217,12 +232,37 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
         + 'static
         + Debug,
 {
-    let blocks = context
+    let committed_tip = context.last_committed_block.as_ref();
+    let committed_height = committed_tip.map(|block| block.header.height).unwrap_or(0);
+    let committed_hash = committed_tip.and_then(|block| block.header.hash().ok());
+    let mut blocks = context
         .view_resolver
         .workload_client()
         .get_blocks_range(since + 1, max_blocks, max_bytes)
         .await
         .unwrap_or_default();
+    let fetched_blocks = blocks.len();
+    blocks.retain(|block| {
+        let candidate_hash = (block.header.height == committed_height)
+            .then(|| block.header.hash().ok())
+            .flatten();
+        sync_response_entry_is_committed(
+            block.header.height,
+            candidate_hash.as_deref(),
+            committed_height,
+            committed_hash.as_deref(),
+        )
+    });
+    if blocks.len() != fetched_blocks {
+        tracing::debug!(
+            target: "sync",
+            requested_since = since,
+            committed_height,
+            fetched_blocks,
+            returned_blocks = blocks.len(),
+            "Withheld workload blocks that are not yet orchestration-committed."
+        );
+    }
     context
         .swarm_commander
         .send(SwarmCommand::SendBlocksResponse(channel, blocks))
@@ -382,7 +422,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         + Debug,
 {
     let mut blocks = blocks;
-    let workload_client = context.view_resolver.workload_client();
+    let workload_client = context.view_resolver.workload_client().clone();
     if context.sync_progress.is_none() {
         let mut local_height = context
             .last_committed_block
@@ -504,6 +544,18 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         .take_while(|block| block.header.height <= next)
         .count();
     if already_applied_prefix > 0 {
+        for block in &blocks[..already_applied_prefix] {
+            if let Err(error) = gossip::maybe_apply_block_enrichment(context, block).await {
+                tracing::warn!(
+                    target: "sync",
+                    %peer,
+                    height = block.header.height,
+                    view = block.header.view,
+                    error = %error,
+                    "Rejected block enrichment from an already-applied sync prefix."
+                );
+            }
+        }
         tracing::debug!(
             target: "sync",
             %peer,
@@ -963,5 +1015,47 @@ async fn trigger_catchup_vote<CS, ST, CE, V>(
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sync_response_entry_is_committed;
+
+    #[test]
+    fn sync_response_never_exposes_a_workload_height_above_the_committed_tip() {
+        let committed_hash = [7_u8; 32];
+
+        assert!(!sync_response_entry_is_committed(
+            8,
+            None,
+            7,
+            Some(&committed_hash),
+        ));
+    }
+
+    #[test]
+    fn sync_response_tip_requires_the_committed_identity() {
+        let committed_hash = [7_u8; 32];
+        let other_hash = [8_u8; 32];
+
+        assert!(sync_response_entry_is_committed(
+            7,
+            Some(&committed_hash),
+            7,
+            Some(&committed_hash),
+        ));
+        assert!(!sync_response_entry_is_committed(
+            7,
+            Some(&other_hash),
+            7,
+            Some(&committed_hash),
+        ));
+        assert!(!sync_response_entry_is_committed(1, None, 0, None));
+    }
+
+    #[test]
+    fn sync_response_keeps_committed_history_below_the_tip() {
+        assert!(sync_response_entry_is_committed(6, None, 7, None));
     }
 }
