@@ -471,6 +471,19 @@ security-domain application.
 7. A blocked-before-egress claim reaches verified assurance only when the
    pre-effect decision and enforcement seam prove that the external invoker was
    not called. An error returned after network contact is not equivalent.
+8. Parameters, gradients, weight deltas, adapters, embeddings, and distillates
+   of protected material are protected content on egress, not a lighter class
+   because no document leaves. Moving them across a sovereign boundary is a
+   declassification event requiring a `DeclassificationApproval` and receipts
+   under invariant 6, and it is strictly less reversible than exporting a work
+   product: a parameter delta carries no lineage, so nothing downstream can be
+   attributed, revoked on source deletion, or adjudicated afterward.
+   Differential privacy, secure aggregation, or any other statistical control
+   reduces exposure and never creates missing rights. Owned by
+   [`institutional-learning-boundary.md`](./institutional-learning-boundary.md)
+   § Parameter And Gradient Egress Is Declassification; the workload
+   classification is owned by
+   [`worker-training-lifecycle.md`](./worker-training-lifecycle.md).
 
 ### Target information-flow boundary matrix
 

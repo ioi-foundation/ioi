@@ -290,6 +290,63 @@ Anonymization language alone does not authorize cross-tenant reuse. Differential
 privacy or another aggregation control can reduce exposure; it cannot create
 missing rights.
 
+## Parameter And Gradient Egress Is Declassification
+
+Canon implied this everywhere and stated it nowhere, which left the front door
+open to the confusion the pooling model carries — that exchanging weights is a
+lighter act than exchanging work products because no document leaves. The
+opposite is true, and it is stated here once.
+
+**Moving parameters, gradients, weight deltas, adapters, embeddings, or
+distillates of protected material across a sovereign boundary is a
+declassification event.** It requires resolved rights and receipts exactly like
+any other consequential effect, because it is one:
+
+- it binds a `DeclassificationApproval` against the exact effective
+  `InstitutionalLearningBoundaryProfile`, the contributing source-rights and
+  eligibility evidence, the destination, the purpose, and the target class,
+  under the information-flow rules in
+  [`security-privacy-policy-invariants.md`](./security-privacy-policy-invariants.md)
+  § Information-Flow Invariants;
+- it is default-deny when any contributing source's rights, consent, retention,
+  route-rights, or destination class is missing or `unknown`, per the same
+  most-restrictive-intersection rule that governs every other learning use;
+- it emits a receipt naming what crossed, from which sources, under which
+  profile version, to which destination, for which purpose.
+
+**Why the stronger treatment rather than a lighter one.** A work product carries
+lineage: it can be attributed, licensed, recalled, superseded, and adjudicated
+after the fact. A parameter delta cannot. Once trained in, provenance is gone —
+nothing downstream can be attributed to a contributor, revoked on a source
+deletion, or adjudicated in a dispute. Egress is therefore **irreversible in a
+way ordinary effects are not**, and the rights question must be resolved before
+it happens, because there is no after. `Recall`, `source deletion`, and
+`retraining` remain distinct observable actions (§ Institutional Learning
+Boundary Invariants 6); none of them undoes an egress, and verified unlearning
+requires its own declared property, method, evaluation, and assurance result.
+
+**What does not authorize it.** Differential privacy, secure aggregation,
+k-anonymity, gradient clipping, or any other aggregation control reduces
+exposure; it does **not** create missing rights, and a control applied to
+material the institution had no right to export is a well-protected violation.
+Neither does a provider's account-level opt-in, a broad service default, a
+changed term, an aggregate-learning program the source never joined, nor the
+observation that "no data leaves" — the parameters are the data, in the only
+form that matters here.
+
+**What this does not restrict.** Movement of parameters *within* one sovereign
+boundary, under one effective profile, is ordinary governed work and needs no
+declassification. Publication of a model trained solely on material the
+institution owns outright is a rights decision its owner may make. The rule
+binds the **crossing**, not the training.
+
+The workload classification — that cross-boundary parameter exchange is a
+governed Worker Training workload and never a substrate primitive — is owned by
+[`worker-training-lifecycle.md`](./worker-training-lifecycle.md); the category
+reasoning is in
+[`internet-of-intelligence.md`](./internet-of-intelligence.md) § The Demotion
+Rule.
+
 ## Portability And Model Independence
 
 `InstitutionalIntelligenceExportBundleEnvelope` is the governed export manifest
