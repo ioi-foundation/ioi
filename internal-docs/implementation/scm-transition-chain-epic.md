@@ -167,3 +167,27 @@ route shell) work.
   `repo-ux-disposition.md`, not wired here.
 - **No re-decision of C-1..C-4**: chain subjects attach to sessions via
   `subject_attachments`, never named app fields.
+
+## Agentgres positioning constraints (owner ruling, 2026-08-05)
+
+Canon positioning is fixed by `postgres-bridge-and-readiness-contract.md:18-26`
+("canonical state substrate with a Postgres bridge") and `doctrine.md:61/:81`
+("Rows are views. Settled state is truth" · "Git versions code. Agentgres
+versions autonomous work"). Owner ruling: this is emphasis-binding for the
+epic, not a mechanics change. Consequences, in force for every epic PR:
+
+1. **Admission is the only write story.** No surface, route, or client may
+   present Agentgres state with mutation semantics; writes surface only as
+   admission crossings (expected-head CAS) with receipts. This RAISES P0
+   defect 3: the synthesized `agentgres://pull-request-draft/...` ref fakes
+   admission itself — disable is preferred over repair until owner-controlled
+   exact-head admission exists.
+2. **No bridge front-running.** The Postgres bridge is `planned`
+   (`postgres-bridge-and-readiness-contract.md:9`); no UI copy, docs page, or
+   demo may promise SQL/psql/ORM access to Agentgres state until it lands.
+   Reads render projections of settled state, labeled as such. (Estate grep
+   2026-08-05: no violating copy found in the Hypervisor UI lanes.)
+3. **Headline = versions-autonomous-work.** Epic P2/P3 UI stories lead with
+   branchable, replayable agent-execution state (transition chains, replay,
+   receipts); Postgres-shaped reads are the secondary adoption feature, per
+   the canonicality hierarchy — never the identity.
