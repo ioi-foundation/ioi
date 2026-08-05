@@ -39,6 +39,7 @@ through gate identifiers.
 - [ADR 0022: Make Goal Orchestration An Application Layer And Strip Compatibility Machinery](./0022-goal-orchestration-application-layer-and-clean-slate.md) (amends ADRs 0019 and 0020)
 - [ADR 0023: Generalize Improvement Campaigns To Typed Work Subjects And Make Assurance Executable](./0023-improvement-generalization-and-executable-assurance.md) (refines ADRs 0018 and 0022)
 - [ADR 0024: Compose The Flagship Institution From Two Activation Modes On One Spine](./0024-two-mode-flagship-composition.md) (refines ADRs 0021 and 0022)
+- [ADR 0025: Make The Hypervisor App The Primary Human Attach Journey After Binding](./0025-hypervisor-app-primary-attach-after-binding.md) (refines ADRs 0008, 0013, and 0021)
 - [ADR 0026: Separate Deployment, Resource Relationship, And Autonomy Capabilities](./0026-separate-deployment-resource-relationship-and-autonomy-capabilities.md) (refines ADRs 0013, 0016, and 0021)
 - [ADR 0027: Require Workload-Bound Isolation For Autonomous Execution](./0027-require-workload-bound-isolation-for-autonomous-execution.md) (refines ADRs 0010, 0013, and 0020)
 - [ADR 0028: Reconcile Hypervisor Product-Surface Contracts And Cutover](./0028-reconcile-hypervisor-product-surface-contracts-and-cutover.md) (refines ADRs 0013, 0016, 0021, 0022, and 0024)
