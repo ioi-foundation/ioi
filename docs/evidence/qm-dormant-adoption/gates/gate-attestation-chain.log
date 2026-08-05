@@ -1,9 +1,0 @@
-IOI_MEASURED_COMMIT=81ca7eac63b55dc88a4cec9980cda84aadaaf1d7
-IOI_PROOF=attestation-chain
-IOI_COMMAND=node scripts/check-attestation-chain.mjs
-IOI_WORKDIR=/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-v4
-IOI_EXPECTED_EXIT=any
-attestation-chain: 31 anchor entries, 2 bound sidecar(s); 9 predeclared cases self-tested
-check-attestation-chain: PASS (0 error, 0 warn, 0 skip)
-IOI_EXIT_CODE=0
-IOI_VERDICT=recorded

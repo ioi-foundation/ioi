@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m3-workrun-resource-isolation-contract
-ARTIFACT=internal-docs/implementation/evidence/M3/m3-workrun-resource-isolation-contract.v1.json
-ARTIFACT_SHA256=0301e33cd85571b436f7245008b0c03fb581057af07b745f0dd6c362d9886fa2
-M3_WORKRUN_RESOURCE_ISOLATION_CONTRACT_EXIT=0
-NONCLAIM=Immutable WorkRun isolation binding admission and preservation are proven for the honest process-scoped lane; this does not prove live containment, microVM isolation, HypervisorOS, or cross-tenant suitability.

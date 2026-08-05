@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m0-selected-profile-baseline-and-claim-lock-successor
-ARTIFACT=internal-docs/implementation/program/claim-lock.v1.json
-ARTIFACT_SHA256=e6be69ae3e17e47f2f92eb4b48a8052bd8f88908243135bb0f49f243627cfc58
-M0_SELECTED_PROFILE_BASELINE_AND_CLAIM_LOCK_SUCCESSOR_EXIT=0
-NONCLAIM=This proves the successor lock reproduces with unchanged thresholds, nonclaims, and empty claim set; it closes no capability claim.

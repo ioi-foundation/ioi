@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m1-system-genesis-product-journey
-ARTIFACT=internal-docs/implementation/evidence/M1/system-genesis-product-journey-run.v1.log
-ARTIFACT_SHA256=b9a96ea3803d84435c092517415e892eec3061de36b1bf0a614f70f6b4182f60
-M1_SYSTEM_GENESIS_PRODUCT_JOURNEY_EXIT=0
-NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

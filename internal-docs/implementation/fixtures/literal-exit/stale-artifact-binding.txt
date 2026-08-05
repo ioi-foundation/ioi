@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=FIXTURE
-ARTIFACT=internal-docs/implementation/fixtures/literal-exit/artifact.json
-ARTIFACT_SHA256=0000000000000000000000000000000000000000000000000000000000000000
-FIXTURE_EXIT=0
-NONCLAIM=Fixture log; grants nothing and closes nothing.

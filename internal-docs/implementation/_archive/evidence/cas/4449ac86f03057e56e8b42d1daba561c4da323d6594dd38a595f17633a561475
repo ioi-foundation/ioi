@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m2-provider-isolation-closure-successor-aggregate
-ARTIFACT=docs/architecture/foundations/invariants.md
-ARTIFACT_SHA256=a333e4b653ea3402f6217fe2cfb314f842de8de6a6586eb542178431f377c8f5
-M2_PROVIDER_ISOLATION_CLOSURE_SUCCESSOR_AGGREGATE_EXIT=0
-NONCLAIM=This joins exact predecessor coverage against the accepted invariant revision; it does not rewrite or re-certify M1 or M2 and widens no product claim.

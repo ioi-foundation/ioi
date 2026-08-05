@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m0-literal-exit-evidence-contract
-ARTIFACT=internal-docs/implementation/fixtures/literal-exit/manifest.v1.json
-ARTIFACT_SHA256=bc61ef8d7111ba33db4e3dded23f7f78031bde68894c8acc5b54ac7c01985508
-M0_LITERAL_EXIT_EVIDENCE_CONTRACT_EXIT=0
-NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

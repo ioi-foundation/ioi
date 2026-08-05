@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=scm-publication-effect-and-route-rebuild
-ARTIFACT=internal-docs/implementation/evidence/M3/owner-ratification-authority-and-scm-release.v1.log
-ARTIFACT_SHA256=4306a82dd7a64712144f267fa519d00addf1f04ccc009589faced4c869fee43a
-SCM_PUBLICATION_EFFECT_AND_ROUTE_REBUILD_EXIT=0
-NONCLAIM=This content-bound implementation proof preserves authority and SCM v1/v2 history, activates no standing-authority v3 profile, and does not make the Hypervisor App primary.

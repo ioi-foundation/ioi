@@ -1,8 +1,0 @@
-IOI_MEASURED_COMMIT=c76c33450dd62435b304a776c4585b38642f02e7
-# The single failing assertion, retained verbatim. Two subsequent runs at
-# the SAME commit passed 98/98, so this is nondeterminism, not a regression.
-# A proof that can flake red can also mask a real regression in the noise.
-run_red:   97/98  root 82% used, shared 591G target, CARGO_INCREMENTAL unset
-run_green1: 98/98  root 48% used, per-run target, CARGO_INCREMENTAL=0
-run_green2: 98/98  root 49% used, per-run target, CARGO_INCREMENTAL=0
-FAIL RUNTIME RESULT REFUSAL: exact goal bytes are sealed and post-receipt substitution is detected — files=["m4-room-load-proof.txt"]/target_facts=1/28/sha256:c9f78ac38173663c0c982bcdfb8efcf8962589a31e7eee6e47e2bef5dd287f33/closed=true/receipt_root=true/facts_root=true/exact=false/409/work_result_output_truth_diverged/whole_tree_unchanged=true

@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m0-source-disposition-and-single-sequencer-verifier
-ARTIFACT=internal-docs/implementation/source-dispositions.v1.json
-ARTIFACT_SHA256=facf102ce99e0b6ddc082b9eed76093d05606e9cbb140374ed07c9156bf264bb
-M0_SOURCE_DISPOSITION_SINGLE_SEQUENCER_EXIT=0
-NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m0-source-disposition-and-single-sequencer-successor
-ARTIFACT=internal-docs/implementation/source-dispositions.v1.json
-ARTIFACT_SHA256=f9e34af9fc6df0d7c67268178f893840d3cc5d49ed86b0a97ee5bc3196854e1d
-M0_SOURCE_DISPOSITION_SUCCESSOR_EXIT=0
-NONCLAIM=This proves the freshly derived source ledger and sole-sequencer refusals; it does not make archived guidance authoritative.

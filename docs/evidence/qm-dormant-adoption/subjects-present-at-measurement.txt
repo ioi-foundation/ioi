@@ -1,5 +1,0 @@
-IOI_MEASURED_COMMIT=81ca7eac63b55dc88a4cec9980cda84aadaaf1d7
-adopted_tree_files=1224
-gate_present=yes
-completeness_bar_present=yes
-ratchet_integration_present=yes

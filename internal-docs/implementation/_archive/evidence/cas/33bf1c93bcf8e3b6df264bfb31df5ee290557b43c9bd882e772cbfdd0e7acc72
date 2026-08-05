@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=production-receipt-checkpoint-and-offline-proof
-ARTIFACT=internal-docs/implementation/evidence/M3/m3-selected-profile-e2e.v1.json
-ARTIFACT_SHA256=3e7239fc615a5841f1dfeade7ff8538d0d0e00372d54fa16eb09138e5b1ab09a
-RECEIPT_CHECKPOINT_OFFLINE_PROOF_EXIT=0
-NONCLAIM=Hash-chain, signature, tamper, omission, revocation, and offline reconstruction are proven for the selected kernel; independent-party operation is not claimed.

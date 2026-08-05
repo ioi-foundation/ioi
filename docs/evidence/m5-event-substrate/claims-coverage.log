@@ -1,5 +1,0 @@
-IOI_MEASURED_COMMIT=3eec9e5fb67a0c6453c8fbbe947327899e2c0160
-IOI_ENV_ROOT_USED_PCT=50%
-IOI_ENV_LOADAVG=2.28 1.22 1.08 2/3946 1994386
-claims-coverage: 7/7 claim(s) covered by an executed check with retained passing bytes; 15 predeclared cases self-tested
-check-claims-coverage: PASS (0 error, 0 warn, 0 skip)
