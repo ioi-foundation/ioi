@@ -758,6 +758,69 @@ restricted views, authority, revocation, proof, license/export, and settlement
 context. A message board, inbox, digest, leaderboard, and replay remain
 projections over admitted objects.
 
+### Frontier Backpressure, Fairness, And Observable Denial
+
+A room that carries an open frontier will eventually have more claimants than
+capacity. Canon has always required "queue backpressure" and "fair resource
+allocation" as room controls; what it did not say is what those words are
+allowed to mean, or what a participant on the losing side of them is entitled to
+see. Both are now fixed.
+
+**Admissible vocabulary.** A room's queue and allocation policy declares one or
+more disciplines drawn from the closed sets owned by
+[`../../foundations/canonical-enums.md`](../../foundations/canonical-enums.md)
+§ Backpressure Disciplines and § Fairness Disciplines, together with the exact
+parameters each needs. A labeled excerpt:
+
+```text
+backpressure_discipline:
+  reject_new_admissions | queue_in_declared_order | throttle_issue_rate |
+  shed_by_priority_class | shed_ephemeral_delivery_first |
+  preempt_with_preserved_checkpoint | defer_to_declared_window | fail_closed
+fairness_discipline:
+  first_admitted_first_served | round_robin_by_participant |
+  weighted_share_by_declared_weight |
+  deficit_round_robin_by_consumed_resource | priority_class_then_share |
+  explicit_operator_allocation
+```
+
+A room that says it allocates fairly without naming a discipline has said
+nothing checkable. `explicit_operator_allocation` is admissible and is the
+honest name for an operator decision; it must never be presented as a neutral
+rule.
+
+**Participant-observable denial.** When a discipline falls on an identified
+participant — a claim refused, queued, throttled, shed, deferred, or preempted —
+that participant receives a typed answer naming the policy and discipline
+applied, the reason code, whether the outcome is retryable, and **the condition
+that would change it**. The answer resolves against the resource-allocation
+receipt, so it is checkable against admitted truth rather than trusted as a
+message. The daemon-side obligations, the receipt fields, and the reason-code
+set are owned by
+[`../../components/daemon-runtime/events-receipts-delivery-bundles.md`](../../components/daemon-runtime/events-receipts-delivery-bundles.md)
+§ "Admissible backpressure and fairness policy"; this owner states what it means
+inside a room:
+
+- **A denied participant is a participant, not an absence.** Their lease stays
+  live, their contribution lineage is untouched, and their standing in the room
+  is unchanged. Losing a capacity contest is not a fact about their work.
+- **A denial consumes nothing.** No claim consumed, no budget reservation spent,
+  no lease epoch advanced, no reputation or contribution debit. This matters
+  most in open and cross-org rooms, where a participant cannot audit the host's
+  scheduler and would otherwise absorb scarcity as if it were rejection.
+- **Reassignment is never silent.** Work released or reassigned under pressure
+  mints its own decision and receipt; a participant learns their claim moved
+  from the receipt, never by finding it gone.
+- **Shedding respects the event-class line.** Only occurrences their owner
+  namespace has declared ephemeral delivery-only may be discarded under
+  pressure. Frontier mutations, claim transitions, attempt and finding
+  admissions, and every other admitted-truth occurrence may be delayed and never
+  dropped. Dropping admitted truth is data loss wearing the word backpressure.
+- **Silence is not a denial.** A claimant left waiting with no observable
+  decision cannot distinguish a governed queue from a broken room, and an open
+  room that cannot make that distinction cannot attract independent
+  participants — which is the whole point of having one.
+
 ### Cross-Domain Discovery, Admission, and Portable Exit
 
 `Network / Open` and discoverable cross-org Goal Spaces project the shared
@@ -1185,7 +1248,12 @@ projection status fields can never mutate those objects.
   queue backpressure, fair resource allocation, Sybil/collusion signals,
   reviewer-independence checks, separation of duty where risk requires it, and
   reversible quarantine/promotion. Every participant remains bounded in
-  authority, context, data, network, resource, and spend blast radius.
+  authority, context, data, network, resource, and spend blast radius. The
+  backpressure and fairness controls named here are not free-form: a room
+  declares a discipline from the closed sets in
+  [`../../foundations/canonical-enums.md`](../../foundations/canonical-enums.md)
+  § Backpressure Disciplines and § Fairness Disciplines, and every participant
+  the discipline falls on receives the observable denial described below.
 - Generic `WorkResult` / `OutcomeDelta` is the cross-domain result seam;
   `ImplementationResultPayload` is its software profile and must not shape all
   collaborative work around files and tests.
