@@ -15341,6 +15341,58 @@ pub(crate) async fn handle_org_invite_reset(State(st): State<Arc<DaemonState>>) 
     let _ = persist_record(&st.data_dir, "org-invite", "invite", &rec);
     Json(json!({ "ok": true, "invite": rec }))
 }
+
+/// GET /v1/hypervisor/organization — the minimal honest org-identity read record (W0.6).
+/// Projects ONLY what the daemon actually persists about the organization scope: the
+/// `org://local` scope the product projection binds, the vanity domain, verified domains,
+/// member/IdP posture counts, and the auth-policy mode. There is NO org display-name/tier/
+/// billing-identity record in the daemon — those fields are named absent, never fabricated.
+/// Secrets never leave: the invite token, SSO/OIDC client secrets, and SCIM tokens are not
+/// projected here.
+pub(crate) async fn handle_organization_get(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    ensure_operator(&st.data_dir);
+    let principals_total = read_record_dir(&st.data_dir, "principals").len();
+    let domain_verifications = read_record_dir(&st.data_dir, "domain-verifications");
+    let verified_domains: Vec<String> = domain_verifications
+        .iter()
+        .filter(|record| record.get("verified").and_then(Value::as_bool) == Some(true))
+        .filter_map(|record| {
+            record
+                .get("domain")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .collect();
+    let custom_domain = read_record_dir(&st.data_dir, "custom-domain")
+        .into_iter()
+        .find(|record| record["id"].as_str() == Some("custom-domain"))
+        .and_then(|record| record["domain"].as_str().map(String::from));
+    let invite_configured = load_org_invite(&st.data_dir).is_some();
+    Json(json!({
+        "ok": true,
+        "schema_version": "ioi.hypervisor.organization-identity.v1",
+        "organization": {
+            "org_ref": "org://local",
+            "display_name": Value::Null,
+            "custom_domain": custom_domain,
+            "verified_domains": verified_domains,
+            "domain_verifications_total": domain_verifications.len(),
+            "members": { "principals_total": principals_total },
+            "identity_providers": {
+                "sso_configurations": read_record_dir(&st.data_dir, "sso-configurations").len(),
+                "scim_configurations": read_record_dir(&st.data_dir, "scim-configurations").len(),
+                "oidc_login_configured": !read_record_dir(&st.data_dir, "oidc-config").is_empty()
+            },
+            "invite_link_configured": invite_configured,
+            "auth_policy_mode": auth_policy(&st.data_dir).get("mode").cloned().unwrap_or(Value::Null)
+        },
+        "gaps": [
+            "no org display-name/tier/billing-identity record exists in the daemon — display_name is null because nothing real backs it",
+            "org://local is the daemon's only organization scope; multi-org records do not exist"
+        ],
+        "runtimeTruthSource": "daemon-runtime"
+    }))
+}
 /// POST /v1/hypervisor/org-invite/accept {invite_id, email, name, password} — provision a member +
 /// issue a session. Fails closed if the invite id doesn't match the current link.
 pub(crate) async fn handle_org_invite_accept(

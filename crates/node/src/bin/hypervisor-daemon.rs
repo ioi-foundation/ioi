@@ -3439,6 +3439,12 @@ async fn async_main() -> anyhow::Result<()> {
             axum::routing::delete(lifecycle_routes::handle_scim_config_delete),
         )
         // Invites + domain verification + custom domain (multi-user IdP).
+        // W0.6 — the minimal honest org-identity read record (org://local scope,
+        // domains, member/IdP posture; absent fields named, never fabricated).
+        .route(
+            "/v1/hypervisor/organization",
+            get(lifecycle_routes::handle_organization_get),
+        )
         .route(
             "/v1/hypervisor/org-invite",
             get(lifecycle_routes::handle_org_invite_get)
