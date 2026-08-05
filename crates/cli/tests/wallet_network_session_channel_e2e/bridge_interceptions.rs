@@ -62,20 +62,13 @@ async fn wallet_network_bridge_records_firewall_interceptions_from_ingestion() -
 
         wait_for_height(rpc_addr, 1, Duration::from_secs(30)).await?;
 
-        let start_params = StartAgentParams {
-            session_id: [0x91u8; 32],
-            goal: "Open calculator".to_string(),
-            runtime_route_frame: None,
-            max_steps: 1,
-            parent_session_id: None,
-            initial_budget: 1_000_000,
-            mode: AgentMode::Agent,
-        };
         let tx = create_call_service_tx(
             &client_keypair,
             "desktop_agent",
-            "start@v1",
-            start_params,
+            "software_install__execute_plan",
+            // Keep this bridge test on policy verdict admission; non-UTF8 input avoids
+            // exercising the separate desktop-agent PII egress path.
+            vec![0xff],
             nonce,
             chain_id,
         )?;
@@ -119,7 +112,7 @@ async fn wallet_network_bridge_records_firewall_interceptions_from_ingestion() -
         assert_eq!(interception.session_id, None);
         assert_eq!(
             interception.target.canonical_label(),
-            "start@v1".to_string()
+            "software_install__execute_plan".to_string()
         );
         assert_eq!(interception.reason, "manual approval required".to_string());
 
