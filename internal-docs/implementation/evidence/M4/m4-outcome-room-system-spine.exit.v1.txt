@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m4-outcome-room-system-spine
-ARTIFACT=internal-docs/implementation/evidence/M4/m4-selected-profile-evidence.v1.json
-ARTIFACT_SHA256=87c0e1f0ef3793e4106a90f10e06b227432019496e983e732b7f43f49422c941
-M4_OUTCOME_ROOM_SYSTEM_SPINE_EXIT=0
-NONCLAIM=Closes only the hosted M4 aggregate when admitted by exact stage certification; it does not close P0, M5, M6, M9, release, federation, external participation, settlement, or wallet authority. Proved at 932e7bf49f9341d3be34501a9a1ad100d72021f6, where agentgres:// ref branding is not yet substrate-backed (89 ratchet-pinned construction sites; helper and migration outstanding per the bound artifact's unbacked_scheme_disclosure); the scheme alone is not evidence of canonical admission.

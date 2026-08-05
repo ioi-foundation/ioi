@@ -1,8 +1,0 @@
-IOI_MEASURED_COMMIT=81ca7eac63b55dc88a4cec9980cda84aadaaf1d7
-IOI_PROOF=m0-program-control
-IOI_COMMAND=node scripts/m0-program-control.mjs --check
-IOI_WORKDIR=/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-v4
-IOI_EXPECTED_EXIT=any
-M0 supplied-snapshot check passed: 1603 entries, exit verified, fingerprint 6f1365040b0f48aaace131fa5e787e0d926bcafdafee270125cb67a8cbb60f86; currentness not established.
-IOI_EXIT_CODE=0
-IOI_VERDICT=recorded

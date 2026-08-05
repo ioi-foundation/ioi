@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m9-compute-substrate-canon-successor
-ARTIFACT=internal-docs/implementation/evidence/M9/m9-compute-substrate-canon-successor.v1.json
-ARTIFACT_SHA256=1278aac0bb876073623c5c844d4d4dec32d47cac2648f0d793ed241829f7b4e4
-M9_COMPUTE_SUBSTRATE_CANON_SUCCESSOR_EXIT=0
-NONCLAIM=This canon and owner reconciliation discharges its named historical holds; it does not certify conditional Workstation, Infrastructure, HypervisorOS, App-primary, standing-authority-v3, or public product capability.

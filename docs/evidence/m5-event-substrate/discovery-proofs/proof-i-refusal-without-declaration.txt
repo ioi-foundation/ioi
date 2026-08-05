@@ -1,4 +1,0 @@
-IOI_MEASURED_COMMIT=7c99cac616a18efc9fb3cbb589caf6fba9912a64
-IOI_PROOF=i-refusal-without-declaration
-IOI_NOTE=Real adopted tree present (1221 files); declaration REMOVED. Must be a NAMED refusal carrying the file, never a raw TypeError.
-Error: undeclared-unparseable-tree: apps/ioi-ai/src/api/routes/admin/sessions.ts (TypeError: Cannot read properties of null (reading 'kind')). M0 discovery refuses bytes it cannot walk rather than skipping them: an unreadable file can contain a route. Either declare the tree in DECLARED_DISCOVERY_EXCLUSIONS with grounds and an expiry, or fix the source.

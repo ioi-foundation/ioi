@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m0-canonical-enum-member-census-successor
-ARTIFACT=internal-docs/implementation/generated/enum-member-census.v1.json
-ARTIFACT_SHA256=2b74316bf19b3c04f0e338b3d5cacf48effb08afd91741c94c61ed49d5a9281b
-M0_CANONICAL_ENUM_MEMBER_CENSUS_SUCCESSOR_EXIT=0
-NONCLAIM=This proves the enum census reproduces from canon and current record citations; coverage bookkeeping is not runtime enforcement.

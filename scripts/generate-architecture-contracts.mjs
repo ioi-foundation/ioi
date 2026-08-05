@@ -53,12 +53,6 @@ const PINNED_CONSUMER_TARGETS = Object.freeze([
           "packages/hypervisor-workbench/src/runtime/architecture-contracts.ts",
         module_specifier: "./generated/architecture-contracts.ts",
       }),
-      Object.freeze({
-        binding_kind: "imports",
-        consumer_path: "scripts/test-architecture-contract-projections.mjs",
-        module_specifier:
-          "../packages/hypervisor-workbench/src/runtime/architecture-contracts.ts",
-      }),
     ]),
   }),
   Object.freeze({

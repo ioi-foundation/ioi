@@ -1,5 +1,0 @@
-IOI_MEASURED_COMMIT=0c92fa66eb318bcac3a19475f8a400e839635c76
-IOI_ENV_ROOT_USED_PCT=51%
-IOI_ENV_LOADAVG=33.13 13.69 7.73 3/4226 2471046
-attestation-chain: 31 anchor entries, 2 bound sidecar(s); 9 predeclared cases self-tested
-check-attestation-chain: PASS (0 error, 0 warn, 0 skip)

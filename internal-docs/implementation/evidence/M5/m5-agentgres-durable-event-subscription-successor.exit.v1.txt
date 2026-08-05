@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m5-agentgres-durable-event-subscription-successor
-ARTIFACT=internal-docs/implementation/evidence/M5/m5-agentgres-durable-event-subscription-successor.evidence.v1.json
-ARTIFACT_SHA256=fd6bdde8db2af0938f62b391845af4c6a50e062f22082383fd394e57329d9287
-M5_AGENTGRES_DURABLE_EVENT_SUBSCRIPTION_EXIT=0
-NONCLAIM=Closes only this cut when admitted by typed transition; it does NOT close the M5 stage -- QM dormant adoption gates M5 exit per owner ruling -- nor m5-goalrun-thread-orchestration-seam, P0, M6 or later, release, federation, or wallet authority. Proved at 4c8f1d794 with gates measured at 0c92fa66e from dedicated detached worktrees. Apparatus successors remain OPEN: m0-gate-input-closure-successor (the declared-input-closure mechanism was withdrawn from this cut and is absent from the tree), m0-review-epoch-partial-attestation-successor, m0-nonenforcing-check-closure-successor, m4-exact-projection-assertion-nondeterminism-successor, m5-thread-event-legacy-stream-migration-successor. Legacy thread-event streams are refused, not migrated.

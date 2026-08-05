@@ -54,29 +54,6 @@ apps/hypervisor/src/generated/*
 apps/developers-ioi-ai/release/
 docs/context-atlas-implementation-plan.md
 docs/evidence/
-!docs/evidence/
-docs/evidence/*
-# Retained gate bytes that a GATE READS must be tracked. check-claims-coverage
-# resolves every claim to bytes on disk, so leaving these ignored made the gate
-# green on a working tree and red on a fresh clone -- the same
-# gate-green-in-a-working-tree class this program already carries in its defect
-# ledger, one layer up.
-!docs/evidence/m5-event-substrate/
-!docs/evidence/m5-event-substrate/**
-# Same rule, same reason: a review packet a reviewer must read has to be
-# readable FROM THE COMMIT. Evidence only I can see is not evidence.
-!docs/evidence/qm-dormant-adoption/
-!docs/evidence/qm-dormant-adoption/**
-!docs/evidence/m0-program-control/
-!docs/evidence/m0-program-control/**
-!docs/evidence/p0-collaboration-readiness/
-!docs/evidence/p0-collaboration-readiness/**
-!docs/evidence/canon-implementation-reconciliation/
-!docs/evidence/canon-implementation-reconciliation/**
-!docs/evidence/canon-maximal-ceiling-pass/
-!docs/evidence/canon-maximal-ceiling-pass/**
-!docs/evidence/clean-slate-convergence/
-!docs/evidence/clean-slate-convergence/**
 
 # Keep public docs consumer-facing; internal plans/specs belong under internal-docs/.
 docs/plans/

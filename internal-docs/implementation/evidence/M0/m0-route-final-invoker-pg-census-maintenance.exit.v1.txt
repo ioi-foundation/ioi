@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m0-route-final-invoker-pg-census-maintenance
-ARTIFACT=internal-docs/implementation/generated/route-census-maintenance.v1.json
-ARTIFACT_SHA256=76dfa5d29c99341bdbab64f903c6655ba9efa61a470aa65e8045655c298c386e
-M0_ROUTE_FINAL_INVOKER_PG_CENSUS_EXIT=0
-NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

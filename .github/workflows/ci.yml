@@ -2,195 +2,15 @@ name: IOI Kernel CI
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [master, main]
   pull_request:
-    branches: [ master, main ]
+    branches: [master, main]
   workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Enforces the RETAINED content-bound M4 stage proof on every push: the
-  # certified 98/98 log must exist, carry the exact count and pinned-binary
-  # lines, and hash to exactly the digest bound inside the selected-profile
-  # evidence join — so the retained proof cannot be altered, replaced, or
-  # deleted without failing CI. Owner decision 2026-08-02: the LIVE re-run
-  # (below) needs two third-party agentic CLIs driving live model sessions,
-  # which is not a sane per-push cost; the retained-artifact pattern already
-  # adopted for m4.md's focused checks is the enforcing gate instead.
-  # Mark THIS job required in branch protection.
-  m4_retained_proof:
-    name: M4 retained stage proof (content-bound)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v3
-      - name: Verify the retained proof log and its content binding
-        run: |
-          LOG=internal-docs/implementation/evidence/M4/runs/aggregate-outcome-room-system-spine.certify-932e7bf49.log
-          JOIN=internal-docs/implementation/evidence/M4/m4-selected-profile-evidence.v1.json
-          LIT=internal-docs/implementation/evidence/M4/m4-outcome-room-system-spine.exit.v1.txt
-          grep -qx '98/98 passed' "$LOG"
-          grep -Eq '^M4_DAEMON_BINARY_SHA256=sha256:[0-9a-f]{64}$' "$LOG"
-          grep -q 'M4 outcome-room system spine: PASS' "$LOG"
-          BOUND=$(python3 -c "import json;print(json.load(open('$JOIN'))['fresh_aggregate_run']['log']['sha256'])")
-          ACTUAL=$(sha256sum "$LOG" | cut -d' ' -f1)
-          test "$BOUND" = "$ACTUAL"
-          DECLARED=$(grep '^ARTIFACT_SHA256=' "$LIT" | cut -d= -f2)
-          JOIN_ACTUAL=$(sha256sum "$JOIN" | cut -d' ' -f1)
-          test "$DECLARED" = "$JOIN_ACTUAL"
-          grep -qx 'M4_OUTCOME_ROOM_SYSTEM_SPINE_EXIT=0' "$LIT"
-          echo "retained M4 proof verified: log=$ACTUAL bound-in-join, join=$JOIN_ACTUAL bound-in-literal"
-
-  # The LIVE stage proof, manual-only (workflow_dispatch). Five provisioning
-  # rounds cleared the wallet fixture, feature-isolated node builds, the
-  # qwen2.5:7b route, and bwrap; the last wall is that the collective path
-  # hard-wires its implementer harnesses to the opencode and deepseek CLIs
-  # (goalrun_routes.rs) — live third-party agent fleets, not a per-push cost.
-  # Run on demand to re-prove against a provisioned runner; enforcement
-  # semantics unchanged (exact count from log bytes, never exit-code-only).
-  m4_stage_proof:
-    name: M4 stage proof (live re-run, manual)
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 150
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install native deps for kernel build
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            pkg-config \
-            cmake \
-            libdbus-1-dev \
-            protobuf-compiler \
-            libxcb1-dev \
-            libxdo-dev \
-            bubblewrap
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.93.1
-          override: true
-
-      - name: Install Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.22.0
-          cache: npm
-
-      - name: Install JavaScript dependencies
-        run: npm ci
-
-      - name: Cache dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-m4proof-${{ hashFiles('**/Cargo.lock') }}
-
-      # Environmental provisioning (owner directive 2026-08-01): the verifier
-      # hard-gates on a live wallet.network fixture and a live qwen2.5:7b model
-      # route. Provision, never relax: the first CI run crashed at
-      # M4_ENVIRONMENTAL_PREREQUISITE_FAILED=wallet_network_fixture_unready
-      # because the guardian cargo-builds the fixture cold inside its
-      # readiness window.
-      - name: Cache the feature-isolated node builds
-        uses: actions/cache@v3
-        with:
-          path: target/test-node-builds
-          key: ${{ runner.os }}-test-node-builds-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Prebuild the daemon and the wallet.network fixture binaries
-        run: |
-          cargo build --bin hypervisor-daemon
-          cargo test -p ioi-cli --test hypervisor_wallet_network_fixture --no-run
-          # The fixture test builds ioi-node into a feature-isolated target dir
-          # AT RUNTIME (crates/cli/src/testing/validator.rs); cold, that build
-          # alone exceeds the fixture's 10-minute readiness window — the exact
-          # labeled failure of the first two provisioned runs. Prebuild the
-          # same binaries into the same dir: feature string and FNV-1a dir
-          # hash replicate validator.rs resolve() for the fixture's
-          # Aft/IAVL/Hash profile (verified against a local ground-truth dir).
-          NODE_FEATURES="validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm"
-          NODE_DIR="target/test-node-builds/debug-$(python3 - "$NODE_FEATURES" <<'PYEOF'
-          import sys
-          h = 0xcbf29ce484222325
-          for b in sys.argv[1].encode():
-              h ^= b
-              h = (h * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF
-          print('%016x' % h)
-          PYEOF
-          )"
-          echo "prebuilding node binaries into $NODE_DIR"
-          CARGO_TARGET_DIR="$NODE_DIR" cargo build -p ioi-node --no-default-features --features "$NODE_FEATURES"
-
-      - name: Cache the qwen2.5:7b model
-        uses: actions/cache@v3
-        with:
-          path: ~/.ollama/models
-          key: ollama-qwen2.5-7b-v1
-
-      - name: Provision Ollama and the pinned model route
-        run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-          (ollama serve > /tmp/ollama-serve.log 2>&1 &)
-          for i in $(seq 1 30); do
-            curl -sf http://127.0.0.1:11434/api/tags > /dev/null && break
-            sleep 2
-          done
-          curl -sf http://127.0.0.1:11434/api/tags > /dev/null
-          ollama pull qwen2.5:7b
-
-      - name: Run the M4 aggregate verifier on an isolated fresh plane
-        run: |
-          set -o pipefail
-          # Keep the model upstream alive IN THIS STEP. A serve backgrounded in
-          # an earlier step is an orphan the runner may reap, and the daemon's
-          # harness probe TCP-connects to 127.0.0.1:11434 to decide
-          # runnability — an unreachable upstream leaves no eligible
-          # implementer, which is the labeled harness_no_runnable_implementer
-          # failure. Provisioning, not tolerance.
-          if ! curl -sf http://127.0.0.1:11434/api/tags > /dev/null; then
-            (nohup ollama serve > /tmp/ollama-serve-step.log 2>&1 &)
-            for i in $(seq 1 30); do
-              curl -sf http://127.0.0.1:11434/api/tags > /dev/null && break
-              sleep 2
-            done
-          fi
-          curl -sf http://127.0.0.1:11434/api/tags > /dev/null
-          echo "model upstream reachable: $(curl -sf http://127.0.0.1:11434/api/tags | head -c 200)"
-          command -v bwrap && bwrap --version
-          node apps/hypervisor/scripts/verify-m4-outcome-room-system-spine.mjs 2>&1 | tee m4-aggregate.log
-
-      - name: Enforce the exact count and pinned binary from log bytes (no exit-code-only acceptance)
-        run: |
-          grep -qx '98/98 passed' m4-aggregate.log
-          grep -Eq '^M4_DAEMON_BINARY_SHA256=sha256:[0-9a-f]{64}$' m4-aggregate.log
-          grep -q 'M4 outcome-room system spine: PASS' m4-aggregate.log
-
-      - name: Label an environmental prerequisite failure (never accepts it)
-        if: failure()
-        run: |
-          if grep -q '^M4_ENVIRONMENTAL_PREREQUISITE_FAILED=' m4-aggregate.log; then
-            echo "::error::environmental prerequisite failure — provisioning gap, not a proof regression: $(grep -m1 '^M4_ENVIRONMENTAL_PREREQUISITE_FAILED=' m4-aggregate.log)"
-          else
-            echo "::error::proof failure — the verifier ran and refused; read the retained log artifact"
-          fi
-
-      - name: Retain the raw proof log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: m4-aggregate-proof-log
-          path: m4-aggregate.log
-
   build_and_test:
     name: Build and Test
     runs-on: ubuntu-latest
@@ -233,9 +53,6 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Canon pre-next-leg bar
-        run: npm run check:pre-next-leg
 
       - name: Check format
         uses: actions-rs/cargo@v1

@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m0-invariant-registry-census-successor
-ARTIFACT=internal-docs/implementation/generated/invariant-census.v1.json
-ARTIFACT_SHA256=664c4ffccf7bbc325e451a36892f935200f36cfeb6c2eecccaee21e14419c6af
-M0_INVARIANT_REGISTRY_CENSUS_SUCCESSOR_EXIT=0
-NONCLAIM=This proves the registry census includes the added invariant and reproduces; a citation is not enforcement evidence.

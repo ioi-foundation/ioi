@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m3-direct-path-and-exit-proof
-ARTIFACT=internal-docs/implementation/evidence/M3/m3-selected-profile-e2e-with-isolation.v1.json
-ARTIFACT_SHA256=70c732e2be7d560b16b0e5ec618e3020e38bd551d3bdad59daae3dad7d2a0864
-M3_DIRECT_PATH_AND_EXIT_PROOF_EXIT=0
-NONCLAIM=This closes the selected direct non-System M3 path and shared mechanism proof only; it does not close P0, M4, collective pursuit, App-primary, independent-party, or production-release claims.

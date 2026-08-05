@@ -1,9 +1,0 @@
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2283209 port=32961 inode=52639003 owned=true
-IOI_ISOLATED_LISTENER_OWNERSHIP role=daemon pid=2283240 port=40961 inode=52630810 owned=true
-PASS mutable definition is refused before persistence — 422/workflow_template_revision_required
-PASS direct GoalRun admits active through exact profile resolution and daemon-derived ownership — 201/undefined/user://local-operator
-PASS component, active-skill, resolution, and lifecycle records persist
-PASS activation retained exact lifecycle and state commitments
-PASS negative generic WorkResult is retained without success coercion — 201/undefined
-PASS restart reconstructs GoalRun identity, head, and result lineage
-M3 GoalRun isolated plane: PASS (6/6)

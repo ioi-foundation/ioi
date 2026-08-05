@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m3-pursuit-definition-resolution
-ARTIFACT=internal-docs/implementation/evidence/M3/m3-selected-profile-e2e.v1.json
-ARTIFACT_SHA256=3e7239fc615a5841f1dfeade7ff8538d0d0e00372d54fa16eb09138e5b1ab09a
-M3_PURSUIT_DEFINITION_RESOLUTION_EXIT=0
-NONCLAIM=Immutable component resolution and direct-path admission are proven; this does not grant definitions, skills, harnesses, or tools execution or authority.

@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=route-final-invoker-census-corrective-successor
-ARTIFACT=internal-docs/implementation/evidence/M9/route-final-invoker-census-corrective-successor/typed-delta.v1.json
-ARTIFACT_SHA256=d848a91a9ce3edd68720c1e7fd3a771c9d5b1d52bfa51e029d3cc82f78d82a77
-ROUTE_FINAL_INVOKER_CENSUS_CORRECTIVE_SUCCESSOR_EXIT=0
-NONCLAIM=Machine-only retained log. It binds the typed delta by digest and states that the census maintenance bar exited 0 over it. Narrative evidence is a SEPARATE file and is never the proof carrier. This log grants no product authority, closes no stage, and does not admit its record: the verified transition is withheld under the open certification hold.

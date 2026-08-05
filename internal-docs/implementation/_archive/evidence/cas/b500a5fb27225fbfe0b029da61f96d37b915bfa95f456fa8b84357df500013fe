@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m2-provider-teardown-truth-successor
-ARTIFACT=apps/hypervisor/scripts/lib/teardown-disposition.mjs
-ARTIFACT_SHA256=a3e20d30cc0615a69b24fedb268c27d88073a90cff06f1ee7ca47e510fe3ec39
-M2_PROVIDER_TEARDOWN_TRUTH_SUCCESSOR_EXIT=0
-NONCLAIM=This binds the shared tri-state contract exercised across eight simulated adapters and the BYO journey; no live cloud provisioning was run or claimed.

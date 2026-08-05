@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=m3-authorized-issuer-and-atomic-authority-consumption
-ARTIFACT=internal-docs/implementation/evidence/M3/owner-ratification-authority-and-scm-release.v1.log
-ARTIFACT_SHA256=4306a82dd7a64712144f267fa519d00addf1f04ccc009589faced4c869fee43a
-M3_AUTHORIZED_ISSUER_AND_ATOMIC_AUTHORITY_CONSUMPTION_EXIT=0
-NONCLAIM=This content-bound implementation proof preserves authority and SCM v1/v2 history, activates no standing-authority v3 profile, and does not make the Hypervisor App primary.

@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=production-information-flow-and-declassification
-ARTIFACT=internal-docs/implementation/evidence/M3/m3-selected-profile-e2e.v1.json
-ARTIFACT_SHA256=3e7239fc615a5841f1dfeade7ff8538d0d0e00372d54fa16eb09138e5b1ab09a
-INFORMATION_FLOW_DECLASSIFICATION_EXIT=0
-NONCLAIM=Label evaluation and explicit declassification refusal/admission are proven in the selected kernel; this is not an estate-wide production claim.
