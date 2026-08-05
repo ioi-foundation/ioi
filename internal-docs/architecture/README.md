@@ -14,10 +14,10 @@ Every `.md` file that lands here carries, in its opening lines:
 2. an authority line stating that canonical owner docs and accepted ADRs win
    on drift.
 
-Enforced by `npm run check:internal-architecture-headers`
-(`scripts/check-internal-architecture-headers.mjs`). A file that cannot
-honestly carry the header does not belong here — move it; there is no
-exemption table. Standing liaison rule recorded 2026-08-04 alongside the
+This convention remains as directory guidance in prose; no checker, exemption
+table, or standing review gate enforces it after the 2026-08-05 proof-estate
+retirement. A file that cannot honestly carry the header does not belong here
+— move it. The directory rule was recorded 2026-08-04 alongside the
 canon-agenda ratification.
 
 ## Contents
