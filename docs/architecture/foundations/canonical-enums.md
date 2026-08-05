@@ -707,6 +707,54 @@ itself establish external-world occurrence, correctness, causality, acceptance,
 or economic value. The field-level receipt schemas remain owned by the events
 and receipts contract.
 
+## Backpressure Disciplines (`backpressure_discipline`)
+
+Canon requires queue backpressure as a room control and carries
+`fairness_and_backpressure_policy_refs` on the resource-allocation receipt, but
+the admissible content of such a policy was never a closed set — so "we applied
+backpressure" was unfalsifiable. It is a closed set:
+
+```text
+reject_new_admissions | queue_in_declared_order | throttle_issue_rate |
+shed_by_priority_class | shed_ephemeral_delivery_first |
+preempt_with_preserved_checkpoint | defer_to_declared_window | fail_closed
+```
+
+A `fairness_and_backpressure_policy_refs` target resolves to a policy declaring
+one or more of these disciplines and the exact parameters each needs (order key,
+rate and window, priority classes, window bounds). A policy naming no member of
+this set is not an admissible backpressure policy, and a deployment that applies
+pressure with no such policy is applying it arbitrarily.
+
+`shed_ephemeral_delivery_first` is the only discipline permitted to discard
+occurrences rather than delay them, and it may discard **only** occurrences that
+their owner namespace has declared ephemeral delivery-only. Shedding an admitted
+truth occurrence is never backpressure; it is data loss. The classification that
+decides which is which is owned by
+[`../components/agentgres/doctrine.md`](../components/agentgres/doctrine.md)
+§ "Admitted truth versus ephemeral delivery".
+
+## Fairness Disciplines (`fairness_discipline`)
+
+The allocation rule a room or scheduler applies when demand exceeds capacity.
+Closed set:
+
+```text
+first_admitted_first_served | round_robin_by_participant |
+weighted_share_by_declared_weight | deficit_round_robin_by_consumed_resource |
+priority_class_then_share | explicit_operator_allocation
+```
+
+`explicit_operator_allocation` is the honest name for "an operator decided";
+it is admissible, and it is never to be presented as a neutral or automatic
+rule. A room that claims fair allocation names its discipline and its
+parameters; "fair" is not a discipline.
+
+Selecting a fairness discipline allocates scarce capacity. It grants no
+authority, creates no claim, and never substitutes for eligibility: a
+participant at the front of any queue still passes admission on its own
+evidence.
+
 ## Ownership Pointers (enums owned elsewhere)
 
 - **RuntimeToolContract field set** — owned by

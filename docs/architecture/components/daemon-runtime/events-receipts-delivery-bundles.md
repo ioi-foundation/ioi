@@ -711,6 +711,46 @@ run.cancelled
 }
 ```
 
+### Event class: admitted truth versus ephemeral delivery
+
+Every occurrence this owner delivers belongs to exactly one of two classes, and
+**this owner does not define the line** — the classification rule is owned by
+[`../agentgres/doctrine.md`](../agentgres/doctrine.md) § "Admitted truth versus
+ephemeral delivery". It is referenced here rather than restated because a reader
+arriving from the delivery side would otherwise find no rule at all, and two
+owners stating one rule is how the two of them drift.
+
+The rule, in one sentence, so the pointer is usable: an occurrence is **admitted
+truth** if and only if it changes durable state, authority, or obligation; is
+required for replay; or bars or enables a claim — and everything else, including
+`model.token`, `tool.progress`, `context.pressure_delta`, and every presence or
+cursor sample in the kind list above, is **ephemeral delivery-only**. The
+discriminator is transition versus sample: a heartbeat is ephemeral, the lapse
+transition its absence produces is admitted truth. Each owner namespace declares
+which of its own kinds fall on which side; consulting that declaration is a
+read-only projection lookup, never an Agentgres operation.
+
+What the delivery side owes on top of that classification:
+
+- **Delivery never reclassifies.** Emitting, batching, replaying, or bundling an
+  ephemeral occurrence does not make it admitted truth, and a `receipt_ref` on
+  an ephemeral event points at the receipt for the admitted transition it
+  accompanies — it does not promote the sample that carried it.
+- **A DeliveryBundle carries both classes and says which is which.** A consumer
+  that cannot tell an admitted transition from a progress sample inside a bundle
+  will eventually treat one as the other; the class travels with the occurrence,
+  not with the bundle.
+- **Loss semantics differ by class, and only by class.** Ephemeral delivery may
+  be dropped, coalesced, or shed under pressure — see
+  `shed_ephemeral_delivery_first` in
+  [`../../foundations/canonical-enums.md`](../../foundations/canonical-enums.md)
+  § Backpressure Disciplines. Admitted truth may be delayed but never dropped;
+  a delivery path that sheds admitted truth has lost data, and calling that
+  backpressure does not make it backpressure.
+- **The ephemeral path awaits no Agentgres operation.** A path that blocks on
+  admission is not ephemeral however fast it is, and a path that mints truth off
+  the admission spine is the second-spine defect however slow it is.
+
 ## Receipt Types
 
 ```text
@@ -2988,6 +3028,67 @@ provider mutation. Scheduler catch-up receipts must name whether missed work was
 skipped, coalesced, backfilled, run-latest, gated for approval, or failed
 closed. Preemption receipts must name the preserved checkpoint, retry/resume
 policy, and user-visible reason.
+
+### Admissible backpressure and fairness policy, and what a denied participant sees
+
+`fairness_and_backpressure_policy_refs` above must resolve to a policy whose
+content is drawn from the closed sets in
+[`../../foundations/canonical-enums.md`](../../foundations/canonical-enums.md)
+§ Backpressure Disciplines and § Fairness Disciplines — that file owns the
+member sets; this section owns what applying them obliges the runtime to expose.
+A labeled excerpt:
+
+```text
+backpressure_discipline:
+  reject_new_admissions | queue_in_declared_order | throttle_issue_rate |
+  shed_by_priority_class | shed_ephemeral_delivery_first |
+  preempt_with_preserved_checkpoint | defer_to_declared_window | fail_closed
+fairness_discipline:
+  first_admitted_first_served | round_robin_by_participant |
+  weighted_share_by_declared_weight |
+  deficit_round_robin_by_consumed_resource | priority_class_then_share |
+  explicit_operator_allocation
+```
+
+A policy naming no member of these sets is not an admissible policy, and
+pressure applied without one is arbitrary rather than governed.
+
+**Denial is participant-observable, or it did not happen.** Whenever pressure
+falls on an identified participant — `decision` resolving to anything other than
+`admit` — that participant is owed a typed, resolvable answer carrying:
+
+- the exact `fairness_and_backpressure_policy_refs` applied and which discipline
+  from each set fired;
+- the `reason_code` already enumerated on this receipt (`capacity_exhausted`,
+  `rate_limited`, `unfair_share`, `verification_bottleneck`,
+  `budget_exhausted`, and peers) — the code is the participant's answer, not an
+  internal label;
+- whether the outcome is retryable, and **the condition that would change it** —
+  a queue position, a window, a budget refresh, a capacity release. "Try again
+  later" with no named condition is not an answer;
+- the resource-allocation receipt ref, so the answer is checkable against
+  admitted truth rather than trusted as a message.
+
+Four consequences follow, and each rules out a failure this contract exists to
+prevent:
+
+1. **Silence is not a denial.** A participant left queued with no observable
+   decision has been denied without being told, which is indistinguishable from
+   the room being broken. Timeout is not a denial semantics.
+2. **A denial consumes nothing.** It does not consume the claim, spend the
+   budget reservation, advance the lease epoch, or count against the
+   participant's contribution or reputation record. Being unlucky with capacity
+   is not a performance fact about the participant.
+3. **A denial reassigns nothing silently.** Work released or reassigned under
+   pressure mints its own decision and receipt; the participant learns that
+   their claim moved from the receipt, not by discovering it gone.
+4. **The applied discipline is attributable.** A denial that cannot be traced to
+   a named discipline in a named policy is a defect in this owner, not an
+   operational judgement call — even when the outcome was correct.
+
+These obligations bind the daemon side. The room-facing statement of the same
+contract is owned by
+[`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md).
 
 ## Multi-Party Collaboration Receipts
 
