@@ -182,6 +182,23 @@ the PR that touches it, with the guide recording remaining sites.
    one-line handoff note per in-flight item, stop cleanly. Never leave the
    ledger claiming more than the bytes show.
 
+## Session 1 landing record (2026-08-05) — queue DRAINED
+
+All session-1 PRs are merged: #155 (charter + C-1..C-4) · #156/#157/#158/#159
+(Phase A briefs) · #160 (W0.1) · #161 (W0.3) · #162 (W0.2) · #163 (W0.4) ·
+#164 (this record). Nothing from session 1 is left open.
+
+Standing mechanics for future stacked landings (repo auto-merge is DISABLED):
+merge-on-green is executed by hand — wait for "Build and Test" green, then
+`gh pr merge <n> --squash`. Squash merges do not advance merge bases, so a
+child PR stacked on a merged parent shows an add/add conflict on this file;
+the fix is mechanical: `git rebase origin/master` (git skips already-applied
+parent commits; ledger-table conflicts resolve by keeping every row's tick),
+`git push --force-with-lease`, fresh CI, merge.
+Next unchecked items: **W0.5 identity truth**, then **W0.6 backend enablers**
+(W0.6 backend-route PRs serialize on `hypervisor-daemon.rs`), then the
+per-surface build rows starting with work.
+
 ## Run State ledger
 
 Per-surface rows cover that surface's full Phase B execution (its brief's §5
