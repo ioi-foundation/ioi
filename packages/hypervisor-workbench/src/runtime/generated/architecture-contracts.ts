@@ -6179,6 +6179,27 @@ export type WorkflowTemplateV1 = {
   registry_status: "draft" | "evaluable" | "released" | "deprecated" | "revoked";
 };
 
+export type WorkFrontierItemEnvelopeV1 = {
+  schema_version: "ioi.foundations.work-frontier-item-envelope.v1";
+  frontier_item_id: string;
+  system_binding: Record<string, unknown>;
+  item_kind: "question" | "problem" | "hypothesis" | "task" | "review_need" | "verification_need" | "resource_need" | "synthesis_need";
+  objective: string;
+  dependency_refs?: Array<string>;
+  related_attempt_and_finding_refs?: Array<string>;
+  required_capability_refs?: Array<string>;
+  required_context_resource_authority_and_evidence_refs?: Array<string>;
+  expected_value?: number | null;
+  uncertainty?: number | null;
+  priority?: number | null;
+  duplication_policy: "exclusive" | "allowed" | "encouraged" | "independent_replication_required";
+  claimability: "open" | "invited_only" | "assigned" | "paused" | "closed";
+  max_concurrency?: number | null;
+  expires_at?: string | null;
+  stop_condition_ref?: string | null;
+  status: "open" | "claimed" | "blocked" | "replicating" | "verifying" | "accepted" | "rejected" | "superseded" | "closed";
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -10632,6 +10653,30 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/workflow-template/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/workflow-template-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -17114,6 +17159,27 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json",
+    "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -17992,6 +18058,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:(?:worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
   "^(?:(?:worker|service|org|domain|wallet|runtime)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
   "^(?:/sessions|/missions|/__ioi\\S*)$",
+  "^(?:[a-z][a-z0-9+._-]*://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$",
   "^(?:acceptance|decision|receipt)://[^\\s]{1,500}$",
   "^(?:agentgres|decision)://[^\\s]{1,500}$",
   "^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$",
@@ -18643,7 +18710,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/system-scoped-object-binding/v1": "sha256:6f2a54cb99566951e3bcec4bd99f864fe0ea61c28621a6a4f68c734c45361917",
   "schema://ioi/foundations/work-lifecycle-record/v1": "sha256:b04465b2aba647773c44bf8631d2d03f91a7aa6dbb1aeb11bc3e5e59276ad7cd",
   "schema://ioi/foundations/work-result/v3": "sha256:0220d0bb1d76fa05a49decd8554c7debb3d47e855c8856a5298ecd0f2bda51b4",
-  "schema://ioi/foundations/workflow-template/v1": "sha256:77f96b713670707d3da8fead21bfab833169aadae340da8290afea549dea8ffd"
+  "schema://ioi/foundations/workflow-template/v1": "sha256:77f96b713670707d3da8fead21bfab833169aadae340da8290afea549dea8ffd",
+  "schema://ioi/foundations/objects/work-frontier-item-envelope/v1": "sha256:a4c5da30ef6014112e6b6f336f9c641dd427f09f86ccc24166833678b157748e"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -66624,6 +66692,177 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       }
     }
+  },
+  "schema://ioi/foundations/objects/work-frontier-item-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
+    "title": "WorkFrontierItemEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.work-frontier-item-envelope.v1",
+    "description": "The room's claimable graph of questions, problems, hypotheses, tasks, reviews, verification needs, and resource needs. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#workfrontieritemenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "frontier_item_id",
+      "system_binding",
+      "item_kind",
+      "objective",
+      "duplication_policy",
+      "claimability",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.work-frontier-item-envelope.v1"
+      },
+      "frontier_item_id": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "system_binding": {
+        "type": "object",
+        "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the WorkFrontierItemEnvelope definition and does not get to invent a neighbouring family's shape."
+      },
+      "item_kind": {
+        "enum": [
+          "question",
+          "problem",
+          "hypothesis",
+          "task",
+          "review_need",
+          "verification_need",
+          "resource_need",
+          "synthesis_need"
+        ]
+      },
+      "objective": {
+        "type": "string",
+        "minLength": 1
+      },
+      "dependency_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "related_attempt_and_finding_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "required_capability_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "required_context_resource_authority_and_evidence_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "A URI-shaped ref (context-profile://, resource://, evidence://) or a scope: selector, per canon.",
+          "pattern": "^(?:[a-z][a-z0-9+._-]*://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$"
+        }
+      },
+      "expected_value": {
+        "oneOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "uncertainty": {
+        "oneOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "priority": {
+        "oneOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "duplication_policy": {
+        "enum": [
+          "exclusive",
+          "allowed",
+          "encouraged",
+          "independent_replication_required"
+        ]
+      },
+      "claimability": {
+        "enum": [
+          "open",
+          "invited_only",
+          "assigned",
+          "paused",
+          "closed"
+        ]
+      },
+      "max_concurrency": {
+        "oneOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "expires_at": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "stop_condition_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "open",
+          "claimed",
+          "blocked",
+          "replicating",
+          "verifying",
+          "accepted",
+          "rejected",
+          "superseded",
+          "closed"
+        ]
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -74883,7 +75122,8 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/foundations/system-scoped-object-binding/v1": [],
   "schema://ioi/foundations/work-lifecycle-record/v1": [],
   "schema://ioi/foundations/work-result/v3": [],
-  "schema://ioi/foundations/workflow-template/v1": []
+  "schema://ioi/foundations/workflow-template/v1": [],
+  "schema://ioi/foundations/objects/work-frontier-item-envelope/v1": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -76592,4 +76832,10 @@ export function validateWorkflowTemplateV1(
   value: unknown,
 ): value is WorkflowTemplateV1 {
   return validateArchitectureContract("schema://ioi/foundations/workflow-template/v1", value).ok;
+}
+
+export function validateWorkFrontierItemEnvelopeV1(
+  value: unknown,
+): value is WorkFrontierItemEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/work-frontier-item-envelope/v1", value).ok;
 }
