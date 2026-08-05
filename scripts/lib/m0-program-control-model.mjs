@@ -796,7 +796,12 @@ export function reachabilityIntoExcludedTrees(repoRoot, sourceFiles) {
         // NAMED / DEFAULT / NAMESPACE import.
         String.raw`import\s[^
 ]*from\s*['"\`][^'"\`]*` + needle,
-        // BARE SIDE-EFFECT import -- `import "./app"`. Found because a negative
+        // BARE SIDE-EFFECT import -- the no-from-clause form, written as the
+        // keyword followed directly by a quoted specifier. It is deliberately
+        // NOT spelled out here: the M0 effect walk resolves imports by scanning
+        // TEXT, so an example in a comment is followed like code. Writing it
+        // literally cost two failures in the census tests, eight cases apart
+        // from anything this file changed. Found because a negative
         // control stopped reproducing: the synthetic edge was rewritten in this
         // form and the teeth reported PASS. It is the single most common way to
         // reach a dormant tree (it exists precisely to run a module for effect),
