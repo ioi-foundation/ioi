@@ -221,3 +221,36 @@ not resist) · **`rule-loses-to-default`** (a rule contradicting a tool's defaul
 loses under pressure, twice, until the default itself refuses) ·
 **`recorded-verdict-not-measured-verdict`** (a crashed run recorded as success
 because the exit code came from the wrong command).
+
+## 2026-08-05 — post-disposition finding: what the CLEAN at `4c8f1d794` covers
+
+**The CLEAN stands for the claims that were actually reviewed, and must no
+longer be represented as full-suite-clean.** It was issued against the substrate
+cut's declared claims and their retained bytes. The **full detached
+`check:pre-next-leg`** was not among them, and was not run at that tip.
+
+It has since been run. It fails there, and the failure is real: six
+`event_stream_routes::handle_*` census entries emit **both** `handler_calls` and
+`handler_call_sequence` — at 8/8, 76/166, 96/205, 104/217, 96/245, and 83/191,
+pairs that are **not equal** even where the counts match — which
+`effect census binds transitive closures without duplicating call corpora`
+forbids. Measured attribution: 6 such entries at `4c8f1d794` and `0c92fa66e`,
+**0** at the merge-base with master, whose own full suite exits 0.
+
+**Carrier:** `m5-effect-census-duplicated-call-corpora-successor`. Closing it by
+relaxing the assertion is refused there — the assertion forbids co-presence, and
+co-presence is present.
+
+**Consequence, ratified:** the full detached `check:pre-next-leg` becomes an
+**independently pinned M5-certification gate** and must pass at the final merged
+commit. It is not a development convenience and is no longer optional at
+certification.
+
+**And a second-order finding, recorded because it is why the above took a
+reviewer to notice.** No transcript under this directory records the *invocation*
+that produced it. `agentgres-tests.log`, `boundary-tests.log`, and
+`m5-genericity.log` each carry `IOI_MEASURED_COMMIT` and environment markers, but
+not the command. A verdict whose producing command is unrecorded cannot be
+re-measured on demand by anyone but its author, and re-measurement on demand is
+the entire premise of retained evidence. The idiom needs the command line, not
+only the commit.

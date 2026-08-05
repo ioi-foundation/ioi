@@ -100,6 +100,11 @@ export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
   // bytes, exactly, in both directions -- and an unwired bar making the
   // strongest claim is the worst possible thing to leave as documentation.
   Object.freeze({
+    id: "packet-convention-ratchet-integration",
+    command: process.execPath,
+    args: Object.freeze(["scripts/test-packet-convention-ratchet-integration.mjs"]),
+  }),
+  Object.freeze({
     id: "adoption-completeness",
     command: process.execPath,
     args: Object.freeze(["scripts/check-adoption-completeness.mjs"]),

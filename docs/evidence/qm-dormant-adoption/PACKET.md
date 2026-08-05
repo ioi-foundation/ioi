@@ -156,8 +156,12 @@ master, filed as `work-item-private-artifact-paths-are-gitignored`.
 
 **Full suite (1)** — filed as
 `m5-effect-census-duplicated-call-corpora-successor`, and inherited: 6 census
-entries emit `handler_calls` **and** `handler_call_sequence` carrying the same
-8-element list. Measured attribution: 6 at `4c8f1d794` (the M5 cut), 6 at
+entries emit `handler_calls` **and** `handler_call_sequence` — at 8/8, 76/166,
+96/205, 104/217, 96/245, and 83/191, pairs that are **not equal** even where the
+counts match. (An earlier version of this packet said "the same 8-element list":
+one entry was sampled and generalised to six. The assertion forbids
+**co-presence**, not equality, so the corrected arithmetic strengthens the
+finding — the corpora disagree as well as duplicate.) Measured attribution: 6 at `4c8f1d794` (the M5 cut), 6 at
 `0c92fa66e`, **0** at the merge-base with master. **A red test shipped inside a
 cut reviewed CLEAN** — the M5 packet was certified without the full suite ever
 being run detached at its own tip. The gate existed; nobody asked it. That is the

@@ -31,7 +31,7 @@
   "adversarial_or_fault_proof": [
     "MEASURED ATTRIBUTION, not inferred. Entries carrying handler_calls: 6 at 4c8f1d794 (M5 cut), 6 at 0c92fa66e, and 0 at the merge-base with master (5e1899e29). The six are all event_stream_routes::handle_* with handler_resolution 'transitive_function_closure' -- the resolution mode the M5 cut introduced.",
     "THE TEST WAS NEVER RUN AT THAT TIP. master's full check-pre-next-leg is green (exit 0), the M5 lineage's is not. The M5 packet was reviewed CLEAN without the full suite being run detached at its own tip, so a red test shipped inside a certified cut. The gate existed; nobody asked it.",
-    "Do NOT close this by relaxing the assertion. It forbids duplicating call corpora, and both keys carry the same 8-element list -- the duplication it names is real and present."
+    "Do NOT close this by relaxing the assertion. It forbids CO-PRESENCE of the two call corpora on one entry, and both keys are present on all six: handler_calls/handler_call_sequence at 8/8, 76/166, 96/205, 104/217, 96/245, and 83/191. MEASURED, AND A CORRECTION ON THE RECORD: an earlier version of this line said 'the same 8-element list'. Only ONE entry is 8/8, and even that pair is NOT equal. The first entry was sampled and generalised to six. The assertion never turned on equality -- co-presence is the defect, and the corrected arithmetic makes the case stronger, not weaker, because the two corpora disagree as well as duplicate."
   ],
   "product_journey_and_states": [],
   "ordered_product_operator_journey": [],

@@ -18,13 +18,13 @@
   "pg_gate_states": [],
   "work_item_id": "m5-qm-reference-shell-dormant-adoption",
   "required_work": [
-    "Adopt github.com/yc-software/qm (MIT) as the dormant ioi.ai reference-UX seed under apps/ioi-ai/: fork, strip YC branding, retain the MIT license and attribution, rebrand \u2014 stack VERBATIM (Lit/Vite; no React port). The tree lands inert: not served, not rebound, no parity or executable claim."
+    "Vendor github.com/yc-software/qm (MIT) as the dormant ioi.ai reference-UX seed under apps/ioi-ai/ as PINNED VERBATIM BYTES at a declared pin, minus a declared strip list, plus one provenance file. Retain the MIT license and attribution. DO NOT REBRAND: there is no display-only branding in this tree -- every YC string is an npm package identity (@yc-software/qm, including inside .md files where it sits in copy-pasteable install commands) or a git-origin check. Rewriting them forges machine identities, which this cut did once and had to undo. Branding belongs to the SERVED SURFACE and is owned by m5-qm-reference-shell-executable-rebind. Stack stays VERBATIM."
   ],
   "objective": "Vendor the QM reference shell as PINNED VERBATIM BYTES, dormant: byte-identical to upstream at the declared pin modulo a declared exclusion list, not served, not rebound, not built, not resolved by the package manager.",
   "falsifiable_claim": "The claim fails if any adopted file differs from upstream bytes at the pin without a declared per-file deviation, if any upstream file is neither adopted nor declared excluded, or if any resolver, build, or serve path reaches the tree.",
   "selected_profile": "One dormant adopted tree under apps/ioi-ai/ with license provenance retained; zero serving, zero rebinding.",
   "in_scope": [
-    "Fork import, branding strip, MIT license + attribution retention, rebrand naming pass.",
+    "Pinned verbatim vendoring: bytes-only fetch at the pin, declared strip list, MIT license and attribution retention, one added provenance file, and a completeness bar that proves the result in both directions.",
     "A provenance note binding the upstream commit adopted.",
     "Dormancy proof: no route serves the tree; no daemon or Agentgres binding references it."
   ],
@@ -35,14 +35,14 @@
   ],
   "implementation_actions": [
     "Import the upstream tree at a pinned commit into apps/ioi-ai/ with license and attribution files retained.",
-    "Strip YC branding and rebrand; record the upstream pin in the provenance note.",
+    "Record the upstream pin, the strip list, and every deviation in the provenance note. No identity rewriting of any kind: a deviation list is MEASURED against the pin, never seeded from memory.",
     "Prove dormancy: route census unchanged, no serve path, no binding."
   ],
   "positive_proof": [
-    "The adopted tree exists under apps/ioi-ai/ at a pinned upstream commit with MIT license and attribution retained and YC branding absent, and no served route or binding references it."
+    "The adopted tree exists under apps/ioi-ai/ at a pinned upstream commit, byte-identical to that pin modulo the declared strip list, with the MIT license and attribution retained and upstream identities INTACT, and no served route or binding references it."
   ],
   "adversarial_or_fault_proof": [
-    "Reject a served route to the dormant tree, a daemon/Agentgres binding from it, a missing license or attribution file, surviving YC branding, and any stack substitution.",
+    "Reject a served route to the dormant tree, a daemon/Agentgres binding from it, a missing license or attribution file, a REWRITTEN upstream identity (package name, tarball URL, or git-origin check), and any stack substitution.",
     "Reject an adopted file that differs from upstream bytes without a declared per-file deviation: the completeness bar compares blob SHAs in both directions, so a forged identity cannot pass as a rebrand.",
     "Reject an upstream file that is neither adopted nor on the declared exclusion list -- which is how three .gitignore files were silently skipped by `git add -A` honouring a .gitignore inside the tree being added.",
     "Reject a stale deviation entry that is byte-identical to upstream: a deviation list nobody measures widens what may differ.",

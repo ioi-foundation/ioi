@@ -486,8 +486,21 @@ function main() {
   // allowed -- the same shape as the attestation chain's first-parent handling.
   let committedBaseline = null;
   try {
+    // HEAD^, NEVER HEAD. The commit under evaluation may not vouch for its own
+    // bytes -- the exact sentence already written in check-attestation-chain,
+    // which fixed this class at the git layer weeks ago.
+    //
+    // Reading HEAD made the ratchet self-attesting: once a commit added a
+    // directory to the baseline AND committed it, the "committed baseline" the
+    // check consulted was the very commit under evaluation, so the addition
+    // proved itself legal by pointing at itself. The shrink-only rule held only
+    // for uncommitted edits, which is the one case nobody ships.
+    //
+    // FOURTH APPEARANCE of self-attestation in this program. It is not a bug
+    // that keeps being reintroduced; it is a default that keeps winning, which
+    // is why the cure is a precedent to copy rather than a lesson to remember.
     committedBaseline = new Set(JSON.parse(
-      execSync("git show HEAD:scripts/packet-convention-baseline.v1.json", { cwd: REPO }).toString(),
+      execSync("git show HEAD^:scripts/packet-convention-baseline.v1.json", { cwd: REPO }).toString(),
     ).directories ?? []);
   } catch { committedBaseline = null; }
   if (committedBaseline !== null) {
