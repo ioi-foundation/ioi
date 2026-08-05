@@ -462,10 +462,31 @@ AssurancePostureProjection:
   erasure_evidence_state:
     not_requested | pending | crypto_shredded | verified_erased |
     partially_erased | excepted | disputed | unknown
+  machine_authority_share:
+    consequential_effects_observed: integer
+    machine_authority_route_count: integer
+    labeled_provider_trust_route_count: integer
+    unlabeled_route_count: integer   # counted as provider-trust, never as machine-authority
+    window: string
   legal_conformity_claim: not_determined
   evidence_watermark: string
   last_checked_at: timestamp
 ```
+
+`machine_authority_share` is the adoption-bet indicator: the share of
+consequential effects that crossed the machine-authority path versus explicitly
+labeled provider-trust routes. Its definition, denominator, and the rule that
+unlabeled routes count as provider-trust are owned by
+[`economic-flywheel-and-pricing-boundaries.md`](./economic-flywheel-and-pricing-boundaries.md)
+§ The Adoption Bet, Measured. It appears here because an adopter deciding
+whether to depend on this stack is exactly who needs to see it, and because a
+category claim that only its author can check is not falsifiable.
+
+It reports and grants nothing. It is not a certification input, not a
+posture upgrade, not a jurisdiction or liability signal, and a low or falling
+share is not an abuse, incident, or restriction condition. Both routes are
+legitimate postures; the indicator says which one was taken, not which one was
+allowed. Nothing in this projection may be recomputed to improve it.
 
 Projections are rebuildable from Agentgres operations, receipts, policy packs,
 wallet refs, marketplace state, service-order state, and public anchors.

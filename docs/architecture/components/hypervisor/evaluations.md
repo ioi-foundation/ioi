@@ -113,6 +113,71 @@ Evaluations does not own:
   claim that all important properties can be reduced to one score; or
 - proof of safety, correctness, or scientific validity from a receipt alone.
 
+## Verification Cost Is A Declared Class
+
+Verification cost is the binding constraint on the Internet of Intelligence,
+not authority plumbing — the category owner
+([`../../foundations/internet-of-intelligence.md`](../../foundations/internet-of-intelligence.md)
+§ The Binding Constraint) states why. This section makes it a contract surface
+instead of prose: a judgment contract that cannot say what it costs to check its
+own subject cannot be routed over, priced against, or honestly compared.
+
+**Every `VerifierPath` and acceptance profile declares a verification-cost
+class.** The class is an order-of-magnitude statement of cost-to-verify relative
+to cost-to-produce, drawn from a closed set:
+
+```text
+verification_cost_class:
+  negligible          verification is a rounding error against production
+                      (a deterministic check, a signature, a hash)
+  sublinear           materially cheaper than producing the result
+                      (a test suite over generated code, a spot check with
+                      declared coverage)
+  comparable          within the same order of magnitude as producing it
+                      (independent replication, adversarial review, a judge
+                      model of similar capability)
+  superlinear         more expensive to verify than to produce
+                      (long-horizon outcomes, causal claims, real-world
+                      effects observable only over time)
+  unverifiable_at_price  no admissible verifier establishes the claim within
+                      the work's declared budget and horizon
+```
+
+The class describes the *verifier*, not the confidence of the result. A
+`negligible` class does not mean the check is weak, and `superlinear` does not
+mean the claim is doubtful — it means checking costs more than doing, which is
+an economic fact with routing and pricing consequences, not a quality judgement.
+
+`unverifiable_at_price` is a real, admissible class and not a failure state.
+Much valuable intelligent work lands there. Naming it is the point: a contract
+that had to choose between overstating its verifier and refusing the work would
+be pressured into the first.
+
+**What may reason over the class.** Routing and acceptance policy may select,
+escalate, or refuse on the declared class — cheapest-adequate verifier
+selection, escalation when a cheap verifier is inconclusive, refusal when the
+declared class exceeds what a budget or horizon can carry. The class is an
+input to those decisions, never itself an authority, an admission, or a verdict.
+`RoutingDecisionEnvelope` changes only by carrying the declared class ref; its
+shape is untouched.
+
+**What the class must not do.** A declared class is not evidence that the
+verifier ran, that it passed, or that its rule was appropriate — those remain
+what they were before this section existed. Reclassifying a verifier downward to
+make work look cheaper to check is a judgment-contract mutation and requires a
+successor epoch, exactly as any other change to admissible evidence does. A
+class declared once and never revisited as the subject distribution shifts is
+stale evidence, and stale evidence is the failure mode this owner already exists
+to catch.
+
+The pricing consequence — that work whose assurance ceiling is
+`unverifiable_at_price` must carry that ceiling visibly rather than price as
+verified — is owned by
+[`../../foundations/economic-flywheel-and-pricing-boundaries.md`](../../foundations/economic-flywheel-and-pricing-boundaries.md).
+`VerifierPath`'s own definition remains owned by
+[`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md);
+this owner supplies the class it declares, not the object.
+
 ## Evaluation Asset And Epoch Boundary
 
 An evaluation asset says how a capability can be tested. An
