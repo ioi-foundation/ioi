@@ -202,9 +202,9 @@ papered over.
 | Property | Owning contract today | Honest state |
 | --- | --- | --- |
 | Open protocol surface | the enumerated open surface and offline-verifiability requirements in [`economic-flywheel-and-pricing-boundaries.md`](./economic-flywheel-and-pricing-boundaries.md) | doctrine, not yet a versioned protocol-surface manifest; see gaps below |
-| Reference implementation | none — "reference" is used per-subject (Hypervisor, OutcomeRoom, Default Harness Profile) with no contract for what makes a release *the* reference or how a third party proves parity | recorded gap |
-| Conformance certification | `ConformanceProfile` / `CertificationClaim` / `EcosystemAssuranceProfile` in [`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md) | contracted, planned; no runnable public suite, no issuer-accreditation or issuer-separation rule |
-| Credible neutrality | [`marketplace-neutrality.md`](../domains/marketplace-neutrality.md) for routing/marketplace; nothing for IOI as spec owner and network operator | half-owned; protocol-governance neutrality is a recorded gap |
+| Reference implementation | § The Reference-Implementation Contract below — five designation conditions, the parity claim (fixture, refusal, surface completeness, independence disclosure), and the rule that a designated release cannot legislate | contracted, planned; no release is designated and no parity claim exists |
+| Conformance certification | `ConformanceProfile` / `CertificationClaim` / `EcosystemAssuranceProfile` in [`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md), plus the defined public profile `ioi_public_conformance_profile_v1` in [`../../conformance/README.md`](../../conformance/README.md) | contracted, planned; the public profile is defined and unpopulated, and no issuer-accreditation or issuer-separation rule exists |
+| Credible neutrality | [`marketplace-neutrality.md`](../domains/marketplace-neutrality.md) for routing/marketplace; [`protocol-governance-neutrality.md`](./protocol-governance-neutrality.md) for IOI as spec owner and network operator | both owned; the governance contract is written and its change process, objection record, and designation record are unimplemented |
 | Portable exit | enrollment exit transitions ([`objects/bounded-system-genesis.md`](./objects/bounded-system-genesis.md)), `ParticipantStateBundle`, portable memory vault, SLC attach/detach cases, and attach-lane adapter portability ([`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)) | best-covered; every lane is contracted, none is evaluator-proven |
 
 Why the rational move is adopt, stated so a hostile reader can attack it:
@@ -225,10 +225,14 @@ forbids:
    does, the single most load-bearing adopt-vs-fork input — may a third party
    legally implement and operate L0 — is open. Owner: a dedicated licensing
    ADR with legal review; tracked as a recorded gap, not silently assumed.
-2. **The conformance suite is not yet runnable by an outsider.** Adopters
-   cannot self-certify today; the certification surface is contract-only.
-   Owner: [`../../conformance/README.md`](../../conformance/README.md) claim
-   coverage index and the first-proof ruling in
+2. **The conformance suite is not yet runnable by an outsider.** What an
+   adopter runs and what passing entitles them to say is now defined —
+   `ioi_public_conformance_profile_v1` in
+   [`../../conformance/README.md`](../../conformance/README.md) § The Public
+   Conformance Profile — but the profile is **defined and unpopulated**: no
+   runner, no published fixture bundle for outside execution, no computed
+   membership. Adopters still cannot self-certify today. Owner: that claim
+   coverage index, sequenced by the first-proof ruling in
    [`execution-horizons.md`](../_meta/execution-horizons.md).
 
 Neither flank is closed by wording. They are closed by the licensing ADR and
@@ -335,6 +339,85 @@ ioi.ai
   owns account/subscription experience and goal coordination, not runtime,
   authority, Agentgres truth, marketplaces, or settlement
 ```
+
+## The Reference-Implementation Contract
+
+"Reference" was used per-subject — the reference Hypervisor, the reference
+OutcomeRoom, the reference Default Harness Profile — with no contract for what
+makes a *release* the reference implementation, and no way for a third party to
+prove parity with it. That is a load-bearing hole in the adoption calculus: a
+would-be adopter cannot evaluate compatibility against a moving, undefined
+target, and a spec whose only complete statement is one vendor's running code is
+not a spec.
+
+### What makes a release the reference implementation
+
+A release is **the reference implementation of a named protocol surface** for
+the period it is designated, if and only if all five hold:
+
+1. **Named surface, versioned.** It designates the exact protocol surface it
+   implements — the registered contract ids and versions from
+   [`../_meta/schemas/architecture-contract-registry.v1.json`](../_meta/schemas/architecture-contract-registry.v1.json),
+   plus the canonical owner docs that define behavior the registry cannot carry.
+   "The reference implementation of IOI" is not a designation; "the reference
+   implementation of protocol surface *S* at version *v*" is.
+2. **Complete over that surface.** Every contract in the named surface is
+   implemented, or is explicitly declared unimplemented in the release's own
+   manifest. A silent omission disqualifies the designation; a declared one
+   narrows the surface.
+3. **Specification-sufficient.** The named surface is documented well enough
+   that an independent implementation can be built from the specification alone.
+   The operational test is `separate_codegen` + `separate_transport` per
+   [ADR 0032](../../decisions/0032-independently-implemented-client-definition.md):
+   if building against the surface required reading this implementation's source
+   rather than its specification, the surface is under-specified and the release
+   is not a reference for it.
+4. **Behaviorally pinned.** The release publishes the fixture set and expected
+   outcomes that define correct behavior over the surface — including the
+   negative cases, which are where implementations actually diverge. A reference
+   that pins only its happy paths has specified nothing contested.
+5. **Designated, dated, and superseded explicitly.** Exactly one release holds
+   the designation for a given surface at a time, with a start date and a named
+   successor when it ends. A designation that quietly transfers is not a
+   designation.
+
+### How a third party proves parity
+
+Parity is a claim **against a named surface at a named version**, never against
+"IOI" in general. A third-party implementation claims parity by showing:
+
+- **Fixture parity** — it produces the reference's published expected outcomes
+  over the pinned fixture set, including every negative case. Negative parity is
+  the load-bearing half: agreeing about what to accept is easy, and agreeing
+  about what to refuse is what makes two implementations interchangeable.
+- **Refusal parity** — where the reference refuses, it refuses, with the
+  same typed reason. An implementation that accepts what the reference refuses
+  is more permissive, not more compatible, and this is the difference between an
+  interoperable implementation and a security hole with a compatibility badge.
+- **Surface completeness** — its own manifest of implemented and declared-
+  unimplemented contracts over the named surface, so partial parity is
+  expressible rather than being forced to overstate.
+- **Independence disclosure** — which axes of ADR 0032 its implementation
+  asserts, so a reader can tell whether parity demonstrates that the
+  specification is sufficient or only that the code was reused.
+
+**What parity does not confer.** Parity is a statement about behavior over a
+surface. It is not certification, not a trademark or marks licence, not
+membership, not network enrollment, and not permission to describe an
+implementation as endorsed. Certification and its issuer rules stay with
+[`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md);
+marks and naming stay with their own licence, per the licensing ADR. This
+separation is deliberate: a category whose reference implementation is also the
+certifier and the marks holder cannot credibly claim neutrality, which is why
+[`protocol-governance-neutrality.md`](./protocol-governance-neutrality.md) holds
+the third of those three roles apart from the other two.
+
+**What the reference implementation does not get.** Being the reference confers
+no protocol authority. It cannot define behavior by shipping it: a divergence
+between a designated release and its named surface is a **defect in the
+release** until the surface is amended through the change process, never an
+implicit amendment to the surface. This is the single rule that keeps "reference
+implementation" from meaning "whatever we do is the spec".
 
 ## Canonical Web4 Requirements
 
