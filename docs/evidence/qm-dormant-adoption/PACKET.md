@@ -1,6 +1,6 @@
-# QM reference shell — dormant adoption (packet v3)
+# QM reference shell — dormant adoption (packet v4)
 
-**Measured detached at `d19a9c10c`** in a dedicated worktree. Both subjects were
+**Measured detached at `81ca7eac6`** in a dedicated worktree. Both subjects were
 asserted present *before* anything was measured
 ([`subjects-present-at-measurement.txt`](subjects-present-at-measurement.txt)):
 the adopted tree at 1224 files, the gate that hides it, and the completeness bar.
@@ -132,42 +132,48 @@ a detached run (FAIL, 5 error), so it is filed against its owner as
 adoption. The failure mode is not the detached FAIL — it is the working-copy
 PASS, the one nobody investigates.
 
-## Open, and disclosed rather than resolved (Ruling A)
+## Ruling A retracted — substrate suites re-measured, 13/13 green
 
-**The 7 substrate claim rows are refused-stale at this tip, and stay that way.**
-The `m5-agentgres-durable-event-subscription-successor` manifest measures
-`0c92fa66e`, an ancestor of this tip, but the delta carries non-evidence files —
-so the ancestry-plus-evidence-only rule refuses it. That is the strict rule
-working, not a defect. Those claims are **substrate-owned**, measured on the
-substrate lineage; this cut neither owns nor re-certifies them. They are
-**re-certified at M5 stage certification on the merged tree**, which
-`certify-stage` demands regardless. No claim-scoping machinery was built: if the
-gate should distinguish disclosed-stale from failing, that is a successor with
-its own review, not a mid-cut bolt-on.
+The disclosed-stale disposition is **withdrawn by the director**, and Codex was
+right: under the sole admissibility rule a red required gate cannot underwrite a
+literal, disclosure or no disclosure. A scoping valve the rule does not have is
+not a disposition.
 
-**The remaining 6 rows are this cut's own**, and read stale only because the
-retained bytes measure `d19a9c10c` while the packet commit is its evidence-only
-child. That delta is pure `docs/evidence/`, which the ancestry clause admits by
-design — the v2 packet failed exactly this test because
-`check-claims-coverage.mjs` was itself in the delta, and v3 exists to fix that.
+So the substrate evidence was **re-measured at this commit** rather than
+explained. `claims-coverage` is **PASS, 13/13**, with no scoping story and no
+claim-scoping machinery built.
 
-**`work-item-contract` (5)** — the gitignored-prefix defect, pre-existing on
-master, filed as `work-item-private-artifact-paths-are-gitignored`.
+| substrate suite | result |
+|---|---|
+| [agentgres](gates/suite-agentgres.log) | **50/50 ok** |
+| [injection boundary](gates/suite-boundary.log) | **ok** |
+| [m5 genericity](gates/suite-m5-genericity.log) | **PASS** |
+| [ioi-node](gates/suite-ioi-node.log) | 488 passed, **1 failed — pre-existing on master** |
 
-**Full suite (1)** — filed as
-`m5-effect-census-duplicated-call-corpora-successor`, and inherited: 6 census
-entries emit `handler_calls` **and** `handler_call_sequence` — at 8/8, 76/166,
-96/205, 104/217, 96/245, and 83/191, pairs that are **not equal** even where the
-counts match. (An earlier version of this packet said "the same 8-element list":
-one entry was sampled and generalised to six. The assertion forbids
-**co-presence**, not equality, so the corrected arithmetic strengthens the
-finding — the corpora disagree as well as duplicate.) Measured attribution: 6 at `4c8f1d794` (the M5 cut), 6 at
-`0c92fa66e`, **0** at the merge-base with master. **A red test shipped inside a
-cut reviewed CLEAN** — the M5 packet was certified without the full suite ever
-being run detached at its own tip. The gate existed; nobody asked it. That is the
-uncalled-bar class one level up: not a missing check, an *unasked* one.
+**THE TALLY DEFECT, corrected.** The v3 transcript said `0/13` while my report
+and the relay both said 7. Recorded-verdict-versus-retained-bytes — in the packet
+that closed that very class, by both of us. The cause: I read the gate *after*
+the evidence-only commit landed and reported that number, while the retained
+bytes had been produced *before* it. **A verdict repeated from memory is not a
+verdict read from bytes.** Every number in this packet is now the number in the
+transcript beside it.
 
-## Found in the v3 round
+**TWO INVOCATIONS I COULD NOT LOOK UP, because nothing recorded them.** No
+transcript under `m5-event-substrate/` carried the *command* that produced it —
+only the commit. So I guessed `-p ioi-agentgres`, which does not exist, and the
+suite failed on my own fabrication before the real name (`agentgres`) was read
+out of `crates/agentgres/Cargo.toml`. The other two were recovered by grepping
+the evidence for its own test names and PASS strings. **Every transcript in this
+round therefore carries `IOI_COMMAND` and `IOI_WORKDIR`** alongside the commit,
+so the next person re-measures instead of reconstructing.
+
+**The one ioi-node failure is pre-existing**, and that is measured rather than
+narrated: `unreadable_room_never_consumes_submit_or_admit_recovery_intents` fails
+identically on master ([negative control](gates/negative-control-master-room-participation.log)),
+which is also the R2-5 idiom applied to the work-item-contract baseline
+([here](gates/negative-control-master-work-items.log)).
+
+## Found in the v3 round (retained)
 
 **The ratchet pinned bytes nobody else can see.** I built the pre-convention
 baseline with `readdirSync` over my working copy — 51 directories. `.gitignore`

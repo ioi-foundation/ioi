@@ -1,5 +1,7 @@
-IOI_MEASURED_COMMIT=d19a9c10cd2efe25592633490c7a61222ec75a8b
+IOI_MEASURED_COMMIT=81ca7eac63b55dc88a4cec9980cda84aadaaf1d7
 IOI_PROOF=internal-architecture-headers
+IOI_COMMAND=node scripts/check-internal-architecture-headers.mjs
+IOI_WORKDIR=/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-v4
 IOI_EXPECTED_EXIT=any
 internal-architecture headers: 25 file(s) under internal-docs/architecture/; 0 violation(s)
 check-internal-architecture-headers: PASS (0 error, 0 warn, 0 skip)

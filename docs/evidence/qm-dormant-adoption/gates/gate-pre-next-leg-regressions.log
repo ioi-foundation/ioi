@@ -1,6 +1,8 @@
-IOI_MEASURED_COMMIT=d19a9c10cd2efe25592633490c7a61222ec75a8b
+IOI_MEASURED_COMMIT=81ca7eac63b55dc88a4cec9980cda84aadaaf1d7
 IOI_PROOF=pre-next-leg-gate-regressions
-IOI_EXPECTED_EXIT=any
+IOI_COMMAND=node scripts/test-pre-next-leg-gates.mjs
+IOI_WORKDIR=/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-v4
+IOI_EXPECTED_EXIT=0
 Runtime action contracts are out of date:
 - packages/hypervisor-workbench/src/runtime/generated/action-schema.ts
 Run npm run generate:runtime-action-contracts.
@@ -11,25 +13,25 @@ TAP version 13
 # Subtest: pre-next-leg gate vectors are pinned independently of the production list
 ok 1 - pre-next-leg gate vectors are pinned independently of the production list
   ---
-  duration_ms: 1.564302
+  duration_ms: 1.553643
   type: 'test'
   ...
 # Subtest: pre-next-leg propagates a compositor-tier failure
 ok 2 - pre-next-leg propagates a compositor-tier failure
   ---
-  duration_ms: 0.366071
+  duration_ms: 0.360959
   type: 'test'
   ...
 # Subtest: pre-next-leg pins check mode ahead of a missing or altered regression flag
 ok 3 - pre-next-leg pins check mode ahead of a missing or altered regression flag
   ---
-  duration_ms: 52.129494
+  duration_ms: 39.980834
   type: 'test'
   ...
 # Subtest: conformance help cannot mask compositor or unknown flags
 ok 4 - conformance help cannot mask compositor or unknown flags
   ---
-  duration_ms: 17.529378
+  duration_ms: 18.021941
   type: 'test'
   ...
 1..4
@@ -40,6 +42,6 @@ ok 4 - conformance help cannot mask compositor or unknown flags
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 77.162032
+# duration_ms 65.818652
 IOI_EXIT_CODE=0
-IOI_VERDICT=recorded
+IOI_VERDICT=as-declared

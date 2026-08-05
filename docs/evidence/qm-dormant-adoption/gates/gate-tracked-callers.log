@@ -1,5 +1,7 @@
-IOI_MEASURED_COMMIT=d19a9c10cd2efe25592633490c7a61222ec75a8b
+IOI_MEASURED_COMMIT=81ca7eac63b55dc88a4cec9980cda84aadaaf1d7
 IOI_PROOF=tracked-caller-census
+IOI_COMMAND=node internal-docs/implementation/tools/check-tracked-callers.mjs
+IOI_WORKDIR=/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-v4
 IOI_EXPECTED_EXIT=any
 [WARN] tracked-caller: apps/developers-ioi-ai/scripts/check-live-readiness.mjs is deliberately unwired: keep-as-manual by owner ruling 2026-08-04; owning program: web-estate; wiring reconsidered at that program's next active cut
 [WARN] tracked-caller: apps/developers-ioi-ai/scripts/check-seo-routing.mjs is deliberately unwired: keep-as-manual by owner ruling 2026-08-04; owning program: web-estate; wiring reconsidered at that program's next active cut

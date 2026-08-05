@@ -1,20 +1,22 @@
-IOI_MEASURED_COMMIT=d19a9c10cd2efe25592633490c7a61222ec75a8b
+IOI_MEASURED_COMMIT=81ca7eac63b55dc88a4cec9980cda84aadaaf1d7
 IOI_PROOF=claims-coverage
+IOI_COMMAND=node internal-docs/implementation/tools/check-claims-coverage.mjs
+IOI_WORKDIR=/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-v4
 IOI_EXPECTED_EXIT=any
 [WARN] claims-coverage: packet convention — 1 governed directory(ies) of 6; 5 pinned as pre-convention (shrink-only); 1 packet(s) declared by a manifest
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: positive_proof[0] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: positive_proof[1] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[0] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[1] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[2] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[3] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[4] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: positive_proof[0] retained bytes measured 778bfda1c but the packet HEAD is d19a9c10c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[0] retained bytes measured 778bfda1c but the packet HEAD is d19a9c10c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[1] retained bytes measured 778bfda1c but the packet HEAD is d19a9c10c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[2] retained bytes measured 778bfda1c but the packet HEAD is d19a9c10c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[3] retained bytes measured 778bfda1c but the packet HEAD is d19a9c10c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[4] retained bytes measured 778bfda1c but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: positive_proof[0] retained bytes measured 0c92fa66e but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: positive_proof[1] retained bytes measured 0c92fa66e but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[0] retained bytes measured 0c92fa66e but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[1] retained bytes measured 0c92fa66e but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[2] retained bytes measured 0c92fa66e but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[3] retained bytes measured 0c92fa66e but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[4] retained bytes measured 0c92fa66e but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
+[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: positive_proof[0] retained bytes measured d19a9c10c but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
+[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[0] retained bytes measured d19a9c10c but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
+[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[1] retained bytes measured d19a9c10c but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
+[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[2] retained bytes measured d19a9c10c but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
+[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[3] retained bytes measured d19a9c10c but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
+[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[4] retained bytes measured d19a9c10c but the packet HEAD is 81ca7eac6 — the evidence is for a different commit
 claims-coverage: 0/13 claim(s) covered by an executed check with retained passing bytes; 15 predeclared cases self-tested
 check-claims-coverage: FAIL (13 error, 0 warn, 0 skip)
 IOI_EXIT_CODE=1

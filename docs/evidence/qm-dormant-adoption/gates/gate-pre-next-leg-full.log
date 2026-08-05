@@ -1,24 +1,27 @@
-IOI_MEASURED_COMMIT=d19a9c10cd2efe25592633490c7a61222ec75a8b
+IOI_MEASURED_COMMIT=81ca7eac63b55dc88a4cec9980cda84aadaaf1d7
 IOI_PROOF=pre-next-leg-full
+IOI_COMMAND=node scripts/check-pre-next-leg.mjs
+IOI_WORKDIR=/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-v4
 IOI_EXPECTED_EXIT=any
+IOI_NOTE=Independently pinned M5-certification gate per the substrate addendum.
 Runtime action contracts are up to date.
 TAP version 13
 # Subtest: runtime-action generator rejects every accidental CLI mode before writes
 ok 1 - runtime-action generator rejects every accidental CLI mode before writes
   ---
-  duration_ms: 138.52689
+  duration_ms: 134.596951
   type: 'test'
   ...
 # Subtest: runtime-action write rejects a dangling final symlink before external output
 ok 2 - runtime-action write rejects a dangling final symlink before external output
   ---
-  duration_ms: 20.032187
+  duration_ms: 19.608126
   type: 'test'
   ...
 # Subtest: runtime-action generator check mode remains deliberate and read-only
 ok 3 - runtime-action generator check mode remains deliberate and read-only
   ---
-  duration_ms: 19.908327
+  duration_ms: 19.165555
   type: 'test'
   ...
 1..3
@@ -29,7 +32,7 @@ ok 3 - runtime-action generator check mode remains deliberate and read-only
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 213.641311
+# duration_ms 208.959775
 TAP version 13
 # Runtime action contracts are out of date:
 # - packages/hypervisor-workbench/src/runtime/generated/action-schema.ts
@@ -40,25 +43,25 @@ TAP version 13
 # Subtest: pre-next-leg gate vectors are pinned independently of the production list
 ok 1 - pre-next-leg gate vectors are pinned independently of the production list
   ---
-  duration_ms: 1.74217
+  duration_ms: 1.472606
   type: 'test'
   ...
 # Subtest: pre-next-leg propagates a compositor-tier failure
 ok 2 - pre-next-leg propagates a compositor-tier failure
   ---
-  duration_ms: 0.361086
+  duration_ms: 0.385678
   type: 'test'
   ...
 # Subtest: pre-next-leg pins check mode ahead of a missing or altered regression flag
 ok 3 - pre-next-leg pins check mode ahead of a missing or altered regression flag
   ---
-  duration_ms: 45.638905
+  duration_ms: 40.10745
   type: 'test'
   ...
 # Subtest: conformance help cannot mask compositor or unknown flags
 ok 4 - conformance help cannot mask compositor or unknown flags
   ---
-  duration_ms: 18.584727
+  duration_ms: 17.218093
   type: 'test'
   ...
 1..4
@@ -69,7 +72,7 @@ ok 4 - conformance help cannot mask compositor or unknown flags
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 102.029626
+# duration_ms 93.494807
 
 > check:hypervisor-ported-seed
 > node apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs
@@ -83,327 +86,327 @@ TAP version 13
 # Subtest: reviewed JavaScript system-effect labels cannot inherit a reused line identity
 ok 1 - reviewed JavaScript system-effect labels cannot inherit a reused line identity
   ---
-  duration_ms: 1.793339
+  duration_ms: 1.828653
   type: 'test'
   ...
 # Subtest: M4 selected routes have one adjudicated journey placement
 ok 2 - M4 selected routes have one adjudicated journey placement
   ---
-  duration_ms: 1160.171809
+  duration_ms: 1140.01414
   type: 'test'
   ...
 # Subtest: structured discovery finds every literal Axum method and route identity
 ok 3 - structured discovery finds every literal Axum method and route identity
   ---
-  duration_ms: 0.458188
+  duration_ms: 0.458314
   type: 'test'
   ...
 # Subtest: Axum discovery preserves literal methods behind one route-local layer
 ok 4 - Axum discovery preserves literal methods behind one route-local layer
   ---
-  duration_ms: 0.418961
+  duration_ms: 4.244476
   type: 'test'
   ...
 # Subtest: Axum discovery resolves aliases, on filters, and any handlers
 ok 5 - Axum discovery resolves aliases, on filters, and any handlers
   ---
-  duration_ms: 0.831317
+  duration_ms: 0.847054
   type: 'test'
   ...
 # Subtest: unsupported Axum registration forms fail discovery explicitly
 ok 6 - unsupported Axum registration forms fail discovery explicitly
   ---
-  duration_ms: 1.090606
+  duration_ms: 1.250226
   type: 'test'
   ...
 # Subtest: transitive Rust effects change unchanged GET classification and freshness
 ok 7 - transitive Rust effects change unchanged GET classification and freshness
   ---
-  duration_ms: 0.961173
+  duration_ms: 1.052562
   type: 'test'
   ...
 # Subtest: unresolved and ambiguous effect-relevant Rust helpers fail closed
 ok 8 - unresolved and ambiguous effect-relevant Rust helpers fail closed
   ---
-  duration_ms: 1.884575
+  duration_ms: 2.078486
   type: 'test'
   ...
 # Subtest: duplicate Rust module names fail helper resolution explicitly
 ok 9 - duplicate Rust module names fail helper resolution explicitly
   ---
-  duration_ms: 0.161007
+  duration_ms: 0.164352
   type: 'test'
   ...
 # Subtest: external Rust method effects stay distinct from unresolved helpers
 ok 10 - external Rust method effects stay distinct from unresolved helpers
   ---
-  duration_ms: 0.367129
+  duration_ms: 0.38644
   type: 'test'
   ...
 # Subtest: external filesystem mutators are effects while read-only opens stay reads
 ok 11 - external filesystem mutators are effects while read-only opens stay reads
   ---
-  duration_ms: 1.131596
+  duration_ms: 1.090311
   type: 'test'
   ...
 # Subtest: Rust service discovery stops the last literal arm before the wildcard
 ok 12 - Rust service discovery stops the last literal arm before the wildcard
   ---
-  duration_ms: 0.446352
+  duration_ms: 0.422262
   type: 'test'
   ...
 # Subtest: Rust dispatch selects the intended qualified trait and captures or-patterns
 ok 13 - Rust dispatch selects the intended qualified trait and captures or-patterns
   ---
-  duration_ms: 0.367504
+  duration_ms: 0.348257
   type: 'test'
   ...
 # Subtest: qualified service-interface macros enumerate every marked method
 ok 14 - qualified service-interface macros enumerate every marked method
   ---
-  duration_ms: 0.322026
+  duration_ms: 0.285044
   type: 'test'
   ...
 # Subtest: service-interface method attribute variants fail discovery explicitly
 ok 15 - service-interface method attribute variants fail discovery explicitly
   ---
-  duration_ms: 0.229703
+  duration_ms: 0.209726
   type: 'test'
   ...
 # Subtest: proto services and tonic mounts enumerate additions and reject dynamic mounts
 ok 16 - proto services and tonic mounts enumerate additions and reject dynamic mounts
   ---
-  duration_ms: 0.285039
+  duration_ms: 0.27734
   type: 'test'
   ...
 # Subtest: JavaScript discovery finds process, filesystem, and all-key storage effects
 ok 17 - JavaScript discovery finds process, filesystem, and all-key storage effects
   ---
-  duration_ms: 0.408767
+  duration_ms: 0.437487
   type: 'test'
   ...
 # Subtest: JavaScript AST discovery resolves aliases, options, templates, and nesting
 ok 18 - JavaScript AST discovery resolves aliases, options, templates, and nesting
   ---
-  duration_ms: 0.953027
+  duration_ms: 0.95392
   type: 'test'
   ...
 # Subtest: JavaScript dynamic computed effect members fail discovery explicitly
 ok 19 - JavaScript dynamic computed effect members fail discovery explicitly
   ---
-  duration_ms: 0.368074
+  duration_ms: 0.357845
   type: 'test'
   ...
 # Subtest: current ported-seed outbound wrappers and development crossings stay discovered
 ok 20 - current ported-seed outbound wrappers and development crossings stay discovered
   ---
-  duration_ms: 672.90204
+  duration_ms: 642.379654
   type: 'test'
   ...
 # Subtest: read-convergence GET helpers remain genuinely read-only
 ok 21 - read-convergence GET helpers remain genuinely read-only
   ---
-  duration_ms: 6.518209
+  duration_ms: 6.409449
   type: 'test'
   ...
 # Subtest: proven stateful GETs are consequential after transitive review
 ok 22 - proven stateful GETs are consequential after transitive review
   ---
-  duration_ms: 0.324872
+  duration_ms: 0.320249
   type: 'test'
   ...
 # Subtest: a read-only review cannot validate when discovery observes handler effects
 ok 23 - a read-only review cannot validate when discovery observes handler effects
   ---
-  duration_ms: 671.817149
+  duration_ms: 655.540991
   type: 'test'
   ...
 # Subtest: discovery and the committed review lock are complete and explicitly reviewed
 ok 24 - discovery and the committed review lock are complete and explicitly reviewed
   ---
-  duration_ms: 716.506993
+  duration_ms: 683.497606
   type: 'test'
   ...
 # Subtest: a newly discovered or changed mutation fails until explicitly classified
 ok 25 - a newly discovered or changed mutation fails until explicitly classified
   ---
-  duration_ms: 718.976724
+  duration_ms: 674.294006
   type: 'test'
   ...
 # Subtest: reviewer reproduction cannot backdate a new identity by recomputing old epochs
 ok 26 - reviewer reproduction cannot backdate a new identity by recomputing old epochs
   ---
-  duration_ms: 693.742608
+  duration_ms: 675.73634
   type: 'test'
   ...
 # Subtest: an anchor-changed identity cannot be backdated with recomputed epochs
 ok 27 - an anchor-changed identity cannot be backdated with recomputed epochs
   ---
-  duration_ms: 685.30496
+  duration_ms: 679.213804
   type: 'test'
   ...
 # Subtest: unchanged entries cannot be stamped into the latest epoch
 ok 28 - unchanged entries cannot be stamped into the latest epoch
   ---
-  duration_ms: 682.775712
+  duration_ms: 643.518518
   type: 'test'
   ...
 # Subtest: review epochs commit complete reviewed entries and anchors
 ok 29 - review epochs commit complete reviewed entries and anchors
   ---
-  duration_ms: 664.810457
+  duration_ms: 653.503238
   type: 'test'
   ...
 # Subtest: supplied entries form an internally coherent unsigned hash chain with the repository baseline
 ok 30 - supplied entries form an internally coherent unsigned hash chain with the repository baseline
   ---
-  duration_ms: 59.048542
+  duration_ms: 54.031062
   type: 'test'
   ...
 # Subtest: a later supplied lock mismatch leaves every prior retained entry immutable
 ok 31 - a later supplied lock mismatch leaves every prior retained entry immutable
   ---
-  duration_ms: 100.317945
+  duration_ms: 91.074281
   type: 'test'
   ...
 # Subtest: collapsing the supplied lock cannot validate or re-attest against its unchanged head
 ok 32 - collapsing the supplied lock cannot validate or re-attest against its unchanged head
   ---
-  duration_ms: 1436.546611
+  duration_ms: 1398.882153
   type: 'test'
   ...
 # Subtest: a tampered retained legacy claim breaks the hash chain and the baseline pin
 ok 33 - a tampered retained legacy claim breaks the hash chain and the baseline pin
   ---
-  duration_ms: 228.5011
+  duration_ms: 219.918394
   type: 'test'
   ...
 # Subtest: tampered head commitments and predecessor substitutions fail before attestation
 ok 34 - tampered head commitments and predecessor substitutions fail before attestation
   ---
-  duration_ms: 110.811196
+  duration_ms: 116.175386
   type: 'test'
   ...
 # Subtest: the repository baseline rejects a supplied snapshot that omits its baseline entry
 ok 35 - the repository baseline rejects a supplied snapshot that omits its baseline entry
   ---
-  duration_ms: 54.931103
+  duration_ms: 58.421345
   type: 'test'
   ...
 # Subtest: two coherent same-day unsigned snapshots validate without establishing which head is current
 ok 36 - two coherent same-day unsigned snapshots validate without establishing which head is current
   ---
-  duration_ms: 0.524888
+  duration_ms: 0.717599
   type: 'test'
   ...
 # Subtest: omission and duplicate identities fail closed
 ok 37 - omission and duplicate identities fail closed
   ---
-  duration_ms: 1323.097636
+  duration_ms: 1268.809186
   type: 'test'
   ...
 # Subtest: missing or laundered final invokers fail closed
 ok 38 - missing or laundered final invokers fail closed
   ---
-  duration_ms: 1314.749761
+  duration_ms: 1273.908858
   type: 'test'
   ...
 # Subtest: stale anchors, unsafe defaults, and heuristic review provenance fail closed
 ok 39 - stale anchors, unsafe defaults, and heuristic review provenance fail closed
   ---
-  duration_ms: 3964.573068
+  duration_ms: 3750.750351
   type: 'test'
   ...
 # Subtest: false terminal claims fail without leaf, gates, evidence, and recovery proof
 ok 40 - false terminal claims fail without leaf, gates, evidence, and recovery proof
   ---
-  duration_ms: 681.144764
+  duration_ms: 632.888323
   type: 'test'
   ...
 # Subtest: PG and baseline incompleteness or fabricated zeros fail closed
 ok 41 - PG and baseline incompleteness or fabricated zeros fail closed
   ---
-  duration_ms: 6052.479557
+  duration_ms: 5726.069174
   type: 'test'
   ...
 # Subtest: proof lanes, lane bindings, and local identity ownership fail closed
 ok 42 - proof lanes, lane bindings, and local identity ownership fail closed
   ---
-  duration_ms: 60392.474329
+  duration_ms: 58274.182019
   type: 'test'
   ...
 # Subtest: program source review is a bounded supplied-snapshot material attestation
 ok 43 - program source review is a bounded supplied-snapshot material attestation
   ---
-  duration_ms: 15934.925482
+  duration_ms: 15283.07002
   type: 'test'
   ...
 # Subtest: tracked implementation sequencing is bound by the M0 fingerprint
 ok 44 - tracked implementation sequencing is bound by the M0 fingerprint
   ---
-  duration_ms: 6079.507729
+  duration_ms: 5769.49857
   type: 'test'
   ...
 # Subtest: bare invocation exits 2 with usage and writes nothing
 ok 45 - bare invocation exits 2 with usage and writes nothing
   ---
-  duration_ms: 241.847253
+  duration_ms: 241.33926
   type: 'test'
   ...
 # Subtest: --attest-review accepts only the tracked supplied snapshot and never signs
 ok 46 - --attest-review accepts only the tracked supplied snapshot and never signs
   ---
-  duration_ms: 495.412532
+  duration_ms: 481.456132
   type: 'test'
   ...
 # Subtest: snapshot checking ignores HOME checkpoints and binds only tracked sequencer content
 ok 47 - snapshot checking ignores HOME checkpoints and binds only tracked sequencer content
   ---
-  duration_ms: 11526.760422
+  duration_ms: 10991.754981
   type: 'test'
   ...
 # Subtest: stale generated artifacts fail before consumption
 ok 48 - stale generated artifacts fail before consumption
   ---
-  duration_ms: 0.566222
+  duration_ms: 0.550058
   type: 'test'
   ...
 # Subtest: unexpected stale evidence artifacts fail before consumption
 ok 49 - unexpected stale evidence artifacts fail before consumption
   ---
-  duration_ms: 0.305233
+  duration_ms: 0.318241
   type: 'test'
   ...
 # Subtest: generated artifact dates derive from the latest validated review epoch
 ok 50 - generated artifact dates derive from the latest validated review epoch
   ---
-  duration_ms: 2298.467294
+  duration_ms: 2196.027603
   type: 'test'
   ...
 # Subtest: exit report and evidence index project only bounded supplied-snapshot assurance
 ok 51 - exit report and evidence index project only bounded supplied-snapshot assurance
   ---
-  duration_ms: 2242.600824
+  duration_ms: 2172.429683
   type: 'test'
   ...
 # Subtest: README names no local signer custody and makes no independent-review or freshness claim
 ok 52 - README names no local signer custody and makes no independent-review or freshness claim
   ---
-  duration_ms: 0.234865
+  duration_ms: 0.223891
   type: 'test'
   ...
 # Subtest: generated artifacts older than bound inputs fail explicitly
 ok 53 - generated artifacts older than bound inputs fail explicitly
   ---
-  duration_ms: 0.520968
+  duration_ms: 0.497173
   type: 'test'
   ...
 # Subtest: effect census binds transitive closures without duplicating call corpora
 not ok 54 - effect census binds transitive closures without duplicating call corpora
   ---
-  duration_ms: 18.388327
+  duration_ms: 17.951011
   type: 'test'
-  location: '/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-c/scripts/lib/m0-program-control.test.mjs:2423:1'
+  location: '/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-v4/scripts/lib/m0-program-control.test.mjs:2423:1'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -416,7 +419,7 @@ not ok 54 - effect census binds transitive closures without duplicating call cor
   actual: true
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-c/scripts/lib/m0-program-control.test.mjs:2428:12)
+    TestContext.<anonymous> (file:///tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-v4/scripts/lib/m0-program-control.test.mjs:2428:12)
     Test.runInAsyncScope (node:async_hooks:214:14)
     Test.run (node:internal/test_runner/test:1047:25)
     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
@@ -427,55 +430,55 @@ not ok 54 - effect census binds transitive closures without duplicating call cor
 # Subtest: README tampering changes the fingerprint and fails the read-only check
 ok 55 - README tampering changes the fingerprint and fails the read-only check
   ---
-  duration_ms: 6124.870862
+  duration_ms: 5853.722112
   type: 'test'
   ...
 # Subtest: tracked implementation-program tampering changes the fingerprint and fails check
 ok 56 - tracked implementation-program tampering changes the fingerprint and fails check
   ---
-  duration_ms: 6190.185058
+  duration_ms: 5949.408109
   type: 'test'
   ...
 # Subtest: atomic writes clean temporary siblings after a failed replacement
 ok 57 - atomic writes clean temporary siblings after a failed replacement
   ---
-  duration_ms: 15.60759
+  duration_ms: 14.995
   type: 'test'
   ...
 # Subtest: a second --write preserves every evidence content digest
 ok 58 - a second --write preserves every evidence content digest
   ---
-  duration_ms: 17466.950382
+  duration_ms: 16602.353356
   type: 'test'
   ...
 # Subtest: --check accepts current artifacts and remains read-only
 ok 59 - --check accepts current artifacts and remains read-only
   ---
-  duration_ms: 5767.182278
+  duration_ms: 5530.625412
   type: 'test'
   ...
 # Subtest: daemon loopbacks forward caller posture and credentials
 ok 60 - daemon loopbacks forward caller posture and credentials
   ---
-  duration_ms: 0.877441
+  duration_ms: 0.910736
   type: 'test'
   ...
 # Subtest: no durable Assistant aggregate exists in the runtime
 ok 61 - no durable Assistant aggregate exists in the runtime
   ---
-  duration_ms: 121.4592
+  duration_ms: 117.558201
   type: 'test'
   ...
 # Subtest: no route-local .layer(...) hides a handler from discovery
 ok 62 - no route-local .layer(...) hides a handler from discovery
   ---
-  duration_ms: 29.556312
+  duration_ms: 28.988485
   type: 'test'
   ...
 # Subtest: an IOI Agent launch never creates a GoalRun implicitly
 ok 63 - an IOI Agent launch never creates a GoalRun implicitly
   ---
-  duration_ms: 0.528461
+  duration_ms: 0.495656
   type: 'test'
   ...
 1..63
@@ -486,6 +489,6 @@ ok 63 - an IOI Agent launch never creates a GoalRun implicitly
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 160394.378411
+# duration_ms 153927.177365
 IOI_EXIT_CODE=1
 IOI_VERDICT=recorded

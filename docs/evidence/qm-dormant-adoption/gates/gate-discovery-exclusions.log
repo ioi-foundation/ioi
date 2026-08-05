@@ -1,5 +1,7 @@
-IOI_MEASURED_COMMIT=d19a9c10cd2efe25592633490c7a61222ec75a8b
+IOI_MEASURED_COMMIT=81ca7eac63b55dc88a4cec9980cda84aadaaf1d7
 IOI_PROOF=discovery-exclusions
+IOI_COMMAND=node scripts/check-discovery-exclusions.mjs
+IOI_WORKDIR=/tmp/claude-1000/-home-heathledger-Documents-ioi-repos-ioi/0d2b65bc-f8f4-4b2e-a09f-2778cfa793be/scratchpad/wt-v4
 IOI_EXPECTED_EXIT=any
 [WARN] discovery-exclusion: apps/ioi-ai/ — 1224 tracked file(s) hidden from discovery. Grounds: dormant adoption of upstream QM bytes: not served, not rebound, not built, no route registration. Ruled 2026-08-04. Pin 5eb3393315b45b338b860572ab516db9f6eae6da. Expires: m5-qm-reference-shell-executable-rebind — M6's FIRST act drops this exclusion and brings the tree into discovery
 discovery exclusions: 1 declared; 0 reachability violation(s)
