@@ -1,20 +1,20 @@
-IOI_MEASURED_COMMIT=778bfda1c7ce7e17291de4d1b4c220179595ee5c
+IOI_MEASURED_COMMIT=d19a9c10cd2efe25592633490c7a61222ec75a8b
 IOI_PROOF=claims-coverage
 IOI_EXPECTED_EXIT=any
-[WARN] claims-coverage: packet naming — 1 PACKET.md under docs/evidence/ (of 6 evidence directories); 1 declared by a manifest
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: positive_proof[0] retained bytes measured 0c92fa66e but the packet HEAD is 778bfda1c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: positive_proof[1] retained bytes measured 0c92fa66e but the packet HEAD is 778bfda1c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[0] retained bytes measured 0c92fa66e but the packet HEAD is 778bfda1c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[1] retained bytes measured 0c92fa66e but the packet HEAD is 778bfda1c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[2] retained bytes measured 0c92fa66e but the packet HEAD is 778bfda1c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[3] retained bytes measured 0c92fa66e but the packet HEAD is 778bfda1c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[4] retained bytes measured 0c92fa66e but the packet HEAD is 778bfda1c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: positive_proof[0] is declared NOT COVERED (Pending packet v2 measurement; retained bytes land with the detached gate run.) — "The adopted tree exists under apps/ioi-ai/ at a pinned upstream commit…"
-[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[0] points at retained bytes that do not exist (docs/evidence/qm-dormant-adoption/adoption-completeness.log)
-[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[1] points at retained bytes that do not exist (docs/evidence/qm-dormant-adoption/adoption-completeness.log)
-[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[2] points at retained bytes that do not exist (docs/evidence/qm-dormant-adoption/adoption-completeness.log)
-[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[3] retained bytes measured 0397a1d9f but the packet HEAD is 778bfda1c — the evidence is for a different commit
-[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[4] is declared NOT COVERED (Pending packet v2 measurement.) — "Reject a tree that the package manager still resolves while declared d…"
+[WARN] claims-coverage: packet convention — 1 governed directory(ies) of 6; 5 pinned as pre-convention (shrink-only); 1 packet(s) declared by a manifest
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: positive_proof[0] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: positive_proof[1] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[0] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[1] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[2] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[3] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-agentgres-durable-event-subscription-successor: adversarial_or_fault_proof[4] retained bytes measured 0c92fa66e but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: positive_proof[0] retained bytes measured 778bfda1c but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[0] retained bytes measured 778bfda1c but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[1] retained bytes measured 778bfda1c but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[2] retained bytes measured 778bfda1c but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[3] retained bytes measured 778bfda1c but the packet HEAD is d19a9c10c — the evidence is for a different commit
+[ERROR] claims-coverage: m5-qm-reference-shell-dormant-adoption: adversarial_or_fault_proof[4] retained bytes measured 778bfda1c but the packet HEAD is d19a9c10c — the evidence is for a different commit
 claims-coverage: 0/13 claim(s) covered by an executed check with retained passing bytes; 15 predeclared cases self-tested
 check-claims-coverage: FAIL (13 error, 0 warn, 0 skip)
 IOI_EXIT_CODE=1

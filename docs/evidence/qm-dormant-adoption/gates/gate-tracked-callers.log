@@ -1,4 +1,4 @@
-IOI_MEASURED_COMMIT=778bfda1c7ce7e17291de4d1b4c220179595ee5c
+IOI_MEASURED_COMMIT=d19a9c10cd2efe25592633490c7a61222ec75a8b
 IOI_PROOF=tracked-caller-census
 IOI_EXPECTED_EXIT=any
 [WARN] tracked-caller: apps/developers-ioi-ai/scripts/check-live-readiness.mjs is deliberately unwired: keep-as-manual by owner ruling 2026-08-04; owning program: web-estate; wiring reconsidered at that program's next active cut

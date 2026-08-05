@@ -1,6 +1,6 @@
-# QM reference shell — dormant adoption (packet v2)
+# QM reference shell — dormant adoption (packet v3)
 
-**Measured detached at `778bfda1c`** in a dedicated worktree. Both subjects were
+**Measured detached at `d19a9c10c`** in a dedicated worktree. Both subjects were
 asserted present *before* anything was measured
 ([`subjects-present-at-measurement.txt`](subjects-present-at-measurement.txt)):
 the adopted tree at 1224 files, the gate that hides it, and the completeness bar.
@@ -44,10 +44,14 @@ the transcript so the code cannot be misread as a failure.
 | [tracked-caller-census](gates/gate-tracked-callers.log) | PASS |
 | [internal-architecture-headers](gates/gate-internal-architecture-headers.log) | PASS |
 | [attestation-chain](gates/gate-attestation-chain.log) | PASS |
+| [check-estate](gates/gate-check-estate.log) | PASS |
 | [pre-next-leg-gate-regressions](gates/gate-pre-next-leg-regressions.log) | PASS (4/4) |
-| [check-estate](gates/gate-check-estate.log) | FAIL at measurement — **closed since**, see below |
-| [work-item-contract](gates/gate-work-items.log) | FAIL — **pre-existing on master**, filed, see below |
-| [claims-coverage](gates/gate-claims-coverage.log) | FAIL — see below |
+| [pre-next-leg **full suite**](gates/gate-pre-next-leg-full.log) | FAIL (1) — inherited from the M5 cut, filed |
+| [work-item-contract](gates/gate-work-items.log) | FAIL (5) — pre-existing on master, filed |
+| [claims-coverage](gates/gate-claims-coverage.log) | FAIL (13) — 7 substrate-owned stale, 6 disclosed below |
+
+A [master baseline](gates/baseline-master-full-suite.txt) accompanies the full
+suite, so "inherited" is a measurement rather than a claim: master exits **0**.
 
 ## The six findings, dispositioned
 
@@ -128,26 +132,65 @@ a detached run (FAIL, 5 error), so it is filed against its owner as
 adoption. The failure mode is not the detached FAIL — it is the working-copy
 PASS, the one nobody investigates.
 
-## Open, and stated rather than resolved
+## Open, and disclosed rather than resolved (Ruling A)
 
-**The M5 substrate cut's retained evidence no longer covers this tip.** Its
-manifest measures `0c92fa66e`, which **is** an ancestor of `778bfda1c`, but the
-delta between them carries 1,272 non-evidence files (1224 under `apps/`, 39 under
-`internal-docs/`, 7 under `scripts/`). The ancestry-plus-evidence-only-delta rule
-therefore refuses it, correctly: this cut changed real bytes beneath a claim that
-had been measured without them. That accounts for **all 7** remaining
-claims-coverage errors. The M5 evidence is sound at its own commit; on this
-branch it is stale by construction. **This packet does not re-certify it** — the
-QM cut does not own the M5 substrate's claims — and the re-measurement is the
-director's call, at merge or before.
+**The 7 substrate claim rows are refused-stale at this tip, and stay that way.**
+The `m5-agentgres-durable-event-subscription-successor` manifest measures
+`0c92fa66e`, an ancestor of this tip, but the delta carries non-evidence files —
+so the ancestry-plus-evidence-only rule refuses it. That is the strict rule
+working, not a defect. Those claims are **substrate-owned**, measured on the
+substrate lineage; this cut neither owns nor re-certifies them. They are
+**re-certified at M5 stage certification on the merged tree**, which
+`certify-stage` demands regardless. No claim-scoping machinery was built: if the
+gate should distinguish disclosed-stale from failing, that is a successor with
+its own review, not a mid-cut bolt-on.
 
-**check-estate** failed at measurement time solely because the newly filed record
-was not yet named in `stages/m9.md`; it is named now and the gate is green. That
-green is *not* in the retained bytes above, because the bytes are honest about
-the commit they measured.
+**The remaining 6 rows are this cut's own**, and read stale only because the
+retained bytes measure `d19a9c10c` while the packet commit is its evidence-only
+child. That delta is pure `docs/evidence/`, which the ancestry clause admits by
+design — the v2 packet failed exactly this test because
+`check-claims-coverage.mjs` was itself in the delta, and v3 exists to fix that.
+
+**`work-item-contract` (5)** — the gitignored-prefix defect, pre-existing on
+master, filed as `work-item-private-artifact-paths-are-gitignored`.
+
+**Full suite (1)** — filed as
+`m5-effect-census-duplicated-call-corpora-successor`, and inherited: 6 census
+entries emit `handler_calls` **and** `handler_call_sequence` carrying the same
+8-element list. Measured attribution: 6 at `4c8f1d794` (the M5 cut), 6 at
+`0c92fa66e`, **0** at the merge-base with master. **A red test shipped inside a
+cut reviewed CLEAN** — the M5 packet was certified without the full suite ever
+being run detached at its own tip. The gate existed; nobody asked it. That is the
+uncalled-bar class one level up: not a missing check, an *unasked* one.
+
+## Found in the v3 round
+
+**The ratchet pinned bytes nobody else can see.** I built the pre-convention
+baseline with `readdirSync` over my working copy — 51 directories. `.gitignore`
+line 58 ignores `docs/evidence/*` wholesale, so the repository holds **six**.
+Forty-six pins existed on one disk and in no commit. The ratchet's own stale-pin
+tooth refused all 46 the first time it ran detached: the bar caught its author.
+Both the baseline and the enumerator now read `git ls-files`. While only one side
+did, the same gate reported 47 governed directories locally and 1 detached — a bar
+that describes a different world depending on where it runs describes neither.
+
+**Shrink-only was prose.** It was in the ruling, in the file's `monotone` field,
+and asserted in my own commit message as something that "cannot be escaped by
+declaring the escape". Measured: appending a directory silenced the bar entirely.
+True of the design, false of the code. The baseline is now diffed against its
+**committed** version; appends are refused by name, shrinks stay legal, both
+red-proven.
+
+**A comment that looked like code broke a test.** Explaining the
+side-effect-import gap, I wrote the example import literally in a comment. The M0
+effect walk resolves imports by scanning **text**, so it followed the example and
+tried to open a file that does not exist. *A comment illustrating an import is an
+import to a textual walker* — the explanation of a fix broke a test eight cases
+away from anything the fix touched.
 
 ## Method notes worth keeping
 
 * I committed once over a red test, having read `tail -2` of a TAP stream — `# todo 0` and a duration, both true, neither a verdict — and a pipe had already discarded the exit status. Read `^not ok` and `# fail`; never let a pipe eat the exit code of the thing being judged.
 * The `adoption-completeness` bar had **no tracked caller** on the day it was built. The census refused it immediately, which is the entire reason the census exists — the class it kills used to take three rounds and an external reviewer.
 * Adding that gate broke the execution-**order** pin, which is literal data independent of the production list. That is the pin working: a new gate cannot enter the run without someone writing it down.
+* A working copy is a subject. The enumeration mistake has now landed three times in this program — the completeness bar's contaminated upstream diff, the census that vouched for its own subjects, and the ratchet built from ignored bytes. Each time the cure was the same: enumerate from tracked bytes, never from the disk you happen to be standing on.
