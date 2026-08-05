@@ -46,3 +46,4 @@ through gate identifiers.
 - [ADR 0029: Admit Direct GoalRun Paths Explicitly And Use Research For Non-Software Proof](./0029-goalrun-direct-path-admission-and-research-proof-profile.md) (refines ADRs 0017, 0020, and 0022)
 - [ADR 0030: Rooms Are A Composition, Not A Primitive Family](./0030-rooms-are-a-composition-not-a-primitive-family.md) (refines ADRs 0003, 0015, 0020, and 0022)
 - [ADR 0031: GoalRun Execution Composes Thread Orchestration](./0031-goalrun-execution-composes-thread-orchestration.md) (refines ADRs 0017, 0022, 0029, and 0030)
+- [ADR 0032: Define "Independently Implemented Client" By Named Axes](./0032-independently-implemented-client-definition.md) (refines ADRs 0002 and 0013)

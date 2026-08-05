@@ -147,9 +147,13 @@ Owner application: [`common-objects-and-envelopes.md`](./common-objects-and-enve
 runtime nodes, providers, clouds, or keys controlled by one principal remain
 one party when that principal controls authority, revocation, truth,
 verification, risk, or settlement. Multi-party claims require disclosed and
-separate accountable principals and affiliations.
+separate accountable principals and affiliations. This invariant governs the
+**party** axis; the implementation axes of client independence — binary,
+codegen, transport — are separate claims that never establish party
+independence, and are defined by ADR 0032.
 Owner application: [`mixture-of-workers.md`](./mixture-of-workers.md),
-[`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md).
+[`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md),
+[`../components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md).
 
 **INV-19 — Complexity collapses when boundaries do.** One user, one process,
 one local authority context, one minimal semantic contract, and no public
