@@ -864,7 +864,7 @@ pub(crate) async fn handle_agent_run_create(
     Ok(Json(run))
 }
 
-/// Append admitted runtime events to the thread's persisted Agentgres event log
+/// Append runtime events to the thread's legacy compatibility event log
 /// (`<state_dir>/events/<sha256(stream_id)>.jsonl`). The kernel reads every
 /// `*.jsonl` under `events/` and filters by `event_stream_id`, so one file per
 /// stream keeps appends contiguous without clobbering sibling streams.
@@ -894,11 +894,6 @@ fn append_persisted_events(
     Ok(())
 }
 
-/// Admit a single custom runtime event (e.g. a context-policy / workspace-trust
-/// decision) onto the persisted log via the kernel admission planner — it reads the
-/// stream's `latest_seq` from `<state_dir>/events/*.jsonl` and assigns seq+1, so the
-/// event lands AFTER the thread.started + turn events already on the log — then
-/// append the admitted event. Returns the admitted event (with seq, event_id, refs).
 /// Admit one runtime event onto its stream's Agentgres chain.
 ///
 /// Idempotency is NOT re-implemented here. "This key admits exactly once" is
@@ -4313,6 +4308,8 @@ pub(crate) async fn handle_approval_revoke(
 /// GET /v1/threads/:id/managed-sessions — project the thread's managed sessions
 /// (read-only). The kernel projection record carries no `status`; the JS client asserts
 /// `status == "projected"`, so the envelope injects it (as the napi projection API does).
+/// Candidate state comes from this daemon's classified event-stream replay: admitted
+/// streams read Agentgres and legacy streams read only their inert pre-migration log.
 pub(crate) async fn handle_managed_sessions(
     State(st): State<Arc<DaemonState>>,
     AxumPath(thread_id): AxumPath<String>,
@@ -4323,6 +4320,8 @@ pub(crate) async fn handle_managed_sessions(
             format!("thread not found: {thread_id}"),
         ));
     }
+    let event_stream_id = format!("{thread_id}:events");
+    let events = replay_runtime_events(&st, "stream", &event_stream_id, None)?;
     let request: RuntimeManagedSessionProjectionRequest = serde_json::from_value(json!({
         "schema_version": RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
         "operation": "managed_session_inspection",
@@ -4339,7 +4338,7 @@ pub(crate) async fn handle_managed_sessions(
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
     let record = RuntimeKernelService::new()
-        .project_runtime_managed_session_projection(&request)
+        .project_runtime_managed_session_projection_from_replayed_events(&request, &events)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(json!({
         "schema_version": "ioi.runtime.managed_session_projection.v1",
@@ -4360,9 +4359,9 @@ pub(crate) async fn handle_managed_sessions(
 /// POST /v1/threads/:id/managed-sessions/control — operator control (observe /
 /// take_over / return_agent) of a managed session. The kernel
 /// plan_runtime_managed_session_control reads the prior managed_session record from
-/// the persisted event log (produced by the runtime event-log bridge when a real
-/// `browser__*` turn drives a sandbox session) and synthesizes the
-/// `managed_session.controlled` transition, which is admitted onto the log. Returns
+/// classified event-stream replay (produced by the runtime event-log bridge when a
+/// real `browser__*` turn drives a sandbox session) and synthesizes the
+/// `managed_session.controlled` transition, which is admitted onto the stream. Returns
 /// the admitted event. Errors (e.g. record_required) surface when no managed session
 /// has been produced for the thread yet.
 pub(crate) async fn handle_managed_session_control(
@@ -4382,12 +4381,14 @@ pub(crate) async fn handle_managed_session_control(
             "managed_session_id is required".to_string(),
         ));
     };
+    let event_stream_id = format!("{thread_id}:events");
+    let events = replay_runtime_events(&st, "stream", &event_stream_id, None)?;
     let request: RuntimeManagedSessionControlRequest = serde_json::from_value(json!({
         "schema_version": RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
         "operation": "managed_session_control",
         "operation_kind": "managed_session.control",
         "thread_id": thread_id,
-        "event_stream_id": format!("{thread_id}:events"),
+        "event_stream_id": event_stream_id,
         "state_dir": st.data_dir,
         "managed_session_id": managed_session_id,
         "control_state": body.get("control_state").and_then(|v| v.as_str()),
@@ -4396,7 +4397,7 @@ pub(crate) async fn handle_managed_session_control(
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
     let record = RuntimeKernelService::new()
-        .plan_runtime_managed_session_control(&request)
+        .plan_runtime_managed_session_control_from_replayed_events(&request, &events)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let event = serde_json::to_value(&record.event)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;

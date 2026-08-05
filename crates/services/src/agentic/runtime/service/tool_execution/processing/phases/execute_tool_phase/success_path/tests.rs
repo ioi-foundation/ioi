@@ -657,12 +657,17 @@ fn workspace_change_lifecycle_receipt_details_reject_invalid_transition_payloads
 /// `handle_execution_success` invokes on a successful `browser__*` tool) records a
 /// managed browser session into real KV, rebuilds the snapshot, and emits a
 /// `KernelEvent::RuntimeThreadEvent` carrier; the real event-log bridge resolves the
-/// daemon thread and persists it onto `<state_dir>/events`; and the kernel
+/// daemon thread and admits it through Agentgres; and the kernel
 /// managed-session projection (which `GET /v1/threads/:id/managed-sessions` delegates
-/// to verbatim) reads it back. Closes the producer->channel->bridge->jsonl->projection
+/// to) consumes admitted replay. Closes the producer->channel->bridge->replay->projection
 /// verification gap that the HTTP-only lifecycle ratchet cannot exercise in-process.
 mod managed_session_producer_e2e {
-    use crate::agentic::runtime::event_log_bridge::persist_runtime_thread_event_json;
+    use crate::agentic::runtime::event_log_bridge::{
+        persist_runtime_thread_event_json_with_admission, test_support::TestEventStreamAdmission,
+    };
+    use crate::agentic::runtime::event_stream_admission::{
+        stream_tail, THREAD_ORCHESTRATION_NAMESPACE,
+    };
     use crate::agentic::runtime::kernel::runtime_managed_session_control::{
         RuntimeManagedSessionProjectionCore, RuntimeManagedSessionProjectionRequest,
         RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -762,6 +767,7 @@ mod managed_session_producer_e2e {
     fn real_browser_producer_bridges_a_managed_session_the_daemon_projection_serves() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().to_string_lossy().to_string();
+        let admission = TestEventStreamAdmission::open(temp.path().join("agentgres"));
         let session_id = [0x38u8; 32];
 
         // Daemon-side precondition: the agent record + runtime_session_id linkage the
@@ -817,11 +823,16 @@ mod managed_session_producer_e2e {
         };
         assert_eq!(sent_session, session_id);
 
-        // The event-log bridge persists it onto the daemon log (the body of
+        // The event-log bridge admits it onto the daemon's Agentgres stream (the body of
         // run_event_log_bridge's match arm).
-        let admitted = persist_runtime_thread_event_json(&state_dir, &session_id, &event_json)
-            .expect("bridge persists")
-            .expect("an event was admitted");
+        let admitted = persist_runtime_thread_event_json_with_admission(
+            &state_dir,
+            &session_id,
+            &event_json,
+            &admission,
+        )
+        .expect("bridge persists")
+        .expect("an event was admitted");
         assert_eq!(admitted["event_kind"], "managed_session.projected");
         assert_eq!(admitted["thread_id"], "thread_e2e");
         assert!(admitted
@@ -829,7 +840,11 @@ mod managed_session_producer_e2e {
             .and_then(serde_json::Value::as_u64)
             .is_some());
 
-        // The daemon's projection core (what GET /managed-sessions delegates to) serves it.
+        // The daemon's projection core consumes the same admitted replay as the route.
+        let replayed = admission.replayed_events(
+            THREAD_ORCHESTRATION_NAMESPACE,
+            &stream_tail("thread_e2e:events"),
+        );
         let request: RuntimeManagedSessionProjectionRequest = serde_json::from_value(json!({
             "schema_version": RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
             "operation": "managed_session_inspection",
@@ -841,7 +856,7 @@ mod managed_session_producer_e2e {
         }))
         .expect("projection request");
         let record = RuntimeManagedSessionProjectionCore
-            .project(&request)
+            .project_from_replayed_events(&request, &replayed)
             .expect("projection");
         assert_eq!(
             record.record_count, 1,

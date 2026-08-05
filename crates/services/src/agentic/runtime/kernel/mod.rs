@@ -1121,11 +1121,27 @@ impl RuntimeKernelService {
         RuntimeManagedSessionProjectionCore.project(request)
     }
 
+    pub fn project_runtime_managed_session_projection_from_replayed_events(
+        &self,
+        request: &RuntimeManagedSessionProjectionRequest,
+        events: &[serde_json::Value],
+    ) -> Result<RuntimeManagedSessionProjectionRecord, RuntimeManagedSessionCommandError> {
+        RuntimeManagedSessionProjectionCore.project_from_replayed_events(request, events)
+    }
+
     pub fn plan_runtime_managed_session_control(
         &self,
         request: &RuntimeManagedSessionControlRequest,
     ) -> Result<RuntimeManagedSessionControlRecord, RuntimeManagedSessionCommandError> {
         RuntimeManagedSessionControlCore.plan(request)
+    }
+
+    pub fn plan_runtime_managed_session_control_from_replayed_events(
+        &self,
+        request: &RuntimeManagedSessionControlRequest,
+        events: &[serde_json::Value],
+    ) -> Result<RuntimeManagedSessionControlRecord, RuntimeManagedSessionCommandError> {
+        RuntimeManagedSessionControlCore.plan_from_replayed_events(request, events)
     }
 
     pub fn project_runtime_workspace_change_projection(

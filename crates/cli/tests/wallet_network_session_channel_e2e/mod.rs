@@ -11,7 +11,6 @@ use ioi_cli::testing::{
 use ioi_crypto::security::SecurityLevel;
 use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaScheme};
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
-use ioi_services::agentic::runtime::{AgentMode, StartAgentParams};
 use ioi_services::wallet_network::{
     ApprovalConsumptionState, BumpRevocationEpochParams, ConsumeApprovalGrantParams,
     IssueSessionGrantParams, LeaseConsumptionState, RegisterApprovalAuthorityParams,
@@ -461,7 +460,10 @@ fn wallet_network_user_policy() -> ServicePolicy {
 
 fn desktop_agent_user_policy() -> ServicePolicy {
     let mut methods = BTreeMap::new();
-    methods.insert("start@v1".to_string(), MethodPermission::User);
+    methods.insert(
+        "software_install__execute_plan".to_string(),
+        MethodPermission::User,
+    );
     ServicePolicy {
         methods,
         allowed_system_prefixes: vec![],

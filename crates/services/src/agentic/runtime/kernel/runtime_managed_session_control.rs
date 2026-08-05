@@ -128,6 +128,40 @@ impl RuntimeManagedSessionProjectionCore {
         &self,
         request: &RuntimeManagedSessionProjectionRequest,
     ) -> Result<RuntimeManagedSessionProjectionRecord, RuntimeManagedSessionCommandError> {
+        self.project_with_candidates(request, |thread_id| {
+            managed_session_candidates_from_state_dir(
+                request.state_dir.as_deref(),
+                thread_id,
+                "runtime_managed_session_projection_state_dir_required",
+                "runtime_managed_session_projection_replay_read_failed",
+                "runtime_managed_session_projection_replay_record_invalid",
+                "managed session projection",
+            )
+        })
+    }
+
+    /// Project from events already replayed by the daemon's Agentgres steward.
+    ///
+    /// This is a Rust-only source seam, not a request transport: the retired
+    /// caller-supplied `projection` field remains rejected below. The daemon
+    /// obtains these values from its classified event-stream replay path, then
+    /// passes them directly to the same validation and projection core used by
+    /// the legacy state-directory compatibility entry point.
+    pub fn project_from_replayed_events(
+        &self,
+        request: &RuntimeManagedSessionProjectionRequest,
+        events: &[Value],
+    ) -> Result<RuntimeManagedSessionProjectionRecord, RuntimeManagedSessionCommandError> {
+        self.project_with_candidates(request, |thread_id| {
+            Ok(managed_session_candidates_from_events(events, thread_id))
+        })
+    }
+
+    fn project_with_candidates(
+        &self,
+        request: &RuntimeManagedSessionProjectionRequest,
+        candidates: impl FnOnce(&str) -> Result<Vec<Value>, RuntimeManagedSessionCommandError>,
+    ) -> Result<RuntimeManagedSessionProjectionRecord, RuntimeManagedSessionCommandError> {
         if let Some(schema_version) = optional_trimmed(request.schema_version.as_deref()) {
             if schema_version != RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION {
                 return Err(RuntimeManagedSessionCommandError::new(
@@ -147,17 +181,7 @@ impl RuntimeManagedSessionProjectionCore {
         })?;
         reject_projection_candidate_transport(request)?;
         let projection_kind = normalized_projection_kind(request)?;
-        let sessions = projected_sessions(
-            managed_session_candidates_from_state_dir(
-                request.state_dir.as_deref(),
-                &thread_id,
-                "runtime_managed_session_projection_state_dir_required",
-                "runtime_managed_session_projection_replay_read_failed",
-                "runtime_managed_session_projection_replay_record_invalid",
-                "managed session projection",
-            )?,
-            &thread_id,
-        );
+        let sessions = projected_sessions(candidates(&thread_id)?, &thread_id);
         let projection = match projection_kind.as_str() {
             "inspect" | "list" => Value::Array(sessions.clone()),
             "summary" => managed_session_summary(&sessions),
@@ -219,6 +243,38 @@ impl RuntimeManagedSessionControlCore {
         &self,
         request: &RuntimeManagedSessionControlRequest,
     ) -> Result<RuntimeManagedSessionControlRecord, RuntimeManagedSessionCommandError> {
+        self.plan_with_candidates(request, |thread_id| {
+            managed_session_candidates_from_state_dir(
+                request.state_dir.as_deref(),
+                thread_id,
+                "runtime_managed_session_control_state_dir_required",
+                "runtime_managed_session_control_replay_read_failed",
+                "runtime_managed_session_control_replay_record_invalid",
+                "managed session control",
+            )
+        })
+    }
+
+    /// Plan control from events already replayed by the daemon's Agentgres steward.
+    ///
+    /// The events are supplied by trusted Rust code after stream homing has
+    /// been classified. They do not revive the retired request-level
+    /// `managed_session` candidate transport, which remains rejected below.
+    pub fn plan_from_replayed_events(
+        &self,
+        request: &RuntimeManagedSessionControlRequest,
+        events: &[Value],
+    ) -> Result<RuntimeManagedSessionControlRecord, RuntimeManagedSessionCommandError> {
+        self.plan_with_candidates(request, |thread_id| {
+            Ok(managed_session_candidates_from_events(events, thread_id))
+        })
+    }
+
+    fn plan_with_candidates(
+        &self,
+        request: &RuntimeManagedSessionControlRequest,
+        candidates: impl FnOnce(&str) -> Result<Vec<Value>, RuntimeManagedSessionCommandError>,
+    ) -> Result<RuntimeManagedSessionControlRecord, RuntimeManagedSessionCommandError> {
         if let Some(schema_version) = optional_trimmed(request.schema_version.as_deref()) {
             if schema_version != RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION {
                 return Err(RuntimeManagedSessionCommandError::new(
@@ -271,9 +327,8 @@ impl RuntimeManagedSessionControlCore {
                 )
             })?;
         let control_state = normalized_control_state(Some(requested_control_state.as_str()))?;
-        let current_session = managed_session_control_record_from_state_dir(
-            request,
-            &thread_id,
+        let current_session = managed_session_control_record_from_candidates(
+            candidates(&thread_id)?,
             &managed_session_id,
         )?;
         let previous_control_state = string_field(&current_session, "control_state")
@@ -459,7 +514,7 @@ fn managed_session_candidates_from_state_dir(
     }
     paths.sort();
 
-    let mut candidates = BTreeMap::new();
+    let mut events = Vec::new();
     for path in paths {
         let contents = fs::read_to_string(&path).map_err(|error| {
             RuntimeManagedSessionCommandError::new(
@@ -485,49 +540,52 @@ fn managed_session_candidates_from_state_dir(
                     ),
                 )
             })?;
-            if event_thread_id(&event).as_deref() != Some(thread_id) {
-                continue;
-            }
-            for candidate in managed_session_candidates_from_event(&event, thread_id) {
-                if let Some(id) = string_field(&candidate, "managed_session_id")
-                    .or_else(|| string_field(&candidate, "id"))
-                {
-                    candidates.insert(id, candidate);
-                }
+            events.push(event);
+        }
+    }
+    Ok(managed_session_candidates_from_events(&events, thread_id))
+}
+
+fn managed_session_candidates_from_events(events: &[Value], thread_id: &str) -> Vec<Value> {
+    let mut candidates = BTreeMap::new();
+    for event in events {
+        if event_thread_id(event).as_deref() != Some(thread_id) {
+            continue;
+        }
+        for candidate in managed_session_candidates_from_event(event, thread_id) {
+            if let Some(id) = string_field(&candidate, "managed_session_id")
+                .or_else(|| string_field(&candidate, "id"))
+            {
+                // Replay is sequence ordered. Replacing an earlier card with
+                // a later card preserves the legacy scanner's latest-by-id
+                // semantics without trusting any caller-supplied candidate.
+                candidates.insert(id, candidate);
             }
         }
     }
-    Ok(candidates.into_values().collect())
+    candidates.into_values().collect()
 }
 
-fn managed_session_control_record_from_state_dir(
-    request: &RuntimeManagedSessionControlRequest,
-    thread_id: &str,
+fn managed_session_control_record_from_candidates(
+    candidates: Vec<Value>,
     managed_session_id: &str,
 ) -> Result<Value, RuntimeManagedSessionCommandError> {
-    managed_session_candidates_from_state_dir(
-        request.state_dir.as_deref(),
-        thread_id,
-        "runtime_managed_session_control_state_dir_required",
-        "runtime_managed_session_control_replay_read_failed",
-        "runtime_managed_session_control_replay_record_invalid",
-        "managed session control",
-    )?
-    .into_iter()
-    .find(|record| {
-        string_field(record, "managed_session_id")
-            .or_else(|| string_field(record, "id"))
-            .as_deref()
-            == Some(managed_session_id)
-    })
-    .ok_or_else(|| {
-        RuntimeManagedSessionCommandError::new(
-            "runtime_managed_session_control_record_required",
-            format!(
+    candidates
+        .into_iter()
+        .find(|record| {
+            string_field(record, "managed_session_id")
+                .or_else(|| string_field(record, "id"))
+                .as_deref()
+                == Some(managed_session_id)
+        })
+        .ok_or_else(|| {
+            RuntimeManagedSessionCommandError::new(
+                "runtime_managed_session_control_record_required",
+                format!(
                 "managed session control requires replayed managed session {managed_session_id}"
             ),
-        )
-    })
+            )
+        })
 }
 
 fn managed_session_candidates_from_event(event: &Value, thread_id: &str) -> Vec<Value> {
@@ -970,6 +1028,61 @@ mod tests {
         assert!(record
             .evidence_refs
             .contains(&"runtime_managed_session_projection_rust_owned".to_string()));
+    }
+
+    #[test]
+    fn replayed_projection_uses_the_later_event_for_the_same_managed_session() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let event = |status: &str, control_state: &str, updated_at: &str| {
+            json!({
+                "event_stream_id": "thread_1:events",
+                "thread_id": "thread_1",
+                "event_kind": "managed_session.projected",
+                "status": status,
+                "payload": {
+                    "sessions": [{
+                        "id": "sandbox_browser:1",
+                        "thread_id": "thread_1",
+                        "kind": "sandbox_browser",
+                        "status": status,
+                        "control_state": control_state,
+                        "waiting_for_user": false,
+                        "replay_ready": true,
+                        "updated_at": updated_at,
+                    }]
+                }
+            })
+        };
+        let events = vec![
+            event("browsing", "observe", "2026-08-05T12:00:00.000Z"),
+            event("operator_control", "take_over", "2026-08-05T12:01:00.000Z"),
+        ];
+
+        let record = RuntimeManagedSessionProjectionCore
+            .project_from_replayed_events(&projection_request(temp.path()), &events)
+            .expect("projection from admitted replay");
+        let sessions = record.projection.as_array().expect("sessions array");
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0]["managed_session_id"], "sandbox_browser:1");
+        assert_eq!(sessions[0]["status"], "operator_control");
+        assert_eq!(sessions[0]["control_state"], "take_over");
+    }
+
+    #[test]
+    fn replayed_projection_still_rejects_request_candidate_transport() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let mut request = projection_request(temp.path());
+        request.projection = json!({
+            "sessions": [{"managed_session_id": "caller_supplied"}]
+        });
+
+        let error = RuntimeManagedSessionProjectionCore
+            .project_from_replayed_events(&request, &[])
+            .expect_err("replayed-event API must not revive candidate transport");
+        assert_eq!(
+            error.code(),
+            "runtime_managed_session_projection_candidate_transport_retired"
+        );
     }
 
     #[test]

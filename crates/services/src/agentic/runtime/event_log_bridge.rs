@@ -2,10 +2,10 @@
 //!
 //! Turn execution (`RuntimeAgentService`) writes the execution-layer KV via
 //! [`StateAccess`](ioi_api::state::StateAccess) and emits [`KernelEvent`]s on a
-//! broadcast channel, but the hypervisor daemon's HTTP projections read a
-//! filesystem event log at `<state_dir>/events/<sha256(stream_id)>.jsonl`. The two
-//! are otherwise decoupled processes joined only by `state_dir`: the runtime never
-//! touches the daemon's log, and the daemon has no handle to the runtime KV.
+//! broadcast channel, while the hypervisor daemon owns the sole Agentgres handle
+//! steward and serves HTTP projections from classified event-stream replay. The
+//! runtime cannot acquire that handle; the daemon injects the bounded
+//! [`agentgres::event_stream::EventStreamAdmission`] capability at boot.
 //!
 //! This module is the bridge. Given a runtime-produced thread event keyed by the
 //! runtime `session_id`, it:
@@ -13,18 +13,20 @@
 //!      daemon persisted when the runtime-bridge thread started — it carries
 //!      `runtime_session_id = hex(session_id)`),
 //!   2. injects `thread_id` / `event_stream_id`,
-//!   3. admits the event through the kernel (which assigns `seq` after the events
-//!      already on the log), and
-//!   4. appends it to `<state_dir>/events/<sha256(stream_id)>.jsonl`,
+//!   3. has the kernel shape the event while discarding its legacy sequence, and
+//!   4. admits it through the injected capability, letting Agentgres own sequence.
 //!
-//! exactly mirroring the daemon's own `admit_and_persist_event`, so daemon
-//! projections (e.g. `GET /v1/threads/:id/managed-sessions`) read turn-execution
-//! output as first-class runtime events. This is the one generic carrier path that
-//! lets any turn-execution producer reach the daemon log; managed-session
-//! projection is its first producer.
+//! This mirrors the daemon's own writer path, so classified replay returns
+//! turn-execution output as first-class runtime events to projections such as
+//! `GET /v1/threads/:id/managed-sessions`. This is the one generic carrier path
+//! from turn-execution producers to admitted daemon truth; managed-session
+//! projection is its first producer. A missing capability refuses and never falls
+//! back to the legacy append-only log.
 
 use std::{fs, io::Write, path::Path};
 
+#[cfg(test)]
+use agentgres::event_stream::EventStreamAdmission;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
@@ -242,20 +244,69 @@ fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> R
     Ok(())
 }
 
-/// Admit a runtime thread event onto its stream's Agentgres chain, through
-/// the injected admission capability.
-///
-/// This crate cannot open the substrate: the handle steward lives in the
-/// daemon. So this writer admits through the injection boundary, and when no
-/// capability has been injected it REFUSES — it never reverts to the legacy
-/// append-only log.
-///
-/// Idempotency is not re-implemented here. The whole-stream key check lives
-/// inside admission, so this writer inherits it through the admit it already
-/// calls; the caller-side log scan this function used to perform is deleted.
-/// The per-stream lock is gone with it: race safety comes from the CAS, whose
-/// loser re-reads and re-derives against the winner's admitted fact.
-pub fn admit_and_persist_runtime_event(state_dir: &str, event: Value) -> Result<Value, String> {
+trait EventStreamAdmissionDispatch {
+    fn read_head(
+        &self,
+        owner_namespace: &str,
+        stream_tail: &str,
+    ) -> Result<Option<agentgres::mux::ExactProjection>, agentgres::event_stream::AdmissionRefusal>;
+
+    fn admit_event(
+        &self,
+        request: agentgres::event_stream::EventAdmission<'_>,
+    ) -> Result<agentgres::event_stream::Admitted, agentgres::event_stream::AdmissionRefusal>;
+}
+
+struct ProductionEventStreamAdmission;
+
+impl EventStreamAdmissionDispatch for ProductionEventStreamAdmission {
+    fn read_head(
+        &self,
+        owner_namespace: &str,
+        stream_tail: &str,
+    ) -> Result<Option<agentgres::mux::ExactProjection>, agentgres::event_stream::AdmissionRefusal>
+    {
+        super::event_stream_admission::read_head(owner_namespace, stream_tail)
+    }
+
+    fn admit_event(
+        &self,
+        request: agentgres::event_stream::EventAdmission<'_>,
+    ) -> Result<agentgres::event_stream::Admitted, agentgres::event_stream::AdmissionRefusal> {
+        // Keep this call through the documented production entry point. The
+        // uninjected proof drives this exact function and would no longer
+        // cover the bridge if production reached around it to the trait object.
+        super::event_stream_admission::admit_event(request)
+    }
+}
+
+#[cfg(test)]
+struct ExplicitEventStreamAdmission<'a>(&'a dyn EventStreamAdmission);
+
+#[cfg(test)]
+impl EventStreamAdmissionDispatch for ExplicitEventStreamAdmission<'_> {
+    fn read_head(
+        &self,
+        owner_namespace: &str,
+        stream_tail: &str,
+    ) -> Result<Option<agentgres::mux::ExactProjection>, agentgres::event_stream::AdmissionRefusal>
+    {
+        self.0.read_head(owner_namespace, stream_tail)
+    }
+
+    fn admit_event(
+        &self,
+        request: agentgres::event_stream::EventAdmission<'_>,
+    ) -> Result<agentgres::event_stream::Admitted, agentgres::event_stream::AdmissionRefusal> {
+        self.0.admit_event(request)
+    }
+}
+
+fn admit_and_persist_runtime_event_via(
+    state_dir: &str,
+    event: Value,
+    admission: impl EventStreamAdmissionDispatch,
+) -> Result<Value, String> {
     let event_stream_id = event
         .get("event_stream_id")
         .and_then(Value::as_str)
@@ -304,15 +355,16 @@ pub fn admit_and_persist_runtime_event(state_dir: &str, event: Value) -> Result<
     }
 
     let tail = super::event_stream_admission::stream_tail(&event_stream_id);
-    let head = super::event_stream_admission::read_head(
-        super::event_stream_admission::THREAD_ORCHESTRATION_NAMESPACE,
-        &tail,
-    )
-    .map_err(|refusal| refusal.to_string())?;
+    let head = admission
+        .read_head(
+            super::event_stream_admission::THREAD_ORCHESTRATION_NAMESPACE,
+            &tail,
+        )
+        .map_err(|refusal| refusal.to_string())?;
     let expected_head = head.as_ref().map(|projection| projection.head.as_str());
 
-    let admitted =
-        super::event_stream_admission::admit_event(agentgres::event_stream::EventAdmission {
+    let admitted = admission
+        .admit_event(agentgres::event_stream::EventAdmission {
             owner_namespace: super::event_stream_admission::THREAD_ORCHESTRATION_NAMESPACE,
             stream_tail: &tail,
             op_kind: "event_stream.append",
@@ -334,14 +386,28 @@ pub fn admit_and_persist_runtime_event(state_dir: &str, event: Value) -> Result<
     Ok(result)
 }
 
-/// Bridge a managed-session snapshot onto the daemon's event log for `session_id`.
-/// Resolves the daemon thread, builds + finalizes the `managed_session.projected`
-/// event, and admits it. A no-op (`Ok(None)`) when the snapshot is empty or no
-/// daemon thread is mapped for the session.
-pub fn persist_managed_session_snapshot(
+/// Admit a runtime thread event onto its Agentgres stream through the daemon's
+/// injected production boundary. Missing injection refuses; it never falls back
+/// to the legacy append-only log. Idempotency and race safety remain owned by the
+/// admission core's whole-stream key check and compare-and-swap.
+pub fn admit_and_persist_runtime_event(state_dir: &str, event: Value) -> Result<Value, String> {
+    admit_and_persist_runtime_event_via(state_dir, event, ProductionEventStreamAdmission)
+}
+
+#[cfg(test)]
+pub(crate) fn admit_and_persist_runtime_event_with_admission(
+    state_dir: &str,
+    event: Value,
+    admission: &dyn EventStreamAdmission,
+) -> Result<Value, String> {
+    admit_and_persist_runtime_event_via(state_dir, event, ExplicitEventStreamAdmission(admission))
+}
+
+fn persist_managed_session_snapshot_via(
     state_dir: &str,
     session_id: &[u8; 32],
     snapshot: &RuntimeManagedSessionSnapshot,
+    persist: impl FnOnce(Value) -> Result<Value, String>,
 ) -> Result<Option<Value>, String> {
     if snapshot.sessions.is_empty() {
         return Ok(None);
@@ -351,18 +417,40 @@ pub fn persist_managed_session_snapshot(
     };
     let mut event = managed_session_projected_event(session_id, snapshot);
     finalize_thread_routing(&mut event, &thread_id);
-    let admitted = admit_and_persist_runtime_event(state_dir, event)?;
-    Ok(Some(admitted))
+    persist(event).map(Some)
 }
 
-/// Persist a pre-serialized, session-keyed runtime thread event (the
-/// [`KernelEvent::RuntimeThreadEvent`](ioi_types::app::KernelEvent) carrier
-/// payload) onto the daemon log: resolve the daemon thread for the session, inject
-/// routing, and admit. A no-op (`Ok(None)`) when no daemon thread is mapped.
-pub fn persist_runtime_thread_event_json(
+/// Bridge a managed-session snapshot onto the daemon's admitted stream for `session_id`.
+/// Resolves the daemon thread, builds + finalizes the `managed_session.projected`
+/// event, and admits it. A no-op (`Ok(None)`) when the snapshot is empty or no
+/// daemon thread is mapped for the session.
+pub fn persist_managed_session_snapshot(
+    state_dir: &str,
+    session_id: &[u8; 32],
+    snapshot: &RuntimeManagedSessionSnapshot,
+) -> Result<Option<Value>, String> {
+    persist_managed_session_snapshot_via(state_dir, session_id, snapshot, |event| {
+        admit_and_persist_runtime_event(state_dir, event)
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn persist_managed_session_snapshot_with_admission(
+    state_dir: &str,
+    session_id: &[u8; 32],
+    snapshot: &RuntimeManagedSessionSnapshot,
+    admission: &dyn EventStreamAdmission,
+) -> Result<Option<Value>, String> {
+    persist_managed_session_snapshot_via(state_dir, session_id, snapshot, |event| {
+        admit_and_persist_runtime_event_with_admission(state_dir, event, admission)
+    })
+}
+
+fn persist_runtime_thread_event_json_via(
     state_dir: &str,
     session_id: &[u8; 32],
     event_json: &str,
+    persist: impl FnOnce(Value) -> Result<Value, String>,
 ) -> Result<Option<Value>, String> {
     let Some(thread_id) = resolve_thread_id_for_session(state_dir, session_id) else {
         return Ok(None);
@@ -370,8 +458,33 @@ pub fn persist_runtime_thread_event_json(
     let mut event: Value = serde_json::from_str(event_json)
         .map_err(|error| format!("parse runtime thread event: {error}"))?;
     finalize_thread_routing(&mut event, &thread_id);
-    let admitted = admit_and_persist_runtime_event(state_dir, event)?;
-    Ok(Some(admitted))
+    persist(event).map(Some)
+}
+
+/// Persist a pre-serialized, session-keyed runtime thread event (the
+/// [`KernelEvent::RuntimeThreadEvent`](ioi_types::app::KernelEvent) carrier
+/// payload) onto the daemon stream: resolve the daemon thread for the session, inject
+/// routing, and admit. A no-op (`Ok(None)`) when no daemon thread is mapped.
+pub fn persist_runtime_thread_event_json(
+    state_dir: &str,
+    session_id: &[u8; 32],
+    event_json: &str,
+) -> Result<Option<Value>, String> {
+    persist_runtime_thread_event_json_via(state_dir, session_id, event_json, |event| {
+        admit_and_persist_runtime_event(state_dir, event)
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn persist_runtime_thread_event_json_with_admission(
+    state_dir: &str,
+    session_id: &[u8; 32],
+    event_json: &str,
+    admission: &dyn EventStreamAdmission,
+) -> Result<Option<Value>, String> {
+    persist_runtime_thread_event_json_via(state_dir, session_id, event_json, |event| {
+        admit_and_persist_runtime_event_with_admission(state_dir, event, admission)
+    })
 }
 
 /// The class an admitted delivery gap is carried under.
@@ -417,8 +530,8 @@ pub fn admit_delivery_gap(state_dir: &str, skipped: u64) -> Result<(), String> {
 }
 
 /// Subscribe to a runtime [`KernelEvent`](ioi_types::app::KernelEvent) broadcast and
-/// persist each [`KernelEvent::RuntimeThreadEvent`] carrier onto the daemon's event
-/// log at `state_dir`. Other variants are ignored (the typed-receipt mapping is a
+/// admit each [`KernelEvent::RuntimeThreadEvent`] carrier onto the daemon's Agentgres
+/// stream. Other variants are ignored (the typed-receipt mapping is a
 /// separate concern). Runs until the channel closes; persistence failures are
 /// logged and skipped so one bad event never tears down the bridge.
 pub async fn run_event_log_bridge(
@@ -495,7 +608,116 @@ pub async fn run_event_log_bridge(
 }
 
 #[cfg(test)]
+pub(crate) mod test_support {
+    use std::{
+        path::{Path, PathBuf},
+        sync::Mutex,
+    };
+
+    use agentgres::{
+        event_stream::{
+            self, AdmissionRefusal, Admitted, EventAdmission, EventStreamAdmission, OperationClass,
+        },
+        mux::{spawn_mux_writer, ExactProjection, MuxEngine, MuxHandle, MuxWriter},
+    };
+    use serde_json::{json, Value};
+
+    /// A per-test admission capability backed by a real Agentgres mux log.
+    ///
+    /// Tests pass this capability explicitly. They never install it in the
+    /// process-global production boundary, so the fail-closed uninjected test
+    /// remains meaningful and parallel test order cannot poison a `OnceLock`.
+    pub(crate) struct TestEventStreamAdmission {
+        handle: MuxHandle,
+        engine_dir: PathBuf,
+        writer: Mutex<Option<MuxWriter>>,
+    }
+
+    impl TestEventStreamAdmission {
+        pub(crate) fn open(engine_dir: impl AsRef<Path>) -> Self {
+            let engine_dir = engine_dir.as_ref().to_path_buf();
+            let engine = MuxEngine::open(&engine_dir, true).expect("open test Agentgres mux");
+            let (handle, writer) = spawn_mux_writer(engine, 128);
+            Self {
+                handle,
+                engine_dir,
+                writer: Mutex::new(Some(writer)),
+            }
+        }
+
+        fn admit_in_class(
+            &self,
+            request: EventAdmission<'_>,
+            class: OperationClass,
+        ) -> Result<Admitted, AdmissionRefusal> {
+            event_stream::require_operation_class(request.op_kind, class)?;
+            event_stream::admit_event_stream_operation(&self.handle, &self.engine_dir, request)
+        }
+
+        /// Replay the authored event values in admitted sequence order, with
+        /// substrate-owned sequence stamped exactly as the daemon replay path does.
+        pub(crate) fn replayed_events(
+            &self,
+            owner_namespace: &str,
+            stream_tail: &str,
+        ) -> Vec<Value> {
+            event_stream::read_event_stream_history(&self.handle, owner_namespace, stream_tail)
+                .expect("replay test Agentgres history")
+                .into_iter()
+                .map(|projection| {
+                    let mut event = projection.operation.payload;
+                    if let Some(object) = event.as_object_mut() {
+                        object.insert("seq".to_string(), json!(projection.seq));
+                    }
+                    event
+                })
+                .collect()
+        }
+    }
+
+    impl EventStreamAdmission for TestEventStreamAdmission {
+        fn admit_event(&self, request: EventAdmission<'_>) -> Result<Admitted, AdmissionRefusal> {
+            self.admit_in_class(request, OperationClass::Event)
+        }
+
+        fn read_head(
+            &self,
+            owner_namespace: &str,
+            stream_tail: &str,
+        ) -> Result<Option<ExactProjection>, AdmissionRefusal> {
+            event_stream::read_event_stream_head(&self.handle, owner_namespace, stream_tail)
+        }
+
+        fn admit_lease_transition(
+            &self,
+            request: EventAdmission<'_>,
+        ) -> Result<Admitted, AdmissionRefusal> {
+            self.admit_in_class(request, OperationClass::LeaseTransition)
+        }
+
+        fn advance_checkpoint(
+            &self,
+            request: EventAdmission<'_>,
+        ) -> Result<Admitted, AdmissionRefusal> {
+            self.admit_in_class(request, OperationClass::CheckpointAdvance)
+        }
+    }
+
+    impl Drop for TestEventStreamAdmission {
+        fn drop(&mut self) {
+            let _ = self.handle.shutdown();
+            if let Ok(writer) = self.writer.get_mut() {
+                if let Some(writer) = writer.take() {
+                    let _ = writer.join.join();
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
+    use super::test_support::TestEventStreamAdmission;
     use super::*;
     use crate::agentic::runtime::kernel::runtime_managed_session_control::{
         RuntimeManagedSessionControlCore, RuntimeManagedSessionControlRequest,
@@ -542,6 +764,13 @@ mod tests {
             replay_ready: true,
             trace_visibility: "runs_tracing".to_string(),
         }
+    }
+
+    fn replayed_events(admission: &TestEventStreamAdmission, thread_id: &str) -> Vec<Value> {
+        admission.replayed_events(
+            super::super::event_stream_admission::THREAD_ORCHESTRATION_NAMESPACE,
+            &super::super::event_stream_admission::stream_tail(&format!("{thread_id}:events")),
+        )
     }
 
     fn snapshot(
@@ -611,6 +840,7 @@ mod tests {
     fn bridge_persists_managed_session_snapshot_and_kernel_projection_reads_it() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path();
+        let admission = TestEventStreamAdmission::open(state_dir.join("agentgres"));
         let session_id = [0x38u8; 32];
         // Daemon-side precondition: the runtime-bridge thread linkage.
         write_bridge_agent_record(state_dir, "alpha", session_id);
@@ -618,18 +848,23 @@ mod tests {
         // Real snapshot output (the typed value the snapshot builder produces).
         let snap = snapshot(session_id, vec![card("sandbox_browser:1")]);
 
-        // Bridge it onto the daemon log.
-        let admitted =
-            persist_managed_session_snapshot(&state_dir.to_string_lossy(), &session_id, &snap)
-                .expect("bridge persists")
-                .expect("an event was admitted");
+        // Bridge it through the same Agentgres admission discipline the daemon injects.
+        let admitted = persist_managed_session_snapshot_with_admission(
+            &state_dir.to_string_lossy(),
+            &session_id,
+            &snap,
+            &admission,
+        )
+        .expect("bridge persists")
+        .expect("an event was admitted");
         assert_eq!(admitted["event_kind"], "managed_session.projected");
         assert_eq!(admitted["thread_id"], "thread_alpha");
         assert!(admitted.get("seq").and_then(Value::as_u64).is_some());
 
-        // The daemon's kernel managed-session projection reads it back from the log.
+        // The daemon's kernel managed-session projection consumes admitted replay.
+        let events = replayed_events(&admission, "thread_alpha");
         let record = RuntimeManagedSessionProjectionCore
-            .project(&projection_request(state_dir, "thread_alpha"))
+            .project_from_replayed_events(&projection_request(state_dir, "thread_alpha"), &events)
             .expect("projection");
         assert_eq!(record.operation_kind, "managed_session.inspect");
         assert_eq!(record.record_count, 1);
@@ -653,9 +888,34 @@ mod tests {
     }
 
     #[test]
+    fn production_bridge_refuses_when_the_admission_capability_is_uninjected() {
+        assert!(
+            !super::super::event_stream_admission::is_installed(),
+            "unit-test process must keep the production boundary uninjected"
+        );
+        let temp = tempfile::tempdir().expect("tempdir");
+        let session_id = [0x39u8; 32];
+        let snap = snapshot(session_id, vec![card("sandbox_browser:refusal")]);
+        let mut event = managed_session_projected_event(&session_id, &snap);
+        finalize_thread_routing(&mut event, "thread_uninjected");
+
+        let error = admit_and_persist_runtime_event(&temp.path().to_string_lossy(), event)
+            .expect_err("production bridge must refuse without daemon injection");
+        assert_eq!(
+            error,
+            agentgres::event_stream::AdmissionRefusal::CapabilityAbsent.to_string()
+        );
+        assert!(
+            !temp.path().join("events").exists(),
+            "capability refusal must never create a legacy event-log fallback"
+        );
+    }
+
+    #[test]
     fn carrier_json_round_trips_through_the_bridge() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path();
+        let admission = TestEventStreamAdmission::open(state_dir.join("agentgres"));
         let session_id = [0x41u8; 32];
         write_bridge_agent_record(state_dir, "beta", session_id);
 
@@ -666,18 +926,20 @@ mod tests {
             serde_json::to_string(&managed_session_projected_event(&session_id, &snap))
                 .expect("serialize carrier");
 
-        let admitted = persist_runtime_thread_event_json(
+        let admitted = persist_runtime_thread_event_json_with_admission(
             &state_dir.to_string_lossy(),
             &session_id,
             &event_json,
+            &admission,
         )
         .expect("bridge persists")
         .expect("an event was admitted");
         assert_eq!(admitted["thread_id"], "thread_beta");
         assert_eq!(admitted["event_stream_id"], "thread_beta:events");
 
+        let events = replayed_events(&admission, "thread_beta");
         let record = RuntimeManagedSessionProjectionCore
-            .project(&projection_request(state_dir, "thread_beta"))
+            .project_from_replayed_events(&projection_request(state_dir, "thread_beta"), &events)
             .expect("projection");
         assert_eq!(record.record_count, 1);
         let sessions = record.projection.as_array().expect("sessions array");
@@ -688,18 +950,24 @@ mod tests {
     fn control_planner_transitions_a_bridge_produced_session() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path();
+        let admission = TestEventStreamAdmission::open(state_dir.join("agentgres"));
         let session_id = [0x55u8; 32];
         write_bridge_agent_record(state_dir, "gamma", session_id);
 
-        // Bridge a real managed session onto the log (the producer side).
+        // Bridge a real managed session onto the admitted stream (the producer side).
         let snap = snapshot(session_id, vec![card("sandbox_browser:9")]);
-        persist_managed_session_snapshot(&state_dir.to_string_lossy(), &session_id, &snap)
-            .expect("bridge persists")
-            .expect("event admitted");
+        persist_managed_session_snapshot_with_admission(
+            &state_dir.to_string_lossy(),
+            &session_id,
+            &snap,
+            &admission,
+        )
+        .expect("bridge persists")
+        .expect("event admitted");
 
         // The kernel control planner reads the bridge-produced managed_session record
-        // from the log and synthesizes the controlled transition — the same path the
-        // daemon's POST /managed-sessions/control route drives.
+        // from admitted replay and synthesizes the controlled transition — the same
+        // path the daemon's POST /managed-sessions/control route drives.
         let request = RuntimeManagedSessionControlRequest {
             schema_version: Some(
                 RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION.to_string(),
@@ -719,8 +987,9 @@ mod tests {
             policy_decision_refs: vec![],
             evidence_refs: vec![],
         };
+        let events = replayed_events(&admission, "thread_gamma");
         let record = RuntimeManagedSessionControlCore
-            .plan(&request)
+            .plan_from_replayed_events(&request, &events)
             .expect("control plans over the bridge-produced session");
         assert_eq!(record.control_state, "take_over");
         assert_eq!(record.event["event_kind"], "managed_session.controlled");
