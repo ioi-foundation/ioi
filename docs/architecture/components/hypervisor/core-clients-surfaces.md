@@ -542,6 +542,52 @@ adapters. Individual launcher implementations retire only through an exact
 disposition, migration/export evidence, and negative-reachability proof
 (ADR 0025).
 
+### Independently implemented clients
+
+Canon uses "two independently implemented clients" as evidence that a contract
+is real rather than a description of one program's behavior. Independence is
+declared **per axis** and never as a bare adjective (ADR 0032). Four axes:
+
+| Axis | The client… | What it proves | What it does not |
+| --- | --- | --- | --- |
+| `separate_binary` | is a distinct build artifact and process | packaging | anything about contract understanding |
+| `separate_codegen` | derives its types from the registered contract, not from this repository's generated projections | the registered contract carries enough to build against | that the wire format is specified |
+| `separate_transport` | implements framing, encoding, and the auth handshake against the wire specification | the wire contract is specified, not merely implemented | that anyone outside adopted it |
+| `separate_authoring_party` | is authored and maintained by a different disclosed accountable principal | adoption by a party with its own interests | that the contract was sufficient to build against |
+
+The first three are **contract claims**; the fourth is a **party claim**. They
+do not substitute for each other, and this is where `INV-18` binds. Two clients
+differing on binary, codegen, and transport but authored by one principal
+establish contract sufficiency and establish **nothing** about multi-party
+independence — that principal still controls authority, revocation, truth,
+verification, risk, and settlement, which is exactly `INV-18`'s ruling that
+multiplicity is not independence. Two clients from separate parties that both
+import this repository's generated code and transport library establish adoption
+and establish nothing about contract sufficiency — they inherit the same
+assumptions and fail the same way.
+
+**What a two-client exit proof over Hypervisor Core claims.** It claims
+`separate_binary` + `separate_codegen` + `separate_transport`. It does **not**
+claim `separate_authoring_party` unless a disclosed third party in fact authored
+one of them. The reason is structural, not modest: IOI can author a second
+client, and IOI cannot manufacture a second principal — a first-party proof
+asserting the party axis would be claiming precisely what `INV-18` forbids. The
+party axis is claimable only with the party disclosed, as its own claim with its
+own evidence, never inferred as an upgrade from the other three.
+
+**Never independent on any axis:** a second presentation over the same client
+library; a fork of the first client; the same binary in another mode or behind a
+flag; a mock, stub, replay harness, or test double; a client generated from this
+repository's artifacts and re-skinned; and — the one that looks most like
+success — a client whose divergences were resolved by patching the daemon
+instead of by reading the specification. If satisfying the second client
+required changing the contract's implementation, the contract was insufficient
+and the exercise recorded the repair rather than the property.
+
+Declaring axes creates no authority, no admission path, and no conformance claim
+by itself. An independently implemented client is still a client: it does not
+own runtime truth.
+
 ### Protocol Gateways
 
 Protocol gateways are compatibility ingress points over Hypervisor Core. They
