@@ -215,3 +215,14 @@ machinery (editor_routes.rs:4-6). Reads go through the W0.3 read client.
 10. **W4** — Cutover per the 6-step rule: `/workspaces/:id`, `/details/:id`,
     `/__ioi/workbench` retired with typed 410s; ux-seeds/workspaces disposition
     decided (adopt or archive) at the same PR.
+
+### Git/Agentgres transition-chain interfaces (epic)
+
+From the 2026-08-05 audit ([epic §2](../scm-transition-chain-epic.md)):
+Developer Workspace gains the commit/PR check timeline, provider-observed vs
+IOI-admitted state, policy preflight, receipt links, reconcile/retry, and
+stale/fork/unknown states. Epic P0-1 (UI publish sends `connector_id`+`title`
+against the daemon's `destination_binding_ref`+`proposal_ref` contract —
+`ioi-agent-runs.mjs:450/:482/:495` vs `scm_publication_routes.rs:1773/:1798`)
+and P0-2 (`/__ioi/code` substring-matched publish trail,
+`serve-product-ui.mjs:1400`) are this owner's repair-or-disable items.

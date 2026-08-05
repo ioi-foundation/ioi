@@ -165,3 +165,12 @@ named-field sites were found in the Project lanes audited here.
    the import wizard UI in the same wave.
 7. **W4** — Cutover residue: remove the mock bundle's project fixtures with
    the fixture-lane deletion; confirm `/projects` carries zero fallthrough.
+
+### Git/Agentgres transition-chain interfaces (epic)
+
+From the 2026-08-05 audit ([epic §2](../scm-transition-chain-epic.md)):
+Projects gains repo/installation/ref/workflow enrollment, algorithm-tagged
+Git OIDs, workflow policy, latest-admitted-state and chain-health panes; it
+owns the owner-qualified repository/workflow binding contracts (epic §3 C2)
+and the Agentgres exact-head admission surface (C5). P1 contracts land
+before P2 wiring; no new top-level app.

@@ -201,3 +201,13 @@ hotspot (master guide standing rule; not re-decided here).
    receipt stream (joint PR with Provenance brief step 6).
 9. **W4** — Cutover: `/__ioi/governance*` retired with typed 410s per the
    6-step per-app rule; shell stops advertising the legacy paths.
+
+### Git/Agentgres transition-chain interfaces (epic)
+
+From the 2026-08-05 audit ([epic §2](../scm-transition-chain-epic.md)):
+Governance gains admission + required-check policy, authority freshness,
+policy version/revocation, override justification, reconciliation approval,
+and witness policy over the transition chain; it owns the provider-neutral
+state vocabulary (epic §3 C1, P1) and the policy/override/revocation/
+authority-freshness objects (C8). Approval legs of reconciliation (C7) land
+at P3 through the unified inbox this brief already plans.

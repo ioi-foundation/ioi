@@ -257,3 +257,15 @@ elements bind through `subject_attachments` (C-1) — never a named app field.
     advertisements (30-shell.js:11, 60-shell-wiring.js:35/:39, 40-home-explorer.js:303,
     serve :8630/:7660); retire `/__ioi/sessions`, `/__ioi/missions`,
     `/__ioi/missions/incidents` with typed refusals + no-fallback proof.
+
+### Git/Agentgres transition-chain interfaces (epic)
+
+From the 2026-08-05 audit ([epic §2](../scm-transition-chain-epic.md)):
+Work gains repository/ref/commit/check SUBJECTS (via `subject_attachments`,
+never named fields) and integration transition history on WorkRun.
+Explicitly: `HypervisorWorkRunIntegrationStatus` is named in §1 above (:74,
+canon `core-clients-surfaces.md:4300-4310`) but mapped in neither §2 nor §4
+— that named-but-unmapped gap is CLOSED by the epic at P2. Epic P0-3 (the
+run→draft lane's synthesized `agentgres://pull-request-draft/...` ref,
+`environment_routes.rs:1035` via `ioi-agent-runs.mjs:416`) is this owner's
+truthfulness repair.

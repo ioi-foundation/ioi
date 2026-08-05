@@ -231,3 +231,13 @@ elements exist on this surface (no `subject_attachments` rows).
    `/__ioi/slack/setup` retired with typed 410s; ux-seeds/widgets disposition
    (adopt under `/developer-console` or archive) decided in the same PR; census
    control-count refresh recorded.
+
+### Git/Agentgres transition-chain interfaces (epic)
+
+From the 2026-08-05 audit ([epic §2](../scm-transition-chain-epic.md)):
+Developer Console gains signed webhook registration, secret rotation,
+provider permissions/events, repo selection, and delivery/reconciliation
+health; it owns signed, replay-protected, idempotent webhook ingestion
+(epic §3 C4). Epic P0-4 — the GitHub App manifest registers no webhook and
+subscribes to no events (`lifecycle_routes.rs:16948`, `:16984`) — is this
+owner's repair, wired at the epic's P2 leg.

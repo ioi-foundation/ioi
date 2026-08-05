@@ -150,6 +150,18 @@ the PR that touches it, with the guide recording remaining sites.
   the M5 plane · W0.5 identity truth (delete adapter constants,
   IDENTITY_REWRITES, 5 fixture-only RPCs) · W0.6 backend enablers
   (sessions/overview, unified approvals inbox, /v1 index, scheduler status).
+  - **W0 client addenda (from 2026-08-05 audit)** — gaps in the landed W0
+    clients, each closed in the wave that consumes it (the W0 checkmarks are
+    not re-opened): grant-ACQUISITION journey on the authority client
+    (connect/sign/resubmit; today `crossWithLease` only transports a supplied
+    grant — `apps/hypervisor/surfaces/authority-client.mjs:137`) → **W2**;
+    schema-version negotiation + pagination + cancellation on the read client
+    (untyped JSON transport today — `apps/hypervisor/surfaces/read-client.mjs:57`)
+    → **W1**; central dynamic deep-link grammar in the route shell (exact
+    root lookup today — `apps/hypervisor/scripts/v2-route-shell.mjs:328`)
+    → **W1** (epic C12); `/sign-in` has a shell route row
+    (`v2-route-shell.mjs:129`) but no binding/cutover row anywhere → **W2**
+    (identity/authority leg).
 - [ ] **Wave 1 — read-first launches**: Work + Sessions views · Provenance ·
   Environments · Operations · Governance reads + inbox · Ontology · Data ·
   Automations · Foundry · Developer Workspace rehome. Exit per app: canonical
@@ -216,6 +228,7 @@ unchecked row, refreshes its brief at the bytes, and executes.
 | W0.4 event client (M5 plane) | ☑ 2026-08-05 | `apps/hypervisor/surfaces/event-client.mjs` — durable `/v1/subscriptions` pull with typed live/resuming/daemon_unavailable/refused states, checkpoint-token resume, and `wrapLegacySse` presenting the same consumer interface (deprecated); 12-check stub-plane test at `test:hypervisor-app-events` |
 | W0.5 identity truth | ☑ 2026-08-05 | removed: adapter constant identity + `IDENTITY_REWRITES` (captured demo-identity HTML residue now deleted, not substituted), ToS/org-policy/service-account/runner-manager/runner-logs/subscription constants, runner dressing, env logs-token + mark-active lies, mock fallthrough; daemon-backed: GetAuthenticatedUser+GetAccount (whoami), GetOrganization (W0.6 `GET /v1/hypervisor/organization`), ListSCMIntegrations (scm-connectors), GetEnvironmentClass (environment-classes); typed-unavailable: GetOrganizationPolicies, GetTermsOfService, ListServiceAccounts, InsightsService, runner-managers/logs-tokens, org update + all unmatched RPCs 501; named-gap banners on 5 settings panes (85-settings-gaps.js) |
 | W0.6 backend enablers | ☑ 2026-08-05 | five routes live: `GET /v1/hypervisor/sessions/overview` (C-1: `subject_attachments` introduced on session records, the 3 named-field sites migrated) · `GET /v1/hypervisor/governance/approvals-inbox` (folds 4 decision planes + 2 named decision-shaped planes) · `GET /v1` (mechanically derived route-family index) · `GET /v1/hypervisor/scheduler/status` (liveness only; schedule posture stays on `/operations`) · `GET /v1/hypervisor/organization` (honest org-identity read) |
+| P0: SCM truthfulness defects (epic §1) | ☐ | five repair-or-disable defects, byte-verified — `internal-docs/implementation/scm-transition-chain-epic.md` §1; lands BEFORE any surface presents the Git workflow as governed |
 | work build (owns `/work/sessions`; Cut #2 is its W4 leg) | ☐ | surfaces/work.md §5 |
 | provenance build | ☐ | surfaces/provenance.md §5 |
 | environments build | ☐ | surfaces/environments.md §5 |
@@ -236,4 +249,8 @@ unchecked row, refreshes its brief at the bytes, and executes.
 | projects build | ☐ | surfaces/projects.md §5 |
 | applications build | ☐ | surfaces/applications.md §5 |
 | settings build | ☐ | surfaces/settings.md §5 |
+| SCM/Agentgres epic P1 contracts | ☐ | schemas/state vocabulary/threat model/admission + reconciliation contracts (epic §3 C1-C3/C5/C8/C12); interleaves with W1 per epic §4; contracts before wiring |
+| SCM/Agentgres epic P2 ingestion + owner wiring | ☐ | signed webhook ingestion + Agentgres projections; wire Projects/Console/Workspace/Automations/Work (epic §2); interleaves with W2/W3 per epic §4 |
+| SCM/Agentgres epic P3 proofs + parity + acceptance | ☐ | Governance/Provenance/Operations actions + proofs · CLI/TUI parity (C13) · a11y/security/observability/E2E acceptance; interleaves with W3/W4 per epic §4 |
 | Wave 4 shared cutover | ☐ | server.cjs mocks · fixture API lane · duplicate static copy · canon 5-vs-6 nit (settings.md pins the 5 locations) |
+| repo-wide UX disposition ledger — rule the UNDISPOSITIONED rows | ☐ | `internal-docs/implementation/repo-ux-disposition.md`; owner-scope pass over the estate surfaces the 2026-08-05 audit left undispositioned |
