@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/work-claim-lease-envelope/v1",
+  "title": "WorkClaimLeaseEnvelope",
+  "x-ioi-schema-version": "ioi.foundations.work-claim-lease-envelope.v1",
+  "description": "The claim lease under which bounded work is awarded. `active` is the executable award and requires the exact accepted terms root, an admitted CollaborationTermsAcceptanceReceipt, the required context/resource/tool/budget leases, applicable authority, and a room/domain admission receipt. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#workclaimleaseenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The room-scoped and direct bilateral shapes differ only by which nullable fields are populated; the cross-field rules binding them stay with the owner and are not restated as schema logic.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_claim_id",
+    "claimant_ref",
+    "collaboration_terms_ref",
+    "collaboration_terms_root",
+    "terms_acceptance_ref",
+    "contribution_policy_ref",
+    "settlement_profile_ref",
+    "bounded_scope_ref",
+    "duplicate_work_policy",
+    "issued_at",
+    "expires_at",
+    "renewal_count",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.work-claim-lease-envelope.v1"
+    },
+    "work_claim_id": {
+      "type": "string",
+      "pattern": "^work-claim://[^\\s]{1,500}$"
+    },
+    "outcome_room_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^outcome-room://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "system_binding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "frontier_item_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^frontier://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "claimant_ref": {
+      "type": "string",
+      "pattern": "^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$"
+    },
+    "claimant_participant_lease_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^participant-lease://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "eligibility_match_receipt_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "task_offer_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^packet://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "task_acceptance_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^packet://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "routing_decision_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^routing-decision://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "collaboration_terms_ref": {
+      "type": "string",
+      "pattern": "^terms://[^\\s]{1,500}$"
+    },
+    "collaboration_terms_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "terms_acceptance_ref": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,500}$"
+    },
+    "contribution_policy_ref": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,500}$"
+    },
+    "quote_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^quote://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "budget_reservation_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:budget|spend|allocation)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "settlement_profile_ref": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,500}$"
+    },
+    "bounded_scope_ref": {
+      "type": "string",
+      "pattern": "^(?:task|task_brief|policy)://[^\\s]{1,500}$"
+    },
+    "context_lease_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^context_lease://[^\\s]{1,500}$"
+      }
+    },
+    "authority_resource_compute_data_budget_and_tool_lease_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$"
+      }
+    },
+    "duplicate_work_policy": {
+      "enum": [
+        "exclusive",
+        "allowed",
+        "independent_replication",
+        "adversarial_replication"
+      ]
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "heartbeat_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:heartbeat|receipt)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "renewal_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "release_or_reassignment_reason": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "active",
+        "waiting",
+        "released",
+        "expired",
+        "reassigned",
+        "completed",
+        "quarantined",
+        "revoked"
+      ]
+    }
+  }
+}

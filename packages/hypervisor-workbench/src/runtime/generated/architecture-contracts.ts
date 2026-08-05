@@ -6200,6 +6200,191 @@ export type WorkFrontierItemEnvelopeV1 = {
   status: "open" | "claimed" | "blocked" | "replicating" | "verifying" | "accepted" | "rejected" | "superseded" | "closed";
 };
 
+export type RoomParticipantLeaseEnvelopeV1 = {
+  schema_version: "ioi.foundations.room-participant-lease-envelope.v1";
+  participant_lease_id: string;
+  outcome_room_ref: string;
+  system_binding: Record<string, unknown>;
+  participant_ref: string;
+  admitted_role: "conductor" | "implementer" | "reviewer" | "verifier" | "operator" | "researcher" | "specialist" | "synthesizer" | "resource_provider" | "integrity_challenger" | "memory_curator";
+  operator_ref: string;
+  home_domain_ref: string;
+  worker_and_runtime_refs?: Array<string>;
+  capability_advertisement_refs?: Array<string>;
+  tool_connector_and_capability_dependency_refs?: Array<string>;
+  join_request_ref?: string | null;
+  collaboration_terms_ref: string;
+  accepted_terms_root: string;
+  terms_acceptance_ref: string;
+  identity_and_eligibility_evidence_refs?: Array<string>;
+  admission_decision_ref: string;
+  visibility_scope_ref: string;
+  context_and_authority_lease_refs?: Array<string>;
+  runtime_resource_and_budget_lease_refs?: Array<string>;
+  current_claim_ref?: string | null;
+  lease_epoch: number;
+  issued_at: string;
+  effective_at: string;
+  expires_at: string | null;
+  renew_after?: string | null;
+  renewal_policy_ref: string;
+  unbounded_term_exception_decision_ref?: string | null;
+  heartbeat_policy_ref: string;
+  heartbeat_ref?: string | null;
+  last_heartbeat_at?: string | null;
+  heartbeat_valid_until?: string | null;
+  revocation_epoch: number;
+  next_wake_condition_ref?: string | null;
+  quiet_hours_or_backoff_ref?: string | null;
+  last_contribution_ref?: string | null;
+  exit_and_claim_release_refs?: Array<string>;
+  portable_participant_state_bundle_ref?: string | null;
+  future_access_revocation_refs?: Array<string>;
+  ttl_seconds: number | null;
+  status: "invited" | "joining" | "active" | "sleeping" | "waiting" | "suspended" | "quarantined" | "retiring" | "retired" | "revoked";
+};
+
+export type ParticipantStateBundleEnvelopeV1 = {
+  schema_version: "ioi.foundations.participant-state-bundle-envelope.v1";
+  participant_state_bundle_id: string;
+  outcome_room_ref: string;
+  system_binding: Record<string, unknown>;
+  participant_lease_ref: string;
+  participant_and_home_domain_refs?: Array<string>;
+  coordination_topology: "hosted_admission" | "federated_admission";
+  bundle_reason: "checkpoint" | "voluntary_retirement" | "lease_expiry" | "revocation" | "quarantine" | "room_close";
+  source_admission_watermark_ref: string;
+  released_or_reassigned_claim_refs?: Array<string>;
+  preserved_contribution_attempt_finding_and_result_refs?: Array<string>;
+  preserved_receipt_acceptance_settlement_and_dispute_refs?: Array<string>;
+  portable_artifact_and_view_refs?: Array<string>;
+  lineage_and_supersession_refs?: Array<string>;
+  export_license_retention_and_recall_policy_refs?: Array<string>;
+  excluded_context_classes?: Array<"raw_secret" | "protected_plaintext" | "unauthorized_connector_payload" | "unrelated_private_memory" | "private_room_database_state" | "revoked_restricted_view" | "non_opted_in_training_trace">;
+  released_future_access_refs?: Array<string>;
+  revocation_or_supersession_refs?: Array<string>;
+  revocation_effect: "none" | "future_access_only" | "restricted_view_keys_revoked" | "erroneous_export_superseded";
+  bundle_artifact_ref: string;
+  bundle_root: string;
+  room_database_access_required: false;
+  issued_at: string;
+  signature: string;
+  status: "prepared" | "exported" | "acknowledged" | "superseded" | "revoked";
+};
+
+export type WorkClaimLeaseEnvelopeV1 = {
+  schema_version: "ioi.foundations.work-claim-lease-envelope.v1";
+  work_claim_id: string;
+  outcome_room_ref?: string | null;
+  system_binding?: Record<string, unknown> | null;
+  frontier_item_ref?: string | null;
+  claimant_ref: string;
+  claimant_participant_lease_ref?: string | null;
+  eligibility_match_receipt_ref?: string | null;
+  task_offer_ref?: string | null;
+  task_acceptance_ref?: string | null;
+  routing_decision_ref?: string | null;
+  collaboration_terms_ref: string;
+  collaboration_terms_root: string;
+  terms_acceptance_ref: string;
+  contribution_policy_ref: string;
+  quote_ref?: string | null;
+  budget_reservation_ref?: string | null;
+  settlement_profile_ref: string;
+  bounded_scope_ref: string;
+  context_lease_refs?: Array<string>;
+  authority_resource_compute_data_budget_and_tool_lease_refs?: Array<string>;
+  duplicate_work_policy: "exclusive" | "allowed" | "independent_replication" | "adversarial_replication";
+  issued_at: string;
+  expires_at: string;
+  heartbeat_ref?: string | null;
+  renewal_count: number;
+  release_or_reassignment_reason?: string | null;
+  status: "proposed" | "active" | "waiting" | "released" | "expired" | "reassigned" | "completed" | "quarantined" | "revoked";
+};
+
+export type VerifierChallengeEnvelopeV1 = {
+  schema_version: "ioi.foundations.verifier-challenge-envelope.v1";
+  verifier_challenge_id: string;
+  outcome_room_ref?: string | null;
+  system_binding?: Record<string, unknown> | null;
+  challenger_ref: string;
+  challenged_ref: string;
+  challenge_kind: "metric" | "rule" | "verifier" | "evidence" | "eligibility" | "result" | "exploit" | "independence" | "collusion" | "mapping";
+  challenge_evidence_refs?: Array<string>;
+  adjudicator_policy_ref: string;
+  prior_rule_version_ref?: string | null;
+  proposed_rule_version_ref?: string | null;
+  affected_attempt_refs?: Array<string>;
+  reverification_required: boolean;
+  adjudication_ref?: string | null;
+  status: "proposed" | "admitted" | "investigating" | "upheld" | "rejected" | "rule_changed" | "reverifying" | "resolved" | "withdrawn";
+};
+
+export type LocalAgentPairingSessionEnvelopeV1 = {
+  schema_version: "ioi.foundations.local-agent-pairing-session-envelope.v1";
+  pairing_session_id: string;
+  initiated_by_ref: string;
+  initiating_surface_ref: string;
+  target_kind: "room_guest" | "private_worker" | "organization_worker";
+  target_scope_ref: string;
+  room_discovery_ref?: string | null;
+  claimed_local_agent: {
+      display_name: string;
+      resolver_kind: "harness_profile" | "agent_harness_adapter" | "none";
+      resolver_revision_ref: string | null;
+      resolver_content_hash: string | null;
+      semantic_harness_profile_revision_ref: string | null;
+      semantic_harness_profile_content_hash: string | null;
+      execution_posture: "instrumented_adapter" | "prompt_only";
+    };
+  pairing_transport: "loopback" | "device_code" | "copy_command";
+  challenge: {
+      challenge_hash: string;
+      authentication_factor_kind: "one_time_challenge" | "device_code" | "signed_nonce";
+      issued_at: string;
+      expires_at: string;
+      single_use: true;
+    } | null;
+  client_binding: {
+      agent_public_key_ref: string;
+      proof_of_possession_hash: string;
+      origin_kind: "loopback_endpoint" | "device_client" | "bootstrap_client";
+      origin_binding_hash: string;
+      bound_at: string | null;
+    } | null;
+  claim_attempt_policy: {
+      failed_attempt_limit: number;
+      failed_attempt_count: number;
+      rate_limit_policy_ref: string;
+    };
+  allowed_bootstrap_actions: Array<"read_discovery" | "submit_worker_composition" | "submit_room_participation_request">;
+  bootstrap_non_grants: {
+      authority: "none";
+      room_membership: "none";
+      room_database_access: "none";
+      private_context_access: "none";
+      connector_or_secret_access: "none";
+      budget_or_spend: "none";
+      effect_execution: "none";
+    };
+  submission_refs: {
+      worker_composition_ref: string | null;
+      room_participation_request_ref: string | null;
+      first_aiip_packet_ref: string | null;
+    };
+  contribution_lane: "instrumented_candidate" | "proposal_only";
+  assurance_posture: {
+      pairing_proves: "client_key_and_origin_binding_only";
+      prompt_only_ceiling: "attested";
+    };
+  failure_reason_code: "challenge_expired" | "challenge_replayed" | "invalid_proof" | "key_mismatch" | "origin_mismatch" | "attempt_exhausted" | "rate_limited" | "scope_escalation" | "malformed_submission" | "policy_denied" | "target_unavailable" | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  status: "created" | "challenge_issued" | "agent_proof_received" | "bootstrap_bound" | "composition_submitted" | "participation_submitted" | "completed" | "expired" | "rejected" | "cancelled" | "revoked" | "failed_closed";
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -10677,6 +10862,126 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/room-participant-lease-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/room-participant-lease-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/room-participant-lease-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unadmitted-role.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-room-database-access-required.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/work-claim-lease-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/work-claim-lease-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/work-claim-lease-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-frontier-duplication-policy.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unchallengeable-subject.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -17180,6 +17485,111 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/objects/room-participant-lease-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/objects/room-participant-lease-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unadmitted-role.json",
+    "contract_id": "schema://ioi/foundations/objects/room-participant-lease-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unadmitted-role.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-room-database-access-required.json",
+    "contract_id": "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-room-database-access-required.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/objects/work-claim-lease-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/objects/work-claim-lease-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-frontier-duplication-policy.json",
+    "contract_id": "schema://ioi/foundations/objects/work-claim-lease-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-frontier-duplication-policy.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unchallengeable-subject.json",
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unchallengeable-subject.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json",
+    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -18054,6 +18464,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[^\\s]{1,500})$",
   "^(?:(?:implementation-result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$",
   "^(?:(?:receipt|agentgres)://[^\\s]{1,500}|sha256:[0-9a-f]{64})$",
+  "^(?:(?:tool|connector|capability)://[^\\s]{1,500}|prim:[a-z0-9*._-]{1,200})$",
   "^(?:(?:worker|model-route|runtime)://[^\\s]{1,500}|(?:harness-profile|agent-harness-adapter|tool)://[^\\s]{1,500}/revision/[^\\s]{1,500})$",
   "^(?:(?:worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
   "^(?:(?:worker|service|org|domain|wallet|runtime)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
@@ -18070,14 +18481,17 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:artifact|patch|mapping|state-delta)://[^\\s]{1,500}$",
   "^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$",
   "^(?:artifact|restricted-view|redacted-summary|evidence|replay)://[^\\s]{1,500}$",
+  "^(?:artifact|restricted_view|redacted_summary|evidence|replay)://[^\\s]{1,500}$",
   "^(?:attempt|artifact|finding)://[^\\s]{1,500}$",
   "^(?:attempt|finding)://[^\\s]{1,500}$",
   "^(?:attempt|finding|verifier-path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$",
+  "^(?:attempt|finding|verifier_path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$",
   "^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$",
   "^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$",
   "^(?:benchmark|rubric|gate|policy)://[^\\s]{1,500}$",
   "^(?:blocker|handoff|proposal)://[^\\s]{1,500}$",
   "^(?:budget|spend|allocation)://[^\\s]{1,500}$",
+  "^(?:capability-offer|ai|package)://[^\\s]{1,500}$",
   "^(?:capability|worker|tool)://[^\\s]{1,500}$",
   "^(?:cas|local-cas|ipfs|filecoin)://[^\\s]+$",
   "^(?:commitment|evidence)://[^\\s]{1,240}$",
@@ -18085,11 +18499,14 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:commitment|settlement|tx)://[^\\s]+$",
   "^(?:commitment|settlement|tx)://[^\\s]{1,248}$",
   "^(?:constraint|policy|budget)://[^\\s]{1,500}$",
+  "^(?:context_lease|grant|authority)://[^\\s]{1,500}$",
   "^(?:contribution|attempt|finding|work-result)://[^\\s]{1,500}$",
   "^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$",
   "^(?:contribution|receipt)://[^\\s]{1,500}$",
   "^(?:decision|dispute)://[^\\s]+$",
   "^(?:decision|dispute)://[^\\s]{1,500}$",
+  "^(?:decision|work-claim|receipt)://[^\\s]{1,500}$",
+  "^(?:domain|system|agentgres)://[^\\s]{1,500}$",
   "^(?:event|receipt)://[^\\s]{1,248}$",
   "^(?:evidence|artifact|finding)://[^\\s]{1,500}$",
   "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$",
@@ -18100,6 +18517,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:evidence|receipt|artifact)://[^\\s]{1,248}$",
   "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,240}$",
   "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$",
+  "^(?:evidence|receipt|certification_claim)://[^\\s]{1,500}$",
   "^(?:finding|ontology-assertion|evidence)://[^\\s]{1,500}$",
   "^(?:finding|ontology-assertion|evidence|artifact)://[^\\s]{1,500}$",
   "^(?:frontier|attempt|finding)://[^\\s]{1,500}$",
@@ -18110,10 +18528,12 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:grant|approval)://[^\\s]{1,500}$",
   "^(?:grant|policy)://[^\\s]{1,500}$",
   "^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$",
+  "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$",
   "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}/revision/[^\\s]{1,500}$",
   "^(?:harness-profile|agent-harness-adapter):[^\\s]{1,200}$",
   "^(?:heartbeat|receipt)://[^\\s]{1,500}$",
   "^(?:intent|prompt)://[^\\s]{1,500}$",
+  "^(?:lease|resource-lease|budget)://[^\\s]{1,500}$",
   "^(?:license|policy)://[^\\s]{1,500}$",
   "^(?:license|policy|restricted-view|receipt)://[^\\s]{1,500}$",
   "^(?:message|artifact)://[^\\s]{1,500}$",
@@ -18122,15 +18542,19 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:observed-state|agentgres)://[^\\s]{1,240}$",
   "^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$",
   "^(?:org|project|system|user)://[^\\s]{1,500}$",
+  "^(?:outcome-room|user|org)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|agent)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$",
+  "^(?:participation-request|proposal)://[^\\s]{1,500}$",
+  "^(?:policy|event)://[^\\s]{1,500}$",
   "^(?:policy|finding|ontology)://[^\\s]{1,500}$",
   "^(?:policy|gate|state)://[^\\s]{1,500}$",
   "^(?:policy|license)://[^\\s]{1,500}$",
   "^(?:policy|license|revocation)://[^\\s]{1,500}$",
   "^(?:policy|profile)://[^\\s]{1,248}$",
+  "^(?:policy|restricted_view)://[^\\s]{1,500}$",
   "^(?:policy|room-discovery|aiip)://[^\\s]{1,500}$",
   "^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$",
   "^(?:principal|wallet|organization|org)://[^\\s]{1,248}$",
@@ -18139,17 +18563,22 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:provider|provider-account)://[^\\s]{1,240}$",
   "^(?:receipt|acceptance|settlement-intent|dispute|decision)://[^\\s]{1,500}$",
   "^(?:receipt|approval)://[^\\s]{1,500}$",
+  "^(?:receipt|decision)://[^\\s]{1,500}$",
   "^(?:receipt|evidence)://[^\\s]{1,248}$",
+  "^(?:receipt|heartbeat)://[^\\s]{1,500}$",
   "^(?:receipt|replay|agentgres)://[^\\s]{1,500}$",
   "^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\\s]{1,500}$",
   "^(?:resource-lease|spend|ledger)://[^\\s]{1,500}$",
   "^(?:resource-pool|budget|goal-budget|order)://[^\\s]{1,500}$",
   "^(?:revocation|context-lease|grant|receipt)://[^\\s]{1,500}$",
+  "^(?:revocation|context_lease|grant|receipt)://[^\\s]{1,500}$",
   "^(?:revocation|participant-state|decision|receipt)://[^\\s]{1,500}$",
+  "^(?:revocation|receipt)://[^\\s]{1,500}$",
   "^(?:robot|drone|device|facility|facility-system|vehicle)://[^\\s]+$",
   "^(?:robot|facility|vehicle|device|drone|actuator)://[^\\s]+$",
   "^(?:rubric|gate|policy)://[^\\s]{1,500}$",
   "^(?:rubric|verifier-path)://[^\\s]{1,500}$",
+  "^(?:rubric|verifier_path)://[^\\s]{1,500}$",
   "^(?:runtime|authority)://[^\\s]{1,248}$",
   "^(?:runtime|environment|provider|provider-account)://[^\\s]{1,240}$",
   "^(?:schedule|change-plan|event)://[^\\s]{1,240}$",
@@ -18161,17 +18590,21 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$",
   "^(?:system|agent|worker|runtime)://[^\\s]+$",
   "^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$",
+  "^(?:system|agent|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:system|domain)://[^\\s]{1,500}$",
   "^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:system|user|org|project|domain|service)://[^\\s]{1,500}$",
+  "^(?:system|user|org|wallet|domain)://[^\\s]{1,500}$",
   "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$",
   "^(?:system|wallet|org|policy)://[^\\s]+$",
   "^(?:system|wallet|org|project)://[^\\s]{1,248}$",
   "^(?:target-state|agentgres)://[^\\s]{1,240}$",
   "^(?:task|task-brief|policy)://[^\\s]{1,500}$",
+  "^(?:task|task_brief|policy)://[^\\s]{1,500}$",
   "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$",
   "^(?:test|gate|receipt|branch-checkpoint)://[^\\s]+$",
   "^(?:transition|decision)://[^\\s]{1,248}$",
+  "^(?:user|org)://[^\\s]{1,500}$",
   "^(?:user|wallet)://\\S*$",
   "^(?:user|wallet)://\\S+$",
   "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
@@ -18188,6 +18621,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:work-result|outcome-delta)://[^\\s]{1,500}$",
   "^(?:work-run|run)://[^\\s]{1,500}$",
   "^(?:worker|agent)://[^\\s]{1,500}$",
+  "^(?:worker|harness-profile|agent-harness-adapter|model_route|runtime|node)://[^\\s]{1,500}$",
   "^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$",
   "^(?:worker|service|org|domain|system)://[^\\s]{1,500}$",
   "^(?:worker|service|org|domain|wallet|agentgres)://[^\\s]{1,248}$",
@@ -18297,6 +18731,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^commitment://[^\\s]{1,500}$",
   "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$",
   "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$",
+  "^composition://[^\\s]{1,500}$",
   "^conformance-profile://[^\\s]{1,248}$",
   "^connector://[^\\s]{1,248}$",
   "^constitution-amendment://[^\\s]{1,248}$",
@@ -18305,10 +18740,12 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^constitution://[^\\s]{1,500}$",
   "^context-lease://[^\\s]{1,500}$",
   "^context-route-resolver://\\S*$",
+  "^context_lease://[^\\s]{1,500}$",
   "^controller-binding://[^\\s]+$",
   "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^decision://[A-Za-z0-9._:/-]+$",
   "^decision://[^\\s]{1,248}$",
+  "^decision://[^\\s]{1,500}$",
   "^decision://\\S*$",
   "^deployment-profile://[A-Za-z0-9._:/-]+$",
   "^deployment-profile://[^\\s?#\\\\]{1,160}$",
@@ -18364,6 +18801,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^grant://[^\\s]{1,248}$",
   "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$",
   "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^harness-profile://[^\\s]{1,500}$",
   "^harness-profile:[^\\s]{1,200}$",
   "^harness-route:[^\\s]{1,240}$",
   "^harness-session-binding-admission:[^\\s]{1,400}$",
@@ -18380,12 +18818,14 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^install://automation/[^\\s?#\\\\]{1,140}/revision/sha256:[0-9a-f]{64}$",
   "^ioi://publisher/[^\\s]{1,224}$",
   "^key://[^\\s]+$",
+  "^key://[^\\s]{1,500}$",
   "^keyset://[^\\s]+$",
   "^lease://[^\\s]{1,248}$",
   "^lifecycle-profile://[^\\s]{1,248}$",
   "^lifecycle-profile://[^\\s]{1,500}$",
   "^lifecycle-transition://[A-Za-z0-9._:/-]+$",
   "^lifecycle-transition://[^\\s]{1,248}$",
+  "^local-agent-pairing://[^\\s]{1,500}$",
   "^lost-suffix://[^\\s]{1,248}$",
   "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -18468,6 +18908,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^reso_[0-9a-f]{1,32}$",
   "^resource-lease://[^\\s]+$",
   "^resource-offer://[^\\s]{1,500}$",
+  "^room-discovery://[^\\s]{1,500}$",
   "^routing-decision://[^\\s]{1,500}$",
   "^run://[^\\s]+$",
   "^runtime://[^\\s]{1,248}$",
@@ -18515,6 +18956,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^storage://[^\\s]{1,240}$",
   "^subscription-lease://[A-Za-z0-9._:-]+$",
   "^surface-serving://\\S*$",
+  "^surface://[^\\s]{1,500}$",
   "^surface://\\S*$",
   "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$",
   "^system-activation-state://[^\\s]{1,248}$",
@@ -18711,7 +19153,12 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/work-lifecycle-record/v1": "sha256:b04465b2aba647773c44bf8631d2d03f91a7aa6dbb1aeb11bc3e5e59276ad7cd",
   "schema://ioi/foundations/work-result/v3": "sha256:0220d0bb1d76fa05a49decd8554c7debb3d47e855c8856a5298ecd0f2bda51b4",
   "schema://ioi/foundations/workflow-template/v1": "sha256:77f96b713670707d3da8fead21bfab833169aadae340da8290afea549dea8ffd",
-  "schema://ioi/foundations/objects/work-frontier-item-envelope/v1": "sha256:a4c5da30ef6014112e6b6f336f9c641dd427f09f86ccc24166833678b157748e"
+  "schema://ioi/foundations/objects/work-frontier-item-envelope/v1": "sha256:a4c5da30ef6014112e6b6f336f9c641dd427f09f86ccc24166833678b157748e",
+  "schema://ioi/foundations/objects/room-participant-lease-envelope/v1": "sha256:32e3f5385302de65a33fb455fd5e079e313f32805f3f816dd0807043adc5f48b",
+  "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1": "sha256:ad637d27192a3087072ebfa5c7a90a17d6ca67a4aad5d275ecfba2749b6bc625",
+  "schema://ioi/foundations/objects/work-claim-lease-envelope/v1": "sha256:ebe0f6bca0871c8be2c763bc4c9b29cd558bb58ef6ca4262c010f7e1fda05ed5",
+  "schema://ioi/foundations/objects/verifier-challenge-envelope/v1": "sha256:7f20bf2e1c5cf6e056051a647676c045f41d0af0ccd418805eb8e9f2a280d627",
+  "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1": "sha256:0512d443c8bbfe28b3f4ff9906ee081b0a471506882a9f6fb891d7697c4aebb7"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -66863,6 +67310,1388 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       }
     }
+  },
+  "schema://ioi/foundations/objects/room-participant-lease-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/room-participant-lease-envelope/v1",
+    "title": "RoomParticipantLeaseEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.room-participant-lease-envelope.v1",
+    "description": "Room participation as a lease rather than ambient membership: it composes existing identity, context, authority, runtime, resource, and budget leases instead of creating a second credential system. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#roomparticipantleaseenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. `expires_at` and `ttl_seconds` are required because the owner's prose states it directly ('The default lease is time-bounded'); a null term is the governed exception proven by `unbounded_term_exception_decision_ref`, not an absent field.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "participant_lease_id",
+      "outcome_room_ref",
+      "system_binding",
+      "participant_ref",
+      "admitted_role",
+      "operator_ref",
+      "home_domain_ref",
+      "collaboration_terms_ref",
+      "accepted_terms_root",
+      "terms_acceptance_ref",
+      "admission_decision_ref",
+      "visibility_scope_ref",
+      "lease_epoch",
+      "issued_at",
+      "effective_at",
+      "expires_at",
+      "renewal_policy_ref",
+      "heartbeat_policy_ref",
+      "revocation_epoch",
+      "ttl_seconds",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.room-participant-lease-envelope.v1"
+      },
+      "participant_lease_id": {
+        "type": "string",
+        "pattern": "^participant-lease://[^\\s]{1,500}$"
+      },
+      "outcome_room_ref": {
+        "type": "string",
+        "pattern": "^outcome-room://[^\\s]{1,500}$"
+      },
+      "system_binding": {
+        "type": "object",
+        "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+      },
+      "participant_ref": {
+        "type": "string",
+        "pattern": "^(?:system|agent|worker|service|org|domain)://[^\\s]{1,500}$"
+      },
+      "admitted_role": {
+        "enum": [
+          "conductor",
+          "implementer",
+          "reviewer",
+          "verifier",
+          "operator",
+          "researcher",
+          "specialist",
+          "synthesizer",
+          "resource_provider",
+          "integrity_challenger",
+          "memory_curator"
+        ]
+      },
+      "operator_ref": {
+        "type": "string",
+        "pattern": "^(?:system|user|org|wallet|domain)://[^\\s]{1,500}$"
+      },
+      "home_domain_ref": {
+        "type": "string",
+        "pattern": "^(?:domain|system|agentgres)://[^\\s]{1,500}$"
+      },
+      "worker_and_runtime_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:worker|harness-profile|agent-harness-adapter|model_route|runtime|node)://[^\\s]{1,500}$"
+        }
+      },
+      "capability_advertisement_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:capability-offer|ai|package)://[^\\s]{1,500}$"
+        }
+      },
+      "tool_connector_and_capability_dependency_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "description": "A URI-shaped ref or a prim: primitive-capability selector, per canon.",
+          "pattern": "^(?:(?:tool|connector|capability)://[^\\s]{1,500}|prim:[a-z0-9*._-]{1,200})$"
+        }
+      },
+      "join_request_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:participation-request|proposal)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "collaboration_terms_ref": {
+        "type": "string",
+        "pattern": "^terms://[^\\s]{1,500}$"
+      },
+      "accepted_terms_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "terms_acceptance_ref": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,500}$"
+      },
+      "identity_and_eligibility_evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|receipt|certification_claim)://[^\\s]{1,500}$"
+        }
+      },
+      "admission_decision_ref": {
+        "type": "string",
+        "pattern": "^(?:receipt|decision)://[^\\s]{1,500}$"
+      },
+      "visibility_scope_ref": {
+        "type": "string",
+        "pattern": "^(?:policy|restricted_view)://[^\\s]{1,500}$"
+      },
+      "context_and_authority_lease_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:context_lease|grant|authority)://[^\\s]{1,500}$"
+        }
+      },
+      "runtime_resource_and_budget_lease_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:lease|resource-lease|budget)://[^\\s]{1,500}$"
+        }
+      },
+      "current_claim_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^work-claim://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "lease_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "issued_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "effective_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "expires_at": {
+        "oneOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "renew_after": {
+        "oneOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "renewal_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "unbounded_term_exception_decision_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^decision://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "heartbeat_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "heartbeat_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:receipt|heartbeat)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "last_heartbeat_at": {
+        "oneOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "heartbeat_valid_until": {
+        "oneOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "revocation_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "next_wake_condition_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:policy|event)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "quiet_hours_or_backoff_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^policy://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "last_contribution_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:contribution|receipt)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "exit_and_claim_release_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:decision|work-claim|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "portable_participant_state_bundle_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^participant-state://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "future_access_revocation_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:revocation|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "ttl_seconds": {
+        "oneOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "invited",
+          "joining",
+          "active",
+          "sleeping",
+          "waiting",
+          "suspended",
+          "quarantined",
+          "retiring",
+          "retired",
+          "revoked"
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1",
+    "title": "ParticipantStateBundleEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.participant-state-bundle-envelope.v1",
+    "description": "The signed, policy-bound portable bundle a participant's home domain retains so it can continue without room-database access. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#participantstatebundleenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. `room_database_access_required` is a literal `false` in canon and is projected as a boolean literal, because a hosted room cannot make portability depend on continued access to its database.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "participant_state_bundle_id",
+      "outcome_room_ref",
+      "system_binding",
+      "participant_lease_ref",
+      "coordination_topology",
+      "bundle_reason",
+      "source_admission_watermark_ref",
+      "revocation_effect",
+      "bundle_artifact_ref",
+      "bundle_root",
+      "room_database_access_required",
+      "issued_at",
+      "signature",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.participant-state-bundle-envelope.v1"
+      },
+      "participant_state_bundle_id": {
+        "type": "string",
+        "pattern": "^participant-state://[^\\s]{1,500}$"
+      },
+      "outcome_room_ref": {
+        "type": "string",
+        "pattern": "^outcome-room://[^\\s]{1,500}$"
+      },
+      "system_binding": {
+        "type": "object",
+        "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+      },
+      "participant_lease_ref": {
+        "type": "string",
+        "pattern": "^participant-lease://[^\\s]{1,500}$"
+      },
+      "participant_and_home_domain_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:worker|service|org|domain|system)://[^\\s]{1,500}$"
+        }
+      },
+      "coordination_topology": {
+        "enum": [
+          "hosted_admission",
+          "federated_admission"
+        ]
+      },
+      "bundle_reason": {
+        "enum": [
+          "checkpoint",
+          "voluntary_retirement",
+          "lease_expiry",
+          "revocation",
+          "quarantine",
+          "room_close"
+        ]
+      },
+      "source_admission_watermark_ref": {
+        "type": "string",
+        "description": "A receipt:// or agentgres:// ref, or a bare content hash, per canon.",
+        "pattern": "^(?:(?:receipt|agentgres)://[^\\s]{1,500}|sha256:[0-9a-f]{64})$"
+      },
+      "released_or_reassigned_claim_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:work-claim|decision|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "preserved_contribution_attempt_finding_and_result_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$"
+        }
+      },
+      "preserved_receipt_acceptance_settlement_and_dispute_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:receipt|acceptance|settlement-intent|dispute|decision)://[^\\s]{1,500}$"
+        }
+      },
+      "portable_artifact_and_view_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:artifact|restricted_view|redacted_summary|evidence|replay)://[^\\s]{1,500}$"
+        }
+      },
+      "lineage_and_supersession_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:contribution|attempt|finding|work-result)://[^\\s]{1,500}$"
+        }
+      },
+      "export_license_retention_and_recall_policy_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:policy|license|revocation)://[^\\s]{1,500}$"
+        }
+      },
+      "excluded_context_classes": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "raw_secret",
+            "protected_plaintext",
+            "unauthorized_connector_payload",
+            "unrelated_private_memory",
+            "private_room_database_state",
+            "revoked_restricted_view",
+            "non_opted_in_training_trace"
+          ]
+        }
+      },
+      "released_future_access_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:revocation|context_lease|grant|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "revocation_or_supersession_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:revocation|participant-state|decision|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "revocation_effect": {
+        "enum": [
+          "none",
+          "future_access_only",
+          "restricted_view_keys_revoked",
+          "erroneous_export_superseded"
+        ]
+      },
+      "bundle_artifact_ref": {
+        "type": "string",
+        "description": "An artifact:// or cid:// ref, or the literal `encrypted_ref`, per canon.",
+        "pattern": "^(?:(?:artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"
+      },
+      "bundle_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "room_database_access_required": {
+        "const": false
+      },
+      "issued_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "signature": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 16000
+      },
+      "status": {
+        "enum": [
+          "prepared",
+          "exported",
+          "acknowledged",
+          "superseded",
+          "revoked"
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/work-claim-lease-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/work-claim-lease-envelope/v1",
+    "title": "WorkClaimLeaseEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.work-claim-lease-envelope.v1",
+    "description": "The claim lease under which bounded work is awarded. `active` is the executable award and requires the exact accepted terms root, an admitted CollaborationTermsAcceptanceReceipt, the required context/resource/tool/budget leases, applicable authority, and a room/domain admission receipt. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#workclaimleaseenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The room-scoped and direct bilateral shapes differ only by which nullable fields are populated; the cross-field rules binding them stay with the owner and are not restated as schema logic.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "work_claim_id",
+      "claimant_ref",
+      "collaboration_terms_ref",
+      "collaboration_terms_root",
+      "terms_acceptance_ref",
+      "contribution_policy_ref",
+      "settlement_profile_ref",
+      "bounded_scope_ref",
+      "duplicate_work_policy",
+      "issued_at",
+      "expires_at",
+      "renewal_count",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.work-claim-lease-envelope.v1"
+      },
+      "work_claim_id": {
+        "type": "string",
+        "pattern": "^work-claim://[^\\s]{1,500}$"
+      },
+      "outcome_room_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^outcome-room://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "system_binding": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "frontier_item_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^frontier://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "claimant_ref": {
+        "type": "string",
+        "pattern": "^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$"
+      },
+      "claimant_participant_lease_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^participant-lease://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "eligibility_match_receipt_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^receipt://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "task_offer_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^packet://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "task_acceptance_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^packet://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "routing_decision_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^routing-decision://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "collaboration_terms_ref": {
+        "type": "string",
+        "pattern": "^terms://[^\\s]{1,500}$"
+      },
+      "collaboration_terms_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "terms_acceptance_ref": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,500}$"
+      },
+      "contribution_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "quote_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^quote://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "budget_reservation_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:budget|spend|allocation)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "settlement_profile_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "bounded_scope_ref": {
+        "type": "string",
+        "pattern": "^(?:task|task_brief|policy)://[^\\s]{1,500}$"
+      },
+      "context_lease_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^context_lease://[^\\s]{1,500}$"
+        }
+      },
+      "authority_resource_compute_data_budget_and_tool_lease_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$"
+        }
+      },
+      "duplicate_work_policy": {
+        "enum": [
+          "exclusive",
+          "allowed",
+          "independent_replication",
+          "adversarial_replication"
+        ]
+      },
+      "issued_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "expires_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "heartbeat_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:heartbeat|receipt)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "renewal_count": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "release_or_reassignment_reason": {
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "active",
+          "waiting",
+          "released",
+          "expired",
+          "reassigned",
+          "completed",
+          "quarantined",
+          "revoked"
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/verifier-challenge-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "title": "VerifierChallengeEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.verifier-challenge-envelope.v1",
+    "description": "A typed challenge against a metric, rule, verifier, evidence set, eligibility decision, result, exploit, independence claim, collusion claim, or ontology mapping. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#verifierchallengeenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "verifier_challenge_id",
+      "challenger_ref",
+      "challenged_ref",
+      "challenge_kind",
+      "adjudicator_policy_ref",
+      "reverification_required",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.verifier-challenge-envelope.v1"
+      },
+      "verifier_challenge_id": {
+        "type": "string",
+        "pattern": "^verifier-challenge://[^\\s]{1,500}$"
+      },
+      "outcome_room_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^outcome-room://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "system_binding": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "challenger_ref": {
+        "type": "string",
+        "pattern": "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$"
+      },
+      "challenged_ref": {
+        "type": "string",
+        "pattern": "^(?:attempt|finding|verifier_path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$"
+      },
+      "challenge_kind": {
+        "enum": [
+          "metric",
+          "rule",
+          "verifier",
+          "evidence",
+          "eligibility",
+          "result",
+          "exploit",
+          "independence",
+          "collusion",
+          "mapping"
+        ]
+      },
+      "challenge_evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "adjudicator_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "prior_rule_version_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:rubric|verifier_path)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "proposed_rule_version_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:rubric|verifier_path)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "affected_attempt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^attempt://[^\\s]{1,500}$"
+        }
+      },
+      "reverification_required": {
+        "type": "boolean"
+      },
+      "adjudication_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:decision|dispute)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "admitted",
+          "investigating",
+          "upheld",
+          "rejected",
+          "rule_changed",
+          "reverifying",
+          "resolved",
+          "withdrawn"
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
+    "title": "LocalAgentPairingSessionEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.local-agent-pairing-session-envelope.v1",
+    "description": "The short-lived, pre-AIIP bootstrap contract binding one product-initiated pairing challenge to one local client key and origin, so an already-running user-owned local agent can submit typed proposals without receiving ambient product, room, runtime, or authority access. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The `challenge` and `client_binding` subobjects are phase-qualified and null before their phase; the phase rules themselves stay with the owner. `bootstrap_non_grants` is projected as its canon literal `none` values because the contract's whole point is that pairing grants nothing.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "pairing_session_id",
+      "initiated_by_ref",
+      "initiating_surface_ref",
+      "target_kind",
+      "target_scope_ref",
+      "claimed_local_agent",
+      "pairing_transport",
+      "challenge",
+      "client_binding",
+      "claim_attempt_policy",
+      "allowed_bootstrap_actions",
+      "bootstrap_non_grants",
+      "submission_refs",
+      "contribution_lane",
+      "assurance_posture",
+      "failure_reason_code",
+      "created_at",
+      "updated_at",
+      "completed_at",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.local-agent-pairing-session-envelope.v1"
+      },
+      "pairing_session_id": {
+        "type": "string",
+        "pattern": "^local-agent-pairing://[^\\s]{1,500}$"
+      },
+      "initiated_by_ref": {
+        "type": "string",
+        "pattern": "^(?:user|org)://[^\\s]{1,500}$"
+      },
+      "initiating_surface_ref": {
+        "type": "string",
+        "pattern": "^surface://[^\\s]{1,500}$"
+      },
+      "target_kind": {
+        "enum": [
+          "room_guest",
+          "private_worker",
+          "organization_worker"
+        ]
+      },
+      "target_scope_ref": {
+        "type": "string",
+        "pattern": "^(?:outcome-room|user|org)://[^\\s]{1,500}$"
+      },
+      "room_discovery_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^room-discovery://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "claimed_local_agent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "display_name",
+          "resolver_kind",
+          "resolver_revision_ref",
+          "resolver_content_hash",
+          "semantic_harness_profile_revision_ref",
+          "semantic_harness_profile_content_hash",
+          "execution_posture"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "resolver_kind": {
+            "enum": [
+              "harness_profile",
+              "agent_harness_adapter",
+              "none"
+            ]
+          },
+          "resolver_revision_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolver_content_hash": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "semantic_harness_profile_revision_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^harness-profile://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "semantic_harness_profile_content_hash": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "execution_posture": {
+            "enum": [
+              "instrumented_adapter",
+              "prompt_only"
+            ]
+          }
+        }
+      },
+      "pairing_transport": {
+        "enum": [
+          "loopback",
+          "device_code",
+          "copy_command"
+        ]
+      },
+      "challenge": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "challenge_hash",
+              "authentication_factor_kind",
+              "issued_at",
+              "expires_at",
+              "single_use"
+            ],
+            "properties": {
+              "challenge_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "authentication_factor_kind": {
+                "enum": [
+                  "one_time_challenge",
+                  "device_code",
+                  "signed_nonce"
+                ]
+              },
+              "issued_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              "single_use": {
+                "const": true
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "client_binding": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "agent_public_key_ref",
+              "proof_of_possession_hash",
+              "origin_kind",
+              "origin_binding_hash",
+              "bound_at"
+            ],
+            "properties": {
+              "agent_public_key_ref": {
+                "type": "string",
+                "pattern": "^key://[^\\s]{1,500}$"
+              },
+              "proof_of_possession_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "origin_kind": {
+                "enum": [
+                  "loopback_endpoint",
+                  "device_client",
+                  "bootstrap_client"
+                ]
+              },
+              "origin_binding_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "bound_at": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "claim_attempt_policy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "failed_attempt_limit",
+          "failed_attempt_count",
+          "rate_limit_policy_ref"
+        ],
+        "properties": {
+          "failed_attempt_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "failed_attempt_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "rate_limit_policy_ref": {
+            "type": "string",
+            "pattern": "^policy://[^\\s]{1,500}$"
+          }
+        }
+      },
+      "allowed_bootstrap_actions": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "read_discovery",
+            "submit_worker_composition",
+            "submit_room_participation_request"
+          ]
+        }
+      },
+      "bootstrap_non_grants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority",
+          "room_membership",
+          "room_database_access",
+          "private_context_access",
+          "connector_or_secret_access",
+          "budget_or_spend",
+          "effect_execution"
+        ],
+        "properties": {
+          "authority": {
+            "const": "none"
+          },
+          "room_membership": {
+            "const": "none"
+          },
+          "room_database_access": {
+            "const": "none"
+          },
+          "private_context_access": {
+            "const": "none"
+          },
+          "connector_or_secret_access": {
+            "const": "none"
+          },
+          "budget_or_spend": {
+            "const": "none"
+          },
+          "effect_execution": {
+            "const": "none"
+          }
+        }
+      },
+      "submission_refs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "worker_composition_ref",
+          "room_participation_request_ref",
+          "first_aiip_packet_ref"
+        ],
+        "properties": {
+          "worker_composition_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^composition://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "room_participation_request_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^participation-request://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "first_aiip_packet_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^packet://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "contribution_lane": {
+        "enum": [
+          "instrumented_candidate",
+          "proposal_only"
+        ]
+      },
+      "assurance_posture": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pairing_proves",
+          "prompt_only_ceiling"
+        ],
+        "properties": {
+          "pairing_proves": {
+            "const": "client_key_and_origin_binding_only"
+          },
+          "prompt_only_ceiling": {
+            "const": "attested"
+          }
+        }
+      },
+      "failure_reason_code": {
+        "oneOf": [
+          {
+            "enum": [
+              "challenge_expired",
+              "challenge_replayed",
+              "invalid_proof",
+              "key_mismatch",
+              "origin_mismatch",
+              "attempt_exhausted",
+              "rate_limited",
+              "scope_escalation",
+              "malformed_submission",
+              "policy_denied",
+              "target_unavailable"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "completed_at": {
+        "oneOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "created",
+          "challenge_issued",
+          "agent_proof_received",
+          "bootstrap_bound",
+          "composition_submitted",
+          "participation_submitted",
+          "completed",
+          "expired",
+          "rejected",
+          "cancelled",
+          "revoked",
+          "failed_closed"
+        ]
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -75123,7 +76952,12 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/foundations/work-lifecycle-record/v1": [],
   "schema://ioi/foundations/work-result/v3": [],
   "schema://ioi/foundations/workflow-template/v1": [],
-  "schema://ioi/foundations/objects/work-frontier-item-envelope/v1": []
+  "schema://ioi/foundations/objects/work-frontier-item-envelope/v1": [],
+  "schema://ioi/foundations/objects/room-participant-lease-envelope/v1": [],
+  "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1": [],
+  "schema://ioi/foundations/objects/work-claim-lease-envelope/v1": [],
+  "schema://ioi/foundations/objects/verifier-challenge-envelope/v1": [],
+  "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -76838,4 +78672,34 @@ export function validateWorkFrontierItemEnvelopeV1(
   value: unknown,
 ): value is WorkFrontierItemEnvelopeV1 {
   return validateArchitectureContract("schema://ioi/foundations/objects/work-frontier-item-envelope/v1", value).ok;
+}
+
+export function validateRoomParticipantLeaseEnvelopeV1(
+  value: unknown,
+): value is RoomParticipantLeaseEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/room-participant-lease-envelope/v1", value).ok;
+}
+
+export function validateParticipantStateBundleEnvelopeV1(
+  value: unknown,
+): value is ParticipantStateBundleEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/participant-state-bundle-envelope/v1", value).ok;
+}
+
+export function validateWorkClaimLeaseEnvelopeV1(
+  value: unknown,
+): value is WorkClaimLeaseEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/work-claim-lease-envelope/v1", value).ok;
+}
+
+export function validateVerifierChallengeEnvelopeV1(
+  value: unknown,
+): value is VerifierChallengeEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/verifier-challenge-envelope/v1", value).ok;
+}
+
+export function validateLocalAgentPairingSessionEnvelopeV1(
+  value: unknown,
+): value is LocalAgentPairingSessionEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1", value).ok;
 }

@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.foundations.participant-state-bundle-envelope.v1",
+  "participant_state_bundle_id": "participant-state://room/outcome-1/participant/7/bundle/2",
+  "outcome_room_ref": "outcome-room://ioi/outcome-1",
+  "system_binding": {
+    "system_id": "system://ioi/hypervisor"
+  },
+  "participant_lease_ref": "participant-lease://room/outcome-1/participant/7",
+  "coordination_topology": "federated_admission",
+  "bundle_reason": "voluntary_retirement",
+  "source_admission_watermark_ref": "receipt://ioi/outcome-1/watermark/554",
+  "revocation_effect": "none",
+  "bundle_artifact_ref": "encrypted_ref",
+  "bundle_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "room_database_access_required": false,
+  "issued_at": "2026-08-05T12:00:00Z",
+  "signature": "ed25519:3f9c1b...",
+  "status": "exported"
+}

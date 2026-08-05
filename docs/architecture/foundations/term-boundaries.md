@@ -269,14 +269,22 @@ replaced, which is the evidence that the new Rust source is a faithful owner
 rather than a redefinition.
 
 Writing that owner revealed the wider defect: **71 of 88** contracts in that
-directory still carry the generation banner with no Rust type deriving them.
-`npm run check:generated-contract-owners` proves the banner for the rest and
-holds the 71 in an exact-set quarantine register
-([`generated-contract-owner-quarantine.v1.json`](../../../scripts/data/generated-contract-owner-quarantine.v1.json))
-that can only shrink: a new orphan fails the check, and a quarantined entry that
-acquires an owner also fails until it is removed from the register. The
-quarantine is a named gap, not an allowance — each entry remains unrenameable
-through its stated source and unverifiable against any Rust definition.
+directory carried the generation banner with no Rust type deriving them. That
+count was held in an exact-set, shrink-only quarantine register enforced by
+`npm run check:generated-contract-owners`. **Both the register file and the
+check were deleted on 2026-08-05** with the rest of the proof apparatus, so the
+count is history and no mechanism measures it today. The defect is not: the
+directory still holds 90 banner-carrying files, and an entry with no Rust
+source remains unrenameable through its stated source and unverifiable against
+any Rust definition.
+
+This quarantine is a **different artifact** from the architecture contract
+registry, and the two have been confused. The `hypervisor-contracts/` directory
+is a ts-rs export lane; the registry at
+[`../_meta/schemas/architecture-contract-registry.v1.json`](../_meta/schemas/architecture-contract-registry.v1.json)
+is the schema-first lane, and every one of its contracts has always declared
+both a TypeScript and a Rust projection target. A statement about one is never
+evidence about the other.
 
 ## Deprecated and Forbidden Aliases
 

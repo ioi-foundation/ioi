@@ -1,0 +1,16 @@
+{
+  "schema_version": "ioi.foundations.work-claim-lease-envelope.v1",
+  "work_claim_id": "work-claim://ioi/outcome-1/claim/44",
+  "claimant_ref": "participant-lease://room/outcome-1/participant/7",
+  "collaboration_terms_ref": "terms://ioi/outcome-1/v4",
+  "collaboration_terms_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "terms_acceptance_ref": "receipt://ioi/terms-acceptance/91",
+  "contribution_policy_ref": "policy://ioi/outcome-1/contribution",
+  "settlement_profile_ref": "policy://ioi/outcome-1/settlement",
+  "bounded_scope_ref": "task_brief://ioi/outcome-1/brief/9",
+  "duplicate_work_policy": "independent_replication_required",
+  "issued_at": "2026-08-05T12:00:00Z",
+  "expires_at": "2026-08-06T12:00:00Z",
+  "renewal_count": 0,
+  "status": "active"
+}
