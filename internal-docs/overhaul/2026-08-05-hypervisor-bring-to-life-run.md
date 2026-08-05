@@ -184,17 +184,39 @@ the PR that touches it, with the guide recording remaining sites.
 
 ## Run State ledger
 
+Per-surface rows cover that surface's full Phase B execution (its brief's §5
+PR list, W1 read-first through its cutover). Surface rows are ordered by the
+guide's Wave 1 launch order, then the remainder. A session takes the first
+unchecked row, refreshes its brief at the bytes, and executes.
+
 | Item | State | Handoff note |
 |---|---|---|
-| Phase A: per-surface briefs at `internal-docs/implementation/surfaces/` (20 files + `_index.md`) | ☐ | v0 seed = the 2026-08-05 overhaul guide; verify at bytes; on completion regenerate this ledger to one row per surface |
-| C-1..C-4 canon layering fixes | ☑ 2026-08-05 | landed in core-clients-surfaces.md; implementation migrates per-PR |
-| W0.1 v2 route shell | ☐ | |
-| W0.2 surface compiler | ☐ | |
-| W0.3 read + authority clients | ☐ | |
-| W0.4 event client (M5 plane) | ☐ | |
-| W0.5 identity truth | ☐ | |
-| W0.6 backend enablers | ☐ | sessions/overview + lineage designed against subject_attachments |
-| Wave 1 (10 app launches) | ☐ | per-app checkmarks added when wave opens |
-| Wave 2 (action lighting) | ☐ | |
-| Wave 3 (backend builds) | ☐ | |
-| Wave 4 (cutover + Cut #2) | ☐ | |
+| Phase A: per-surface briefs at `internal-docs/implementation/surfaces/` (20 files + `_index.md`) | ☑ 2026-08-05 | landed via PRs #155–#159; briefs pin canon cites to blob 21ae389fe (C-1..C-4 canon commit) |
+| C-1..C-4 canon layering fixes | ☑ 2026-08-05 | landed in core-clients-surfaces.md (#155); surviving daemon/UI named-field sites recorded in briefs, migrate at the PR that touches them |
+| W0.1 v2 route shell | ☐ | delete the live `/automations`→`/__ioi` redirect hijack at cutover (home.md §3) |
+| W0.2 surface compiler | ☐ | compiler route already exists (applications.md §2); gaps = grouping, policy filtering, system-interface join |
+| W0.3 read + authority clients | ☐ | lease-gateway order at bytes: 428 credential → 403 wallet → receipted (developer-console.md §1) |
+| W0.4 event client (M5 plane) | ☐ | automation-scheduler owner namespace already fixtured in the M5 contract (automations.md §2) |
+| W0.5 identity truth | ☐ | fixture-RPC set corrected: 2 not 5 (settings.md §3, projects.md §3); +2 adapter lies to delete (environments.md §3) |
+| W0.6 backend enablers | ☐ | sessions/overview · unified inbox folds 4+2 decision planes (governance.md §2) · `GET /v1` index · scheduler gap = liveness only (automations.md §3) |
+| work build (owns `/work/sessions`; Cut #2 is its W4 leg) | ☐ | surfaces/work.md §5 |
+| provenance build | ☐ | surfaces/provenance.md §5 |
+| environments build | ☐ | surfaces/environments.md §5 |
+| operations build | ☐ | surfaces/operations.md §5 |
+| governance build | ☐ | surfaces/governance.md §5 (reviewer_ref defects; transition-receipt read route) |
+| ontology build | ☐ | surfaces/ontology.md §5 (unreceipted deletes fix early) |
+| data build | ☐ | surfaces/data.md §5 |
+| automations build | ☐ | surfaces/automations.md §5 (receives machinery from Studio, paired PR) |
+| foundry build | ☐ | surfaces/foundry.md §5 |
+| developer-workspace build | ☐ | surfaces/developer-workspace.md §5 (three lanes, not one route) |
+| studio build | ☐ | surfaces/studio.md §5 |
+| evaluations build | ☐ | surfaces/evaluations.md §5 (live receiptless-mutation defect fixed first) |
+| improvement build | ☐ | surfaces/improvement.md §5 (approve/reject receipts gate the W2 verb rehome) |
+| packages build | ☐ | surfaces/packages.md §5 (biggest backend build; around existing install-admission planner) |
+| developer-console build | ☐ | surfaces/developer-console.md §5 |
+| home build | ☐ | surfaces/home.md §5 |
+| systems build | ☐ | surfaces/systems.md §5 |
+| projects build | ☐ | surfaces/projects.md §5 |
+| applications build | ☐ | surfaces/applications.md §5 |
+| settings build | ☐ | surfaces/settings.md §5 |
+| Wave 4 shared cutover | ☐ | server.cjs mocks · fixture API lane · duplicate static copy · canon 5-vs-6 nit (settings.md pins the 5 locations) |
