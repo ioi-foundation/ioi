@@ -452,15 +452,54 @@ function main() {
   // inspected fifty-two, so the count is stated rather than implied.
   const EVIDENCE = join(REPO, "docs", "evidence");
   const BASELINE_PATH = join(REPO, "scripts", "packet-convention-baseline.v1.json");
-  const allDirs = existsSync(EVIDENCE)
-    ? readdirSync(EVIDENCE, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
-    : [];
+  // ENUMERATE FROM TRACKED BYTES, NOT FROM THE WORKING COPY. .gitignore line 58
+  // ignores docs/evidence/* wholesale and individual directories are force-added,
+  // so a working copy holds evidence trees that exist on ONE machine and in no
+  // commit -- 52 directories on this disk, 6 in the repository.
+  //
+  // The first version of this ratchet read the disk. Its baseline pinned 46
+  // directories that no reviewer, no other machine, and no CI run can see, and
+  // the gate's OWN stale-pin tooth refused all 46 the moment it ran detached.
+  // The enumerator and the baseline must read the same source, or the bar
+  // reports a different world depending on where it runs.
+  const allDirs = [...new Set(
+    execSync("git ls-files docs/evidence", { cwd: REPO, maxBuffer: 1e9 })
+      .toString().split("\n").filter(Boolean)
+      .map((p) => p.split("/")[2]).filter(Boolean),
+  )].sort();
   // THE RATCHET. Directories predating the convention are pinned in a baseline
   // that may only SHRINK -- the same idiom as the agentgres ref-minting pin.
   // Everything NOT on it must carry PACKET.md and be named by a manifest.
   const baseline = existsSync(BASELINE_PATH)
     ? new Set(JSON.parse(readFileSync(BASELINE_PATH, "utf8")).directories ?? [])
     : new Set();
+  // SHRINK-ONLY, ENFORCED AGAINST THE COMMITTED BASELINE.
+  //
+  // The rule was prose in the ruling and prose in the file's own `monotone`
+  // field, and prose loses to a default -- this program has the ledger entry to
+  // prove it. Measured: appending a directory to the baseline silenced the bar
+  // completely. A convention that can be escaped by declaring the escape is not
+  // a ratchet; it is a comment.
+  //
+  // Entries may only be REMOVED relative to the committed version. On the commit
+  // that introduces the file there is no previous version, and bootstrap is
+  // allowed -- the same shape as the attestation chain's first-parent handling.
+  let committedBaseline = null;
+  try {
+    committedBaseline = new Set(JSON.parse(
+      execSync("git show HEAD:scripts/packet-convention-baseline.v1.json", { cwd: REPO }).toString(),
+    ).directories ?? []);
+  } catch { committedBaseline = null; }
+  if (committedBaseline !== null) {
+    for (const name of baseline) {
+      if (!committedBaseline.has(name)) {
+        findings.push(finding("error", "claims-coverage",
+          `packet-convention baseline ADDS ${name}, which the committed baseline does not hold — the ratchet ` +
+          `is shrink-only. A directory postdating the convention cannot be exempted from it by being ` +
+          `written into the exemption list.`));
+      }
+    }
+  }
   for (const name of baseline) {
     if (!allDirs.includes(name)) {
       findings.push(finding("error", "claims-coverage",
@@ -468,6 +507,10 @@ function main() {
         `a ratchet that names nothing cannot shrink honestly`));
     }
   }
+  const trackedPackets = new Set(
+    execSync("git ls-files docs/evidence", { cwd: REPO, maxBuffer: 1e9 })
+      .toString().split("\n").filter((p) => p.endsWith("/PACKET.md")),
+  );
   const governed = allDirs.filter((name) => !baseline.has(name));
   const declaredPackets = new Set(
     manifests.flatMap((name) =>
@@ -475,7 +518,7 @@ function main() {
   );
   for (const name of governed) {
     const packet = `docs/evidence/${name}/PACKET.md`;
-    if (!existsSync(join(REPO, packet))) {
+    if (!trackedPackets.has(packet)) {
       findings.push(finding("error", "claims-coverage",
         `docs/evidence/${name}/ postdates the PACKET.md convention and carries NO PACKET.md — ` +
         `the baseline is shrink-only, so a new directory cannot be added to it`));
