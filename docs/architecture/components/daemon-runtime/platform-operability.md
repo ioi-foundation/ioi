@@ -411,6 +411,70 @@ An old receipt or checkpoint may remain authentic and historically valid while
 currentness is unknown. Missing currentness must not erase valid history, and
 valid history must not become current effect authority.
 
+### The authenticated time source, its trust boundary, and forged-time refusal
+
+`INV-36` established that a temporal claim is proposition-scoped;
+[`INV-39`](../../foundations/invariants.md) adds what the clock plane owes about
+the *source* of time and what happens when a party supplies its own. This
+section is that invariant's operational application.
+
+**Admissible source.** The trusted time source for a consequential decision is
+one the operation's `TemporalVerificationProfile` admits through
+`evidence_policy.admitted_source_profile_refs`. Admissible producer classes are
+authenticated network-time clients, hardware counters and boot/incarnation
+evidence, witness services, ledger or finality adapters, and declared operator
+anchors — each with an explicit trust root, failure domain, and
+revocation/update lifecycle. A bare OS or host wall clock is admissible only
+where a profile names it, and never for an operation whose profile requires
+failure-domain separation. Adding a source is a profile change with a new
+`profile_hash`, not a deployment convenience.
+
+**Trust boundary.** Failure-domain separation is the boundary, and it cuts in
+two directions. The evaluator may not produce the observation it then treats as
+independent evidence — already stated above — and, symmetrically, **a party to
+the decision is never a source for it**. A client, peer domain, participant,
+route handler, or request payload may *carry* a time; it never *establishes*
+one. A signed payload's own `issued_at` proves what the signer wrote, not when
+they wrote it. This is `INV-37` applied to the clock plane: the admitting
+component resolves temporal evidence, it does not read it out of the request.
+
+**Skew tolerance.** Declared, never assumed. `maximum_uncertainty_ms` and
+`maximum_evidence_age_ms` in the admitted profile are the tolerance; evidence
+yields a bounded interval, and an interval straddling a boundary resolves
+`indeterminate` rather than rounding toward the caller. A deployment with no
+declared tolerance has no tolerance — it has an unstated assumption.
+
+**Lease TTL, heartbeat, and expiry take this path.** Concluding that a
+`CapabilityLease`, `RoomParticipantLeaseEnvelope`, `WorkClaimLeaseEnvelope`, or
+context/resource/budget lease is still live, that a `heartbeat_valid_until` is
+still in the future, or that an `expires_at` has not yet passed, is an
+`absolute_time_interval` claim under an admitted profile — not a local clock
+read. The consuming PEP maps the claim result to `admit | wait | attenuate |
+refuse` as it does for any other operation class.
+
+**Denial semantics, stated in the negative because that is where the failures
+are.** When the required temporal proposition is `indeterminate`, `failed`, or
+`unavailable`:
+
+- the lease, heartbeat, or grant is treated as **not established** — never as
+  presumed-still-valid, and never as "valid until we can check";
+- unavailable time evidence **never extends** a lease, **never revives** an
+  expired one, **never suppresses** a revocation, and **never converts** a stale
+  heartbeat into a live one. Loss of the clock plane is a loss of authority to
+  proceed, not a grant of grace;
+- **forged or unauthenticated time is refused, not discounted.** There is no
+  reduced-confidence lane for a time a party asserted about itself: it is
+  inadmissible evidence, and admitting it at lower weight is admitting it;
+- the refusal is receipted with its reason code like any other denial, so a
+  counterparty can tell a clock-plane refusal from a policy refusal, an
+  authority refusal, or an outage. A silent hold is not a refusal.
+
+The conservative direction is asymmetric and deliberately so: uncertainty
+shortens authority and never lengthens it. A bounded interval that cannot prove
+`now < expires_at` refuses; the same interval failing to prove `now >= not_before`
+also refuses. Both directions fail closed, because the caller who benefits from
+the ambiguity is exactly the party the boundary exists to bound.
+
 ## Plane SLI and SLO Contract
 
 Each production plane profile must publish, at minimum:

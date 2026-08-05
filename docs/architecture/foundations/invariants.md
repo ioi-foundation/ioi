@@ -382,6 +382,36 @@ Owner application:
 [`../components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md),
 [`../components/hypervisor/byo-provider-plane.md`](../components/hypervisor/byo-provider-plane.md).
 
+**INV-39 — Time is authenticated, never asserted, and expiry is a claim.** The
+trusted time source for a consequential temporal decision is an admitted
+source under the operation's `TemporalVerificationProfile`, resolved through
+the clock plane; **no party's own assertion of the current time is ever
+admissible evidence about it** — not a client, not a peer domain, not a
+participant, not a request field, not a signed payload's own timestamp, and not
+the evaluator's own reading of a source it operates (`INV-36`, `INV-37`). The
+trust boundary is failure-domain separation: the component that produces a time
+observation may not be the component that treats it as independent evidence.
+Skew tolerance is declared, not assumed — an admitted profile fixes the maximum
+uncertainty and evidence age, evidence yields a bounded interval rather than a
+favorable point, and an interval that straddles a boundary is `indeterminate`,
+never rounded toward the caller.
+
+**Lease TTL, heartbeat freshness, and expiry are consequential temporal
+decisions and take the same path.** Concluding that a lease is still live, that
+a heartbeat is still fresh, or that a claim has not yet expired is a claim about
+the world, not a local clock read; when the required temporal proposition is
+`indeterminate` or `unavailable`, the decision REFUSES by a named reason and the
+authority is treated as **not established** rather than presumed to continue.
+Denial semantics are stated in the negative on purpose: unavailable time
+evidence never extends a lease, never revives an expired one, never suppresses a
+revocation, and never converts a stale heartbeat into a live one. Forged or
+unauthenticated time is refused rather than tolerated at reduced confidence, and
+the refusal is receipted like any other denial.
+Owner application:
+[`../components/daemon-runtime/platform-operability.md`](../components/daemon-runtime/platform-operability.md),
+[`security-privacy-policy-invariants.md`](./security-privacy-policy-invariants.md),
+[`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md).
+
 ## Citation Rule
 
 When a doc needs one of these invariants, it writes one line — the ID, an
