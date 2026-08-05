@@ -34,9 +34,11 @@ use ioi_services::agentic::runtime::kernel::agentgres_admission::{
 };
 use ioi_services::agentic::runtime::kernel::approval::{
     ApprovalDecisionAuthorityRequest, ApprovalDecisionStateUpdateRequest,
-    ApprovalRequestAuthorityRequest, ApprovalRequestStateUpdateRequest,
-    ApprovalRevokeStateUpdateRequest, APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
+    ApprovalQueueProjectionRequest, ApprovalRequestAuthorityRequest,
+    ApprovalRequestStateUpdateRequest, ApprovalRevokeStateUpdateRequest,
+    APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
     APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION,
     APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
     APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -164,6 +166,64 @@ fn coalesce_str<'a>(value: &'a Value, keys: &[&str]) -> Option<&'a str> {
 fn thread_id_for_agent(agent_id: &str) -> String {
     let suffix = agent_id.strip_prefix("agent_").unwrap_or(agent_id);
     format!("thread_{suffix}")
+}
+
+/// Pending thread/tool-exec approvals across ALL threads, via the kernel
+/// approval-queue projection (pending-only) per persisted agent record. Pure read
+/// for the unified approvals-inbox projection; a per-thread projection failure is
+/// returned as an error row so the caller can name degradation instead of
+/// silently dropping a plane. Returns (pending queue entries, error rows).
+pub(crate) fn pending_thread_approvals(st: &DaemonState) -> (Vec<Value>, Vec<Value>) {
+    let mut pending = Vec::new();
+    let mut errors = Vec::new();
+    for agent in read_record_dir(&st.data_dir, "agents") {
+        let Some(agent_id) = agent
+            .get("id")
+            .or_else(|| agent.get("agent_id"))
+            .and_then(Value::as_str)
+        else {
+            continue;
+        };
+        let thread_id = thread_id_for_agent(agent_id);
+        let request: ApprovalQueueProjectionRequest = match serde_json::from_value(json!({
+            "schema_version": APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION,
+            "thread_id": thread_id,
+            "state_dir": st.data_dir,
+            "include_resolved": false,
+        })) {
+            Ok(request) => request,
+            Err(error) => {
+                errors.push(json!({ "thread_id": thread_id, "error": error.to_string() }));
+                continue;
+            }
+        };
+        match RuntimeKernelService::new().project_approval_queue(&request) {
+            Ok(record) => {
+                for entry in record.approvals {
+                    if entry.get("status").and_then(Value::as_str) != Some("pending") {
+                        continue;
+                    }
+                    // Slim row: identity + decision-relevant state only; the full
+                    // request stays behind the thread's own read surface.
+                    pending.push(json!({
+                        "thread_id": entry.get("thread_id"),
+                        "run_id": entry.get("run_id"),
+                        "approval_id": entry.get("approval_id"),
+                        "status": entry.get("status"),
+                        "reason": entry.get("reason"),
+                        "request_event_id": entry.get("request_event_id"),
+                        "lease_id": entry.get("lease_id"),
+                        "lease_status": entry.get("lease_status"),
+                        "receipt_refs": entry.get("receipt_refs"),
+                    }));
+                }
+            }
+            Err(error) => {
+                errors.push(json!({ "thread_id": thread_id, "error": format!("{error:?}") }));
+            }
+        }
+    }
+    (pending, errors)
 }
 
 /// Project a thread record from persisted state via the kernel thread/turn

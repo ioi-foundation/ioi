@@ -1973,6 +1973,14 @@ async fn async_main() -> anyhow::Result<()> {
                 .patch(governance_routes::handle_approval_patch)
                 .delete(governance_routes::handle_approval_delete),
         )
+        // W0.6 — ONE read projection over every persisted decision plane (governance
+        // approval-requests, thread approvals, improvement proposals, memory-mutation
+        // proposals, marketplace admission-reviews) + the named synchronous-planner
+        // plane. Read-only; decisions execute on each plane's existing route.
+        .route(
+            "/v1/hypervisor/governance/approvals-inbox",
+            get(governance_routes::handle_approvals_inbox),
+        )
         .route(
             "/v1/hypervisor/governance/cohorts",
             get(governance_routes::handle_cohort_list)
