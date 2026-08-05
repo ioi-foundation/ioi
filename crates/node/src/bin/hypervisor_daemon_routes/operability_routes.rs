@@ -433,3 +433,135 @@ pub(crate) async fn handle_mcp_gateway_invoke(
         )),
     }
 }
+
+// ============================ /v1 CAPABILITY INDEX (W0.6) ========================================
+
+/// The central flat router source, embedded at compile time. The daemon registers every route in
+/// this ONE file (`hypervisor-daemon.rs`), so parsing its `.route("...", ...)` registrations
+/// yields the same route table the built binary serves — the index is mechanically derived and
+/// cannot silently drift from the source it was compiled with. (A route registered outside the
+/// central router file would not appear here; today none are on the public listener — the only
+/// out-of-file registrations are the per-session preview sub-server in lifecycle_routes.)
+const ROUTER_SOURCE: &str = include_str!("../hypervisor-daemon.rs");
+
+pub(crate) struct ParsedRoute {
+    pub(crate) path: String,
+    pub(crate) methods: Vec<String>,
+}
+
+/// Parse every `.route("<path>", <handlers>)` registration out of the router source: the string
+/// literal is the path; HTTP methods are the `get(`/`post(`/`put(`/`patch(`/`delete(`/`any(`
+/// tokens inside the balanced handler expression. Parsed once, cached for the process lifetime.
+pub(crate) fn parsed_router_routes() -> &'static Vec<ParsedRoute> {
+    static ROUTES: std::sync::OnceLock<Vec<ParsedRoute>> = std::sync::OnceLock::new();
+    ROUTES.get_or_init(|| {
+        let mut routes: Vec<ParsedRoute> = Vec::new();
+        let mut merged: std::collections::BTreeMap<String, std::collections::BTreeSet<String>> =
+            std::collections::BTreeMap::new();
+        let source = ROUTER_SOURCE;
+        let mut cursor = 0usize;
+        while let Some(found) = source[cursor..].find(".route(") {
+            let open = cursor + found + ".route(".len();
+            cursor = open;
+            let rest = &source[open..];
+            // Path literal: the first "-delimited string after the opening paren.
+            let Some(quote_start) = rest.find('"') else {
+                continue;
+            };
+            let Some(quote_len) = rest[quote_start + 1..].find('"') else {
+                continue;
+            };
+            let path = &rest[quote_start + 1..quote_start + 1 + quote_len];
+            if !path.starts_with('/') {
+                continue;
+            }
+            // Balanced-paren scan for the handler expression of THIS .route(...) call.
+            let mut depth = 1i32;
+            let mut end = quote_start + 1 + quote_len + 1;
+            let bytes = rest.as_bytes();
+            while end < bytes.len() && depth > 0 {
+                match bytes[end] {
+                    b'(' => depth += 1,
+                    b')' => depth -= 1,
+                    _ => {}
+                }
+                end += 1;
+            }
+            let handlers = &rest[quote_start + 1 + quote_len + 1..end.saturating_sub(1)];
+            let mut methods = std::collections::BTreeSet::new();
+            for (token, verb) in [
+                ("get(", "GET"),
+                ("post(", "POST"),
+                ("put(", "PUT"),
+                ("patch(", "PATCH"),
+                ("delete(", "DELETE"),
+                ("any(", "ANY"),
+            ] {
+                let mut scan = 0usize;
+                while let Some(hit) = handlers[scan..].find(token) {
+                    let at = scan + hit;
+                    let boundary_ok = at == 0
+                        || (!handlers.as_bytes()[at - 1].is_ascii_alphanumeric()
+                            && handlers.as_bytes()[at - 1] != b'_');
+                    if boundary_ok {
+                        methods.insert(verb.to_string());
+                    }
+                    scan = at + token.len();
+                }
+            }
+            merged.entry(path.to_string()).or_default().extend(methods);
+        }
+        for (path, methods) in merged {
+            routes.push(ParsedRoute {
+                path,
+                methods: methods.into_iter().collect(),
+            });
+        }
+        routes
+    })
+}
+
+/// GET /v1 — the honest capability index of the daemon's route families (W0.6). Mechanically
+/// derived from the central router source embedded at compile time — never a hand-list that can
+/// drift silently. Routes group by family prefix; retired spellings that answer with typed 410
+/// refusals are labeled.
+pub(crate) async fn handle_v1_index() -> Json<Value> {
+    let routes = parsed_router_routes();
+    let family_of = |path: &str| -> String {
+        let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+        match segments.as_slice() {
+            ["v1", "hypervisor", "odk", third, ..] => format!("/v1/hypervisor/odk/{third}"),
+            ["v1", "hypervisor", second, ..] => format!("/v1/hypervisor/{second}"),
+            ["v1", second, ..] => format!("/v1/{second}"),
+            [first, ..] => format!("/{first}"),
+            [] => "/".to_string(),
+        }
+    };
+    let mut families: std::collections::BTreeMap<String, Vec<Value>> =
+        std::collections::BTreeMap::new();
+    let retired = ["/sessions", "/missions", "/__ioi/*path"];
+    for route in routes.iter() {
+        let mut row = json!({ "path": route.path, "methods": route.methods });
+        if retired.contains(&route.path.as_str()) {
+            row["retired"] = json!(true);
+            row["note"] = json!("answers with the typed route-retirement refusal (410)");
+        }
+        families.entry(family_of(&route.path)).or_default().push(row);
+    }
+    let total_routes = routes.len();
+    let families_json: Vec<Value> = families
+        .into_iter()
+        .map(|(family, rows)| json!({ "family": family, "routes": rows.len(), "paths": rows }))
+        .collect();
+    Json(json!({
+        "schema_version": "ioi.hypervisor.v1-index.v1",
+        "total_routes": total_routes,
+        "families": families_json,
+        "derivation": {
+            "kind": "mechanical",
+            "source": "central router source (hypervisor-daemon.rs) embedded at compile time; .route() registrations parsed at first request",
+            "drift_note": "the index derives from the same source the binary was compiled from; routes registered outside the central router file would not appear (today: none on the public listener)"
+        },
+        "runtimeTruthSource": "daemon-runtime"
+    }))
+}

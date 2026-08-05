@@ -607,6 +607,9 @@ async fn async_main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/healthz", get(|| async { "OK" }))
         .route("/readyz", get(|| async { "OK" }))
+        // W0.6 — the honest capability index of this router's route families,
+        // mechanically derived from this file's own .route() registrations.
+        .route("/v1", get(operability_routes::handle_v1_index))
         .route("/sessions", any(lifecycle_routes::handle_retired_hypervisor_route))
         .route("/missions", any(lifecycle_routes::handle_retired_hypervisor_route))
         .route("/__ioi/*path", any(lifecycle_routes::handle_retired_hypervisor_route))
