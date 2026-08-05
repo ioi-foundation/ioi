@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "manifest_version": "ioi.license-manifest.v1",
+  "licensor": "IOI Foundation",
+  "effective_date": "2026-08-05",
+  "governing_decision": "docs/decisions/0033-licensing-split-surface-and-license-manifest.md",
+  "purpose": "This manifest is the definition of the Licensed Work referenced by LICENSE-BBSL section 0. It binds every tracked path in this repository to exactly one license class. A path not matched by any rule below is Reserved and is licensed to no one; absence from this manifest is never an implied grant, and never an implied denial of a license granted by a file's own LICENSE.",
+  "resolution": {
+    "order": "first_match_wins",
+    "matching": "Rules are evaluated top to bottom. The first rule whose glob matches a path determines that path's class. Globs are POSIX-style; ** matches across directory separators.",
+    "unmatched": "reserved",
+    "precedence_note": "A LICENSE file committed inside a vendored subtree governs that subtree and is recorded here for completeness rather than granted by this manifest."
+  },
+  "license_classes": {
+    "apache_2_0": {
+      "spdx": "Apache-2.0",
+      "text": "LICENSE-APACHE-2.0",
+      "effective": "now",
+      "rationale": "The protocol surface. Anything a third party must read, implement, or run to verify IOI's honesty or to build an interoperable implementation is permissively licensed today, not on the Change Date. Canon requires the open surface to be independently implementable and operable; a surface under a competition-restricted license is not that."
+    },
+    "cc_by_4_0": {
+      "spdx": "CC-BY-4.0",
+      "text": "LICENSE-DOCS",
+      "url": "https://creativecommons.org/licenses/by/4.0/legalcode",
+      "effective": "now",
+      "rationale": "Specification and decision prose. An adopter must be able to quote, translate, and redistribute the specification with attribution in order to implement against it."
+    },
+    "bbsl_1_1": {
+      "spdx": "LicenseRef-IOI-BBSL-1.1",
+      "text": "LICENSE-BBSL",
+      "effective": "now",
+      "converts_to": "Apache-2.0",
+      "change_date": "2029-11-06",
+      "rationale": "The reference implementation. Use is broadly permitted; only redistribution as a competing blockchain development framework or SDK is restricted, and that restriction expires on the Change Date."
+    },
+    "third_party": {
+      "spdx": "SEE-LICENSE-IN-SUBTREE",
+      "effective": "now",
+      "rationale": "Vendored or adopted material governed by its own committed LICENSE. This manifest records it and grants nothing over it."
+    },
+    "reserved": {
+      "spdx": "LicenseRef-IOI-Reserved",
+      "effective": "now",
+      "rationale": "All rights reserved. Internal working material, evidence, marks, and brand assets. No license is granted, and none is implied by publication."
+    }
+  },
+  "rules": [
+    {
+      "class": "third_party",
+      "globs": [
+        "apps/ioi-ai/**",
+        "third_party/**",
+        "examples/**"
+      ],
+      "note": "apps/ioi-ai carries its own MIT LICENSE and IOI-ADOPTION-PROVENANCE.md. third_party/ and examples/ hold upstream material under upstream terms."
+    },
+    {
+      "class": "reserved",
+      "globs": [
+        "internal-docs/**",
+        "docs/evidence/**",
+        "docs/brand-guidelines/**",
+        "docs/assets/**",
+        "ioi-data/**",
+        "node_modules/**",
+        "target/**"
+      ],
+      "note": "Marks and brand assets are reserved under every option; see LICENSE-BBSL section 5 and ADR 0033 on trademark separation."
+    },
+    {
+      "class": "apache_2_0",
+      "globs": [
+        "LICENSE-MANIFEST.json",
+        "LICENSE-BBSL",
+        "LICENSE-APACHE-2.0",
+        "LICENSE-DOCS",
+        "docs/architecture/_meta/schemas/**",
+        "docs/conformance/**",
+        "crates/types/src/app/generated/architecture_contracts.rs",
+        "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+        "packages/wallet-protocol/**",
+        "packages/agent-sdk/**",
+        "packages/hypervisor-adapter-targets/**"
+      ],
+      "note": "The open protocol surface: registered contracts, JSON Schemas, cross-field invariants, fixtures, both generated projections, the conformance tree, and the client-facing protocol type libraries. The license texts themselves are listed here so they remain reproducible with any distribution, as Apache-2.0 section 4 in any case requires; listing LICENSE-BBSL here licenses the TEXT of that license, not the work it governs."
+    },
+    {
+      "class": "cc_by_4_0",
+      "globs": [
+        "docs/architecture/**",
+        "docs/decisions/**",
+        "docs/specs/**",
+        "docs/crypto/**",
+        "docs/security/**",
+        "docs/commitment/**",
+        "docs/templates/**",
+        "docs/ROADMAP.md",
+        "docs/engineering-lessons.md"
+      ],
+      "note": "Specification and decision prose. docs/architecture/_meta/schemas/** is matched by the Apache rule above and is not prose."
+    },
+    {
+      "class": "bbsl_1_1",
+      "globs": [
+        "crates/**",
+        "apps/**",
+        "packages/**",
+        "scripts/**",
+        "tools/**",
+        "ops/**",
+        "*.json",
+        "*.toml",
+        "*.md",
+        "*.js",
+        "*.mjs",
+        "*.ts",
+        ".github/**",
+        "Cargo.lock",
+        "Cargo.toml",
+        ".dockerignore",
+        ".gitignore",
+        ".*",
+        "*.yml",
+        "*.yaml",
+        "*.sh",
+        "*.lock"
+      ],
+      "note": "The reference implementation and its build configuration. Paths already matched by an earlier rule are not reached by this one; in particular the two generated projections and the client-facing protocol packages are Apache-2.0. Build, CI, and repository configuration ride with the implementation they build."
+    }
+  ],
+  "open_protocol_surface": {
+    "note": "The enumeration required by foundations/economic-flywheel-and-pricing-boundaries.md and referenced by the reference-implementation contract in foundations/web4-and-ioi-stack.md. Every entry below is Apache-2.0 or CC-BY-4.0 as of this manifest's effective date, which is what makes the surface independently implementable.",
+    "members": [
+      "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "docs/architecture/_meta/schemas/*.schema.json",
+      "docs/architecture/_meta/schemas/invariants/**",
+      "docs/architecture/_meta/schemas/fixtures/**",
+      "crates/types/src/app/generated/architecture_contracts.rs",
+      "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+      "docs/conformance/**",
+      "docs/architecture/foundations/**",
+      "docs/decisions/**"
+    ]
+  },
+  "non_claims": [
+    "This manifest grants no trademark, service mark, or logo rights. Marks are reserved under LICENSE-BBSL section 5 and are licensed separately or not at all.",
+    "This manifest grants no certification, endorsement, or conformance claim. Certification is issued under docs/architecture/foundations/ecosystem-assurance-certification-liability.md and never requires a mark licence.",
+    "This manifest is not legal advice and has not been reviewed by external counsel as of its effective date. See ADR 0033."
+  ]
+}

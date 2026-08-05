@@ -1,17 +1,48 @@
 Bootstrap Business Source License 1.1
 
 Licensor: IOI Foundation
-Licensed Work: The IOI Blockchain Framework (the “IOI Kernel”) as defined in this repository.
+Licensed Work: The paths of this repository that LICENSE-MANIFEST.json assigns to the
+license class "bbsl_1_1". LICENSE-MANIFEST.json, committed alongside this file at the
+repository root, is the definition of the Licensed Work for all purposes of this License;
+see Section 0 below.
 Change Date: November 6, 2029
 Change License: Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+
+--------------------------------------------------------------------------------
+0. Definition of the Licensed Work
+--------------------------------------------------------------------------------
+The Licensed Work is defined by LICENSE-MANIFEST.json, committed alongside this file
+at the root of this repository. That manifest assigns every tracked path to exactly one
+license class by ordered, first-match glob rules. This License governs a path if and
+only if the manifest assigns that path to the class "bbsl_1_1".
+
+Paths the manifest assigns to any other class are NOT the Licensed Work and are not
+governed by this License. In particular, paths assigned to "apache_2_0" are licensed
+under the Apache License, Version 2.0 as of the manifest's effective date and do not
+wait for the Change Date; paths assigned to "cc_by_4_0" are licensed under
+Creative Commons Attribution 4.0 International; paths assigned to "third_party" are
+governed by a LICENSE committed inside their own subtree; and paths assigned to
+"reserved", including paths the manifest does not match at all, are licensed to no one.
+
+The manifest in effect for a given copy of the Licensed Work is the manifest committed
+in that copy. Where this License and the manifest disagree about whether a path is the
+Licensed Work, the manifest controls.
 
 --------------------------------------------------------------------------------
 1. License Grant
 --------------------------------------------------------------------------------
 Under this Business Source License (the “License”), the Licensor hereby grants you a
-worldwide, non-exclusive, non-transferable, royalty-free, and revocable license to use,
-copy, modify, create derivative works of, publicly perform, publicly display, and
-distribute the Licensed Work, subject to the terms and conditions set forth herein.
+worldwide, non-exclusive, non-transferable, royalty-free, perpetual, and irrevocable
+license to use, copy, modify, create derivative works of, publicly perform, publicly
+display, and distribute the Licensed Work, subject to the terms and conditions set
+forth herein.
+
+This grant is irrevocable except as provided in Section 8 (Termination), which
+terminates the grant only upon your violation of a term or condition of this License.
+The Licensor may not otherwise withdraw, revoke, suspend, or narrow this grant as to
+any copy of the Licensed Work already distributed to you, and no later version of this
+License, and no later version of LICENSE-MANIFEST.json, reduces the rights you already
+received under a version you complied with.
 
 You may use the Licensed Work in any field of endeavor, provided that your use does
 not violate the Use Limitation described in Section 2 below.
