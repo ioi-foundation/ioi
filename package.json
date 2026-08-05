@@ -22,6 +22,7 @@
     "dryrun:hypervisor-code-editor-adapter-host:wayland": "bash apps/hypervisor/scripts/dry-run-desktop.sh wayland",
     "test:hypervisor-app-harness": "node --test scripts/lib/hypervisor-app-harness-contract.test.mjs",
     "test:hypervisor-app-clients": "node --test apps/hypervisor/surfaces/read-authority-clients.test.mjs",
+    "test:hypervisor-app-events": "node --test apps/hypervisor/surfaces/event-client.test.mjs",
     "build:agent-sdk": "npm run build --workspace=@ioi/agent-sdk",
     "test:agent-sdk": "npm test --workspace=@ioi/agent-sdk",
     "build:wallet-protocol": "npm run build --workspace=@ioi/wallet-protocol",
