@@ -1,0 +1,52 @@
+{
+  "schema_version": "ioi.foundations.local-agent-pairing-session-envelope.v1",
+  "pairing_session_id": "local-agent-pairing://ioi/session/17",
+  "initiated_by_ref": "user://ioi/levi",
+  "initiating_surface_ref": "surface://ioi/hypervisor-app/pairing",
+  "target_kind": "room_guest",
+  "target_scope_ref": "outcome-room://ioi/outcome-1",
+  "claimed_local_agent": {
+    "display_name": "local claude-code",
+    "resolver_kind": "none",
+    "resolver_revision_ref": null,
+    "resolver_content_hash": null,
+    "semantic_harness_profile_revision_ref": null,
+    "semantic_harness_profile_content_hash": null,
+    "execution_posture": "prompt_only"
+  },
+  "pairing_transport": "loopback",
+  "challenge": null,
+  "client_binding": null,
+  "claim_attempt_policy": {
+    "failed_attempt_limit": 5,
+    "failed_attempt_count": 0,
+    "rate_limit_policy_ref": "policy://ioi/pairing/rate-limit"
+  },
+  "allowed_bootstrap_actions": [
+    "read_discovery"
+  ],
+  "bootstrap_non_grants": {
+    "authority": "none",
+    "room_membership": "none",
+    "room_database_access": "none",
+    "private_context_access": "none",
+    "connector_or_secret_access": "none",
+    "budget_or_spend": "none",
+    "effect_execution": "none"
+  },
+  "submission_refs": {
+    "worker_composition_ref": null,
+    "room_participation_request_ref": null,
+    "first_aiip_packet_ref": null
+  },
+  "contribution_lane": "proposal_only",
+  "assurance_posture": {
+    "pairing_proves": "client_key_and_origin_binding_only",
+    "prompt_only_ceiling": "attested"
+  },
+  "failure_reason_code": null,
+  "created_at": "2026-08-05T12:00:00Z",
+  "updated_at": "2026-08-05T12:00:00Z",
+  "completed_at": null,
+  "status": "created"
+}

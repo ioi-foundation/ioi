@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/room-participant-lease-envelope/v1",
+  "title": "RoomParticipantLeaseEnvelope",
+  "x-ioi-schema-version": "ioi.foundations.room-participant-lease-envelope.v1",
+  "description": "Room participation as a lease rather than ambient membership: it composes existing identity, context, authority, runtime, resource, and budget leases instead of creating a second credential system. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#roomparticipantleaseenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. `expires_at` and `ttl_seconds` are required because the owner's prose states it directly ('The default lease is time-bounded'); a null term is the governed exception proven by `unbounded_term_exception_decision_ref`, not an absent field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "participant_lease_id",
+    "outcome_room_ref",
+    "system_binding",
+    "participant_ref",
+    "admitted_role",
+    "operator_ref",
+    "home_domain_ref",
+    "collaboration_terms_ref",
+    "accepted_terms_root",
+    "terms_acceptance_ref",
+    "admission_decision_ref",
+    "visibility_scope_ref",
+    "lease_epoch",
+    "issued_at",
+    "effective_at",
+    "expires_at",
+    "renewal_policy_ref",
+    "heartbeat_policy_ref",
+    "revocation_epoch",
+    "ttl_seconds",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.room-participant-lease-envelope.v1"
+    },
+    "participant_lease_id": {
+      "type": "string",
+      "pattern": "^participant-lease://[^\\s]{1,500}$"
+    },
+    "outcome_room_ref": {
+      "type": "string",
+      "pattern": "^outcome-room://[^\\s]{1,500}$"
+    },
+    "system_binding": {
+      "type": "object",
+      "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+    },
+    "participant_ref": {
+      "type": "string",
+      "pattern": "^(?:system|agent|worker|service|org|domain)://[^\\s]{1,500}$"
+    },
+    "admitted_role": {
+      "enum": [
+        "conductor",
+        "implementer",
+        "reviewer",
+        "verifier",
+        "operator",
+        "researcher",
+        "specialist",
+        "synthesizer",
+        "resource_provider",
+        "integrity_challenger",
+        "memory_curator"
+      ]
+    },
+    "operator_ref": {
+      "type": "string",
+      "pattern": "^(?:system|user|org|wallet|domain)://[^\\s]{1,500}$"
+    },
+    "home_domain_ref": {
+      "type": "string",
+      "pattern": "^(?:domain|system|agentgres)://[^\\s]{1,500}$"
+    },
+    "worker_and_runtime_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:worker|harness-profile|agent-harness-adapter|model_route|runtime|node)://[^\\s]{1,500}$"
+      }
+    },
+    "capability_advertisement_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:capability-offer|ai|package)://[^\\s]{1,500}$"
+      }
+    },
+    "tool_connector_and_capability_dependency_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "description": "A URI-shaped ref or a prim: primitive-capability selector, per canon.",
+        "pattern": "^(?:(?:tool|connector|capability)://[^\\s]{1,500}|prim:[a-z0-9*._-]{1,200})$"
+      }
+    },
+    "join_request_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:participation-request|proposal)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "collaboration_terms_ref": {
+      "type": "string",
+      "pattern": "^terms://[^\\s]{1,500}$"
+    },
+    "accepted_terms_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "terms_acceptance_ref": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,500}$"
+    },
+    "identity_and_eligibility_evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt|certification_claim)://[^\\s]{1,500}$"
+      }
+    },
+    "admission_decision_ref": {
+      "type": "string",
+      "pattern": "^(?:receipt|decision)://[^\\s]{1,500}$"
+    },
+    "visibility_scope_ref": {
+      "type": "string",
+      "pattern": "^(?:policy|restricted_view)://[^\\s]{1,500}$"
+    },
+    "context_and_authority_lease_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:context_lease|grant|authority)://[^\\s]{1,500}$"
+      }
+    },
+    "runtime_resource_and_budget_lease_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:lease|resource-lease|budget)://[^\\s]{1,500}$"
+      }
+    },
+    "current_claim_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^work-claim://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lease_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "effective_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "expires_at": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "renew_after": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "renewal_policy_ref": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,500}$"
+    },
+    "unbounded_term_exception_decision_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^decision://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "heartbeat_policy_ref": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,500}$"
+    },
+    "heartbeat_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:receipt|heartbeat)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "last_heartbeat_at": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "heartbeat_valid_until": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "revocation_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "next_wake_condition_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:policy|event)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "quiet_hours_or_backoff_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^policy://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "last_contribution_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:contribution|receipt)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "exit_and_claim_release_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:decision|work-claim|receipt)://[^\\s]{1,500}$"
+      }
+    },
+    "portable_participant_state_bundle_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^participant-state://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "future_access_revocation_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:revocation|receipt)://[^\\s]{1,500}$"
+      }
+    },
+    "ttl_seconds": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "invited",
+        "joining",
+        "active",
+        "sleeping",
+        "waiting",
+        "suspended",
+        "quarantined",
+        "retiring",
+        "retired",
+        "revoked"
+      ]
+    }
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+  "title": "VerifierChallengeEnvelope",
+  "x-ioi-schema-version": "ioi.foundations.verifier-challenge-envelope.v1",
+  "description": "A typed challenge against a metric, rule, verifier, evidence set, eligibility decision, result, exploit, independence claim, collusion claim, or ontology mapping. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#verifierchallengeenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verifier_challenge_id",
+    "challenger_ref",
+    "challenged_ref",
+    "challenge_kind",
+    "adjudicator_policy_ref",
+    "reverification_required",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.verifier-challenge-envelope.v1"
+    },
+    "verifier_challenge_id": {
+      "type": "string",
+      "pattern": "^verifier-challenge://[^\\s]{1,500}$"
+    },
+    "outcome_room_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^outcome-room://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "system_binding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "challenger_ref": {
+      "type": "string",
+      "pattern": "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$"
+    },
+    "challenged_ref": {
+      "type": "string",
+      "pattern": "^(?:attempt|finding|verifier_path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$"
+    },
+    "challenge_kind": {
+      "enum": [
+        "metric",
+        "rule",
+        "verifier",
+        "evidence",
+        "eligibility",
+        "result",
+        "exploit",
+        "independence",
+        "collusion",
+        "mapping"
+      ]
+    },
+    "challenge_evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
+      }
+    },
+    "adjudicator_policy_ref": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,500}$"
+    },
+    "prior_rule_version_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:rubric|verifier_path)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proposed_rule_version_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:rubric|verifier_path)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "affected_attempt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^attempt://[^\\s]{1,500}$"
+      }
+    },
+    "reverification_required": {
+      "type": "boolean"
+    },
+    "adjudication_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:decision|dispute)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "admitted",
+        "investigating",
+        "upheld",
+        "rejected",
+        "rule_changed",
+        "reverifying",
+        "resolved",
+        "withdrawn"
+      ]
+    }
+  }
+}

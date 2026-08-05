@@ -1,0 +1,10 @@
+{
+  "schema_version": "ioi.foundations.verifier-challenge-envelope.v1",
+  "verifier_challenge_id": "verifier-challenge://ioi/outcome-1/challenge/5",
+  "challenger_ref": "participant-lease://room/outcome-1/participant/7",
+  "challenged_ref": "work-result://ioi/outcome-1/result/12",
+  "challenge_kind": "independence",
+  "adjudicator_policy_ref": "policy://ioi/outcome-1/adjudication",
+  "reverification_required": true,
+  "status": "investigating"
+}

@@ -369,8 +369,8 @@ whether or not any milestone ever asks for it. **The gap is the reason; the gate
 never was.**
 
 **R-08 — Register the collaboration-substrate contract families.** Ten families
-that canon defines field-for-field under `foundations/objects/` have no
-registered contract, no schema, no fixtures, and no deriving Rust type:
+that canon defines field-for-field under `foundations/objects/` need a
+foundations-plane contract registration:
 `LocalAgentPairingSessionEnvelope`, `RoomParticipantLeaseEnvelope`,
 `WorkFrontierItemEnvelope`, `WorkClaimLeaseEnvelope`, `AttemptEnvelope`,
 `FindingEnvelope`, `VerifierChallengeEnvelope`, `WorkResultEnvelope`,
@@ -379,16 +379,39 @@ registered contract, no schema, no fixtures, and no deriving Rust type:
 `_meta/schemas/architecture-contract-registry.v1.json`, with every family
 derived from its real field-level owner under `foundations/objects/`.
 
-*Constraint, re-scoped at the bytes on 2026-08-05.* The original constraint —
+*Scope, re-scoped at the bytes on 2026-08-05.* "No registered contract at all"
+would have been the wrong claim, and measuring it first is what caught that.
+Eight of the ten names already resolve to a registered v3 contract carrying the
+same `canonical_owner_ref` anchor — `WorkFrontierItem`, `Attempt`, `Finding`,
+`VerifierChallenge`, `WorkClaimLease`, `ParticipantStateBundle` in the
+`schema://ioi/applications/ioi-ai/...` namespace, and `WorkResult` and
+`OutcomeDelta` in `schema://ioi/foundations/...`. Only
+`RoomParticipantLeaseEnvelope` and `LocalAgentPairingSessionEnvelope` have
+nothing at all. **The honest residual is the foundations envelope registration**,
+which is a different contract from its v3 sibling in three measurable ways: it
+lives in the `ioi.foundations.*` schema-version namespace; it carries canon's
+own required set (only the fields the owner marks mandatory) where every v3
+schema is total — all properties required, nullable ones present-as-null; and it
+leaves neighbouring families opaque instead of restating their shape. That is
+exactly the relationship family 1 established between `WorkFrontierItem v3` and
+`WorkFrontierItemEnvelope v1`, and the remaining nine follow it.
+
+*Constraint, re-derived at the bytes on 2026-08-05.* The original constraint —
 "must not grow the generated-contract quarantine (71 of 88 generated TypeScript
-contracts have no deriving Rust type; the register is shrink-only)" — counted a
-quantity whose counting apparatus was deleted with the estate, and the
-`reviewed_owner_locator` resolution path it named went with it. Measured today:
-the registry carries **144 contracts, every one with both a
-`typescript_projection` and a `rust_projection` target** — there is no TS-only
-row left to shrink. The live constraint is the invariant that number was
-protecting, stated directly: **every new registration lands with its deriving
-Rust type in the same change — zero TypeScript-only growth, permanently.**
+contracts have no deriving Rust type; the register is shrink-only)" — cited the
+wrong artifact. That quarantine was the **ts-rs export lane** over
+`apps/hypervisor/src/generated/hypervisor-contracts/` (90 banner-carrying files
+today), held in `scripts/data/generated-contract-owner-quarantine.v1.json` and
+enforced by `npm run check:generated-contract-owners`; both the register file and
+the check were deleted with the rest of the apparatus, and
+`foundations/term-boundaries.md` still linked to the dead file until this leg
+repaired it. The **architecture contract registry** — the artifact R-08 actually
+registers into — is a different lane and has always declared a `rust_projection`
+for every contract (141 of 141 at pre-strip master, 144 of 144 today). A
+statement about one lane was never evidence about the other. The live constraint
+is the invariant the number was protecting, stated directly: **every new
+registration lands with its deriving Rust type in the same change — zero
+TypeScript-only growth, permanently.**
 `scripts/generate-architecture-contracts.mjs` is the enforcement surface, and
 its refusals are correct by construction: fit the schema to what both
 projections provably represent, never weaken the generator to admit a schema.

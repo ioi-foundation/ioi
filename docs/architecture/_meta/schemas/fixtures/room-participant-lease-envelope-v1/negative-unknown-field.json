@@ -1,0 +1,27 @@
+{
+  "schema_version": "ioi.foundations.room-participant-lease-envelope.v1",
+  "participant_lease_id": "participant-lease://room/outcome-1/participant/7",
+  "outcome_room_ref": "outcome-room://ioi/outcome-1",
+  "system_binding": {
+    "system_id": "system://ioi/hypervisor"
+  },
+  "participant_ref": "worker://ioi/external/reviewer-3",
+  "admitted_role": "integrity_challenger",
+  "operator_ref": "org://acme",
+  "home_domain_ref": "domain://acme/research",
+  "collaboration_terms_ref": "terms://ioi/outcome-1/v4",
+  "accepted_terms_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "terms_acceptance_ref": "receipt://ioi/terms-acceptance/91",
+  "admission_decision_ref": "decision://ioi/outcome-1/admission/12",
+  "visibility_scope_ref": "policy://ioi/outcome-1/visibility/restricted",
+  "lease_epoch": 3,
+  "issued_at": "2026-08-05T12:00:00Z",
+  "effective_at": "2026-08-05T12:00:00Z",
+  "expires_at": "2026-08-06T12:00:00Z",
+  "renewal_policy_ref": "policy://ioi/outcome-1/renewal",
+  "heartbeat_policy_ref": "policy://ioi/outcome-1/heartbeat",
+  "revocation_epoch": 0,
+  "ttl_seconds": 86400,
+  "status": "active",
+  "unexpected_field": "x"
+}

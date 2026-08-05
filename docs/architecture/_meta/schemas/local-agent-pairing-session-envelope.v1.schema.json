@@ -1,0 +1,448 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
+  "title": "LocalAgentPairingSessionEnvelope",
+  "x-ioi-schema-version": "ioi.foundations.local-agent-pairing-session-envelope.v1",
+  "description": "The short-lived, pre-AIIP bootstrap contract binding one product-initiated pairing challenge to one local client key and origin, so an already-running user-owned local agent can submit typed proposals without receiving ambient product, room, runtime, or authority access. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The `challenge` and `client_binding` subobjects are phase-qualified and null before their phase; the phase rules themselves stay with the owner. `bootstrap_non_grants` is projected as its canon literal `none` values because the contract's whole point is that pairing grants nothing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "pairing_session_id",
+    "initiated_by_ref",
+    "initiating_surface_ref",
+    "target_kind",
+    "target_scope_ref",
+    "claimed_local_agent",
+    "pairing_transport",
+    "challenge",
+    "client_binding",
+    "claim_attempt_policy",
+    "allowed_bootstrap_actions",
+    "bootstrap_non_grants",
+    "submission_refs",
+    "contribution_lane",
+    "assurance_posture",
+    "failure_reason_code",
+    "created_at",
+    "updated_at",
+    "completed_at",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.local-agent-pairing-session-envelope.v1"
+    },
+    "pairing_session_id": {
+      "type": "string",
+      "pattern": "^local-agent-pairing://[^\\s]{1,500}$"
+    },
+    "initiated_by_ref": {
+      "type": "string",
+      "pattern": "^(?:user|org)://[^\\s]{1,500}$"
+    },
+    "initiating_surface_ref": {
+      "type": "string",
+      "pattern": "^surface://[^\\s]{1,500}$"
+    },
+    "target_kind": {
+      "enum": [
+        "room_guest",
+        "private_worker",
+        "organization_worker"
+      ]
+    },
+    "target_scope_ref": {
+      "type": "string",
+      "pattern": "^(?:outcome-room|user|org)://[^\\s]{1,500}$"
+    },
+    "room_discovery_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^room-discovery://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "claimed_local_agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "display_name",
+        "resolver_kind",
+        "resolver_revision_ref",
+        "resolver_content_hash",
+        "semantic_harness_profile_revision_ref",
+        "semantic_harness_profile_content_hash",
+        "execution_posture"
+      ],
+      "properties": {
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "resolver_kind": {
+          "enum": [
+            "harness_profile",
+            "agent_harness_adapter",
+            "none"
+          ]
+        },
+        "resolver_revision_ref": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resolver_content_hash": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "semantic_harness_profile_revision_ref": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^harness-profile://[^\\s]{1,500}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "semantic_harness_profile_content_hash": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "execution_posture": {
+          "enum": [
+            "instrumented_adapter",
+            "prompt_only"
+          ]
+        }
+      }
+    },
+    "pairing_transport": {
+      "enum": [
+        "loopback",
+        "device_code",
+        "copy_command"
+      ]
+    },
+    "challenge": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "challenge_hash",
+            "authentication_factor_kind",
+            "issued_at",
+            "expires_at",
+            "single_use"
+          ],
+          "properties": {
+            "challenge_hash": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "authentication_factor_kind": {
+              "enum": [
+                "one_time_challenge",
+                "device_code",
+                "signed_nonce"
+              ]
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            },
+            "single_use": {
+              "const": true
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "client_binding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agent_public_key_ref",
+            "proof_of_possession_hash",
+            "origin_kind",
+            "origin_binding_hash",
+            "bound_at"
+          ],
+          "properties": {
+            "agent_public_key_ref": {
+              "type": "string",
+              "pattern": "^key://[^\\s]{1,500}$"
+            },
+            "proof_of_possession_hash": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "origin_kind": {
+              "enum": [
+                "loopback_endpoint",
+                "device_client",
+                "bootstrap_client"
+              ]
+            },
+            "origin_binding_hash": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "bound_at": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "claim_attempt_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "failed_attempt_limit",
+        "failed_attempt_count",
+        "rate_limit_policy_ref"
+      ],
+      "properties": {
+        "failed_attempt_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "failed_attempt_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "rate_limit_policy_ref": {
+          "type": "string",
+          "pattern": "^policy://[^\\s]{1,500}$"
+        }
+      }
+    },
+    "allowed_bootstrap_actions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "read_discovery",
+          "submit_worker_composition",
+          "submit_room_participation_request"
+        ]
+      }
+    },
+    "bootstrap_non_grants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "room_membership",
+        "room_database_access",
+        "private_context_access",
+        "connector_or_secret_access",
+        "budget_or_spend",
+        "effect_execution"
+      ],
+      "properties": {
+        "authority": {
+          "const": "none"
+        },
+        "room_membership": {
+          "const": "none"
+        },
+        "room_database_access": {
+          "const": "none"
+        },
+        "private_context_access": {
+          "const": "none"
+        },
+        "connector_or_secret_access": {
+          "const": "none"
+        },
+        "budget_or_spend": {
+          "const": "none"
+        },
+        "effect_execution": {
+          "const": "none"
+        }
+      }
+    },
+    "submission_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "worker_composition_ref",
+        "room_participation_request_ref",
+        "first_aiip_packet_ref"
+      ],
+      "properties": {
+        "worker_composition_ref": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^composition://[^\\s]{1,500}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "room_participation_request_ref": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^participation-request://[^\\s]{1,500}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "first_aiip_packet_ref": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^packet://[^\\s]{1,500}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "contribution_lane": {
+      "enum": [
+        "instrumented_candidate",
+        "proposal_only"
+      ]
+    },
+    "assurance_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pairing_proves",
+        "prompt_only_ceiling"
+      ],
+      "properties": {
+        "pairing_proves": {
+          "const": "client_key_and_origin_binding_only"
+        },
+        "prompt_only_ceiling": {
+          "const": "attested"
+        }
+      }
+    },
+    "failure_reason_code": {
+      "oneOf": [
+        {
+          "enum": [
+            "challenge_expired",
+            "challenge_replayed",
+            "invalid_proof",
+            "key_mismatch",
+            "origin_mismatch",
+            "attempt_exhausted",
+            "rate_limited",
+            "scope_escalation",
+            "malformed_submission",
+            "policy_denied",
+            "target_unavailable"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "completed_at": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "created",
+        "challenge_issued",
+        "agent_proof_received",
+        "bootstrap_bound",
+        "composition_submitted",
+        "participation_submitted",
+        "completed",
+        "expired",
+        "rejected",
+        "cancelled",
+        "revoked",
+        "failed_closed"
+      ]
+    }
+  }
+}
