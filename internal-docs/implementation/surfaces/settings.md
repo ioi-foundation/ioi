@@ -81,7 +81,7 @@ Brief status: authored 2026-08-05 from bytes at `21ae389fe` · v0 seed corrected
 | Preference scope+schema listing (render panes generically) | none — new enabler | `route-missing` — **W3** (extend the preferences family; registry schema evolves `preference_kind` at the same PR) |
 | Delivery / contact channels | canon :982; delivery paths belong to Automations (:1032-1034) | `route-missing` — **W3** (Automations-owned family; Settings projects) |
 | Enterprise Learning Boundary org defaults | canon :989-990, change = governed upgrade proposal :1067-1070 | `route-missing` — **W3** (Governance-owned record; no learning-boundary route exists in the daemon router) |
-| Terms of Service record | no canonical owner names ToS records | none — adapter constant → **delete** (honest absence) |
+| Terms of Service record | no canonical owner names ToS records | none — adapter constant **deleted at W0.5** (typed `terms_of_service_unowned` refusal) |
 
 ## 3. UI seed map
 
@@ -179,6 +179,25 @@ as an epic pending multi-user federated login (the daemon side exists — §2).
   canon now owns Settings (:831, :890, :994-1000, :3470) and the settings RPC families
   are mirror-backed per the adapter cites above.
 
+### W0.5 landing note (2026-08-05)
+
+The §3 wiring-class snapshot above predates the W0.5 identity-truth PR; the following
+recorded facts are superseded (adapter line cites in §3 refer to the pre-W0.5 bytes):
+`IDENTITY_REWRITES` and the adapter's constant identity block are DELETED (the serve
+layer now deletes the captured demo-identity residue from pre-rendered HTML —
+absence, not substitution); the "constant-backed (identity lies)" class is empty —
+GetAuthenticatedUser/GetAccount are whoami-backed, GetOrganization projects the W0.6
+daemon org read (display_name honestly null), GetTermsOfService/
+GetOrganizationPolicies/ListServiceAccounts refuse typed with named gaps and the
+affected panes carry named-gap/named-absence banners (augmentation
+`85-settings-gaps.js`); the
+runner dressing constants, runner-manager row, runner-logs token, hand-written
+`ListSCMIntegrations` row (now projected from the daemon SCM connector plane), and
+the fabricated subscriptions row are gone; `GetEnvironmentClass` projects the daemon
+catalog; unmatched `ioi.v1.*` RPCs refuse 501 `unimplemented` instead of falling
+through to the fixture/wildcard-mock lane (the members single-operator fallback row
+and the runner daemon-down empty-list fallback are also gone — typed refusals).
+
 ## 4. Schema→UI binding table
 
 Reads use the W0.3 read-projection client; every administrative mutation routes to its
@@ -190,13 +209,13 @@ authority client already encodes it. No row binds session-serving data (no
 
 | UI element (pane/control) | Backing schema + route | Current state | Target state |
 |---|---|---|---|
-| account (profile identity) | whoami :3352 | partial (constant fallback :371-381) | wired-read (honest absence when unauthenticated) |
-| manage-organization: org name/tier header | org identity record — route-missing (W0.5) | constant lie :389-391, :383-385 | wired-read after W0.5 org route |
-| manage-organization: org update action | no daemon write | wildcard-mock silent success | disabled-named-gap until the W0.5 route grows PUT |
-| terms-of-service pane | none (no canonical ToS owner) | constant :392-394 | delete |
-| members list + roles | principals :3369 | wired :811-822 | wired-read |
+| account (profile identity) | whoami :3352 | **wired-read (W0.5)** — whoami truth or typed refusal (401 `unauthenticated` / `identity_daemon_unavailable`); constant fallback deleted | wired-read (honest absence when unauthenticated) — done |
+| manage-organization: org name/tier header | `ioi.hypervisor.organization-identity.v1` — GET `/v1/hypervisor/organization` (W0.6, hypervisor-daemon.rs:3445) | **wired-read (W0.5)** — GetOrganization projects the daemon org read; `display_name` null at the daemon → renders honest absence (tier/createdAt omitted); named-absence banner (augmentation 85-settings-gaps.js); GetAccount is whoami-backed with org display fields omitted | wired-read — done (display name fills in when a real record family lands) |
+| manage-organization: org update action | no daemon write | **typed refusal (W0.5)** — unmatched-RPC 501 `unimplemented` (wildcard-mock lane unreachable) | disabled-named-gap until the org route grows PUT |
+| terms-of-service pane | none (no canonical ToS owner) | **typed unavailable (W0.5)** `terms_of_service_unowned` + banner | delete pane at cutover |
+| members list + roles | principals :3369 | wired (**W0.5**: constant single-operator fallback row deleted; daemon-down refuses typed) | wired-read |
 | members: invite / remove / password | principals :3369-3378, org-invite :3420 | wired (invite), unwired rows | wired-action-receipted |
-| service-accounts rows | no daemon family | constant :794-807 | disabled-named-gap (or fold into principals if the owner grows a kind) |
+| service-accounts rows | no daemon family | **typed unavailable (W0.5)** `service_account_family_route_missing`; hardcoded system row deleted | disabled-named-gap (or fold into principals if the owner grows a kind) |
 | secrets + organization-secrets CRUD | secrets :2981-2989 | wired, receiptless | wired-action-receipted (add receipt to create/update/delete) |
 | org-secrets pane rendering | — | dead (SPA Enterprise upsell ceiling) | wired via v2 pane shell (drop the vendor upsell branch) |
 | git-authentications connect/revoke | scm-connectors :2962-2967, scm-connect :3069 | wired fail-closed :840-856, :1225-1236 | wired-action-receipted |
@@ -204,12 +223,12 @@ authority client already encodes it. No row binds session-serving data (no
 | integrations / org-integrations (MCP) | connectors :3022-3065 | wired read+create+DCR | wired-action-receipted; registrations remain Developer Console records, Settings projects (canon :970-974) |
 | connected-apps authority scope rows | lease-grants :3383-3388, capability-leases :2976 | absent in SPA (native `/__ioi/connections` owns it today, serve :1468) | wired-read projection + revoke as wired-action-receipted |
 | billing (budget, auto-fund, reconcile) | budget :3008-3012 | wired :886-925 | wired-read + reconcile wired-action-receipted |
-| subscriptions row | none (self-hosted posture) | constant :926-930 | delete (replace with honest deployment-posture line from auth/policy :3356) |
+| subscriptions row | none (self-hosted posture) | **honest empty list (W0.5)** — fabricated "sovereign contract" row deleted | delete (replace with honest deployment-posture line from auth/policy :3356) |
 | credit-usage time series | usage/consumption :3004 | wired :897-910 | wired-read |
-| runners list | providers :2790 | partial (dressing constants :240-252) | wired-read with honest provider fields; drop RUNNER_* dressing |
-| runner managers / runner-logs token | none | constants :665-675 | delete (single-node truth) / disabled-named-gap |
-| environments (env classes) | environment-classes :1141 | partial; `GetEnvironmentClass` fixture-only | wired-read (project the daemon catalog for both RPCs) |
-| policies + agent-policies panes | org-policy family — route-missing (W3) | constant :395-397 | disabled-named-gap until W3; then wired-action-receipted via owner |
+| runners list | providers :2790 | **wired-read (W0.5)** — provider-backed; dressing constants (version/channel/variant) deleted, capability ints advertised only while the provider reports available; daemon-down and unknown-id fabrications replaced with typed refusals | wired-read with honest provider fields — done |
+| runner managers / runner-logs token | none | **typed unavailable (W0.5)** `runner_manager_route_missing` / `runner_logs_token_route_missing`; constants deleted; runners pane carries the named-gap banner | delete (single-node truth) / disabled-named-gap |
+| environments (env classes) | environment-classes :1141 | **wired-read (W0.5)** — both RPCs (List + `GetEnvironmentClass`) project the one daemon catalog via a shared mapper; unknown id 404s, never the fixture "Small" class | wired-read — done |
+| policies + agent-policies panes | org-policy family — route-missing (W3) | **typed unavailable (W0.5)** `org_policy_family_route_missing` + banners; fabricated quota/archive/sharing constants deleted | disabled-named-gap until W3; then wired-action-receipted via owner |
 | agent-skills pane | skill-entries :1667-1672 | dead (wildcard mock) | wired-read over intelligence plane; lifecycle actions wired-action-receipted (:1691) |
 | memory prefs (new user pane) | memory-spaces/entries :1652-1662 | absent | wired-read + entry lifecycle wired-action-receipted (:1687) |
 | delivery channels (new user pane) | Automations-owned family — route-missing (W3) | absent | disabled-named-gap until W3 |
@@ -222,21 +241,24 @@ authority client already encodes it. No row binds session-serving data (no
 
 ## 5. Ordered PR list
 
-1. **W0.5** — Delete `IDENTITY_REWRITES` (serve-product-ui.mjs:6753-6761); account
-   pane renders whoami truth or honest absence (drop the `IDENTITY` fallback for
-   display identity).
-2. **W0.5** — Small daemon org-identity read route (name/tier/created; memberships
-   from principals); rewire `GetOrganization`/`GetAccount` to it; org-update becomes
-   disabled-named-gap. Serial on hypervisor-daemon.rs (router hotspot).
-3. **W0.5** — Fixture-only RPC disposition: `GetProjectInsightsStatus` →
-   disabled-named-gap (Insights has no daemon family);
-   `RunnerConfigurationService/GetEnvironmentClass` → project
-   `/v1/hypervisor/environment-classes` :1141. Record the ProjectService correction
-   (already daemon-backed) in the census follow-up.
-4. **W0.5** — Constants to honest posture: ToS pane deleted; `ListServiceAccounts`,
-   `ListSCMIntegrations`, `ListAvailableRunnerManagers`, `CreateRunnerLogsToken`,
-   subscriptions row, runner phase/capability dressing → daemon truth where a route
-   exists, otherwise honest absence; `GetOrganizationPolicies` renders named-gap.
+1. **W0.5 — DONE 2026-08-05** — `IDENTITY_REWRITES` deleted; account pane renders
+   whoami truth or typed refusal (the `IDENTITY` display fallback is gone; captured
+   demo-identity residue in pre-rendered HTML is deleted, not substituted).
+2. **W0.5 — DONE 2026-08-05 (both legs)** — the W0.6 sibling landed the daemon
+   org-identity read (`GET /v1/hypervisor/organization`); `GetOrganization` projects
+   it (display_name honestly null at the daemon), `GetAccount` is whoami-backed with
+   org display fields omitted, org-update refuses via the unmatched-RPC 501 until the
+   route grows PUT.
+3. **W0.5 — DONE 2026-08-05** — Fixture-only RPC disposition: `GetProjectInsightsStatus`
+   (whole `InsightsService`) → typed `insights_family_route_missing`;
+   `RunnerConfigurationService/GetEnvironmentClass` → projects
+   `/v1/hypervisor/environment-classes` :1141 (shared mapper, 404 on unknown id).
+4. **W0.5 — DONE 2026-08-05** — Constants to honest posture: ToS refusal;
+   `ListServiceAccounts`/`ListAvailableRunnerManagers`/`CreateRunnerLogsToken` typed
+   unavailable; `ListSCMIntegrations` projected from the daemon SCM connector plane;
+   subscriptions honest-empty; runner dressing dropped;
+   `GetOrganizationPolicies` refuses `org_policy_family_route_missing`; named-gap
+   banners on manage-organization/terms-of-service/policies/agent-policies/runners.
 5. **W1** — `/settings` v2 pane shell on the canonical route (W0.1 router): rehome the
    wired read planes (members, secrets, PATs, billing, credit-usage, SSO, SCIM, OIDC,
    git-auth, integrations, domains, invite) through the W0.3 read client; user/org

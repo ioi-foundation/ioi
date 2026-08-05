@@ -2,9 +2,11 @@
 //
 // "Working backwards" from the product-ui bundle: endpoints here are backed by real IOI —
 // the hypervisor-daemon (governed objects), an IOI-persisted store (preferences), and the
-// EnvironmentProvider (lifecycle). handle() returns a response for endpoints we own and
-// null for the rest, so the serve layer transparently proxies anything not-yet-ported to
-// the product-ui bundle; if the daemon is unreachable we also return null (graceful fallback).
+// EnvironmentProvider (lifecycle). Since W0.5 (identity truth) every `/api/ioi.v1.*` RPC is
+// adapter-owned: it is daemon-backed where a route exists at the bytes, and otherwise refuses
+// with a typed unavailable/named-gap error. handle() returns null only for non-RPC paths; the
+// fixture/wildcard-mock lane is no longer reachable through the RPC surface, and daemon
+// unreachability surfaces as a typed refusal — never fixture data presented as live.
 //
 // Boundary discipline: daemon EXECUTES · wallet AUTHORIZES (crossings only) · agentgres
 // RECORDS. Projections live in ioi-projection.mjs and must not inflate any plane.
@@ -66,22 +68,33 @@ const json = (payload) => ({ contentType: "application/json", body: JSON.stringi
 // Connect-protocol error: non-2xx HTTP + {code,message} so the SPA's client rejects (e.g. a
 // rejected GitHub token surfaces as a real connect failure, not a silent success).
 const jsonStatus = (status, payload) => ({ contentType: "application/json", body: JSON.stringify(payload), status });
+// W0.5 identity truth — the typed refusal for an RPC whose backing daemon route does not exist
+// (or did not answer). The Connect client rejects with the named gap and the pane renders a
+// degraded state; nothing fabricates rows, names, or silent successes in its place.
+const unavailableRpc = (gap, message, status = 503) =>
+  jsonStatus(status, { code: "unavailable", message: `${gap}: ${message}` });
+// Connect *streaming* refusal: HTTP 200 + an end-stream frame carrying the typed error (the
+// streaming protocol conveys errors in-band; a bare non-2xx JSON body would surface as a parse
+// failure instead of the named gap).
+function connectStreamError(code, message) {
+  const payload = Buffer.from(JSON.stringify({ error: { code, message } }), "utf8");
+  const frame = Buffer.alloc(5 + payload.length);
+  frame.writeUInt8(0x02, 0);
+  frame.writeUInt32BE(payload.length, 1);
+  payload.copy(frame, 5);
+  return { contentType: "application/connect+json", body: frame, status: 200 };
+}
 
-// Local operator identity. Account/Org/User are NOT daemon runtime truth — in a local
-// single-operator hypervisor there is exactly one account, one organization (admin role),
-// one user. We own these directly (stable local identity, same class as app-local
-// preferences) rather than proxying the harvested demo identity. Display name/email match the
-// serve layer's IDENTITY_REWRITES so the header/avatar stay consistent across surfaces.
-const IDENTITY = {
+// Structural local-scope identifiers — opaque ids the Connect schemas require plus the app-local
+// seed timestamp. These are NOT display truth: display identity (names, emails, organization
+// name, tier) comes from the daemon (whoami/principals/organization reads) or not at all. The
+// former local-constant operator identity ("John Doe" / "IOI Workspace") and the serve layer's
+// IDENTITY_REWRITES were deleted at W0.5.
+const LOCAL_SCOPE = {
   userId: "00000000-0000-4000-8000-000000000001",
   orgId: "00000000-0000-4000-8000-0000000000a1",
-  accountId: "00000000-0000-4000-8000-0000000000ac",
   groupId: "00000000-0000-4000-8000-0000000000a2",
-  orgName: "IOI Workspace",
-  name: "John Doe",
-  email: "johndoe@ioi.local",
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z",
+  seedTime: "2026-01-01T00:00:00.000Z",
 };
 
 async function daemon(method, path, body) {
@@ -155,7 +168,7 @@ async function mcpConnectorsAsIntegrations() {
         let host = ""; try { host = new URL(c.base_url).host; } catch { /* */ }
         return {
           id: c.connector_id,
-          organizationId: IDENTITY.orgId,
+          organizationId: LOCAL_SCOPE.orgId,
           integrationDefinitionId: c.connector_id,
           enabled: true,
           capabilities: { mcp: { url: c.base_url } },
@@ -223,29 +236,30 @@ const parseGitHubContextUrl = (contextUrl) => {
     scmId: "github",
   };
 };
+// Project a daemon provider record into the SPA's runner vocabulary. Every field either carries
+// a daemon record value or is a documented enum translation; the former dressing constants
+// (version "ioi-local", release channel, variant, unconditional capability ints) were deleted at
+// W0.5 — absence is honest. status.capabilities gates env-class selectability and the Git-auth
+// connect action: an AVAILABLE daemon provider factually hosts environment + agent execution
+// (the daemon's own env/agent lanes run on it), so the SPA capability ints are advertised only
+// while the provider reports available — an unavailable provider advertises nothing.
 const runnerFromProvider = (p = {}) => {
   const id = p.provider_ref || p.runnerId || "local-microvm";
   const active = !p.status || p.status === "available";
-  const label = p.reason || id;
+  const phase = active ? "RUNNER_PHASE_ACTIVE" : "RUNNER_PHASE_INACTIVE";
+  const label = p.reason || p.display_name || id;
   return {
     id,
     runnerId: id,
     name: label,
     spec: {
-      desiredPhase: "RUNNER_PHASE_ACTIVE",
-      configuration: {
-        region: p.capabilities?.locality || "local",
-        releaseChannel: "RUNNER_RELEASE_CHANNEL_STABLE",
-      },
-      variant: "RUNNER_VARIANT_STANDARD",
+      desiredPhase: phase,
+      configuration: { region: p.capabilities?.locality || "local" },
     },
-    // status.capabilities gates env-class selectability and the Git-auth connect action. It must
-    // include AGENT_EXECUTION plus the local side capabilities this seeded shell expects.
     status: {
-      phase: active ? "RUNNER_PHASE_ACTIVE" : "RUNNER_PHASE_INACTIVE",
+      phase,
       message: label,
-      version: "ioi-local",
-      capabilities: [3, 4, 5],
+      capabilities: active ? [3, 4, 5] : [],
     },
     kind: "RUNNER_KIND_REMOTE",
   };
@@ -254,6 +268,17 @@ async function listProjectedRunners() {
   const r = await daemon("GET", "/v1/hypervisor/providers");
   return (r.providers || []).map(runnerFromProvider);
 }
+// EnvironmentClass projection shared by EnvironmentService/ListEnvironmentClasses,
+// ProjectService/ListProjectEnvironmentClasses and RunnerConfigurationService/GetEnvironmentClass
+// — all three read the ONE daemon substrate catalog (/v1/hypervisor/environment-classes).
+const daemonClassToIOI = (c) => ({
+  id: c.id,
+  displayName: c.display_name || c.id,
+  description: [c.substrate_class, c.minimum_isolation || c.isolation_claim || c.note].filter(Boolean).join(" • "),
+  configuration: [{ key: "substrateClass", value: c.substrate_class || "" }],
+  runnerId: "local-microvm",
+  enabled: c.enabled !== false,
+});
 const portsFromBody = (b) => {
   const candidates = [b.spec?.ports, b.req?.spec?.ports, b.ports, b.req?.ports];
   return candidates.find((ports) => Array.isArray(ports)) || [];
@@ -276,7 +301,8 @@ async function waitForRunTerminal(runId, timeoutMs = 45000) {
 
 export async function handle(pathname, bodyText, reqHeaders = {}) {
   const daemonHeaders = daemonIdentityHeaders(reqHeaders);
-  return reqCtx.run({ daemonHeaders }, () => handleImpl(pathname, bodyText));
+  const contentType = String(reqHeaders["content-type"] || reqHeaders["Content-Type"] || "");
+  return reqCtx.run({ daemonHeaders, contentType }, () => handleImpl(pathname, bodyText));
 }
 
 async function handleImpl(pathname, bodyText) {
@@ -360,40 +386,72 @@ async function handleImpl(pathname, bodyText) {
     const store = loadStore();
     // App-local preference defaults (config, not truth). The seeded shell's onboarding gate is
     // already satisfied by our org/user identity state, so no upstream onboarding flag is seeded.
-    const seedTime = { createdAt: IDENTITY.createdAt, updatedAt: IDENTITY.updatedAt };
+    const seedTime = { createdAt: LOCAL_SCOPE.seedTime, updatedAt: LOCAL_SCOPE.seedTime };
     const merged = {};
     for (const [k, v] of Object.entries(store)) merged[k] = v.value;
     const preferences = Object.entries(merged).map(([key, value]) => makePreference(key, value, store[key] || seedTime));
     return json({ pagination: {}, preferences });
   }
 
-  // ---- Identity: UserService / AccountService / OrganizationService (local single operator) ----
+  // ---- Identity: UserService / AccountService / OrganizationService (daemon truth or refusal) ----
+  // W0.5: display identity comes from the daemon whoami/principals planes or not at all. The old
+  // local-constant operator identity is gone; RPCs whose backing record has no daemon route
+  // (organization record, ToS, org policy defaults — byte-verified absent from the daemon router)
+  // refuse typed until the backend build adds the route.
+  const whoamiPrincipal = async () => {
+    const w = await daemon("GET", "/v1/hypervisor/auth/whoami");
+    return w.principal && w.principal.principal_id ? w.principal : null;
+  };
+  const identityRefusal = (e) =>
+    /-> 401$/.test(String(e?.message || ""))
+      ? jsonStatus(401, { code: "unauthenticated", message: "authentication_required: sign in to resolve the session principal" })
+      : unavailableRpc("identity_daemon_unavailable", "the daemon did not answer whoami; no local-constant identity is served");
   if (pathname === "/api/ioi.v1.UserService/GetAuthenticatedUser") {
-    // Reflect the authenticated session principal (the logged-in user), falling back to the local
-    // operator when auth isn't enforced / no session.
     try {
-      const w = await daemon("GET", "/v1/hypervisor/auth/whoami");
-      const p = w.principal;
-      if (p && p.principal_id) {
-        return json({ user: { id: p.principal_id, organizationId: IDENTITY.orgId, name: p.name || IDENTITY.name, avatarUrl: "", createdAt: p.created_at || IDENTITY.createdAt, status: p.status === "active" ? "USER_STATUS_ACTIVE" : "USER_STATUS_SUSPENDED", email: p.email || IDENTITY.email } });
-      }
-    } catch { /* fall through to operator identity */ }
-    return json({ user: { id: IDENTITY.userId, organizationId: IDENTITY.orgId, name: IDENTITY.name, avatarUrl: "", createdAt: IDENTITY.createdAt, status: "USER_STATUS_ACTIVE", email: IDENTITY.email } });
+      const p = await whoamiPrincipal();
+      if (!p) return unavailableRpc("identity_principal_unresolved", "whoami returned no principal; no local-constant identity is served");
+      return json({ user: { id: p.principal_id, organizationId: LOCAL_SCOPE.orgId, name: p.name || "", avatarUrl: "", createdAt: p.created_at || "", status: p.status === "active" ? "USER_STATUS_ACTIVE" : "USER_STATUS_SUSPENDED", email: p.email || "" } });
+    } catch (e) {
+      return identityRefusal(e);
+    }
   }
   if (pathname === "/api/ioi.v1.AccountService/GetAccount") {
-    return json({ account: { id: IDENTITY.accountId, name: IDENTITY.name, avatarUrl: "", email: IDENTITY.email, createdAt: IDENTITY.createdAt, updatedAt: IDENTITY.updatedAt, memberships: [{ userId: IDENTITY.userId, userRole: "ORGANIZATION_ROLE_ADMIN", organizationId: IDENTITY.orgId, organizationName: IDENTITY.orgName, organizationMemberCount: 1, organizationTier: "ORGANIZATION_TIER_CORE" }], publicEmailProvider: false } });
+    // Account = the whoami principal. The membership row carries only structural refs — the
+    // organization display fields (name, tier) are OMITTED, not fabricated: the W0.6 org read
+    // (GET /v1/hypervisor/organization) itself serves display_name null with the gap named.
+    try {
+      const p = await whoamiPrincipal();
+      if (!p) return unavailableRpc("identity_principal_unresolved", "whoami returned no principal; no local-constant account is served");
+      return json({ account: { id: p.principal_id, name: p.name || "", avatarUrl: "", email: p.email || "", createdAt: p.created_at || "", updatedAt: p.updated_at || p.created_at || "", memberships: [{ userId: p.principal_id, userRole: p.role === "admin" ? "ORGANIZATION_ROLE_ADMIN" : "ORGANIZATION_ROLE_MEMBER", organizationId: LOCAL_SCOPE.orgId }], publicEmailProvider: false } });
+    } catch (e) {
+      return identityRefusal(e);
+    }
   }
   if (pathname === "/api/ioi.v1.AccountService/GetChatIdentityToken") {
     return json({});
   }
   if (pathname === "/api/ioi.v1.OrganizationService/GetOrganization") {
-    return json({ organization: { id: IDENTITY.orgId, name: IDENTITY.orgName, createdAt: IDENTITY.createdAt, updatedAt: IDENTITY.updatedAt, inviteDomains: {}, tier: "ORGANIZATION_TIER_CORE" } });
+    // Daemon-backed (W0.6 landed GET /v1/hypervisor/organization): projects only what the daemon
+    // persists about the org scope. display_name is null at the daemon with the gap NAMED (no org
+    // display-name/tier record exists), so name renders as honest absence — never the former
+    // "IOI Workspace"/tier constant. tier/createdAt/inviteDomains are omitted (nothing backs them).
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/organization");
+      const org = r.organization || {};
+      return json({ organization: { id: LOCAL_SCOPE.orgId, name: org.display_name || "" } });
+    } catch (e) {
+      return unavailableRpc("org_identity_daemon_unavailable", `the daemon organization read did not answer (${e.message}); no fabricated organization is served`);
+    }
   }
   if (pathname === "/api/ioi.v1.OrganizationService/GetTermsOfService") {
-    return json({ termsOfService: { organizationId: IDENTITY.orgId } });
+    // No canonical owner defines a Terms-of-Service record (settings.md §2) — nothing is served.
+    return unavailableRpc("terms_of_service_unowned", "no canonical owner defines a Terms-of-Service record; nothing is served");
   }
   if (pathname === "/api/ioi.v1.OrganizationService/GetOrganizationPolicies") {
-    return json({ policies: { organizationId: IDENTITY.orgId, membersCreateProjects: true, maximumRunningEnvironmentsPerUser: "10", maximumEnvironmentsPerUser: "50", deleteArchivedEnvironmentsAfter: "1209600s", agentPolicy: { conversationSharingPolicy: "CONVERSATION_SHARING_POLICY_ORGANIZATION" }, securityAgentPolicy: {}, vetoExecPolicy: {}, vetoFilePolicy: {}, archiveEnvironmentsAfter: "259200s" } });
+    // The org-policy defaults family (env quotas, archive windows, sharing/veto/agent policy) is
+    // a Wave 3 daemon build (settings.md §2 route-missing row); the former response fabricated
+    // every value.
+    return unavailableRpc("org_policy_family_route_missing", "organization policy defaults have no daemon record family yet; no fabricated policy values are served");
   }
 
   // ---- EnvironmentService: real IOI daemon environments (WS-A/WS-B) ----
@@ -423,15 +481,7 @@ async function handleImpl(pathname, bodyText) {
       }
       case "/api/ioi.v1.EnvironmentService/ListEnvironmentClasses": {
         const r = await daemon("GET", "/v1/hypervisor/environment-classes");
-        const classes = (r.environmentClasses || []).map((c) => ({
-          id: c.id,
-          displayName: c.display_name || c.id,
-          description: [c.substrate_class, c.minimum_isolation || c.isolation_claim || c.note].filter(Boolean).join(" • "),
-          configuration: [{ key: "substrateClass", value: c.substrate_class || "" }],
-          runnerId: "local-microvm",
-          enabled: c.enabled !== false,
-        }));
-        return json({ pagination: {}, environmentClasses: classes });
+        return json({ pagination: {}, environmentClasses: (r.environmentClasses || []).map(daemonClassToIOI) });
       }
       case "/api/ioi.v1.EnvironmentService/StartEnvironment":
         return json({ environment: daemonEnvToIOI(await act(envIdFromBody(body), "start")) });
@@ -477,9 +527,14 @@ async function handleImpl(pathname, bodyText) {
         return json({ accessToken: lease.accessToken || lease.lease_id });
       }
       case "/api/ioi.v1.EnvironmentService/CreateEnvironmentLogsToken":
-        return json({ accessToken: `ioi-env-token-${envIdFromBody(body)}` });
+        // No daemon logs-token route exists (byte-verified); the former handler minted a made-up
+        // constant. Logs themselves read via GET /v1/hypervisor/environments/:id/logs; a scoped
+        // token plane is a named backend gap.
+        return unavailableRpc("environment_logs_token_route_missing", "the daemon has no environment logs-token route; no fabricated token is minted");
       case "/api/ioi.v1.EnvironmentService/MarkEnvironmentActive":
-        return json({});
+        // Canon names mark_active as an environment-ops verb (providers-and-environments.md:528)
+        // but no daemon route exists — the former handler returned success without doing anything.
+        return unavailableRpc("environment_mark_active_route_missing", "the daemon has no mark-active route; nothing was marked active");
       case "/api/ioi.v1.EnvironmentService/ArchiveEnvironment":
         return json({ environment: daemonEnvToIOI(await act(envIdFromBody(body), "archive")) });
       case "/api/ioi.v1.EnvironmentService/UnarchiveEnvironment":
@@ -488,8 +543,11 @@ async function handleImpl(pathname, bodyText) {
         break;
     }
   } catch (e) {
-    console.error("[ioi-api-adapter] daemon env call failed, proxying:", e.message);
-    return null;
+    // W0.5: a failed daemon env call refuses typed — the fixture lane must never answer for the
+    // live environment plane (fixture rows presented as environments would be placeholder data).
+    console.error("[ioi-api-adapter] daemon env call failed closed:", e.message);
+    if (/-> 404$/.test(e.message)) return jsonStatus(404, { code: "not_found", message: "the daemon has no such environment" });
+    return unavailableRpc("environment_daemon_unavailable", `the daemon environment plane did not answer (${e.message}); no fixture environments are served`);
   }
 
   // ---- AgentService: real IOI daemon threads/turns (Session) ----
@@ -634,27 +692,35 @@ async function handleImpl(pathname, bodyText) {
     // The compose flow filters runners to RUNNER_KIND_REMOTE (environments run on a remote-shaped
     // host). Our local provider IS that host for the served app, so present it as a REMOTE runner —
     // otherwise the env class has no supported runner and shows "Unsupported" (unselectable).
+    // Daemon down => typed refusal, not an empty list masquerading as "no runners".
     try {
       return json({ pagination: {}, runners: await listProjectedRunners() });
-    } catch {
-      return json({ pagination: {}, runners: [] });
+    } catch (e) {
+      return unavailableRpc("runner_daemon_unavailable", `the daemon provider plane did not answer (${e.message}); runner availability is unknown, not empty`);
     }
   }
   if (pathname === "/api/ioi.v1.RunnerService/GetRunner") {
+    // W0.5: an unknown runner id refuses 404 — the former handler fabricated an "available"
+    // runner for ANY requested id.
+    const runnerId = body.runnerId || body.runner_id || "local-microvm";
     try {
-      const runnerId = body.runnerId || body.runner_id || "local-microvm";
-      const runner = (await listProjectedRunners()).find((r) => r.runnerId === runnerId) || runnerFromProvider({ provider_ref: runnerId, reason: runnerId, status: "available" });
+      const runner = (await listProjectedRunners()).find((r) => r.runnerId === runnerId);
+      if (!runner) return jsonStatus(404, { code: "not_found", message: `runner ${runnerId} is not a daemon provider` });
       return json({ runner });
-    } catch {
-      return json({ runner: runnerFromProvider({ provider_ref: body.runnerId || body.runner_id || "local-microvm", reason: "local microVM node", status: "available" }) });
+    } catch (e) {
+      return unavailableRpc("runner_daemon_unavailable", `the daemon provider plane did not answer (${e.message})`);
     }
   }
   if (pathname === "/api/ioi.v1.RunnerService/CreateRunner") {
+    // A local deployment does not create runners; the SPA's setup flow resolves to the already-
+    // registered active daemon provider. Daemon down / no active provider => typed refusal (the
+    // former handler fabricated an active runner from nothing).
     try {
-      const runner = (await listProjectedRunners()).find((x) => x.status?.phase === "RUNNER_PHASE_ACTIVE") || runnerFromProvider();
+      const runner = (await listProjectedRunners()).find((x) => x.status?.phase === "RUNNER_PHASE_ACTIVE");
+      if (!runner) return unavailableRpc("runner_provider_unavailable", "no daemon provider reports available; no runner is fabricated");
       return json({ runner });
-    } catch {
-      return json({ runner: runnerFromProvider() });
+    } catch (e) {
+      return unavailableRpc("runner_daemon_unavailable", `the daemon provider plane did not answer (${e.message})`);
     }
   }
   if (pathname === "/api/ioi.v1.RunnerService/ParseContextURL") {
@@ -663,15 +729,15 @@ async function handleImpl(pathname, bodyText) {
     return json(parsed);
   }
   if (pathname === "/api/ioi.v1.RunnerManagerService/ListAvailableRunnerManagers") {
-    // A local deployment exposes ONE runner manager: the local node that hosts environments (the
-    // same provider ListRunners projects as a runner). Region "local" — no cloud regions to pick.
-    return json({ pagination: {}, runnerManagers: [{ runnerManagerId: "local-runner-manager", name: "IOI Local (microVM)", region: "local" }] });
+    // No runner-manager family exists in the daemon (byte-verified: no route). The former
+    // handler returned a hand-written "IOI Local (microVM)" manager row; the single-node truth
+    // already lives on the runners list itself.
+    return unavailableRpc("runner_manager_route_missing", "the daemon has no runner-manager family; no hand-written manager row is served");
   }
   if (pathname === "/api/ioi.v1.RunnerService/CreateRunnerLogsToken") {
-    // Scoped access token for viewing a runner's logs. The local runner's logs are the daemon's;
-    // mint a local token (streaming the logs themselves is a follow-up, like EventService streaming).
-    const runnerId = body.runnerId || body.runner_id || "local-microvm";
-    return json({ accessToken: `ioi_runnerlogs_${Buffer.from(runnerId).toString("hex").slice(0, 24)}` });
+    // No daemon runner-logs-token route exists (byte-verified); the former handler minted a
+    // local constant token that unlocked nothing.
+    return unavailableRpc("runner_logs_token_route_missing", "the daemon has no runner-logs-token route; no fabricated token is minted");
   }
 
   // ---- EditorService: real daemon editor targets (vscode / insiders / browser) ----
@@ -722,13 +788,13 @@ async function handleImpl(pathname, bodyText) {
                 (p.repository_url || "").toLowerCase().includes(search),
             );
           }
-          return json({ pagination: {}, projects: records.map((p) => daemonProjectToIOI(p, IDENTITY.orgId)) });
+          return json({ pagination: {}, projects: records.map((p) => daemonProjectToIOI(p, LOCAL_SCOPE.orgId)) });
         }
         if (op === "GetProject") {
           const id = projectIdFromBody(body);
           const r = await daemon("GET", `/v1/hypervisor/projects/${encodeURIComponent(id)}`);
           if (!r.ok || !r.project) return jsonStatus(404, { code: "not_found", message: `project ${id} not found` });
-          return json({ project: daemonProjectToIOI(r.project, IDENTITY.orgId) });
+          return json({ project: daemonProjectToIOI(r.project, LOCAL_SCOPE.orgId) });
         }
         if (op === "CreateProject") {
           // Translate the SPA's create request (camelCase initializer.specs[].git) to the
@@ -751,7 +817,7 @@ async function handleImpl(pathname, bodyText) {
             records[records.length - 1] ||
             created.record ||
             createBody;
-          return json({ project: daemonProjectToIOI(record, IDENTITY.orgId) });
+          return json({ project: daemonProjectToIOI(record, LOCAL_SCOPE.orgId) });
         }
         if (op === "DeleteProject") {
           const id = projectIdFromBody(body);
@@ -770,15 +836,7 @@ async function handleImpl(pathname, bodyText) {
       // daemon substrate catalog (same EnvironmentClass shape as EnvironmentService/ListEnvironmentClasses).
       try {
         const r = await daemon("GET", "/v1/hypervisor/environment-classes");
-        const environmentClasses = (r.environmentClasses || []).map((c) => ({
-          id: c.id,
-          displayName: c.display_name || c.id,
-          description: [c.substrate_class, c.minimum_isolation || c.isolation_claim].filter(Boolean).join(" • "),
-          configuration: [{ key: "substrateClass", value: c.substrate_class || "" }],
-          runnerId: "local-microvm",
-          enabled: c.enabled !== false,
-        }));
-        return json({ pagination: {}, environmentClasses });
+        return json({ pagination: {}, environmentClasses: (r.environmentClasses || []).map(daemonClassToIOI) });
       } catch {
         return json({ pagination: {}, environmentClasses: [] });
       }
@@ -792,36 +850,31 @@ async function handleImpl(pathname, bodyText) {
   // the honest local truth (NOT the mock's fabricated rows). Identity-derived surfaces (members,
   // org-members group) reflect the single local operator. ----
   if (pathname === "/api/ioi.v1.ServiceAccountService/ListServiceAccounts") {
-    // The org's service accounts (identities environments are created/operated under). A local
-    // single-operator deployment has one system-managed account = the Hypervisor automation identity.
-    return json({ pagination: {}, serviceAccounts: [{
-      id: "00000000-0000-4000-8000-0000000005a0",
-      organizationId: IDENTITY.orgId,
-      name: "IOI Hypervisor",
-      description: "System-managed Hypervisor service account for automated environment operations",
-      creator: { id: IDENTITY.userId, principal: "PRINCIPAL_USER" },
-      createdAt: IDENTITY.createdAt,
-      validUntil: "2099-12-31T23:59:59Z",
-      systemManaged: true,
-    }] });
+    // No service-account family exists in the daemon (byte-verified: no route). The former
+    // handler returned one hardcoded "IOI Hypervisor" system row — placeholder data. If the
+    // identity plane grows a service-account kind on principals, this projects it instead.
+    return unavailableRpc("service_account_family_route_missing", "the daemon has no service-account family; no hardcoded system account is served");
   }
   if (pathname === "/api/ioi.v1.UserService/GetDotfilesConfiguration") {
     return json({ dotfilesConfiguration: { repository: "" } });
   }
   if (pathname === "/api/ioi.v1.OrganizationService/ListMembers") {
     // Real multi-user roster — projected from the daemon principals plane (active members only).
+    // W0.5: the constant single-operator fallback row is gone — daemon down refuses typed, and an
+    // empty roster is served as empty (the daemon seeds the operator principal itself).
     try {
       const r = await daemon("GET", "/v1/hypervisor/principals");
       const members = (r.principals || []).filter((p) => p.status === "active").map((p) => ({
         userId: p.principal_id, role: p.role === "admin" ? "ORGANIZATION_ROLE_ADMIN" : "ORGANIZATION_ROLE_MEMBER",
         memberSince: p.created_at, avatarUrl: "", fullName: p.name, email: p.email, status: "USER_STATUS_ACTIVE", loginProvider: p.source || "local",
       }));
-      if (members.length) return json({ pagination: {}, members });
-    } catch { /* fall through to the single operator */ }
-    return json({ pagination: {}, members: [{ userId: IDENTITY.userId, role: "ORGANIZATION_ROLE_ADMIN", memberSince: IDENTITY.createdAt, avatarUrl: "", fullName: IDENTITY.name, email: IDENTITY.email, status: "USER_STATUS_ACTIVE", loginProvider: "local" }] });
+      return json({ pagination: {}, members });
+    } catch (e) {
+      return unavailableRpc("identity_daemon_unavailable", `the daemon principals plane did not answer (${e.message}); no constant member row is served`);
+    }
   }
   if (pathname === "/api/ioi.v1.GroupService/GetGroup") {
-    return json({ group: { id: IDENTITY.groupId, organizationId: IDENTITY.orgId, name: "org-members", systemManaged: true, createdAt: IDENTITY.createdAt, updatedAt: IDENTITY.updatedAt, memberCount: 1 } });
+    return json({ group: { id: LOCAL_SCOPE.groupId, organizationId: LOCAL_SCOPE.orgId, name: "org-members", systemManaged: true, createdAt: LOCAL_SCOPE.seedTime, updatedAt: LOCAL_SCOPE.seedTime, memberCount: 1 } });
   }
   if (pathname === "/api/ioi.v1.GroupService/ListGroups") {
     return json({ pagination: {} });
@@ -830,12 +883,39 @@ async function handleImpl(pathname, bodyText) {
     return json({ pagination: {}, assignments: [] });
   }
   if (pathname === "/api/ioi.v1.RunnerConfigurationService/ListSCMIntegrations") {
-    // Surface a github.com SCM integration so the native Git-authentications surface offers
-    // connecting GitHub (PAT). Backed by the daemon SCM connector model.
-    return json({ pagination: {}, integrations: [{
-      id: "scmint-github", runnerId: "local-microvm", scmId: "github", host: "github.com",
-      issuerUrl: "https://github.com", oauthClientId: "", pat: true,
-    }] });
+    // The github.com SCM integration row, projected from the daemon SCM connector plane instead
+    // of the former hand-written constant. GitHub PAT connect is a real daemon capability (POST
+    // /v1/hypervisor/scm-connect/github); the row's identity carries the bound daemon connector
+    // when one exists. Daemon down => typed refusal, never a hand-written row.
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/scm-connectors");
+      const gh = (r.connectors || []).find((c) => c.kind === "github" && c.host_level);
+      const host = gh?.host || "github.com";
+      return json({ pagination: {}, integrations: [{
+        id: gh?.connector_id || "scm-github", runnerId: "local-microvm", scmId: "github", host,
+        issuerUrl: `https://${host}`, oauthClientId: "", pat: true,
+      }] });
+    } catch (e) {
+      return unavailableRpc("scm_connector_daemon_unavailable", `the daemon SCM connector plane did not answer (${e.message}); no hand-written integration row is served`);
+    }
+  }
+  if (pathname === "/api/ioi.v1.RunnerConfigurationService/GetEnvironmentClass") {
+    // W0.5: formerly fixture-only. The one daemon substrate catalog answers by id — same
+    // projection as the two List RPCs; unknown id refuses 404, never the fixture "Small" class.
+    const classId = body.environmentClassId || body.environment_class_id || body.id || "";
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/environment-classes");
+      const c = (r.environmentClasses || []).find((x) => x.id === classId);
+      if (!c) return jsonStatus(404, { code: "not_found", message: `environment class ${classId || "(unspecified)"} is not in the daemon catalog` });
+      return json({ environmentClass: daemonClassToIOI(c) });
+    } catch (e) {
+      return unavailableRpc("environment_class_daemon_unavailable", `the daemon substrate catalog did not answer (${e.message}); no fixture class is served`);
+    }
+  }
+  if (pathname.startsWith("/api/ioi.v1.InsightsService/")) {
+    // W0.5: formerly the mock fallthrough (fixture body `{}` for GetProjectInsightsStatus).
+    // Insights has no daemon family at all (byte-verified: no route) — named gap, honest refusal.
+    return unavailableRpc("insights_family_route_missing", "the daemon has no insights family; the pane renders a named gap instead of fixture data");
   }
   if (pathname === "/api/ioi.v1.RunnerConfigurationService/CreateHostAuthenticationToken") {
     // The native "Connect GitHub" PAT submit. Validate + SEAL the token via the daemon connect
@@ -852,7 +932,7 @@ async function handleImpl(pathname, bodyText) {
       r = await resp.json().catch(() => ({}));
     } catch (e) { return jsonStatus(502, { code: "unavailable", message: `github connect failed: ${e.message}` }); }
     if (!r.ok) return jsonStatus(401, { code: "unauthenticated", message: r.reason || "github rejected the token" });
-    return json({ token: { id: r.connector_id || "scm_host_github", runnerId: "local-microvm", host, scmId: "github", userId: IDENTITY.userId, source: "HOST_AUTHENTICATION_TOKEN_SOURCE_PAT", expiresAt: undefined } });
+    return json({ token: { id: r.connector_id || "scm_host_github", runnerId: "local-microvm", host, scmId: "github", userId: LOCAL_SCOPE.userId, source: "HOST_AUTHENTICATION_TOKEN_SOURCE_PAT", expiresAt: undefined } });
   }
   if (pathname === "/api/ioi.v1.PrebuildService/ListPrebuilds") {
     return json({ pagination: {} });
@@ -924,12 +1004,13 @@ async function handleImpl(pathname, bodyText) {
     return json({});
   }
   if (pathname === "/api/ioi.v1.BillingService/ListSubscriptions") {
-    // Self-hosted entitlement posture — one active, non-expiring "sovereign" contract (no SaaS plan,
-    // no payment). Replaces the mock cancelled subscription.
-    return json({ subscriptions: [{ contractId: "ioi-self-hosted", subscriptionType: "SUBSCRIPTION_TYPE_CORE", status: "SUBSCRIPTION_STATUS_ACTIVE", startsAt: IDENTITY.createdAt, endsAt: "2099-12-31T23:59:59Z" }] });
+    // A self-hosted deployment holds no SaaS subscriptions — empty is the honest truth (W0.5:
+    // the fabricated non-expiring "sovereign contract" row is gone; the settings build replaces
+    // this pane with a deployment-posture line from /v1/hypervisor/auth/policy).
+    return json({ subscriptions: [] });
   }
   if (pathname === "/api/ioi.v1.OrganizationService/GetAnnouncementBanner") {
-    return json({ banner: { organizationId: IDENTITY.orgId } });
+    return json({ banner: { organizationId: LOCAL_SCOPE.orgId } });
   }
   // ---- OrganizationService: OIDC login config (real CRUD, client_secret sealed in the daemon) +
   // honest-local team-identity surfaces. SSO/SCIM/custom-domain/domain-verification/invite presuppose
@@ -960,7 +1041,7 @@ async function handleImpl(pathname, bodyText) {
     try {
       const r = await daemon("GET", "/v1/hypervisor/sso-configurations");
       const cfgs = (r.sso_configurations || []).map((c) => ({
-        id: c.sso_id, organizationId: IDENTITY.orgId, issuerUrl: c.issuer_url,
+        id: c.sso_id, organizationId: LOCAL_SCOPE.orgId, issuerUrl: c.issuer_url,
         state: c.state === "active" ? "SSO_CONFIGURATION_STATE_ACTIVE" : "SSO_CONFIGURATION_STATE_INACTIVE",
         providerType: "PROVIDER_TYPE_OIDC", displayName: c.display_name, emailDomain: c.email_domain || "",
       }));
@@ -976,7 +1057,7 @@ async function handleImpl(pathname, bodyText) {
     try {
       const r = await daemon("POST", "/v1/hypervisor/sso-configurations", { issuer_url: issuerUrl, client_id: clientId, client_secret: body.clientSecret || body.client_secret || "", email_domain: body.emailDomain || body.email_domain || "", display_name: body.displayName || body.display_name || issuerUrl });
       const c = r.sso_configuration || {};
-      return json({ ssoConfiguration: { id: c.sso_id, organizationId: IDENTITY.orgId, issuerUrl: c.issuer_url, state: "SSO_CONFIGURATION_STATE_ACTIVE", providerType: "PROVIDER_TYPE_OIDC", displayName: c.display_name, emailDomain: c.email_domain || "" } });
+      return json({ ssoConfiguration: { id: c.sso_id, organizationId: LOCAL_SCOPE.orgId, issuerUrl: c.issuer_url, state: "SSO_CONFIGURATION_STATE_ACTIVE", providerType: "PROVIDER_TYPE_OIDC", displayName: c.display_name, emailDomain: c.email_domain || "" } });
     } catch (e) {
       return jsonStatus(502, { code: "unavailable", message: `failed to create SSO configuration: ${e.message}` });
     }
@@ -990,7 +1071,7 @@ async function handleImpl(pathname, bodyText) {
   if (pathname === "/api/ioi.v1.OrganizationService/ListSCIMConfigurations") {
     try {
       const r = await daemon("GET", "/v1/hypervisor/scim-configurations");
-      const cfgs = (r.scim_configurations || []).map((c) => ({ id: c.scim_id, organizationId: IDENTITY.orgId, name: c.name || "SCIM provisioning", baseUrl: c.base_url || "/scim/v2", enabled: c.enabled !== false, ssoConfigurationId: c.sso_configuration_id || "" }));
+      const cfgs = (r.scim_configurations || []).map((c) => ({ id: c.scim_id, organizationId: LOCAL_SCOPE.orgId, name: c.name || "SCIM provisioning", baseUrl: c.base_url || "/scim/v2", enabled: c.enabled !== false, ssoConfigurationId: c.sso_configuration_id || "" }));
       return json({ pagination: {}, scimConfigurations: cfgs });
     } catch {
       return json({ pagination: {} });
@@ -1002,7 +1083,7 @@ async function handleImpl(pathname, bodyText) {
     try {
       const r = await daemon("POST", "/v1/hypervisor/scim-configurations", { scim_id: "scim-config", name: body.name || "SCIM provisioning", sso_configuration_id: body.ssoConfigurationId || "" });
       const c = r.scim_configuration || {};
-      return json({ scimConfiguration: { id: c.scim_id, organizationId: IDENTITY.orgId, name: c.name || body.name || "SCIM provisioning", baseUrl: c.base_url || "/scim/v2", enabled: true, ssoConfigurationId: body.ssoConfigurationId || "", bearerToken: r.token } });
+      return json({ scimConfiguration: { id: c.scim_id, organizationId: LOCAL_SCOPE.orgId, name: c.name || body.name || "SCIM provisioning", baseUrl: c.base_url || "/scim/v2", enabled: true, ssoConfigurationId: body.ssoConfigurationId || "", bearerToken: r.token } });
     } catch (e) {
       return jsonStatus(502, { code: "unavailable", message: `failed to create SCIM configuration: ${e.message}` });
     }
@@ -1011,7 +1092,7 @@ async function handleImpl(pathname, bodyText) {
     try {
       const r = await daemon("GET", "/v1/hypervisor/scim-configurations");
       const c = (r.scim_configurations || [])[0] || {};
-      return json({ scimConfiguration: { id: c.scim_id || body.scimConfigurationId, organizationId: IDENTITY.orgId, name: body.name || c.name || "SCIM provisioning", baseUrl: c.base_url || "/scim/v2", enabled: body.enabled !== false, ssoConfigurationId: body.ssoConfigurationId || "" } });
+      return json({ scimConfiguration: { id: c.scim_id || body.scimConfigurationId, organizationId: LOCAL_SCOPE.orgId, name: body.name || c.name || "SCIM provisioning", baseUrl: c.base_url || "/scim/v2", enabled: body.enabled !== false, ssoConfigurationId: body.ssoConfigurationId || "" } });
     } catch {
       return json({ scimConfiguration: { id: body.scimConfigurationId, enabled: body.enabled !== false } });
     }
@@ -1036,7 +1117,7 @@ async function handleImpl(pathname, bodyText) {
     try { await daemon("PUT", "/v1/hypervisor/custom-domain", { domain: "" }); } catch { /* idempotent */ }
     return json({});
   }
-  const dvToIOI = (d) => ({ id: d.id, organizationId: IDENTITY.orgId, domain: d.domain, verified: !!d.verified, state: d.verified ? "DOMAIN_VERIFICATION_STATE_VERIFIED" : "DOMAIN_VERIFICATION_STATE_PENDING", recordName: d.record_name || "@", recordType: d.record_type || "TXT", recordValue: d.verification_token, verificationToken: d.verification_token });
+  const dvToIOI = (d) => ({ id: d.id, organizationId: LOCAL_SCOPE.orgId, domain: d.domain, verified: !!d.verified, state: d.verified ? "DOMAIN_VERIFICATION_STATE_VERIFIED" : "DOMAIN_VERIFICATION_STATE_PENDING", recordName: d.record_name || "@", recordType: d.record_type || "TXT", recordValue: d.verification_token, verificationToken: d.verification_token });
   if (pathname === "/api/ioi.v1.OrganizationService/ListDomainVerifications") {
     try { const r = await daemon("GET", "/v1/hypervisor/domain-verifications"); return json({ pagination: {}, domainVerifications: (r.domain_verifications || []).map(dvToIOI) }); }
     catch { return json({ pagination: {} }); }
@@ -1059,16 +1140,16 @@ async function handleImpl(pathname, bodyText) {
   }
   if (pathname === "/api/ioi.v1.OrganizationService/GetOrganizationInvite") {
     // The org's standing invite link (real). Accepting it provisions a member (serve /__ioi/invite/:id).
-    try { const r = await daemon("GET", "/v1/hypervisor/org-invite"); return json({ invite: { inviteId: r.invite?.invite_id, organizationId: IDENTITY.orgId } }); }
+    try { const r = await daemon("GET", "/v1/hypervisor/org-invite"); return json({ invite: { inviteId: r.invite?.invite_id, organizationId: LOCAL_SCOPE.orgId } }); }
     catch { return json({}); }
   }
   if (pathname === "/api/ioi.v1.OrganizationService/CreateOrganizationInvite" || pathname === "/api/ioi.v1.OrganizationService/ResetOrganizationInvite") {
-    try { const r = await daemon("POST", "/v1/hypervisor/org-invite"); return json({ invite: { inviteId: r.invite?.invite_id, organizationId: IDENTITY.orgId } }); }
+    try { const r = await daemon("POST", "/v1/hypervisor/org-invite"); return json({ invite: { inviteId: r.invite?.invite_id, organizationId: LOCAL_SCOPE.orgId } }); }
     catch (e) { return jsonStatus(502, { code: "unavailable", message: e.message }); }
   }
   if (pathname === "/api/ioi.v1.OrganizationService/JoinOrganization") {
     // An already-authenticated principal is already a member in this single-org deployment → ack.
-    return json({ member: { userId: IDENTITY.userId, organizationId: IDENTITY.orgId } });
+    return json({ member: { userId: LOCAL_SCOPE.userId, organizationId: LOCAL_SCOPE.orgId } });
   }
   if (pathname === "/api/ioi.v1.IntegrationService/ListIntegrations") {
     // Project the daemon's MCP connectors (kind: mcp) onto the native Integrations surface. Only MCP
@@ -1216,7 +1297,7 @@ async function handleImpl(pathname, bodyText) {
       const r = await daemon("GET", "/v1/hypervisor/scm-connectors");
       const tokens = (r.connectors || [])
         .filter((c) => c.kind === "github" && c.host_level && c.auth_posture === "token-lease:bound")
-        .map((c) => ({ id: c.connector_id, runnerId: "local-microvm", host: c.host || "github.com", scmId: "github", userId: IDENTITY.userId, source: "HOST_AUTHENTICATION_TOKEN_SOURCE_PAT" }));
+        .map((c) => ({ id: c.connector_id, runnerId: "local-microvm", host: c.host || "github.com", scmId: "github", userId: LOCAL_SCOPE.userId, source: "HOST_AUTHENTICATION_TOKEN_SOURCE_PAT" }));
       return json({ pagination: {}, tokens });
     } catch {
       return json({ pagination: {}, tokens: [] });
@@ -1239,7 +1320,7 @@ async function handleImpl(pathname, bodyText) {
   // tokens"). The token value is never listed or recoverable after creation. ----
   const daemonTokenToIOI = (t) => ({
     id: t.token_id,
-    userId: t.user_id || IDENTITY.userId,
+    userId: t.user_id || LOCAL_SCOPE.userId,
     description: t.description,
     readOnly: !!t.read_only,
     createdAt: t.created_at,
@@ -1251,7 +1332,7 @@ async function handleImpl(pathname, bodyText) {
     try {
       const r = await daemon("GET", "/v1/hypervisor/api-tokens");
       let tokens = (r.tokens || []);
-      if (wantUsers.length) tokens = tokens.filter((t) => wantUsers.includes(t.user_id || IDENTITY.userId));
+      if (wantUsers.length) tokens = tokens.filter((t) => wantUsers.includes(t.user_id || LOCAL_SCOPE.userId));
       return json({ pagination: {}, personalAccessTokens: tokens.map(daemonTokenToIOI) });
     } catch {
       return json({ pagination: {}, personalAccessTokens: [] });
@@ -1263,7 +1344,7 @@ async function handleImpl(pathname, bodyText) {
     try {
       const r = await daemon("POST", "/v1/hypervisor/api-tokens", {
         description,
-        user_id: body.userId || body.user_id || IDENTITY.userId,
+        user_id: body.userId || body.user_id || LOCAL_SCOPE.userId,
         read_only: body.readOnly ?? body.read_only ?? false,
         valid_for: body.validFor ?? body.valid_for ?? "2592000s",
       });
@@ -1289,8 +1370,18 @@ async function handleImpl(pathname, bodyText) {
     return json({ pagination: {} });
   }
 
-  // Not yet IOI-backed -> proxy to the product-ui bundle. Remaining (see reference-api-
-  // integration.md): ProjectService (daemon needs a project-list GET), EventService
-  // streaming bridge, approvals/reviews surfacing.
+  // W0.5 — no mock fallthrough. Every `/api/ioi.v1.*` RPC the adapter does not own above refuses
+  // typed: the wildcard `{}` mock was a silent-success lie and the fixture files are placeholder
+  // data; neither is reachable through the RPC surface any more. Streaming calls get the typed
+  // error in-band (end-stream frame); unary calls get the Connect error body. Only non-RPC /api
+  // paths still return null for the serve proxy.
+  const rpc = pathname.match(/^\/api\/(ioi\.v1\.[A-Za-z]+\/[A-Za-z]+)$/);
+  if (rpc) {
+    const message = `adapter_unmatched_rpc: ${rpc[1]} has no daemon-backed lane in this deployment; it refuses rather than serve fixture or wildcard-mock data`;
+    if ((reqCtx.getStore()?.contentType || "").includes("application/connect+json")) {
+      return connectStreamError("unimplemented", message);
+    }
+    return jsonStatus(501, { code: "unimplemented", message });
+  }
   return null;
 }

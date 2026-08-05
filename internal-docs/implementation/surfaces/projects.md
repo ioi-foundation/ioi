@@ -76,11 +76,15 @@ emission on project create/delete.
   daemon substrate catalog (ioi-api-adapter.mjs:768+). The daemon record
   carries the automation-ready hooks (`automation_refs` / `*_policy_ref`)
   server-side, not in the SPA projection (ioi-api-adapter.mjs:703-706).
-- **Stale bytes to delete**: the adapter's tail comment still claims
+- **Stale bytes to delete**: ~~the adapter's tail comment still claims
   "Remaining …: ProjectService (daemon needs a project-list GET)"
   (ioi-api-adapter.mjs:1292-1294) — contradicted by its own :703-767.
   Unmatched RPCs (e.g. `InsightsService`, an SPA rail item) fall through to
-  the mock product-ui bundle (ioi-api-adapter.mjs:1295).
+  the mock product-ui bundle (ioi-api-adapter.mjs:1295).~~ **DONE at W0.5
+  (2026-08-05): the stale tail comment is deleted; unmatched `ioi.v1.*` RPCs
+  refuse typed (501 `unimplemented`, streaming calls get the in-band error
+  frame) — the fixture/wildcard-mock lane is unreachable through the RPC
+  surface; `InsightsService` refuses `insights_family_route_missing`.**
 - **T2**: no dedicated `/__ioi` Projects readout; project context appears
   operationally through the workbench (`/details/:env`) and the
   project-scoped automations plane.
@@ -130,7 +134,7 @@ named-field sites were found in the Project lanes audited here.
 | Import/discovery flow (repo scan → proposal → accept) | `HypervisorProjectDiscoveryProposal` (canon :1609-1615) | absent | `disabled-named-gap` → W3 family |
 | Project memory / connectors / policy-default panes | memory-spaces + connector routes exist under their owners (canon :1014-1017) | absent | `wired-read` projections (W2); writes route to owners via authority client or stay `disabled-named-gap` |
 | Rename/edit project metadata | no PATCH route | absent | `disabled-named-gap` → W3 update plane |
-| Insights rail item (SPA) | mock fallthrough (ioi-api-adapter.mjs:1292-1295) | dead (fixture) | `disabled-named-gap` or `delete` at W0.5 — never fixture-as-truth |
+| Insights rail item (SPA) | no daemon family | **typed refusal (W0.5)** — `InsightsService/*` answers `insights_family_route_missing`; mock fallthrough unreachable | `disabled-named-gap` — done (pane deletion decided at cutover) |
 
 ## 5. Ordered PR list
 
@@ -138,11 +142,12 @@ named-field sites were found in the Project lanes audited here.
    workspace; verify typed Project context (query/hash/back-stack) survives
    the v2 router; rail entry from compiler `workspace_entries`
    (lifecycle_routes.rs:6042-6057). Smallest step of the six workspaces.
-2. **W0 (W0.5 slice)** — adapter hygiene: delete the stale "ProjectService
-   not yet IOI-backed" tail comment (ioi-api-adapter.mjs:1292-1294); route
-   `InsightsService` to honest absence (named gap) instead of the mock
-   fallthrough; decide `ListSCMIntegrations`' hand-shaped row (back by daemon
-   SCM connector read or name the gap).
+2. **W0 (W0.5 slice) — DONE 2026-08-05** — adapter hygiene: stale tail comment
+   deleted; `InsightsService` refuses typed (`insights_family_route_missing`);
+   `ListSCMIntegrations` decided: backed by the daemon SCM connector read
+   (`/v1/hypervisor/scm-connectors`, PAT capability = the real
+   `/v1/hypervisor/scm-connect/github` route), typed refusal when the daemon
+   is down.
 3. **W1** — Project detail context panes, read-first: automations-of-project
    (`?project_ref=`), linked-Systems (projection read, client-side link),
    env-class picker retained; honest empty states throughout.

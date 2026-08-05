@@ -6745,16 +6745,20 @@ process.on("SIGTERM", () => productUi.kill("SIGTERM"));
 process.on("unhandledRejection", (e) => console.error("[hypervisor] unhandled rejection (estate kept alive):", e));
 process.on("uncaughtException", (e) => console.error("[hypervisor] uncaught exception (estate kept alive):", e));
 
-// IOI product identity overrides applied to proxied HTML/JSON (the reference ships a demo
-// identity; we substitute ours). Applied in the committed serve layer so it survives productUi
-// regeneration and never edits the gitignored snapshot.
-const IDENTITY_REWRITES = [
-  ["Levi Josman", "John Doe"],
-  ["josmanlevi", "johndoe"],
+// W0.5 identity truth: the former IDENTITY_REWRITES table (demo-identity display-name
+// substitution on proxied HTML/JSON) is deleted — display names come from the daemon through
+// the adapter's whoami/principals projections, or not at all. The captured shell's PRE-RENDERED
+// HTML still carries the upstream demo identity as static text until the SPA hydrates from the
+// daemon-backed RPCs; that captured residue is DELETED (honest absence), never substituted with
+// another fabricated name. This is a declared transform on the capture, not an identity source.
+const CAPTURED_DEMO_IDENTITY_STRINGS = [
+  "Levi Josman's Workspace 320",
+  "Levi Josman",
+  "josmanlevi",
 ];
-function rewriteIdentity(text) {
-  let out = text;
-  for (const [from, to] of IDENTITY_REWRITES) out = out.split(from).join(to);
+function stripCapturedDemoIdentity(html) {
+  let out = html;
+  for (const s of CAPTURED_DEMO_IDENTITY_STRINGS) out = out.split(s).join("");
   return out;
 }
 
@@ -6813,9 +6817,8 @@ function proxyToProductUi(req, res, body) {
       r.on("data", (c) => parts.push(c));
       r.on("end", () => {
         let text = Buffer.concat(parts).toString("utf8");
-        if (renameJs) text = renameApiTokens(text); // JS bundle: rename only, no identity/HTML rewrite
-        else text = rewriteIdentity(text);
-        if (!renameJs && ct.includes("text/html")) text = augmentHtml(localizeAssetBase(text)); // localize CDN base + WS-I inject
+        if (renameJs) text = renameApiTokens(text); // JS bundle: rename only, no HTML rewrite
+        if (!renameJs && ct.includes("text/html")) text = augmentHtml(localizeAssetBase(stripCapturedDemoIdentity(text))); // demo-identity residue deleted + localize CDN base + WS-I inject
         const out = Buffer.from(text, "utf8");
         const outHeaders = { ...r.headers, "content-length": String(out.length) };
         // We send a fixed-length body, so drop any chunked/encoding headers from upstream
