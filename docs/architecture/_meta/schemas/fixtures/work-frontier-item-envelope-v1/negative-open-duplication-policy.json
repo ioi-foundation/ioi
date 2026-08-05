@@ -1,0 +1,12 @@
+{
+  "schema_version": "ioi.foundations.work-frontier-item-envelope.v1",
+  "frontier_item_id": "frontier://room/outcome-1/item/7",
+  "system_binding": {
+    "system_id": "system://ioi/hypervisor"
+  },
+  "item_kind": "verification_need",
+  "objective": "Reproduce the reported refusal on a real subject.",
+  "duplication_policy": "whatever_the_caller_wants",
+  "claimability": "open",
+  "status": "open"
+}

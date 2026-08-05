@@ -7576,6 +7576,53 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
+      "canonical_name": "WorkFrontierItemEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/collaborative-pursuit.md#workfrontieritemenvelope",
+      "schema_version": "ioi.foundations.work-frontier-item-envelope.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "work-frontier-item-envelope.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "WorkFrontierItemEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "WorkFrontierItemEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/work-frontier-item-envelope-v1/positive-minimal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }
