@@ -186,6 +186,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/work-lifecycle-record/v1", "sha256:b04465b2aba647773c44bf8631d2d03f91a7aa6dbb1aeb11bc3e5e59276ad7cd"),
     ("schema://ioi/foundations/work-result/v3", "sha256:0220d0bb1d76fa05a49decd8554c7debb3d47e855c8856a5298ecd0f2bda51b4"),
     ("schema://ioi/foundations/workflow-template/v1", "sha256:77f96b713670707d3da8fead21bfab833169aadae340da8290afea549dea8ffd"),
+    ("schema://ioi/foundations/objects/work-frontier-item-envelope/v1", "sha256:a4c5da30ef6014112e6b6f336f9c641dd427f09f86ccc24166833678b157748e"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -66583,6 +66584,238 @@ pub enum WorkflowTemplateV1RegistryStatus {
     Revoked,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorkFrontierItemEnvelopeV1 {
+    pub schema_version: WorkFrontierItemEnvelopeV1SchemaVersion,
+    pub frontier_item_id: String,
+    pub system_binding: serde_json::Value,
+    pub item_kind: WorkFrontierItemEnvelopeV1ItemKind,
+    pub objective: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dependency_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub related_attempt_and_finding_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required_capability_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required_context_resource_authority_and_evidence_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_value: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uncertainty: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<f64>,
+    pub duplication_policy: WorkFrontierItemEnvelopeV1DuplicationPolicy,
+    pub claimability: WorkFrontierItemEnvelopeV1Claimability,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_concurrency: Option<ArchitectureContractInteger>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_condition_ref: Option<String>,
+    pub status: WorkFrontierItemEnvelopeV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for WorkFrontierItemEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/work-frontier-item-envelope/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/work-frontier-item-envelope/v1","title":"WorkFrontierItemEnvelope","x-ioi-schema-version":"ioi.foundations.work-frontier-item-envelope.v1","description":"The room's claimable graph of questions, problems, hypotheses, tasks, reviews, verification needs, and resource needs. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#workfrontieritemenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here.","type":"object","additionalProperties":false,"required":["schema_version","frontier_item_id","system_binding","item_kind","objective","duplication_policy","claimability","status"],"properties":{"schema_version":{"const":"ioi.foundations.work-frontier-item-envelope.v1"},"frontier_item_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the WorkFrontierItemEnvelope definition and does not get to invent a neighbouring family's shape."},"item_kind":{"enum":["question","problem","hypothesis","task","review_need","verification_need","resource_need","synthesis_need"]},"objective":{"type":"string","minLength":1},"dependency_refs":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"related_attempt_and_finding_refs":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_capability_refs":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_context_resource_authority_and_evidence_refs":{"type":"array","items":{"type":"string","description":"A URI-shaped ref (context-profile://, resource://, evidence://) or a scope: selector, per canon.","pattern":"^(?:[a-z][a-z0-9+._-]*://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$"}},"expected_value":{"oneOf":[{"type":"number"},{"type":"null"}]},"uncertainty":{"oneOf":[{"type":"number"},{"type":"null"}]},"priority":{"oneOf":[{"type":"number"},{"type":"null"}]},"duplication_policy":{"enum":["exclusive","allowed","encouraged","independent_replication_required"]},"claimability":{"enum":["open","invited_only","assigned","paused","closed"]},"max_concurrency":{"oneOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"expires_at":{"oneOf":[{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"stop_condition_ref":{"oneOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["open","claimed","blocked","replicating","verifying","accepted","rejected","superseded","closed"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<WorkFrontierItemEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frontier_item_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"frontier_item_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frontier_item_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            item_kind: serde_json::from_value::<WorkFrontierItemEnvelopeV1ItemKind>(
+                object
+                    .remove(r#"item_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"item_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            objective: serde_json::from_value::<String>(
+                object
+                    .remove(r#"objective"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"objective"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dependency_refs: match object.remove(r#"dependency_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            related_attempt_and_finding_refs: match object
+                .remove(r#"related_attempt_and_finding_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            required_capability_refs: match object.remove(r#"required_capability_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            required_context_resource_authority_and_evidence_refs: match object
+                .remove(r#"required_context_resource_authority_and_evidence_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            expected_value: match object.remove(r#"expected_value"#) {
+                Some(field_value) => serde_json::from_value::<Option<f64>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            uncertainty: match object.remove(r#"uncertainty"#) {
+                Some(field_value) => serde_json::from_value::<Option<f64>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            priority: match object.remove(r#"priority"#) {
+                Some(field_value) => serde_json::from_value::<Option<f64>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            duplication_policy:
+                serde_json::from_value::<WorkFrontierItemEnvelopeV1DuplicationPolicy>(
+                    object
+                        .remove(r#"duplication_policy"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"duplication_policy"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            claimability: serde_json::from_value::<WorkFrontierItemEnvelopeV1Claimability>(
+                object
+                    .remove(r#"claimability"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claimability"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_concurrency: match object.remove(r#"max_concurrency"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<ArchitectureContractInteger>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            expires_at: match object.remove(r#"expires_at"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            stop_condition_ref: match object.remove(r#"stop_condition_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            status: serde_json::from_value::<WorkFrontierItemEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkFrontierItemEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.work-frontier-item-envelope.v1"#)]
+    IoiFoundationsWorkFrontierItemEnvelopeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkFrontierItemEnvelopeV1ItemKind {
+    #[serde(rename = r#"question"#)]
+    Question,
+    #[serde(rename = r#"problem"#)]
+    Problem,
+    #[serde(rename = r#"hypothesis"#)]
+    Hypothesis,
+    #[serde(rename = r#"task"#)]
+    Task,
+    #[serde(rename = r#"review_need"#)]
+    ReviewNeed,
+    #[serde(rename = r#"verification_need"#)]
+    VerificationNeed,
+    #[serde(rename = r#"resource_need"#)]
+    ResourceNeed,
+    #[serde(rename = r#"synthesis_need"#)]
+    SynthesisNeed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkFrontierItemEnvelopeV1DuplicationPolicy {
+    #[serde(rename = r#"exclusive"#)]
+    Exclusive,
+    #[serde(rename = r#"allowed"#)]
+    Allowed,
+    #[serde(rename = r#"encouraged"#)]
+    Encouraged,
+    #[serde(rename = r#"independent_replication_required"#)]
+    IndependentReplicationRequired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkFrontierItemEnvelopeV1Claimability {
+    #[serde(rename = r#"open"#)]
+    Open,
+    #[serde(rename = r#"invited_only"#)]
+    InvitedOnly,
+    #[serde(rename = r#"assigned"#)]
+    Assigned,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"closed"#)]
+    Closed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkFrontierItemEnvelopeV1Status {
+    #[serde(rename = r#"open"#)]
+    Open,
+    #[serde(rename = r#"claimed"#)]
+    Claimed,
+    #[serde(rename = r#"blocked"#)]
+    Blocked,
+    #[serde(rename = r#"replicating"#)]
+    Replicating,
+    #[serde(rename = r#"verifying"#)]
+    Verifying,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"closed"#)]
+    Closed,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -71037,6 +71270,30 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/foundations/workflow-template/v1",
         path: "docs/architecture/_meta/schemas/fixtures/workflow-template-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -78745,6 +79002,39 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/work-frontier-item-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/work-frontier-item-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/work-frontier-item-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -80282,6 +80572,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/work-lifecycle-record/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-lifecycle-record/v1","title":"WorkLifecycleRecord","x-ioi-schema-version":"ioi.work-lifecycle-record.v1","type":"object","additionalProperties":false,"required":["schema_version","record_id","record_hash","record_type","object_kind","object_ref","expected_head","resulting_head","idempotency_key","authority_class","authority_ref","evidence_refs","receipt_refs","phase_transition","child_reference","occurred_at_ms"],"properties":{"schema_version":{"const":"ioi.work-lifecycle-record.v1"},"record_id":{"type":"string","pattern":"^work-lifecycle://[^\\s]+$"},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"record_type":{"enum":["phase_transition","child_reference"]},"object_kind":{"enum":["goal_run","goal_grounding_loop","work_run","automation_run","harness_invocation","context_cell","external_handle"]},"object_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"expected_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resulting_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"authority_class":{"enum":["owner","goal_kernel","conductor","verifier","daemon","operator","reviewer","automation_controller","harness_adapter","external_protocol_adapter","reconciler","governance"]},"authority_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"phase_transition":{"anyOf":[{"type":"object"},{"type":"null"}]},"child_reference":{"anyOf":[{"type":"object"},{"type":"null"}]},"occurred_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"#),
     ("schema://ioi/foundations/work-result/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-result/v3","title":"WorkResult","x-ioi-schema-version":"ioi.foundations.work-result.v3","type":"object","additionalProperties":false,"required":["schema_version","work_result_id","work_subject_ref","system_binding","produced_by_ref","submitted_by_ref","operator_and_affiliation_refs","invocation_or_run_ref","result_profile","result_profile_ref","result_payload_ref","producer_component_resolution","declared_method_and_lineage_refs","information_flow_label_refs","outcome_class","status","claim_refs","uncertainty","supporting_evidence_refs","contradicting_evidence_refs","artifact_receipt_and_trace_refs","resource_and_cost_refs","authority_and_policy_refs","blocker_and_decision_request_refs","verifier_refs","license_disclosure_retention_and_export_refs","reproduction_state","reproduction_refs","acceptance_ref","supersedes_work_result_ref","superseded_by_ref","summary_ref","next_action","outcome_delta_refs","observation_refs","review_refs"],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nullableHash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},"producerResolution":{"type":"object","additionalProperties":false,"required":["resolved_component_set_snapshot_ref","resolved_component_set_hash","component_resolution_receipt_ref","resolver_kind","resolver_revision_ref","resolver_content_hash"],"properties":{"resolved_component_set_snapshot_ref":{"anyOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},{"type":"null"}]},"resolved_component_set_hash":{"$ref":"#/$defs/nullableHash"},"component_resolution_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"anyOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}/revision/[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"$ref":"#/$defs/nullableHash"}}}},"properties":{"schema_version":{"const":"ioi.foundations.work-result.v3"},"work_result_id":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"produced_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"submitted_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"operator_and_affiliation_refs":{"$ref":"#/$defs/refs"},"invocation_or_run_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"result_profile":{"enum":["software_implementation","research","ontology_mutation","incident_resolution","service_delivery","physical_mission","review","evaluation","custom"]},"result_profile_ref":{"anyOf":[{"type":"string","pattern":"^(?:schema|profile)://[^\\s]{1,500}$"},{"type":"null"}]},"result_payload_ref":{"anyOf":[{"type":"string","pattern":"^(?:(?:implementation-result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"},{"type":"null"}]},"producer_component_resolution":{"$ref":"#/$defs/producerResolution"},"declared_method_and_lineage_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"information_flow_label_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^ifc-label://[^\\s]{1,500}$"}},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"status":{"enum":["completed","failed","blocked","partial","challenged","superseded"]},"outcome_delta_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"}},"claim_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence)://[^\\s]{1,500}$"}},"uncertainty":{"anyOf":[{"type":"number"},{"type":"string"},{"type":"object"},{"type":"null"}]},"supporting_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"}},"contradicting_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence|artifact)://[^\\s]{1,500}$"}},"artifact_receipt_and_trace_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$"}},"resource_and_cost_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\\s]{1,500}$"}},"authority_and_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"}},"blocker_and_decision_request_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:blocker|handoff|proposal)://[^\\s]{1,500}$"}},"verifier_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier-path|worker|gate|receipt)://[^\\s]{1,500}$"}},"license_disclosure_retention_and_export_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:license|policy|restricted-view|receipt)://[^\\s]{1,500}$"}},"reproduction_state":{"anyOf":[{"enum":["unreviewed","reproducible","not_reproduced","contradicted","invalidated"]},{"type":"null"}]},"reproduction_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$"}},"acceptance_ref":{"anyOf":[{"type":"string","pattern":"^(?:acceptance|decision|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"supersedes_work_result_ref":{"anyOf":[{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},{"type":"null"}]},"superseded_by_ref":{"anyOf":[{"type":"string","pattern":"^(?:work-result|outcome-delta)://[^\\s]{1,500}$"},{"type":"null"}]},"summary_ref":{"anyOf":[{"type":"string","pattern":"^(?:message|artifact)://[^\\s]{1,500}$"},{"type":"null"}]},"next_action":{"enum":["none","repair","review","verify","replicate","synthesize","ask_user","escalate","update_work_queue"]},"observation_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"review_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}}}"##),
     ("schema://ioi/foundations/workflow-template/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/workflow-template/v1","title":"WorkflowTemplate","x-ioi-schema-version":"ioi.workflow-template.v1","type":"object","additionalProperties":false,"required":["schema_version","workflow_template_id","revision_ref","content_hash","owner_ref","display_name","graph_ref","graph_hash","registry_status"],"properties":{"schema_version":{"const":"ioi.workflow-template.v1"},"workflow_template_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"version":{"type":"string"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"display_name":{"type":"string","minLength":1},"description":{"type":"string"},"graph_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"graph_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"parameter_schema_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"input_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"output_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"step_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"dependency_and_handoff_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"acceptance_and_review_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"delivery_contract_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"selection_hint_refs":{"type":"object"},"runtime_tool_contract_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_primitive_capabilities":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":500}},"authority_scope_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"resource_and_budget_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"receipt_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"allowed_override_schema_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"provenance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"evaluation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}}}"#),
+    ("schema://ioi/foundations/objects/work-frontier-item-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/work-frontier-item-envelope/v1","title":"WorkFrontierItemEnvelope","x-ioi-schema-version":"ioi.foundations.work-frontier-item-envelope.v1","description":"The room's claimable graph of questions, problems, hypotheses, tasks, reviews, verification needs, and resource needs. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#workfrontieritemenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here.","type":"object","additionalProperties":false,"required":["schema_version","frontier_item_id","system_binding","item_kind","objective","duplication_policy","claimability","status"],"properties":{"schema_version":{"const":"ioi.foundations.work-frontier-item-envelope.v1"},"frontier_item_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the WorkFrontierItemEnvelope definition and does not get to invent a neighbouring family's shape."},"item_kind":{"enum":["question","problem","hypothesis","task","review_need","verification_need","resource_need","synthesis_need"]},"objective":{"type":"string","minLength":1},"dependency_refs":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"related_attempt_and_finding_refs":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_capability_refs":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_context_resource_authority_and_evidence_refs":{"type":"array","items":{"type":"string","description":"A URI-shaped ref (context-profile://, resource://, evidence://) or a scope: selector, per canon.","pattern":"^(?:[a-z][a-z0-9+._-]*://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$"}},"expected_value":{"oneOf":[{"type":"number"},{"type":"null"}]},"uncertainty":{"oneOf":[{"type":"number"},{"type":"null"}]},"priority":{"oneOf":[{"type":"number"},{"type":"null"}]},"duplication_policy":{"enum":["exclusive","allowed","encouraged","independent_replication_required"]},"claimability":{"enum":["open","invited_only","assigned","paused","closed"]},"max_concurrency":{"oneOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"expires_at":{"oneOf":[{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"stop_condition_ref":{"oneOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["open","claimed","blocked","replicating","verifying","accepted","rejected","superseded","closed"]}}}"#),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -80428,6 +80719,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/work-lifecycle-record/v1", r#"[]"#),
     ("schema://ioi/foundations/work-result/v3", r#"[]"#),
     ("schema://ioi/foundations/workflow-template/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/work-frontier-item-envelope/v1", r#"[]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -80466,6 +80758,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:/sessions|/missions|/__ioi\S*)$"#,
         r#"^(?:/sessions|/missions|/__ioi[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*)$"#,
+    ),
+    (
+        r#"^(?:[a-z][a-z0-9+._-]*://[^\s]{1,500}|scope:[a-z0-9*._-]{1,200})$"#,
+        r#"^(?:[a-z][a-z0-9+._-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|scope:[a-z0-9*._-]{1,200})$"#,
     ),
     (
         r#"^(?:acceptance|decision|receipt)://[^\s]{1,500}$"#,
@@ -84061,6 +84357,9 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-evaluating-carries-admitted-roots.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-evaluating-carries-admitted-roots.json"))),
     ("docs/architecture/_meta/schemas/fixtures/workflow-template-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/workflow-template-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/workflow-template-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/workflow-template-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -84779,6 +85078,11 @@ mod tests {
         },
         "schema://ioi/foundations/workflow-template/v1" => {
             serde_json::from_value::<WorkflowTemplateV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/work-frontier-item-envelope/v1" => {
+            serde_json::from_value::<WorkFrontierItemEnvelopeV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -85503,6 +85807,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/work-frontier-item-envelope/v1" => {
+            let projection = serde_json::from_value::<WorkFrontierItemEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -85639,8 +85948,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            556,
-            "the registered golden corpus must remain the explicit 556-fixture bar",
+            559,
+            "the registered golden corpus must remain the explicit 559-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -85859,7 +86168,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 515,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 516,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }
