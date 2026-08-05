@@ -2677,24 +2677,27 @@ persistent HypervisorOS node session
 terminal session
 editor session
 computer-use session
-Foundry / eval / training session
 provider / environment management session
 ```
+
+A training, evaluation, goal-pursuit, or room-participation session is not a
+distinct session kind: it is an ordinary session kind above carrying a typed
+subject attachment to the workload's owner object. Kinds are mechanical
+execution contexts; workloads are attachments.
 
 A Session binds:
 
 - user, organization, project, system, or worker context when applicable;
 - its explicit session mode;
-- AutomationRun or GoalRun refs when it executes part of standing behavior or
-  pursued intent;
-- work item and work run refs when the session is executing delegated agent
-  work;
+- typed subject attachments (owner-registered `subject_kind` + `subject_ref`)
+  for every piece of work the session serves — standing behavior, delegated
+  work items and runs, and application-owned subjects such as the ioi.ai
+  goal/room family — the platform never names an application family as a
+  dedicated field;
 - authority grants and capability leases;
 - policy and approval state;
 - runtime assignment;
 - context cell / task refs where applicable;
-- GoalRun plus optional OutcomeRoom, participant, claim, and attempt refs when
-  the session performs collaborative frontier work;
 - cTEE custody posture where applicable;
 - Agentgres refs and receipt obligations;
 - adapter targets;
@@ -3313,6 +3316,16 @@ GoalRun and OutcomeRoom views may project those refs and derived status; they do
 not own a parallel execution graph. Harness-to-harness coordination is therefore
 a bounded Core/daemon request over these primitives, not direct peer authority
 or application-local runtime truth (ADR 0031).
+
+Layering rule for the execution substrate itself: thread, thread-fork,
+managed-session, session-launch-recipe, and harness-session-binding records
+are ONE daemon-internal execution substrate generation-in-consolidation, and
+the Session is the single platform-level object over it. Product surfaces
+compose these records by read; no surface, application, or new route may
+treat the thread plane as a second public spine or write to it outside the
+daemon's own execution path. Consolidation onto the durable event substrate
+is the standing thread-orchestration seam obligation and completes this rule
+rather than amending it.
 
 For a persistent collective outcome, Work / Room detail is graph-first:
 
@@ -3947,17 +3960,28 @@ HypervisorSession:
   session_kind:
     local_workspace | remote_vm_workspace | browser_sandbox |
     hosted_worker | hypervisoros_node | terminal | editor |
-    computer_use | foundry_eval_training | provider_management |
-    environment_management
+    computer_use | provider_management | environment_management
+    # session_kind is the platform-mechanical execution context ONLY.
+    # Workload identity (training, evaluation, goal pursuit, room work)
+    # comes from subject_attachments, never from a kind value. The former
+    # foundry_eval_training kind was a product workload wearing a platform
+    # enum value and is retired.
   daemon_ref: daemon://...
   runtime_assignment_ref: runtime-assignment://... | null
-  automation_run_ref: automation-run://... | null
-  work_item_ref: work_item://... | null
-  goal_run_ref: goal://... | null
-  outcome_room_ref: outcome-room://... | null
-  room_participant_lease_ref: participant-lease://... | null
-  work_claim_lease_ref: work-claim://... | null
-  attempt_ref: attempt://... | null
+  subject_attachments:
+    # The ONLY way a Session names the work it serves. Typed, generic, and
+    # owner-registered — the same subject discipline Work rows use. The
+    # platform session schema names no application-layer family: platform
+    # kinds (automation_run, work_item, work_run) are registered here by
+    # Hypervisor owners, and application kinds (goal_run, outcome_room
+    # participant/claim/attempt — the ioi.ai family, per ADR 0022) are
+    # registered by the owning application's canon, exactly as event
+    # classes are declared per owner namespace. Adding an application
+    # never edits this schema.
+    - subject_kind: owner-registered kind (e.g. automation_run | work_item |
+        work_run | app-registered kinds)
+      subject_ref: typed ref resolved by the subject's canonical owner
+      attachment_role: executes | contributes_to | manages | observes
   authority_refs:
     - grant://...
     - lease://...
