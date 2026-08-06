@@ -74,6 +74,26 @@ Registry = `docs/architecture/_meta/schemas/architecture-contract-registry.v1.js
 - Census listed 14 registered T3 surface directories — the live tree has 6 module dirs (`apps/hypervisor/surfaces/`), all 14 entries still registered in `scripts/surface-registry.mjs:50-63`; no Operations impact, recorded as census drift.
 - v0 W0.6 still holds at the bytes: no scheduler read surface exists (`grep scheduler hypervisor-daemon.rs` → background task only, `:3481-3483`, `:4430`).
 
+#### Addendum 2026-08-06 (mesh packet 4 — cite refresh at `ba9e2ea0a`)
+
+Two corrections; canon and daemon cites otherwise resolve.
+
+| §3 said | Bytes at `ba9e2ea0a` |
+|---|---|
+| readout handler `serve-product-ui.mjs:8802-8819`, twelve reads at `:8803-8816` | handler at **`:8838`**; the twelve reads compose at **`:8838-8857`** (the numbers slid when W0.6 landed adjacent handlers) |
+| "no scheduler read surface exists" (last Corrections bullet) | **superseded — W0.6 landed it.** `GET /v1/hypervisor/scheduler/status` is registered at `hypervisor-daemon.rs:1323` (handler `orchestration_routes::handle_scheduler_status`, documented `:4473`). The §2 W0.6 row is satisfied; the cockpit does not read it yet, so the *pane* is still W1 work |
+
+The twelve composed reads re-verified at `:8838-8857`:
+
+```text
+operations · auth/policy · providers · provider-receipts
+provider-spend/reconciliation · storage-backends · storage-incidents
+akash-deployments · failover/runs · failover/plans · goal-runs · work-ledger
+```
+
+Census re-read: `nat-operations` = **40 controls, 0 disabled, HTTP 200** (§3 reads
+the HTTP status and the count as one figure; they are separate).
+
 ## 4. Schema→UI binding table
 
 Reads ride the W0.3 read-projection client; authority actions ride the W0.3 authority client (403 wallet challenge → 428 credential → receipted). Jobs rows carry `session_ref`/GoalRun refs from the ledger and goal-run planes — display-only today; the W3 unified jobs projection MUST name work subjects via `subject_attachments[]` reads (owner-registered `subject_kind`+`subject_ref`), never named app-family fields (`core-clients-surfaces.md:2683-2687`, `:3971-3990`).
@@ -127,3 +147,92 @@ backfill/reconciliation, provider outages, and checkpoint health; it owns
 the health half of the reconciliation contracts (epic §3 C7 — Governance
 owns the approval half). Lands P2/P3, riding this brief's existing
 unified-jobs and rollup projections.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 3: none** owned by Operations (the `incidents` slug is Work-lineage, and
+canon routes legacy Issues to `Work / Incidents`, :1421-1426) → **0 of the 563
+baseline controls**. **Tier 4: none.** Both honest absences.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T2 operations cockpit** — `/__ioi/operations` (serve `:8838`, renderer `:1704-2030`), twelve composed reads (`:8838-8857`) | T2 census `nat-operations`: **40 controls, 0 disabled**, HTTP 200. **Only three are mutation controls** — the Automations-delegating remediation forms | Operations is the substrate/infrastructure cockpit (§1) | **rehome** — the cockpit exists read-first; W1 is a rehome plus two new read panes, not a build | W1 |
+| ↳ per-plane availability banner (`:1720-1723`) | part of the 40 | honest degradation | **rehome** — and the rule it encodes ("unavailable planes render **unknown, not zero**") is the single most valuable behavior on this surface; it must survive the rehome verbatim | W1 |
+| ↳ scheduler health table (`:1764-1773`) | part of the 40 | scheduler posture read | **rehome** — and now **rebind** to `GET /v1/hypervisor/scheduler/status` (`hypervisor-daemon.rs:1323`), which W0.6 landed after this brief was written; the table currently derives posture from the operations aggregate instead | W1 |
+| ↳ **Jobs** merged queue — automation runs + harness executions + IOI-Agent coordination runs + failover recovery runs, per-kind capped, type chips, wallet-gate chips for `awaiting_authority_*`, per-row proof (`:1774-1845`) | part of the 40 | unified infrastructure-jobs projection — **route-missing, W3** (§2); subjects bind via `subject_attachments` | **rehome** — the client-side merge is the pane until the projection route lands; the wallet-gate chips are honest authority state, not decoration | W1 · W3 |
+| ↳ operate console + remediation drawer → POSTs to `/__ioi/automations/:id/{run,pause,resume}` (`:1846-1995`) | the 3 mutation controls of the 40 | Operations holds **no authority of its own**; remediation is Automations-owned | **rehome** — preserving the delegation exactly; a rehome that quietly moved these verbs under Operations would mint authority canon does not grant | W1 · W2 |
+| ↳ run health · needs-attention failures · webhook health (`:1856-1878`) | part of the 40 | run health read | **rehome** | W1 |
+| ↳ provider health + customer-borne spend statement + recent receipts (`:1879-1896`) | part of the 40 | provider posture; spend is never faked | **rehome** | W1 |
+| ↳ spend reconciliation — headroom / reserved-open-estimates / actual / open exposures / finalized / incomplete-teardown warnings (`:1897-1921`) | part of the 40 | reserved estimates are never presented as spend | **rehome** | W1 |
+| ↳ storage backend health + open incidents + repair receipts, custody rule stated in-surface (`:1922-1935`) | part of the 40 | custody **health** is Operations'; the per-env archive rows are Environments' (split ruling, `environments.md` §6) | **rehome** | W1 |
+| ↳ DePIN (Akash) deployments / leases / redeploy plans (`:1936-1951`) | part of the 40 | provider substrate | **rehome** | W1 |
+| ↳ cross-provider failover runs + auto-trigger posture ("never automatic authority") (`:1952-1968`) | part of the 40 | armed/triggered posture, authority never automatic | **rehome** — the "never automatic authority" statement is contract, not copy | W1 |
+| ↳ Work Analytics facet — run funnel, failure rate, ledger-kind histogram, improvement handoff into the real proposal lane (`:1996-2012`) | part of the 40 | analytics is a facet, not a surface; Improvement owns proposals | **rehome** — the handoff must keep landing in the real proposal lane, never a local form | W1 |
+| **T5 `/__apps/scheduler`** — harvest capture; inventory owner is **"Automations"** with `ownerUrl: /__ioi/operations` (`harvest-seed-inventory.mjs:33`); class `reference_capture`, capture state `shell_only`, grammar `table_list`, tier aux, `reboundLane: null`, note "schedule table; unbound" | not in the 563 | the scheduler **health table** is an Operations pane; the scheduler **object** (schedules, triggers, concurrency, failure policy) is Automations-owned | **pattern-harvest** — table grammar only, meshed here because its `ownerUrl` points at this surface. The owner-name/ownerUrl split is recorded, not resolved: canon gives the object to Automations and the health readout to Operations, so both are correct and neither is a defect | — |
+| **Cross-surface consumers** — incidents readout reads the operations plane (serve `:8795-8800`); work-ledger drawer links provider-crossing and storage-custody rows here (`:1679-1680`); failover-run refs resolve here (`:5845`, `:8640`) | not census controls | deep links per kind | **rehome** — the link targets move to `/operations` with the surface; the linking surfaces are unaffected | W1 · W4 |
+| **Catalog tile** — Applications tile "Operations — Infrastructure…" → `/__ioi/operations` (serve `:1472`) | not census controls | canonical route `/operations` (census: `resolves: false`) | **retire-at-cutover** — repointed by the compiler projection | W4 |
+
+**Census reconciliation.** Operations holds **0 of the 563** T3 baseline controls
+(no registered surface). Its T2 readout carries **40 controls, 0 disabled**, outside
+that baseline. Only three of the forty cross authority, and all three delegate to
+Automations — so Operations' own governed-control count is **zero by design**, which
+is the correct reading of its canon role (it observes substrate; it does not command
+it).
+
+**Disposition summary.** 12 rehome (one of which also **rebinds** to the new
+scheduler-status route) · 1 pattern-harvest · 1 retire-at-cutover · 0 blocked.
+
+## 7. Ontology wiring
+
+**None — not object-bound, across the whole surface**, for the same structural
+reason as Environments: Operations' objects are runs, schedulers, providers,
+receipts, backends, incidents, failover plans, and spend records. None is a
+`CanonicalObjectModel` instance. All twelve composed reads are platform-substrate
+or goal-orchestration routes; **not one is a `/v1/hypervisor/odk/*` route.**
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Every pane | **none — not object-bound** | twelve substrate reads (`serve:8838-8857`) | Read | substrate objects, not semantic-plane objects |
+| Work Analytics facet | **none.** Ledger-kind histograms count receipt kinds, not ontology facts | work-ledger read | Read | canon permits work/tool analytics to *become* policy-bound datasets through a DataRecipe (`domain-ontologies-and-data-recipes.md`, "What This Layer Is"); that conversion is Data-owned and does not make this pane object-bound |
+| **Write side — whole surface** | **none**, twice over | — | — | Operations admits no semantic write, and holds no authority of its own at all: its three mutation controls POST to Automations-owned lanes |
+
+The one adjacency that will tempt a later packet: ODK **materializing runs** are
+runs, and this surface renders runs. They are still not Operations' — the
+materializing-run plane is read by Provenance's lineage lens (`provenance.md` §7)
+and owned by Data/Ontology. If a unified infrastructure-jobs projection (W3) ever
+includes them, it does so as a typed subject with a deep link, never as an
+Operations-owned row.
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Whole cockpit (scheduler health, run health, provider health, storage health, failover posture) | `monitoring_console` | **exempt — no bindable primitive** | the shape is the canonical `monitoring_console` almost exactly; substrate objects are not ontology-bound (§7), so invariant 11's fields have nothing to name |
+| Spend reconciliation + Work Analytics facet | `dashboard` | **exempt — no bindable primitive** | same |
+| Jobs merged queue | `list_detail` | **exempt — no bindable primitive** | same |
+| Operate console remediation drawer | `object_editor` | **exempt — authority-crossing, and not this surface's authority** | a descriptor scaffolds views, never admission — and here the admission is not even Operations' to scaffold |
+
+Zero expressible, zero rendered. Fourth surface hitting the **platform-object
+blocking finding** (X-2), and the first where the *shape* match is exact enough to
+sting: `monitoring_console` was written for exactly this pane, and the descriptor
+still cannot bind it.
+
+### (b) This surface as primitive exposer
+
+**n/a.** Operations owns no stage of the composable-application journey
+(`odk-extension-apps.md` §2), exposes no ODK primitive, and holds no descriptor.
+
+The one true adjacency, recorded because canon assigns it: Operations **observes**
+Domain App runtime state at the mount ladder's rungs
+(`domain-ontologies-and-data-recipes.md`, "Domain Apps And The Governed Mount
+Ladder" — Governance admits, Operations observes). That is a read of runtime
+posture, not participation in the lane: Operations never mounts, serves, stops, or
+kills a Domain App. When the runtime plane surfaces here, it arrives as another
+typed row in the Jobs queue with its receipts as proof links.

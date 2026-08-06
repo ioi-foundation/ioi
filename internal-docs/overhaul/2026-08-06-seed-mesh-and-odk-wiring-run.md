@@ -313,7 +313,7 @@ unattributable pre-existing test failure after ≤30 min → record and continue
 | 1. work mesh | ☐ | |
 | 2. provenance mesh | ☐ | |
 | 3. environments mesh | ☐ | |
-| 4. operations mesh | ☐ | |
+| 4. operations mesh | ☑ | PR #180. **0 of 563** T3 controls; T2 readout 40 controls, 0 disabled — only 3 cross authority and all 3 DELEGATE to Automations, so Operations' own governed count is zero BY DESIGN (it observes substrate, it does not command it). 12 rehome (one also rebinds to `scheduler/status`, landed by W0.6 after the brief was written) · 1 pattern-harvest · 1 retire-at-cutover · 0 blocked. Ontology wiring `none`; write side none twice over. 4th platform-object exemption — and the first where the shape match is exact (`monitoring_console` was written for this pane and still cannot be bound). §3 handler cite `:8802`→`:8838`; the "no scheduler read surface" correction is SUPERSEDED by W0.6 |
 | 5. governance mesh | ☐ | |
 | 6. ontology mesh | ☐ | |
 | 7. data mesh | ☐ | |
