@@ -304,11 +304,38 @@ unattributable pre-existing test failure after ≤30 min → record and continue
    the ledger row, stop cleanly. Never leave the ledger claiming more than
    the bytes show.
 
+## Correction notice — 2026-08-06 (post-close audit)
+
+The closing section below was written before an independent byte audit. **The
+audit was right on every load-bearing point**, and the corrections landed in the
+follow-up PR are recorded here so this file cannot be read as the original claim.
+
+| Claim as written | Corrected |
+|---|---|
+| "the run is complete" | complete for **this file's ledger only** — the mesh/documentation program. The build ledger in `2026-08-05-hypervisor-bring-to-life-run.md` still has **26 unchecked rows**, including all twenty surface builds, SCM P0–P3, shared cutover, and repository-wide disposition. This run changed 29 documentation files and one Rust file, and **zero files under `apps/hypervisor/`** |
+| "26 PRs" | **28 commits after the starter, 29 inclusive.** The packet arithmetic is **27 deliverables**: 3 X-0 + X-1 + 20 surface packets + X-2/X-3/X-4 |
+| "no pane calls the surface-descriptor POST" | **false.** A create/edit form (`serve-product-ui.mjs:3320`) and POST/PATCH dispatch (`:9776`) exist in the legacy ODK readout. The real gap is no canonical Studio rehome plus a descriptor contract too thin for invariant 11 |
+| "both ends of the journey are built" | only the **control-state ladder** exists. Serving is explicitly internal and read-only — no process, ingress, connector, or object-action execution (`domain_apps_routes.rs:768-771`) |
+| "all 563 controls reconciled" | reconciled against a **frozen 14-surface T3 baseline now 472 commits behind HEAD**, excluding the T1/T2 estates. Only 12 of its 24 governed rows are marked implemented. It proves arithmetic consistency, **not current product coverage** |
+| "12 of 39 captures don't boot" | **13.** `slate` was dispositioned `pattern-harvest` while its own `capture_state` read `blocked_missing_capture` |
+| "zero undispositioned" | true for the **39 harvest captures only**. Six other user-facing estate surfaces still await owner rulings (`repo-ux-disposition.md`), and `machinery` ownership is open |
+| X-1 credited to PR #175 | **#200 is the reachable landing.** #175 merged into a stacked base that was later force-pushed. Byte-identical recovery verified: `sha256 5af13757abd8ee1d8ca9a33fc6b4a502dd6d1ab4f80f8cd4f3033dc868d61806` on both `3a60d73b8:internal-docs/implementation/odk-extension-apps.md` and the file on master |
+
+The audit also found three defects this run did not: two fabricated-success writes
+(`odk_routes.rs:1552`, `domain_apps_routes.rs:368` — the same class this run fixed
+one instance of, two handlers over) and a renderer/authoring shape mismatch that
+makes a valid ontology render as empty. All three are recorded in
+`internal-docs/implementation/odk-extension-apps.md` §8, and the eight build
+acceptance gates that would have caught them are in
+`internal-docs/implementation/build-acceptance-gates.md`.
+
 ## Run closed — 2026-08-06
 
-Every ledger row below is ticked. The run's own claims were re-verified against
-the bytes after the ledger closed, and that check found and fixed one real defect
-(see "Operational record" below).
+Every ledger row below is ticked — **for this run's documentation program only;
+see the correction notice above for what that does and does not mean.** The run's
+own claims were re-verified against the bytes after the ledger closed, and that
+check found and fixed one real defect. A subsequent independent audit found
+several more; both are recorded.
 
 **Exit-criterion check, run from the bytes on master:**
 

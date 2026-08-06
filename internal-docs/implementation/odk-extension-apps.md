@@ -19,12 +19,26 @@ participation in it.
 
 ## 1. The headline finding
 
-**Both ends of the journey are built. The middle is not.**
+**Corrected 2026-08-06 (post-close audit).** This section first read "Both ends of
+the journey are built. The middle is not." That overstated both ends. The corrected
+finding:
 
-Authoring (stages 1–4) is a real, working object plane: 56 ODK route
-registrations across twelve families. Mounting and serving (stage 10) is a
-fully implemented governed ladder with approval gating, live re-validation,
-receipts, and kill-switch enforcement — 9 more registrations.
+**The journey has an authoring end, a control-state end, and no middle — and
+neither end is a functional application path.**
+
+Authoring (stages 1–4) is a real object plane — 56 ODK route registrations across
+twelve families — but its product surfaces are legacy substrate readouts, not
+canonical owner panes, and the descriptor record they write cannot satisfy
+invariant 11.
+
+Stage 10 is a fully implemented **governed control-state ladder** with approval
+gating, live re-validation, receipts, and kill-switch enforcement — 9 more
+registrations. It is **not an application runtime**: serving is explicitly
+internal and read-only, with no process, no external ingress, no connector
+execution, and no domain-action execution
+(`domain_apps_routes.rs:768-771`, renderer `serve-product-ui.mjs:5706`). A
+"serving" Domain App is a governed state plus a read-only internal placeholder
+page.
 
 Between them, the stages that turn an authored candidate into durable product
 inventory — package, admit, install, register, expose, bind to a System — are
@@ -60,14 +74,14 @@ that the route is unwired in UI.
 |---|---|---|---|
 | 1 | Describe the domain | Ontology | **exists** — `/v1/hypervisor/odk/domain-ontologies` (4 paths incl. health, history), `hypervisor-daemon.rs:1362-1380` |
 | 2 | Bind the data | Data | **exists** — connector-mappings (5), policy-bound-data-views (5), data-recipes (2), transformation-runs (6), ontology-projections (6), materialized-object-sets (3), materializing-runs (8), connector-sessions (7), capability-lease-plans (5); `hypervisor-daemon.rs:1382-1611` |
-| 3 | Author or scaffold the descriptor | Studio (Surface Generate); ODK scaffolds | **exists but thin** — `/v1/hypervisor/odk/surface-descriptors` (2 paths, `:1621-1631`); record carries only `composition_pattern`, singular `ontology_ref`, `recipe_refs`, opaque `view_config` (`odk_routes.rs:1501-1516`). See §4. |
+| 3 | Author or scaffold the descriptor | Studio (Surface Generate); ODK scaffolds | **exists, thin, and in the wrong place** — `/v1/hypervisor/odk/surface-descriptors` (2 paths, `:1621-1631`); record carries only `composition_pattern`, singular `ontology_ref`, `recipe_refs`, opaque `view_config` (`odk_routes.rs:1501-1516`). A **create/edit form and POST/PATCH dispatch already exist** in the legacy ODK readout (`serve-product-ui.mjs:3320`, `:9776`) — under the ODK substrate lane, not Studio. See §4. |
 | 4 | Shape it as an app | Studio | **exists** — `/v1/hypervisor/domain-apps` create/get/patch/delete with app-shape enforcement (`hypervisor-daemon.rs:1862-1877`) |
 | 5 | Package it | Packages | **partial** — `/v1/hypervisor/odk/manifests` (2 paths, `:1612-1621`) is the only packaging object; no package candidate, no release |
 | 6 | Admit and version | Packages | **route-missing** — zero `/v1/hypervisor/packages/*` routes exist |
 | 7 | Install and register | Packages; Applications holds the contract | **route-missing** — registrations are static `include_str!`; zero `extension_application` rows; no create/install/enable verb |
 | 8 | Expose at `/applications/{surface_key}` | product-surface compiler | **exists for first-party only** — `POST /v1/hypervisor/product-surface-projections` (`hypervisor-daemon.rs:1063`) joins registration → release → installation → serving binding over the static records; client compiler at `apps/hypervisor/scripts/surface-compiler.mjs` |
 | 9 | Bind to a System for effectful launch | Systems | **route-missing** — `system_interface_bindings: []`; no `/systems/{id}/interfaces/*` route |
-| 10 | Mount and serve (Domain Apps) | Governance admits; Operations observes | **exists, fully** — see §3 |
+| 10 | Mount and serve (Domain Apps) | Governance admits; Operations observes | **control-state ladder exists in full; the runtime does not** — serving is internal and read-only with no process, ingress, connector, or domain-action execution (`domain_apps_routes.rs:768-771`). See §3 |
 
 Route counts are from `hypervisor-daemon.rs` registrations on master
 `44787da9e`; the 56 ODK + 9 domain-app paths reconcile against the 65 matching
@@ -253,7 +267,33 @@ brief; this list exists so the extension lane's shape is visible in one place.
 Items 5–7 are the canon-ahead-of-code deltas this run filed. Items 1–4 predate
 it and are the real critical path.
 
-## 8. What this doc is not
+## 8. Known defects in the lane (recorded 2026-08-06, post-close audit)
+
+Three byte-verified defects sit on the lane's implemented stages. None is fixed
+here; each is named so the owning wave cannot rediscover it late.
+
+- **L-1 fabricated success on descriptor create.** `handle_odk_descriptor_create`
+  discards the persistence result (`let _ = persist_record(...)`,
+  `odk_routes.rs:1552`) and returns `201 CREATED` with the record body. A failed
+  write reports success. Same class as the foundry D-1 precedent and the ontology
+  D-1 fixed by this run's packet 6 — **the same plane, two handlers over.**
+- **L-2 fabricated success on DomainApp create.** Identical shape at
+  `domain_apps_routes.rs:368`. Stage 4, the one wired authoring stage, can report
+  a draft it did not store.
+- **L-3 the generated runtime reads a shape the ontology plane does not write.**
+  The domain-app runtime renderer reads `com.objects` and `com.actions`
+  (`serve-product-ui.mjs:5719`), while the ontology manager authors and reads
+  `object_types` / `action_types`
+  (`surfaces/ontology-manager/index.mjs:179`). **A valid current ontology
+  therefore renders "the ontology declares no objects yet"** — the runtime tells
+  the user their domain is empty when it is not. This is worse than a blank pane:
+  it is a confident false negative about the user's own data.
+
+L-3 is not a one-line rename: it requires ruling which shape is canonical for the
+generated runtime, which is contract work owned by the "real generated runtime"
+build gate (`build-acceptance-gates.md` §6).
+
+## 9. What this doc is not
 
 It is not a Domain Apps application brief — Domain Apps is a retired owner name
 and gets no peer surface. It is not a schedule; wave assignments live in the

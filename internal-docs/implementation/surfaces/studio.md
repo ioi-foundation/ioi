@@ -244,7 +244,7 @@ already carries the mirror row (four of six) or gains it in its own packet.
 | **T5 `/__apps/machinery`** — capture, `reference_capture`, capture state `boots_graph`, grammar `graph`, high_value, `reboundLane: null`, "data lanes unbound" (`:27`) | not in the 563 | process graphs | **pattern-harvest** | — |
 | **T5 `/__apps/workshop`** — capture, `reference_capture`, capture state `blocked_missing_capture`, grammar `editor_canvas`, high_value, `reboundLane: null`, "application/module builder; unbound" (`:28`) | not in the 563 | the application-builder grammar Surface Generate needs | **blocked-missing-capture** — the most unfortunate block in the run: the one capture whose grammar is literally "application builder" cannot be inspected | — |
 | **T5 `/__apps/module`** — capture, `reference_capture`, capture state `shell_only`, grammar `editor_canvas`, aux, `reboundLane: null` (`:29`) | not in the 563 | compute-module authoring has no canon pane | **pattern-harvest** | — |
-| **T5 `/__apps/{slate,logic,contour,fusion}`** — four captures under the **retired owner name "Domain Apps"** (`:79-82`); `slate` `blocked_missing_capture` high_value, the other three `shell_only` aux; all `editor_canvas`, all `reboundLane: null` | not in the 563 | generated domain apps (`odk-extension-apps.md` §6) | **pattern-harvest** — evidence of the *interaction grammar* a generated domain app should present (an editor canvas over domain objects, not a form stack), and nothing more. `slate` is `blocked_missing_capture`, so claims about its behavior are unsupportable. **"Domain Apps" is a retired owner: these rehome under Studio and are never revived as a peer application** | — |
+| **T5 `/__apps/{slate,logic,contour,fusion}`** — four captures under the **retired owner name "Domain Apps"** (`:79-82`); `slate` `blocked_missing_capture` high_value, the other three `shell_only` aux; all `editor_canvas`, all `reboundLane: null` | not in the 563 | generated domain apps (`odk-extension-apps.md` §6) | **pattern-harvest** — evidence of the *interaction grammar* a generated domain app should present (an editor canvas over domain objects, not a form stack), and nothing more. **`slate` is `blocked_missing_capture` and is therefore `blocked-missing-capture`, not pattern-harvest** (corrected 2026-08-06 post-close audit: a capture that does not boot has no observable grammar to harvest). Only `logic`/`contour`/`fusion` — all `shell_only`, all aux tier — carry harvestable grammar. **"Domain Apps" is a retired owner: these rehome under Studio and are never revived as a peer application** | — |
 
 **Census reconciliation.** Studio's two T3 surfaces carry **81 of the 563** baseline
 controls: `designer` 51 (7 + 17 + 20 + 3 + 4) and `machinery` 30 (5 + 5 + 12 + 1 + 7).
@@ -271,7 +271,7 @@ plane's *content* objects.
 | Designer — Concept nodes | `DomainOntology` object types | `/odk/domain-ontologies` (via the Ontology Manager entry) | Read (deep link) | the canvas enters the ontology plane; it does not author it |
 | Designer — Component nodes | `CanonicalObjectModel` entries | same | Read (deep link) | |
 | Designer — Resource nodes | `MaterializedObjectSet` **and `OntologySurfaceDescriptor`** | `/odk/materialized-object-sets`, `/odk/surface-descriptors` | Read | the one census control that names the descriptor plane from a product surface |
-| **Surface descriptor authoring** | `OntologySurfaceDescriptor` (`OntologySurfaceDescriptorEnvelope`) | `POST/PATCH /v1/hypervisor/odk/surface-descriptors` (`hypervisor-daemon.rs:1621-1631`) | **Write — route exists, no pane** | canon: **Studio authors interface descriptors** (:1435-1441). The route is live and the surface does not call it. This is the single most important missing binding in the run: the authoring stage of the extension lane has a backend and no front end |
+| **Surface descriptor authoring** | `OntologySurfaceDescriptor` (`OntologySurfaceDescriptorEnvelope`) | `POST/PATCH /v1/hypervisor/odk/surface-descriptors` (`hypervisor-daemon.rs:1621-1631`) | **Write — wired in the legacy ODK lane, absent from Studio** | **Corrected 2026-08-06 (post-close audit).** This row first said "route exists, no pane". That is false: `renderOdkDescriptorForm` (serve `:3320`) renders a create/edit form and the `/__ioi/odk/*` family dispatch (serve `:9776`) POSTs create and PATCHes edit against the daemon. The real gap is narrower and different in kind: **the form lives in the legacy ODK substrate readout, not under Studio's canonical route, and it writes the thin descriptor record** — `composition_pattern`, singular `ontology_ref`, `recipe_refs`, opaque `view_config` — **so nothing it authors can satisfy invariant 11.** The work is a rehome plus a contract widening, not a build from zero |
 | **DomainApp draft creation** | `DomainApp` (`DomainAppEnvelope`, canon as of X-0(a)) | `POST /v1/hypervisor/domain-apps` (`:1867`) | **Write (draft)** | wired at `/__ioi/domain-apps` (`serve:9881`); enforces the app-shape contract (descriptor must resolve and be `composition_pattern: domain_app`) |
 | Machinery — state machines | **none — not object-bound** | `/v1/hypervisor/state-machines` | Read | process graphs are platform objects |
 | System Design — the six ODK families | `DomainOntology`, `CanonicalObjectModel`, `DataRecipe`, `ConnectorMapping`, `PolicyBoundDataView`, `OntologyProjection` | the ODK routes | Read | the packet table's "reads all six ODK families into System Design" is the **target**, not today's state: today only Concepts/Components/Resources deep-link |
@@ -305,7 +305,7 @@ designed to surface.
 
 | Journey stage (`odk-extension-apps.md` §2) | What Studio contributes | State today |
 |---|---|---|
-| **3 — author or scaffold the descriptor** | Surface Generate: authors `OntologySurfaceDescriptor`s over ontology, object-model, recipe, view, and projection refs | **route exists, no pane** (§7). The authoring stage of the lane is a live daemon route with no front end |
+| **3 — author or scaffold the descriptor** | Surface Generate: authors `OntologySurfaceDescriptor`s over ontology, object-model, recipe, view, and projection refs | **wired in the legacy ODK lane, not under Studio, and thin** (§7, corrected). A create/edit form and POST/PATCH dispatch exist at serve `:3320`/`:9776`; they write four fields, none of them the invariant-11 binding set. Stage 3 needs a rehome and a contract widening |
 | **4 — shape it as an app** | `DomainApp` drafts over a `domain_app`-pattern descriptor, with the app-shape contract enforced at create | **wired** — 16 controls at `/__ioi/domain-apps` |
 
 Three boundaries, all canon:
@@ -319,8 +319,10 @@ Three boundaries, all canon:
   and hands off. It never admits a package, never registers a surface, and never
   mounts a Domain App — mount is Governance-gated (`governance.md` §8).
 
-The state of the lane, from its authoring end: **stage 4 is wired, stage 3 has a
-route and no pane, and stages 5–9 have no routes at all**
-(`odk-extension-apps.md` §1). Studio can create a DomainApp draft today over a
-descriptor it cannot author through any UI, for a package plane that does not exist.
-That is the extension lane's actual shape, and Studio is where it is most visible.
+The state of the lane, from its authoring end (**corrected 2026-08-06**): stage 4
+is wired; **stage 3 is wired in the wrong place against a contract too thin to
+conform**; and stages 5–9 have no daemon routes at all (`odk-extension-apps.md`
+§1). Studio can create a DomainApp draft today over a descriptor authored in a
+substrate readout that cannot express invariant 11, for a package plane that does
+not exist. That is the extension lane's actual shape, and Studio is where it is
+most visible.
