@@ -46,6 +46,31 @@ fn safe(seg: &str) -> String {
         "_",
     )
 }
+/// Content hash of a spec record with volatile timestamps excluded. Pins the
+/// MEANING a run plan was drafted against: a later spec edit flips the plan's
+/// computed `spec_drifted` readout instead of silently changing what the plan
+/// describes.
+fn spec_content_hash(spec: &Value) -> String {
+    use sha2::{Digest, Sha256};
+    let mut s = spec.clone();
+    if let Some(obj) = s.as_object_mut() {
+        obj.remove("created_at");
+        obj.remove("updated_at");
+    }
+    format!(
+        "sha256:{:x}",
+        Sha256::digest(serde_json::to_vec(&s).unwrap_or_default())
+    )
+}
+fn persist_failed(error: std::io::Error) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "ok": false, "error": {
+            "code": "foundry_persist_failed",
+            "message": format!("record was not durably persisted: {error}")
+        } })),
+    )
+}
 fn nanos() -> u128 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -340,7 +365,9 @@ pub(crate) async fn handle_foundry_spec_create(
         "created_at": now,
         "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, SPEC_KIND, &id, &record);
+    if let Err(error) = persist_record(&st.data_dir, SPEC_KIND, &id, &record) {
+        return persist_failed(error);
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "spec": record })),
@@ -414,7 +441,12 @@ pub(crate) async fn handle_foundry_spec_patch(
         }
     }
     s["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, SPEC_KIND, &id, &s);
+    if let Err(error) = persist_record(&st.data_dir, SPEC_KIND, &id, &s) {
+        return Json(json!({ "ok": false, "error": {
+            "code": "foundry_persist_failed",
+            "message": format!("record was not durably persisted: {error}")
+        } }));
+    }
     Json(json!({ "ok": true, "spec": s }))
 }
 
@@ -520,6 +552,10 @@ pub(crate) async fn handle_foundry_run_plan_create(
         "object": "ioi.hypervisor.foundry_run_plan",
         "id": id,
         "spec_ref": spec_ref,
+        // Pins the spec CONTENT this plan was drafted against; a later spec
+        // edit surfaces as `spec_drifted` on reads instead of silently
+        // changing the plan's meaning.
+        "spec_content_hash": spec_content_hash(&spec),
         "name": body.get("name").and_then(|v| v.as_str()).unwrap_or("foundry-run-plan"),
         "description": body.get("description").and_then(|v| v.as_str()).unwrap_or(""),
         "status": "draft",
@@ -533,7 +569,9 @@ pub(crate) async fn handle_foundry_run_plan_create(
         "created_at": now,
         "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, RUN_PLAN_KIND, &id, &record);
+    if let Err(error) = persist_record(&st.data_dir, RUN_PLAN_KIND, &id, &record) {
+        return persist_failed(error);
+    }
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "run_plan": record })),
@@ -541,12 +579,38 @@ pub(crate) async fn handle_foundry_run_plan_create(
 }
 
 /// GET /v1/hypervisor/foundry/run-plans/:id — fetch one FoundryRunPlan.
+/// `spec_drifted` / `spec_missing` are COMPUTED read fields (never persisted):
+/// they compare the pinned `spec_content_hash` against the spec as it exists
+/// now, so a plan whose spec was edited or deleted after drafting reads as
+/// drifted instead of silently meaning something else.
 pub(crate) async fn handle_foundry_run_plan_get(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
     match load(&st.data_dir, RUN_PLAN_KIND, &id) {
-        Some(p) => Json(json!({ "ok": true, "run_plan": p })),
+        Some(mut p) => {
+            if let Some(pinned) = p
+                .get("spec_content_hash")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+            {
+                let spec_ref = p
+                    .get("spec_ref")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+                match load(&st.data_dir, SPEC_KIND, &spec_ref) {
+                    Some(spec) => {
+                        p["spec_drifted"] = json!(spec_content_hash(&spec) != pinned);
+                        p["spec_missing"] = json!(false);
+                    }
+                    None => {
+                        p["spec_missing"] = json!(true);
+                    }
+                }
+            }
+            Json(json!({ "ok": true, "run_plan": p }))
+        }
         None => Json(json!({ "ok": false, "reason": "foundry run plan not found" })),
     }
 }
@@ -644,6 +708,22 @@ mod foundry_tests {
         assert!(ids.contains("provider.y"));
         assert!(ids.contains("provider.z"));
         assert_eq!(ids.len(), 3);
+    }
+
+    #[test]
+    fn spec_content_hash_ignores_timestamps_and_tracks_content() {
+        let a = json!({
+            "id": "fspec_1", "kind": "model_eval", "inputs": {"objective": "x"},
+            "created_at": "2026-08-06T00:00:00Z", "updated_at": "2026-08-06T00:00:00Z"
+        });
+        // A patch that only bumps timestamps is NOT drift.
+        let mut b = a.clone();
+        b["updated_at"] = json!("2026-08-06T09:00:00Z");
+        assert_eq!(spec_content_hash(&a), spec_content_hash(&b));
+        // A content edit IS drift.
+        let mut c = a.clone();
+        c["inputs"] = json!({"objective": "y"});
+        assert_ne!(spec_content_hash(&a), spec_content_hash(&c));
     }
 
     #[test]

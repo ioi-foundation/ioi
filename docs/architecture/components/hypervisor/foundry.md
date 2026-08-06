@@ -776,6 +776,115 @@ provider has real compute, dataset, budget, and authority backing. Otherwise
 Foundry should expose them as blueprints, estimates, and readiness gaps, not
 fake execution.
 
+## Reproducible Training Program Revisions
+
+A training program is a phase graph, not one configuration file. Modern
+generalist programs compose native/multimodal pretraining, progressive context
+extension, SFT, domain-and-effort RL, on-policy teacher consolidation,
+quantization-aware posttraining, and draft-model tuning, and each phase changes
+its inputs, objectives, budgets, precision, and outputs. Foundry therefore
+treats the executable unit as an immutable, versioned
+`FoundryTrainingStackBlueprintRevision` spanning data, curriculum,
+optimization, execution topology, rollout state, environments, checkpoints,
+and deployment constraints. A `FoundryTrainingStackBlueprint` remains the
+mutable draft container; only an admitted revision is executable, and a
+revision resolves every parameter the run needs. A run that cannot be replayed
+from its revision plus admitted inputs is a defect, not a run.
+
+Revision doctrine:
+
+- **Data mixture and curriculum are executable configuration.** A phase binds
+  an exact `FoundryDataMixtureProfile` — mixture weights and stage token
+  budgets, tokenizer revision and token accounting, packing and length
+  distribution, filter/classifier versions, and synthetic-generation and
+  verifier configuration — not merely dataset references.
+- **Sequence format is part of the recipe.** Foundry preserves a logical
+  trajectory IR (messages, channels, typed tool calls, loss masks) and renders
+  backend-specific formats from it through the versioned serializer declared
+  in a `FoundrySequenceFormatProfile`. Changing the serializer version changes
+  the recipe.
+- **Rollout state is durable.** An RL attempt records prompt, policy version
+  and staleness, teacher matrix, reward/verifier versions, token budgets,
+  environment snapshot, cache identity, partial completion and resumption,
+  and generated-versus-applied/accepted token counts under its
+  `FoundryRolloutPolicy`.
+- **Environment state is training state.** A
+  `FoundryEnvironmentLifecycleProfile` versions the world image, tools, event
+  schedule, hidden-verifier separation, reset/snapshot/fork semantics,
+  isolation class, and recovery. An external environment platform is never an
+  authority boundary; authority remains wallet.network grants and daemon
+  admission.
+- **Deployment constraints may enter training.** Quantization-aware
+  posttraining and draft-model acceptance tuning bind their deployment
+  targets explicitly, and a portable higher-precision source checkpoint is
+  always retained.
+- **A checkpoint is complete or it is not a checkpoint.** The
+  `FoundryCheckpointContract` requires model, optimizer, scheduler,
+  router/scaler, RNG, and data-cursor state, the exact blueprint revision, a
+  topology-neutral layout or declared topology binding, restore-verification
+  evidence, and the last admitted step.
+- **Architecture-specific mechanisms are capability-gated experiments, not
+  defaults.** Novel attention/MoE/optimizer mechanisms enter as independently
+  ablated `FoundryExperimentOptimizationCycle` targets with their own gates;
+  no external program's architecture becomes a Foundry default recipe.
+
+Admission and settlement follow the estate rule that admission is the only
+write story. Agentgres settles blueprint revisions, phase boundaries,
+checkpoint records, trial decisions, gate results, and lineage. Every admitted
+revision or lifecycle transition commits its predecessor revision ref,
+expected head, content hash, exact input/policy/dataset/tokenizer/backend/
+environment revisions, from/to state, phase, reason, actor, authority grant or
+lease, output and checkpoint hashes, telemetry segment root, and receipt root.
+High-frequency per-step telemetry stays in the observability/artifact plane;
+Foundry periodically commits telemetry segment roots and summaries into
+Agentgres, preserving replayable hash-chain truth without turning every
+optimizer step into consensus traffic. Foundry builds and runs admitted
+experiments, the daemon governs execution, and Governance alone promotes
+(INV-13).
+
+### External Evidence Boundary
+
+Published model programs are systems-design and hypothesis sources, not
+baselines. A source-reported result — a fitted scaling-efficiency curve, a
+workload-specific throughput multiple, a kernel speedup — imports as a
+hypothesis with its measurement conditions attached: never as a predicted
+Foundry gain, and never as a reproducibility or throughput baseline when the
+source does not disclose enough to reconstruct the run (token counts and
+mixtures, curriculum allocation, optimizer schedules, hardware and topology,
+wall time, launch configuration). Higher raw throughput can worsen time to
+solution; time-to-quality remains the decisive measure for every adoption
+decision.
+
+### Throughput And Goodput Measurement Contract
+
+Foundry rejects an unqualified `tokens_per_second`. Every performance
+observation declares:
+
+```text
+phase        pretraining | sft | rollout_generation | policy_update |
+             evaluation | conversion
+numerator    raw | non_padding | loss_bearing | generated |
+             accepted_applied | verifier_admitted        (token class)
+denominator  steady_state | full_wall_clock, with explicit inclusion flags
+             for compilation, loading, evaluation, checkpointing, recovery
+scope        global | node | gpu | rank
+fingerprint  hardware/software/topology, precision, batch, and
+             sequence-length distribution
+```
+
+Foundry goodput is admitted non-padding loss-bearing tokens, or accepted
+rollout tokens, that contribute to a valid checkpoint or passed gate, divided
+by complete wall-clock time. Headline metrics: raw and effective tokens/s,
+tokens/s per GPU, tokens/s per dollar, MFU, and time-to-quality;
+padding/truncation waste; data, communication, pipeline, compilation,
+checkpoint, and recovery stalls; failure-lost work and verified restore time;
+MoE expert skew, drops/reroutes, and all-to-all bandwidth where MoE applies;
+RL rollout/train/verifier goodput, policy-staleness distribution,
+accepted-token ratio, verified trajectories per hour, and environment
+pause/resume time. Measurement precedes optimization: a trainer backend
+without a capability report and observation contract does not receive
+optimization work.
+
 ## Autonomous Experiment Optimizer
 
 Foundry may run an autonomous experiment optimizer as a subordinate execution
@@ -1756,8 +1865,191 @@ FoundryTrainingStackBlueprint:
   multimodal_contract_refs:
     - schema://... | ontology://...
   package_target_matrix_ref: optional artifact://... | policy://...
+  revision_refs:
+    - training_stack_revision://...
   status:
     draft | admitted | running | evaluated | packaged | rejected | archived
+
+FoundryTrainingStackBlueprintRevision:
+  training_stack_revision_ref: training_stack_revision://...
+  training_stack_ref: training_stack://...
+  revision_seq: integer
+  predecessor_revision_ref: training_stack_revision://... | null
+  content_hash: hash
+  hypothesis: string
+  phase_plan_refs:
+    - training_phase_plan://...
+  environment_lifecycle_profile_ref: optional environment_lifecycle://...
+  checkpoint_contract_ref: checkpoint_contract://...
+  performance_contract_ref: performance_contract://...
+  total_token_budget: optional integer
+  budget_policy_ref: policy://...
+  gate_refs:
+    - gate://...
+  expected_head: hash | null
+  receipt_root: hash
+  status:
+    proposed | admitted | superseded | rejected
+
+FoundryTrainingPhasePlan:
+  training_phase_plan_ref: training_phase_plan://...
+  phase_kind:
+    pretrain | context_extension | sft | preference_optimization |
+    rl | on_policy_distillation | quantization_aware_posttrain |
+    draft_tuning | conversion | evaluation
+  data_mixture_profile_ref: optional data_mixture://...
+  sequence_format_profile_ref: optional sequence_format://...
+  optimizer_numerics_profile_ref: optional optimizer_numerics://...
+  resolved_execution_plan_ref: optional resolved_execution://...
+  rollout_policy_ref: optional rollout_policy://...
+  distillation_plan_ref: optional distillation_plan://...
+  start_condition: object
+  stop_condition: object
+  token_budget: optional integer
+  gate_refs:
+    - gate://...
+  output_contract_refs:
+    - schema://... | artifact://...
+  status: draft | admitted | superseded
+
+FoundryDataMixtureProfile:
+  data_mixture_ref: data_mixture://...
+  dataset_snapshot_refs:
+    - dataset_snapshot://...
+  data_recipe_refs:
+    - data-recipe://.../revision/...
+  mixture_weights_by_stage: object
+  stage_token_budgets: object
+  tokenizer_revision_ref: artifact://... | schema://...
+  token_accounting_policy: raw | non_padding | loss_bearing
+  packing_policy: object
+  length_distribution_ref: optional artifact://...
+  filter_classifier_version_refs:
+    - artifact://...
+  synthetic_generation_config_ref: optional artifact://...
+  verifier_config_ref: optional artifact://...
+  dedupe_policy_ref: optional policy://...
+  content_hash: hash
+  status: draft | admitted | superseded
+
+FoundrySequenceFormatProfile:
+  sequence_format_ref: sequence_format://...
+  trajectory_ir_schema_ref: schema://...
+  serializer: string
+  serializer_version: string
+  rendered_format: string
+  channel_policy: object
+  option_scope: global | one_shot | dynamic
+  loss_mask_policy: object
+  truncation_policy: object
+  cache_placement_policy: optional object
+  content_hash: hash
+  status: draft | admitted | superseded
+
+FoundryOptimizerNumericsProfile:
+  optimizer_numerics_ref: optimizer_numerics://...
+  optimizer_by_parameter_class: object
+  schedule: object
+  precision_policy: object
+  clipping_and_scaling: object
+  stability_limits: object
+  seed_policy: object
+  content_hash: hash
+  status: draft | admitted | superseded
+
+FoundryResolvedExecutionPlan:
+  resolved_execution_ref: resolved_execution://...
+  trainer_backend_ref: trainer_backend://...
+  hardware_fingerprint: object
+  software_fingerprint: object
+  parallelism:
+    data_parallel: integer
+    tensor_parallel: integer
+    pipeline_parallel: integer
+    expert_parallel: integer
+    context_parallel: integer
+    virtual_pipeline: optional integer
+    sequence_parallel: optional boolean
+  batch_and_accumulation: object
+  activation_policy: object
+  overlap_plan: optional object
+  backend_capability_report_ref: artifact://...
+  content_hash: hash
+  status: draft | admitted | superseded
+
+FoundryRolloutPolicy:
+  rollout_policy_ref: rollout_policy://...
+  policy_model_ref: model://... | checkpoint://...
+  teacher_matrix_refs:
+    - model://... | model_route://...
+  reward_verifier_version_refs:
+    - worker://... | model://... | gate://...
+  token_budgets: object
+  effort_budget_policy_ref: optional policy://...
+  environment_snapshot_refs:
+    - environment_snapshot://...
+  cache_identity_policy: object
+  staleness_bounds: object
+  partial_completion_policy: object
+  token_record_policy:
+    generated | applied | accepted | verifier_admitted
+  content_hash: hash
+  status: draft | admitted | superseded
+
+FoundryDistillationPlan:
+  distillation_plan_ref: distillation_plan://...
+  teacher_session_refs:
+    - teacher_session://...
+  consolidation_mode: off_policy | on_policy | mixed
+  acceptance_metric_refs:
+    - metric://... | gate://...
+  effort_budget_policy_ref: optional policy://...
+  content_hash: hash
+  status: draft | admitted | superseded
+
+FoundryEnvironmentLifecycleProfile:
+  environment_lifecycle_ref: environment_lifecycle://...
+  world_image_ref: artifact://... | interactive_world://...
+  world_image_hash: hash
+  tool_manifest_refs:
+    - schema://... | artifact://...
+  event_schedule_ref: optional artifact://...
+  hidden_verifier_separation: enforced | not_applicable
+  reset_semantics: object
+  snapshot_fork_semantics: object
+  isolation_class: string
+  persistent_event_policy: optional object
+  recovery_policy: object
+  content_hash: hash
+  status: draft | admitted | superseded
+
+FoundryCheckpointContract:
+  checkpoint_contract_ref: checkpoint_contract://...
+  required_state:
+    - model | optimizer | scheduler | router_scaler | rng | data_cursor
+  blueprint_revision_ref: training_stack_revision://...
+  layout: topology_neutral | topology_bound
+  topology_binding_ref: optional resolved_execution://...
+  restore_verification_policy: object
+  last_admitted_step_required: true
+  retention_policy_ref: policy://...
+  status: draft | admitted | superseded
+
+FoundryPerformanceContract:
+  performance_contract_ref: performance_contract://...
+  token_definitions: object
+  measurement_windows: object
+  scopes:
+    - global | node | gpu | rank
+  required_fingerprints:
+    - hardware | software | topology | precision | batch |
+      sequence_length_distribution
+  goodput_definition_ref: schema://... | artifact://...
+  headline_metric_refs:
+    - metric://...
+  stall_taxonomy_ref: optional schema://...
+  time_to_quality_targets: optional object
+  status: draft | admitted | superseded
 
 FoundryTrainerBackendProfile:
   trainer_backend_ref: trainer_backend://...
@@ -1853,6 +2145,7 @@ FoundryTrainingPipelineRun:
   dataset_snapshot_refs:
     - dataset_snapshot://...
   training_config_ref: artifact://...
+  blueprint_revision_ref: optional training_stack_revision://...
   trial_refs:
     - trial://...
   eval_suite_refs:
