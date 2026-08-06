@@ -218,6 +218,13 @@ PR list, W1 read-first through its cutover). Surface rows are ordered by the
 guide's Wave 1 launch order, then the remainder. A session takes the first
 unchecked row, refreshes its brief at the bytes, and executes.
 
+Sibling program (independent ledger, docs-first):
+`2026-08-06-seed-mesh-and-odk-wiring-run.md` deepens each brief with a seed
+mesh ledger, ontology wiring, and the ODK descriptor/extension lane, and
+lands the ODK canon expansion (X-0). Before taking a surface build row below,
+check that run's ledger: if the surface's mesh packet is unlanded, land it
+first (or in the same session) so the build executes the enriched brief.
+
 | Item | State | Handoff note |
 |---|---|---|
 | Phase A: per-surface briefs at `internal-docs/implementation/surfaces/` (20 files + `_index.md`) | ☑ 2026-08-05 | landed via PRs #155–#159; briefs pin canon cites to blob 21ae389fe (C-1..C-4 canon commit) |
