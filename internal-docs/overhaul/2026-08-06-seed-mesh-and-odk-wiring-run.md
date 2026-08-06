@@ -308,7 +308,7 @@ unattributable pre-existing test failure after ≤30 min → record and continue
 
 | Packet | State | Handoff note |
 |---|---|---|
-| X-0 ODK canon expansion (DomainApp envelopes · composable-application journey · descriptor-expressibility rule) | ☐ | canon PRs against docs/architecture; lands before X-1 |
+| X-0 ODK canon expansion (DomainApp envelopes · composable-application journey · descriptor-expressibility rule) | ☐ | canon PRs against docs/architecture; lands before X-1. (a) DomainApp envelope family — PR #172 (open); (b) ☐; (c) ☐ |
 | X-1 ODK extension-application program doc | ☐ | prerequisite for §N+2 sections; grounds on X-0 canon |
 | 1. work mesh | ☐ | |
 | 2. provenance mesh | ☐ | |
