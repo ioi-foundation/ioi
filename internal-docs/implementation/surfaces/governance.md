@@ -2,6 +2,11 @@
 
 Canonical route: `/governance` · Owner: Governance (owner application)
 Brief status: authored 2026-08-05 from bytes at 21ae389fe · v0 seed corrected where noted
+Amended 2026-08-06: seed-mesh + ODK wiring packet 5 — seed mesh ledger (§6), ontology
+wiring (§7), ODK descriptor and extension lane (§8) appended; §3 readout cite refreshed and
+the approvals census completed (2026-08-06 addendum under Corrections). Program docs:
+`internal-docs/overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`,
+`internal-docs/implementation/odk-extension-apps.md`.
 
 ## 1. Canon digest
 
@@ -138,6 +143,31 @@ route gap.
   routes at the live tree (serve-product-ui.mjs:9901-9932;
   surfaces/approvals/index.mjs:51-54); counts not re-measured.
 
+#### Addendum 2026-08-06 (mesh packet 5 — cite refresh + full census at `ba9e2ea0a`)
+
+**Readout cite.** §3 gave the cockpit as `serve-product-ui.mjs:9901-9932` with the
+per-family POST forms at `:9937-9944`. At the bytes the GET handler is at
+**`:9938`** and the family POST lane at **`:9974`** (`pathname.startsWith(
+"/__ioi/governance/")`). The composed reads and the tab structure are unchanged.
+
+**Approvals census completed.** §3 listed "40 controls, 35 implemented, 9
+daemon_read, 3 governed_receipted, 13 disabled_missing_authority" — those three
+outcome buckets sum to 25, not 40. Recounted from
+`application-operational-depth.json`, the full six-bucket breakdown is:
+
+| outcome | count |
+|---|---|
+| `daemon_read` | 9 |
+| `local_view_interaction` | 9 |
+| `governed_receipted_action` | **3** |
+| `disabled_missing_authority` | 13 |
+| `unsupported_reference_session` | 1 |
+| `reference_data_only` | 5 |
+| **total** | **40** |
+
+The three governed actions are approve / reject / revoke — **3 of the estate's
+24 governed-receipted controls, on a single surface.** §6 clusters all forty.
+
 ## 4. Schema→UI binding table
 
 Authority-crossing actions run through the W0.3 CapabilityLease client (403
@@ -211,3 +241,105 @@ and witness policy over the transition chain; it owns the provider-neutral
 state vocabulary (epic §3 C1, P1) and the policy/override/revocation/
 authority-freshness objects (C8). Approval legs of reconciliation (C7) land
 at P3 through the unified inbox this brief already plans.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 4: none.** No vault names Governance as owner. **Tier 5: none** — no
+`/__apps/*` capture is Governance-owned; the `approvals` capture was **rebound into
+the registered T3 surface**, which is why it appears as a T3 row below rather than a
+T5 one (`ported-seed-preservation.v1.json`: slug `approvals`, route
+`/__ioi/governance/approvals`, class `daemon_wired`).
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T3 `approvals`** — `apps/hypervisor/surfaces/approvals/index.mjs` (272 lines), route `/__ioi/governance/approvals`, verifier + pixel certification (`index.mjs:44-49`), reads `/v1/hypervisor/governance/approval-requests` (`:51-54`) | **40 controls**, clustered below | Governance owns the decision plane; the unified approvals inbox landed at W0.6 (`GET /v1/hypervisor/governance/approvals-inbox`) | see cluster rows | — |
+| ↳ **governed transition cluster** — approve / reject / revoke, reviewer attribution input, confirmation checkbox, success banner, refusal banner | 7 controls: **3 `governed_receipted_action`** + 3 `local_view_interaction` + 1 `daemon_read`. Actions declare authority plane, expected receipt family, and confirm rules (`index.mjs:72-74`); **success without the declared `approval-transition-receipt.v1` FAILS CLOSED** (`:87-91`) | receipted decisions over governed subjects | **rehome** — this is the estate's action-runtime pilot and the fail-closed check is its most valuable byte; it must survive the rehome verbatim, not be re-derived | W1 · W2 |
+| ↳ inbox filter cluster — working | 5 controls: 4 `daemon_read` (Your inbox, All requests, status multiselect, list heading + count) + 1 `local_view_interaction` (clear filters) | inbox over the W0.6 unified plane | **rehome** — and **rebind** onto `approvals-inbox`, which folds the four decision planes the current surface does not see | W1 |
+| ↳ inbox filter cluster — no authority | 9 `disabled_missing_authority` (created-by-you, request-type multiselect, created-by picker, assigned-to-you, project-requested-to, users/groups pickers, groups-requested-to, search box, sort menu) | filters need principal identity; `reviewer_ref` accepts any JSON verbatim today (§3 correction) | **retire-at-cutover** for the identity-shaped filters until principals bind (`/v1/hypervisor/principals`, `hypervisor-daemon.rs:3369-3374`); **rehome** for search + sort, which need no authority | W3 (identity) · W1 (search/sort) |
+| ↳ record inspection cluster | 6 controls: 3 `daemon_read` (row select, subject-ref link, record fields — request id / reason / blast radius / created) + 3 `local_view_interaction` (empty state, close detail, terminal-state note) | subject deep-links to the owner; a decision names its subject | **rehome** — the subject-ref link is the one control that makes this surface object-aware (§7) | W1 |
+| ↳ app header cluster | 2 controls: 1 `daemon_read` (substrate table link ⇱) + 1 `local_view_interaction` (title + icon) | — | **rehome** | W1 |
+| ↳ vendor shell chrome cluster | 4 controls: 1 `local_view_interaction` (workspace sidebar) + 3 `reference_data_only` (global search, notifications, What's New / AIP Assist / Support) | hidden-UX carve-out; AIP Assist is a vendor faculty (standing P2 gate) | **retire-at-cutover** | W4 |
+| ↳ absent governance affordances cluster | 5 controls: 4 `disabled_missing_authority` (reviewer assignment, delegation, SLA/escalation, audit exports) + 1 `unsupported_reference_session` (threaded comments) | **no canon contract for any of the five.** Delegation in particular is authority-shaped and would need its own admission | **retire-at-cutover** — these are not named gaps awaiting wiring; canon gives this surface no delegation, SLA, or comment plane | W4 |
+| ↳ reference taxonomy cluster | 2 `reference_data_only` (reference request-kind taxonomy, reference status taxonomy) | the daemon's own request kinds and states are the truth | **pattern-harvest** — vocabulary shape only; the reference taxonomies must never be rendered as if they were the daemon's | — |
+| **T2 governance cockpit** — `/__ioi/governance` (serve `:9938`), per-family POST lane (`:9974`) | T2 census `nat-governance`: **23 controls, 0 disabled**. Reads all governance control families + domain-apps + marketplace candidates/listings + foundry specs/plans in one tabbed page; POST forms are **record-only** | Governance owns approval-requests, release-controls, kill-switches, improvement-gates, cohorts, and the overview (`hypervisor-daemon.rs`, thirteen registered paths) | **rehome** — the tabbed cockpit becomes the `/governance` body; the record-only POST forms are demoted to `disabled-named-gap` until they cross the CapabilityLease client, since a record-only transition over a governed control is exactly the mutation-over-projection pattern the Agentgres positioning constraints forbid | W1 · W2 |
+| **Deep links from other readouts** — home/ops link `/__ioi/governance?tab=approvals` (serve `:1062`); agent-studio improvements embed approve / request-approval forms (`:2704-2705`) | not census controls | approvals surface through their owner | **rehome** (link targets follow the surface) · the agent-studio embedded forms **retire-at-cutover** with Agent Studio's split-rehome (`studio.md`) | W1 · W4 |
+| **Authority / lease browsing — absent** | zero panes over `/v1/hypervisor/authority/{posture,grants,receipts,providers}` and `/v1/hypervisor/capability-leases`; the daemon reads exist | Governance owns the authority plane read (§1) | **blocked-missing-route: no** — this is the inverse: routes exist, panes do not. Recorded as **build, not mesh**: there is no seed to disposition, so §5's W1 rows own it | W1 |
+| **Dangling receipt drilldown** — the approvals success banner links "proof stream" → `/__ioi/work-ledger` (`surfaces/approvals/index.mjs:186-187`), whose aggregate does **not** join `governance-approval-transition-receipts` (`orchestration_routes.rs:532-951`) | not a census control | receipts must be reachable from the decision that produced them | **rehome with a named defect** — the link rehomes, but it dangles today and must render a named gap rather than an empty stream until the W3 read route lands (§2) | W1 · W3 |
+
+**Census reconciliation.** Governance's one T3 surface carries **40 of the 563**
+baseline controls: 7 + 5 + 9 + 6 + 2 + 4 + 5 + 2 = 40, exact. It holds **3 of the
+estate's 24 `governed_receipted_action` controls — 12.5% of every governed control
+in the estate, on a single surface.** Its T2 cockpit adds 23 controls, 0 disabled,
+outside the baseline.
+
+**Disposition summary.** 7 rehome (two of which also rebind) · 1 pattern-harvest ·
+4 retire-at-cutover · 0 blocked. One row is recorded as **build, not mesh** (authority
+browsing: routes exist, no seed to disposition) and one carries a **named defect**
+(the dangling receipt drilldown).
+
+## 7. Ontology wiring
+
+Governance is **object-aware without being object-bound**, and the distinction is
+the whole of its wiring story. An approval names a subject; that subject may be an
+ontology-governed object, a Domain App, a release, or a platform record. Governance
+reads the ref and renders it — it never resolves the object, never reads its
+ontology, and never writes a semantic fact.
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Approval record — subject-ref link | **none directly.** `subject_ref` is an opaque typed ref that *may* name an ontology-governed object | `/v1/hypervisor/governance/approval-requests` | Read (deep link only) | the one object-aware control on the surface; it hands off rather than resolving |
+| Unified approvals inbox (W0.6) | **none** | `/v1/hypervisor/governance/approvals-inbox` | Read | folds four decision planes; still ref-level |
+| Release controls · kill switches · improvement gates · cohorts · overview | **none — not object-bound** | five family routes | Read + record-only POST | governance controls are platform objects |
+| **Domain App mount gate** | `DomainApp` (`DomainAppEnvelope`), `DomainAppRuntime`, `DomainAppMountReceipt` | approval-request + release-control refs consumed by `POST /v1/hypervisor/domain-apps/:id/{mount,serve}` (`domain_apps_routes.rs:498-529`) | **Read by the daemon; Governance writes only its own control records** | The one place Governance's records gate a *semantic-plane* object. An ApprovalRequest must be `approved` **and** target the app; a ReleaseControl must be `open` **and** target it. Governance never calls mount — it publishes the controls the mount rung reads |
+| **Kill-switch enforcement over Domain App runtimes** | `DomainAppRuntime` | `POST …/kill-switches/:id/enforce` → `kill_enforce_runtime` (`domain_apps_routes.rs:992-1057`) | **Write (effectful), receipted** | enforcement drives the ordinary stop/unmount transitions and emits the ordinary receipt family under kill-specific action names — no private path, no thinner record |
+| **Write side — semantic plane** | **none.** Governance admits no ontology write | — | — | its writes are its own control records and the enforcement transition above; approvals over ontology-governed objects remain read-only references |
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+`review_inbox` is the canonical `composition_pattern` for exactly this shape, and
+the approvals surface is the closest thing the estate has to a first-party
+descriptor candidate. It is still **exempt**, and the reason is narrower and more
+interesting than the platform-object finding that blocked Work, Environments, and
+Operations.
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Approvals inbox + record detail | `review_inbox` | **exempt — subject refs are opaque** | the shape is the pattern. But invariant 11 requires *owning* ontology and object-model refs, and an approval's subject is a heterogeneous typed ref that may name anything. A descriptor cannot declare ontology refs for a queue whose rows deliberately span owners — **the inbox's cross-owner nature is exactly what makes it unbindable** |
+| Governance cockpit tabs (release controls, kill switches, improvement gates, cohorts) | `list_detail` | **exempt — no bindable primitive** | platform control objects (X-2 finding, 5th surface) |
+| Governance overview | `dashboard` | **exempt — no bindable primitive** | same |
+| Approve / reject / revoke actions | — | **exempt — authority-crossing** | a descriptor's `allowed_action_refs` can *declare* an action; it never carries the admission, the receipt obligation check, or the fail-closed rule (`index.mjs:87-91`) |
+
+A finding worth separating from the platform-object one, because a future
+`review_inbox` descriptor will hit it: **the pattern presumes a homogeneous
+object set, and canon's own review inboxes are cross-owner by design**
+(:4346-4369 — a policy-filtered cross-owner pointer). Filed to X-2 alongside the
+platform-object row.
+
+Zero expressible, zero rendered.
+
+### (b) This surface as primitive exposer
+
+**Not n/a — Governance owns a stage.** It is the first surface in this run to hold
+one.
+
+| Journey stage (`odk-extension-apps.md` §2) | What Governance contributes |
+|---|---|
+| **10 — mount and serve** | the ApprovalRequest and ReleaseControl that admit the mount rung, re-validated live at every serve transition, and the KillSwitch that enforces stop/unmount through the same receipt family |
+
+Two boundaries this ledger must state so the stage is not over-read:
+
+- Governance **admits**; it does not mount, serve, or launch. The mount rung reads
+  its controls; it never delegates the transition to Governance.
+- Governance's admission is **not** package admission. Stages 6–7 (admit and
+  version, install and register) are Packages' and remain
+  `route-missing` — no `/v1/hypervisor/packages/*` family exists. A Domain App can
+  therefore be *mounted* under Governance's controls while remaining unadmitted as
+  a package and unregistered as an `extension_application`, which is exactly the
+  half-built middle `odk-extension-apps.md` §1 records.
