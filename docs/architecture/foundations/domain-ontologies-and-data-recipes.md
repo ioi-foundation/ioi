@@ -514,6 +514,48 @@ passes the same registration contract, the same admission, the same authority
 gates, and the same receipt obligations as a hand-authored one. The rule is
 about shared shape, never about a shortcut around the ladder.
 
+#### Contract limitations found by dogfooding (2026-08-06)
+
+The first full application of this rule ran the entire first-party estate — twenty
+owner surfaces — against the eleven `composition_pattern` members. Fewer than a
+dozen panes came back expressible. The reasons cluster into four contract
+limitations, recorded here because the rule exists to surface exactly this, and
+because a builder hitting any of them will otherwise conclude the kit is broken
+rather than incomplete.
+
+**1. The descriptor cannot bind a platform object family.** Invariant 11 requires
+owning ontology and object-model refs. A great many first-party panes render
+**platform** objects — sessions, runs, environments, providers, receipts,
+registrations, proposals, packages — which are not `CanonicalObjectModel`
+instances and have no ontology to name. Such a pane's shape may match
+`list_detail`, `object_view`, `dashboard`, or `monitoring_console` exactly and
+still have nothing to put in the descriptor's required fields. This is the single
+most common exemption in the estate and it affects every read-model core workspace
+and every substrate surface.
+
+**2. The descriptor has no write semantics.** Three patterns are write-shaped —
+`object_editor`, `data_recipe_builder`, `connector_mapping_editor` — and none is
+usable by the first-party pane it names. A governed write in this estate carries a
+concurrency token, a receipt obligation, and a fail-closed admission check; the
+descriptor expresses none of the three. The sharpest instance is that the surface
+that authors descriptors cannot itself be described by one.
+
+**3. Some canonical inboxes are cross-owner by construction.** `review_inbox`
+presumes a homogeneous object set. Canon's own review and facet projections are
+explicitly cross-owner pointers, and search and catalog surfaces are heterogeneous
+by definition. A descriptor cannot declare owning ontology refs for a queue whose
+rows deliberately span owners.
+
+**4. Three first-party shapes have no matching pattern.** A trace/replay span
+waterfall with a detail drawer is neither `graph` nor `monitoring_console` nor
+`dashboard`. A live terminal is not `monitoring_console`, which observes. And a
+code editor is not `object_editor`, which edits ontology objects — that one is a
+category difference rather than a gap.
+
+These are findings, not licences. Until they are resolved, an exempt pane is
+exempt **with its reason recorded**, and no pane may claim descriptor conformance
+it cannot meet.
+
 ## Domain Apps And The Governed Mount Ladder
 
 A **Domain App** is the app-shaped consumer of this layer: one
