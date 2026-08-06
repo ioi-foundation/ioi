@@ -69,6 +69,24 @@ Today's traversable estate for this surface (census 2026-07-30 used as seed; byt
 - v0/census framing implied identity truthfulness aside, env-facing adapter RPCs are daemon-projected — bytes confirm, with two exceptions to kill in W0.5-style cleanup: fabricated `CreateEnvironmentLogsToken` and no-op `MarkEnvironmentActive` (`ioi-api-adapter.mjs:479-482`).
 - Census said 14 registered T3 surface directories — live tree has 6 module dirs (`apps/hypervisor/surfaces/`: approvals, missions, object-explorer, ontology-manager, pipeline, sources); all 14 registry entries persist in `scripts/surface-registry.mjs:50-63`. No impact on this surface (none are Environments-owned), recorded as census drift.
 
+#### Addendum 2026-08-06 (mesh packet 3 — cite refresh at `ba9e2ea0a`)
+
+§3 gave the readout handler as `serve-product-ui.mjs:8822-8838`. At the bytes,
+**`:8838` is the `/__ioi/operations` handler** and `/__ioi/environments` begins at
+**`:8858`**; the two adjacent handlers were conflated. The renderer cite
+(`:2128-2237`) and the nine composed reads are unchanged, and the reads resolve at
+`:8858-8871`:
+
+```text
+environments-summary · environment-classes · provider-accounts
+placement/venues · placement/venue-policy · placement/decisions
+failover/plans · storage-archives · provider-spend/reconciliation
+```
+
+Census re-read from the audit inventory: `nat-environments` = **182 controls, 0
+disabled, HTTP 200**. §3's "Census: 200, 182 controls" reads the HTTP status and
+the control count as one figure; they are separate.
+
 ## 4. Schema→UI binding table
 
 Authority actions use the W0.3 authority client (403 wallet challenge → 428 credential → receipted); reads use the W0.3 read-projection client. No session-serving elements on this surface bind work subjects; any future "sessions on this environment" rollup must resolve via `subject_attachments[]` reads, never named app-family fields (`core-clients-surfaces.md:3971-3990`).
@@ -112,3 +130,90 @@ Authority actions use the W0.3 authority client (403 wallet challenge → 428 cr
 8. **W2** — Placement/failover actions: venue-policy PUT, decision create, plan create/arm/disarm/run, warm-pool claim.
 9. **W3** — Backend builds + UI in same wave: route-binding family; service/task start-stop; `mark_active` + activity signals; project discovery + `create_from_context_url`; cleanup-obligation verbs; env-scoped SCM-auth requirement objects (§2 route-missing rows).
 10. **W4** — Cutover: `/__ioi/environments` retired with typed 410 per the 6-step rule; delete `server.cjs` environment fixtures; catalog tile (`serve-product-ui.mjs:1471`) repointed by the compiler projection.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 3 (registered surfaces): none.** The 14-slug registry has no Environments
+entry (`scripts/surface-registry.mjs:54-67`), so Environments contributes **0 of
+the 563 baseline controls**. **Tier 4: none** — no vault names Environments as
+owner. Both are honest absences: this surface was built native, not harvested.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T2 substrate cockpit** — `/__ioi/environments` (serve `:8858`, renderer `:2128-2237`) | T2 census `nat-environments`: **182 controls, 0 disabled**, HTTP 200. Nine composed daemon reads; **zero mutation forms** | substrate overview is Environments; the live console is Developer Workspace (:299-303) | **rehome** — the W1 job is moving an existing cockpit to `/environments`, not building one from readouts | W1 |
+| ↳ posture + classes pane | part of the 182; env-class chips | env classes read-only | **rehome** | W1 |
+| ↳ placement venues + venue policy + spend posture (`renderPlacementVenues`, composed `:2170`) | part of the 182 | placement/venue canon per §1 | **rehome** | W1 |
+| ↳ placement decisions + failover readiness (`:2171-2182`) | part of the 182 | same | **rehome** | W1 |
+| ↳ provider accounts (kind/target/sealed-credential/preflight/customer-borne spend) (`:2138-2157`) | part of the 182 | sealed-credential posture stays read-only until the lease client lands | **rehome** | W1 · W2 (actions) |
+| ↳ archive custody (per-env sealed archives × backends × state root) (`:2158-2169`) | part of the 182 | custody **health** stays with Operations per the split ruling (§4) | **rehome** (custody rows) — the health rollup is Operations' | W1 |
+| ↳ master–detail lifecycle drawer (paged env rows → client-fetched `GET /v1/hypervisor/environments/:id`; component phases, ports/services/tasks, isolation/connectivity, last-8 observations, raw record) (`:2186-2235`) | part of the 182 | lifecycle console over honest daemon records | **rehome** — live phase/observation updates move onto the W0.4 event client | W1 |
+| **T1 adapter lane** — `EnvironmentService` in the 97-RPC adapter (`ioi-api-adapter.mjs:399-487`) | not census controls | daemon-projected RPCs only | **rehome** (the daemon-projected verbs) · the two former lies are **already retired at W0.5**: `CreateEnvironmentLogsToken` and `MarkEnvironmentActive` now refuse typed, and the daemon-down mock fallthrough is gone | done · W2 |
+| **T5 `/__apps/map`** — harvest capture, owner Environments (`harvest-seed-inventory.mjs:76`), class `reference_capture`, capture state **`blocked_missing_capture`**, grammar `editor_canvas`, tier aux, `reboundLane: null`, note "geospatial map canvas; unbound" | not in the 563 (captures are not registered surfaces) | **no canon pane.** Environments' canon panes are posture, venues, decisions, failover, accounts, custody, and the lifecycle console — none is geospatial | **blocked-missing-capture** — and even if the capture booted, there is no canon end state to mesh it against. Recorded twice over: no inspectable capture, no canonical home | — |
+| **Catalog tile** — Applications catalog links Environments → `/__ioi/environments` (serve `:1471`); Workbench header cross-link "Environment posture →" (`:2352`) | not census controls | canonical route `/environments` (census: `resolves: false` today) | **retire-at-cutover** — the tile is repointed by the compiler projection, not hand-edited | W4 |
+| **Mock lane** — `product-ui/server.cjs:529-531` fixture `ListEnvironments` | fixture | no fixture data may reach a surface | **retire-at-cutover** — deleted at W4; already unreachable from the env plane since W0.5 removed the fallthrough | W4 |
+
+**Census reconciliation.** Environments holds **0 of the 563** T3 baseline controls
+(no registered surface). Its single T2 readout carries **182 controls, 0 disabled**,
+outside that baseline. The zero-disabled count is not a claim of completeness: the
+readout has no mutation forms at all, so there is nothing to disable — the missing
+authority controls are absent, not disabled, and §4 already names each one.
+
+**Disposition summary.** 8 rehome · 0 rebind · 0 pattern-harvest ·
+2 retire-at-cutover · **1 blocked-missing-capture** (`/__apps/map`).
+
+## 7. Ontology wiring
+
+**None — not object-bound, across the whole surface.**
+
+Environments is substrate: its objects are environments, classes, provider
+accounts, venues, placement decisions, failover plans, and archives. None is a
+`CanonicalObjectModel` instance, none is admitted through an ontology, and none
+appears in the semantic plane. The nine reads the cockpit composes are all
+platform-substrate routes (`/v1/hypervisor/environments-summary`,
+`…/environment-classes`, `…/provider-accounts`, `…/placement/*`,
+`…/failover/plans`, `…/storage-archives`, `…/provider-spend/reconciliation`) — not
+one `/v1/hypervisor/odk/*` route.
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Every pane | **none — not object-bound** | nine substrate reads (`serve:8858-8871`) | Read | substrate objects, not semantic-plane objects |
+| **Write side — whole surface** | **none** | — | — | today there are no mutation forms at all; when W2 adds lifecycle verbs they cross the CapabilityLease client into daemon admission, never a semantic write |
+
+The adjacency worth recording so a later packet does not invent a binding: an
+environment can *host* work that reads ontology objects, and a `DataRecipe` run
+executes *somewhere*. Neither makes the environment ontology-bound. The link runs
+the other way — a `TransformationRun` names its environment; the environment names
+no ontology.
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Substrate posture + classes | `monitoring_console` | **exempt — no bindable primitive** | shape matches; substrate objects are not ontology-bound (§7), so invariant 11's required fields have nothing to name |
+| Placement venues / decisions / failover readiness | `dashboard` | **exempt — no bindable primitive** | same |
+| Provider accounts table | `list_detail` | **exempt — no bindable primitive** | same; the sealed-credential column is also authority-crossing chrome |
+| Archive custody table | `list_detail` | **exempt — no bindable primitive** | same |
+| Master–detail lifecycle drawer | `object_view` | **exempt — no bindable primitive** | same; "object" here is a platform environment record |
+
+Zero panes descriptor-expressible, zero descriptor-rendered. This is the
+**platform-object blocking finding** from `work.md` §8 recurring exactly as
+predicted — third surface, same cause. Substrate surfaces will all land here; the
+finding is filed once (X-2) and referenced, not re-filed per surface.
+
+### (b) This surface as primitive exposer
+
+**n/a.** Environments owns no stage of the composable-application journey
+(`odk-extension-apps.md` §2), exposes no ODK primitive, and holds no descriptor.
+
+One boundary, because it is the plausible mistake: a generated domain app runs
+somewhere, and the Domain App mount ladder's `mount` rung is admission-gated —
+but **mounting is not provisioning**. The ladder explicitly starts no process and
+creates no ingress (`domain_apps_routes.rs:489-491`), so it never reaches this
+surface. Environments neither admits nor hosts any rung of the extension lane.
