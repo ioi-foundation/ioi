@@ -2,6 +2,10 @@
 
 Canonical route: `/foundry` · Owner: Foundry (owner application)
 Brief status: authored 2026-08-05 from bytes at 21ae389fe · v0 seed corrected where noted
+Amended 2026-08-06: training-program revision audit — W3.0 contract wave inserted,
+route-plane defect register added (§6), functional-interface targets added to §4;
+canon counterpart is foundry.md "Reproducible Training Program Revisions" +
+the FoundryTrainingStackBlueprintRevision contract family.
 
 ## 1. Canon digest
 
@@ -84,6 +88,7 @@ Brief status: authored 2026-08-05 from bytes at 21ae389fe · v0 seed corrected w
 | Experiment optimization: FoundryExperimentOptimizationCycle (advisory) | foundry.md:1884,305-311 | `route-missing` — **W3** |
 | Deploy lineage: FoundryArtifactConversionRun/RegistryVersion/RouteBinding/PromotionBundle | foundry.md:1927,1344,1361,1973 | `route-missing` — **W3** |
 | Foundry-side eval assets: ExecutableEvalSuite/EvalWorld/EvalTrajectoryRun/TrajectoryScorecard | foundry.md:1398,1419,1438,1475 | `route-missing` — **W3** (judgment stays Evaluations) |
+| Training-program revision family: FoundryTrainingStackBlueprintRevision + TrainingPhasePlan + DataMixture/SequenceFormat/OptimizerNumerics profiles + ResolvedExecutionPlan + RolloutPolicy/DistillationPlan + EnvironmentLifecycleProfile + Checkpoint/Performance contracts | foundry.md "Reproducible Training Program Revisions" + contract block | `route-missing` — **W3.0** (contract registration precedes every mutation route) |
 
 No Foundry-family JSON Schema exists in `docs/architecture/_meta/schemas/`
 (158 files; zero model-route/foundry/model-mount entries) — the daemon schema
@@ -186,6 +191,15 @@ W3 family.
 | Govern · learning-boundary badge on every job/spec/promotion pane | InstitutionalLearningBoundaryProfile projection · route-missing (W3) | absent | disabled-named-gap now; when wired, projection-only — **never ambient permission**, never a toggle (core-clients-surfaces.md:2527-2528, :1096-1099) |
 | Govern · promotion bundle queue / route-binding candidates | foundry.md:1973 · route-missing | absent | disabled-named-gap; W3 (activation decisions stay Governance) |
 | Govern · weight-custody + worker-package admission timelines | POST-only planners :1080, :1099 | invisible | wired-read over admission records (new read projection is part of the W3 row) |
+| Train/Tune · blueprint revision diff viewer (revision N vs N-1: phases, profiles, budgets, gates) | FoundryTrainingStackBlueprintRevision + phase-plan/profile content hashes · W3.0 schemas | absent | disabled-named-gap now; wired-read after W3.0 (diff computed over admitted revisions, never drafts) |
+| Train/Tune · data-mixture/curriculum inspector (per-stage weights, token budgets, tokenizer accounting, filter versions) | FoundryDataMixtureProfile · W3.1 | absent | disabled-named-gap; wired-read after W3.1 |
+| Train/Tune · backend compatibility panel (blueprint revision × TrainerBackendProfile capability report) | FoundryResolvedExecutionPlan.backend_capability_report_ref · W3.2 | absent | disabled-named-gap; wired-read; incompatibility renders as named readiness gap, never silent downgrade |
+| Train/Tune · run DAG + controls (phase graph, stage state, pause/resume/stop) | FoundryTrainingPipelineRun.blueprint_revision_ref + phase plans · W3.2 | absent | controls wired-action-receipted via CapabilityLease; reads projection-only |
+| Train/Tune · live goodput/bottleneck view (qualified tokens/s, MFU, stalls, waste; every number carries phase/numerator/scope/fingerprint) | FoundryPerformanceContract observations · W3.4 | absent | wired-read; unqualified throughput numbers are a render defect |
+| Train/Tune · rollout-staleness queue (policy lag distribution, paused/resumable attempts, accepted-token ratio) | FoundryRolloutPolicy attempt records · W3.2 | absent | disabled-named-gap; wired-read after W3.2 |
+| Train/Tune · environment snapshot browser (world image hash, fork lineage, reset/recovery evidence) | FoundryEnvironmentLifecycleProfile + snapshots · W3.2 | absent | disabled-named-gap; wired-read after W3.2 |
+| Train/Tune · checkpoint restore evidence (required-state completeness, restore verification, last admitted step) | FoundryCheckpointContract · W3.3 | absent | wired-read; a checkpoint without restore verification renders as unverified, not as restorable |
+| Govern · gate/promotion lineage (revision → phases → checkpoints → gates → promotion bundle) | revision family + FoundryPromotionBundle · W3.3 | absent | wired-read; activation stays Governance (INV-13) |
 
 ## 5. Ordered PR list
 
@@ -208,21 +222,70 @@ W3 family.
    disabled-named-gap.
 6. **W2** — spec/run-plan mutation receipts: draft CRUD gains receipt refs
    (or is demoted to disabled-named-gap until it does).
-7. **W3 (backend-first, serialized on hypervisor-daemon.rs)** — dataset
-   family (`foundry/dataset-factory-runs`, snapshots, candidate-data,
-   holdout custody); then training family (pipeline runs, trials,
-   checkpoints, teacher sessions); then deploy-lineage family (conversion
-   runs, registry versions, promotion bundles — read/propose only); then
-   optimizer cycles (advisory); each lands routes + registry schema + UI in
-   the same wave.
-8. **W3** — learning-boundary projection route + badge wiring across every
+7. **W3.0 (contract-and-migration wave — precedes every mutation route and
+   every mutation UI)** — register the Foundry JSON Schema family in
+   `docs/architecture/_meta/schemas/` with generated Rust/TS contracts:
+   foundry-spec/run-plan v2 plus the training-program revision family
+   (BlueprintRevision, TrainingPhasePlan, DataMixtureProfile,
+   SequenceFormatProfile, OptimizerNumericsProfile, ResolvedExecutionPlan,
+   RolloutPolicy, DistillationPlan, EnvironmentLifecycleProfile,
+   CheckpointContract, PerformanceContract). Migrate the two local
+   schema-string constants onto registered shapes (v1 free-form `inputs` /
+   opaque `steps` stay readable under v1 names, never as v2 semantics —
+   adapter migration, not field mapping). Spec/run-plan writes move onto
+   Agentgres admission (expected-head CAS + receipts + revision) closing
+   defects D-3/D-4. Per family, before any route lands: state machine +
+   legal-transition table, authority path (CapabilityLease), named refusal
+   dimensions with negative fixtures, recovery semantics, telemetry
+   segment-root commitment points, and tests.
+8. **W3.1-W3.4 (backend-first, serialized on hypervisor-daemon.rs)** —
+   W3.1 dataset family (`foundry/dataset-factory-runs`, snapshots,
+   candidate-data, holdout custody, mixture profiles); W3.2 executor/
+   lifecycle family (pipeline runs bound to admitted blueprint revisions,
+   trials, teacher sessions, rollout-attempt records with staleness +
+   resumption, environment lifecycle/snapshots); W3.3 checkpoint/recovery
+   family (checkpoint contract enforcement, restore-verification evidence,
+   deploy-lineage: conversion runs, registry versions, promotion bundles —
+   read/propose only); W3.4 performance/telemetry family (qualified
+   throughput observations, goodput ledger, stall taxonomy, segment-root
+   commits) + optimizer cycles (advisory). Each wave lands routes +
+   registered schema + UI in the same PR set. Measurement (W3.4 read plane)
+   lands before any throughput-optimization work is accepted.
+9. **W3** — learning-boundary projection route + badge wiring across every
    Foundry job/promotion pane (projection-only).
-9. **W4** — event consumption for probe/receipt/run updates moves to
-   `/v1/event-streams` + `/v1/subscriptions`; legacy model-mount SSE
-   (`/v1/model-mount/server/events` :642) wrapped, not extended.
-10. **W4** — cutover: `/__ioi/foundry*`, `/__ioi/foundry/models`, and the
+10. **W4** — event consumption for probe/receipt/run updates moves to
+    `/v1/event-streams` + `/v1/subscriptions`; legacy model-mount SSE
+    (`/v1/model-mount/server/events` :642) wrapped, not extended.
+11. **W4** — cutover: `/__ioi/foundry*`, `/__ioi/foundry/models`, and the
     Agent Studio `#model-routes` tab retire with typed 410s; `models` row
     exits surface-registry; `/__apps/models`/`modelstudio`/`inference`
     captures remain dormant T4 evidence; reconcile the two
     `foundry_eval_training` profile_kind byte sites (connectors-tools
     contracts.md:162, doctrine.md:156) in whichever PR touches those files.
+
+## 6. Route-plane defect register (audited 2026-08-06)
+
+Byte-verified against `foundry_routes.rs` on master at 64b0607f4:
+
+- **D-1 persistence dishonesty — FIXED (this PR).** Spec create/patch and
+  run-plan create discarded `persist_record` errors (`let _ =`) while
+  returning success. Now a persist failure returns typed
+  `foundry_persist_failed` (500 on create, `ok:false` on patch) — INV-14.
+- **D-2 mutable meaning — FIXED (this PR).** Run plans referenced their spec
+  by mutable id only, so a later spec PATCH silently changed an existing
+  plan's meaning. Plans now pin `spec_content_hash` (timestamp-excluded
+  content hash) at creation; plan GET reports `spec_drifted`/`spec_missing`
+  as computed read fields (rows are views — drift is never persisted back).
+- **D-3 unregistered schemas — W3.0.** `ioi.hypervisor.foundry-spec.v1` /
+  `foundry-run-plan.v1` are local string constants; no
+  `_meta/schemas/` registration, no generated contracts.
+- **D-4 no admission — W3.0, gates all mutation UI.** Writes are direct
+  JSON-file persistence: not Agentgres-admitted, CAS-protected, receipted,
+  or revisioned. Per the Agentgres positioning constraints (#168, canon
+  #169), admission is the only write story — no surface may present these
+  drafts with mutation semantics beyond draft CRUD until W3.0 lands.
+- **D-5 authority named, unenforced — W2/W3.** `authority_policy_ref` is
+  declared-only; enforcement arrives with the CapabilityLease client wave.
+- **D-6 free-form payloads — W3.0.** Spec `inputs` and run-plan `steps` are
+  opaque JSON; v2 schemas type them (phase plans, profiles) and the v1
+  shapes survive read-only under v1 names.
