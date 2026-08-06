@@ -6,6 +6,11 @@ Amended 2026-08-06: training-program revision audit — W3.0 contract wave inser
 route-plane defect register added (§6), functional-interface targets added to §4;
 canon counterpart is foundry.md "Reproducible Training Program Revisions" +
 the FoundryTrainingStackBlueprintRevision contract family.
+Amended 2026-08-06 (second pass): seed-mesh + ODK wiring packet 9 — seed mesh ledger (§7),
+ontology wiring (§8), ODK descriptor and extension lane (§9) appended. The W3.0-W3.4 wave
+and the §6 defect register from the first amendment are INTEGRATED BY REFERENCE, not
+restated. Program docs: `internal-docs/overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`,
+`internal-docs/implementation/odk-extension-apps.md`.
 
 ## 1. Canon digest
 
@@ -289,3 +294,108 @@ Byte-verified against `foundry_routes.rs` on master at 64b0607f4:
 - **D-6 free-form payloads — W3.0.** Spec `inputs` and run-plan `steps` are
   opaque JSON; v2 schemas type them (phase plans, profiles) and the v1
   shapes survive read-only under v1 names.
+
+## 7. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`. The W3.0–W3.4 wave and the §6
+defect register are the first amendment's; this ledger **references** them and does
+not restate them.
+
+**Tier 4: none** — no vault names Foundry as owner.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T2 Foundry readout** — `/__ioi/foundry` (serve `:9532`), spec detail (`:9558`), run-plan detail (`:9609`); renderers `:3021-3201` | overview head + Model Catalog section over `/v1/hypervisor/model-routes` (`:3076-3108`), FoundrySpec draft CRUD (`:3123-3166`), FoundryRunPlan draft CRUD (`:3174-3201`), evals section listing `model_eval` drafts (`:3115`). **Deliberately inert — "Nothing here trains, evaluates, serves, or promotes"** (`:3072`) | Foundry is the candidate/evaluator asset builder and admitted experimental executor (:2496-2498) | **rehome** — the inert-by-declaration posture is the honest core: the readout says what it does not do, in the surface, and that statement must survive the rehome rather than quietly disappearing when panes gain function | W1 |
+| ↳ spec / run-plan draft CRUD | wired draft writes; **§6 D-1 and D-2 fixed in the first amendment** (persistence dishonesty; mutable meaning via `spec_content_hash` pinning). **D-4 stands**: writes are direct JSON-file persistence — not Agentgres-admitted, CAS-protected, receipted, or revisioned | draft authoring under admission (:2515-2522) | **rehome with the D-4 gate in force** — per the Agentgres positioning constraints (#168/#169), no surface may present these drafts with mutation semantics beyond draft CRUD until W3.0 lands | W1 · W3.0 |
+| **T3 `models` — Model Catalog** — `surface-registry.mjs:57`, owner Foundry, title "Model Catalog", route `/__ioi/foundry/models`, capabilities `["browse"]`; renderer serve `:5212-5280`, handler `:8785`; protected seed, class `daemon_wired` | **39 controls, 0 governed** — correct for a `browse` registration | Model Catalog resolves as `Foundry / Models` (:1413); `Model` is the product label, `ModelRoute` the internal runtime object (:1455-1458) | see cluster rows | — |
+| ↳ real model-route reads | 8 `daemon_read` (model card identity/metadata, card click → detail, detail page body, global rail Home/Ontology/Applications/Model-Catalog) — one card per daemon model route with availability, probe evidence, custody, and credential posture | catalog over `ModelRoute` truth | **rehome** | W1 |
+| ↳ facet + search cluster | 8 `local_view_interaction` (search by name, lifecycle-status facet, type facet, creator facet, three per-facet Clear buttons, sidebar collapse, compare Back link) — plus the two compare dropdowns | local filtering over daemon rows | **rehome** — but the facet **counts** must be computed from the daemon rows actually present, never from the reference taxonomy | W1 |
+| ↳ **compare / playground cluster** | 4 controls: 2 `local_view_interaction` (the two "Select a model" dropdowns, Back) + 3 `disabled_missing_authority` (playground prompt editor + image attach, **Run** (inference), sampling sliders) | **no governed catalog workflow exists.** Raw `/v1/chat/completions` exists (`hypervisor-daemon.rs:750`) but is not a catalog action | **blocked-missing-route** — honest block. Wiring Run to the raw completions route would present ungoverned inference as a catalog feature: no admission, no spend attribution, no receipt | W3 |
+| ↳ registered-models cluster | 3 controls: 2 `disabled_missing_authority` (Registered models tab, function-backed dropdown) + 1 `reference_data_only` (Registered Models (0) table / empty state) | a registry-version family is **route-missing** (§2, W3 deploy lineage) | **blocked-missing-route** | W3 |
+| ↳ compare entry point | 1 `disabled_missing_authority` (**Compare models** — the reference's PRIMARY action) | same missing governed workflow | **blocked-missing-route** — worth naming separately: the reference surface's primary call to action is the one thing this catalog cannot do | W3 |
+| ↳ **reference vendor model cards** | `reference_data_only`: **"GPT-5.4 Pro, Claude Opus 4.7, Gemini 3.1…"** cards, plus the Recommended/Additional headings, hero, and title chip | **no fixture data may be presented as truth** | **retire-at-cutover** — and this is the estate's most dangerous fixture: model cards naming plausible vendor models beside real daemon routes. They must never render in a functional catalog, at any wave | W4 |
+| ↳ vendor shell chrome | 8 controls: 7 `unsupported_reference_session` (command palette, notifications, What's New + boot modal, Recent, Files/compass, **AIP Assist**, Account) + 1 `reference_data_only` (Support) + 1 `unsupported_reference_session` (add-to-favorites) | carve-out; AIP Assist is a vendor faculty (standing P2 gate) | **retire-at-cutover** | W4 |
+| ↳ IOI-native cross-links | 3 controls: 2 `daemon_read` (Agent Studio → `#model-routes` admin link, Foundry → owner link) + 1 `reference_data_only` (Model Catalog capture ↗) | the receipted route verbs live on Agent Studio, not the catalog (§3 correction) | **rehome** the two owner links · **retire-at-cutover** the capture link | W1 · W4 |
+| **Agent Studio `#model-routes` tab** — serve `:2983-2998`, table `:2488-2519`, proxy `:9446-9449` → daemon verbs | **not a Foundry census surface** — it is Agent Studio's. Carries the receipted, planner-admitted probe / enable / disable / select-default verbs | Deploy pane route-admin verbs belong under `/foundry` (§4) | **rehome** — this is the **rehome source for Foundry's authority actions**, and packet 11 (studio) must record the same row from the donor side so the split-rehome map and this ledger agree. Known gotcha preserved: stale probe evidence yields 412 on launch; `POST :id/probe` refreshes | W2 |
+| **T5 `/__apps/models`** — capture, owner Foundry, `reference_capture`, capture state `boots_table_list`, grammar `catalog`, high_value, `reboundLane: null` (`harvest-seed-inventory.mjs:56`); §3 records it as "familiar baseline, never a rebound surface" | not in the 563 | the registered `models` surface is the functional one | **pattern-harvest** | — |
+| **T5 `/__apps/modelstudio`** — capture, `reference_capture`, capture state `shell_only`, grammar `editor_canvas`, high_value, `reboundLane: null` (`:57`) | not in the 563 | Foundry's Build/Train-Tune IA sections (foundry.md:219-257) | **pattern-harvest** — editor-canvas grammar for the Build sections whose routes do not exist yet (§2 W3 rows); harvesting the shape licenses nothing | — |
+| **T5 `/__apps/inference`** — capture, `reference_capture`, capture state `boots_wizard`, grammar `wizard`, aux, `reboundLane: null` (`:58`) | not in the 563 | there is no governed inference workflow (see the compare cluster) | **pattern-harvest** — and explicitly **not** a rebind candidate: the capture boots, which makes it tempting, but the governed workflow it would need does not exist | — |
+
+**Census reconciliation.** Foundry's one T3 surface carries **39 of the 563**
+baseline controls: 8 + 8 + 4 + 3 + 1 + 6 + 9 + 3 = 42 raw cluster entries against
+39 controls, because three controls are counted once and described in two clusters
+(the two compare dropdowns and the Back link appear in both the facet and compare
+rows). Counted once each, the clusters are 8 `daemon_read` + 9
+`local_view_interaction` + 0 governed + 6 `disabled_missing_authority` + 9
+`unsupported_reference_session` + 7 `reference_data_only` = **39, exact**.
+
+**Zero governed controls** is correct for a `browse` registration — and it is also
+the finding: Foundry's *actual* receipted verbs live on another surface's tab, which
+is why the Agent Studio row above is a rehome source rather than a duplicate.
+
+**Disposition summary.** 6 rehome (one carrying the D-4 gate) · 3 pattern-harvest ·
+3 retire-at-cutover · **3 blocked-missing-route** · 0 blocked-missing-capture.
+
+## 8. Ontology wiring
+
+Foundry's relationship to the semantic plane is **consumer-with-a-gate**: it reads
+ontology-bound material as training and evaluation evidence, and canon puts a
+consent boundary between reading and using.
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| FoundrySpec kind `ontology` | `DomainOntology` (as a spec subject) | spec CRUD (`hypervisor-daemon.rs:1324-1333`); the ontology itself at `/odk/domain-ontologies` | Read (subject ref) | `ontology` is one of the five FoundrySpec kinds (`foundry_routes.rs:31,35-41`) — a spec **about** an ontology, not an ontology write |
+| Training-evidence eligibility | `PolicyBoundDataView` + `InstitutionalLearningBoundaryProfile` + `LearningEvidenceEligibility` | PBV read at `/odk/policy-bound-data-views`; **the boundary projection is route-missing** (§2, W3) | Read | canon: a permitted view alone is **not training consent** (non-negotiable 5); the badge, when it lands, is **projection-only and never a toggle** (:2527-2528) |
+| Dataset / distillation planes | `DistilledOntologyDataset`, `EvaluationDataset` | **route-missing** — no training, dataset, trial, checkpoint, registry-version, or promotion route exists anywhere (§3 correction, full 663-route sweep) | — | W3.1+ |
+| Ontology-aware eval packs | `EvaluationDataset` + ontology refs | eval-suites CRUD (`:1919-1930`, Evaluations-owned) | Read | the judgment contract stays with Evaluations (foundry.md:235-241) |
+| Model routes / model-mount plane | **none — not object-bound** | 48 `/v1/model-mount/*` routes + route registry | Read + governed verbs (on Agent Studio's tab today) | models are platform objects |
+| **Write side — semantic plane** | **none.** Foundry may author or propose ontology and recipe changes, but Agentgres-backed semantic truth and transformation receipts remain the canon boundary (`domain-ontologies-and-data-recipes.md`, "Product and Domain Roles") | — | — | a FoundrySpec proposing an ontology change is a **proposal**, and must render as one |
+
+The ruling this surface most needs stated, because the W3 wave will make it
+tempting: **training on ontology-bound data does not make Foundry an ontology
+writer.** Canon's line is `training improves capability / policy grants power /
+data recipes need permission`. Every Foundry pane that reads semantic material must
+show the boundary, eligibility, source-rights, route-rights, destination scope, and
+export disposition **before** the job begins (:1087-1088) — a green projection is
+never ambient permission.
+
+## 9. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Model catalog grid + facets | `list_detail` | **exempt — no bindable primitive** | `ModelRoute` is a platform object (X-2 platform-object finding) |
+| Model detail page | `object_view` | **exempt — no bindable primitive** | same |
+| Foundry overview (specs + plans + substrate counts) | `dashboard` | **exempt — no bindable primitive** | same |
+| Spec / run-plan draft CRUD | `object_editor` | **exempt — no write semantics in the descriptor**, and gated by D-4 | fifth instance of the write-semantics finding |
+| Train/Tune run DAG + goodput view (W3.2/W3.4 targets) | `monitoring_console` | **exempt — no bindable primitive**, and route-missing | recorded now so the W3 build does not discover it late |
+| **Ontology-aware eval / worker skeletons** | — | **the ODK generates these, rather than the descriptor expressing them** | the packet table calls these "ODK-generatable", and that is a different claim from descriptor-expressible: `OntologyDevelopmentKitManifestEnvelope` carries `evaluation_dataset_refs`, `benchmark_profile_refs`, and `worker_plan_refs`, so the **manifest** is where eval/worker skeletons come from. No Foundry pane is a descriptor candidate on that basis |
+
+Zero expressible, zero rendered. Worth separating for X-4: Foundry is the first
+surface where the ODK relationship is **generation, not expression** — the kit
+produces eval packs and worker-package skeletons that Foundry then consumes as
+assets, which is not the same as a Foundry pane being descriptor-driven.
+
+### (b) This surface as primitive exposer
+
+**n/a for the journey stages** — Foundry owns none of the ten
+(`odk-extension-apps.md` §2).
+
+But it is the one surface with a **non-stage contribution** worth recording: the
+ODK manifest's `worker_plan_refs`, `evaluation_dataset_refs`, and
+`benchmark_profile_refs` name artifacts whose production is Foundry's job. A
+user-tailored application that ships with an eval pack or a worker package draws
+those from Foundry — through Packages admission, never directly.
+
+Two boundaries:
+
+- **Foundry produces assets; it admits nothing.** Publication and routing still
+  require their owning admission, authority, marketplace, and settlement paths
+  (`domain-ontologies-and-data-recipes.md`, lifecycle step 15).
+- **A generated app cannot train.** Nothing in the extension lane grants training
+  authority. An `OntologyToWorkerPlan` can propose workers, tools, schemas, evals,
+  and manifests, but **it cannot grant authority** (non-negotiable 9).
