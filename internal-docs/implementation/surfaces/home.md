@@ -2,6 +2,10 @@
 
 Canonical route: `/home` · Owner: core workspace Home
 Brief status: authored 2026-08-05 from bytes at 21ae389fe · v0 seed corrected where noted
+Amended 2026-08-06: seed-mesh + ODK wiring packet 16 — seed mesh ledger (§6), ontology
+wiring (§7), ODK descriptor and extension lane (§8) appended. Program docs:
+`internal-docs/overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`,
+`internal-docs/implementation/odk-extension-apps.md`.
 
 Canon cites are `docs/architecture/components/hypervisor/core-clients-surfaces.md` unless
 prefixed (`api.md:` = `docs/architecture/components/daemon-runtime/api.md`), and resolve against
@@ -189,3 +193,69 @@ C-1 row lands (see work.md) — never a named app field.
    after parity + no-fallback proof (6-step rule); delete the `/automations` click hijack
    (80-automations.js:4-18) in the same wave as the Automations cutover; refresh the canon Home
    implementation-status paragraph (:1549-1563) to name `/home`.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 3: none · Tier 4: none · Tier 5: none.** Home has **no registered surface, no
+dormant vault, and no harvest capture** — the only surface in the run with an empty
+seed footprint across all three tiers. It holds **0 of the 563 baseline controls**.
+Its entire seed estate is the T1 shell plus four T2 lanes, and the mesh below is
+correspondingly short. That is the honest state, not an incomplete sweep.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T1 Home (explorer)** — routes `/` and `/ai` | T1 shell census: **87 controls, 1 disabled**, HTTP 200 — the largest T1 shell surface | `/home` is the canonical estate cockpit; Home advertises New Session and the separate Activate Goal affordance (:1523-1543) | **rehome** — `/` and `/ai` become `/home`; the explorer body is the seed | W0.1 · W1 |
+| **T1 New Session (composer)** — `/ai#new-session` | T1 shell census: **29 controls, 1 disabled** | New Session is a one-click action at **`/work/new-session`** (:885) and may create **only a bounded Session** (:1478-1482) | **rehome → Work** — the composer is Work's affordance advertised from Home. `work.md` §4 carries the mirror row; the two must not both claim it | W0.1 · W2 |
+| **T2 home readout** — `/__ioi/home` (serve `:8708`) | T2 census `nat-home`: **27 controls, 0 disabled**. §3 records Home composing **7 per-family reads client-side** | `home-cockpit` + `session-operations` projections are documented in `daemon-runtime/api.md` and **absent from the daemon** (§5) | **rehome** — with the client-side composition preserved as-is until the two projections land; a 7-read fan-out is honest, a fabricated rollup would not be | W1 · W3 |
+| **T2 new-session lanes** — context `GET /__ioi/api/new-session/context` (serve `:8964`), launch `POST …/launch` (`:9019`) | part of the T1 composer's 29 | bounded Session creation with a provision receipt | **rehome → Work** (with the composer) | W2 |
+| **T2 goal-space** — `/__ioi/goal-space` (serve `:8724`) | not separately censused | Activate Goal is a **separate affordance** from New Session (:1523-1543) | **rehome** — and the separation is the point: one control creates a Session, the other activates a GoalRun, and collapsing them would make Home mint the wrong object | W1 |
+| **T2 search** — `/__ioi/search` (serve `:8649`) | T2 census `nat-search`: **2 controls, 0 disabled** | search is a **compiler projection** (W0.2), policy-filtered **before** aggregation | **rehome** — search rows come from the compiler, never from a per-surface index | W1 |
+| **Live `/automations` redirect** — the shell redirects the canonical v2 route into `/__ioi/automations` | T1 shell census for `/automations`: 70 controls, 0 disabled | `/automations` is Automations' canonical route | **retire-at-cutover** — recorded here because Home's shell owns the redirect; `automations.md` §6 records the same hijack from the receiving side, and the two rows are the same defect seen from both ends | W4 |
+
+**Census reconciliation.** Home holds **0 of the 563** T3 baseline controls. Its T1
+shell surfaces carry **116 controls, 2 disabled** (87 + 29) and its T2 lanes **29
+controls, 0 disabled** (27 + 2), all outside the baseline.
+
+**Disposition summary.** 5 rehome (two of them **to Work**) · 0 rebind ·
+0 pattern-harvest · 1 retire-at-cutover · 0 blocked.
+
+## 7. Ontology wiring
+
+**None — not object-bound, and `n/a` is the honest answer the packet table
+predicted.**
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Explorer cockpit, recents, launch tiles | **none** | 7 per-family reads | Read | Home launches; it owns no object |
+| Search | **none** | compiler projection | Read | rows are registrations, not ontology objects |
+| Goal-space / Activate Goal | **none** | goal-run activation | Read + launch | a GoalRun is a platform object |
+| **Write side** | **none** | — | — | Home creates nothing itself: New Session is Work's affordance, Activate Goal is GoalRun's. Home advertises both |
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Explorer cockpit + recents | `dashboard` | **exempt — no bindable primitive** | platform objects (X-2 finding) |
+| Search results | `list_detail` | **exempt — cross-owner** | search spans every owner by design; the same cross-owner blocker `governance.md` §8 filed, third instance |
+| New Session composer | `wizard` | **exempt — authority-crossing, and not this surface's** | Work owns it |
+
+Zero expressible, zero rendered.
+
+### (b) This surface as primitive exposer
+
+**n/a**, exactly as the packet table predicted, and confirmed at the bytes.
+
+One adjacency worth a line because Home is where users will first meet the
+extension lane: **an installed extension application appears in Home's launch
+surfaces only through the compiler projection**, with the same policy filtering and
+the same `launchable` / `disabled_reason_codes` honesty every first-party row gets
+(`surface-compiler.mjs` header). Home never special-cases an extension app, and a
+recalled release must stop appearing here immediately — which is the compiler recall
+hook `packages.md` §8 rules must land with the registry.

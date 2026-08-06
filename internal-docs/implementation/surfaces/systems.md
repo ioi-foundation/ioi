@@ -2,6 +2,10 @@
 
 Canonical route: `/systems` · Owner: core workspace (Systems)
 Brief status: authored 2026-08-05 from bytes at 21ae389fe · v0 seed corrected where noted
+Amended 2026-08-06: seed-mesh + ODK wiring packet 17 — seed mesh ledger (§6), ontology
+wiring (§7), ODK descriptor and extension lane (§8) appended. Program docs:
+`internal-docs/overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`,
+`internal-docs/implementation/odk-extension-apps.md`.
 
 ## 1. Canon digest
 
