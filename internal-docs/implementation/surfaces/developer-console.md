@@ -241,3 +241,91 @@ health; it owns signed, replay-protected, idempotent webhook ingestion
 (epic §3 C4). Epic P0-4 — the GitHub App manifest registers no webhook and
 subscribes to no events (`lifecycle_routes.rs:16948`, `:16984`) — is this
 owner's repair, wired at the epic's P2 leg.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 3: none.** No registry slug names Developer Console as owner → **0 of the 563
+baseline controls.**
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T2 connections cockpit** — `/__ioi/connections` (serve `:10141`) + the add lane | T2 census `nat-connections`: **10 controls, 0 disabled**; `nat-connections-add`: **4 controls, 0 disabled** | Developer Console extends the environment — connectors, MCP, sealed credentials, SDK on-ramps. **Connections owns ALL capability bindings** | **rehome** — the cockpit is the surface; the connections-owns-all-bindings doctrine must survive so no other surface grows a second credential path | W1 |
+| **T2 BYOA GitHub App lane** — serve `:8213+` | not separately censused | user-owned app via the manifest flow; sealed key → tokens | **rehome** — the sealed-key-never-displayed posture is the property to preserve | W1 · W2 |
+| **T2 OAuth lane** — serve `:8299` · **Slack lane** — `:8319` | not separately censused | per-service leases, declared tools only | **rehome** | W1 |
+| **T4 `ux-seeds/widgets`** — vault from PR #94 (`manifest.json`: `canonical_owner: "Developer Console"`, `proposed_route: /__ioi/developer-console/widgets`, `active_registration: "none"`, `active_parity_class: reference_capture`, `first_meaningful_pull: [M3, M5, M7, M12]`), **with pixel certification** | dormant seed evidence only | widget-set authoring | **pattern-harvest** — and the vault's four-stage `first_meaningful_pull` is itself the finding: widget authoring is not pulled by one contract but by four, which is why it stays dormant. Its pixel certificate is **recorded, not credited** (same rule as `developer-workspace.md` §6) | — |
+| **T5 `/__apps/widgets`** — capture, owner Developer Console, `reference_capture`, capture state **`blocked_missing_capture`**, grammar `editor_canvas`, high_value, `reboundLane: null`, note "widget-set authoring (**self-bootstrapped**)" (`harvest-seed-inventory.mjs:66`) | not in the 563 | same as the vault | **blocked-missing-capture** — the capture is blocked; the T4 vault is the better artifact for the same grammar and is already dispositioned above | — |
+| **T5 `/__apps/devconsole`** — capture, `reference_capture`, capture state **`blocked_missing_capture`**, grammar `wizard`, high_value, `reboundLane: null`, note "OAuth app registration + **SDK on-ramps** (self-bootstrapped)" (`:65`) | not in the 563 | **kit on-ramps are canon here** — CLI, templates, scaffolds, generated SDKs, docs, conformance (:961-967, :935-940) | **blocked-missing-capture** — and this is the run's most consequential capture block: the one capture depicting **ODK on-ramps** cannot be inspected, on the surface canon makes their owner | — |
+| **T5 `/__apps/developer`** — capture, `reference_capture`, capture state `blocked_missing_capture`, grammar `table_list`, aux, `reboundLane: null`, "developer home; unbound" (`:67`) | not in the 563 | no canon pane for a separate developer home | **blocked-missing-capture** | — |
+
+**Census reconciliation.** Developer Console holds **0 of the 563** T3 baseline
+controls (no registered surface). Its two censused T2 readouts carry **14 controls,
+0 disabled**, outside the baseline — the **smallest T2 footprint of any owner
+application in the run**, against a canon scope (connectors, MCP, sealed
+credentials, kit on-ramps, conformance, webhook/service registry) that is one of
+the widest.
+
+**Three of this surface's four captures are `blocked_missing_capture`** — the
+highest block ratio in the estate. Combined with the T4 vault's four-contract pull,
+the honest summary is that Developer Console has **almost no usable seed evidence**,
+and its build is therefore led by canon and the daemon rather than by ported UX.
+
+**Disposition summary.** 3 rehome · 0 rebind · 1 pattern-harvest ·
+0 retire-at-cutover · 0 blocked-missing-route · **3 blocked-missing-capture**.
+
+## 7. Ontology wiring
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Connector registrations, MCP profiles, sealed credentials | **none — not object-bound** | connections/connector routes | Read + Write (sealed) | connectors are platform objects; the **`ConnectorMapping` that binds a connector to object models is Data's** (`data.md` §7) |
+| **The connector → ConnectorMapping seam** | `ConnectorMapping` (`ConnectorMappingEnvelope`) | `/v1/hypervisor/odk/connector-mappings` — **read by Data and Ontology, not by this surface** | — | the one place Developer Console touches the semantic plane conceptually and not at the bytes. A connector registered here becomes semantically meaningful only when Data authors its mapping. Recorded so the two surfaces do not both claim the seam |
+| Kit on-ramps (CLI, templates, scaffolds, generated SDKs) | `OntologyDevelopmentKitManifest` — **the kit's own output** | **no route** | — | canon puts the kit here; the estate has manifests (`/odk/manifests`) and **no on-ramp surface at all** |
+| **Write side — semantic plane** | **none** | — | — | credentials and connector registrations are not semantic facts |
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Connections cockpit list | `list_detail` | **exempt — no bindable primitive** | connectors are platform objects |
+| Connector add / OAuth / GitHub App flows | `wizard` | **exempt — authority-crossing** | these mint credentials and leases; a descriptor scaffolds views, never credential admission |
+| **Widget-set authoring** (the T4 vault's grammar) | `object_editor` | **exempt — no write semantics in the descriptor**, and no plane | the packet table names widget-set authoring a "descriptor-driven candidate", and at the bytes it is the **eighth instance** of the write-semantics finding rather than a candidate: there is no widget plane, and the descriptor could not express the authoring even if there were |
+| Conformance surfaces | `dashboard` | **exempt — route-missing** | conformance profiles are a descriptor field with no read plane |
+
+Zero expressible, zero rendered.
+
+The packet table's expectation that widget authoring would be "descriptor-driven"
+is worth recording as **corrected**: descriptors declare `generated_artifact_refs`
+and `conformance_profile_refs`, so a widget set could be a descriptor **output** —
+but the authoring tool for it cannot itself be a descriptor, for the same
+write-semantics reason that blocks Ontology's editor and Data's recipe builder.
+
+### (b) This surface as primitive exposer
+
+**Developer Console owns the kit's on-ramps — canon's clearest exposer role in the
+estate — and has no pane for any of them.**
+
+| Canon obligation (:935-940, :961-967) | State today |
+|---|---|
+| ODK **CLI** | no surface |
+| **Templates and scaffolds** | no surface |
+| **Generated SDKs** | no surface |
+| **Docs** | no surface |
+| **Conformance** | no route, no surface |
+
+This is not a journey stage in `odk-extension-apps.md` §2 — the ten stages are the
+*object* path from domain to launchable app. The on-ramps are the **developer** path
+to the same place: how a person acquires the kit that produces stage-3 descriptors.
+The lane can technically run without them (Studio's Surface Generate is the product
+path), but a kit whose only entry point is a product surface is not a kit.
+
+One boundary: **the on-ramps expose scaffolding, never authority.** ODK output is
+scaffolding and conformance material; a generated SDK, template, or fixture is not
+runtime truth, permission truth, semantic truth, or marketplace truth
+(`domain-ontologies-and-data-recipes.md`, non-negotiable 10). A developer who
+obtains the kit here still walks every admission in the ten-stage ladder.
