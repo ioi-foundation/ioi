@@ -546,7 +546,10 @@ pub(crate) async fn handle_v1_index() -> Json<Value> {
             row["retired"] = json!(true);
             row["note"] = json!("answers with the typed route-retirement refusal (410)");
         }
-        families.entry(family_of(&route.path)).or_default().push(row);
+        families
+            .entry(family_of(&route.path))
+            .or_default()
+            .push(row);
     }
     let total_routes = routes.len();
     let families_json: Vec<Value> = families
