@@ -304,6 +304,52 @@ unattributable pre-existing test failure after ≤30 min → record and continue
    the ledger row, stop cleanly. Never leave the ledger claiming more than
    the bytes show.
 
+## Run closed — 2026-08-06
+
+Every ledger row below is ticked. The run's own claims were re-verified against
+the bytes after the ledger closed, and that check found and fixed one real defect
+(see "Operational record" below).
+
+**Exit-criterion check, run from the bytes on master:**
+
+- 20/20 briefs carry `## N. Seed mesh ledger`, `## N+1. Ontology wiring`, and
+  `## N+2. ODK descriptor and extension lane`.
+- 39/39 harvest captures appear in the X-3 sweep; zero undispositioned, zero
+  multi-homed.
+- Per-surface T3 control shares sum to **563** — the full census baseline.
+- Canon carries all three X-0 landings: the DomainApp envelope family, the
+  composable-application journey, the descriptor-expressibility rule
+  (non-negotiables 22 and 23) plus the dogfooding limitations section.
+- `internal-docs/implementation/` resolves as a self-contained guide:
+  `surfaces/_index.md` → 20 briefs + `odk-extension-apps.md` +
+  `repo-ux-disposition.md` + `scm-transition-chain-epic.md`, with no dangling
+  pointer.
+
+### Operational record (for the next session, and for anyone auditing the merges)
+
+Two things about how this run landed are worth stating plainly rather than leaving
+for someone to discover.
+
+**1. One PR reported merged and did not land its content.** PR #175 (X-1) was
+opened against a stacked branch rather than `master`. That base branch was later
+rebased and force-pushed, discarding the merge commit, so
+`odk-extension-apps.md` was absent from master while X-4's index and all twenty
+briefs' §8 sections pointed at it. Recovered verbatim in PR #200. **Lesson for
+stacked PRs in this repo: retarget to `master` before merging, and never
+`--delete-branch` a base that still has children** — GitHub closes the child PRs
+outright (which is what happened to the original #172, reopened as #176).
+
+**2. Docs-only PRs were merged on the CI run of their identical content, not on a
+fresh post-rebase run.** Every packet PR edits the same Run State ledger table, so
+each merge invalidated the next branch and forced a rebase; a rebase re-triggers
+the full ~27-minute Rust CI on a change that only reorders markdown table rows.
+Where a branch was green before its ledger-only rebase, it was merged on that
+green. The one PR carrying code (#182, the D-1 receipted delete) was **not**
+merged this way — it ran green on its own content, and `cargo fmt --all --check`
+plus the 22 `odk` unit tests were re-run on master afterwards. If a future run
+wants to avoid the tax entirely, the fix is structural: give each packet its own
+ledger file, or tick the ledger in a single follow-up PR.
+
 ## Run State ledger
 
 | Packet | State | Handoff note |
