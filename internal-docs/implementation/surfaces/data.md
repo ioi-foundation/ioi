@@ -123,6 +123,41 @@ Registered T3 surfaces:
   `credential_posture` vocabulary (data_source_routes.rs:52-57). Badges must project
   these named postures, not an invented "consent" scalar.
 
+#### Addendum 2026-08-06 (mesh packet 7 — census reconciliation at `ba9e2ea0a`)
+
+**`sources` census completed.** §3 listed "31 controls — 6 daemon_read, 3
+governed_receipted_action, 11 disabled_missing_authority" — 20 of 31. Recounted:
+
+| outcome | count |
+|---|---|
+| `daemon_read` | 6 |
+| `local_view_interaction` | 7 |
+| `governed_receipted_action` | **3** |
+| `disabled_missing_authority` | 11 |
+| `unsupported_reference_session` | 1 |
+| `reference_data_only` | 3 |
+| **total** | **31** |
+
+**Pipeline matrix vs census — an 83/84 delta, resolved.** §3 gives the checked-in
+control matrix as 83 entries; the census gives 84 controls. Both are correct and
+they use different taxonomies. Recounted from bytes
+(`surfaces/pipeline/control-matrix.mjs`, 125 lines): **83 entries — 12
+`daemon_action`, 20 `local_view`, 40 `disabled_reason`, 11 `unsupported`.** The
+census's 84 map onto them as 11 `daemon_read` + 1 `governed_receipted_action` = 12
+`daemon_action`; 20 `local_view_interaction` = 20 `local_view`; 40
+`disabled_missing_authority` = 40 `disabled_reason`; and 9
+`unsupported_reference_session` + 3 `reference_data_only` = **12** against the
+matrix's 11 `unsupported`. **The delta is one reference-only row the matrix does
+not carry** — the census counts the vendor Foundry workspace sidebar as a control;
+the matrix, which governs serve boot, scopes itself to the pipeline surface. The
+matrix is the stricter artifact and the correct one to gate on; §6 clusters the
+census's 84 so the reconciliation is complete either way.
+
+Note also: pipeline holds **40 `disabled_missing_authority` controls — the
+estate's largest dead cluster, 23% of all 172 disabled controls in the 563
+census** — and every one carries its reason at the bytes, with a malformed matrix
+failing serve boot (`control-matrix.mjs:15-125`).
+
 ## 4. Schema→UI binding table
 
 | UI element (pane/control) | Backing schema + route | Current state | Target state |
@@ -179,3 +214,108 @@ No element binds a HypervisorSession; nothing requires `subject_attachments` (§
    6-step rule; delete the `delete`-marked lanes (§4); retire the daemon alias
    `GET /v1/hypervisor/data-recipes` (hypervisor-daemon.rs:1629-1632); captures stay
    dormant seeds per `ported-seed-preservation.v1.json`.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; module cites are
+under `apps/hypervisor/surfaces/`.
+
+**Tier 4: none** — no vault names Data as owner.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T3 `pipeline` — Pipeline Builder** — `surfaces/pipeline/index.mjs:17-19`, route `/__ioi/pipeline`; protected seed, class `daemon_wired`; **the only `atlas_verified` interaction-parity surface in the registry** | **84 census controls** (matrix: 83 — see the addendum). The governed-build workhorse: 8 declared receipted runtime actions (`:93-102`) | Data owns data recipes, transformation runs, policy-bound views, freshness/lineage/quality posture (`domain-ontologies-and-data-recipes.md`, "Product and Domain Roles") | see cluster rows | — |
+| ↳ **governed build ladder** | 12 `daemon_action` in the matrix = 11 `daemon_read` + **1 `governed_receipted_action`** (Build) in the census. The eight actions — admit-run, submit-lease-grant, cancel-run, release-lease, admit-session, submit-session-grant, release-session, execute — encode the full authority grammar at the bytes: **403 → typed challenge carrying public commitment hashes only** (`:123-130`, `:161`, `:201`), **428 credential-unresolved** (`:200`, `:225`), **receipt-or-fail-closed at every stage** (`:151-152`, `:164-165`, `:228-229`), idempotent resume from record status (`:143-146`, `:181-183`), and the wallet grant riding **one bounded opaque field, forwarded once, never persisted** (`:83-91`) | receipted transformation execution under wallet-gated authority | **rehome** — this is the estate's most complete authority implementation. Four properties must survive verbatim: challenge-carries-hashes-only, forwarded-once-never-persisted, receipt-or-fail-closed, and idempotent resume | W1 · W2 |
+| ↳ canvas + navigation cluster | 20 `local_view_interaction` (panning, canvas search, zoom in/out/fit, drag pan, ctrl+wheel, keyboard node nav, legend collapse, category eye, tray chevron, node detail sub-tabs, search outputs, output card select, selection/suggestions tabs, panels for outputs/search/file-tree, copy record ref) | local UI state is legitimately local | **rehome** — local view state needs no daemon binding and must not acquire one | W1 |
+| ↳ daemon-read cluster | 11 `daemon_read` (Preview, Lineage, Ontology Manager, Add data, node click select, node context Open, Preview tab on selection, pipeline warnings tab, view lineage, edit output settings, pipeline picker IOI-only) | reads over the ODK ladder | **rehome** | W1 |
+| ↳ **graph-authoring cluster — the estate's largest dead cluster** | **40 `disabled_missing_authority`**, each carrying its reason at the bytes; a malformed matrix **fails serve boot** (`control-matrix.mjs:15-125`). Includes Transform/Join/Union/Split/Reusables, node quick-actions, snapshot sampling, deploy/build-settings/schedules/unit-tests/sources panels, layout and selection tools, and the four AIP lanes (Use LLM, Generate, Explain, Import trained model) | canon gives Data recipe authoring; the AIP lanes are **vendor faculties** (standing P2 gate) | **retire-at-cutover** for the AIP lanes and the vendor chrome menus (File/Settings/Help/Share/Actions) · **blocked-missing-route** for the recipe-authoring verbs: a `DataRecipe` is immutable and content-addressed, and no authoring/revision route exists — the disabled state is correct, and 40 reasons carried at the bytes is the honest-gap discipline other surfaces should copy | W3 · W4 |
+| ↳ branch / proposal / history cluster | 9 `unsupported_reference_session` (Graph/Proposals/History tabs, undo, redo, branch selector, additional branch actions, saved indicator, Propose, modify build settings, edge insert) | recipe **revisions** are canon (immutable successors); reference branching is not | **retire-at-cutover** — the reference's branch model is not the successor-revision model canon specifies; reviving it would model recipes as mutable | W4 |
+| ↳ reference chrome | 3 `reference_data_only` (favorite star, batch badge, vendor Foundry workspace sidebar) | carve-out | **retire-at-cutover** | W4 |
+| **T3 `sources` — Data Connection** — `surfaces/sources/index.mjs:24-29`, route `/__ioi/data/sources`; protected seed, class `daemon_wired` | **31 controls** (full breakdown in the addendum) | Data owns source inventory, connector mappings, freshness/access posture | see cluster rows | — |
+| ↳ **declare lane — governed** | **3 `governed_receipted_action`**: New source, Connect to external system, source-type cards matching daemon kinds. `declare` POSTs `/v1/hypervisor/data-sources`, confirm-required, `dsr_` receipt **fail-closed** (`:69-105`); the form derives kinds/postures from daemon vocabulary (`overview.source_kinds`) and **fails closed when unreachable** (`:176-197`); **no secret field exists by design** | source declaration is a governed act; credentials never transit the surface | **rehome** — the no-secret-field-by-design property and the derive-vocabulary-or-fail-closed rule must survive | W1 · W2 |
+| ↳ catalog + semantic panel cluster | 6 `daemon_read` (Sources tab, sync-counter cluster over **real materializing-run states** `:126-130`/`:250-254`, recents row click, selected-source semantic panel `?dataSource=`, declared-source census with by-kind/by-posture chips, owner-family links) | source inventory + connector mappings per source | **rehome** | W1 |
+| ↳ local view cluster | 7 `local_view_interaction` (app icon nav, view Recents, view-all, table column headers, select-source-type search, cancel declare, reference/provenance lane links) | local state | **rehome** | W1 |
+| ↳ **absent tabs + record mutations** | 11 `disabled_missing_authority`: the four header tabs (Syncs, Agents, Listeners, External stacks, `:239-245`), recent installations, help, upload static data, input/generate data, view Favorites, creator/last-edited columns, and **~200 branded connector cards** | DataSource PATCH/DELETE and ingestion/extraction/connection-test are **route-missing** (§2, W3); the daemon names its own `wired:false` boundary | **blocked-missing-route** for the four record mutations and the tabs · **retire-at-cutover** for the ~200 branded connector cards, which advertise integrations the estate does not have and would be fabrication if enabled | W3 · W4 |
+| ↳ reference example lanes | 3 `reference_data_only` (hero band, walkthrough rows, example marketplace cards) + 1 `unsupported_reference_session` (vendor sidebar) | **no fixture data may be presented as truth**; example install is a Packages path | **retire-at-cutover** | W4 |
+| **T2 ODK authoring ladder** — `/__ioi/odk` (serve `:9739`) | shared with Ontology; T2 census 36 controls, 0 disabled | ODK is the kit, not an application (:935-940) | **rehome (split by owner)** — the data-recipe, connector-mapping, policy-bound-view, transformation-run, and source planes surface under `/data`; the ontology planes under `/ontology` (`ontology.md` §6 records the same split from the other side) | W1 |
+| **T5 `/__apps/pipeline`** — capture, owner Data, `reference_capture`, capture state `blocked_missing_capture`, grammar `editor_canvas`, high_value, `reboundLane: null` (`harvest-seed-inventory.mjs:41`) | not in the 563 | the Pipeline Builder above is the functional surface | **blocked-missing-capture** — the note says "boots as classified from the local capture", but the parity matrix records `blocked_missing_capture`; the functional surface is unaffected | — |
+| **T5 `/__apps/sources`** — capture, `reference_capture`, capture state `shell_only`, grammar `table_list`, high_value, `reboundLane: null` (`:40`) | not in the 563; the live surface links it as a provenance lane | **pattern-harvest** — the Sources/Syncs/Listeners IA is the grammar behind the four disabled tabs; harvesting the shape does not license enabling them | — |
+| **T5 `/__apps/ingest`** — capture, `reference_capture`, capture state `shell_only`, grammar `wizard`, high_value, `reboundLane: null`, "source-first pipeline wizard; unbound" (`:39`) | not in the 563 | a guided source→recipe wizard is canon's "guided views should come first" (`domain-ontologies-and-data-recipes.md`) | **pattern-harvest** — the wizard grammar is the right shape for the guided lane, and it is the only capture in Data's set that maps to a canon *preference* rather than a canon pane | — |
+| **T5 `/__apps/dataset`** — capture, `reference_capture`, capture state `shell_only`, grammar `table_list`, aux, `reboundLane: null` (`:42`) | not in the 563 | the datasets/time-series/media-sets plane needs a **Data-vs-Foundry owner ruling** (§2, W3) | **blocked-missing-route** — and blocked on a ruling before a route: dispositioning it further would pre-empt the owner decision | W3 |
+
+**Census reconciliation.** Data's two T3 surfaces carry **115 of the 563** baseline
+controls: `pipeline` 84 (12 + 20 + 11 + 40 + 9 + 3, six cluster rows) and `sources`
+31 (3 + 6 + 7 + 11 + 4, five cluster rows). Both sums exact.
+
+Two estate-level facts fall out. `pipeline` holds **40 of the 172
+`disabled_missing_authority` controls — 23% of every disabled control in the
+estate**, and `sources` adds 11, so Data owns 51 (30%). And Data's **4 governed
+controls** (1 + 3) put it third behind Ontology (13) and Governance (3, tied).
+
+**Disposition summary.** 8 rehome (one splitting by owner) · 2 pattern-harvest ·
+5 retire-at-cutover · **3 blocked-missing-route** · **1 blocked-missing-capture**.
+
+## 7. Ontology wiring
+
+Data is the semantic plane's **supply side**: it owns the primitives that turn
+sources into ontology-bound objects. Its wiring is second only to Ontology's.
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Sources catalog + declare | `DataSource` (Data-owned; **not** a semantic-plane envelope) | `/v1/hypervisor/data-sources` | **Read + Write (receipted `dsr_`)** | the outermost input node of the lineage graph; no secret field by design |
+| Selected-source connector mappings | `ConnectorMapping` (`ConnectorMappingEnvelope`) | `/v1/hypervisor/odk/connector-mappings` (+ `/:id`, `/overview`, `/:id/health`, `/:id/history`) | Read (write plane exists at the route, not on this surface) | canon: a connector payload is source material, **not canonical domain truth**, until a ConnectorMapping and DataRecipe bind it (non-negotiable 2) |
+| Pipeline recipes | `DataRecipe` (`DataRecipeEnvelope`) | `/v1/hypervisor/odk/data-recipes` (+ `/:id`) — **and a GET-only compatibility alias at `/v1/hypervisor/data-recipes`** (`hypervisor-daemon.rs:1639`, same handler) | Read | **Two paths, one plane.** The alias exists for previously-404 top-level paths (`hypervisor-daemon.rs:1631-1633`); it is not a second family |
+| Policy-bound views | `PolicyBoundDataView` | `/v1/hypervisor/odk/policy-bound-data-views` (+ `/:id`, `/overview`, health, history) | Read | canon gates read/transform/distill/train/evaluate/export/route through these (non-negotiable 4); posture badges must project the **named** enums, never an invented "consent" scalar (§3 correction) |
+| Transformation runs | `TransformationRun` + transformation receipts | `/v1/hypervisor/odk/transformation-runs` (+ dry-run, cancel, history) | Read + governed execute | every run must bind the exact recipe revision/hash **and** the identical semantic-component snapshot (non-negotiable 3) |
+| Materializing runs + object sets | `MaterializedObjectSet` | `/odk/materializing-runs`, `/odk/materialized-object-sets` | Read + governed lease/execute | sync counters are real materializing-run states, not derived estimates |
+| Ontology projections | `OntologyProjection` (`OntologyProjectionEnvelope`) | `/odk/ontology-projections` | Read | must expose freshness, recipe version, policy, source watermark (non-negotiable 8) |
+| **`/v1/hypervisor/recipes`** (`hypervisor-daemon.rs:1226`) | **not a DataRecipe at all** — `DevelopmentEnvironmentRecipe`, handled by `recipe_routes` | `/v1/hypervisor/recipes` (+ `/:id`) | — | **Recorded as a naming-boundary finding.** `term-boundaries.md` says "Recipe" is always owner-qualified and a bare generic recipe family is a defect; this route holds the unqualified name for an environment object while the DataRecipe plane needs a prefix to disambiguate. Filed to X-2 — a route rename, not a mesh decision |
+| **Write side** | `DataSource` declaration only, on this surface | — | — | recipe/mapping/view authoring routes exist but no pane writes them; the 40 disabled graph-authoring controls are that gap rendered honestly |
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+Two canonical patterns — `data_recipe_builder` and `connector_mapping_editor` —
+exist for exactly these panes. Both are **exempt**, for the write-semantics reason
+`ontology.md` §8 found, which now has its second and third instances.
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Sources catalog + declared-source census | `list_detail` | **descriptor-expressible** | binds `DataSource` + `ConnectorMapping` refs, daemon API deps, read-only action set |
+| Selected-source semantic panel | `object_view` | **descriptor-expressible** | binds the source's mappings and posture enums |
+| Pipeline graph canvas (read side: nodes, lineage, preview) | `graph` | **descriptor-expressible** | binds recipe, run, object-set, and projection refs — the same primitive set Provenance's lineage lens binds (`provenance.md` §8) |
+| Pipeline graph canvas (authoring: Transform/Join/Union/Split, node mutations) | `data_recipe_builder` | **exempt — no write semantics in the descriptor** | the pattern is named for this pane. A descriptor cannot express recipe **authoring**: it has no revision successor semantics, no content-hash commitment, no receipt obligation on write |
+| Connector-mapping editing | `connector_mapping_editor` | **exempt — no write semantics in the descriptor** | second pattern named for a pane it cannot express |
+| Governed build ladder (admit-run → grant → execute → release) | — | **exempt — authority-crossing** | the 403-challenge / 428-credential / receipt-or-fail-closed grammar is admission, and descriptors carry none of it |
+
+**Three expressible panes, and the sharpest evidence yet for the write-semantics
+finding**: `data_recipe_builder` and `connector_mapping_editor` are two of the
+eleven canonical patterns, both named for Data's authoring panes, and **neither can
+express the pane it is named for**. With `object_editor` (`ontology.md` §8), three
+of the eleven patterns are write-shaped and none of the three is usable. Filed to
+X-2 as one finding with three instances.
+
+Zero panes `descriptor-rendered` today.
+
+### (b) This surface as primitive exposer
+
+**Data owns journey stage 2** — bind the data.
+
+| Journey stage (`odk-extension-apps.md` §2) | What Data contributes |
+|---|---|
+| **2 — bind the data** | `DataRecipe` revisions, `ConnectorMapping` revisions, `PolicyBoundDataView`s, `TransformationRun`s and their receipts, `MaterializedObjectSet`s, and `OntologyProjection`s — the refs a descriptor's `data_recipe_refs`, `connector_mapping_refs`, `policy_bound_data_view_refs`, and `ontology_projection_refs` fields name |
+
+Two boundaries:
+
+- **A policy-bound view is a ceiling, not a grant.** A generated application naming
+  a `PolicyBoundDataView` ref inherits that view's limits; it does not acquire
+  permission to read, train, or export. Canon is explicit that a permitted view
+  alone is not training consent.
+- **Recipes are immutable; a generated app pins a revision.** A descriptor naming
+  `data-recipe://.../revision/...` binds that exact revision and its
+  semantic-component snapshot. It must never resolve a head — which is also why the
+  authoring panes above cannot be descriptor-expressed: authoring creates successors,
+  and the descriptor has no successor semantics.
