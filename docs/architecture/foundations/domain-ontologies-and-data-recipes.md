@@ -417,6 +417,9 @@ daemon; authority remains with local/domain governance and portable authority
 providers; operational truth remains with each Agentgres domain.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 08c6d96f9 (canon(X-0b): the composable application journey — one stage ladder, one owner per stage)
 ## The Composable Application Journey
 
 This layer's builder promise — that a user can turn a described domain into a
@@ -476,8 +479,11 @@ revocation remove launch eligibility at once; they do not wait for a rebuild of
 the catalog. A recalled release must stop appearing as a launchable row even
 though its historical receipts remain immutable evidence that it once ran.
 
+<<<<<<< HEAD
 =======
 >>>>>>> cb60e0008 (canon(X-0a): DomainApp envelope family — objects, governed mount ladder, filed deltas)
+=======
+>>>>>>> 08c6d96f9 (canon(X-0b): the composable application journey — one stage ladder, one owner per stage)
 ## Domain Apps And The Governed Mount Ladder
 
 A **Domain App** is the app-shaped consumer of this layer: one
