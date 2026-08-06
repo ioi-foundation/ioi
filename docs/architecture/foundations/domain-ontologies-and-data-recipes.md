@@ -416,6 +416,7 @@ the declared governed host or federation policy; execution remains with the
 daemon; authority remains with local/domain governance and portable authority
 providers; operational truth remains with each Agentgres domain.
 
+<<<<<<< HEAD
 ## The Composable Application Journey
 
 This layer's builder promise — that a user can turn a described domain into a
@@ -475,6 +476,8 @@ revocation remove launch eligibility at once; they do not wait for a rebuild of
 the catalog. A recalled release must stop appearing as a launchable row even
 though its historical receipts remain immutable evidence that it once ran.
 
+=======
+>>>>>>> cb60e0008 (canon(X-0a): DomainApp envelope family — objects, governed mount ladder, filed deltas)
 ## Domain Apps And The Governed Mount Ladder
 
 A **Domain App** is the app-shaped consumer of this layer: one
