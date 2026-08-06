@@ -1969,6 +1969,14 @@ surfaces still bind to Hypervisor Core, daemon APIs, Agentgres ontology/object
 refs, policy-bound views, authority requirements, receipts, replay, and
 conformance profiles.
 
+The equivalence runs both ways. First-party owner-surface panes whose shape
+matches a canonical `composition_pattern` should be descriptor-expressible, and
+each surface's implementation brief records which are and why the rest are not;
+the rule and its exemptions are owned by
+[`domain-ontologies-and-data-recipes.md`](../../foundations/domain-ontologies-and-data-recipes.md).
+Expressibility changes no registration, admission, authority, or receipt
+obligation on either side.
+
 ### Product-Surface Compiler
 
 Navigation, Applications, command-palette, contextual launch, search, recent,
