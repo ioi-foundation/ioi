@@ -475,6 +475,45 @@ revocation remove launch eligibility at once; they do not wait for a rebuild of
 the catalog. A recalled release must stop appearing as a launchable row even
 though its historical receipts remain immutable evidence that it once ran.
 
+### Descriptor Expressibility
+
+The kit is credible only if the estate itself runs on it. First-party owner
+surfaces and user-tailored applications draw on the same primitives; a kit whose
+own product declines to use it is a demo, and its generated surfaces inherit
+whatever gaps the first-party path quietly routed around.
+
+Every first-party owner-surface pane whose shape matches one of the canonical
+`composition_pattern` members — `list_detail`, `object_view`, `object_editor`,
+`graph`, `wizard`, `review_inbox`, `monitoring_console`, `dashboard`,
+`data_recipe_builder`, `connector_mapping_editor`, `domain_app` — **should** be
+descriptor-expressible.
+
+Four boundaries keep the rule honest.
+
+**Expressible is a claim about shape, not a migration mandate.**
+Descriptor-expressible means the pane's bindings could be stated as a descriptor
+under invariant 11 — not that it is rendered from one today. Rewriting a working
+pane solely to satisfy this rule is not required and is not by itself an
+improvement.
+
+**The disposition is recorded, not assumed.** Each surface's implementation
+brief records which of its panes are descriptor-expressible and why the rest are
+not. A stated exemption is a legitimate outcome; an unstated one is a defect.
+Recurring legitimate exemptions include authority-crossing chrome, vendored
+shell internals owned verbatim, dev- and test-only lanes, and panes whose shape
+has no matching pattern.
+
+**A missing pattern is a finding, not an obstacle.** Where an estate pane needs
+a shape the descriptor vocabulary lacks, the gap is filed against the pattern
+vocabulary rather than worked around in bespoke code. The estate is the kit's
+first and hardest conformance test, and the patterns it cannot express are the
+ones user-tailored applications will need next.
+
+**Expressibility grants nothing.** A descriptor-expressed first-party pane still
+passes the same registration contract, the same admission, the same authority
+gates, and the same receipt obligations as a hand-authored one. The rule is
+about shared shape, never about a shortcut around the ladder.
+
 ## Domain Apps And The Governed Mount Ladder
 
 A **Domain App** is the app-shaped consumer of this layer: one
@@ -755,6 +794,13 @@ to export provider-owned weights or hidden state.
     registration. Admission at a lower rung is never permission at a higher one,
     and every rung transition — including governance enforcement — emits a
     receipt.
+23. No first-party owner-surface pane whose shape matches a canonical
+    `composition_pattern` may be built or kept as bespoke code without a
+    recorded expressibility disposition. The disposition may be
+    descriptor-expressible, descriptor-rendered, or a named exemption with its
+    reason; silence is a defect. Where an estate pane needs a shape the pattern
+    vocabulary lacks, the gap is filed against the vocabulary rather than worked
+    around.
 
 ## One-Line Doctrine
 
