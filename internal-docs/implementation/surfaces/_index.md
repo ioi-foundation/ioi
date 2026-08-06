@@ -6,11 +6,16 @@ canonical functional end state. A session that needs to build a surface should b
 able to start here and never re-derive a seed disposition, a schema binding, or an
 ontology/ODK lane.
 
-**Status: complete as of 2026-08-06.** All twenty briefs carry the full
-eight-section shape. The seed-mesh + ODK wiring run
-(`../../overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`) closed its ledger on
-that date; the build run
-(`../../overhaul/2026-08-05-hypervisor-bring-to-life-run.md`) executes from here.
+**Status: research and planning complete as of 2026-08-06. No surface is built.**
+All twenty briefs carry the full eight-section shape, and the seed-mesh + ODK
+wiring run (`../../overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`) closed its
+ledger on that date — that run changed documentation and one Rust file, and
+**zero files under `apps/hypervisor/`**.
+
+The build run (`../../overhaul/2026-08-05-hypervisor-bring-to-life-run.md`)
+executes from here and **still has 26 unchecked rows**, including all twenty
+surface builds, SCM P0–P3, shared cutover, and repository-wide disposition.
+Nothing in this directory makes the canonical UX functional.
 
 ## What each brief contains
 
@@ -81,6 +86,13 @@ row in the compiler (planned) — no brief, no UI work.
   Git/Agentgres transition-chain epic: five P0 truthfulness defects, the
   owner-by-owner missing-interface table, the missing-contracts build-list, and
   P0→P3 wave interleaving. Nine briefs carry a pointer to their §2 row.
+- [`../build-acceptance-gates.md`](../build-acceptance-gates.md) — **the
+  all-surface Definition of Done.** Eight gates binding on every surface build:
+  HEAD truth-refresh, request-scoped identity propagation, mutation correctness,
+  the descriptor/Studio vertical slice, the Packages/application lifecycle, a real
+  generated runtime, canonical routing and cutover, and the promoted C1–C30
+  operational criteria. **Read before starting any surface build**; it also
+  records what green CI does and does not certify.
 - [`../repo-ux-disposition.md`](../repo-ux-disposition.md) — repository-wide
   surface disposition ledger for estate surfaces outside these briefs, **plus the
   X-3 harvest-capture sweep**: all 39 `/__apps/*` captures, each with exactly one
@@ -104,9 +116,13 @@ essentially no routes**: no `/v1/hypervisor/packages/*` family, zero
 `extension_application` registrations, `system_interface_bindings: []`. The lane
 is gated on the **Packages registry**, not on more ODK work.
 
-**3. Studio authors descriptors per canon, and no pane calls the route.**
-`POST/PATCH /v1/hypervisor/odk/surface-descriptors` is live. The authoring stage of
-the extension lane has a backend and no front end.
+**3. Descriptor authoring is wired in the wrong place, against a contract too thin
+to conform.** *(Corrected 2026-08-06 — this finding first claimed no pane called
+the route, which is false.)* A create/edit form and POST/PATCH dispatch exist in
+the legacy ODK substrate readout (`serve-product-ui.mjs:3320`, `:9776`) — not
+under Studio's canonical route — and they write four fields, none of them
+invariant 11's binding set. Stage 3 needs a **rehome plus a contract widening**,
+not a build from zero.
 
 **4. Eleven panes across four surfaces are descriptor-expressible; none is
 descriptor-rendered.** The four blocking limitations are now canon
@@ -115,7 +131,7 @@ dogfooding"): the descriptor cannot bind a platform object family; it has no wri
 semantics; some canonical inboxes are cross-owner by construction; and three
 first-party shapes have no matching pattern.
 
-**5. A third of the harvest estate cannot be inspected.** 12 of 39 captures are
+**5. A third of the harvest estate cannot be inspected.** **13** of 39 captures are
 `blocked_missing_capture`. Where a brief says `pattern-harvest`, it is harvesting
 a grammar that boots; where it says `blocked-missing-capture`, it is declining to
 claim anything at all.

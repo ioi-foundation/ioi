@@ -80,8 +80,14 @@ of the extension lane's missing middle — see `internal-docs/implementation/odk
 | ODK manifests (packaged through Packages) | :935-939 | hypervisor-daemon.rs:1602-1610 (reads); surface-descriptors :1633 |
 | GoalRunProfile released revisions (Packages versions/recalls/revokes) | :2647-2649 | `route-missing` — **W3** (no goal-run-profile routes exist; lands as a package payload kind, not a parallel registry) |
 
-`docs/architecture/_meta/schemas/` (158 files) contains **zero**
-package/release/install/marketplace schemas; the census's
+**Corrected 2026-08-06 (post-close audit — G-1 truth refresh).** This paragraph
+first read "`docs/architecture/_meta/schemas/` (158 files) contains **zero**
+package/release/install/marketplace schemas". Two of them exist:
+`hypervisor-surface-release-record.v1.schema.json` and
+`hypervisor-surface-installation-binding.v1.schema.json`. The accurate claim is
+that the registry contains **no package-candidate, marketplace, dependency, or
+recall schema, and no daemon route consumes the two surface-record schemas that
+do exist**. `docs/architecture/_meta/schemas/` the census's
 `registration_contract_implementation_status` shows all six surface-record
 families at 0 in crates/apps/contract-registry. Every W3 row above ships its
 JSON Schema + registry entry with the routes.
@@ -114,9 +120,13 @@ JSON Schema + registry entry with the routes.
   (serve-product-ui.mjs:5844, :1518-1519).
 - **No Packages UI exists at all**: no pane anywhere renders package,
   release, install, deprecation, or recall state (the words exist only as
-  Foundry/worker admission copy). Canonical `/packages` and
-  `/packages/marketplace` do not resolve (census `canonical_target_routes`:
-  both `resolves: false`).
+  Foundry/worker admission copy). **Corrected 2026-08-06:** canonical `/packages`
+  **does** resolve — `apps/hypervisor/scripts/v2-route-shell.mjs:249` registers it
+  (W0.1 landed after the census snapshot this row cited). `/packages/marketplace`
+  still does not: it appears only inside that entry's `rule` string (`:252`), and
+  route lookup is exact-root-only (`:328`). So the shell route exists and has no
+  Packages body behind it — a different and more actionable state than "does not
+  resolve".
 - Daemon-side marketplace substrate is empty in the live estate (census
   atlas: 0 listings / 0 published / 1 admitted review), so the storefront's
   real-data path shows the honest empty state.

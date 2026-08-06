@@ -88,24 +88,34 @@ names (Missions, Marketplace, Workbench, Domain Apps) and is marked where it doe
 | `logic` | **Domain Apps** (retired) | `studio.md` | pattern-harvest | reference_capture | shell_only |
 | `machinery` | Studio | `studio.md` | pattern-harvest | daemon_wired | boots_graph |
 | `module` | Studio | `studio.md` | pattern-harvest | reference_capture | shell_only |
-| `slate` | **Domain Apps** (retired) | `studio.md` | pattern-harvest | reference_capture | blocked_missing_capture |
+| `slate` | **Domain Apps** (retired) | `studio.md` | **blocked-missing-capture** | reference_capture | blocked_missing_capture |
 | `workshop` | Studio | `studio.md` | blocked-missing-capture | reference_capture | blocked_missing_capture |
 | `incidents` | **Missions** (retired) | `work.md` | rebind | daemon_wired | boots_table_list |
 | `jobs` | **Missions** (retired) | `work.md` | rebind | substrate_bound | boots_editor_canvas |
 
-**Totals.** 18 pattern-harvest · 12 blocked-missing-capture · 6 rebind ·
+**Totals.** 17 pattern-harvest · **13 blocked-missing-capture** · 6 rebind ·
 2 blocked-missing-route · 1 rehome = **39**.
+
+> **Corrected 2026-08-06 (post-close audit).** This table first recorded `slate`
+> as `pattern-harvest` while its own `capture_state` column read
+> `blocked_missing_capture` — an internal contradiction in a single row. A capture
+> that does not boot cannot be pattern-harvested, because there is no observable
+> grammar to harvest. The row and both totals are corrected here, and `studio.md`
+> §6.2 carries the same correction. The blocked count for the estate is **13 of
+> 39**, not 12.
 
 ### What the sweep found
 
-**Twelve of thirty-nine captures cannot be inspected at all.** `capture_state:
+**Thirteen of thirty-nine captures cannot be inspected at all.** `capture_state:
 blocked_missing_capture` means the artifact does not boot, so no claim about its
 interaction grammar is supportable. Roughly a third of the harvest estate is
 therefore evidence in name only, and the blocks cluster where they hurt most:
 Developer Console (three of its four), Ontology's two object panes,
-`workshop` (the one capture whose grammar is literally "application builder"), and
+`workshop` (the one capture whose grammar is literally "application builder"),
 `registry` (the one depicting a versioned artifact registry, which is also the
-plane that does not exist).
+plane that does not exist), and `slate` — the highest-tier Domain-Apps capture,
+which is why claims about "what a generated domain app should feel like" rest on
+three `shell_only` captures rather than four.
 
 **Only six captures rebind**, and three of those six are the estate's only captures
 with a declared `reboundLane` in `harvest-seed-inventory.mjs` — `designer` (→ ODK
@@ -114,7 +124,7 @@ listing plane), and `changes` (→ daemon improvement-proposals). The other thre
 (`jobs`, `incidents`, `lineage`) rebind through lanes the serve layer already
 answers with daemon truth.
 
-**Eighteen are pattern-harvest — the modal outcome, and the correct one.** A
+**Seventeen are pattern-harvest — the modal outcome, and the correct one.** A
 capture's value is its interaction grammar; harvesting the grammar moves no code and
 licenses nothing. Every pattern-harvest row above stays dormant under the
 ported-seed-preservation invariant until its surface's cutover.
