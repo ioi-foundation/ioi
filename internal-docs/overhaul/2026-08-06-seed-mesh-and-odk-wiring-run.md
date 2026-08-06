@@ -310,7 +310,7 @@ unattributable pre-existing test failure after ≤30 min → record and continue
 |---|---|---|
 | X-0 ODK canon expansion (DomainApp envelopes · composable-application journey · descriptor-expressibility rule) | ☐ | canon PRs against docs/architecture; lands before X-1. (a) DomainApp envelope family — PR #176 (open); (b) ☐; (c) ☐ |
 | X-1 ODK extension-application program doc | ☐ | prerequisite for §N+2 sections; grounds on X-0 canon |
-| 1. work mesh | ☐ | |
+| 1. work mesh | ☑ | PR #177. 52/52 T3 controls reconciled (missions 10, incidents 42; 0 governed — correct for a read model). 6 rehome · 2 rebind · 2 pattern-harvest · 7 retire-at-cutover · 0 blocked. Ontology wiring is honestly `none` throughout — Work subjects are platform objects, not ontology objects. Two X-2 findings filed: descriptor cannot bind platform object families (blocks expressibility for every read-model core workspace); D6 trace waterfall has no matching `composition_pattern`. §3 cite drift corrected (4 advertisement sites, not 5 — the `30-shell.js` tile is gone) |
 | 2. provenance mesh | ☐ | |
 | 3. environments mesh | ☐ | |
 | 4. operations mesh | ☐ | |
@@ -330,6 +330,6 @@ unattributable pre-existing test failure after ≤30 min → record and continue
 | 18. projects mesh | ☐ | |
 | 19. applications mesh | ☐ | |
 | 20. settings mesh | ☐ | |
-| X-2 residual canon deltas (machinery ownership · filed gaps) | ☐ | file as found; this row closes when all filed deltas have PRs |
+| X-2 residual canon deltas (machinery ownership · filed gaps) | ☐ | file as found; this row closes when all filed deltas have PRs. FILED SO FAR: (a) machinery ownership (Studio vs Automations) — from the charter; (b) ODK contract-registry registration (M6 gap, record only); (c) descriptor cannot bind platform object families — `OntologySurfaceDescriptorEnvelope` requires ontology/object-model bindings, so no first-party read-model pane can satisfy invariant 11 (packet 1); (d) no `composition_pattern` matches a trace/replay span waterfall (packet 1); (e) `term-boundaries.md:10-12` names `scripts/check-architecture-docs.mjs` + `scripts/lib/architecture-docs-integrity.mjs` as implementation refs — neither file exists on master |
 | X-3 unbound-seed disposition sweep | ☐ | after packets 1–20 |
 | X-4 master-guide assembly (`_index.md` regeneration + build-ledger row) | ☐ | run exit |

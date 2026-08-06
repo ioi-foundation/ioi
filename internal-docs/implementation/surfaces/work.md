@@ -2,6 +2,11 @@
 
 Canonical route: `/work` · Owner: core workspace Work (owns the Sessions view at `/work/sessions`)
 Brief status: authored 2026-08-05 from bytes at 21ae389fe · v0 seed corrected where noted
+Amended 2026-08-06: seed-mesh + ODK wiring packet 1 — seed mesh ledger (§6), ontology
+wiring (§7), ODK descriptor and extension lane (§8) appended; §3 serve-lane cites refreshed
+against master `ba9e2ea0a` (2026-08-06 addendum under Corrections). Program docs:
+`internal-docs/overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`,
+`internal-docs/implementation/odk-extension-apps.md`.
 
 All canon cites are `docs/architecture/components/hypervisor/core-clients-surfaces.md` unless
 prefixed, and resolve against the blob at commit `21ae389fe` ("canon(C-1..C-4) + charter",
@@ -183,6 +188,37 @@ partial list on registry failure (:17838-17847).
   work-results :2333, outcome-rooms :2388), so W0.6 is a pattern-conformant small route, not a
   new invention.
 
+#### Addendum 2026-08-06 (mesh packet 1 — serve-lane cite refresh at `ba9e2ea0a`)
+
+The daemon and canon cites above still resolve. Three serve-lane handler cites drifted
+between `21ae389fe` and master and are corrected here; the brief body keeps its original
+numbering, and later sections cite the refreshed values.
+
+| §3 said | Bytes at `ba9e2ea0a` |
+|---|---|
+| `/__ioi/sessions` route `:8659-8667` | handler `serve-product-ui.mjs:8696`; renderer `renderSessionsRoot` `:1424-1447` unchanged |
+| `/__ioi/missions/incidents` handler `serve :8791-8801` | `serve-product-ui.mjs:8827`; lane renderer `:5031-5090` |
+| `missions` registration `surface-registry.mjs:50`; `incidents` `:56` | `:55` and `:61` |
+
+Unchanged and re-verified: `/__ioi/work-ledger` `serve:8785`; run-timeline landing `:7258`
+and detail `:7314`; the `/__apps/jobs` rebind lane `:7550-7563`; the `/__apps/incidents`
+rebind lane `:7777-7790`; `HARVEST_APPS` `:7419`; the missions module's thirteen
+goal-orchestration reads (`surfaces/missions/index.mjs:444-456`).
+
+The advertisement-site list in §3 is also corrected. §3 named five sites; **four remain**,
+and the line numbers moved:
+
+| §3 said | Bytes at `ba9e2ea0a` |
+|---|---|
+| estate tile → `/__ioi/sessions`, `augmentation/30-shell.js:11` | **gone** — no `/__ioi/sessions` reference remains in `30-shell.js`; the `IOI_APPS` tile array it lived in was deleted by W0.2 when the compiler took catalog authority |
+| Open-Application wiring `60-shell-wiring.js:35,39` | unchanged (`:35` selector, `:39` name mapping) |
+| Home explorer "Sessions →" `40-home-explorer.js:303` | `:313` |
+| search-palette Sessions group `serve:8630` | `:8666` |
+| build rows `openUrl` `serve:7660` | `:7661` |
+
+§5 PR 12 therefore has one fewer deletion to make; the ordered PR list keeps its numbering
+and this addendum is the authority for the site set.
+
 ## 4. Schema→UI binding table
 
 Reads use the W0.3 read-projection client; authority-crossing actions use the CapabilityLease
@@ -269,3 +305,110 @@ canon `core-clients-surfaces.md:4300-4310`) but mapped in neither §2 nor §4
 run→draft lane's synthesized `agentgres://pull-request-draft/...` ref,
 `environment_routes.rs:1035` via `ioi-agent-runs.mjs:416`) is this owner's
 truthfulness repair.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Every seed UX state that exists for Work, meshed against its canonical end state.
+Canon cites without a file prefix are `core-clients-surfaces.md`. Serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`. T3 census facts are recounted from
+`apps/hypervisor/application-operational-depth.json` (base commit `19d732ff2`) — the
+recount reproduces the audit's totals exactly (563 across 14 surfaces, 24
+governed-receipted), so the baseline is used as-is with no delta to record.
+
+**Tier 4 (dormant seed vaults): none.** The three vaults are
+`ux-seeds/{workspaces,widgets,lineage}` — owned by Developer Workspace, Developer
+Console, and Provenance. Work has no T4 seed. Recorded as an honest absence, not an
+omission.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T2 Sessions root** — `/__ioi/sessions` (serve `:8696`, renderer `renderSessionsRoot` `:1424-1447`) | T2 census `nat-sessions`: 157 controls, 0 disabled, HTTP 200 | Work/Sessions typed view at `/work/sessions` (:1682-1691, :1711-1720); "selection is session truth recorded at create, never UI state" already holds (`:1443`) | **rehome** — the read semantics move onto the W0.3 read client under `/work/sessions`; renderer logic is adopted, not rebuilt | W1 |
+| **T2 Work Ledger** — `/__ioi/work-ledger` (serve `:8785`) | T2 census `nat-work-ledger`: 42 controls, 0 disabled | Work/History view (:1682-1691) reads it; the receipt stream itself is Provenance-owned | **rehome (read only)** — Work/History composes the ledger read; the surface stays Provenance's at cutover | W1 |
+| **T2 Run Timeline + Run Replay** — `/__ioi/run-timeline` landing (serve `:7258`), detail (`:7314`), `/__ioi/run-replay` (`:7258`) | T2 census `nat-run-timeline`: 66 controls, 0 disabled | D6 — one coherent trace/replay path, waterfall of spans + detail drawer, proof as drilldown not default (:2712-2718) | **rehome** — becomes the Session-detail D6 pane; the iframe mount in `augmentation/00-core.js:9-13` retires with it | W1 |
+| **T1/vendor Session detail** — vendor `/details/:env` + injected IOI cockpit panel (`augmentation/00-core.js:1-15`) | hidden-UX carve-out: vendored shell internals get a disposition row, not control-level detail. The **injected panel** is IOI-owned: WorkRun patch branch, model-driven turns, scoped terminal, receipts (`00-core.js:3-7`) | D4 field list (:2688-2704) + D5 view (:2706-2710) + D7 WorkRun view (:2720-2727) | **rehome** (injected panel — this is the D5/D7 seed) · **retire-at-cutover** (the vendor `/details/:env` route and the transcript-replacement DOM edit) | W1 · W4 |
+| **T3 `missions`** — registered `read_only_by_contract` at `/__ioi/missions` (`surface-registry.mjs:55`), module `surfaces/missions/index.mjs` reading 13 goal-orchestration families (`:444-456`) — protected seed, slug `jobs`, class `substrate_bound` | **10 controls**: 4 `daemon_read` (refresh projection, hosted graph counts, inspect hosted work graph, open proof stream) · 2 `local_view_interaction` (room status tabs, select mission room) | Work/Goals + Work/Rooms views (:1682-1691); room detail is graph-first (:3330-3343); D8 participant drilldown (:2729-2733) | **rehome** — adopt the module under `/work/goals` and `/work/rooms`; rehome-don't-rebuild, and the module already reads exactly the families the two views need | W1 |
+| ↳ `missions` write-shaped reference controls | 2 `unsupported_reference_session`: "Create or assign incident", "Edit job or build definition" | Work is a policy-filtered read model, never a canonical Work object (:1675-1680); Mission is retired as an owner with no independent id/lifecycle/receipts (:3343-3352); new writes must not create `HypervisorMission`/`mission://` (:4638) | **retire-at-cutover** — these have no canonical home; reviving either would mint the retired owner | W4 |
+| ↳ `missions` presentation-only reference controls | 2 `reference_data_only`: "Board or Kanban view", "SLA and escalation policy" | no canon pane; Work views are typed lists + typed detail (:1711-1731) | **pattern-harvest** — layout grammar only; no code moves, seed stays dormant until estate cutover | — |
+| **T3 `incidents` (Issues)** — registered at `/__ioi/missions/incidents` (`surface-registry.mjs:61`), handler serve `:8827`, lane renderer `:5031-5090` — protected seed, class `daemon_wired`, pixel-certified | **42 controls total** — clusters below sum to 42 | Work/Incidents view + `/work/incidents/{facet_projection_id}`; a detail is a read-only facet that deep-links to its owner and mints no generic subject (:1726-1731; conformance :4589-4592) | see cluster rows | — |
+| ↳ vendor shell chrome cluster | 7 controls (2 `daemon_read` Home/Ontology · 2 `local_view` Applications launcher/Account · 1 `unsupported` Notifications · 1 `reference_data_only` What's New · 1 `disabled_missing_authority` AIP Assist) | hidden-UX carve-out (vendored shell chrome owned verbatim); AIP Assist is a vendor faculty, a standing P2 gate | **retire-at-cutover** — chrome dies with the estate shell, not with this view | W4 |
+| ↳ inbox lanes + rows cluster | 8 controls (7 `daemon_read`: Open/Closed/All lanes, "N of M issues" count, row title/proof click, Kind pill (Blocker / Run failure), row "proof ↗" · 1 `local_view`: empty-lane state). Derivation reads `/v1/hypervisor/operations` + `/v1/goal-orchestration/goal-runs`; the empty state states plainly that it "never fabricates incidents" (`:5087`) | Work/Incidents rows (:1682-1691, :1726-1731) | **rehome** — the derivation is the pane; it is already honest and already daemon-backed | W1 |
+| ↳ header actions cluster | 4 controls (3 `disabled_missing_authority`: search input, "+ New (create issue)", settings cog · 1 `reference_data_only`: app title + icon chip) | no incident-creation contract exists: the rebind lane records that "the daemon exposes no incident-creation API (405)" (`:7784-7785`) | **retire-at-cutover** — creation is not a named gap awaiting authority, it is a capability canon does not give this view | W4 |
+| ↳ filter/facet plane cluster | 16 controls (14 `disabled_missing_authority`: clear filters, three priority checkboxes, assignees/reporters/mentions/labels/support-types facets, two date ranges, include/exclude toggle, saved-filter selector, sort · 2 `unsupported_reference_session`: status-scope dropdown, "+ Add status") | Work derives display facets but never writes one common status back (:1693-1697); facets over a read-only cross-owner pointer (:4346-4369) | **pattern-harvest** for the lane/filter grammar (open/closed/all is already rehomed above) · **retire-at-cutover** for the 16 controls: they filter on fields the incident records do not carry, and a facet over absent fields cannot become honest by wiring | W4 |
+| ↳ bulk + context-menu cluster | 3 `disabled_missing_authority` (select-all, per-row checkbox, right-click menu) | bulk mutation over a read-only facet has no canonical path (:1726-1731) | **retire-at-cutover** | W4 |
+| ↳ authoring + collaboration cluster | 4 controls (1 `disabled_missing_authority`: new-issue authoring form · 3 `unsupported_reference_session`: comments/discussion, SLA & escalation policy, board/Kanban view) | same as header-actions row; discussion belongs to the owning subject, not to a Work facet | **retire-at-cutover** | W4 |
+| **T5 `/__apps/jobs`** — harvest capture, `substrate_bound`, `boots_editor_canvas`; REBIND lane serve `:7550-7563` answers the seed's `OverviewPageQuery` with real goal-runs + sessions + automation executions | parity matrix `jobs`; protected route for this slug is `/__ioi/missions` | Work/Active + Work/History (:1682-1691); "existing Sessions root, jobs, GoalRun views, automation-run views … are migration inputs" (:1704-1706) | **rebind** — the lane already answers with daemon truth and states its own limits (drafts excluded, sessions record no finish time → `finishedAt` null, identity filters match nothing); capture stays dormant per the seed-preservation invariant | W1 (reads) · W4 (capture retires with the estate) |
+| **T5 `/__apps/incidents`** — harvest capture, `daemon_wired`; REBIND lane serve `:7777-7790` answers `/issues/api/search/issues/v2/{search,batch}` from `/v1/hypervisor/incidents` | parity matrix `incidents`; protected route `/__ioi/missions/incidents` | Work/Incidents (:1726-1731) | **rebind** — already daemon-backed, with reporter identity honestly unknown and no creation path | W1 (reads) · W4 |
+| **Advertisement sites** — Open-Application slot selector + name mapping `/__ioi/sessions` → "Missions" (`augmentation/60-shell-wiring.js:35`, `:39`), Home explorer "Sessions →" (`augmentation/40-home-explorer.js:313`), search-palette Sessions group `href` (serve `:8666`), build-row `openUrl` (serve `:7661`) | not census controls (shell wiring). **Four sites, not five** — see the correction note below | `/work/sessions` is the only Sessions route; no `/sessions` or `/missions` alias (:1722-1725, ADR 0022 Decision 2) | **retire-at-cutover** — deleted in the Work cutover PR, per the 6-step rule | W4 |
+| **Bare `/sessions` rail item** | census: destination renders the SPA 404 page (`renders_404_page: true`); the rail literal is vendor-runtime-rendered and not greppable | daemon already refuses typed with `canonical_replacement_route: "/work/sessions"` (`lifecycle_routes.rs:6453-6456`) | **retire-at-cutover** — the shell must stop swallowing the daemon's 410 into the SPA 404; retirement lands via shell wiring, not a capture edit | W4 |
+
+**Census reconciliation.** Work's T3 surfaces carry 52 of the 563 baseline controls:
+`missions` 10 (4 + 2 + 2 + 2, three rows above) and `incidents` 42 (7 + 8 + 4 + 16 + 3 + 4,
+six cluster rows above). Both sums are exact. Neither surface has a
+`governed_receipted_action` control — Work is read-model-only by contract, so a zero here is
+the correct state and not a gap. T2 controls (157 + 42 + 66 = 265) are outside the 563
+baseline, which covers only the fourteen registered T3 surfaces.
+
+**Disposition summary.** 6 rehome · 2 rebind · 2 pattern-harvest · 7 retire-at-cutover ·
+0 blocked. No Work seed is blocked on a missing capture or a missing route: every element
+above either has a canonical home or is named for retirement.
+
+## 7. Ontology wiring
+
+Work's honest answer is mostly `none — not object-bound`, and that is a contract, not a
+shortfall: Work is a policy-filtered read model over typed platform objects, never a
+canonical `Work` object (:1675-1680) and never an ontology surface. Recording the absence
+is the point — an invented binding here would be the defect.
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Work/Active, Goals, Rooms, Queues, History rows | **none — not object-bound.** Subjects are platform objects (Session, GoalRun, OutcomeRoom, AutomationRun, WorkRun), not `CanonicalObjectModel` instances | per-family reads (§2) | Read | `HypervisorWorkSubjectProjection` is `read_model_only: true` (:4325-4344) |
+| Session subject chips | `subject_attachments[]` **may** carry an owner-registered `subject_kind` whose `subject_ref` names an ontology-bound object; the platform never names an application family as a field (:2692-2696, :3971-3984) | attachment inputs `route-missing` — **W3** | Read (join only) | The field exists since W0.6 and is honestly empty. When inputs land, Work joins on the ref and renders the owner's label — it never resolves the object itself and never writes an assertion |
+| Work/Incidents rows | **none.** Incidents are provider-failure records, not `ProvenanceAssertion`s | `/v1/hypervisor/incidents` (daemon `:1195`) | Read | A failure record asserts nothing about the world; rendering it as an assertion would overclaim |
+| Work/History | **none.** Work-lifecycle records and receipts, not `OntologyAssertionEnvelope` | work-ledger `:1309`, work-results `:2328` | Read | Receipts prove their declared fact only |
+| Work/Rooms graph detail | **none.** `collaborative-work-graph.v1` is the room's own work graph, **not** an `OntologyProjection` | `/v1/goal-orchestration/…/collaborative-work-graph` (daemon `:2418`) | Read | Naming it a projection would imply ontology freshness/watermark semantics it does not have (`OntologyProjectionEnvelope` requires `freshness_watermark`) |
+| **Write side — whole surface** | **none.** Work admits no semantic write of any kind | — | — | Every mutation Work offers deep-links to the type-specific owner; the registration is projection-only + writes-through-owners (:3468-3478). No pane may present mutation semantics over a projection |
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+Canon non-negotiable 23 requires a recorded disposition per pane. Work's panes divide
+cleanly: several **shapes** match a canonical `composition_pattern`, but none is
+descriptor-expressible, and the reason is uniform and worth stating once rather than
+eleven times.
+
+**The blocking finding.** `OntologySurfaceDescriptorEnvelope` binds ontology refs, canonical
+object models, data recipes, policy-bound views, and projections. Work's rows are typed
+**platform** objects with no ontology binding at all (§7). A descriptor for a Work pane would
+have nothing to put in its required binding fields, so it cannot satisfy invariant 11 — not
+because the pane is unusual, but because **the descriptor contract has no way to bind a
+platform object family**. This is filed as an X-2 canon delta rather than worked around; it
+will recur on every read-model core workspace.
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Work/Active, Goals, Rooms, Queues, History | `list_detail` | **exempt — no bindable primitive** | shape matches exactly; subjects are platform objects, so the required ontology/object-model bindings have nothing to name (X-2 delta) |
+| Work/Reviews, Work/Incidents | `review_inbox` | **exempt — no bindable primitive** | same; and these are read-only facets that mint no subject (:1726-1731), where `review_inbox`'s decision affordances would not apply |
+| Session detail (D4 fields + D5 view) | `object_view` | **exempt — no bindable primitive** | same; Session is a platform execution object |
+| Work/Rooms graph-first detail | `graph` | **exempt — no bindable primitive** | the room graph is not an ontology graph (§7) |
+| New Session (`/work/new-session`) | `wizard` | **exempt — authority-crossing launcher** | creates a bounded Session through daemon admission with a provision receipt; a descriptor scaffolds views, never admission |
+| Session detail D6 trace/replay waterfall | **no matching pattern** | **finding — filed against the pattern vocabulary** | a span waterfall with a detail drawer is neither `graph` nor `monitoring_console` nor `dashboard`; per canon this is filed, not worked around (X-2) |
+
+Zero panes are `descriptor-rendered` today, which matches the estate: no first-party pane
+anywhere renders from a descriptor.
+
+### (b) This surface as primitive exposer
+
+**n/a — honestly.** Work is a core workspace, registered projection-only with
+writes-through-owners (:3468-3478). It owns no stage of the composable-application journey
+(`odk-extension-apps.md` §2), exposes no ODK primitive, admits no package, and holds no
+descriptor. Extension applications appear in the **Applications** catalog, never as a Work
+view; a Work row may deep-link to a running extension app's subject, but only through the
+same typed `subject_ref` path every other subject uses.
+
+One boundary worth stating because it is easy to get wrong: when Session gains attachment
+inputs (W3), a Session serving an extension application will name it through
+`subject_attachments[]` like any other workload. Neither Work nor the platform gains an
+"extension app" field — that is exactly the named-app-family field C-1 retires.
