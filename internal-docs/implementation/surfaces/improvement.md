@@ -2,6 +2,10 @@
 
 Canonical route: `/improvement` · Owner: Improvement (owner application)
 Brief status: authored 2026-08-05 from bytes at 21ae389fe · v0 seed corrected where noted
+Amended 2026-08-06: seed-mesh + ODK wiring packet 13 — seed mesh ledger (§6), ontology
+wiring (§7), ODK descriptor and extension lane (§8) appended. Program docs:
+`internal-docs/overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`,
+`internal-docs/implementation/odk-extension-apps.md`.
 
 ## 1. Canon digest
 
@@ -206,3 +210,78 @@ extended.
    Agent Studio improvement panels retire with typed 410s (pattern:
    hypervisor-daemon.rs:610-612); release the seed-preservation row
    (ported-seed-preservation.v1.json:37).
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 4: none** — no vault names Improvement as owner.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T3 `changes` — Upgrade Assistant** — route `/__ioi/improvement/changes` (serve `:8455`); protected seed, class `daemon_wired`; **REBOUND** — the inventory records `reboundLane: "daemon improvement-proposals"` (`harvest-seed-inventory.mjs:88`) | **47 controls**: 12 `daemon_read` · 6 `local_view_interaction` · **1 `governed_receipted_action`** · 0 `disabled_missing_authority` · 16 `unsupported_reference_session` · 12 `reference_data_only` | Improvement owns proposals, what-if simulation, and apply-under-gates — a change inbox over daemon truth | see cluster rows | — |
+| ↳ **the governed action** | 1 `governed_receipted_action`: the pending-action control (`"1 of 1 pending"` / confirm · override · opt-out) — the reference surface's PRIMARY action | apply-under-gates; **Governance owns activation decisions** | **rehome with a named defect** — §2 records approve/reject as **receiptless today**. A confirm/override/opt-out that changes a proposal's fate without a receipt is an unreceipted effectful mutation; the control rehomes, and until the receipt family lands (W3) it must not present as governed | W2 · W3 |
+| ↳ proposal lane + progress reads | 5 `daemon_read` (Active / Past due / Archived tabs, "All upgrades", "Upgrades requiring my action") | change inbox over real proposals | **rehome** | W1 |
+| ↳ row + detail reads | 3 `daemon_read` (resource row, row select → Resource Context panel, **state pill + proof trail**) | every proposal deep-links its proof | **rehome** — the state-pill-plus-proof-trail pairing is the honest core: a state claim that carries its evidence | W1 |
+| ↳ rail reads | 4 `daemon_read` (Home, Ontology, Applications, active-app slot) | carve-out adjacency | **rehome** the estate links · the vendor rail itself retires | W1 · W4 |
+| ↳ local filter cluster | 6 `local_view_interaction` (collapse rail, collapse filters, search by name, upgrade-type checkboxes, pre-published + published group headers) | local | **rehome** | W1 |
+| ↳ **org / admin / assignee cluster** | 7 controls: 5 `unsupported_reference_session` (org popover, admin-view toggle, assignee-view toggle, help menu, contact maintenance operators) + 2 `reference_data_only` (assignment info banner, banner help) | **no assignment plane exists** — proposals have no assignee, and "contact maintenance operators" names a vendor support relationship the estate does not have | **retire-at-cutover** — all seven. An assignee view over records with no assignee would be an empty pane pretending to be a filter | W4 |
+| ↳ sort / attribution chrome | 4 controls: 1 `unsupported_reference_session` (SORT radios by due date / remaining actions) + 1 (`DUE DATE` sort icon) + 3 `reference_data_only` column headers (NAME, TYPE, MY ACTIONS / PENDING ACTIONS) | proposals carry no due date and no per-principal action count | **retire-at-cutover** — sorting by a field the records do not carry is the same class of defect as `work.md`'s facets over absent fields | W4 |
+| ↳ due-date + context-menu | 2 `unsupported_reference_session` (due-date cell "45 days remaining", row right-click menu) | same | **retire-at-cutover** | W4 |
+| ↳ **What's-new modal cluster** | 4 `reference_data_only` (modal, **subscribe-to-newsletter toggle**, "go to all platform updates", close) | fixture data must not render as truth | **retire-at-cutover** — a newsletter subscription toggle inside a governed change inbox is the clearest single case in the run of reference chrome that must not survive | W4 |
+| ↳ vendor session chrome | 7 `unsupported_reference_session` (search palette, notifications, Recent, Files, **AIP Assist**, Support, Account) + 3 `reference_data_only` (What's New, app tile chip, title) | carve-out; AIP Assist is a vendor faculty (standing P2 gate) | **retire-at-cutover** | W4 |
+| **T2 Agent Studio propose lane** — `POST /__ioi/agent-studio/improvements/propose` (serve `:9192`) + the embedded approve / request-approval forms (`:2704-2705`) | part of Agent Studio's 1,050 (`studio.md` §6.1) | proposals are Improvement's; approvals are Governance's | **rehome → Improvement** for propose · the embedded approval form **retires** and is reached through Governance | W1 · W4 |
+| **T5 `/__apps/changes`** — capture, owner Improvement, `reference_capture`, capture state `boots_editor_canvas`, grammar `table_list`, high_value, **`reboundLane: "daemon improvement-proposals"`** (`harvest-seed-inventory.mjs:88`) | not in the 563 | the registered surface above already answers with daemon truth | **rebind** — one of only three captures in the estate with a declared rebound lane (`designer`, `listings`, `changes`); this one's lane is already live | W1 |
+
+**Census reconciliation.** Improvement's one T3 surface carries **47 of the 563**
+baseline controls: 15 + 7 + 9 + 4 + 7 + 1 + 4 = 47, exact.
+
+**Zero `disabled_missing_authority` controls** — the only T3 surface in the run with
+none. That is not completeness: this surface's gaps show up as
+`unsupported_reference_session` (16) and `reference_data_only` (12) instead, i.e. **28
+of its 47 controls are reference chrome for a product the estate is not building.**
+Its single governed control is the one that matters, and it is receiptless.
+
+**Disposition summary.** 5 rehome (one with a named defect) · 1 **rebind** ·
+0 pattern-harvest · 6 retire-at-cutover · 0 blocked.
+
+## 7. Ontology wiring
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Proposal inbox rows | **none — not object-bound** | improvement-proposal routes (`hypervisor-daemon.rs:1716-1726`) | Read | proposals are platform objects |
+| Proposal subjects | **none directly** — a proposal's subject *may* be an ontology-governed object | subject refs on the proposal record | Read (deep link) | the same object-aware-not-object-bound shape as `governance.md` §7 |
+| Resource Context panel + proof trail | receipts | work-ledger deep links | Read | evidence, not assertions |
+| **Write side — semantic plane** | **none** | — | — | Improvement writes proposals and (once receipted) decisions. A proposal to change an ontology is a **proposal**; the ontology write belongs to Ontology's receipted authoring path (`ontology.md` §7) |
+
+The boundary worth stating because Improvement is where it would be violated most
+naturally: **an approved proposal is not an applied change.** Canon separates the
+proposal, the gate, and the apply; a surface that renders "approved" as "done" would
+collapse three admissions into one.
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Change inbox (lanes, rows, filters) | `review_inbox` | **exempt — cross-owner** | proposals span every owner's objects; the same cross-owner blocker `governance.md` §8 filed. Second instance, and it confirms the finding is about the *pattern*, not about Governance |
+| Resource Context panel | `object_view` | **exempt — no bindable primitive** | proposals are platform objects |
+| Upgrade-progress rollups | `dashboard` | **exempt — no bindable primitive** | same |
+| Confirm / override / opt-out | — | **exempt — authority-crossing** | a descriptor declares actions; it carries no gate |
+
+Zero expressible, zero rendered.
+
+### (b) This surface as primitive exposer
+
+**n/a.** Improvement owns no stage of the composable-application journey
+(`odk-extension-apps.md` §2), exposes no ODK primitive, and holds no descriptor.
+
+One adjacency recorded because the extension lane will need it: when a generated
+application's package release is superseded, the **upgrade** of installed bindings is
+a proposal-shaped change. That path runs Packages (release) → Improvement (proposal)
+→ Governance (gate) → compiler (exposure), and **the generated app has no say in
+it** — an installed extension is upgraded *to* it, not *by* it.
