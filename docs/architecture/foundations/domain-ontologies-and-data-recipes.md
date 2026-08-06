@@ -1,13 +1,13 @@
 # Domain Ontologies and Data Recipes
 
 Status: canonical architecture authority.
-Canonical owner: this file for locally canonical and optionally federated Domain Ontologies, semantic assertions and mappings, executable ontology actions, Data Recipes, canonical object models, connector mappings, policy-bound data views, distilled ontology datasets, evaluation datasets, ontology-aware projections, the Ontology Development Kit, ontology-aware surface descriptors, and ontology-to-worker generation.
+Canonical owner: this file for locally canonical and optionally federated Domain Ontologies, semantic assertions and mappings, executable ontology actions, Data Recipes, canonical object models, connector mappings, policy-bound data views, distilled ontology datasets, evaluation datasets, ontology-aware projections, the Ontology Development Kit, ontology-aware surface descriptors, Domain Apps and their governed mount ladder, and ontology-to-worker generation.
 Supersedes: product, training, connector, or storage docs when they treat raw files, connector payloads, or ad hoc schemas as sufficient domain truth for Worker Training.
 Superseded by: none.
-Last alignment pass: 2026-07-13.
+Last alignment pass: 2026-08-06.
 Doctrine status: canonical
-Implementation status: partial (ODK draft object plane exists; optional cross-domain semantic negotiation, provenance-bearing assertions, executable ontology actions, and most of the semantic data plane are planned)
-Last implementation audit: 2026-07-05
+Implementation status: partial (ODK draft object plane exists; the Domain App mount/serve ladder is implemented in the daemon ahead of these object shapes; optional cross-domain semantic negotiation, provenance-bearing assertions, executable ontology actions, and most of the semantic data plane are planned)
+Last implementation audit: 2026-08-06
 
 ## Canonical Definition
 
@@ -137,6 +137,9 @@ This layer is not:
 | `OntologyToWorkerPlan` | Plan that turns ontology, recipes, workflow schemas, tools, policies, evals, and benchmarks into a WorkerManifest. |
 | `OntologyDevelopmentKitManifest` | Builder-kit manifest that packages ontology refs, object models, recipes, connector mappings, policy-bound views, surface descriptors, workflow schemas, eval refs, and conformance expectations for repeatable surface/domain-app/worker construction. |
 | `OntologySurfaceDescriptor` | Object-aware surface descriptor for generated or builder-authored views, editors, graphs, forms, review queues, consoles, dashboards, and domain apps over the ontology. |
+| `DomainApp` | Governed application candidate over exactly one `domain_app`-pattern surface descriptor: ownership, distribution visibility, derived semantic snapshot, authority and receipt obligations, and the journey-stage bindings (registration, package release, installation, System bindings). |
+| `DomainAppRuntime` | Durable record of one governed mount of a DomainApp; owns mounted/serving state, the approval and release control that permitted it, its route, and its receipt chain. |
+| `DomainAppMountReceipt` | Attestation that a named DomainApp runtime transition was admitted under a named approval and release control; it attests admission, never app correctness. |
 
 These names use three canonical envelope/storage families rather than six
 parallel schemas:
@@ -413,6 +416,73 @@ the declared governed host or federation policy; execution remains with the
 daemon; authority remains with local/domain governance and portable authority
 providers; operational truth remains with each Agentgres domain.
 
+## Domain Apps And The Governed Mount Ladder
+
+A **Domain App** is the app-shaped consumer of this layer: one
+`OntologySurfaceDescriptor` with `composition_pattern: domain_app`, wrapped in a
+`DomainApp` that carries ownership, distribution visibility, authority
+requirements, and receipt obligations. Object shapes are owned by
+[`objects/semantic-plane.md`](./objects/semantic-plane.md#domainappenvelope);
+this section owns the doctrine.
+
+A Domain App becomes operational through a governed ladder, never through a
+deploy step. Each rung is an explicit state with its own admission and its own
+receipt:
+
+```text
+draft            DomainApp over a resolving domain_app descriptor; inert
+mounted          approval-approved AND release-open admission; effectful, not serving
+serving          internal, descriptor-driven route assigned; governance re-validated live
+stopped          serving withdrawn; runtime returns to mounted
+unmounted        mount withdrawn; runtime terminal for this mount
+killed           governance enforcement drove stop and unmount
+```
+
+The rungs bind as follows.
+
+1. **Draft is inert.** Creating a DomainApp resolves and validates its
+   descriptor and re-derives its semantic snapshot. It starts no process,
+   assigns no route, grants no authority, and runs no domain action.
+
+2. **Mount is effectful and doubly gated.** Admission requires an
+   `ApprovalRequest` that is `approved` *and* targets this DomainApp, plus a
+   `ReleaseControl` that is `open` *and* targets this DomainApp. Either control
+   missing, unresolved, in the wrong state, or aimed at another subject refuses
+   the mount with a typed error. A mount that succeeds writes a
+   `DomainAppRuntime`, emits a `DomainAppMountReceipt`, and records the
+   authority refs that permitted it. Mount does not serve: no process, no URL,
+   no external ingress, no publication, no connector action.
+
+3. **Serving re-validates, it does not inherit.** Serving is a sub-step of the
+   same mount, so it reuses the mount's approval and release control — but it
+   re-reads and re-checks both at the transition. A withdrawn approval or a
+   closed release control refuses the serve; prior admission is never standing
+   permission. Serving assigns an **internal** route only. External ingress is a
+   separate admission and never a consequence of serving.
+
+4. **Every transition is receipted.** Mount, serve start, serve stop, unmount,
+   and each enforcement variant emit a receipt binding the transition, the
+   runtime, both governance refs, and a state commitment. There is no unreceipted
+   path between rungs.
+
+5. **Enforcement uses the same rungs.** A governance stop drives the ordinary
+   stop-serving and unmount transitions and emits the ordinary receipt family
+   under enforcement-specific action names, ending in the terminal `killed`
+   state. Enforcement must not have a private path that leaves a thinner record
+   than a voluntary stop.
+
+6. **The ladder is not the catalog.** A mounted, serving Domain App is still not
+   product inventory. It becomes launchable only by passing the same
+   `HypervisorApplicationSurfaceRegistration` contract every other surface
+   passes, as an `extension_application`, and being exposed by the
+   product-surface compiler. Mounting is a runtime fact; registration is an
+   inventory fact; they are never substitutes.
+
+Local Packages admission governs distribution independently of all six rungs.
+`visibility: marketplace_candidate` is a flag on a draft, not a publication, and
+optional Marketplace discovery never substitutes for local package or
+installation admission.
+
 ## Example: Construction Estimating
 
 A construction estimating worker should not train on "PDFs and quotes" as
@@ -465,6 +535,9 @@ OntologyProjection
 OntologyToWorkerPlan
 OntologyDevelopmentKitManifest
 OntologySurfaceDescriptor
+DomainApp
+DomainAppRuntime
+DomainAppMountReceipt refs
 ```
 
 Agentgres does not own raw connector credentials, decryption keys, or large
@@ -614,6 +687,15 @@ to export provider-owned weights or hidden state.
 21. A receipt proves only its declared transformation, policy, routing,
     deletion, recall, or verification fact. It does not prove hidden provider
     behavior or model unlearning by implication.
+22. No Domain App may reach a mounted, serving, externally reachable, or
+    launchable state without its own admission at that rung. Mount requires an
+    approved ApprovalRequest and an open ReleaseControl that both target it;
+    serving re-validates both live rather than inheriting the mount's
+    permission; external ingress is a separate admission from serving; catalog
+    launchability still requires the ordinary `extension_application`
+    registration. Admission at a lower rung is never permission at a higher one,
+    and every rung transition — including governance enforcement — emits a
+    receipt.
 
 ## One-Line Doctrine
 

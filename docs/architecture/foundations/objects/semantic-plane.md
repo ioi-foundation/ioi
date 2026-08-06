@@ -1,13 +1,13 @@
 # Ontology, Data-Recipe, and Ontology-Kit Objects
 
 Status: canonical low-level reference.
-Canonical owner: this file for the shared object shapes of domain ontologies, ontology assertions, ontology mappings, ontology action contracts, canonical object models, data recipes, connector mappings, ontology projections, ontology-to-worker plans, ontology development kit manifests, and ontology surface descriptors.
+Canonical owner: this file for the shared object shapes of domain ontologies, ontology assertions, ontology mappings, ontology action contracts, canonical object models, data recipes, connector mappings, ontology projections, ontology-to-worker plans, ontology development kit manifests, ontology surface descriptors, domain apps, domain-app runtimes, and domain-app mount receipts.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-08-06.
 Doctrine status: canonical
-Implementation status: planned (optional federated ontology and semantic-action families are not started)
-Last implementation audit: 2026-07-25
+Implementation status: planned (optional federated ontology and semantic-action families are not started); the domain-app family has an implemented daemon ladder ahead of these shapes — see [`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)
+Last implementation audit: 2026-08-06
 
 ## Purpose
 
@@ -439,3 +439,163 @@ OntologySurfaceDescriptorEnvelope:
     - artifact://...
   status: draft | active | deprecated | revoked
 ```
+
+## DomainAppEnvelope
+
+A **DomainApp** is a governed application candidate over exactly one
+`OntologySurfaceDescriptor` whose `composition_pattern` is `domain_app`. The
+descriptor declares what the app binds; the DomainApp declares who owns it, how
+far it may be distributed, which authority and receipt obligations it carries,
+and what its current runtime posture is.
+
+A DomainApp is deliberately none of the following, and must not be treated as
+any of them: it is not a runtime (`DomainAppRuntime` owns mounted/serving
+state); it is not a catalog registration (`HypervisorApplicationSurfaceRegistration`
+in [`core-clients-surfaces.md`](../../components/hypervisor/core-clients-surfaces.md)
+owns registration class, route, and placements); it is not an admission
+(local Packages admission owns that); and it is not semantic truth (the bound
+ontologies and object models are). A DomainApp with no admitted registration is
+a candidate, not durable product inventory.
+
+```yaml
+DomainAppEnvelope:
+  domain_app_id: domain-app://...
+  name: string
+  description: string
+  surface_descriptor_ref: surface-descriptor://...
+  odk_manifest_ref: odk://... | null
+  owner_ref: org://... | user://... | system://... | project://... | null
+  project_ref: project://... | null
+  visibility: private | org | marketplace_candidate
+  ontology_refs:
+    - ontology://...
+  canonical_object_model_refs:
+    - object-model://...
+  data_recipe_refs:
+    - data-recipe://.../revision/...
+  policy_bound_data_view_refs:
+    - view://...
+  operator_contract_refs:
+    - contract://...
+  mcp_contract_refs:
+    - mcp-profile://...
+  authority_requirement_refs:
+    - scope:* | policy://... | grant://...
+  receipt_obligations:
+    - receipt://...
+  generated_artifact_refs:
+    - artifact://...
+  surface_registration_ref: surface://... | null
+  package_release_ref: package://.../release/... | null
+  installation_ref: installation://... | null
+  system_binding_refs:
+    - system-binding://...
+  runtime_posture:
+    mounted: bool
+    serving: bool
+    route: string | null
+    mount_ref: domain-app-runtime://... | null
+  status: draft | admitted | installed | deprecated | revoked
+```
+
+`surface_descriptor_ref` is required and must resolve to a descriptor whose
+`composition_pattern` is `domain_app`; a DomainApp without a resolving
+app-shaped descriptor is a defect, not a draft. When `odk_manifest_ref` is
+present it must itself name that descriptor, so packaging provenance cannot
+disagree with the app-shape contract.
+
+The `ontology_refs`, `canonical_object_model_refs`, `data_recipe_refs`, and
+`policy_bound_data_view_refs` fields are a **derived snapshot** of the bound
+descriptor and manifest, not independent authorship. A DomainApp cannot widen
+the ontology, object-model, recipe, view, action, or authority set its
+descriptor declares. Changing `surface_descriptor_ref` or `odk_manifest_ref`
+re-validates the app-shape contract and re-derives the snapshot; it never
+merges the old snapshot into the new one.
+
+`surface_registration_ref`, `package_release_ref`, `installation_ref`, and
+`system_binding_refs` are the stage bindings of the composable-application
+journey owned by
+[`domain-ontologies-and-data-recipes.md`](../domain-ontologies-and-data-recipes.md).
+`system_binding_refs` must be non-empty before any effectful System launch;
+their absence bounds the app to inspect-only use rather than silently
+permitting effects.
+
+## DomainAppRuntimeEnvelope
+
+A **DomainAppRuntime** is the durable record of one governed mount of a
+DomainApp. Mount is effectful and admission-gated; serving is a sub-step of the
+same mount. The runtime — never the DomainApp — owns mounted/serving state, the
+governance refs that permitted it, its route, and its receipt chain. The
+DomainApp's `runtime_posture` is a backlink projection of the runtime, not a
+second source of truth.
+
+```yaml
+DomainAppRuntimeEnvelope:
+  domain_app_runtime_id: domain-app-runtime://...
+  domain_app_ref: domain-app://...
+  state: mounted | serving | unmounted | killed
+  mounted: bool
+  serving: bool
+  internal_route_ref: string | null
+  external_ingress_ref: ingress://... | null
+  approval_request_ref: approval-request://...
+  release_control_ref: release-control://...
+  authority_refs:
+    - grant://... | scope:* | policy://...
+  receipt_refs:
+    - mount-receipt://...
+  rollback_posture:
+    unmountable: bool
+    note: string
+  mounted_at: timestamp
+  serve_started_at: timestamp | null
+  serve_stopped_at: timestamp | null
+  unmounted_at: timestamp | null
+  unmount_reason: string | null
+  killed_at: timestamp | null
+```
+
+At most one runtime per DomainApp may be mounted at a time; a mount attempt
+against an already-mounted app refuses rather than creating a second runtime.
+
+A serving runtime re-validates its `approval_request_ref` and
+`release_control_ref` **live** at each serve transition. A withdrawn approval or
+a closed release control refuses the transition; a mount's earlier permission is
+never inherited forward as standing permission to serve.
+
+`internal_route_ref` and `external_ingress_ref` are distinct admissions.
+Assigning an internal route is part of the mount's governance; exposing external
+ingress is a separate admission that this envelope records but does not grant.
+
+Governance enforcement paths (KillSwitch and equivalent stops) drive the same
+state transitions and emit the same receipt family as voluntary ones, so an
+enforced stop is auditable in exactly the record a voluntary stop produces,
+distinguished only by the receipt's `action` and the terminal `killed` state.
+
+## DomainAppMountReceiptEnvelope
+
+Every DomainApp transition across the governed ladder emits a receipt. A mount
+receipt attests that a named transition was admitted for a named runtime under a
+named approval and release control at a named time. It does not attest that the
+app behaves correctly, that its semantic bindings are still valid, that an
+external surface exists, or that any domain action ran.
+
+```yaml
+DomainAppMountReceiptEnvelope:
+  mount_receipt_id: mount-receipt://...
+  action:
+    domain_app.mount | domain_app.serve_start | domain_app.serve_stop |
+    domain_app.unmount | domain_app.kill_stop_serving | domain_app.kill_unmount
+  domain_app_ref: domain-app://...
+  domain_app_runtime_ref: domain-app-runtime://...
+  approval_request_ref: approval-request://...
+  release_control_ref: release-control://...
+  state_root: hash
+  at: timestamp
+```
+
+`domain_app_runtime_ref` is required: an app may accumulate several runtimes
+over its life, and a receipt that names only the app cannot say which mount it
+transitioned. `state_root` commits the transition's admitted facts; it is a
+binding commitment over this receipt's own fields, not a proof about app
+behavior.
