@@ -2,6 +2,10 @@
 
 Canonical route: `/packages` · Owner: Packages (owner application)
 Brief status: authored 2026-08-05 from bytes at 21ae389fe · v0 seed corrected where noted
+Amended 2026-08-06: seed-mesh + ODK wiring packet 14 — seed mesh ledger (§6), ontology
+wiring (§7), ODK descriptor and extension lane (§8) appended. Packages is the gating owner
+of the extension lane's missing middle — see `internal-docs/implementation/odk-extension-apps.md`
+§1 and §7. Program docs: `internal-docs/overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`.
 
 ## 1. Canon digest
 
@@ -200,3 +204,101 @@ JSON Schema + registry entry with the routes.
     retire with typed 410s; `listings` row exits surface-registry.mjs;
     `/__apps/listings` capture stays dormant T4 evidence; Marketplace
     resolves only as `Packages / Marketplace` (:2567-2568).
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 4: none** — no vault names Packages as owner. The captures and the registry
+slug both still carry the **retired owner name "Marketplace"**; canon makes
+Marketplace the optional mode at `/packages/marketplace`, never a peer application.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T3 `listings`** — route `/__ioi/marketplace/listings` (serve `:8815`); protected seed, class `daemon_wired`; inventory owner "Marketplace", **`reboundLane: "daemon marketplace listing plane"`** (`harvest-seed-inventory.mjs:61`) | **33 controls, 0 governed**: 4 `daemon_read` · 4 `local_view_interaction` · **15 `disabled_missing_authority`** · 1 `unsupported_reference_session` · 9 `reference_data_only` | Packages owns package, release, install, dependency, impact, and recall lifecycle (:849); Marketplace is the optional discovery mode (:1383) | see cluster rows | — |
+| ↳ real listing reads | 4 `daemon_read` (**Estate Marketplace store row** with product count, row-navigate affordance, product card, product detail with version + documentation) | listings over the daemon listing plane | **rehome** — these four are the whole of what works, and they work over real daemon rows | W1 |
+| ↳ local navigation | 4 `local_view_interaction` (all-stores back link, breadcrumb, upload-modal cancel/close) | local | **rehome** | W1 |
+| ↳ **install / upload / installations cluster — the extension lane's missing middle, rendered** | 10 of the 15 `disabled_missing_authority`: **"Install" (enabled in the reference)**, Upload primary CTA, upload dropzone, upload-to-store, Installations button, Installations **Drafts (0) / Installed (24) / Jobs (18)** tabs, delete-all-drafts | **there is no `/v1/hypervisor/packages/*` route family at all** (`odk-extension-apps.md` §1); §2's whole registry family is route-missing | **blocked-missing-route** — and this is the most consequential block in the run: journey stages **6 and 7** (admit-and-version, install-and-register) are exactly these controls, and they are disabled because the plane behind them does not exist. The reference's counts (24 installed, 18 jobs) are fixture numbers and must never render | W3 |
+| ↳ search / sort cluster | 5 `disabled_missing_authority` (search products, search stores, search products in store, products-column sort, plus the store search) | no registry to search | **blocked-missing-route** — folds into the same W3 registry build | W3 |
+| ↳ **8 remote stores** | 1 `disabled_missing_authority` counted above: "8 remote stores (AIP Now / Palantir Learning / Machinery / Reference…)" | federation/discovery is optional and never substitutes for local admission (:1383) | **retire-at-cutover** — eight named remote stores the estate has no relationship with. Rendering them, even disabled, advertises a federation that does not exist | W4 |
+| ↳ reference marketing | 9 `reference_data_only` (store icon chip, header title, hero + decorative illustration, 3-step "install your first product", Stores heading, Name/Products column headers, store icon + name header) + 1 `unsupported_reference_session` (global session chrome incl. AIP Assist) | fixture data must not render as truth | **retire-at-cutover** | W4 |
+| **T2 marketplace readout** — `/__ioi/marketplace` (serve `:10025`), listings GET (`:8815`), new-listing form (`:10035`), listing POST (`:10040`); candidates / reviews / offers lanes | T2 census `nat-marketplace`: **9 controls, 0 disabled** | draft listing → publish-candidate → admission-review is the implemented plane (`hypervisor-daemon.rs:2041-2090`) | **rehome** — the admission-review lane is the closest thing the estate has to journey stage 6, and it is **marketplace admission, not package admission**. The two must not be conflated at rehome | W1 |
+| **T5 `/__apps/listings`** — capture, `reference_capture`, capture state `boots_graph`, grammar `catalog`, high_value, `reboundLane: "daemon marketplace listing plane"`, note "store browse + install wizard; drill-down = named gap" (`:61`) | not in the 563 | the registered surface above | **rebind** — third of the three captures with a declared rebound lane; its lane is live for browse and **not** for install | W1 |
+| **T5 `/__apps/registry`** — capture, `reference_capture`, capture state **`blocked_missing_capture`**, grammar `table_list`, high_value, `reboundLane: null`, "versioned artifact registry; unbound" (`:62`) | not in the 563 | **the versioned registry is precisely what does not exist** | **blocked-missing-capture** — and the block is doubly unfortunate: the one capture whose grammar is the versioned artifact registry cannot be inspected, and the registry it depicts has no routes. Neither half of the evidence is available | — |
+| **Retired owner name "Marketplace"** — registry slug owner, capture owner fields, and the `/__ioi/marketplace*` route family | — | Packages owns the surface; Marketplace is the **optional mode at `/packages/marketplace`** (:901) | **recorded + retire-at-cutover** — the name rehomes into Packages and is never revived as a peer application | W4 |
+
+**Census reconciliation.** Packages' one T3 surface carries **33 of the 563**
+baseline controls: 4 + 4 + 10 + 5 + 1 + 9 = 33, exact. Its T2 readout adds 9
+controls, 0 disabled, outside the baseline.
+
+**Zero governed controls, and 15 of 33 disabled** — the highest disabled *ratio* of
+any T3 surface in the run (45%, against `pipeline`'s 48% by count but 84 controls).
+The reason is singular and worth stating once: **Packages is the owner of the
+extension lane's missing middle, and its surface is an honest rendering of that
+absence.**
+
+**Disposition summary.** 3 rehome · 1 **rebind** · 0 pattern-harvest ·
+3 retire-at-cutover · **2 blocked-missing-route** · **1 blocked-missing-capture**.
+
+## 7. Ontology wiring
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Listing catalog + product detail | **none — not object-bound** | `/v1/hypervisor/marketplace/listings` (+ `/:id`) | Read + draft write | listings are platform objects |
+| **`ontology_pack` listing kind** | `OntologyDevelopmentKitManifest` (`OntologyDevelopmentKitManifestEnvelope`) + the ontology, object-model, recipe, view, projection, and descriptor refs it packages | ODK manifests at `/v1/hypervisor/odk/manifests` (+ `/:id`) — `hypervisor-daemon.rs:1612-1621`; **no route joins a manifest to a listing** | Read (separately) | canon names marketplace-ready **ontology packs** as ODK output. Both halves exist — manifests are real, listings are real — and **nothing binds them**. This is the ontology-side statement of the same missing middle |
+| Worker-package install admission | `OntologyToWorkerPlan` refs carried on a worker package | install admission planner is POST-only (`hypervisor-daemon.rs:1099`) | Write (planner) | the admission carries ontology refs; there is no read projection over what was admitted |
+| **Write side — semantic plane** | **none.** Packages admits packages; it never writes a semantic fact | — | — | an admitted ontology pack does not become the domain's canonical ontology — admission records distribution, and local canonicality stays with the domain (non-negotiable 13) |
+
+The ruling this surface most needs, because it is the one place it could go wrong
+silently: **installing an ontology pack must not make its ontology locally
+canonical.** Canon is explicit that no network-wide ontology may silently override a
+domain's local one; a pack install admits an *available* ontology version, and
+adopting it is a separate, domain-owned act.
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md). **Packages is
+the gating owner of the entire lane** — §1 of that doc concludes that the extension
+lane is blocked on this surface's registry family, not on more ODK work.
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Listing catalog + store browse | `list_detail` | **exempt — no bindable primitive** | listings are platform objects |
+| Product detail | `object_view` | **exempt — no bindable primitive** | same |
+| Install wizard (when built) | `wizard` | **exempt — authority-crossing** | install is an admission; a descriptor scaffolds views, never admission |
+| Installations tabs (Drafts / Installed / Jobs) | `list_detail` | **exempt — route-missing and no bindable primitive** | doubly blocked |
+
+Zero expressible, zero rendered.
+
+### (b) This surface as primitive exposer
+
+**Packages owns journey stages 5, 6, and 7 — more than any other surface — and
+owns none of them in code.**
+
+| Journey stage (`odk-extension-apps.md` §2) | What Packages contributes | State today |
+|---|---|---|
+| **5 — package it** | `OntologyDevelopmentKitManifest` + a package candidate | manifests exist (`/odk/manifests`); **no package candidate object** |
+| **6 — admit and version** | local package admission; immutable release | **route-missing — zero `/v1/hypervisor/packages/*` routes.** Marketplace admission-reviews exist and are a *different* admission |
+| **7 — install and register** | installation binding + the `extension_application` registration | **route-missing.** Registrations are `include_str!` static, and **zero `extension_application` rows exist** |
+
+Three boundaries, all canon and all load-bearing for the lane:
+
+- **Marketplace admission is not package admission.** Optional Marketplace
+  discovery or commerce never substitutes for local package or installation
+  admission. The estate has the optional one and not the required one, which is the
+  inversion at the heart of §1's finding.
+- **Admission does not grant runtime.** An admitted release is not an installed
+  binding, an installed binding is not an exposed catalog row, and none of them is a
+  System binding for effectful launch.
+- **Recall runs backwards immediately.** Disable, recall, and revocation remove
+  launch eligibility at once (:1984-1985) — the compiler hook §2 lists as W3. Until
+  it exists, **the estate can admit nothing and therefore cannot yet get recall
+  wrong**; the hook must land with the registry, not after it.
+
+The whole-run consequence, stated here because this is the surface that gates it:
+**every "route-missing" in stages 5–9 across the other nineteen briefs resolves to
+work on this surface.** Packages is the biggest build in the estate (§5) for a
+reason that is now visible from every direction.
