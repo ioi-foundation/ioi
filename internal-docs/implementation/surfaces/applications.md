@@ -189,3 +189,86 @@ Contextual launch rows that reference Sessions bind through
 8. **W4** — Cutover: `/__ioi/applications` + `/__ioi/api/applications`
    deleted with typed 410s; extension routes live under
    `/applications/{surface_key}`; zero hand-maintained catalog bytes remain.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 3: none · Tier 4: none · Tier 5: none.** No registry slug, dormant vault, or
+harvest capture names Applications as owner. **0 of the 563 baseline controls** —
+the fourth empty-seed-footprint surface after Home, Systems, and Projects.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T2 applications readout** — `/__ioi/applications` (serve `:8568`) + `api/applications` (`:8561`) | T2 census `nat-applications`: **30 controls, 0 disabled**, HTTP 200 | Applications is the catalog/compiler projection; the registration contract prevents it from becoming a junk drawer — a surface must say what it operates, where it can open, what authority it needs, and which canonical owners retain truth | **rehome** — the readout becomes `/applications`, rendering the compiler projection rather than its own list | W1 |
+| **W0.2 product-surface compiler** — client module `apps/hypervisor/scripts/surface-compiler.mjs` over `POST /v1/hypervisor/product-surface-projections` (`hypervisor-daemon.rs:1063`) | not census controls | one compiler feeds nav, catalog, palette, contextual launch, search, recents, favourites, and recommendations; **policy filtering happens daemon-side, before aggregation** | **rehome** — and three of its properties are marked must-survive: it **never re-implements policy**, it **never caches identity-bound output**, and on daemon failure it preserves the safe static first-party inventory with `launchable:false` + `disabled_reason_codes:["daemon_unavailable"]` rather than a frozen fake catalog (`surface-compiler.mjs:1-28`) | W1 |
+| ↳ the three retired hand-maintained catalogs | `IOI_APPS` (deleted), the SUITE/SUBSTRATE arrays (deleted), and `app-catalog.mjs`/`surface-registry.mjs` **demoted to implementation evidence with zero catalog authority** | canon :2006-2008 | **retire-at-cutover** (already executed for two of three) — the demotion of the registry to an evidence band is the correct end state and must not be un-done when the registry's slugs retire | W4 |
+| **Registration records** — 15 rows in `crates/node/src/bin/hypervisor_daemon_routes/hypervisor_surface_records.json`, loaded via `include_str!` (`lifecycle_routes.rs:6085-6087`) | 13 `owner_application` + 2 `substrate_application`; **zero `extension_application`**; `system_interface_bindings: []` | registrations are durable records; the dynamic registration/admission family is **route-missing** (§2, W3) | **build, not mesh** — no seed to disposition. This is journey stage 7, and the static `include_str!` is why the estate can hold no extension row at all | W3 |
+| **Embodied Systems** — a reserved, nonlaunchable registration row (planned) | not a control | conditional `owner_application`, deployment-neutral, does not enlarge the twelve baseline owner jobs | **recorded** — a planned row that must render as **planned and nonlaunchable**, never as a coming-soon tile | W1 |
+
+**Census reconciliation.** Applications holds **0 of the 563** T3 baseline controls.
+Its T2 readout carries **30 controls, 0 disabled**, outside the baseline.
+
+**Disposition summary.** 2 rehome · 0 rebind · 0 pattern-harvest ·
+1 retire-at-cutover · 0 blocked · 1 recorded as **build, not mesh** · 1 recorded.
+
+## 7. Ontology wiring
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Catalog rows + launch state | **none — not object-bound** | `POST /v1/hypervisor/product-surface-projections` | Read | registrations are platform objects |
+| **Registration `declared_object_contract_refs`** | `ontology://` · `object-model://` · `object-set://` · `schema://` refs, carried on every registration (`core-clients-surfaces.md:3512-3514`) | the registration record | Read (declaration only) | **the one genuinely ontology-shaped field in the catalog.** A registration *declares* which object contracts a surface operates — a definition-level ceiling, with the release owning the exact executable set. Applications renders the declaration; it resolves none of the refs |
+| Registration `agentgres_projection_refs` | `agentgres://projection/...` | the registration record | Read (declaration only) | same shape: declared, not resolved |
+| **Write side — semantic plane** | **none** | — | — | Applications exposes; it admits nothing and writes nothing |
+
+The distinction this surface must hold, because it is the one place the catalog
+could overclaim: **a declared object contract is a ceiling, not a capability.** A
+row that renders "operates `ontology://x`" is reporting what the surface *may*
+operate under its release, not what it currently can.
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md). **Applications
+is the lane's landing zone.**
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Catalog grid + groups | `list_detail` | **exempt — cross-owner by construction** | the catalog spans every owner; fourth instance of the cross-owner blocker, and the strongest — a catalog is *definitionally* heterogeneous |
+| Registration detail | `object_view` | **exempt — no bindable primitive** | registrations are platform objects |
+| Launch / disabled-reason rendering | — | **exempt — authority-crossing** | launchability is a daemon-side policy decision, not a descriptor field |
+
+Zero expressible, zero rendered.
+
+### (b) This surface as primitive exposer
+
+**Applications holds the registration contract for stage 7 and is the landing zone
+for stage 8.**
+
+| Journey stage (`odk-extension-apps.md` §2) | What Applications contributes | State today |
+|---|---|---|
+| **7 — install and register** | the `HypervisorApplicationSurfaceRegistration` contract every extension application must pass, as `extension_application` | contract is canon; **records are `include_str!` static and zero extension rows exist** |
+| **8 — expose** | the compiled catalog row and the route `/applications/{surface_key}` | compiler exists and serves **first-party rows only** |
+
+Four boundaries, all canon:
+
+- **`surface_key` is never inferred.** It is URL-safe and unique in one deployment
+  catalog, and explicitly "never inferred from `surface_id`" (:3491). A generated
+  app's route is assigned at registration, not derived from its identity.
+- **Creation method is a dimension, not a class.** Hand-authored, Studio-generated,
+  kit-generated, imported, and adapted surfaces all register as
+  `extension_application` and pass the same contract (:1955-1963, X-0(b)).
+- **Drafts never appear as ordinary launchable apps**, and **disable, recall, and
+  revocation remove launch eligibility immediately** (:1984-1985). The recall hook
+  is the compiler's, and `packages.md` §8 rules it must land *with* the registry.
+- **A descriptor is an input to registration, not a launchable application**
+  (:1928-1929). Studio authors the descriptor; this contract is what makes it
+  inventory.
+
+The lane's shape from the landing zone: **the contract that would admit an extension
+application is fully specified in canon and has no storage, no verb, and no row.**
+Stage 7 is not partially built — it is specified and unbuilt, which is a better
+starting position than a half-built one, and it is why `packages.md` §8 names this
+the gating work.
