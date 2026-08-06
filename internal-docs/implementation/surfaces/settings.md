@@ -300,3 +300,83 @@ summaries and deep links into the chain owners' surfaces, and may NEVER
 become a competing truth owner over transition-chain state (epic §5
 non-goal). Projection-only, writes-through-owners, exactly this brief's
 standing rule.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 3: none · Tier 4: none · Tier 5: none.** No registry slug, dormant vault, or
+harvest capture names Settings as owner. **0 of the 563 baseline controls** — the
+fifth and last empty-seed-footprint surface, after Home, Systems, Projects, and
+Applications. Settings' entire seed estate is **T1 vendor SPA panes**, which makes
+this the run's most carve-out-dominated mesh: vendored shell internals get a
+disposition row, not control-level detail.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T1 Settings index** — `/settings` | T1 shell census: **27 controls, 1 disabled**, HTTP 200, resolves | Settings is a core workspace, **projection-only with writes-through-owners** | **rehome** — the index becomes the `/settings` body; every pane below either rehomes to its owner or retires | W0.1 · W1 |
+| **T1 user panes (5)** — `account`, `secrets`, `git-authentications`, `personal-access-tokens`, `integrations` | census key `tier_t1_settings_panes`; carve-out | personal preferences are Settings'; credentials and integrations are **Developer Console's** (Connections owns all capability bindings) | **rehome** `account` · **rehome → Developer Console** `secrets`, `git-authentications`, `personal-access-tokens`, `integrations`. `developer-console.md` §6 rehomes the connections cockpit that receives them | W1 · W2 |
+| **T1 org panes (15)** — `manage-organization`, `terms-of-service`, `members`, `organization-secrets`, `org-integrations`, `policies`, `billing`, `credit-usage`, `runners`, `environments`, `agent-policies`, `agent-skills`, `login`, `scim`, `security-oidc` | carve-out | org identity, policy, and enrollment are **Governance's**; `environments` and `runners` are **Environments'**; `agent-skills` is Settings-adjacent per the intel rehome below | **split-rehome** — Governance takes `policies`, `agent-policies`, `scim`, `security-oidc`, `login`, `terms-of-service`, `members`, `manage-organization`; Environments takes `environments`, `runners`; Developer Console takes `organization-secrets`, `org-integrations`; Settings keeps `billing`, `credit-usage`, `agent-skills` as projections. **No pane keeps a write it does not own** | W1 · W2 |
+| ↳ **the known enterprise ceiling** | the audit records the org-secrets pane as "an **Enterprise upsell baked into the SPA bundle**; rows never render regardless of backend", and SSO / SCIM / custom-domain / domain-verification / org-invite as deferred | a pane that cannot render regardless of backend is not a named gap — it is vendor packaging | **retire-at-cutover** — these panes must not be rehomed as disabled gaps; wiring them is impossible and displaying them is an advertisement for a product tier the estate does not sell | W4 |
+| ↳ **6 undocumented bundle panes** — `announcements`, `hooks`, `profile`, `preferences`, `security`, `agents`, found in the bundle bytes and **absent from the census** | grep of `product-ui/owned/public/static/assets/*.js` | — | **recorded + retire-at-cutover** — six route fragments the census never counted. Recorded so the cutover's typed-410 sweep covers them; none is a canon pane | W4 |
+| **T2 auth lanes** — login / logout / invite / SSO (serve `:8046-8132`) | T2 census `nat-login`: **3 controls, 0 disabled** | `/sign-in` is Settings' entry; identity is never machine authority | **rehome** | W1 |
+| **W0.5 named-gap banners** — the identity-truth wave | landed 2026-08-05 | placeholder identity constants and `IDENTITY_REWRITES` deleted; RPCs daemon-backed or typed-unavailable | **rehome (already correct)** — and the property to preserve is that a missing org record renders a **named gap**, never a rewritten name. The `IDENTITY_REWRITES` pair (`serve:6753-6761`) is the pattern W0.5 deleted; it must not return through the settings bundle | W1 |
+| **Agent Studio intel panes** — `intel/memory` (serve `:9288`), `intel/skills`, `intel/graph` (`:9324`) | T2 census: **5 + 5 + 0 controls, 0 disabled** | canon places personal memory/skill preferences in Settings (:981); the durable memory substrate is Agent Wiki / `ioi-memory` (:1044-1047) | **rehome → Settings** — this is the receiving side of `studio.md` §6.1's split-rehome map, and the mirror row that map requires. Foundry consumes the same records **read-only** as training-evidence eligibility and does not take the lifecycle verbs (`foundry.md` §3) | W1 · W2 |
+| **Mock lane** — unhandled RPCs proxy to the mock, serving one of **55 fixture files** or a wildcard `{}` (`server.cjs:1561-1573`); two byte-identical fixture trees | not census controls | **no fixture data may reach a surface** | **retire-at-cutover** — one tree dies at W4; the wildcard `{}` fallthrough is the more dangerous half, because it answers *any* unhandled RPC with a plausible-looking empty success | W4 |
+| **`API_TOKEN_RENAMES` bundle rewrite** — the serve layer buffers the settings bundle to rename PAT copy to "API access tokens" (`serve:6780-6793`, `SETTINGS_BUNDLE_RE` `:6794`) | not census controls | the owned shell should say what it means without post-hoc byte rewriting | **retire-at-cutover** — a copy rewrite over a vendored bundle is the last surviving instance of the rewrite pattern W0.5 deleted for identity. It retires with the bundle, not before | W4 |
+
+**Census reconciliation.** Settings holds **0 of the 563** T3 baseline controls. Its
+T1 index carries **27 controls, 1 disabled**; the 20 census panes and the 6
+bundle-only panes are carve-out and carry no control-level census by rule; its T2
+auth lane carries 3 controls and the three intel panes 10.
+
+The audit's standing finding is worth carrying forward here rather than leaving in
+the audit: **`tier_t1_settings_panes` measured 0 mirror-backed RPCs.** Twenty panes,
+zero of them backed by the estate's own mirror — which is what makes the
+split-rehome above a *rebuild by owner* rather than a port.
+
+**Disposition summary.** 5 rehome (three of them **to other owners**) ·
+1 split-rehome across four owners · 0 rebind · 0 pattern-harvest ·
+4 retire-at-cutover · 0 blocked · 1 recorded (the 6 bundle panes).
+
+## 7. Ontology wiring
+
+**None — not object-bound.** Settings' objects are principals, preferences,
+credentials, org records, and policies.
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Every pane | **none — not object-bound** | settings/auth/org routes | Read (projection) | Settings is projection-only with writes-through-owners |
+| Intel memory / skills panes (post-rehome) | **none.** Memory and skill entries are platform records | `hypervisor-daemon.rs:1651-1770` | Read + lifecycle verbs | canon keeps the durable memory substrate in Agent Wiki / `ioi-memory`; these are per-principal preferences over it, not semantic assertions |
+| **Write side — semantic plane** | **none**, and structurally so | — | — | a projection-only surface cannot write the semantic plane, and this is the one surface where that is a registration property rather than an observation |
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Settings index + pane list | `list_detail` | **exempt — vendored shell internals** | hidden-UX carve-out; and the panes are cross-owner by construction |
+| Individual preference panes | `object_editor` | **exempt — writes-through-owners** | a projection-only surface has no write to express, which is the cleanest exemption in the run: not a missing descriptor capability, a **registration property** |
+| Billing / credit-usage | `dashboard` | **exempt — no bindable primitive** | platform records |
+
+Zero expressible, zero rendered — and one of these exemptions is different in kind
+from every other in the run. Everywhere else, a write pane is exempt because the
+descriptor lacks write semantics. Here the pane is exempt because **the surface has
+no write to describe.** Worth separating in the X-4 rollup as the one *clean*
+exemption.
+
+### (b) This surface as primitive exposer
+
+**n/a**, and the packet table predicted it (`n/a` for exposure). Settings owns no
+stage of the composable-application journey (`odk-extension-apps.md` §2), exposes no
+ODK primitive, and holds no descriptor.
+
+One adjacency: an installed extension application may have **per-principal
+preferences** (theme, defaults, notification opt-ins). Those belong here, as
+projections over the owning application's preference contract — **Settings stores
+the preference, never the capability.** A preference pane must not become a place
+where an extension's authority is granted, widened, or renewed.
