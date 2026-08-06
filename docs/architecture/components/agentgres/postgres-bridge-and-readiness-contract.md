@@ -1,8 +1,8 @@
 # Agentgres Postgres Bridge and Readiness Contract
 
 Status: canonical architecture authority.
-Canonical owner: this file for Agentgres Postgres bridge posture, database-readiness guarantees, consistency names, durability expectations, schema/migration lifecycle, replication profile, recovery profile, and operator surface.
-Supersedes: loose "Postgres replacement" language when compatibility or database guarantees are discussed.
+Canonical owner: this file for Agentgres positioning hierarchy, Postgres bridge posture, database-readiness guarantees, consistency names, durability expectations, schema/migration lifecycle, replication profile, recovery profile, and operator surface.
+Supersedes: loose "Postgres replacement" language when compatibility or database guarantees are discussed, and any Postgres-led positioning ("evolution of Postgres", "Postgres, but better") wherever Agentgres is positioned.
 Superseded by: none.
 Last alignment pass: 2026-05-14.
 Doctrine status: canonical
@@ -22,6 +22,30 @@ Public positioning:
 Builder-facing positioning:
 
 > **Agentgres is a Postgres-compatible operational substrate for worker-produced state.**
+
+Positioning hierarchy:
+
+> **The category claim leads. The bridge follows. The bridge is never the
+> identity.**
+
+Every surface that positions Agentgres — canonical docs, product stories,
+launch and demo surfaces, external copy — leads with the agent execution
+branch doctrine owned by [`doctrine.md`](./doctrine.md): **Git versions code.
+Agentgres versions autonomous work.** The category is branchable, replayable,
+receipted autonomous work under admitted authority; no incumbent competes on
+that axis. The Postgres bridge is the adoption feature stated after the
+category claim, with its contract stated the same way every time: reads are
+Postgres-shaped projections of settled state; writes cross the admission
+boundary. Positioning that leads
+with Postgres — "an evolution of Postgres", "a Postgres replacement",
+"Postgres, but better" — is non-canonical and superseded by this ruling, for
+the same reason the naked-replacement language below is: it invites evaluation
+on the incumbent's axis (SQL completeness, OLTP throughput, extension
+ecosystem) and hides the category Agentgres creates.
+
+While this file's bridge posture remains planned, positioning surfaces state
+the bridge as roadmap, not as a present capability; demonstrations carry
+receipts, replay, and execution branches, not SQL.
 
 Avoid naked "Agentgres is a Postgres replacement" language in canonical docs.
 The stronger claim is narrower and more defensible: Agentgres replaces

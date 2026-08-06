@@ -80,6 +80,11 @@ Agent execution branch doctrine:
 
 > **Git versions code. Agentgres versions autonomous work.**
 
+This sentence is also the canonical positioning headline: per
+[`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md),
+every surface that positions Agentgres leads with this category claim, and the
+Postgres bridge follows as the adoption feature, never the identity.
+
 Agentgres must treat serious agent work as branchable, replayable execution
 state, not only as an event log after the run finishes. A branch may include
 source diffs, but it is broader than Git: it binds the workspace snapshot,
