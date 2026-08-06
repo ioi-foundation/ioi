@@ -191,3 +191,136 @@ exist in Studio UI bytes (grep clean).
 8. **W4** — Cutover per the 6-step rule: typed 410 for `/__ioi/agent-studio` +
    `/__ioi/studio/designer`; delete vendor template lanes and the `/__apps/designer` proxy
    note; shell/nav rows come from the product-surface compiler only.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 4: none** — no vault names Studio as owner. Studio has the estate's largest
+seed footprint by artifact count: 2 registered T3 surfaces, 8 T2 readouts, and 8 T5
+captures (4 of them the Domain-Apps pattern evidence).
+
+### 6.1 The Agent Studio split-rehome map
+
+`/__ioi/agent-studio` (serve `:9043`) is **the estate's largest readout by a factor
+of four** — T2 census `nat-agent-studio`: **1,050 controls, 0 disabled**, against
+`/__ioi/workbench`'s 266 (`developer-workspace.md` §6). It accreted panes for five
+different owners. This map is the authority for where each goes; every receiving
+brief must carry the mirror row, and where one already does it is cited.
+
+| Agent Studio lane (byte site) | T2 census | Canonical owner | Disposition | Mirror row |
+|---|---|---|---|---|
+| `#model-routes` tab — probe / enable / disable / select-default, planner-admitted + receipted (serve `:2983-2998`, table `:2488-2519`, proxy `:9446-9449`) | part of the 1,050 | **Foundry** (Deploy pane) | **rehome → Foundry** | `foundry.md` §7 already records this as its rehome source, with the stale-probe/412 gotcha preserved |
+| `improvements/propose` POST (serve `:9192`) + embedded approve / request-approval forms (`:2704-2705`) | part of the 1,050 | **Improvement** (proposals); **Governance** (the approval form) | **rehome → Improvement** · the embedded approval form **retires** here and is reached through Governance | `governance.md` §6 records the embedded forms retiring with this split |
+| `intel/memory` (serve `:9288`), `intel/skills`, `intel/graph` (`:9324`) | `nat-agent-studio-intel-memory` **5**, `-intel-skills` **5**, `-intel-graph` **0** | canon places personal memory/skill preferences in **Settings** (:981); the durable memory substrate is Agent Wiki / `ioi-memory` (:1044-1047) | **rehome → Settings** (preference panes) · Foundry consumes the same records **read-only** as training-evidence eligibility, and does **not** rehome the lifecycle verbs | `foundry.md` §3 Corrections already rules the lifecycle verbs out of Foundry |
+| `vault/export` (serve `:9368`), `vault/import` (`:9379`) | part of the 1,050 | export/import of institutional state is **Governance**-gated, with the boundary owned by the institutional-learning canon | **rehome → Governance** — an import re-admits institutional state and must cross admission, not a Studio form | new row; `governance.md` §6 predates this map |
+| `launch-policies` POST (serve `:9439`) | `nat-agent-studio-launch-policies` **5** | launch policy governs Session creation → **Work** (`/work/new-session`) with policy authored under **Governance** | **rehome → Work** (the launch affordance) · **Governance** (the policy object) | `work.md` §6 rehomes the New Session action; the policy object is new here |
+| the remaining shell, agent lens, and composer panes | the bulk of the 1,050 | **Studio** | **rehome** — this is the part that stays | — |
+
+**The map's one hard rule:** no lane may be rehomed to two owners, and no lane may
+be dropped. Six lanes in, six destinations out, and every destination brief either
+already carries the mirror row (four of six) or gains it in its own packet.
+
+### 6.2 Ledger
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T3 `designer` — Solution Designer** — `/__ioi/studio/designer` (serve `:9629`); protected seed, class `daemon_wired`; **the registry's lowest implementation ratio** | **51 controls, 0 governed**: 7 `daemon_read` · 17 `local_view_interaction` · 20 `disabled_missing_authority` · 3 `unsupported_reference_session` · 4 `reference_data_only` | Studio composes systems and agents; **Surface Generate** is the product path for object-aware shells (:2217-2226) | see cluster rows | — |
+| ↳ real ontology-entry cluster | 7 `daemon_read` (open diagram, open in Data Lineage, design selector row, **Concepts → Ontology Manager**, **Components → Ontology Manager**, **Resources → object set / surface descriptor**, cross-app links to Pipeline/Machinery/Ontology Manager/Agent Studio) | the canvas's typed nodes resolve into real ontology and descriptor objects | **rehome** — these seven are the whole reason this surface matters: a design canvas whose Concept/Component/Resource nodes **enter the real ontology plane** is Surface Generate's authoring shape in embryo | W1 |
+| ↳ canvas local-view cluster | 17 `local_view_interaction` (actions menu, save-as-JSON, copy-JSON, export PNG, clear, group, add text node, pan, move nodes, info tab, graph-settings tab, edge validity/labels/animation/minimap/icons, select node, wheel-zoom, control rail, node ⋯ menu, recents tab) | local canvas state is legitimately local | **rehome** | W1 |
+| ↳ **authoring + persistence cluster — absent** | 20 `disabled_missing_authority` incl. New Diagram, Save, Share links, three Import lanes (JSON / picture BETA / Data Lineage), Concept/Component/Resource **placement**, click-to-add, drag-connect, select-implementation, custom metadata, diagram description | `studio/blueprints` draft CRUD + layout artifact + promote-through-gates is **route-missing** (§2, W3) | **blocked-missing-route** — a design canvas that cannot save is the honest state of a surface with no blueprint plane; enabling Save against local storage would make Studio a second truth store | W3 |
+| ↳ **AIP faculty cluster** | 5 of the 20 disabled are vendor AIP lanes: AIP Critic, Enable AIP Critic (BETA), AIP Generate (BETA), AIP Architect panel, Ask AIP Assist, Start planning (AIP Architect) | vendor faculties ship in the estate — a **standing P2 gate** | **retire-at-cutover** — counted inside the 20 above and called out separately because they must not be mistaken for named gaps awaiting an IOI contract | W4 |
+| ↳ reference gallery + chrome | 4 `reference_data_only` (title/unsaved chip, Help, Documentation/Tutorials cards, **Reference Diagrams gallery**) + 3 `unsupported_reference_session` (undo, redo, favorites tab) | no fixture data may be presented as truth | **retire-at-cutover** — the Reference Diagrams gallery is example content, and examples reach users through Packages/patterns, not a built-in gallery | W4 |
+| **T3 `machinery` — Process Graphs** — `/__ioi/studio/machinery` (serve `:9652`), reads `/v1/hypervisor/state-machines`; renderer `renderMachineryPort` with a named-gap footer (`:4761` — run/step/execute, scheduling, binding, simulation, versioning all named); protected seed, class `daemon_wired` | **30 controls, 0 governed**: 5 `daemon_read` · 5 `local_view_interaction` · 12 `disabled_missing_authority` · 1 `unsupported_reference_session` · 7 `reference_data_only` | **contested**: `surface-registry.mjs:60` says owner Studio; the audit census `canon_target_name` says **"Automations / Process Graphs"** (:1416) | **meshed here, ownership deferred to X-2(a)** — the ledger rows below hold regardless of who wins, because the dispositions turn on what the controls do, not on whose route they end up under | — |
+| ↳ definition read cluster | 5 `daemon_read` (Files, Ontology, file/definition row select, CREATOR column, Account) | state-machine definitions are real | **rehome** (to whichever owner X-2(a) rules) | W1 |
+| ↳ **graph-authoring cluster — absent** | 12 `disabled_missing_authority` incl. New graph (primary create), New-graph caret, the **process graph-authoring canvas + build/mount lanes**, Favorites pill, per-row favorite star, LAST EDITED BY / LAST VIEWED columns, notifications, AIP Assist, help, installations dropdown, example install overlay | process-graph run/step/bind is **route-missing** (`automations.md` §2, W3) | **blocked-missing-route** for the authoring canvas and create lanes · **retire-at-cutover** for the per-user favorites/columns (no principal plane) and the AIP lane | W3 · W4 |
+| ↳ reference marketing | 7 `reference_data_only` (omnibar, What's New, Recent, **Training pinned example app**, Support, hero band, **Cipher example cards ×2**) + 1 `unsupported_reference_session` (template picker) | fixture data must not render as truth; Cipher is a **vendor faculty** | **retire-at-cutover** | W4 |
+| ↳ local view | 5 `local_view_interaction` (Home, Applications catalog, collapse sidebar, app icon link, Recents pill) | local | **rehome** | W1 |
+| **T2 `/__ioi/domain-apps`** — list (serve `:9869`), new form (`:9876`), POST create (`:9881`), runtime view (`:9851`) | T2 census: `nat-domain-apps` **2 controls**, `nat-domain-apps-new` **14 controls**, both 0 disabled | **DomainApp draft creation is Studio's** — the extension lane's authoring stage (`odk-extension-apps.md` §2 stage 4); the object plane is canon as of X-0(a) | **rehome** — and this is the run's most consequential rehome: 16 controls are the entire product surface over a **fully implemented six-rung governed mount ladder** (`domain_apps_routes.rs`, 1,217 lines). The daemon plane is complete and the UI is 16 controls | W1 |
+| ↳ the mount ladder is not surfaced | the 16 controls cover draft list + create only | mount / serve / stop / unmount / kill are all implemented daemon-side | **blocked-missing-route: no — build, not mesh.** The routes exist; no pane calls them. Governance owns the approval and release control that gate mount (`governance.md` §8), so the ladder's UI is a **joint build** across Studio (draft), Governance (controls), and Operations (runtime observation) | W2 · W3 |
+| **T2 `/__ioi/agent-studio`** — serve `:9043` | **1,050 controls, 0 disabled** — the estate's largest readout | five owners' panes in one surface | **rehome (split)** — see §6.1 | W1 · W4 |
+| **T5 `/__apps/designer`** — capture, owner Studio, `reference_capture`, capture state `boots_graph`, grammar `editor_canvas`, high_value, **`reboundLane: "odk composition patterns + surface descriptors"`** (`harvest-seed-inventory.mjs:26`) | not in the 563; §3 records the proxy as insufficient | Surface Generate | **rebind** — the **only capture in the estate whose declared rebound lane is the ODK descriptor plane itself.** Its named in-canvas gaps (open/save/reference/load-lineage) are exactly the blueprint plane W3 builds | W3 |
+| **T5 `/__apps/machinery`** — capture, `reference_capture`, capture state `boots_graph`, grammar `graph`, high_value, `reboundLane: null`, "data lanes unbound" (`:27`) | not in the 563 | process graphs | **pattern-harvest** | — |
+| **T5 `/__apps/workshop`** — capture, `reference_capture`, capture state `blocked_missing_capture`, grammar `editor_canvas`, high_value, `reboundLane: null`, "application/module builder; unbound" (`:28`) | not in the 563 | the application-builder grammar Surface Generate needs | **blocked-missing-capture** — the most unfortunate block in the run: the one capture whose grammar is literally "application builder" cannot be inspected | — |
+| **T5 `/__apps/module`** — capture, `reference_capture`, capture state `shell_only`, grammar `editor_canvas`, aux, `reboundLane: null` (`:29`) | not in the 563 | compute-module authoring has no canon pane | **pattern-harvest** | — |
+| **T5 `/__apps/{slate,logic,contour,fusion}`** — four captures under the **retired owner name "Domain Apps"** (`:79-82`); `slate` `blocked_missing_capture` high_value, the other three `shell_only` aux; all `editor_canvas`, all `reboundLane: null` | not in the 563 | generated domain apps (`odk-extension-apps.md` §6) | **pattern-harvest** — evidence of the *interaction grammar* a generated domain app should present (an editor canvas over domain objects, not a form stack), and nothing more. `slate` is `blocked_missing_capture`, so claims about its behavior are unsupportable. **"Domain Apps" is a retired owner: these rehome under Studio and are never revived as a peer application** | — |
+
+**Census reconciliation.** Studio's two T3 surfaces carry **81 of the 563** baseline
+controls: `designer` 51 (7 + 17 + 20 + 3 + 4) and `machinery` 30 (5 + 5 + 12 + 1 + 7).
+Both sums exact. **Neither has a single governed-receipted control** — Studio, the
+surface canon names as the authoring owner of the whole extension lane, has **zero
+governed controls today**, which is the finding, not an omission.
+
+Its T2 readouts add **1,081 controls, 0 disabled** (1,050 + 2 + 14 + 5 + 5 + 5 + 0),
+outside the baseline. `/__ioi/agent-studio` alone is 1,050.
+
+**Disposition summary.** 8 rehome (one being the six-lane split map) · 1 **rebind** ·
+4 pattern-harvest · 5 retire-at-cutover · **2 blocked-missing-route** ·
+**1 blocked-missing-capture** · 1 recorded as build-not-mesh (the mount ladder's UI) ·
+1 deferred to X-2(a) (`machinery` ownership).
+
+## 7. Ontology wiring
+
+Studio's wiring is unusual: it is the **authoring** surface for the semantic plane's
+*surface* objects (descriptors, domain apps) while writing none of the semantic
+plane's *content* objects.
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Designer — Concept nodes | `DomainOntology` object types | `/odk/domain-ontologies` (via the Ontology Manager entry) | Read (deep link) | the canvas enters the ontology plane; it does not author it |
+| Designer — Component nodes | `CanonicalObjectModel` entries | same | Read (deep link) | |
+| Designer — Resource nodes | `MaterializedObjectSet` **and `OntologySurfaceDescriptor`** | `/odk/materialized-object-sets`, `/odk/surface-descriptors` | Read | the one census control that names the descriptor plane from a product surface |
+| **Surface descriptor authoring** | `OntologySurfaceDescriptor` (`OntologySurfaceDescriptorEnvelope`) | `POST/PATCH /v1/hypervisor/odk/surface-descriptors` (`hypervisor-daemon.rs:1621-1631`) | **Write — route exists, no pane** | canon: **Studio authors interface descriptors** (:1435-1441). The route is live and the surface does not call it. This is the single most important missing binding in the run: the authoring stage of the extension lane has a backend and no front end |
+| **DomainApp draft creation** | `DomainApp` (`DomainAppEnvelope`, canon as of X-0(a)) | `POST /v1/hypervisor/domain-apps` (`:1867`) | **Write (draft)** | wired at `/__ioi/domain-apps` (`serve:9881`); enforces the app-shape contract (descriptor must resolve and be `composition_pattern: domain_app`) |
+| Machinery — state machines | **none — not object-bound** | `/v1/hypervisor/state-machines` | Read | process graphs are platform objects |
+| System Design — the six ODK families | `DomainOntology`, `CanonicalObjectModel`, `DataRecipe`, `ConnectorMapping`, `PolicyBoundDataView`, `OntologyProjection` | the ODK routes | Read | the packet table's "reads all six ODK families into System Design" is the **target**, not today's state: today only Concepts/Components/Resources deep-link |
+| **Write side** | descriptors (route exists, no pane) + DomainApp drafts (wired) | — | — | Studio writes the *shapes* of surfaces, never the *content* of the semantic plane. That boundary is what keeps a builder from becoming a truth store |
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md). **Studio is the
+lane's authoring surface**, so this section is the run's longest exposer ledger and
+its shortest consumer one.
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Designer canvas (read side: typed nodes resolving to ontology/descriptor objects) | `graph` | **descriptor-expressible** | binds ontology, object-model, object-set, and descriptor refs — the Resource-node row proves the refs are already reachable |
+| Designer canvas (authoring: place Concept/Component/Resource, connect, save) | `graph` + write | **exempt — no write semantics in the descriptor** | sixth instance of the write-semantics finding, and the most pointed: **the surface that authors descriptors cannot itself be described by one** |
+| Machinery definition list | `list_detail` | **exempt — no bindable primitive** | state machines are platform objects |
+| Machinery graph canvas | `graph` | **exempt — no bindable primitive** | same |
+| Domain-apps list + new form | `list_detail` / `wizard` | **descriptor-expressible (list side)** · **exempt (create)** | the list binds `DomainApp` + descriptor refs; create is an admission-adjacent write |
+
+**Two expressible panes**, and one observation that belongs in the X-4 rollup: the
+descriptor-authoring surface is itself the sharpest instance of the descriptor's
+missing write semantics. A kit that cannot describe its own authoring tool is
+incomplete in a way that the estate's own dogfooding rule (non-negotiable 23) is
+designed to surface.
+
+### (b) This surface as primitive exposer
+
+**Studio owns journey stages 3 and 4** — the authoring half of the extension lane.
+
+| Journey stage (`odk-extension-apps.md` §2) | What Studio contributes | State today |
+|---|---|---|
+| **3 — author or scaffold the descriptor** | Surface Generate: authors `OntologySurfaceDescriptor`s over ontology, object-model, recipe, view, and projection refs | **route exists, no pane** (§7). The authoring stage of the lane is a live daemon route with no front end |
+| **4 — shape it as an app** | `DomainApp` drafts over a `domain_app`-pattern descriptor, with the app-shape contract enforced at create | **wired** — 16 controls at `/__ioi/domain-apps` |
+
+Three boundaries, all canon:
+
+- **Surface Generate is a proposal path, not a runtime.** Builder paths never own
+  runtime truth, authority, semantic truth, or storage truth (:2217-2226). A
+  generated surface is a descriptor plus scaffolding until Packages admits it.
+- **Kit-generated surfaces pass the same registration contract** as hand-authored
+  ones (:1955-1963). Studio's output gets no shortcut into the catalog.
+- **Studio authors; Packages admits; the compiler exposes.** Studio holds stages 3–4
+  and hands off. It never admits a package, never registers a surface, and never
+  mounts a Domain App — mount is Governance-gated (`governance.md` §8).
+
+The state of the lane, from its authoring end: **stage 4 is wired, stage 3 has a
+route and no pane, and stages 5–9 have no routes at all**
+(`odk-extension-apps.md` §1). Studio can create a DomainApp draft today over a
+descriptor it cannot author through any UI, for a package plane that does not exist.
+That is the extension lane's actual shape, and Studio is where it is most visible.
