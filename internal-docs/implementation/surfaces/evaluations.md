@@ -2,6 +2,10 @@
 
 Canonical route: `/evaluations` · Owner: Evaluations (owner application)
 Brief status: authored 2026-08-05 from bytes at 21ae389fe · v0 seed corrected where noted
+Amended 2026-08-06: seed-mesh + ODK wiring packet 12 — seed mesh ledger (§6), ontology
+wiring (§7), ODK descriptor and extension lane (§8) appended. Program docs:
+`internal-docs/overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`,
+`internal-docs/implementation/odk-extension-apps.md`.
 
 ## 1. Canon digest
 
@@ -202,3 +206,84 @@ not extended.
     (pattern: hypervisor-daemon.rs:610-612); delete the `/__apps/evalsuites`
     proxy fold; release the seed-preservation rows
     (ported-seed-preservation.v1.json:30).
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 4: none** — no vault names Evaluations as owner.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T3 `evalsuites` — Eval-suite library** — route `/__ioi/evaluations/evalsuites`; protected seed, class `daemon_wired`, pixel-certified | **32 controls**: 3 `daemon_read` · 7 `local_view_interaction` · **3 `governed_receipted_action`** · 1 `disabled_missing_authority` · 9 `unsupported_reference_session` · 9 `reference_data_only` | Evaluations owns the judgment contract, exposure, validity, and re-verification posture (`foundry.md:235-241`) | see cluster rows | — |
+| ↳ **suite creation cluster — governed** | 3 `governed_receipted_action`: **New evaluation suite (PRIMARY)**, create-suite modal container, **Create (submit)** | receipted suite authoring | **rehome with a named defect** — §2 records the estate's **live receiptless creates/deletes** on the eval-suite family. These three are counted `governed_receipted_action` by the census, but the mutation-receipt family is a W3 build; until it lands the controls must present as draft CRUD, not as governed actions. The census bucket and the byte state disagree, and the byte state wins | W2 · W3 |
+| ↳ suite catalog reads | 3 `daemon_read` (Ontology rail entry, AIP Evals active-app slot, Recents rows) | suite library over real subjects | **rehome** | W1 |
+| ↳ local view cluster | 7 `local_view_interaction` (Home/Foundry logo, Recent, Files, collapse sidebar, Recents pill, Files column sort, Cancel modal) | local | **rehome** | W1 |
+| ↳ **evaluation-target selector** | 1 `unsupported_reference_session`: "Select evaluation target (Logic / Function radios + Select-Logic dropdown)" | a suite declares **what** it would assess and **under what admissibility**; the target vocabulary must be the estate's subjects, not the reference's Logic/Function taxonomy | **retire-at-cutover** — the reference's target taxonomy is foreign. The functional selector binds real subjects (models, workers, ontology-aware packs), which is a different control, not a rewiring of this one | W4 |
+| ↳ per-user favorites + attribution | 1 `disabled_missing_authority` (creator / last-edited-by / last-viewed columns) + 3 `unsupported_reference_session` (favorites view pill, per-row add-to-favorites, app add-to-favorites) | no principal or edit-tracking plane exists on these records | **retire-at-cutover** — the same honest em-dash ruling the T4 workspaces vault made for sessions (`developer-workspace.md` §6) applies: absent attribution renders as absent, and the columns go | W4 |
+| ↳ **reference marketing cluster** | 9 `reference_data_only` (What's New, Applications, View-all-applications, Support, app tile glyph, Help, hero band, **Explore reference examples band**, **Marketplace example cards — Cipher ×2**) | fixture data must not render as truth; Cipher is a **vendor faculty** (standing P2 gate) | **retire-at-cutover** | W4 |
+| ↳ vendor shell chrome | 5 `unsupported_reference_session` (search palette, notifications, **AIP Assist**, Account, batch/installations badge) | carve-out | **retire-at-cutover** | W4 |
+| **T2 `/__ioi/evaluations`** — GET (serve `:8605`), POST (`:8626`) | T2 census `nat-evaluations`: **44 controls, 0 disabled** | the eval-suite library over daemon truth; the surface states plainly that **"nothing scores or executes here"** and that converting an entry into an eval/training candidate is a **named handoff the daemon gates on consent** (serve `:1281`, `:1316`) | **rehome** — those two statements are the surface's honest core and must survive | W1 |
+| **T2 `/__ioi/feedback`** — feedback & annotations lane | T2 census `nat-feedback`: **8 controls, 0 disabled** | durable operator feedback over real subjects, each carrying its evidence-eligibility consent **from the moment it is recorded** (serve `:1281`) | **rehome** — consent-at-capture is the property that makes this lane usable as evidence later; it must not be relaxed into a post-hoc flag | W1 |
+| **T5 `/__apps/evalsuites`** — capture, owner Evaluations, `reference_capture`, capture state `boots_editor_canvas`, grammar `table_list`, high_value, `reboundLane: null` (`harvest-seed-inventory.mjs:51`); §3 records it as having **no data** | not in the 563 | the registered surface above is functional | **pattern-harvest** — table grammar only | — |
+| **T5 `/__apps/analysis`** — capture, `reference_capture`, capture state `shell_only`, grammar `editor_canvas`, high_value, `reboundLane: null`, "object-set-first analysis canvas" (`:52`) | not in the 563; §3 names it a gap | **object-set analysis binds `MaterializedObjectSet`** (§7) | **pattern-harvest** — and the most interesting of Evaluations' captures: an object-set-first analysis canvas is a real `graph`/`dashboard` shape over primitives that already exist. Harvesting the grammar costs nothing; building it needs the analysis plane, which has no route | — |
+| **T5 `/__apps/quiver`** — capture, `reference_capture`, capture state `shell_only`, grammar `editor_canvas`, high_value, `reboundLane: null`, "time-series analysis canvas" (`:53`) | not in the 563 | the datasets/time-series/media-sets plane needs the **Data-vs-Foundry-vs-Evaluations owner ruling** (`data.md` §6) | **blocked-missing-route** — blocked on a ruling before a route, same as `/__apps/dataset` | W3 |
+
+**Census reconciliation.** Evaluations' one T3 surface carries **32 of the 563**
+baseline controls: 3 + 3 + 7 + 1 + 4 + 9 + 5 = 32, exact. Its two T2 readouts add
+52 controls, 0 disabled (44 + 8), outside the baseline.
+
+The `governed_receipted_action` count deserves the caveat above rather than a clean
+number: **the census says 3, and §2 says the family's creates and deletes are
+receiptless today.** Recorded as a disagreement, resolved in favour of the bytes.
+
+**Disposition summary.** 4 rehome (one with a named defect) · 2 pattern-harvest ·
+4 retire-at-cutover · **1 blocked-missing-route** · 0 blocked-missing-capture.
+
+## 7. Ontology wiring
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Suite subjects | **none — not object-bound** today | eval-suites CRUD (`hypervisor-daemon.rs:1919-1930`) | Read + Write | subjects are models, workers, and runs — platform objects |
+| **Ontology-aware eval packs** | `EvaluationDataset` bound to ontology refs; **ODK-generatable** via `OntologyDevelopmentKitManifestEnvelope.evaluation_dataset_refs` | **route-missing** for the dataset family | — | canon requires an `EvaluationDataset` to bind ontology refs, rubric refs, benchmark refs, source commitments, and policy (non-negotiable 7). None of that can be recorded today |
+| **Object-set analysis** | `MaterializedObjectSet` | `/v1/hypervisor/odk/materialized-object-sets` **exists**; no Evaluations pane reads it | — | the `/__apps/analysis` capture's grammar over a primitive that is already live — a build with no route on the analysis side, not a missing primitive |
+| Feedback entries as evidence | `PolicyBoundDataView` + `LearningEvidenceEligibility` | PBV read exists; the eligibility object is **route-missing** | — | consent is captured at record time on this surface, and the eligibility decision belongs to the learning-boundary plane |
+| **Write side — semantic plane** | **none** | — | — | Evaluations writes suites and verdicts, never ontology facts. A verdict about an ontology-bound subject is an evaluation result, not a `ProvenanceAssertion` |
+
+The boundary this surface must keep: **a passing evaluation is not an admitted
+assertion.** Canon keeps operational truth and semantic belief distinct; an eval
+verdict is evidence that may *support* an assertion, and the assertion still needs
+its own admission.
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Suite library table | `list_detail` | **exempt — no bindable primitive** | suites are platform objects |
+| Suite create modal | `wizard` | **exempt — no write semantics in the descriptor** | seventh instance |
+| Object-set analysis canvas (the `/__apps/analysis` shape) | `graph` / `dashboard` | **expressible once built** — like `automations.md` §8's wizard, the exemption here is **temporary and dated** | the primitive (`MaterializedObjectSet`) is live; the pane does not exist. When it is built, it should be built descriptor-shaped |
+| Feedback lane | `review_inbox` | **exempt — cross-owner** | feedback entries point at subjects across owners; the same cross-owner blocker `governance.md` §8 filed |
+
+Zero expressible today. The analysis row is the **second dated exemption** in the
+run — worth the X-4 rollup, because two panes now have a defined moment at which
+they become expressible.
+
+### (b) This surface as primitive exposer
+
+**n/a for the journey stages.** Evaluations owns none of the ten.
+
+Its contribution is the same non-stage shape `foundry.md` §9 recorded: an ODK
+manifest names `evaluation_dataset_refs` and `benchmark_profile_refs`, and those
+artifacts are **Evaluations'** to validate even when Foundry produces them. A
+user-tailored application shipping with an eval pack draws the pack through Packages
+admission; **Evaluations owns whether its verdicts mean anything**, which is a
+judgment contract, not a journey stage.
+
+One boundary: **shipping an eval pack with a generated app grants no evaluation
+authority.** The pack declares what would be assessed; running it against real
+subjects still needs the subjects' own consent and eligibility.
