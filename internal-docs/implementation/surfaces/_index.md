@@ -1,5 +1,10 @@
 # Surface implementation briefs — index
 
+> Active deepening program: `internal-docs/overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`
+> appends a seed mesh ledger, ontology wiring, and ODK descriptor/extension
+> sections to every brief (per-packet ledger there); its X-4 packet
+> regenerates this index into the completed master-guide table of contents.
+
 One brief per canonical surface under `internal-docs/implementation/surfaces/`.
 Each has the same five byte-derived sections: canon digest · schema map ·
 UI seed map (with corrections vs v0) · schema→UI binding table · ordered PR
