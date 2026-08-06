@@ -191,3 +191,79 @@ around it. Any Work/Session rows shown inside System modes bind through
    read-projection contract rides along.
 8. **W4** — Cutover: shell stops linking `/__ioi/systems/*`; serve routes
    deleted with typed 410s per the 6-step per-app rule.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 3: none · Tier 4: none · Tier 5: none.** Systems holds **0 of the 563
+baseline controls** and has no dormant vault and no harvest capture — the second
+surface after Home with an empty seed footprint across all three tiers.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T2 systems readout** — `/__ioi/systems` and `/__ioi/systems/*` (serve `:9527`) | T2 census `nat-systems`: **4 controls, 0 disabled**, HTTP 200 — **the smallest T2 readout in the estate** | Systems keeps the live institution at the center (:1675-1680 context); canonical route `/systems` | **rehome** — 4 controls are the entire product surface over a core workspace canon calls the center of the estate. The gap here is a build, not a mesh | W1 |
+| **T1 shell** — no `/systems` entry in the T1 census | canonical `/systems` does not resolve today | `/systems` is one of the 23 canonical v2 routes (W0.1 landed the route shell) | **rehome** — the v2 shell route exists; the body is this readout | W0.1 · W1 |
+| **System interface bindings** — `system_interface_bindings` in `hypervisor_surface_records.json` is an **empty array**; no `/systems/{id}/interfaces/*` route exists | not a seed | a System-bound interface resolves under `/systems/{system_id}/interfaces/{system_binding_id}` (:909-910) | **build, not mesh** — there is no seed to disposition. The schema slot exists with zero rows and zero routes (§2), and this is **journey stage 9** of the extension lane | W3 |
+
+**Census reconciliation.** Systems holds **0 of the 563** T3 baseline controls. Its
+one T2 readout carries **4 controls, 0 disabled**, outside the baseline.
+
+Worth stating plainly rather than leaving as a number: **the core workspace canon
+places at the center of the estate has a four-control product surface.** Every other
+finding in this brief follows from that.
+
+**Disposition summary.** 2 rehome · 0 rebind · 0 pattern-harvest ·
+0 retire-at-cutover · 0 blocked · 1 recorded as **build, not mesh**.
+
+## 7. Ontology wiring
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| System records + posture | **none — not object-bound** | `/v1/hypervisor/systems*` reads | Read | a System is a platform object |
+| **System-bound interfaces** | the binding names an admitted **package release, installation, System/context, allowed-action, and authority-preview contract** before launch (:1923-1929) | **route-missing** | — | the ontology content arrives *through* the bound application's descriptor, not from the System itself |
+| **Write side — semantic plane** | **none** | — | — | Systems binds interfaces; it writes no semantic fact |
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| System list + detail | `list_detail` / `object_view` | **exempt — no bindable primitive** | Systems are platform objects (X-2 finding) |
+| Interface-binding pane (when built) | `list_detail` | **exempt — no bindable primitive**, and route-missing | doubly blocked |
+
+Zero expressible, zero rendered.
+
+### (b) This surface as primitive exposer
+
+**Systems owns journey stage 9 — and it is the stage that separates a *visible*
+extension application from an *effectful* one.**
+
+| Journey stage (`odk-extension-apps.md` §2) | What Systems contributes | State today |
+|---|---|---|
+| **9 — bind to a System for effectful launch** | the `system_binding_id` at `/systems/{system_id}/interfaces/{system_binding_id}`, binding an admitted package release, installation, System/context, allowed-action, and authority-preview contract | **`system_interface_bindings: []`, zero routes** |
+
+Three boundaries, and the first is the one that matters most for the lane:
+
+- **Without a System binding, an extension application is inspect-only.** Canon:
+  "an effectful System interface must bind an admitted package, installation,
+  System/context, allowed-action, and authority-preview contract before launch"
+  (:1923-1929). A draft or organization-wide tool may omit the binding — and then it
+  may not act. The absence of this plane is therefore a **safety property today**
+  and a **capability gap tomorrow**, in that order.
+- **The binding is not the registration.** Release identity, installation-binding
+  identity, and System-binding identity remain distinct even when one catalog row
+  joins all three (:1924-1929). Systems holds the third; Packages holds the first
+  two.
+- **Systems does not launch the app.** It binds the interface; the launch crosses
+  the ordinary daemon admission and authority path like any other effect.
+
+The lane's shape from this end: stages 5–7 have no routes (`packages.md` §8), stage
+8's compiler serves only first-party rows, and stage 9 has an empty array. **A
+generated application could be authored today and could not be made effectful by any
+path**, which is the correct posture given the missing admissions — and it is worth
+recording that the estate is failing safe rather than failing open.
