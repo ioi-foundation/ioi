@@ -13,7 +13,7 @@ Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-08-06.
 Doctrine status: canonical
 Implementation status: mixed (the existing Home, New Session, Projects,
 Automations, Applications, Sessions, owner-application, environment, and
@@ -1439,6 +1439,14 @@ may distribute them; the product-surface compiler exposes eligible installed
 bindings. Creation method and distribution channel do not change the extension
 application's registration class or grant it runtime, authority, System, or
 Agentgres ownership.
+
+The full stage ladder those sentences summarize — describe, bind data, author or
+scaffold a descriptor, shape a Domain App, package, admit, install and register,
+expose, bind to a System, mount and serve — is owned by
+[`domain-ontologies-and-data-recipes.md`](../../foundations/domain-ontologies-and-data-recipes.md),
+which names the owning surface per stage. This file keeps the registration
+contract, the route compilation, and the catalog rules; it does not restate the
+ladder.
 
 User-facing configuration should prefer simple labels:
 

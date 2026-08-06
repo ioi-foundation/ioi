@@ -416,6 +416,65 @@ the declared governed host or federation policy; execution remains with the
 daemon; authority remains with local/domain governance and portable authority
 providers; operational truth remains with each Agentgres domain.
 
+## The Composable Application Journey
+
+This layer's builder promise — that a user can turn a described domain into a
+running, governed application without writing the platform — has been true in
+canon but scattered across it. This section is the single stage ladder. The
+authoritative statements it consolidates live in
+[`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
+(`:909-910`, `:935-940`, `:1435-1441`, `:1923-1929`, `:1955-1963`, `:1984-1985`,
+`:2053-2055`, `:2217-2226`) and in this file's non-negotiables 10–11; where a
+stage row and a scattered restatement disagree, the owner named in the row wins.
+
+| # | Stage | Produces | Owning surface |
+|---|---|---|---|
+| 1 | Describe the domain | ontology version, canonical object models, action types | Ontology |
+| 2 | Bind the data | data recipes, connector mappings, policy-bound views, projections | Data |
+| 3 | Author or scaffold the surface | draft `OntologySurfaceDescriptor` | Studio (Surface Generate); ODK scaffolds |
+| 4 | Shape it as an app, when the target is an app | `DomainApp` over a `domain_app`-pattern descriptor | Studio |
+| 5 | Package it | `OntologyDevelopmentKitManifest`, package candidate | Packages |
+| 6 | Admit and version | local package admission, immutable release | Packages |
+| 7 | Install and register | installation binding + `extension_application` registration | Packages; Applications holds the registration contract |
+| 8 | Expose | compiled catalog row and route `/applications/{surface_key}` | product-surface compiler |
+| 9 | Bind to a System for effectful launch | admitted System/context refs at `/systems/{system_id}/interfaces/{system_binding_id}` | Systems |
+| 10 | Mount and serve, for Domain Apps | `DomainAppRuntime` + mount receipts | Governance admits; Operations observes |
+
+Six rulings bind the ladder.
+
+**Generation is not admission.** Each stage admits only its own fact. Scaffolding
+a descriptor does not package it; packaging does not admit it; admission does
+not install it; installation does not expose it; exposure does not grant effect.
+A generator that appears to skip a stage has skipped an admission, which is a
+defect rather than a shortcut.
+
+**Creation method is a dimension, not a class.** Hand-authored, Studio-generated,
+kit-generated, imported, and adapted surfaces all pass the same
+`HypervisorApplicationSurfaceRegistration` contract as
+`extension_application`. Origin, creation method, and distribution channel are
+independent fields; none of them changes the registration class or grants
+runtime, authority, System, or Agentgres ownership.
+
+**A descriptor is an input, not an application.** An `OntologySurfaceDescriptor`
+declares bindings. It becomes launchable only through registration, and durable
+only when it carries the invariant-11 binding set. Stages 3 and 7 are therefore
+never the same event.
+
+**The builder never owns runtime truth.** Studio, the developer kit, and every
+generated artifact are proposal and packaging paths over Hypervisor Core.
+Effectful actions they expose to agents still cross the Operator Plane, daemon
+admission, authority-provider gates, Agentgres, and receipts.
+
+**Distribution is optional and never substitutes for admission.** Marketplace
+discovery, commerce, and ranking sit beside the ladder, not inside it. A
+marketplace listing is not a local package admission, and
+`visibility: marketplace_candidate` on a draft is not a publication.
+
+**Withdrawal runs the ladder backwards, immediately.** Disable, recall, and
+revocation remove launch eligibility at once; they do not wait for a rebuild of
+the catalog. A recalled release must stop appearing as a launchable row even
+though its historical receipts remain immutable evidence that it once ran.
+
 ## Domain Apps And The Governed Mount Ladder
 
 A **Domain App** is the app-shaped consumer of this layer: one
