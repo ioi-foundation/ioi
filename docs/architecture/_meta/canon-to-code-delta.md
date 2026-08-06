@@ -171,6 +171,19 @@ Existing Approvals, Ontology Manager, Pipeline Builder, Sources, and Missions
 surfaces remain implementation evidence on current master; nothing in this
 reclassification discards them. This backlog governs new surface work only.
 
+## Open naming and ownership deltas (filed 2026-08-06 by the seed-mesh + ODK wiring run)
+
+These are not object deltas — they are naming, ownership, and stale-reference
+defects surfaced while meshing all twenty owner surfaces against the bytes. Each
+names its evidence on both sides and, where a ruling is required, says whose it is.
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **`machinery` surface ownership — ruling required.** The registry says owner Studio; the audit census says the canonical target is Automations. | `apps/hypervisor/scripts/surface-registry.mjs:60` (`owner: "Studio"`) vs `internal-docs/audits/2026-07-30-hypervisor-surface-end-state-audit/inventory.v1.json` (`canon_target_name: "Automations / Process Graphs"`), and `core-clients-surfaces.md:1416`. Meshed in `internal-docs/implementation/surfaces/studio.md` §6.2; evidence also recorded in `automations.md` §6 | **open — owner ruling.** Both briefs record the conflict and neither claims the surface. The mesh dispositions turn on what the controls do, not on whose route they land under, so they hold either way. **No code or canon change until the owner rules.** |
+| **The bare `recipe` name is unqualified.** `/v1/hypervisor/recipes` serves `DevelopmentEnvironmentRecipe` (`recipe_routes`), holding the generic name while `DataRecipe` needs a prefix to disambiguate at `/v1/hypervisor/odk/data-recipes`. | `crates/node/src/bin/hypervisor-daemon.rs:1226` (env recipes) vs `:1602` (ODK data recipes) and the GET-only compatibility alias at `:1639`. `term-boundaries.md` "Recipe" row: always owner-qualified; a generic recipe family "is a defect" | **route rename, not a mesh decision.** Recorded in `data.md` §7 and `developer-workspace.md` §7 (which owns the object). The rename belongs to whichever wave next touches `recipe_routes` |
+| **`term-boundaries.md` names two implementation refs that do not exist.** | `docs/architecture/foundations/term-boundaries.md:10-12` lists `scripts/check-architecture-docs.mjs` and `scripts/lib/architecture-docs-integrity.mjs`; neither file is on master, and no `check:architecture-docs` script exists in `package.json` | **stale reference.** The deprecated-alias register it describes is therefore **unenforced**. Either restore the checker or drop the Implementation-refs claim — but the file must not continue to assert an enforcement that does not run |
+| **ODK contract-registry registration remains the filed M6 gap.** | No `_meta/schemas/` entry exists for any ODK family; the daemon's `ioi.hypervisor.odk.*` schema strings are local constants | **record only.** Named here so the mesh run's readers find it beside the other ODK deltas; the M6 program owns it and this run does not build it |
+
 ## Related Canon
 
 - [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form index (the wider matrix).
