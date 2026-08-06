@@ -1,169 +1,142 @@
-# Surface implementation briefs — index
+# The Hypervisor wiring master guide — table of contents
 
-> Active deepening program: `internal-docs/overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`
-> appends a seed mesh ledger, ontology wiring, and ODK descriptor/extension
-> sections to every brief (per-packet ledger there); its X-4 packet
-> regenerates this index into the completed master-guide table of contents.
+This directory plus its two companion documents **is** the master guide for
+wiring every Hypervisor surface from the UX states that exist today to its
+canonical functional end state. A session that needs to build a surface should be
+able to start here and never re-derive a seed disposition, a schema binding, or an
+ontology/ODK lane.
 
-One brief per canonical surface under `internal-docs/implementation/surfaces/`.
-Each has the same five byte-derived sections: canon digest · schema map ·
-UI seed map (with corrections vs v0) · schema→UI binding table · ordered PR
-list. Authored 2026-08-05 (Phase A of the bring-to-life run,
-`internal-docs/overhaul/2026-08-05-hypervisor-bring-to-life-run.md`); each
-brief is refreshed against the bytes before its surface is built (Phase B).
+**Status: complete as of 2026-08-06.** All twenty briefs carry the full
+eight-section shape. The seed-mesh + ODK wiring run
+(`../../overhaul/2026-08-06-seed-mesh-and-odk-wiring-run.md`) closed its ledger on
+that date; the build run
+(`../../overhaul/2026-08-05-hypervisor-bring-to-life-run.md`) executes from here.
 
-## File list and wave assignments
+## What each brief contains
 
-| Brief | Route | Kind | Primary waves |
-|---|---|---|---|
-| [home.md](home.md) | `/home` | core workspace | W0.1 · W1 |
-| [systems.md](systems.md) | `/systems` | core workspace | W1 |
-| [projects.md](projects.md) | `/projects` | core workspace | W1 |
-| [applications.md](applications.md) | `/applications` | core workspace | W0.2 · W1 |
-| [work.md](work.md) | `/work` (owns `/work/sessions`) | core workspace | W0.6 · W1 · W3 (lineage) · W4 (Cut #2) |
-| [settings.md](settings.md) | `/settings` | core workspace | W0.5 · W4 |
-| [studio.md](studio.md) | `/studio` | owner application | W1 · W3 (blueprints) |
-| [automations.md](automations.md) | `/automations` | owner application | W0.6 (scheduler read) · W1 · W2 |
-| [ontology.md](ontology.md) | `/ontology` | owner application | W1 · W2 |
-| [data.md](data.md) | `/data` | owner application | W1 · W2 · W3 (sources CRUD) |
-| [governance.md](governance.md) | `/governance` | owner application | W0.6 (inbox) · W1 · W2 |
-| [provenance.md](provenance.md) | `/provenance` | owner application | W1 |
-| [evaluations.md](evaluations.md) | `/evaluations` | owner application | W1 · W3 (epochs/holdouts/challenges) |
-| [improvement.md](improvement.md) | `/improvement` | owner application | W1 · W2 · W3 (agendas/campaigns) |
-| [foundry.md](foundry.md) | `/foundry` | owner application | W1 · W2 |
-| [packages.md](packages.md) | `/packages` | owner application | W3 (registry family — biggest build) |
-| [developer-workspace.md](developer-workspace.md) | `/developer-workspace` | owner application | W1 |
-| [developer-console.md](developer-console.md) | `/developer-console` | owner application | W2 |
-| [environments.md](environments.md) | `/environments` | substrate | W1 · W2 |
-| [operations.md](operations.md) | `/operations` | substrate | W1 · W2 |
+Sections 1–5 were authored 2026-08-05 (Phase A of the build run); sections 6–8
+were appended per-surface 2026-08-06 by the mesh run. Numbering after §5 shifts by
+one in `foundry.md`, which carries an earlier route-plane defect register at §6.
 
-Embodied Systems (`/embodied-systems`) is a reserved, nonlaunchable
-registration row in the compiler (planned) — no brief, no UI work.
+| § | Section | Answers |
+|---|---|---|
+| 1 | Canon digest | what canon says this surface is, cited to the line |
+| 2 | Schema map | canon object → registry/canon block → daemon route today → gap wave |
+| 3 | UI seed map (+ Corrections vs v0) | what exists and is traversable today, byte-verified |
+| 4 | Schema→UI binding table | pane → backing schema + route → current state → target state |
+| 5 | Ordered PR list | the wave-sequenced build |
+| 6 | **Seed mesh ledger** | every seed artifact across five tiers, dispositioned with its census facts and canon end state |
+| 7 | **Ontology wiring** | the exact semantic-plane primitives the surface reads or writes, with routes — `none` where honest |
+| 8 | **ODK descriptor and extension lane** | which panes are descriptor-expressible and why the rest are not; what the surface exposes to the extension lane |
 
-## Epics (cross-surface, 2026-08-05 audit absorption)
+Disposition vocabulary in §6 is fixed: `rehome` · `rebind` · `pattern-harvest` ·
+`retire-at-cutover` · `blocked-missing-capture` · `blocked-missing-route`. Two
+briefs also record rows as **build, not mesh** (routes exist, no seed to
+disposition) and one as **deferred to an owner ruling**.
 
+## The twenty briefs
+
+`Mesh` = §6 seed mesh ledger · `Ont` = §7 ontology wiring · `ODK` = §8 descriptor
+and extension lane. `Expr` counts panes recorded **descriptor-expressible**.
+`T3 controls` is the surface's share of the 563-control census baseline.
+
+| Brief | Route | Kind | T3 controls | Mesh | Ont | ODK | Expr | Journey stage | Primary waves |
+|---|---|---|---|---|---|---|---|---|---|
+| [home.md](home.md) | `/home` | core workspace | 0 | ☑ | none | ☑ | 0 | — | W0.1 · W1 |
+| [systems.md](systems.md) | `/systems` | core workspace | 0 | ☑ | none | ☑ | 0 | **9** bind for effect | W1 · W3 |
+| [projects.md](projects.md) | `/projects` | core workspace | 0 | ☑ | none | ☑ | 0 | — | W1 |
+| [applications.md](applications.md) | `/applications` | core workspace | 0 | ☑ | declared refs | ☑ | 0 | **7** register · **8** expose | W0.2 · W1 · W3 |
+| [work.md](work.md) | `/work` (owns `/work/sessions`) | core workspace | 52 | ☑ | none | ☑ | 0 | — | W0.6 · W1 · W3 · W4 |
+| [settings.md](settings.md) | `/settings` | core workspace | 0 | ☑ | none | ☑ | 0 | — | W0.5 · W1 · W4 |
+| [studio.md](studio.md) | `/studio` | owner application | 81 | ☑ | descriptors + DomainApp | ☑ | 2 | **3** author · **4** shape | W1 · W3 |
+| [automations.md](automations.md) | `/automations` | owner application | 29 | ☑ | object-set triggers (unbound) | ☑ | 0 | — | W0.6 · W1 · W2 · W3 |
+| [ontology.md](ontology.md) | `/ontology` | owner application | 95 | ☑ | **owner** | ☑ | **4** | **1** describe | W1 · W2 · W3 |
+| [data.md](data.md) | `/data` | owner application | 115 | ☑ | **supply side** | ☑ | **3** | **2** bind data | W1 · W2 · W3 |
+| [governance.md](governance.md) | `/governance` | owner application | 40 | ☑ | mount gate + kill | ☑ | 0 | **10** admit | W0.6 · W1 · W2 · W3 |
+| [provenance.md](provenance.md) | `/provenance` | owner application | 0 | ☑ | **11 ODK reads** | ☑ | **2** | — | W1 · W3 |
+| [evaluations.md](evaluations.md) | `/evaluations` | owner application | 32 | ☑ | eval packs (unbound) | ☑ | 0 | — | W1 · W2 · W3 |
+| [improvement.md](improvement.md) | `/improvement` | owner application | 47 | ☑ | none | ☑ | 0 | — | W1 · W2 · W3 |
+| [foundry.md](foundry.md) | `/foundry` | owner application | 39 | ☑ | consumer-with-a-gate | ☑ | 0 | — | W1 · W2 · W3.0–W3.4 |
+| [packages.md](packages.md) | `/packages` | owner application | 33 | ☑ | ontology packs (unbound) | ☑ | 0 | **5** package · **6** admit · **7** install | W3 (biggest build) |
+| [developer-workspace.md](developer-workspace.md) | `/developer-workspace` | owner application | 0 | ☑ | none | ☑ | 0 | — | W1 · W2 · W4 |
+| [developer-console.md](developer-console.md) | `/developer-console` | owner application | 0 | ☑ | none | ☑ | 0 | kit on-ramps (no pane) | W1 · W2 |
+| [environments.md](environments.md) | `/environments` | substrate | 0 | ☑ | none | ☑ | 0 | — | W1 · W2 · W3 |
+| [operations.md](operations.md) | `/operations` | substrate | 0 | ☑ | none | ☑ | 0 | **10** observe | W1 · W2 · W3 |
+
+**Coverage: 20/20 meshed, 20/20 ontology-wired, 20/20 ODK-laned.** T3 controls sum
+to **563**, the full census baseline, with every surface's share reconciled inside
+its own §6.
+
+Embodied Systems (`/embodied-systems`) is a reserved, nonlaunchable registration
+row in the compiler (planned) — no brief, no UI work.
+
+## Companion documents
+
+- [`../odk-extension-apps.md`](../odk-extension-apps.md) — **the user-tailored
+  application lane end to end.** The ten-stage composable-application journey
+  against the bytes, the implemented Domain App mount ladder, the invariant-11
+  conformance bar, and the two-ledger contract each brief's §8 fills in. Every
+  brief's §8 points here.
 - [`../scm-transition-chain-epic.md`](../scm-transition-chain-epic.md) — the
-  Git/Agentgres transition-chain epic: five P0 truthfulness defects (§1,
-  lands before any surface presents the Git workflow as governed), the
-  owner-by-owner missing-interface table (§2), the missing-contracts
-  build-list (§3), P0→P3 wave interleaving (§4). Coverage lands ONLY in
-  existing owners; the nine affected briefs (projects, developer-console,
-  developer-workspace, automations, work, governance, provenance, operations,
-  settings) each carry a final `### Git/Agentgres transition-chain interfaces
-  (epic)` pointer to their §2 row.
+  Git/Agentgres transition-chain epic: five P0 truthfulness defects, the
+  owner-by-owner missing-interface table, the missing-contracts build-list, and
+  P0→P3 wave interleaving. Nine briefs carry a pointer to their §2 row.
 - [`../repo-ux-disposition.md`](../repo-ux-disposition.md) — repository-wide
-  surface disposition ledger (estate surfaces outside these briefs: CLI/TUI,
-  editor targets, hypervisor-web, developers.ioi.ai, benchmarks, aiagent.xyz,
-  sas.xyz, QM); UNDISPOSITIONED rows await one owner-scope ruling pass
-  (charter ledger row).
+  surface disposition ledger for estate surfaces outside these briefs, **plus the
+  X-3 harvest-capture sweep**: all 39 `/__apps/*` captures, each with exactly one
+  home. Zero undispositioned, zero multi-homed.
 
-## Shared plumbing every brief assumes (Wave 0)
+## What the mesh found across all twenty surfaces
 
-- **W0.1** v2 route shell: the 23 canonical routes as the shell route table;
-  legacy `/__ioi/*` serves until each app's cutover; typed-410 per route at
-  cutover.
-- **W0.2** product-surface compiler v1: one projection feeding
-  nav/catalog/palette/launch from registration records; kills the
-  hand-maintained catalogs; Applications workspace is its first consumer.
-- **W0.3** read-projection client + authority client (CapabilityLease flow:
-  403 wallet challenge → 428 credential → receipted lease).
-- **W0.4** event client on the M5 plane (`/v1/event-streams`,
-  `/v1/subscriptions`); per-resource SSE wrapped, not extended.
-- **W0.5** identity truth: delete adapter identity constants +
-  `IDENTITY_REWRITES`; wire or kill the 5 fixture-only RPCs.
-- **W0.6** backend enablers (serialize — central router is a merge hotspot):
-  sessions/overview · unified approvals inbox · `GET /v1` capability index ·
-  scheduler status read.
+Six findings recur widely enough that a build session should know them before
+opening any single brief.
 
-## Layering (C-1..C-4, canon 2026-08-05)
+**1. Governed controls are concentrated in two surfaces.** Of the estate's 24
+`governed_receipted_action` controls, **Ontology holds 13 (54%) and Governance
+3** — 16 of 24 on two surfaces. Eleven of the twenty surfaces have zero, and for
+most of those that is correct (read models, substrate, projection-only
+workspaces) rather than a gap.
 
-Session-serving UI binds through `subject_attachments[]` (owner-registered
-`subject_kind`/`subject_ref`/`attachment_role`) — never a named app-family
-field; `foundry_eval_training` is retired; the thread plane is daemon-internal
-with Session as the single platform object over it. Byte sites still carrying
-retired fields are recorded in the briefs that own them and migrate at the PR
-that touches them.
+**2. The extension lane is built at both ends and empty in the middle.**
+Authoring (stages 1–4) is 56 ODK route registrations; mounting and serving (stage
+10) is a complete six-rung governed ladder. Between them, **stages 5–9 have
+essentially no routes**: no `/v1/hypervisor/packages/*` family, zero
+`extension_application` registrations, `system_interface_bindings: []`. The lane
+is gated on the **Packages registry**, not on more ODK work.
 
-## Wave 3 build-list rollup (route-missing families found in Phase A)
+**3. Studio authors descriptors per canon, and no pane calls the route.**
+`POST/PATCH /v1/hypervisor/odk/surface-descriptors` is live. The authoring stage of
+the extension lane has a backend and no front end.
 
-One line per surface; full detail in each brief's §2. W0.5/W0.6 items are
-marked — they land in Wave 0, not Wave 3.
+**4. Eleven panes across four surfaces are descriptor-expressible; none is
+descriptor-rendered.** The four blocking limitations are now canon
+(`domain-ontologies-and-data-recipes.md` → "Contract limitations found by
+dogfooding"): the descriptor cannot bind a platform object family; it has no write
+semantics; some canonical inboxes are cross-owner by construction; and three
+first-party shapes have no matching pattern.
 
-- **studio** — `studio/blueprints` draft CRUD + layout artifact +
-  promote-through-gates (composes governance approval-requests).
-- **automations** — AutomationInstallationBinding + spec revisioning ·
-  AutomationRun→Session/GoalRun lineage (daemon writes session
-  `subject_attachments` in the execution path) · object-set monitor triggers +
-  effect/step families · WorkflowTemplate read family + step-graph view ·
-  process-graph run/step/bind · **W0.6**: scheduler liveness status (schedule
-  posture already projected via `/v1/hypervisor/operations`).
-- **ontology** — proposal/branch/merge plane · object-instance search ·
-  per-principal saved explorations/object sets · action-type execution ·
-  receipt-on-delete fixes (domain-ontology delete is unreceipted today).
-- **data** — DataSource PATCH/DELETE · ingestion/extraction/connection-test
-  authority (daemon's own named `wired:false` boundary) ·
-  datasets/time-series/media-sets plane (needs Data-vs-Foundry owner ruling).
-- **governance** — **W0.6**: unified approvals-inbox (folds 4+2 decision
-  planes) · approval-transition-receipt read route · capability-lease
-  detail/revoke · reviewer-as-principal validation · retention/marking policy,
-  justification checkpoints, constitution/amendment history, network
-  enrollment (all zero-route today).
-- **provenance** — unified receipt-stream projection with principal
-  coordinates (today's readouts are local-operator-only) · optional
-  lineage-graph / learning-flow-graph projections.
-- **evaluations** — released suite-revision lifecycle (+
-  `verification_cost_class`) · EvaluationEpoch · sealed-holdout custody ·
-  EvaluationExposureLedger · evaluator dependency/validity graph ·
-  re-verification / affected-result discovery · run/scorecard family ·
-  mutation-receipt family (defect: live receiptless creates/deletes).
-- **improvement** — ImprovementAgenda · ImprovementCampaign +
-  order-assignment receipts · ImprovementOrderCutoffReceipt · UpgradeProposal
-  handoff object · ImprovementEvidenceClaim · approve/reject/create receipt
-  family (approve/reject are receiptless today).
-- **foundry** — datasets (factory runs/snapshots/candidate data/holdouts) ·
-  training/tuning (pipeline runs, trials, checkpoints, teacher sessions) ·
-  experiment-optimization cycles · deploy lineage (conversion runs, registry
-  versions, promotion bundles) · Foundry-side eval assets · learning-boundary
-  projection route. (No training/dataset routes exist anywhere today.)
-- **packages** — the whole `packages/*` registry family (package, immutable
-  release, install bindings, deprecation/disable/recall/revocation +
-  receipts) building around the existing install-admission planner · compiler
-  recall hook into product-surface-projections · marketplace
-  install/upload/federation/search lanes re-filed over the registry.
-- **developer-workspace** — editor-access-lease GET list · environment backup
-  list + restore-prepare/apply/cancel ladder.
-- **developer-console** — conformance / developer-app registration ·
-  developer-kit on-ramps · inbound webhook/service registry (scope against
-  Automations' webhook ownership first).
-- **environments** — HypervisorEnvironmentRouteBinding routes ·
-  service/task start-stop · `mark_active` + activity signals · evidenced
-  project discovery + `create_from_context_url` · cleanup-obligation verbs ·
-  env-scoped ScmAuthRequirement · **W0.5**: two adapter lies
-  (CreateEnvironmentLogsToken fabrication, MarkEnvironmentActive no-op).
-- **operations** — unified infrastructure-jobs projection (subjects via
-  `subject_attachments`) · capacity/utilization overview · RPO/RTO +
-  degraded/partition rollup · **W0.6**: scheduler read surface.
-- **systems** — System interface-binding plane (schema exists, zero rows/
-  routes/compiler join) · registry entry for the read-projection contract.
-- **projects** — HypervisorProjectDiscoveryProposal family · project
-  PATCH/update plane · receipts on create/delete.
-- **applications** — dynamic registration/admission family (extension+tool
-  CRUD, install/enable/recall verbs, durable storage replacing
-  `include_str!`) · compiler grouping + policy filtering + system-interface
-  join (sequenced with the Packages registry build).
-- **settings** — **W0.5**: org identity read record (whoami exists, org
-  record doesn't) · org-policy defaults family · preference scope+schema
-  listing · delivery-channels family (Automations-owned) · learning-boundary
-  org default (Governance-owned, governed-upgrade-proposal on change).
-- **work** — **W0.6**: sessions/overview · session
-  lineage/fork/children/transition/history family (the one first-class family
-  with none) · `subject_attachments` field on daemon session records (C-1
-  backend; three retired named-field sites recorded) ·
-  HypervisorWorkQueue/WorkItem object family · unified work-subject/facet
-  projections · `hypervisor-session` JSON Schema registry gap · execution
-  loop Cut #2 (W4).
-- **home** — `home-cockpit` + `session-operations` projections (documented in
-  daemon-runtime/api.md, absent from the daemon; Home composes 7 per-family
-  reads client-side today). Note: the live `/automations` redirect hijacks a
-  canonical v2 route into `/__ioi/automations` — deleted at Automations
-  cutover.
+**5. A third of the harvest estate cannot be inspected.** 12 of 39 captures are
+`blocked_missing_capture`. Where a brief says `pattern-harvest`, it is harvesting
+a grammar that boots; where it says `blocked-missing-capture`, it is declining to
+claim anything at all.
+
+**6. Retired owner names still label ten captures and several routes.** Missions,
+Marketplace, Workbench, and Domain Apps rehome into Work, Packages, Developer
+Workspace, and Studio respectively. **None is revived as a peer application.**
+
+## Using this guide to build a surface
+
+1. Read the brief's §1 canon digest and §6 seed mesh ledger together — the ledger
+   tells you what already exists and whether it moves, rebinds, or dies.
+2. Take §5's ordered PR list. Cross-check each PR against §4's target-state column
+   and §6's wave column; they are the same schedule seen three ways.
+3. Before wiring any pane that touches semantics, read §7. If the row says
+   `none — not object-bound`, that is a contract, not a gap: do not invent a
+   binding to fill it.
+4. Before building any authoring pane, read §8(a). If the pane is exempt, the
+   reason is recorded; if it is expressible, it is a candidate for
+   descriptor-driven rendering **once the descriptor record can hold its own
+   contract**.
+5. Honour the seed-preservation invariant: a protected seed retires only through
+   its surface's six-step cutover, and a `pattern-harvest` row licenses no code
+   movement.
