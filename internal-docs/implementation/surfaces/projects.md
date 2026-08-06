@@ -178,3 +178,68 @@ Git OIDs, workflow policy, latest-admitted-state and chain-health panes; it
 owns the owner-qualified repository/workflow binding contracts (epic §3 C2)
 and the Agentgres exact-head admission surface (C5). P1 contracts land
 before P2 wiring; no new top-level app.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`.
+
+The packet input for this surface read "**no dedicated seeds — verify and record
+honest absence**". Verified at the bytes, and the absence is real in three of the
+four tiers, with one artifact the input did not name.
+
+**Tier 3: none · Tier 4: none · Tier 5: none.** No registry slug, no dormant vault,
+and no `/__apps/*` capture names Projects as owner. **0 of the 563 baseline
+controls.** Third surface in the run with an empty seed footprint across all three
+seed tiers, after Home and Systems.
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T1 Projects shell** — route `/projects` | T1 shell census: **54 controls, 0 disabled**, HTTP 200, does **not** render the 404 page | `/projects` is a canonical v2 route and a core workspace | **rehome** — the input said "no dedicated seeds"; this is one, and it is substantial. 54 controls on a resolving canonical route is the **second-largest T1 shell surface** after Home's explorer (87). Recorded as a **correction to the packet input**, not as a new find | W0.1 · W1 |
+| **T2: none** | no `/__ioi/projects*` handler exists (grep) | — | **honest absence** — Projects has no native readout; its shell surface is the T1 route above | — |
+| **Project-scoped context across other surfaces** — project cards cross-linking Automations (`serve-product-ui.mjs:1410`), the work-ledger's `?project=` scoping (`:1574`), session records' `project_ref`, environments' project scoping | not censused as Projects controls | project context is preserved end to end across every typed surface (:909-914) | **rehome (as context, not as panes)** — Projects does not absorb these; each stays with its owner and carries the project scope. The distinction matters at cutover: a Projects surface that rehomed other owners' project-filtered views would become a second work inbox | W1 |
+
+**Census reconciliation.** Projects holds **0 of the 563** T3 baseline controls. Its
+T1 shell surface carries **54 controls, 0 disabled**, outside that baseline. There is
+no T2 readout to count.
+
+**Disposition summary.** 2 rehome · 0 rebind · 0 pattern-harvest ·
+0 retire-at-cutover · 0 blocked · 1 honest absence recorded (no T2 readout).
+
+## 7. Ontology wiring
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Project list + detail | **none — not object-bound** | project routes (§2) | Read | a Project is a platform object |
+| **Project-scoped object sets** | `MaterializedObjectSet` filtered by project scope | object sets exist at `/v1/hypervisor/odk/materialized-object-sets`; **no project-scoped read** | — | the packet table names "project-scoped object sets read-only" as this surface's ontology starting point. At the bytes the sets are real and **no route or pane scopes them by project**. Recorded as a gap, not asserted as a binding |
+| **Write side — semantic plane** | **none** | — | — | Projects scopes; it writes no semantic fact |
+
+The scoping ruling worth stating, because it is where a project-scoped semantic view
+could go wrong: **project scope is a filter, not a namespace.** Canon's namespacing
+belongs to the ontology (`domain-ontologies-and-data-recipes.md`); a project-scoped
+object-set view narrows *which* admitted objects are shown, and never creates a
+project-local meaning for them.
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Project list + detail | `list_detail` / `object_view` | **exempt — no bindable primitive** | Projects are platform objects (X-2 finding) |
+| Project-scoped object-set view (if built) | `list_detail` | **expressible once built** — third **dated exemption** in the run | the primitive (`MaterializedObjectSet`) is live; only the project-scoped read is missing. Built descriptor-shaped, this pane would bind real ontology, object-model, and object-set refs |
+
+Zero expressible today.
+
+### (b) This surface as primitive exposer
+
+**n/a.** Projects owns no stage of the composable-application journey
+(`odk-extension-apps.md` §2), exposes no ODK primitive, and holds no descriptor.
+
+One adjacency, recorded because `HypervisorApplicationSurfaceRegistration` carries
+`supported_context_kinds` including `project`: an extension application may declare
+that it opens **in project context**. That is a registration field the app declares
+and the compiler honours — **Projects grants nothing and admits nothing**. A project
+does not scope an application's authority; the app's own package, installation,
+System binding, and authority-preview contracts do.
