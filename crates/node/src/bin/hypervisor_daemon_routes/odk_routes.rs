@@ -1060,11 +1060,46 @@ pub(crate) async fn handle_odk_ontology_patch(
     )
 }
 
+/// DELETE /v1/hypervisor/odk/domain-ontologies/:id — receipted deletion.
+///
+/// Deletion is an effectful mutation of an ontology, so it emits a `deleted` receipt exactly like
+/// create and patch. It follows the same #62 discipline in reverse: the record is removed FIRST (a
+/// receipt must never describe an unpersisted state), then the receipt is written; if the receipt
+/// write fails the record is RESTORED, so a deleted ontology never lacks its receipt. A missing
+/// ontology is reported honestly and emits nothing — there was no mutation to attest.
 pub(crate) async fn handle_odk_ontology_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
-    json_del(&st.data_dir, KIND_ONT, &id)
+    Json(delete_ontology_receipted(&st.data_dir, &id))
+}
+
+/// The receipted-delete body, separated from the axum handler so the rollback discipline is
+/// directly testable (same shape as `finalize_ontology_persist`'s test).
+fn delete_ontology_receipted(data_dir: &str, id: &str) -> Value {
+    let Some(prev) = load(data_dir, KIND_ONT, id) else {
+        return json!({ "ok": false, "removed": false, "id": id, "reason": "ontology not found" });
+    };
+    let oref = prev.get("ref").and_then(|v| v.as_str()).unwrap_or("");
+    let (receipt_id, receipt) =
+        build_ontology_receipt(oref, "deleted", "DomainOntology deleted", &iso_now());
+    if !remove_record(data_dir, KIND_ONT, id) {
+        return json!({
+            "ok": false, "removed": false, "id": id,
+            "reason": "ontology record removal failed — nothing changed"
+        });
+    }
+    if let Err(e) = persist_record(data_dir, KIND_ONT_RECEIPT, &receipt_id, &receipt) {
+        let reason = if persist_record(data_dir, KIND_ONT, id, &prev).is_ok() {
+            format!(
+                "ontology receipt persist failed ({e}); the record was restored — nothing changed"
+            )
+        } else {
+            format!("ontology receipt persist failed ({e}) AND the record restore failed — manual repair required for ontology '{id}'")
+        };
+        return json!({ "ok": false, "removed": false, "id": id, "reason": reason });
+    }
+    json!({ "ok": true, "removed": true, "id": id, "ontology_receipt": receipt })
 }
 
 /// GET /v1/hypervisor/odk/domain-ontologies/:id/health — the readiness projection (over ODK).
@@ -1703,6 +1738,48 @@ mod odk_tests {
             load(data_dir, KIND_ONT_RECEIPT, &rid).unwrap()["op"],
             json!("created")
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ontology_delete_emits_a_receipt_and_restores_the_record_when_the_receipt_cannot_persist() {
+        let dir = std::env::temp_dir().join(format!("ioi-ont-del-{:x}", nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let data_dir = dir.to_str().unwrap();
+        let record =
+            json!({ "id": "ont_d", "ref": "ontology://ont_d", "revision": 1, "status": "draft" });
+
+        // A missing ontology reports honestly and attests nothing — there was no mutation.
+        let missing = delete_ontology_receipted(data_dir, "ont_absent");
+        assert_eq!(missing["ok"], json!(false));
+        assert_eq!(missing["removed"], json!(false));
+        assert!(read_record_dir(data_dir, KIND_ONT_RECEIPT).is_empty());
+
+        // Receipt persist blocked → the record must be RESTORED; no unreceipted deletion survives.
+        persist_record(data_dir, KIND_ONT, "ont_d", &record).unwrap();
+        std::fs::write(dir.join(KIND_ONT_RECEIPT), b"blocker").unwrap();
+        let blocked = delete_ontology_receipted(data_dir, "ont_d");
+        assert_eq!(blocked["ok"], json!(false));
+        assert_eq!(blocked["removed"], json!(false));
+        assert!(
+            blocked["reason"].as_str().unwrap().contains("restored"),
+            "{blocked}"
+        );
+        assert!(
+            load(data_dir, KIND_ONT, "ont_d").is_some(),
+            "an unreceipted deletion must not survive"
+        );
+
+        // Happy path: the record is gone AND a `deleted` receipt exists naming the ontology.
+        std::fs::remove_file(dir.join(KIND_ONT_RECEIPT)).unwrap();
+        let ok = delete_ontology_receipted(data_dir, "ont_d");
+        assert_eq!(ok["ok"], json!(true));
+        assert_eq!(ok["removed"], json!(true));
+        assert!(load(data_dir, KIND_ONT, "ont_d").is_none());
+        let receipts = read_record_dir(data_dir, KIND_ONT_RECEIPT);
+        assert_eq!(receipts.len(), 1, "exactly one delete receipt");
+        assert_eq!(receipts[0]["op"], json!("deleted"));
+        assert_eq!(receipts[0]["ontology_ref"], json!("ontology://ont_d"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
