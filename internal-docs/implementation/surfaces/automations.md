@@ -228,3 +228,92 @@ check/attempt identity contracts (epic §3 C3, a P1 item). Its inbound lane
 today is only the token-hash automation webhook
 (`orchestration_routes.rs:235-245`) — provider ingestion arrives via
 Developer Console's C4, mapped here at P2.
+
+## 6. Seed mesh ledger (2026-08-06)
+
+Canon cites without a file prefix are `core-clients-surfaces.md`; serve cites are
+`apps/hypervisor/scripts/serve-product-ui.mjs`.
+
+**Tier 4: none.** The `machinery` rows below are meshed by **packet 11 (studio)**,
+which owns the split-rehome map; this packet records only the ownership evidence
+this surface holds, and defers the ruling to X-2(a).
+
+| Seed element (tier + path) | Census/control facts | Canon end state (cite) | Disposition | Wave |
+|---|---|---|---|---|
+| **T1 SPA `/automations`** — the one canonical v2 route that **resolves today**, as a vendored-SPA route with a left-rail tab | not census T3 controls. Data plane is adapter stubs: `WorkflowService/ListWorkflows\|ListWorkflowExecutions\|GetWorkflowExecutionSummary` return honest-empty constants (`ioi-api-adapter.mjs:865-872`), as do `EnvironmentAutomationService` lists (`:874-882`). The serve file declares the SPA's org-scoped WorkflowService surface **NOT canonical** (`serve:703-706`) | `/automations` is Automations' canonical route | **retire-at-cutover** — and this row is the estate's **one live route hijack**: a canonical v2 route currently answered by a dead SPA plane. `home.md` records the sibling `/automations` redirect. The v2 shell must take the route from the SPA, not coexist with it | W0.1 · W4 |
+| **T2 automations cockpit** — `/__ioi/automations` GET (serve `:8360`), POST create (`:8401`), cron-preview proxy (`:8393` → daemon), detail dispatch (`:8443-8494`) | T2 census `nat-automations`: **29 controls, 0 disabled**; `nat-automations-new`: **19 controls, 0 disabled** | Automations owns durable triggers, schedules, monitors, services — condition → governed effect | **rehome** | W1 |
+| ↳ spec CRUD + lifecycle verbs | part of the T2 count: **Run now** (`POST /:id/runs`, `:8452`), **Pause/Resume** (`PATCH {enabled}`, `:8459`), inline patch editor (`:8464-8467`), **Delete** (`:8491-8494`) | governed effect requires admission + receipt | **rehome with a named defect** — these are **direct daemon actions with no lease client and no receipts surfaced on spec mutations** (§3). A spec mutation that changes what a trigger will do, without a receipt, is the same unreceipted-effectful-mutation shape as `ontology.md` §9 D-1. Recorded here; the fix is W2's lease-client wave, not this packet, because the daemon routes themselves would need the receipt family | W2 |
+| ↳ webhook rotate | part of the T2 count: rotate with **show-once token + URL** (`:8471-8476`; UI band `:899-906`) | secrets are shown once and never re-readable | **rehome** — show-once is the correct posture and must survive verbatim | W1 · W2 |
+| ↳ cron preview | proxy `:8393` to the daemon's own cron-preview | schedule semantics are the daemon's, not the UI's | **rehome** — the proxy is right: the UI must never compute a schedule preview locally | W1 |
+| **T3 `monitors` — "Automate"** — registry `surface-registry.mjs:61`, owner Automations, route `/__ioi/automations/monitors`, capabilities `["browse"]`, `operational_state: browse`; renderer `renderMonitorsPort` (serve `:4455-4574`); protected seed, class `daemon_wired` | **29 controls, 0 governed** — correct for a `browse` surface. Stats/paused/user-executed derived from **real fields** (`:4467-4473`); honest-0 notification lane; **authoring stays on the owner substrate** (`:4574`) | Automations' certified landing over the real automation plane | see cluster rows | — |
+| ↳ real-automation read cluster | 5 `daemon_read` (active-automations tiles, recently-viewed table, failures-in-last-4-weeks, recently-triggered feed, automations list) | condition → effect posture over real specs | **rehome** | W1 |
+| ↳ tabs + list filters | 4 controls: 2 `daemon_read` (Automations tab, getting-started view-all) + 2 `local_view_interaction` (Overview tab, list filters) | local filtering is local | **rehome** | W1 |
+| ↳ **authoring wizard cluster** | 5 controls: 1 `local_view_interaction` (step nav Condition→Effects→Settings→Summary + Next/Back) + 4 `disabled_missing_authority` (condition catalog incl. **objects added/removed/modified**, effects step, settings step, summary + Create) | **object-set monitor triggers are route-missing** (§2, W3). Object sets exist (`/odk/materialized-object-sets`); the *trigger binding* does not | **blocked-missing-route** — the wizard grammar is the right shape (`wizard` pattern, §8) and the four steps stay disabled until the trigger/effect families land. Enabling Create today would persist a spec whose conditions cannot fire | W3 |
+| ↳ authoring entry points | 4 `disabled_missing_authority` (recent-installations store dropdown, New-automation header button, Help, create-your-first card) | same missing plane | **blocked-missing-route** for the two New-automation entries · **retire-at-cutover** for the installations store dropdown (a Packages path) and Help | W3 · W4 |
+| ↳ **reference marketing cluster** | **8 `reference_data_only` — 28% of this surface's controls**: hero band, 3-step illustration strip, three template cards (weekly report / auto-close tickets / notify on status changes) with "Open docs", and the **Cipher example cards** | **no fixture data may be presented as truth**; the Cipher cards are a **vendor faculty** (standing P2 gate) | **retire-at-cutover** — templates are a Packages/pattern path, not local marketing; and a template card that cannot be instantiated is an advertisement | W4 |
+| ↳ vendor shell chrome | 5 controls: 1 `daemon_read` (workspace nav) + 1 `unsupported_reference_session` (add-to-favorites) + 1 `disabled_missing_authority` (notifications inbox) + 2 `reference_data_only` (session chrome incl. AIP Assist, app icon + title) | carve-out; AIP Assist is a vendor faculty | **retire-at-cutover** | W4 |
+| **T5 `/__apps/monitors`** — capture, owner Automations, `reference_capture`, capture state `boots_graph`… note "condition→effect monitor wizard; unbound", `reboundLane: null` (`harvest-seed-inventory.mjs:32`), grammar `wizard`, high_value | not in the 563; §3 records the proxy as insufficient | the wizard above is the functional shape | **pattern-harvest** — the condition→effect wizard grammar informs the functional pane; no code moves. The parity matrix classes `monitors` `daemon_wired`, but that class belongs to the **registered T3 surface**, not the capture | — |
+| **Cross-surface reads** — `/__ioi/operations` execution-health cockpit with per-run drawer + **Re-run / Pause / Resume** (serve `:1986-1991`); home tile (`:1457`); project cards (`:1410`); GoalRun "Automation readiness" band (`:2751`) | not census T3 controls | Operations observes; **Automations owns the verbs** | **rehome** — the three remediation verbs stay Automations-owned wherever they are rendered. `operations.md` §6 records the same delegation from the consumer side, and the two rows must not drift apart | W1 · W2 |
+| **`machinery` ownership evidence** — registry `surface-registry.mjs:60` says owner **"Studio"**; the audit census `canon_target_name` says **"Automations / Process Graphs"** (:1416) | 30 controls (meshed in packet 11) | one owner must hold it | **deferred — X-2(a)** — this packet records both bytes and rules nothing. The conflict is real and documented on both sides; packet 11 meshes the surface, and the ownership ruling lands as its own owner-scoped canon PR | X-2 |
+
+**Census reconciliation.** Automations' one T3 surface carries **29 of the 563**
+baseline controls: 5 + 4 + 5 + 4 + 8 + 3 = 29, exact (`machinery`'s 30 are counted
+by packet 11, not here, to avoid double-counting a contested surface). Its two T2
+readouts add 29 + 19 = 48 controls, 0 disabled, outside the baseline.
+
+**Zero governed controls** on `monitors` is correct — it is registered
+`operational_state: browse` and its footer says authoring stays on the owner
+substrate. The T2 cockpit is where the verbs live, and that is the surface whose
+mutations lack receipts.
+
+**Disposition summary.** 7 rehome (one with a named defect) · 1 pattern-harvest ·
+4 retire-at-cutover · **2 blocked-missing-route** · 1 deferred to X-2.
+
+## 7. Ontology wiring
+
+Automations is **almost** object-bound, and the gap is a single missing binding
+rather than a structural absence — which makes it different from every
+`none — not object-bound` surface so far.
+
+| Pane/flow | Semantic primitive + envelope | Route | Read/Write | Notes |
+|---|---|---|---|---|
+| Automation specs, runs, schedules, webhooks | **none — not object-bound.** Specs are platform objects | `/v1/hypervisor/automations` family | Read + Write | the automation itself is not an ontology object |
+| **Condition catalog — object triggers** | `MaterializedObjectSet` | **object sets exist** at `/v1/hypervisor/odk/materialized-object-sets`; **the trigger binding is route-missing** | — | The wizard's "Objects added / removed / modified" conditions are the one place Automations would read the semantic plane. Both halves exist separately: the object sets are real, and the condition vocabulary is rendered — **the binding between them is the whole gap** (§2, W3) |
+| Effects step | `OntologyActionContract` | **route-missing** (`ontology.md` §7) | — | an effect that invokes a semantic action needs the action-contract family; the same absent contract blocks Ontology's execute lanes |
+| Run health / execution posture | **none** | `/v1/hypervisor/operations` | Read | substrate |
+| **Write side — semantic plane** | **none** | — | — | Automations writes specs and runs; it writes no ontology fact. When object triggers land, the automation **reads** set membership and writes its own run record — never an assertion |
+
+The ruling that keeps the W3 build honest: an object-set trigger must fire on
+**admitted set membership**, not on a UI-side diff. Canon's projections carry
+freshness and watermark for exactly this reason — a trigger that fires off a stale
+projection without surfacing its watermark would make an automation act on a
+semantic state that is no longer true.
+
+## 8. ODK descriptor and extension lane
+
+Program doc: [`../odk-extension-apps.md`](../odk-extension-apps.md).
+
+### (a) This surface as descriptor consumer
+
+| Pane | Matching `composition_pattern` | Disposition | Why |
+|---|---|---|---|
+| Automations list + detail | `list_detail` | **exempt — no bindable primitive** | specs are platform objects (X-2 platform-object finding) |
+| Monitors landing (tiles, failures, triggered feed) | `dashboard` / `monitoring_console` | **exempt — no bindable primitive** | same |
+| **Condition → Effects → Settings → Summary wizard** | `wizard` | **exempt today — expressible after the trigger binding lands** | the only pane in the run so far whose exemption is **temporary and dated**. Once object-set triggers bind, the condition step names `MaterializedObjectSet` refs and the effects step names action refs — real invariant-11 values. Until then the descriptor would have nothing to bind |
+| Spec authoring (patch editor, create form) | `object_editor` | **exempt — no write semantics in the descriptor** | fourth instance of the write-semantics finding (`ontology.md` §8, `data.md` §8 ×2) |
+
+Zero expressible, zero rendered — but the wizard row is worth separating in the
+X-4 rollup: it is the first pane whose expressibility is **blocked by a build, not
+by the descriptor contract**. When W3 lands, Automations gains the run's first
+genuinely descriptor-expressible *authoring-adjacent* pane.
+
+### (b) This surface as primitive exposer
+
+**n/a.** Automations owns no stage of the composable-application journey
+(`odk-extension-apps.md` §2), exposes no ODK primitive, and holds no descriptor.
+
+One adjacency, because the wizard makes it tempting: a generated domain app might
+want to *trigger* on its own object sets. That path runs through Automations as an
+ordinary automation over an admitted object set — **not** through the app, and not
+as a capability the app's descriptor grants. A descriptor can name the object set;
+only an admitted automation can act on it.
