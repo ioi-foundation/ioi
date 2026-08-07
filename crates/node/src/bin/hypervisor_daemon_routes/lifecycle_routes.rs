@@ -14920,7 +14920,11 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(|s| s.trim().to_string());
-    let try_session = |tok: &str| -> Option<Value> {
+    // W1.1 / DEF-IDENT-2 — carry the session's admitted tenant scope out with the principal.
+    // The portal exchange records `tenant_ref` on the session at mint; without returning it here
+    // the scope is admitted once and never enforced, so a session minted for one tenant resolves
+    // a principal carrying every tenant it belongs to.
+    let try_session = |tok: &str| -> Option<(Value, Option<String>)> {
         let h = sha256_hex_str(tok);
         let now = iso_now();
         read_record_dir(data_dir, "sessions")
@@ -14932,20 +14936,50 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
                         .map(|e| e > now.as_str())
                         .unwrap_or(false)
             })
-            .and_then(|s| s["principal_id"].as_str().map(String::from))
-            .and_then(|pid| find_principal(data_dir, &pid))
+            .and_then(|s| {
+                let scope = s["source_tenant_ref"].as_str().map(str::to_owned);
+                s["principal_id"]
+                    .as_str()
+                    .and_then(|pid| find_principal(data_dir, pid))
+                    .map(|principal| (principal, scope))
+            })
+    };
+
+    // Narrow a resolved principal to the tenant its session was admitted for. Returns None when
+    // that membership is no longer live, so revocation fails closed on the very next request
+    // instead of surviving until session expiry.
+    let narrow_to_session_tenant = |principal: Value, scope: Option<String>| -> Option<Value> {
+        let Some(scope) = scope else { return Some(principal) };
+        let mut principal = principal;
+        let memberships = principal["tenant_memberships"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|m| m["tenant_ref"].as_str() == Some(scope.as_str()))
+            .collect::<Vec<_>>();
+        if memberships.is_empty() {
+            return None;
+        }
+        principal["tenant_refs"] = json!(vec![scope]);
+        principal["tenant_memberships"] = json!(memberships);
+        Some(principal)
     };
     if let Some(tok) = &session_tok {
-        if let Some(p) = try_session(tok) {
+        if let Some((p, scope)) = try_session(tok) {
             if p["status"].as_str() == Some("active") {
-                return principal_public_with_memberships(data_dir, p).ok();
+                return principal_public_with_memberships(data_dir, p)
+                    .ok()
+                    .and_then(|principal| narrow_to_session_tenant(principal, scope));
             }
         }
     }
     if let Some(tok) = &bearer {
-        if let Some(p) = try_session(tok) {
+        if let Some((p, scope)) = try_session(tok) {
             if p["status"].as_str() == Some("active") {
-                return principal_public_with_memberships(data_dir, p).ok();
+                return principal_public_with_memberships(data_dir, p)
+                    .ok()
+                    .and_then(|principal| narrow_to_session_tenant(principal, scope));
             }
         }
         // API access token: match the stored hash → its user_id → principal
@@ -15941,6 +15975,75 @@ mod principal_tenant_membership_tests {
 
         assert!(remove_record(data_dir, "api-tokens", token_id));
         assert!(resolve_principal(data_dir, &headers).is_none());
+    }
+
+    /// W1.1 / DEF-IDENT-2 — a portal-exchanged session is admitted for exactly one tenant. That
+    /// scope has to bind every later request, not just the mint: without it a session issued for
+    /// one tenant resolves a principal carrying every tenant it belongs to, and a revoked
+    /// membership keeps working until the session expires.
+    #[test]
+    fn portal_session_tenant_scope_binds_every_request_and_revocation_fails_closed() {
+        let directory = fixture();
+        let data_dir = directory.path().to_str().unwrap();
+
+        let (status, issued) = issue_portal_exchange_session(
+            data_dir,
+            OPERATOR_ID,
+            "https://portal.test",
+            "https://daemon.test",
+            "org://local",
+            "consumption://test",
+        );
+        assert_eq!(status, StatusCode::OK);
+        let token = issued["session_token"].as_str().unwrap().to_string();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+
+        // Scoped to exactly the admitted tenant, never the principal's full membership set.
+        let resolved = resolve_principal(data_dir, &headers).expect("session resolves");
+        assert_eq!(resolved["tenant_refs"], json!(["org://local"]));
+        assert_eq!(
+            resolved["tenant_memberships"]
+                .as_array()
+                .map(Vec::len)
+                .unwrap_or_default(),
+            1,
+            "a scoped session must not carry memberships outside its admitted tenant"
+        );
+
+        // Revoke the membership the session was admitted for, through the canonical
+        // append-only transition rather than by deleting records. The very next request must
+        // refuse, rather than surviving on the still-unexpired token.
+        let operator_ref = canonical_local_principal_ref(OPERATOR_ID).unwrap();
+        let expected_revision = current_membership_records(data_dir)
+            .unwrap()
+            .into_iter()
+            .find(|record| {
+                record["principal_ref"].as_str() == Some(operator_ref.as_str())
+                    && record["tenant_ref"].as_str() == Some("org://local")
+            })
+            .and_then(|record| record["revision"].as_u64())
+            .unwrap_or(0);
+        apply_membership_transition(
+            data_dir,
+            &operator_ref,
+            &operator_ref,
+            "org://local",
+            "organization",
+            "revoked",
+            expected_revision,
+            "test-revoke-scoped-session",
+            "DEF-IDENT-2 regression",
+            "admin_api",
+        )
+        .expect("revocation is admitted");
+        assert!(
+            resolve_principal(data_dir, &headers).is_none(),
+            "a session whose admitted tenant membership is gone must fail closed"
+        );
     }
 }
 
