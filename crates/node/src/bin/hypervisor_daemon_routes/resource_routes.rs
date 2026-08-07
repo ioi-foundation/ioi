@@ -232,8 +232,10 @@ pub(crate) async fn handle_allocate(
     if persist_record(data_dir, "allocation-requests", &req_id, &request).is_err() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "code": "resource_allocation_request_persistence_failed",
-                "message": "the allocation request did not commit — nothing was allocated" })),
+            Json(
+                json!({ "ok": false, "code": "resource_allocation_request_persistence_failed",
+                "message": "the allocation request did not commit — nothing was allocated" }),
+            ),
         );
     }
 
@@ -417,8 +419,10 @@ pub(crate) async fn handle_allocate(
             if persist_record(data_dir, "resource-budgets", &budget_ref, &budget).is_err() {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({ "ok": false, "code": "resource_budget_persistence_failed",
-                        "message": "the budget spend did not commit — the allocation is refused rather than granted uncounted" })),
+                    Json(
+                        json!({ "ok": false, "code": "resource_budget_persistence_failed",
+                        "message": "the budget spend did not commit — the allocation is refused rather than granted uncounted" }),
+                    ),
                 );
             }
         }
@@ -444,8 +448,10 @@ pub(crate) async fn handle_allocate(
     if persist_record(data_dir, "allocation-decisions", &dec_id, &decision_record).is_err() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "code": "resource_allocation_decision_persistence_failed",
-                "message": "the allocation decision did not commit — no allocation was made" })),
+            Json(
+                json!({ "ok": false, "code": "resource_allocation_decision_persistence_failed",
+                "message": "the allocation decision did not commit — no allocation was made" }),
+            ),
         );
     }
     (StatusCode::OK, Json(json!({ "decision": decision_record })))

@@ -6548,11 +6548,11 @@ pub(crate) async fn handle_model_route_mutation_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new().admit_model_route_mutation(&body, &iso_now()) {
         Ok(record) => admit_planner_record(
             &st.data_dir,
@@ -6585,11 +6585,11 @@ pub(crate) async fn handle_model_weight_custody_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new().admit_model_weight_custody(&body, &iso_now()) {
         Ok(record) => admit_planner_record(
             &st.data_dir,
@@ -6624,11 +6624,11 @@ pub(crate) async fn handle_session_launch_recipe_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new().admit_hypervisor_session_launch_recipe(&body, &iso_now()) {
         Ok(record) => admit_planner_record(
             &st.data_dir,
@@ -6663,11 +6663,11 @@ pub(crate) async fn handle_harness_session_binding_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new().admit_harness_session_binding(&body, &iso_now()) {
         Ok(record) => admit_planner_record(
             &st.data_dir,
@@ -6702,11 +6702,11 @@ pub(crate) async fn handle_private_workspace_mount_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new().admit_private_workspace_mount(&body, &iso_now()) {
         Ok(record) => admit_planner_record(
             &st.data_dir,
@@ -6741,11 +6741,11 @@ pub(crate) async fn handle_physical_action_intent_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new().admit_physical_action_intent(&body, &iso_now()) {
         Ok(record) => admit_planner_record(
             &st.data_dir,
@@ -6769,7 +6769,6 @@ pub(crate) async fn handle_physical_action_intent_admission(
         ),
     }
 }
-
 
 // ---------------------------------------------------------------------------------------------
 // W1.2 / MEF-GAP-007 — durable admission for kernel-planner endpoints.
@@ -6852,8 +6851,10 @@ fn planner_caller(
     if idempotency_key.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "code": "mutation_idempotency_key_invalid",
-                "message": "idempotency_key is required so a retried admission cannot install twice" })),
+            Json(
+                json!({ "ok": false, "code": "mutation_idempotency_key_invalid",
+                "message": "idempotency_key is required so a retried admission cannot install twice" }),
+            ),
         ));
     }
     Ok((identity, owner_ref, idempotency_key))
@@ -6928,11 +6929,11 @@ pub(crate) async fn handle_worker_package_install_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first, always: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new().admit_worker_package_install(&body, &iso_now()) {
         // The planner validated the shape; the decision is now durable under the caller's owner
         // scope, idempotently, with a receipt. A 202 that persisted nothing could not survive a
@@ -6970,11 +6971,11 @@ pub(crate) async fn handle_managed_worker_lifecycle_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new()
         .admit_managed_worker_instance_lifecycle_transition(&body, &iso_now())
     {
@@ -7011,11 +7012,11 @@ pub(crate) async fn handle_code_editor_adapter_launch_plan_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new().admit_code_editor_adapter_launch_plan(&body, &iso_now()) {
         Ok(record) => admit_planner_record(
             &st.data_dir,
@@ -7050,11 +7051,11 @@ pub(crate) async fn handle_service_composition_receipt_bundle_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new().admit_service_composition_receipt_bundle(&body, &iso_now()) {
         Ok(record) => admit_planner_record(
             &st.data_dir,
@@ -7090,11 +7091,11 @@ pub(crate) async fn handle_artifact_availability_incident_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new().admit_artifact_availability_incident(&body, &iso_now()) {
         Ok(record) => admit_planner_record(
             &st.data_dir,
@@ -7129,11 +7130,11 @@ pub(crate) async fn handle_harness_session_terminal_attach_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new().admit_harness_session_terminal_attach(&body, &iso_now()) {
         Ok(record) => admit_planner_record(
             &st.data_dir,
@@ -7227,11 +7228,11 @@ pub(crate) async fn handle_approved_operation_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     // Identity first: the planner must never answer an unauthenticated caller.
-    let (identity, owner_ref, idempotency_key) =
-        match planner_caller(&st.data_dir, &headers, &body) {
-            Ok(caller) => caller,
-            Err(refusal) => return refusal,
-        };
+    let (identity, owner_ref, idempotency_key) = match planner_caller(&st.data_dir, &headers, &body)
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     match RuntimeKernelService::new().admit_hypervisor_approved_operation(&body, &iso_now()) {
         Ok(record) => admit_planner_record(
             &st.data_dir,
@@ -15322,7 +15323,9 @@ pub(crate) fn resolve_principal(data_dir: &str, headers: &HeaderMap) -> Option<V
     // that membership is no longer live, so revocation fails closed on the very next request
     // instead of surviving until session expiry.
     let narrow_to_session_tenant = |principal: Value, scope: Option<String>| -> Option<Value> {
-        let Some(scope) = scope else { return Some(principal) };
+        let Some(scope) = scope else {
+            return Some(principal);
+        };
         let mut principal = principal;
         let memberships = principal["tenant_memberships"]
             .as_array()
