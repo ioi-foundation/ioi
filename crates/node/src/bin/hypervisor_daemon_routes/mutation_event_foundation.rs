@@ -535,7 +535,7 @@ mod tests {
         let scope = scope("user://one", "org://one");
         let payload = json!({"value": "durability-fault"});
 
-        std::env::set_var("IOI_TEST_FORCE_REQUIRED_ADMISSION_SYNC_FAILURE", "1");
+        let forced = agentgres::event_stream::force_durability_failure_for_this_thread();
         let failed = admit_owner_scoped_mutation(
             data_dir,
             true,
@@ -548,7 +548,7 @@ mod tests {
                 None,
             ),
         );
-        std::env::remove_var("IOI_TEST_FORCE_REQUIRED_ADMISSION_SYNC_FAILURE");
+        drop(forced);
         assert!(matches!(
             failed,
             Err(MutationRefusal::Admission(
