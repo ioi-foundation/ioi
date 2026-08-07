@@ -718,6 +718,14 @@ pub(crate) fn require_write_caller(
             ),
         ));
     }
+    // Authorize the claimed owner HERE, not later inside the scope binding. Deferring it until
+    // after body validation lets a caller who owns nothing in this tenant probe which fields the
+    // route accepts and receive 400s about a resource they may not touch.
+    if !identity.authorizes_tenant(&owner_ref) {
+        return Err(scope_refusal_reply(
+            super::substrate_store::RequestScopeRefusal::TenantAuthorityRequired,
+        ));
+    }
     Ok(WriteCaller {
         identity,
         owner_ref,

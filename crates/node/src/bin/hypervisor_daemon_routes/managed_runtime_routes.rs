@@ -2282,11 +2282,16 @@ pub(crate) async fn handle_environment_backup_create(
             error.to_string(),
         );
     }
+    // The Agentgres admission above is canonical and has already succeeded. This is its record
+    // projection, so a failure here is a divergence to replay, not a lost backup — say which,
+    // because "persist failed" alone reads as though the backup never happened.
     if let Err(error) = persist_record(&st.data_dir, BACKUP_FAMILY, &key, &backup) {
         return bad(
             StatusCode::INTERNAL_SERVER_ERROR,
             "managed_backup_projection_persist_failed",
-            error.to_string(),
+            format!(
+                "{error}; the backup is admitted and canonical — replay to rebuild its projection"
+            ),
         );
     }
     match verify_backup(&st.data_dir, &backup) {
@@ -2807,8 +2812,27 @@ pub(crate) async fn handle_restore_plan_action(
         Err(reply) => return reply,
     };
     if action == "cancel" {
+        // Admit the INTENT before destroying the staged bytes. Deleting first meant that if the
+        // cancelled append then failed, the plan still read "prepared" while the bytes it promised
+        // were already gone — a plan no apply could satisfy and no reader could tell was doomed.
+        let mut cancelling = current.operation.payload.clone();
+        cancelling["status"] = json!("cancelling");
+        let (cancelling_exact, _) = match append(
+            &st.data_dir,
+            PERSISTENCE_NAMESPACE,
+            &tail,
+            "event_stream.restore_plan_cancelling",
+            Some(&current.head),
+            &cancelling,
+            &format!("{}.cancelling", request.idempotency_key),
+        ) {
+            Ok(value) => value,
+            Err(reply) => return reply,
+        };
         if let Err(error) = std::fs::remove_dir_all(&staging) {
             if error.kind() != std::io::ErrorKind::NotFound {
+                // The intent is admitted and the bytes are still there. Say so: a retry of this
+                // cancel resumes from `cancelling` rather than starting over.
                 return bad(
                     StatusCode::CONFLICT,
                     "managed_restore_cancel_cleanup_failed",
@@ -2816,14 +2840,14 @@ pub(crate) async fn handle_restore_plan_action(
                 );
             }
         }
-        let mut cancelled = current.operation.payload.clone();
+        let mut cancelled = cancelling_exact.operation.payload.clone();
         cancelled["status"] = json!("cancelled");
         return match append(
             &st.data_dir,
             PERSISTENCE_NAMESPACE,
             &tail,
             "event_stream.restore_plan_cancelled",
-            Some(&current.head),
+            Some(&cancelling_exact.head),
             &cancelled,
             &request.idempotency_key,
         ) {
@@ -2881,17 +2905,16 @@ pub(crate) async fn handle_restore_plan_action(
             format!("{error}; rollback={rollback_result:?}"),
         );
     }
-    if let Err(error) = std::fs::remove_dir_all(&rollback) {
-        return bad(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "managed_restore_cleanup_unresolved",
-            error.to_string(),
-        );
-    }
+    // Admit the completion BEFORE discarding the rollback material, not after. The old order
+    // deleted the only copy of the pre-restore workspace and THEN tried to record that the restore
+    // had completed: if that append failed, the plan was still "applying", the workspace already
+    // held the restored bytes, and the material needed to undo it had been destroyed — the one
+    // state from which neither finishing nor rolling back is possible.
     let mut completed = applying_exact.operation.payload.clone();
     completed["status"] = json!("completed");
     completed["applied_state_root"] = current.operation.payload["source_state_root"].clone();
-    match append(
+    completed["rollback_material_path"] = json!(rollback.to_string_lossy());
+    let (completed_exact, replayed) = match append(
         &st.data_dir,
         PERSISTENCE_NAMESPACE,
         &tail,
@@ -2900,12 +2923,29 @@ pub(crate) async fn handle_restore_plan_action(
         &completed,
         &format!("{}.completed", request.idempotency_key),
     ) {
-        Ok((exact, replayed)) => (
-            StatusCode::OK,
-            Json(json!({"ok":true,"restore_plan":projection_value(&exact,Some(replayed))})),
-        ),
-        Err(reply) => reply,
-    }
+        Ok(value) => value,
+        Err(reply) => return reply,
+    };
+    // The restore is durable now. Failing to remove the rollback copy is a disk-space obligation,
+    // not a failed restore, so it is recorded and reported — never returned as a 500 over state
+    // that did in fact complete.
+    let cleanup_obligation = match std::fs::remove_dir_all(&rollback) {
+        Ok(()) => Value::Null,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Value::Null,
+        Err(error) => json!({
+            "code": "managed_restore_rollback_material_retained",
+            "path": rollback.to_string_lossy(),
+            "message": error.to_string()
+        }),
+    };
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "restore_plan": projection_value(&completed_exact, Some(replayed)),
+            "cleanup_obligation": cleanup_obligation
+        })),
+    )
 }
 
 #[cfg(test)]
@@ -2965,6 +3005,44 @@ mod tests {
         let production = &source[..source.find("#[cfg(test)]").unwrap_or(source.len())];
         assert!(!production.contains("user://local-operator"));
         assert!(!production.contains("x-ioi-principal"));
+    }
+
+    /// Both restore effects must be admitted BEFORE they are performed, because neither is
+    /// reversible from the state that a failure in between would leave behind.
+    ///
+    /// This asserts source order rather than driving a real restore, because forcing a rename or a
+    /// remove_dir_all to fail mid-transition needs a fixture corpus, and a check that carries its
+    /// own fixtures is one this repo does not keep. The two orderings below are the entire
+    /// invariant, so a refactor that reverses either fails here loudly.
+    #[test]
+    fn restore_effects_are_admitted_before_they_are_performed() {
+        let source = include_str!("managed_runtime_routes.rs");
+        let handler = source
+            .split("pub(crate) async fn handle_restore_plan_action")
+            .nth(1)
+            .expect("restore action handler");
+        let handler = &handler[..handler.find("\n#[cfg(test)]").unwrap_or(handler.len())];
+
+        let at = |needle: &str| {
+            handler
+                .find(needle)
+                .unwrap_or_else(|| panic!("restore action handler no longer contains {needle}"))
+        };
+
+        // Cancel: the staged bytes are the only copy of the prepared restore. Deleting them before
+        // the cancellation is durable leaves a plan reading "prepared" over bytes that are gone.
+        assert!(
+            at("event_stream.restore_plan_cancelling") < at("remove_dir_all(&staging)"),
+            "cancel must admit its intent before deleting the staged restore bytes"
+        );
+
+        // Apply: the rollback directory is the only copy of the pre-restore workspace. Deleting it
+        // before the completion is durable leaves the plan "applying", the workspace restored, and
+        // nothing left to undo it with.
+        assert!(
+            at("event_stream.restore_plan_completed") < at("remove_dir_all(&rollback)"),
+            "apply must admit completion before discarding the rollback material"
+        );
     }
 
     fn policy(profile: &str, idle_semantics: &str) -> RuntimePolicy {

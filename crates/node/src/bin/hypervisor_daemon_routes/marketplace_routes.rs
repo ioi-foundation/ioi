@@ -25,7 +25,86 @@ use axum::Json;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
+use super::mutation_event_foundation::{
+    admit_owner_scoped_write, admitted_stamp, replay_stable_id, require_write_caller,
+    MutationCommit, WriteCaller,
+};
 use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
+
+/// One owner namespace for the whole marketplace plane, so a listing, its candidate, its review and
+/// its offer cannot be advanced from different tenants.
+const MARKETPLACE_NAMESPACE: &str = "hypervisor-marketplace";
+
+fn admitted_head_of(record: &Value) -> Option<String> {
+    record
+        .get("admitted_head")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+}
+
+/// The head a successor must present. A record written before this plane bound identity has none,
+/// and is refused rather than advanced blind — silently accepting would reintroduce the lost-update
+/// this contract exists to stop.
+fn require_head(record: &Value) -> Result<String, (StatusCode, Json<Value>)> {
+    admitted_head_of(record).ok_or_else(|| {
+        bad(
+            "marketplace_expected_head_required",
+            "this record predates admitted mutation; it cannot be advanced without a head",
+        )
+    })
+}
+
+/// Strip the stream's own fact back out before admitting: leaving it in makes every successor
+/// byte-different from its own replay, which defeats the idempotency key.
+fn without_admitted_head(record: &Value) -> Value {
+    let mut copy = record.clone();
+    if let Some(map) = copy.as_object_mut() {
+        map.remove("admitted_head");
+    }
+    copy
+}
+
+/// Strip wall-clock before admitting. A payload carrying `iso_now()` is byte-different on every
+/// retry, so the same key admits different bytes and the retry is refused instead of replayed —
+/// which makes the idempotency contract look present while doing nothing.
+fn without_clock(record: &Value) -> Value {
+    let mut copy = without_admitted_head(record);
+    if let Some(map) = copy.as_object_mut() {
+        map.remove("created_at");
+        map.remove("updated_at");
+    }
+    copy
+}
+
+/// Stamp a created record from its own admission rather than the clock.
+fn project_created(record: &mut Value, commit: &MutationCommit) {
+    let stamp = admitted_stamp(commit.projection.operation.recorded_at_ms);
+    record["created_at"] = json!(stamp);
+    project_admission(record, commit);
+}
+
+fn project_admission(record: &mut Value, commit: &MutationCommit) {
+    record["admitted_head"] = json!(commit.projection.head);
+    record["updated_at"] = json!(admitted_stamp(commit.projection.operation.recorded_at_ms));
+}
+
+/// Persist a projection whose transition is already admitted. A discarded write here is what let
+/// this plane return success over state no later read would find.
+fn project_or_fail(
+    data_dir: &str,
+    kind: &str,
+    id: &str,
+    record: &Value,
+    code: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    persist_record(data_dir, kind, id, record).map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": { "code": code,
+                "message": "the transition is admitted but its projection could not be written; replay to reconcile" } })),
+        )
+    })
+}
 
 const KIND_LISTING: &str = "marketplace-listings";
 const KIND_CANDIDATE: &str = "marketplace-publish-candidates";
@@ -483,8 +562,14 @@ pub(crate) async fn handle_listing_list(
 /// POST /v1/hypervisor/marketplace/listings — draft a listing over REAL substrate.
 pub(crate) async fn handle_listing_create(
     State(st): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first, before any field of the body is read.
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let listing_kind = str_field(&body, "listing_kind");
     if !LISTING_KINDS.contains(&listing_kind) {
         return bad(
@@ -507,7 +592,8 @@ pub(crate) async fn handle_listing_create(
     if let Err((c, m)) = check_evidence_refs(&st.data_dir, &str_refs(&body, "evidence_refs")) {
         return bad(&c, &m);
     }
-    let id = format!("mlist_{:x}", nanos());
+    // Content-derived, not clock-derived: a retried create must resolve to one resource.
+    let id = replay_stable_id("mlist", &caller.owner_ref, &caller.idempotency_key);
     let now = iso_now();
     let record = json!({
         "schema_version": "ioi.hypervisor.marketplace-listing.v1",
@@ -525,10 +611,37 @@ pub(crate) async fn handle_listing_create(
         "created_at": now,
         "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_LISTING, &id, &record);
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_LISTING,
+        &format!("marketplace-listing://{id}"),
+        "marketplace.listing.create",
+        None,
+        &without_clock(&record),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    let mut record = record;
+    project_created(&mut record, &commit);
+    if let Err(response) = project_or_fail(
+        &st.data_dir,
+        KIND_LISTING,
+        &id,
+        &record,
+        "marketplace_listing_persistence_failed",
+    ) {
+        return response;
+    }
     (
-        StatusCode::CREATED,
-        Json(json!({ "ok": true, "listing": record })),
+        if commit.replayed {
+            StatusCode::OK
+        } else {
+            StatusCode::CREATED
+        },
+        Json(json!({ "ok": true, "replayed": commit.replayed, "listing": record })),
     )
 }
 
@@ -545,10 +658,18 @@ pub(crate) async fn handle_listing_get(
 pub(crate) async fn handle_listing_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let Some(mut l) = load(&st.data_dir, KIND_LISTING, &id) else {
-        return Json(json!({ "ok": false, "reason": "listing not found" }));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "listing not found" })),
+        );
     };
     // If listing_kind or subject_ref changes, re-validate against real substrate.
     let new_kind = body
@@ -556,8 +677,11 @@ pub(crate) async fn handle_listing_patch(
         .and_then(|v| v.as_str())
         .unwrap_or_else(|| l.get("listing_kind").and_then(|v| v.as_str()).unwrap_or(""));
     if body.get("listing_kind").is_some() && !LISTING_KINDS.contains(&new_kind) {
-        return Json(
-            json!({ "ok": false, "error": { "code": "marketplace_listing_kind_invalid", "message": format!("listing_kind must be one of {LISTING_KINDS:?}") } }),
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "error": { "code": "marketplace_listing_kind_invalid", "message": format!("listing_kind must be one of {LISTING_KINDS:?}") } }),
+            ),
         );
     }
     if body.get("listing_kind").is_some() || body.get("subject_ref").is_some() {
@@ -569,12 +693,18 @@ pub(crate) async fn handle_listing_patch(
         if let Err((c, m)) =
             resolve_listing_subject(&st.data_dir, &st.base_url, new_kind, subj).await
         {
-            return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "ok": false, "error": { "code": c, "message": m } })),
+            );
         }
     }
     if body.get("evidence_refs").is_some() {
         if let Err((c, m)) = check_evidence_refs(&st.data_dir, &str_refs(&body, "evidence_refs")) {
-            return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "ok": false, "error": { "code": c, "message": m } })),
+            );
         }
     }
     for key in [
@@ -588,17 +718,88 @@ pub(crate) async fn handle_listing_patch(
             l[key] = v.clone();
         }
     }
-    l["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_LISTING, &id, &l);
-    Json(json!({ "ok": true, "listing": l }))
+    let expected_head = match require_head(&l) {
+        Ok(head) => head,
+        Err(response) => return response,
+    };
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_LISTING,
+        &format!("marketplace-listing://{id}"),
+        "marketplace.listing.patch",
+        Some(&expected_head),
+        &without_clock(&l),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    project_admission(&mut l, &commit);
+    if let Err(response) = project_or_fail(
+        &st.data_dir,
+        KIND_LISTING,
+        &id,
+        &l,
+        "marketplace_listing_persistence_failed",
+    ) {
+        return response;
+    }
+    (StatusCode::OK, Json(json!({ "ok": true, "listing": l })))
 }
 
 pub(crate) async fn handle_listing_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    let removed = remove_record(&st.data_dir, KIND_LISTING, &id);
-    Json(json!({ "ok": removed, "removed": removed, "id": id }))
+    headers: axum::http::HeaderMap,
+    // Optional so a DELETE with no body answers the typed refusal rather than a bare 415.
+    body: Option<Json<Value>>,
+) -> (StatusCode, Json<Value>) {
+    let body = body.map(|Json(value)| value).unwrap_or_else(|| json!({}));
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
+    let Some(existing) = load(&st.data_dir, KIND_LISTING, &id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "error": { "code": "marketplace_listing_not_found", "message": "listing not found" } }),
+            ),
+        );
+    };
+    // Deletion is a transition. Dropping the projection without admitting a terminal event leaves
+    // the stream asserting the record still exists.
+    let expected_head = match require_head(&existing) {
+        Ok(head) => head,
+        Err(response) => return response,
+    };
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_LISTING,
+        &format!("marketplace-listing://{id}"),
+        "marketplace.listing.delete",
+        Some(&expected_head),
+        &json!({ "id": id, "deleted": true }),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    if !remove_record(&st.data_dir, KIND_LISTING, &id) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "marketplace_listing_projection_removal_failed",
+                "message": "the delete is admitted but its projection could not be removed; replay to reconcile"
+            }, "admitted_head": commit.projection.head })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "removed": true, "replayed": commit.replayed, "id": id })),
+    )
 }
 
 // ============================ PUBLISH CANDIDATE ================================================
@@ -634,8 +835,14 @@ pub(crate) async fn handle_candidate_list(State(st): State<Arc<DaemonState>>) ->
 /// POST /v1/hypervisor/marketplace/publish-candidates — nominate a listing (candidate, NOT publish).
 pub(crate) async fn handle_candidate_create(
     State(st): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first, before any field of the body is read.
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let listing_ref = str_field(&body, "listing_ref");
     if listing_ref.is_empty() {
         return bad(
@@ -653,7 +860,8 @@ pub(crate) async fn handle_candidate_create(
         return bad(&c, &m);
     }
     let gov = governance_snapshot(&st.base_url).await;
-    let id = format!("mpub_{:x}", nanos());
+    // Content-derived, not clock-derived: a retried create must resolve to one resource.
+    let id = replay_stable_id("mpub", &caller.owner_ref, &caller.idempotency_key);
     let now = iso_now();
     let record = json!({
         "schema_version": "ioi.hypervisor.marketplace-publish-candidate.v1",
@@ -669,10 +877,39 @@ pub(crate) async fn handle_candidate_create(
         "created_at": now,
         "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_CANDIDATE, &id, &record);
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_CANDIDATE,
+        &format!("marketplace-publish-candidate://{id}"),
+        "marketplace.candidate.create",
+        None,
+        &without_clock(&record),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    let mut record = record;
+    project_created(&mut record, &commit);
+    if let Err(response) = project_or_fail(
+        &st.data_dir,
+        KIND_CANDIDATE,
+        &id,
+        &record,
+        "marketplace_candidate_persistence_failed",
+    ) {
+        return response;
+    }
     (
-        StatusCode::CREATED,
-        Json(json!({ "ok": true, "publish_candidate": candidate_view(&st.data_dir, &record) })),
+        if commit.replayed {
+            StatusCode::OK
+        } else {
+            StatusCode::CREATED
+        },
+        Json(
+            json!({ "ok": true, "replayed": commit.replayed, "publish_candidate": candidate_view(&st.data_dir, &record) }),
+        ),
     )
 }
 
@@ -695,7 +932,15 @@ pub(crate) async fn handle_candidate_get(
 pub(crate) async fn handle_candidate_publish(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: axum::http::HeaderMap,
+    body: Option<Json<Value>>,
 ) -> (StatusCode, Json<Value>) {
+    let body = body.map(|Json(value)| value).unwrap_or_else(|| json!({}));
+    // Publishing makes a listing publicly discoverable. It took no headers at all.
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let Some(mut candidate) = load(&st.data_dir, KIND_CANDIDATE, &id) else {
         return bad(
             "marketplace_candidate_not_found",
@@ -729,7 +974,9 @@ pub(crate) async fn handle_candidate_publish(
         .unwrap_or("")
         .to_string();
     // Publish receipt (real proof: sha256 state_root over the backing tuple).
-    let prid = format!("pubr_{:x}", nanos());
+    // Content-derived: a retried publish must reuse its receipt, not mint a second one for the
+    // same admitted transition.
+    let prid = replay_stable_id("pubr", &caller.owner_ref, &caller.idempotency_key);
     let state_root = sha256_hex_str(&format!("publish|{cand_ref}|{admission_review_ref}|{release_control_ref}|{published_runtime_ref}|{now}"));
     let receipt = json!({
         "schema_version": "ioi.hypervisor.marketplace-publish-receipt.v1",
@@ -743,28 +990,81 @@ pub(crate) async fn handle_candidate_publish(
         "state_root": format!("sha256:{state_root}"),
         "at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_PUBLISH_RECEIPT, &prid, &receipt);
     let receipt_ref = format!("marketplace-publish-receipt://{prid}");
-    // Flip the candidate -> published (read-only distribution metadata, runtime-backed).
+    // The listing is not optional. This was `if let Some(listing)`, so a candidate whose listing had
+    // been deleted still answered 201 with publish_state "published" while nothing was publicly
+    // listed — the two halves of one publish disagreeing, with no error anywhere.
+    let Some(mut listing) = load(&st.data_dir, KIND_LISTING, &b.listing_id) else {
+        return bad(
+            "marketplace_publish_listing_missing",
+            "the candidate's listing no longer resolves; publish cannot flip a listing that is gone",
+        );
+    };
     candidate["publish_state"] = json!("published");
-    candidate["published_at"] = json!(now);
     candidate["published_runtime_ref"] = json!(published_runtime_ref);
     candidate["release_control_ref"] = json!(release_control_ref);
     candidate["admission_review_ref"] = json!(admission_review_ref);
     candidate["publish_receipt_refs"] = json!([receipt_ref]);
     candidate["state_root"] = json!(format!("sha256:{state_root}"));
-    candidate["updated_at"] = json!(now);
-    let _ = persist_record(&st.data_dir, KIND_CANDIDATE, &id, &candidate);
-    // Flip the listing public_state -> published.
-    if let Some(mut listing) = load(&st.data_dir, KIND_LISTING, &b.listing_id) {
-        listing["public_state"] = json!("published");
-        listing["published_at"] = json!(now);
-        listing["published_runtime_ref"] = json!(published_runtime_ref);
-        listing["release_control_ref"] = json!(release_control_ref);
-        listing["admission_review_ref"] = json!(admission_review_ref);
-        listing["publish_receipt_refs"] = json!([receipt_ref.clone()]);
-        listing["updated_at"] = json!(now);
-        let _ = persist_record(&st.data_dir, KIND_LISTING, &b.listing_id, &listing);
+    listing["public_state"] = json!("published");
+    listing["published_runtime_ref"] = json!(published_runtime_ref);
+    listing["release_control_ref"] = json!(release_control_ref);
+    listing["admission_review_ref"] = json!(admission_review_ref);
+    listing["publish_receipt_refs"] = json!([receipt_ref.clone()]);
+
+    // Publish is ONE transition over three records. It was three discarded writes: a failed receipt
+    // write still left the candidate claiming a receipt_ref no read could resolve, and a failed
+    // candidate write still left the listing public. Admitting the whole tuple first makes the
+    // published state recoverable rather than torn.
+    let expected_head = match require_head(&candidate) {
+        Ok(head) => head,
+        Err(response) => return response,
+    };
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_CANDIDATE,
+        &format!("marketplace-publish-candidate://{id}"),
+        "marketplace.candidate.publish",
+        Some(&expected_head),
+        &json!({
+            "receipt": receipt,
+            "candidate": without_clock(&candidate),
+            "listing": without_clock(&listing)
+        }),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    let published_at = admitted_stamp(commit.projection.operation.recorded_at_ms);
+    candidate["published_at"] = json!(published_at);
+    listing["published_at"] = json!(published_at);
+    project_admission(&mut candidate, &commit);
+    project_admission(&mut listing, &commit);
+    for (kind, key, record, code) in [
+        (
+            KIND_PUBLISH_RECEIPT,
+            prid.as_str(),
+            &receipt,
+            "marketplace_publish_receipt_persistence_failed",
+        ),
+        (
+            KIND_CANDIDATE,
+            id.as_str(),
+            &candidate,
+            "marketplace_candidate_persistence_failed",
+        ),
+        (
+            KIND_LISTING,
+            b.listing_id.as_str(),
+            &listing,
+            "marketplace_listing_persistence_failed",
+        ),
+    ] {
+        if let Err(response) = project_or_fail(&st.data_dir, kind, key, record, code) {
+            return response;
+        }
     }
     (
         StatusCode::CREATED,
@@ -777,27 +1077,94 @@ pub(crate) async fn handle_candidate_publish(
 pub(crate) async fn handle_candidate_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    let removed = remove_record(&st.data_dir, KIND_CANDIDATE, &id);
-    Json(json!({ "ok": removed, "removed": removed, "id": id }))
+    headers: axum::http::HeaderMap,
+    // Optional so a DELETE with no body answers the typed refusal rather than a bare 415.
+    body: Option<Json<Value>>,
+) -> (StatusCode, Json<Value>) {
+    let body = body.map(|Json(value)| value).unwrap_or_else(|| json!({}));
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
+    let Some(existing) = load(&st.data_dir, KIND_CANDIDATE, &id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "error": { "code": "marketplace_candidate_not_found", "message": "candidate not found" } }),
+            ),
+        );
+    };
+    // Deletion is a transition. Dropping the projection without admitting a terminal event leaves
+    // the stream asserting the record still exists.
+    let expected_head = match require_head(&existing) {
+        Ok(head) => head,
+        Err(response) => return response,
+    };
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_CANDIDATE,
+        &format!("marketplace-publish-candidate://{id}"),
+        "marketplace.candidate.delete",
+        Some(&expected_head),
+        &json!({ "id": id, "deleted": true }),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    if !remove_record(&st.data_dir, KIND_CANDIDATE, &id) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "marketplace_candidate_projection_removal_failed",
+                "message": "the delete is admitted but its projection could not be removed; replay to reconcile"
+            }, "admitted_head": commit.projection.head })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "removed": true, "replayed": commit.replayed, "id": id })),
+    )
 }
 
 // ============================ ADMISSION REVIEW ================================================
 
 /// Link/unlink an admission review onto its candidate (transactional, best-effort).
-fn link_candidate_review(data_dir: &str, candidate_ref: &str, review_ref: Option<&str>) {
+/// Link or unlink a candidate's admission review.
+///
+/// This swallowed every failure — malformed ref, missing candidate, failed write — and returned
+/// unit. `publish_gates` reads `admission_review_ref`, so a silent failure here decides publish
+/// eligibility from a backlink that was never written.
+fn link_candidate_review(
+    data_dir: &str,
+    candidate_ref: &str,
+    review_ref: Option<&str>,
+) -> Result<(), (StatusCode, Json<Value>)> {
     let Some((_, cid)) = split_ref(candidate_ref) else {
-        return;
+        return Err(bad(
+            "marketplace_candidate_ref_invalid",
+            "candidate_ref is not a resolvable 'marketplace-publish-candidate://' ref",
+        ));
     };
     let Some(mut c) = load(data_dir, KIND_CANDIDATE, cid) else {
-        return;
+        return Err(bad(
+            "marketplace_candidate_not_found",
+            "candidate_ref does not resolve to a candidate",
+        ));
     };
     c["admission_review_ref"] = match review_ref {
         Some(r) => json!(r),
         None => Value::Null,
     };
     c["updated_at"] = json!(iso_now());
-    let _ = persist_record(data_dir, KIND_CANDIDATE, cid, &c);
+    project_or_fail(
+        data_dir,
+        KIND_CANDIDATE,
+        cid,
+        &c,
+        "marketplace_candidate_backlink_persistence_failed",
+    )
 }
 
 pub(crate) async fn handle_review_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
@@ -814,8 +1181,14 @@ pub(crate) async fn handle_review_list(State(st): State<Arc<DaemonState>>) -> Js
 /// POST /v1/hypervisor/marketplace/admission-reviews — review a candidate. `admitted` != `published`.
 pub(crate) async fn handle_review_create(
     State(st): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first, before any field of the body is read.
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let candidate_ref = str_field(&body, "candidate_ref");
     if candidate_ref.is_empty() {
         return bad(
@@ -846,7 +1219,8 @@ pub(crate) async fn handle_review_create(
         d.to_string()
     };
     let gov = governance_snapshot(&st.base_url).await;
-    let id = format!("madm_{:x}", nanos());
+    // Content-derived, not clock-derived: a retried create must resolve to one resource.
+    let id = replay_stable_id("madm", &caller.owner_ref, &caller.idempotency_key);
     let now = iso_now();
     let record = json!({
         "schema_version": "ioi.hypervisor.marketplace-admission-review.v1",
@@ -864,16 +1238,47 @@ pub(crate) async fn handle_review_create(
         "created_at": now,
         "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_REVIEW, &id, &record);
-    // Link the review onto its candidate so blocked_reasons can reflect an admitted review.
-    link_candidate_review(
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_REVIEW,
+        &format!("marketplace-admission-review://{id}"),
+        "marketplace.review.create",
+        None,
+        &without_clock(&record),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    let mut record = record;
+    project_created(&mut record, &commit);
+    if let Err(response) = project_or_fail(
+        &st.data_dir,
+        KIND_REVIEW,
+        &id,
+        &record,
+        "marketplace_review_persistence_failed",
+    ) {
+        return response;
+    }
+    // Link the review onto its candidate so blocked_reasons can reflect an admitted review. This
+    // must not be best-effort: a review the candidate never learns about is a review that cannot
+    // gate publish, and reporting 201 would say the opposite.
+    if let Err(response) = link_candidate_review(
         &st.data_dir,
         candidate_ref,
         Some(&format!("marketplace-admission://{id}")),
-    );
+    ) {
+        return response;
+    }
     (
-        StatusCode::CREATED,
-        Json(json!({ "ok": true, "admission_review": record })),
+        if commit.replayed {
+            StatusCode::OK
+        } else {
+            StatusCode::CREATED
+        },
+        Json(json!({ "ok": true, "replayed": commit.replayed, "admission_review": record })),
     )
 }
 
@@ -890,15 +1295,26 @@ pub(crate) async fn handle_review_get(
 pub(crate) async fn handle_review_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let Some(mut r) = load(&st.data_dir, KIND_REVIEW, &id) else {
-        return Json(json!({ "ok": false, "reason": "admission review not found" }));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "admission review not found" })),
+        );
     };
     if let Some(d) = body.get("decision").and_then(|v| v.as_str()) {
         if !ADMISSION_DECISIONS.contains(&d) {
-            return Json(
-                json!({ "ok": false, "error": { "code": "marketplace_decision_invalid", "message": format!("decision must be one of {ADMISSION_DECISIONS:?}") } }),
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    json!({ "ok": false, "error": { "code": "marketplace_decision_invalid", "message": format!("decision must be one of {ADMISSION_DECISIONS:?}") } }),
+                ),
             );
         }
     }
@@ -907,23 +1323,98 @@ pub(crate) async fn handle_review_patch(
             r[key] = v.clone();
         }
     }
-    r["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_REVIEW, &id, &r);
-    Json(json!({ "ok": true, "admission_review": r }))
+    let expected_head = match require_head(&r) {
+        Ok(head) => head,
+        Err(response) => return response,
+    };
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_REVIEW,
+        &format!("marketplace-admission-review://{id}"),
+        "marketplace.review.patch",
+        Some(&expected_head),
+        &without_clock(&r),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    project_admission(&mut r, &commit);
+    if let Err(response) = project_or_fail(
+        &st.data_dir,
+        KIND_REVIEW,
+        &id,
+        &r,
+        "marketplace_review_persistence_failed",
+    ) {
+        return response;
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "admission_review": r })),
+    )
 }
 
 pub(crate) async fn handle_review_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    // Unlink from the candidate first so blocked_reasons stays honest.
-    if let Some(rev) = load(&st.data_dir, KIND_REVIEW, &id) {
-        if let Some(cref) = rev.get("candidate_ref").and_then(|v| v.as_str()) {
-            link_candidate_review(&st.data_dir, cref, None);
+    headers: axum::http::HeaderMap,
+    // Optional so a DELETE with no body answers the typed refusal rather than a bare 415.
+    body: Option<Json<Value>>,
+) -> (StatusCode, Json<Value>) {
+    let body = body.map(|Json(value)| value).unwrap_or_else(|| json!({}));
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
+    let Some(existing) = load(&st.data_dir, KIND_REVIEW, &id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "error": { "code": "marketplace_review_not_found", "message": "review not found" } }),
+            ),
+        );
+    };
+    // Deletion is a transition. Dropping the projection without admitting a terminal event leaves
+    // the stream asserting the record still exists.
+    let expected_head = match require_head(&existing) {
+        Ok(head) => head,
+        Err(response) => return response,
+    };
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_REVIEW,
+        &format!("marketplace-admission-review://{id}"),
+        "marketplace.review.delete",
+        Some(&expected_head),
+        &json!({ "id": id, "deleted": true }),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    // The candidate backlink is part of this transition, not a side effect: publish gating reads
+    // admission_review_ref, so a swallowed unlink leaves a candidate pointing at a deleted review.
+    if let Some(candidate_ref) = existing.get("candidate_ref").and_then(|v| v.as_str()) {
+        if let Err(response) = link_candidate_review(&st.data_dir, candidate_ref, None) {
+            return response;
         }
     }
-    let removed = remove_record(&st.data_dir, KIND_REVIEW, &id);
-    Json(json!({ "ok": removed, "removed": removed, "id": id }))
+    if !remove_record(&st.data_dir, KIND_REVIEW, &id) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "marketplace_review_projection_removal_failed",
+                "message": "the delete is admitted but its projection could not be removed; replay to reconcile"
+            }, "admitted_head": commit.projection.head })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "removed": true, "replayed": commit.replayed, "id": id })),
+    )
 }
 
 // ============================ MANAGED INSTANCE OFFER ==========================================
@@ -943,8 +1434,14 @@ pub(crate) async fn handle_offer_list(State(st): State<Arc<DaemonState>>) -> Jso
 /// It never instantiates: runtime_posture stays {instantiated:false}. No hire/install lifecycle.
 pub(crate) async fn handle_offer_create(
     State(st): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first, before any field of the body is read.
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let offer_kind = str_field(&body, "offer_kind");
     if !OFFER_KINDS.contains(&offer_kind) {
         return bad(
@@ -977,7 +1474,8 @@ pub(crate) async fn handle_offer_create(
             return bad(&c, &m);
         }
     }
-    let id = format!("moffer_{:x}", nanos());
+    // Content-derived, not clock-derived: a retried create must resolve to one resource.
+    let id = replay_stable_id("moffer", &caller.owner_ref, &caller.idempotency_key);
     let now = iso_now();
     let record = json!({
         "schema_version": "ioi.hypervisor.managed-instance-offer.v1",
@@ -995,10 +1493,37 @@ pub(crate) async fn handle_offer_create(
         "created_at": now,
         "updated_at": now
     });
-    let _ = persist_record(&st.data_dir, KIND_OFFER, &id, &record);
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_OFFER,
+        &format!("marketplace-instance-offer://{id}"),
+        "marketplace.offer.create",
+        None,
+        &without_clock(&record),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    let mut record = record;
+    project_created(&mut record, &commit);
+    if let Err(response) = project_or_fail(
+        &st.data_dir,
+        KIND_OFFER,
+        &id,
+        &record,
+        "marketplace_offer_persistence_failed",
+    ) {
+        return response;
+    }
     (
-        StatusCode::CREATED,
-        Json(json!({ "ok": true, "managed_instance_offer": record })),
+        if commit.replayed {
+            StatusCode::OK
+        } else {
+            StatusCode::CREATED
+        },
+        Json(json!({ "ok": true, "replayed": commit.replayed, "managed_instance_offer": record })),
     )
 }
 
@@ -1015,18 +1540,29 @@ pub(crate) async fn handle_offer_get(
 pub(crate) async fn handle_offer_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let Some(mut o) = load(&st.data_dir, KIND_OFFER, &id) else {
-        return Json(json!({ "ok": false, "reason": "managed instance offer not found" }));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "managed instance offer not found" })),
+        );
     };
     let new_kind = body
         .get("offer_kind")
         .and_then(|v| v.as_str())
         .unwrap_or_else(|| o.get("offer_kind").and_then(|v| v.as_str()).unwrap_or(""));
     if body.get("offer_kind").is_some() && !OFFER_KINDS.contains(&new_kind) {
-        return Json(
-            json!({ "ok": false, "error": { "code": "marketplace_offer_kind_invalid", "message": format!("offer_kind must be one of {OFFER_KINDS:?}") } }),
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "error": { "code": "marketplace_offer_kind_invalid", "message": format!("offer_kind must be one of {OFFER_KINDS:?}") } }),
+            ),
         );
     }
     if body.get("offer_kind").is_some() || body.get("subject_ref").is_some() {
@@ -1038,7 +1574,10 @@ pub(crate) async fn handle_offer_patch(
         if let Err((c, m)) =
             resolve_listing_subject(&st.data_dir, &st.base_url, new_kind, subj).await
         {
-            return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "ok": false, "error": { "code": c, "message": m } })),
+            );
         }
     }
     for key in [
@@ -1054,17 +1593,91 @@ pub(crate) async fn handle_offer_patch(
     }
     // runtime_posture is immutable here — never instantiated.
     o["runtime_posture"] = json!({ "instantiated": false, "note": "draft offer only; no managed instance is hired, installed, or instantiated" });
-    o["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, KIND_OFFER, &id, &o);
-    Json(json!({ "ok": true, "managed_instance_offer": o }))
+    let expected_head = match require_head(&o) {
+        Ok(head) => head,
+        Err(response) => return response,
+    };
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_OFFER,
+        &format!("marketplace-instance-offer://{id}"),
+        "marketplace.offer.patch",
+        Some(&expected_head),
+        &without_clock(&o),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    project_admission(&mut o, &commit);
+    if let Err(response) = project_or_fail(
+        &st.data_dir,
+        KIND_OFFER,
+        &id,
+        &o,
+        "marketplace_offer_persistence_failed",
+    ) {
+        return response;
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "managed_instance_offer": o })),
+    )
 }
 
 pub(crate) async fn handle_offer_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    let removed = remove_record(&st.data_dir, KIND_OFFER, &id);
-    Json(json!({ "ok": removed, "removed": removed, "id": id }))
+    headers: axum::http::HeaderMap,
+    // Optional so a DELETE with no body answers the typed refusal rather than a bare 415.
+    body: Option<Json<Value>>,
+) -> (StatusCode, Json<Value>) {
+    let body = body.map(|Json(value)| value).unwrap_or_else(|| json!({}));
+    let caller: WriteCaller = match require_write_caller(&st.data_dir, &headers, &body) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
+    let Some(existing) = load(&st.data_dir, KIND_OFFER, &id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "error": { "code": "marketplace_offer_not_found", "message": "offer not found" } }),
+            ),
+        );
+    };
+    // Deletion is a transition. Dropping the projection without admitting a terminal event leaves
+    // the stream asserting the record still exists.
+    let expected_head = match require_head(&existing) {
+        Ok(head) => head,
+        Err(response) => return response,
+    };
+    let commit = match admit_owner_scoped_write(
+        &st.data_dir,
+        &caller,
+        MARKETPLACE_NAMESPACE,
+        KIND_OFFER,
+        &format!("marketplace-instance-offer://{id}"),
+        "marketplace.offer.delete",
+        Some(&expected_head),
+        &json!({ "id": id, "deleted": true }),
+    ) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
+    if !remove_record(&st.data_dir, KIND_OFFER, &id) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": {
+                "code": "marketplace_offer_projection_removal_failed",
+                "message": "the delete is admitted but its projection could not be removed; replay to reconcile"
+            }, "admitted_head": commit.projection.head })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "removed": true, "replayed": commit.replayed, "id": id })),
+    )
 }
 
 #[cfg(test)]
