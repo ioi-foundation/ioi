@@ -30,6 +30,20 @@ test("Publish PR admits a repository binding and submits the registered publicat
     const raw = Buffer.concat(chunks).toString("utf8");
     const body = raw ? JSON.parse(raw) : null;
     requests.push({ method: request.method, url: request.url, body });
+    // The publish client resolves its publication owner from whoami before touching connectors.
+    // This stub had no whoami route, so tenant_refs came back empty and the client refused with
+    // "authenticated principal has no publication owner tenant" long before reaching the assertion
+    // below. The daemon's own whoami does carry tenant_refs (resolve_principal_tenant_refs), so
+    // answering here matches the real contract rather than papering over it.
+    if (request.method === "GET" && request.url === "/v1/hypervisor/auth/whoami") {
+      return json(response, 200, {
+        ok: true,
+        principal: {
+          principal_ref: "user://publication-test",
+          tenant_refs: ["org://publication-test"],
+        },
+      });
+    }
     if (request.method === "GET" && request.url === "/v1/hypervisor/scm-connectors") {
       return json(response, 200, { ok: true, connectors: [connector] });
     }
@@ -78,6 +92,9 @@ test("Publish PR admits a repository binding and submits the registered publicat
   assert.ok(challenge);
   assert.deepEqual(Object.keys(challenge.body).sort(), [
     "destination_binding_ref",
+    // The client now carries a caller idempotency key on publish, so a retried publish cannot open
+    // a second pull request. This list predates that and was pinning the older payload shape.
+    "idempotency_key",
     "open_review_request",
     "proposal_ref",
     "target_ref_name",

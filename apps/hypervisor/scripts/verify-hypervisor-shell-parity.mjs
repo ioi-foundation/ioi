@@ -148,36 +148,72 @@ async function run() {
     ok("owned-tree full stack comes up", ownedUp, "serve :4601 over product-ui/owned");
     const legacyCapture = join(captureRoot, "legacy.json");
     const ownedCapture = join(captureRoot, "owned.json");
-    const [r4, r5] = await Promise.all([
-      runNodeAsync("shell-freeze-behavior.mjs", ["--base", "http://127.0.0.1:4600", "--capture-json", legacyCapture]),
-      runNodeAsync("shell-freeze-behavior.mjs", ["--base", "http://127.0.0.1:4601", "--capture-json", ownedCapture]),
-    ]);
-    const captured = r4.status === 0 && r5.status === 0;
-    const behaviorDiff = [];
-    if (captured) {
+
+    // Capture and compare ONE round: returns the set of differing `route:field` keys.
+    //
+    // A single round is not a verdict. These are two live page loads against two independent
+    // servers, so anything whose presence depends on timing — a spinner still animating while a
+    // request is in flight, an error-reporting beacon that raced — lands in one capture and not
+    // the other. Two consecutive runs of this gate on an unchanged tree reported two entirely
+    // different "behaviour diffs" (`/ai#new-session:network`, then `/projects:animations`), which
+    // is the same defect as a test suite that answers differently each run: a red result does not
+    // identify anything and a green one is not evidence.
+    const captureRound = async (round) => {
+      const [legacyRun, ownedRun] = await Promise.all([
+        runNodeAsync("shell-freeze-behavior.mjs", ["--base", "http://127.0.0.1:4600", "--capture-json", legacyCapture]),
+        runNodeAsync("shell-freeze-behavior.mjs", ["--base", "http://127.0.0.1:4601", "--capture-json", ownedCapture]),
+      ]);
+      if (legacyRun.status !== 0 || ownedRun.status !== 0) {
+        return { ok: false, legacyRun, ownedRun, diffs: new Map() };
+      }
       const legacy = JSON.parse(readFileSync(legacyCapture, "utf8"));
       const owned = JSON.parse(readFileSync(ownedCapture, "utf8"));
       const routes = [...new Set([
         ...Object.keys(legacy.routes || {}),
         ...Object.keys(owned.routes || {}),
       ])].sort();
+      const diffs = new Map();
       for (const route of routes) {
         for (const field of ["dom", "animations", "network", "console"]) {
           const legacyValue = legacy.routes?.[route]?.[field];
           const ownedValue = owned.routes?.[route]?.[field];
-          if (JSON.stringify(legacyValue) !== JSON.stringify(ownedValue)) {
-            behaviorDiff.push(`${route}:${field}`);
-            if (Array.isArray(legacyValue) && Array.isArray(ownedValue)) {
-              const legacySet = new Set(legacyValue);
-              const ownedSet = new Set(ownedValue);
-              const removed = legacyValue.filter((value) => !ownedSet.has(value)).slice(0, 8);
-              const added = ownedValue.filter((value) => !legacySet.has(value)).slice(0, 8);
-              console.error(`behavior DIFF ${route}:${field}${removed.length ? `\n  legacy-only: ${removed.join(" | ")}` : ""}${added.length ? `\n  owned-only: ${added.join(" | ")}` : ""}`);
-            }
+          if (JSON.stringify(legacyValue) === JSON.stringify(ownedValue)) continue;
+          let detail = "";
+          if (Array.isArray(legacyValue) && Array.isArray(ownedValue)) {
+            const legacySet = new Set(legacyValue);
+            const ownedSet = new Set(ownedValue);
+            const removed = legacyValue.filter((value) => !ownedSet.has(value)).slice(0, 8);
+            const added = ownedValue.filter((value) => !legacySet.has(value)).slice(0, 8);
+            detail = `${removed.length ? `\n  legacy-only: ${removed.join(" | ")}` : ""}${added.length ? `\n  owned-only: ${added.join(" | ")}` : ""}`;
           }
+          diffs.set(`${route}:${field}`, detail);
         }
       }
+      if (diffs.size && round === 1) {
+        console.error(`round 1 saw ${diffs.size} difference(s); re-capturing to separate real divergence from load-timing noise`);
+      }
+      return { ok: true, legacyRun, ownedRun, diffs };
+    };
+
+    const first = await captureRound(1);
+    // Only a difference that REPRODUCES is a difference. One that appears in a single round is the
+    // race described above, and reporting it would fail the build over nothing.
+    const second = first.ok && first.diffs.size ? await captureRound(2) : first;
+    const captured = first.ok && second.ok;
+    const behaviorDiff = [];
+    if (captured) {
+      for (const [key, detail] of first.diffs) {
+        if (!second.diffs.has(key)) continue;
+        behaviorDiff.push(key);
+        console.error(`behavior DIFF ${key}${detail}`);
+      }
+      const transient = [...first.diffs.keys()].filter((key) => !second.diffs.has(key));
+      if (transient.length) {
+        console.error(`load-timing noise, not reported: ${transient.join(", ")}`);
+      }
     }
+    const r4 = first.legacyRun;
+    const r5 = first.ownedRun;
     const equal = captured && behaviorDiff.length === 0;
     ok("runtime behavior equivalent across legacy and owned trees (DOM, animations, network, console)", equal, captured ? `5-route captures compared${behaviorDiff.length ? ` · DIFF ${behaviorDiff.join(", ")}` : ""}` : `capture failed: legacy=${r4.status} owned=${r5.status}`);
     if (!captured) {
