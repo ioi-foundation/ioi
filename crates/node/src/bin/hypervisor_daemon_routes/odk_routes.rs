@@ -1590,6 +1590,18 @@ fn odk_mutation_refusal(
     }
 }
 
+/// Timestamps come from the ADMISSION, never from request-time wall-clock: a payload that
+/// carries `iso_now()` can never be byte-identical across a retry, which is what makes an
+/// idempotency key meaningless.
+fn admitted_stamp_ms(recorded_at_ms: u64) -> String {
+    use time::format_description::well_known::Rfc3339;
+    let ms = recorded_at_ms as i128;
+    time::OffsetDateTime::from_unix_timestamp_nanos(ms * 1_000_000)
+        .ok()
+        .and_then(|dt| dt.format(&Rfc3339).ok())
+        .unwrap_or_else(iso_now)
+}
+
 fn odk_hash_tail(prefix: &str, identity: &str) -> String {
     {
     use sha2::Digest;
@@ -1692,7 +1704,10 @@ pub(crate) async fn handle_odk_descriptor_create(
         )
     };
     let id = id[..19].to_string();
-    let now = iso_now();
+    // Wall-clock is deliberately ABSENT from the admitted payload. A retried create must be
+    // byte-identical or the substrate refuses it as same-key-different-bytes, and created_at
+    // differs on every attempt. Timestamps are projected onto the read model below, from the
+    // admission, which is the only stable source for them.
     let record = json!({
         "schema_version": "ioi.hypervisor.odk.surface-descriptor.v1",
         "object": "ioi.hypervisor.odk.surface_descriptor",
@@ -1706,9 +1721,7 @@ pub(crate) async fn handle_odk_descriptor_create(
         "recipe_refs": recipe_refs,
         "owner_ref": owner_ref,
         // Opaque view configuration (no generated UI artifact is produced).
-        "view_config": body.get("view_config").cloned().unwrap_or_else(|| json!({})),
-        "created_at": now,
-        "updated_at": now
+        "view_config": body.get("view_config").cloned().unwrap_or_else(|| json!({}))
     });
 
     let resource_ref = format!("surface-descriptor://{id}");
@@ -1745,7 +1758,10 @@ pub(crate) async fn handle_odk_descriptor_create(
         Ok(commit) => {
             // Keep the read-model directory the existing list/detail panes serve from, but only
             // AFTER admission: the admitted projection is the truth, this is its projection.
-            let admitted = commit.projection.operation.payload.clone();
+            let mut admitted = commit.projection.operation.payload.clone();
+            let stamp = admitted_stamp_ms(commit.projection.operation.recorded_at_ms);
+            admitted["created_at"] = json!(stamp);
+            admitted["updated_at"] = json!(stamp);
             if let Err(response) = persist_required(
                 &st.data_dir,
                 KIND_SD,
@@ -1774,14 +1790,66 @@ pub(crate) async fn handle_odk_descriptor_get(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
-    json_get(&st.data_dir, KIND_SD, "surface_descriptor", &id)
+    let mut reply = json_get(&st.data_dir, KIND_SD, "surface_descriptor", &id).0;
+    // W1.2 / MEF-GAP-004 — surface the admitted head so a caller can compare-and-swap on patch.
+    // Without it the CAS contract is unusable: the client has nothing honest to send. Read from
+    // the admitted stream, never from the read-model record, so a divergence is visible rather
+    // than laundered.
+    if reply["ok"].as_bool() == Some(true) {
+        let resource_ref = format!("surface-descriptor://{id}");
+        let tail = odk_hash_tail("odk-surface-descriptor", &resource_ref);
+        let head = super::substrate_store::read_event_stream_operation(
+            &st.data_dir,
+            ODK_NAMESPACE,
+            &tail,
+        )
+        .ok()
+        .flatten()
+        .map(|projection| projection.head);
+        reply["admitted_head"] = match head {
+            Some(head) => json!(head),
+            // No admitted stream means the descriptor predates owner-scoped admission. Say so
+            // rather than emitting a head the daemon would then refuse.
+            None => Value::Null,
+        };
+    }
+    Json(reply)
 }
 
 pub(crate) async fn handle_odk_descriptor_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // W1.2 / MEF-GAP-004 — a patch is a SUCCESSOR mutation. It must compare-and-swap against the
+    // exact admitted head, or two concurrent edits silently last-write-wins.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
+    };
+    let idempotency_key = body
+        .get("idempotency_key")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .unwrap_or("");
+    if idempotency_key.is_empty() {
+        return bad(
+            "mutation_idempotency_key_invalid",
+            "idempotency_key is required so a retried patch cannot apply twice",
+        );
+    }
+    let expected_head = body
+        .get("expected_head")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .unwrap_or("");
+    if expected_head.is_empty() {
+        return bad(
+            "mutation_successor_expected_head_required",
+            "expected_head is required: a patch compare-and-swaps against the exact admitted head",
+        );
+    }
     let Some(mut d) = load(&st.data_dir, KIND_SD, &id) else {
         return (
             StatusCode::NOT_FOUND,
@@ -1826,20 +1894,80 @@ pub(crate) async fn handle_odk_descriptor_patch(
             d[key] = v.clone();
         }
     }
-    d["updated_at"] = json!(iso_now());
-    if let Err(response) = persist_required(
-        &st.data_dir,
-        KIND_SD,
-        &id,
-        &d,
-        "odk_surface_descriptor_persistence_failed",
-    ) {
-        return response;
+    // Same rule as create: the admitted payload carries no wall-clock, so a retried patch is
+    // byte-identical to its first attempt.
+    let created_at = d["created_at"].clone();
+    d.as_object_mut().map(|o| {
+        o.remove("created_at");
+        o.remove("updated_at")
+    });
+
+    // The descriptor's owner is fixed at creation: a patch may not move a resource between
+    // owners, so the owner is read from the admitted record rather than the request body.
+    let owner_ref = d["owner_ref"].as_str().unwrap_or_default().to_string();
+    if owner_ref.is_empty() {
+        return bad(
+            "odk_owner_ref_required",
+            "this descriptor predates owner-scoped admission and cannot be patched through it; recreate it under an owner",
+        );
     }
-    (
-        StatusCode::OK,
-        Json(json!({ "ok": true, "surface_descriptor": d })),
-    )
+    let resource_ref = format!("surface-descriptor://{id}");
+    let scope = match super::substrate_store::bind_request_resource_scope(
+        &st.data_dir,
+        &identity,
+        ODK_DESCRIPTOR_SCOPE_KIND,
+        &resource_ref,
+        &owner_ref,
+        &owner_ref,
+        idempotency_key,
+    ) {
+        Ok(scope) => scope,
+        Err(error) => return odk_scope_refusal(error),
+    };
+    let tail = odk_hash_tail("odk-surface-descriptor", &resource_ref);
+    match super::mutation_event_foundation::admit_owner_scoped_mutation(
+        &st.data_dir,
+        false,
+        super::mutation_event_foundation::ScopedMutation {
+            identity: &identity,
+            scope: &scope,
+            resource_kind: ODK_DESCRIPTOR_SCOPE_KIND,
+            resource_ref: &resource_ref,
+            owner_namespace: ODK_NAMESPACE,
+            stream_tail: &tail,
+            op_kind: "event_stream.hypervisor_odk_surface_descriptor_revised",
+            expected_head: Some(expected_head),
+            payload: &d,
+            idempotency_key,
+            recorded_at_ms: 0,
+        },
+    ) {
+        Ok(commit) => {
+            let mut admitted = commit.projection.operation.payload.clone();
+            admitted["created_at"] = created_at;
+            admitted["updated_at"] = json!(admitted_stamp_ms(commit.projection.operation.recorded_at_ms));
+            if let Err(response) = persist_required(
+                &st.data_dir,
+                KIND_SD,
+                &id,
+                &admitted,
+                "odk_surface_descriptor_persistence_failed",
+            ) {
+                return response;
+            }
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "ok": true,
+                    "surface_descriptor": admitted,
+                    "replayed": commit.replayed,
+                    "receipt_ref": commit.receipt_ref,
+                    "operation_ref": commit.operation_ref
+                })),
+            )
+        }
+        Err(error) => odk_mutation_refusal(error),
+    }
 }
 
 pub(crate) async fn handle_odk_descriptor_delete(
