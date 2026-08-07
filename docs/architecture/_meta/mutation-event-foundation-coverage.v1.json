@@ -89,6 +89,16 @@
       "evidence": [
         "CLOSED. All seven ODK mutations \u2014 surface-descriptor create/patch/delete, data-recipe create/patch, and odk-manifest create/patch \u2014 share ONE owner-scoped admission path (odk_admit): authenticated identity, owner binding, required caller idempotency_key, expected-head compare-and-swap on every successor, Agentgres admission, and a returned receipt_ref. Resource identity is derived from owner+idempotency_key rather than wall-clock, so a retry resolves the same resource; wall-clock is excluded from the admitted payload entirely and projected onto the read model from the admission. DELETE is a recorded tombstone successor rather than a silent row drop, and the read-model row is removed only after the tombstone is durable. Descriptor GET surfaces admitted_head so a caller can compare-and-swap."
       ]
+    },
+    {
+      "id": "MEF-CLOSED-005",
+      "plane": "kernel-planner admission boundary (13 endpoints)",
+      "source": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "status": "closed",
+      "bounded_scope": "The ADMISSION of a planner decision only: identity, owner scope, idempotency, durable admission, receipt. No claim that any admitted decision is EXECUTED.",
+      "evidence": [
+        "CLOSED for the admission boundary. All THIRTEEN kernel-planner endpoints in lifecycle_routes.rs \u2014 every handler that previously returned a bare 202 with a planned record and persisted nothing \u2014 now authenticate the caller BEFORE the planner runs, require owner_ref and idempotency_key, derive admission identity from owner+key rather than wall-clock, admit the planner's record through admit_owner_scoped_mutation, and return receipt_ref plus operation_ref. Verified live on all 13 routes: 401 unauthenticated, typed refusals when authenticated. STILL OPEN and explicitly NOT claimed here: extension_application registration, executable artifact activation, product-catalog/System/serving bindings, upgrade, rollback, and affected-System remediation \u2014 those are the EXECUTION of an admitted decision, not its admission."
+      ]
     }
   ],
   "open_gaps": [
@@ -199,24 +209,6 @@
         "remove caller-side idempotency scans and use the shared whole-stream enforcement",
         "bind every artifact effect to an admitted intent and cleanup obligation",
         "prove same-key/different-bytes, stale-head, restart replay, and post-materialization admission-failure recovery"
-      ]
-    },
-    {
-      "id": "MEF-GAP-007",
-      "priority": "blocker",
-      "plane": "worker package planner plus package registration, activation, and rollback",
-      "status": "open",
-      "source": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-      "handler_markers": [
-        "handle_worker_package_install_admission"
-      ],
-      "gap": "PARTIALLY CLOSED. The worker-package install endpoint is no longer a pure planner returning 202 with no durability: it authenticates the caller BEFORE the planner runs, requires owner_ref and idempotency_key, derives admission identity from owner+key rather than wall-clock, admits the planner's record through admit_owner_scoped_mutation, and returns a receipt_ref. STILL OPEN: extension_application registration, executable artifact activation, product-catalog/System/serving bindings, upgrade, rollback, and affected-System remediation. TWELVE sibling kernel-planner endpoints in lifecycle_routes.rs still return a bare 202 and persist nothing; they can reuse planner_caller + admit_planner_record.",
-      "acceptance": [
-        "separate pure planning from the mutation endpoint contract",
-        "admit worker-package execution and package activation/upgrade/rollback transitions through owner scope, caller idempotency, CAS, and receipts",
-        "bind verified executable package bytes to registration before any installed binding can become enabled or launchable",
-        "project installed application and System bindings from admitted package truth",
-        "prove interruption and rollback for package bytes, registration, and runtime activation"
       ]
     },
     {
